@@ -68,11 +68,6 @@ To run this project, you will need to add the following environment variables to
 
 ## Run Locally
 
-Clone the project
-
-```bash
-  git clone https://github.com/ansonbenny/Music-Streamer
-```
 
 ##To Start BackEnd
 
