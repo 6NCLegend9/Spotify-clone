@@ -4,6 +4,24 @@ import { MailIcon } from "../../../assets";
 const Mail = ({ email, type, handleForm }) => {
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState("");
+  const searchPhrase =
+    type === "forgot"
+      ? "Musicon Password Forgot Verification"
+      : "Musicon Register Verification";
+
+  const openMail = () => {
+    const domain = email.split("@")[1]?.toLowerCase();
+    const encodedSearch = encodeURIComponent(searchPhrase);
+    let mailUrl = `https://mail.google.com/mail/u/0/#search/${encodedSearch}`;
+
+    if (domain?.includes("outlook") || domain?.includes("hotmail")) {
+      mailUrl = `https://outlook.live.com/mail/0/search/${encodedSearch}`;
+    } else if (domain?.includes("yahoo")) {
+      mailUrl = `https://mail.yahoo.com/d/search/keyword=${encodedSearch}`;
+    }
+
+    window.open(mailUrl, "_blank", "noopener,noreferrer");
+  };
 
   const resend = async () => {
     setResending(true);
@@ -34,6 +52,12 @@ const Mail = ({ email, type, handleForm }) => {
       </p>
       <p className="mail-hint">
         The message may appear in Spam or Promotions. Delivery can take a few minutes.
+      </p>
+      <button className="mail-open" onClick={openMail} type="button">
+        Open email
+      </button>
+      <p className="mail-search">
+        Search for: <code>{searchPhrase}</code>
       </p>
       <p className="mail-status" aria-live="polite">
         {message}

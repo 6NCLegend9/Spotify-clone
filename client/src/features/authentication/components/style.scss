@@ -180,6 +180,33 @@
                 font-size: 12px;
             }
 
+            .mail-open {
+                margin-top: .75rem;
+                background: var(--content-bg);
+                border-color: $PrimaryColor;
+                color: var(--text-primary-color);
+
+                &:hover {
+                    background: $PrimaryColor;
+                    color: #fff;
+                }
+            }
+
+            .mail-search {
+                margin-top: .75rem;
+                font-size: 11px;
+
+                code {
+                    display: inline-block;
+                    margin-top: .25rem;
+                    padding: .2rem .35rem;
+                    border-radius: 3px;
+                    background: var(--content-bg);
+                    color: var(--text-primary-color);
+                    overflow-wrap: anywhere;
+                }
+            }
+
             .mail-status {
                 min-height: 2.25rem;
                 margin-top: .75rem;
