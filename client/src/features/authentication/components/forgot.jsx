@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { Input } from "../../../components";
 import { useDispatch } from "react-redux";
 import { exitAuth, setAuth } from "../../../redux/auth";
@@ -7,7 +7,7 @@ import { setUser } from "../../../redux/user";
 import useAuthState from "../hooks/useAuthState";
 import instance from "../../../lib/axios";
 
-const Forgot = (params) => {
+const Forgot = () => {
   const errorRef = useRef();
 
   const dispatch = useDispatch();
@@ -61,6 +61,8 @@ const Forgot = (params) => {
         }));
       }
     }
+
+    return Boolean(response?.data && response?.data?.status === 200);
   };
 
   const formHandle = (e) => {

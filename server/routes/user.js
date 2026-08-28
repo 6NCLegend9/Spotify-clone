@@ -150,6 +150,7 @@ router.post("/register", CheckLogged, async (req, res) => {
                 to: email,
                 subject: `Musicon Register Verification`,
                 html,
+                text: `Verify your Musicon account: ${process.env.SITE_URL}/register/pending/${response._id}/${secret}`,
               });
 
               console.log(`Email sent: ${done.response}`);
@@ -264,6 +265,7 @@ router.post("/forgot", CheckLogged, async (req, res) => {
               to: email,
               subject: `Musicon Password Forgot Verification`,
               html,
+              text: `Reset your Musicon password: ${process.env.SITE_URL}/forgot/pending/${response._id}/${secret}`,
             });
 
             console.log(`Email sent: ${done.response}`);

@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { Input } from "../../../components";
 import { useDispatch } from "react-redux";
 import { setUser } from "../../../redux/user";
@@ -29,7 +29,7 @@ const Form = ({ isSignup }) => {
     }
   };
 
-  const register = async (google) => {
+  const register = async () => {
     let response;
 
     try {
@@ -65,6 +65,8 @@ const Form = ({ isSignup }) => {
         }));
       }
     }
+
+    return Boolean(response?.data && response?.data?.status === 200);
   };
 
   const login = async (google) => {

@@ -143,15 +143,47 @@
             justify-content: right;
             text-align: center;
 
+            .mail-icon {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                width: 6rem;
+                height: 6rem;
+                margin: 0 auto .75rem;
+                border-radius: 50%;
+                background: rgba($PrimaryColor, .12);
+            }
+
+            h3 {
+                margin: .25rem 0 .5rem;
+                color: var(--text-primary-color);
+                font-size: 1.5rem;
+            }
+
             svg {
-                margin: auto;
                 fill: var(--text-primary-color);
             }
 
             p {
                 margin: .5rem 0;
-                font-size: 12px;
+                font-size: 13px;
+                line-height: 1.5;
                 color: $TextSecondaryColor;
+
+                strong {
+                    color: var(--text-primary-color);
+                    overflow-wrap: anywhere;
+                }
+            }
+
+            .mail-hint {
+                font-size: 12px;
+            }
+
+            .mail-status {
+                min-height: 2.25rem;
+                margin-top: .75rem;
+                color: $PrimaryColor;
             }
 
             button {
@@ -165,6 +197,11 @@
                 text-transform: uppercase;
                 font-weight: bold;
                 @include transi_easy_in_out;
+
+                &:disabled {
+                    cursor: wait;
+                    opacity: .65;
+                }
 
                 &:hover {
                     cursor: pointer;
