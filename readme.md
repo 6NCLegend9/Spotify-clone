@@ -1,149 +1,93 @@
-# Music Streamer
+# Musicon
 
-This project is a digital music platform, It's made for listening to music and making your favorite music collection. Spotify API is used to get tracks and albums, artists. Spotify API provides millions of music data. This project is made in the MERN stack.
+A Spotify-inspired music discovery demo built with React, Vite, Tailwind CSS, Express, and MongoDB. It imports Spotify catalog metadata server-side and provides live YouTube music-video discovery through the official YouTube Data API.
 
-## Features
+## What It Includes
 
-- Full-Screen Mode
-- Password login & Verification Based Sign Up
-- Forgot password
-- Google Login & Sign up
-- Collections Clone & Custom Playlist Create and Edit & With Search Feature in Library
-- History
-- Search With Filter ( all, artists, albums, tracks)
-- Search box allows Spotify Search Query (Example = artist:alan walker )
-- Account Edit Option
-- On the home page user's recent activity-based recommendation
-- Link Copy Feature (Track, Album, Artist)
-- Audio (track) Controls
-- Light & Dark mode
-- Responsive Design
-- Only Users Can Play Audio (Tracks)
+- Hash-routed Home, Search, Library, Playlist, Track, Artist, Album, Charts, Radio, Genre, and Settings views.
+- Grouped search with recent queries, keyboard selection, filters, sorting, and genre browsing.
+- Mongo-backed likes, owned/followed playlists, followed artists, saved albums, cursor pagination, and owner-only playlist management.
+- Personalized daily and weekly discovery, cached charts, song/artist/playlist radio stations, and listening/search events.
+- Full-length official YouTube playback for matched imported tracks, with queue, shuffle, repeat, crossfade, quality, equalizer, volume, and device preferences retained for supported browser audio sources.
+- A ten-band equalizer, persisted quality/playback preferences, and mock playback takeover for This computer, Studio speaker, and Pocket player.
+- Live YouTube music-video search and trending results, with playback in YouTube's official embedded player and captions when the video provider supplies them.
 
-## Prerequisites
+## Local Setup
 
-- get your spotify api key from https://developer.spotify.com/documentation/web-api/tutorials/getting-started
+1. Keep secrets in the root `.env` file. It is ignored by Git and should never be committed.
+2. Install dependencies:
 
-Make sure you have installed all of the following prerequisites on your development machine:
+	```powershell
+	npm install
+	npm install --prefix client
+	npm install --prefix server
+	```
 
-- Node Js & Npm [Download and Install](https://nodejs.org/en)
-- MongoDB [Download and Install](https://www.mongodb.com/docs/manual/installation/)
-- Git [Download and Install](https://git-scm.com/downloads)
+3. Import the real Spotify catalog metadata. `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` must be present in the root `.env`:
 
-## Technology Used
+	```powershell
+	npm run sync:spotify
+	```
 
-#vite #reactjs #scss #redux-toolkit
+4. Start the API and Vite client together:
 
-#nodejs #expressjs #mongodb #jsonwebtoken authentication
+	```powershell
+	npm run dev
+	```
 
-#javascript
+	The client runs at `http://localhost:5173` and proxies `/api` calls to `http://localhost:5000`.
 
-#api
+5. Build the client and run the API smoke check:
 
-#spotify #music platform
+	```powershell
+	npm run build
+	npm run test:smoke
+	```
 
-## Environment Variables
+## Environment Contract
 
-To run this project, you will need to add the following environment variables to your .env file in server directory
+Server-only variables:
 
-`PORT` = `5000`
+| Variable | Purpose |
+| --- | --- |
+| `MONGODB_URI` | MongoDB connection string. |
+| `MONGODB_DB_NAME` | Database name used by the API. |
+| `SESSION_SECRET` | Secret used to sign the httpOnly demo-session cookie. |
+| `PORT` | API port; defaults to `5000`. |
+| `SITE_URL` | Allowed browser origin for credentialed CORS in production. |
+| `YOUTUBE_API_KEY` | Google Cloud key for YouTube Data API v3. Keep this server-only; restrict it to YouTube Data API v3 in Google Cloud. |
+| `SPOTIFY_CLIENT_ID` | Spotify application client ID used only for catalog metadata import. |
+| `SPOTIFY_CLIENT_SECRET` | Spotify application client secret used only for catalog metadata import. |
+| `GENIUS_ACCESS_TOKEN` | Optional Genius API token for lyric metadata and canonical page links. |
 
-`MONGODB_URI`
+Client-only variable:
 
-`MONGODB_DB_NAME` #Database name, for example `musicon`
+| Variable | Purpose |
+| --- | --- |
+| `VITE_API_BASE_URL` | API origin for split-origin deployments. Leave unset locally because Vite proxies `/api`. |
 
-`SITE_URL`
+YouTube results are metadata from the official API and play in an official YouTube embed. Imported Spotify catalog tracks select a duration-matched official YouTube upload for in-site playback. The app never downloads or proxies provider audio/video, and it does not scrape lyrics.
 
-`JWT_SECRET`
+## Data and API
 
-`SPOTIFY_CLIENT_ID`
+`npm run sync:spotify` imports Spotify artists, albums, tracks, images, popularity, release data, and canonical provider identifiers into MongoDB. Imported tracks deliberately have no raw `audioUrl`; in-site playback uses a matched official YouTube upload. Full Spotify playback would require a separate user-authorized Spotify Web Playback SDK integration.
 
-`SPOTIFY_CLIENT_SECRET`
+Main API groups:
 
-`MAIL_EMAIL` #Optional; required for signup and password-reset emails
+- `/api/auth` for the signed demo session, profile, and persisted settings.
+- `/api/tracks`, `/api/search`, `/api/artists`, and `/api/albums` for catalog discovery.
+- `/api/playlists`, `/api/likes`, artist follows, playlist follows, and album saves for the library.
+- `/api/recommendations`, `/api/charts`, `/api/radio`, `/api/listening-events`, and `/api/search-events` for discovery and personalization.
+- `/api/youtube/search`, `/api/youtube/trending`, and `/api/youtube/videos/:videoId` for official live YouTube music-video metadata.
+- `/api/lyrics` for Genius lyric metadata and canonical links when `GENIUS_ACCESS_TOKEN` is configured.
+- `/api/health` for MongoDB readiness.
 
-`MAIL_SECRET` #Optional; required for signup and password-reset emails
+Most user-specific endpoints require the httpOnly demo session cookie. The client never stores a session token in localStorage.
 
-`MAIL_HOST` #Optional; defaults to `smtp.gmail.com`
+## Deployment Notes
 
-`MAIL_PORT` #Optional; defaults to `465`
+For a split browser/API deployment, set `VITE_API_BASE_URL` to the public API origin and set the API's `SITE_URL` to the browser origin. Set all server-side provider credentials, `SESSION_SECRET`, and MongoDB values in the deployment platform's environment settings rather than in source control.
 
-`MAIL_SECURE` #Optional; defaults to `true`; use `false` with port `587`
+## Limitations
 
-To run this project, you will need to add the following environment variables to your .env.local file in client directory
-
-`VITE_GOOGLE_CLIENT` #Google login api client id
-
-## Run Locally
-
-Run the backend and frontend in separate terminals:
-
-
-##To Start BackEnd
-
-Go to the server directory
-
-```bash
-  cd Music-Streamer/server
-```
-
-Install dependencies
-
-```bash
-  npm install
-```
-
-Start
-
-```bash
-  npm start
-```
-
-##To Start FrontEnd
-
-Go to the client directory
-
-```bash
-  cd Music-Streamer/client
-```
-
-Install dependencies
-
-```bash
-  npm install
-```
-
-Start
-
-```bash
-  npm run dev
-```
-
-### Test Locally
-
-With the backend running on port `5000`, run:
-
-```bash
-  cd Music-Streamer/server
-  npm run test:smoke
-```
-
-To test another API URL, set `SMOKE_TEST_URL` before running the command.
-
-## Deploy to Vercel
-
-Import this repository into Vercel with the project root set to the repository root. The included `vercel.json` builds the client and routes `/api/*` to the Express serverless function.
-
-Add these environment variables in Vercel Project Settings:
-
-`MONGODB_URI`
-
-`MONGODB_DB_NAME`
-
-`JWT_SECRET`
-
-`SITE_URL` #The deployed frontend URL
-
-`MAIL_EMAIL` #Optional; required for signup and password-reset emails
-
-`MAIL_SECRET` #Optional; required for signup and password-reset emails
+This is a non-commercial discovery demo. Real catalog data does not grant raw playback rights: media remains inside official provider embeds. Genius provides metadata and links, not rehosted lyrics. Mock devices keep browser audio local, and the in-memory rate limiter is intended for local/demo use rather than horizontally scaled production infrastructure.

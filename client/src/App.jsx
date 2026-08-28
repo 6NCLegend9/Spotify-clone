@@ -1,89 +1,38 @@
-import React, { Fragment, useLayoutEffect } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
-import {
-  Account,
-  Collections,
-  Error,
-  Home,
-  Playlists,
-  Music,
-  Playlist,
-  Search,
-  Verification,
-  History
-} from "./pages";
-import { Footer, Header, Loading, Menu } from "./components";
-import { Auth, Player } from "./features";
-import { useRef } from "react";
-import { useSelector } from "react-redux";
-import ProtectedRoute from "./utils/ProtectedRoute";
-import "./app.scss";
+import { PlayerProvider } from "./context/PlayerContext";
+import { LibraryProvider } from "./context/LibraryContext";
+import { ToastProvider } from "./context/ToastContext";
+import { UserProvider } from "./context/UserContext";
+import { useHashRoute } from "./hooks/useHashRoute";
+import { Shell } from "./components/Shell";
+import { Home } from "./views/Home";
+import { Search } from "./views/Search";
+import { Library } from "./views/Library";
+import { Settings } from "./views/Settings";
+import { PlaylistDetail } from "./views/PlaylistDetail";
+import { Genre } from "./views/Genre";
+import { TrackDetail } from "./views/TrackDetail";
+import { YouTubeVideoDetail } from "./views/YouTubeVideoDetail";
+import { ArtistDetail } from "./views/ArtistDetail";
+import { AlbumDetail } from "./views/AlbumDetail";
+import { Charts } from "./views/Charts";
+import { RadioStation } from "./views/RadioStation";
 
-const App = () => {
-  let menuRef = useRef();
+function View() {
+  const { view } = useHashRoute();
+  if (view === "search") return <Search />;
+  if (view === "library") return <Library />;
+  if (view === "settings") return <Settings />;
+  if (view === "playlistDetail") return <PlaylistDetail />;
+  if (view === "trackDetail") return <TrackDetail />;
+  if (view === "youtubeVideoDetail") return <YouTubeVideoDetail />;
+  if (view === "artistDetail") return <ArtistDetail />;
+  if (view === "albumDetail") return <AlbumDetail />;
+  if (view === "charts") return <Charts />;
+  if (view === "radioStation") return <RadioStation />;
+  if (view === "genre") return <Genre />;
+  return <Home />;
+}
 
-  const location = useLocation();
-
-  const { player, additional, auth } = useSelector((state) => state);
-
-  useLayoutEffect(() => {
-    // for theme
-    menuRef?.current?.themeSwitch();
-  }, [location]);
-
-  return (
-    <Fragment>
-      {
-        // Loading Screen
-        additional?.loading ? <Loading /> : null
-      }
-
-      {
-        // for login signup forgot
-        auth && <Auth />
-      }
-
-      <Menu ref={menuRef} />
-
-      <Header menuRef={menuRef} />
-
-      <div className="page">
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route exact path="/" element={<Home />} />
-
-            <Route path="/music/:id" element={<Music />} />
-
-            <Route path="/artist/:id" element={<Collections isArtist />} />
-            <Route path="/album/:id" element={<Collections />} />
-
-            <Route path="/search" element={<Search />} />
-            <Route path="/search/:type" element={<Search />} />
-
-            <Route
-              path="/register/pending/:userId/:secret"
-              element={<Verification isRegister />}
-            />
-            <Route
-              path="/forgot/pending/:userId/:secret"
-              element={<Verification />}
-            />
-          </Route>
-          <Route element={<ProtectedRoute isAuth />}>
-            <Route path="/playlist/:id" element={<Playlist />} />
-            <Route path="/library/playlists" element={<Playlists />} />
-            <Route path="/library/history" element={<History />} />
-            <Route path="/account" element={<Account />} />
-          </Route>
-          <Route path="*" element={<Error />} />
-        </Routes>
-      </div>
-
-      <Footer />
-
-      {player?.data?.track && <Player />}
-    </Fragment>
-  );
-};
-
-export default App;
+export default function App() {
+  return <ToastProvider><UserProvider><LibraryProvider><PlayerProvider><Shell><View /></Shell></PlayerProvider></LibraryProvider></UserProvider></ToastProvider>;
+}

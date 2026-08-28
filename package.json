@@ -1,0 +1,16 @@
+{
+  "name": "musicon",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm start --prefix server",
+    "build": "npm run build --prefix client",
+    "seed": "npm run sync:spotify --prefix server",
+    "sync:spotify": "npm run sync:spotify --prefix server",
+    "test:smoke": "npm run test:smoke --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
