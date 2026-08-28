@@ -20,4 +20,3 @@ export { default as MailIcon } from "./mail";
 export { default as Plus } from "./plus";
 export { default as Trash } from "./trash";
 export { default as Down } from "./down";
-export { default as dummy } from "./dummy.mp3";

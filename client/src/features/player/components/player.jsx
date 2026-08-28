@@ -6,7 +6,6 @@ import {
   Play,
   Speaker,
   SpeakerMute,
-  dummy,
 } from "../../../assets";
 import { getTrack, resetData, setStatus } from "../../../redux/player";
 import useControl from "../hooks/useControl";
@@ -20,18 +19,23 @@ const Player = () => {
   const { user, player } = useSelector((state) => state);
 
   const { data, time, volume, status } = player;
+  const audioSource = data?.track?.preview_url || null;
 
   useEffect(() => {
     if (user) {
-      if (status) {
+      if (status && audioSource) {
         ref?.current?.["audio"]?.play?.();
-      } else {
+      } else if (ref?.current?.["audio"]) {
         ref?.current?.["audio"]?.pause?.();
+
+        if (status && !audioSource) {
+          dispatch(setStatus(false));
+        }
       }
     } else {
       dispatch(resetData());
     }
-  }, [status, data, user]);
+  }, [status, data, user, audioSource, dispatch, ref]);
 
   return (
     <div className="player">
@@ -54,6 +58,11 @@ const Player = () => {
         </div>
 
         <div className="audio_player">
+          {!audioSource && (
+            <p className="audio-unavailable">
+              Spotify preview unavailable for this track
+            </p>
+          )}
           <div className="actions">
             <button
               className={`prev ${data?.offset <= 0 ? "disable" : ""}`}
@@ -75,6 +84,8 @@ const Player = () => {
             {!status ? (
               <button
                 className="play_pause"
+                  disabled={!audioSource}
+                  title={audioSource ? "Play" : "Spotify preview unavailable"}
                 onClick={() => {
                   dispatch(setStatus(true));
                 }}
@@ -84,6 +95,8 @@ const Player = () => {
             ) : (
               <button
                 className="play_pause"
+                disabled={!audioSource}
+                title={audioSource ? "Pause" : "Spotify preview unavailable"}
                 onClick={() => {
                   dispatch(setStatus(false));
                 }}
@@ -146,7 +159,7 @@ const Player = () => {
         </div>
 
         <audio
-          src={data?.track?.preview_url || dummy}
+          src={audioSource || undefined}
           ref={(audio) => {
             if (ref?.current) return (ref.current["audio"] = audio);
           }}
