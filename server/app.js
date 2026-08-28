@@ -25,31 +25,38 @@ app.use(cors({ credentials: true, origin: process.env.SITE_URL }));
 app.use(cookieParser());
 app.use(express.json({ limit: "50mb" }));
 
-app.use(async (req, res, next) => {
-  if (db) {
-    next();
-    return;
-  }
+app.get("/api", (req, res) => {
+  res.send("Musicon Api");
+});
 
-  ConnectDB((err) => {
-    if (err) {
-      res.status(503).json({
-        status: 503,
-        message: "Database is unavailable",
-      });
+app.use(async (req, res, next) => {
+  try {
+    if (db) {
+      next();
       return;
     }
-    next();
-  });
+
+    ConnectDB((err) => {
+      if (err) {
+        res.status(503).json({
+          status: 503,
+          message: "Database is unavailable",
+        });
+        return;
+      }
+      next();
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 503,
+      message: "Database is unavailable",
+    });
+  }
 });
 
 // routes
 app.use("/api/user/", userRoute);
 app.use("/api/music/", musicRoute);
-
-app.get("/api", (req, res) => {
-  res.send("Musicon Api");
-});
 
 // for render react static files
 app.get("/*", (req, res) => {
