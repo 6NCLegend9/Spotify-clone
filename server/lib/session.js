@@ -1,7 +1,8 @@
 export const SESSION_COOKIE = "musicon_session";
 
 export function getSessionSecret() {
-  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+  if (typeof secret === "string" && secret.trim()) return secret;
   if (process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET must be configured in production");
   return "musicon-local-development-session-secret";
 }

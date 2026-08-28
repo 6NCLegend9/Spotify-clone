@@ -2,6 +2,8 @@ import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getDatabase } from "./db/connection.js";
 import { createAuthRouter } from "./routes/auth.js";
 import { createCatalogRouter } from "./routes/catalog.js";
@@ -39,6 +41,9 @@ app.use("/api", createEventsRouter());
 app.use("/api", createLibraryRouter());
 app.use("/api/recommendations", createRecommendationsRouter());
 
-const port = Number(process.env.PORT || 5000);
-if (process.env.NODE_ENV !== "test") app.listen(port, () => console.log(`Musicon API listening on ${port}`));
+const isDirectRun = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirectRun) {
+  const port = Number(process.env.PORT || 5000);
+  app.listen(port, () => console.log(`Musicon API listening on ${port}`));
+}
 export default app;
