@@ -8,6 +8,36 @@
         animation: pageReveal var(--motion-enter) cubic-bezier(.2, .8, .2, 1) both;
     }
 
+    .page-message {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin: 1rem 0;
+        padding: 1rem;
+        color: var(--text-primary-color);
+        background: var(--primary-bg);
+        border-radius: 5px;
+
+        p {
+            color: $TextSecondaryColor;
+            font-size: 13px;
+        }
+
+        button {
+            padding: .45rem .8rem;
+            color: #fff;
+            background: $PrimaryColor;
+            border: 1px solid $PrimaryColor;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        @media screen and (max-width: 480px) {
+            flex-direction: column;
+        }
+    }
+
     @media screen and (max-width: 767px) {
         @include expand_page($expanded: true);
     }

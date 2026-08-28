@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Carousel, Row, LiteRow } from "../components";
 import { useDispatch } from "react-redux";
 import { setLoading } from "../redux/additional";
@@ -12,9 +12,11 @@ const Home = () => {
   const dispatch = useDispatch();
 
   const [response, setResponse] = useState({});
+  const [error, setError] = useState("");
 
   useEffect(() => {
     document.title = `Musicon`;
+    setError("");
 
     const cancelToken = axios.CancelToken.source();
 
@@ -29,12 +31,12 @@ const Home = () => {
         if (axios.isCancel(err)) {
           console.log("Cancelled");
         } else if (typeof err?.response?.data?.message === "string") {
-          alert(err?.response?.data?.message);
+          setError(err.response.data.message);
           setTimeout(() => {
             dispatch(setLoading(false));
           }, 1000);
         } else {
-          alert("Facing An Error");
+          setError("Music could not be loaded right now.");
           setTimeout(() => {
             dispatch(setLoading(false));
           }, 1000);
@@ -52,10 +54,19 @@ const Home = () => {
     return () => {
       cancelToken.cancel();
     };
-  }, [location]);
+  }, [dispatch, location]);
 
   return (
     <div className="container">
+      {error && (
+        <div className="page-message" role="alert">
+          <p>{error}</p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {response?.albums?.[0] && (
         <Carousel
           title={response?.recentActivity ? "Based On Activity" : "Featured"}
