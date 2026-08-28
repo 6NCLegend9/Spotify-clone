@@ -64,6 +64,12 @@ To run this project, you will need to add the following environment variables to
 
 `MAIL_SECRET` #Optional; required for signup and password-reset emails
 
+`MAIL_HOST` #Optional; defaults to `smtp.gmail.com`
+
+`MAIL_PORT` #Optional; defaults to `465`
+
+`MAIL_SECURE` #Optional; defaults to `true`; use `false` with port `587`
+
 To run this project, you will need to add the following environment variables to your .env.local file in client directory
 
 `VITE_GOOGLE_CLIENT` #Google login api client id

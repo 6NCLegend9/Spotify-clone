@@ -135,41 +135,35 @@ router.post("/register", CheckLogged, async (req, res) => {
           }
         } finally {
           if (response?._id) {
-            fs.readFile(
-              `${path.resolve(`${path.dirname("")}/mail/static/index.html`)}`,
-              "utf-8",
-              (err, html) => {
-                if (!err && html) {
-                  html = html.replace("[EMAIL]", email);
-                  html = html.replace(
-                    "[LINK]",
-                    `${process.env.SITE_URL}/register/pending/${response._id}/${secret}`
-                  );
+            try {
+              let html = await fs.promises.readFile(
+                `${path.resolve(`${path.dirname("")}/mail/static/index.html`)}`,
+                "utf-8"
+              );
+              html = html.replace("[EMAIL]", email);
+              html = html.replace(
+                "[LINK]",
+                `${process.env.SITE_URL}/register/pending/${response._id}/${secret}`
+              );
 
-                  sendMail(
-                    {
-                      to: email,
-                      subject: `Musicon Register Verification`,
-                      html,
-                    },
-                    (err, done) => {
-                      if (err) {
-                        console.log(err);
-                      } else {
-                        console.log(`Email sent: ${done.response}`);
-                      }
-                    }
-                  );
-                } else {
-                  console.log(err);
-                }
-              }
-            );
+              let done = await sendMail({
+                to: email,
+                subject: `Musicon Register Verification`,
+                html,
+              });
 
-            res.status(200).json({
-              status: 200,
-              message: "Register Request Sented",
-            });
+              console.log(`Email sent: ${done.response}`);
+              res.status(200).json({
+                status: 200,
+                message: "Register Request Sented",
+              });
+            } catch (err) {
+              console.log(err);
+              res.status(503).json({
+                status: 503,
+                message: "Verification email could not be sent",
+              });
+            }
           }
         }
       } else {
@@ -255,41 +249,35 @@ router.post("/forgot", CheckLogged, async (req, res) => {
         }
       } finally {
         if (response?._id) {
-          fs.readFile(
-            `${path.resolve(`${path.dirname("")}/mail/static/index.html`)}`,
-            "utf-8",
-            (err, html) => {
-              if (!err && html) {
-                html = html.replace("[EMAIL]", email);
-                html = html.replace(
-                  "[LINK]",
-                  `${process.env.SITE_URL}/forgot/pending/${response._id}/${secret}`
-                );
+          try {
+            let html = await fs.promises.readFile(
+              `${path.resolve(`${path.dirname("")}/mail/static/index.html`)}`,
+              "utf-8"
+            );
+            html = html.replace("[EMAIL]", email);
+            html = html.replace(
+              "[LINK]",
+              `${process.env.SITE_URL}/forgot/pending/${response._id}/${secret}`
+            );
 
-                sendMail(
-                  {
-                    to: email,
-                    subject: `Musicon Password Forgot Verification`,
-                    html,
-                  },
-                  (err, done) => {
-                    if (err) {
-                      console.log(err);
-                    } else {
-                      console.log(`Email sent: ${done.response}`);
-                    }
-                  }
-                );
-              } else {
-                console.log(err);
-              }
-            }
-          );
+            let done = await sendMail({
+              to: email,
+              subject: `Musicon Password Forgot Verification`,
+              html,
+            });
 
-          res.status(200).json({
-            status: 200,
-            message: "Forgot Request Sented",
-          });
+            console.log(`Email sent: ${done.response}`);
+            res.status(200).json({
+              status: 200,
+              message: "Forgot Request Sented",
+            });
+          } catch (err) {
+            console.log(err);
+            res.status(503).json({
+              status: 503,
+              message: "Password reset email could not be sent",
+            });
+          }
         }
       }
     } else {

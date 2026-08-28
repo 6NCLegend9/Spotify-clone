@@ -9,7 +9,11 @@ export const mailConfigured = Boolean(
 
 let transporter = mailConfigured
   ? nodemailer.createTransport({
-      service: "gmail",
+      host: process.env.MAIL_HOST || "smtp.gmail.com",
+      port: Number(process.env.MAIL_PORT || 465),
+      secure: process.env.MAIL_SECURE
+        ? process.env.MAIL_SECURE === "true"
+        : true,
       auth: {
         user: process.env.MAIL_EMAIL,
         pass: process.env.MAIL_SECRET,
@@ -17,23 +21,13 @@ let transporter = mailConfigured
     })
   : null;
 
-export const sendMail = (details, callback) => {
+export const sendMail = async (details) => {
   if (!transporter) {
-    callback(new Error("Mail service is not configured"), null);
-    return;
+    throw new Error("Mail service is not configured");
   }
 
-  transporter.sendMail(
-    {
-      from: `Musicon <${process.env.MAIL_EMAIL}>`,
-      ...details,
-    },
-    (err, done) => {
-      if (err) {
-        callback(err, null);
-      } else {
-        callback(null, done);
-      }
-    }
-  );
+  return transporter.sendMail({
+    from: `Musicon <${process.env.MAIL_EMAIL}>`,
+    ...details,
+  });
 };
