@@ -48,19 +48,21 @@ To run this project, you will need to add the following environment variables to
 
 `PORT` = `5000`
 
-`MONGO_URL`
+`MONGODB_URI`
+
+`MONGODB_DB_NAME` #Database name, for example `musicon`
 
 `SITE_URL`
 
 `JWT_SECRET`
 
-`SPOTIFY_ID`
+`SPOTIFY_CLIENT_ID`
 
-`SPOTIFY_SECRET`
+`SPOTIFY_CLIENT_SECRET`
 
-`MAIL_EMAIL`
+`MAIL_EMAIL` #Optional; required for signup and password-reset emails
 
-`MAIL_SECRET`
+`MAIL_SECRET` #Optional; required for signup and password-reset emails
 
 To run this project, you will need to add the following environment variables to your .env.local file in client directory
 
@@ -108,3 +110,21 @@ Start
 ```bash
   npm run dev
 ```
+
+## Deploy to Vercel
+
+Import this repository into Vercel with the project root set to the repository root. The included `vercel.json` builds the client and routes `/api/*` to the Express serverless function.
+
+Add these environment variables in Vercel Project Settings:
+
+`MONGODB_URI`
+
+`MONGODB_DB_NAME`
+
+`JWT_SECRET`
+
+`SITE_URL` #The deployed frontend URL
+
+`MAIL_EMAIL` #Optional; required for signup and password-reset emails
+
+`MAIL_SECRET` #Optional; required for signup and password-reset emails

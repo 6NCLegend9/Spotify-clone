@@ -27,7 +27,6 @@ const CheckLogged = (req, res, next) => {
         });
       }
     } else if (err) {
-      console.log(`Error : ${err?.name}`);
       res.clearCookie("token").status(405).json({
         status: 405,
         message: "User not logged",
@@ -191,7 +190,6 @@ router.get("/home", (req, res) => {
         getData();
       }
     } else if (err) {
-      console.log(`Error : ${err?.name}`);
       getData();
     } else {
       getData();
@@ -423,7 +421,6 @@ router.get("/track", (req, res) => {
         getTrack();
       }
     } else if (err) {
-      console.log(`Error : ${err?.name}`);
       getTrack();
     } else {
       getTrack();
@@ -578,7 +575,6 @@ router.get("/album", (req, res) => {
         getAlbum();
       }
     } else if (err) {
-      console.log(`Error : ${err?.name}`);
       getAlbum();
     } else {
       getAlbum();
@@ -779,7 +775,6 @@ router.get("/artist", (req, res) => {
         getArtist();
       }
     } else if (err) {
-      console.log(`Error : ${err?.name}`);
       getArtist();
     } else {
       getArtist();

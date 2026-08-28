@@ -1,13 +1,10 @@
 import React, { useRef } from "react";
 import { Input } from "../../../components";
-import { Google } from "../../../assets";
 import { useDispatch } from "react-redux";
 import { setUser } from "../../../redux/user";
 import { exitAuth, setAuth } from "../../../redux/auth";
-import { useGoogleLogin } from "@react-oauth/google";
 import instance from "../../../lib/axios";
 import Mail from "./mail";
-import axios from "axios";
 import useAuthState from "../hooks/useAuthState";
 
 const Form = ({ isSignup }) => {
@@ -99,44 +96,6 @@ const Form = ({ isSignup }) => {
       }
     }
   };
-
-  const google = useGoogleLogin({
-    onSuccess: async (response) => {
-      errorHandle();
-      if (isSignup) {
-        try {
-          const res = await axios.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            {
-              headers: {
-                Authorization: `Bearer ${response?.access_token}`,
-              },
-            }
-          );
-
-          if (res) {
-            setState((state) => ({
-              ...state,
-              form: {
-                ...state.form,
-                email: res?.data?.email || "",
-                name: res?.data?.name || "",
-                google: response?.access_token,
-              },
-            }));
-          }
-        } catch (err) {
-          errorHandle("Failing Google SignUp");
-        }
-      } else {
-        login(response?.access_token);
-      }
-    },
-    onError: (err) => {
-      errorHandle("Failing Google Login");
-    },
-    cookiePolicy: "single-host-origin",
-  });
 
   const formHandle = async (e) => {
     e.preventDefault();
@@ -257,12 +216,6 @@ const Form = ({ isSignup }) => {
         </p>
       )}
 
-      <p data-for="or-txt">OR</p>
-
-      <button onClick={google} data-for="google" type="button">
-        <Google width={"16px"} height={"16px"} />
-        oogle
-      </button>
     </form>
   );
 };

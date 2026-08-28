@@ -3,15 +3,26 @@ import dotnev from "dotenv";
 
 dotnev.config();
 
-let transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL_EMAIL,
-    pass: process.env.MAIL_SECRET,
-  },
-});
+export const mailConfigured = Boolean(
+  process.env.MAIL_EMAIL && process.env.MAIL_SECRET
+);
+
+let transporter = mailConfigured
+  ? nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.MAIL_EMAIL,
+        pass: process.env.MAIL_SECRET,
+      },
+    })
+  : null;
 
 export const sendMail = (details, callback) => {
+  if (!transporter) {
+    callback(new Error("Mail service is not configured"), null);
+    return;
+  }
+
   transporter.sendMail(
     {
       from: `Musicon <${process.env.MAIL_EMAIL}>`,

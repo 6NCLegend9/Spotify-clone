@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sendMail } from "../mail/mail.js";
+import { mailConfigured, sendMail } from "../mail/mail.js";
 import user from "../helper/user.js";
 import path from "path";
 import fs from "fs";
@@ -10,6 +10,11 @@ const router = Router();
 
 const CheckLogged = (req, res, next) => {
   const { token = null } = req.cookies;
+  if (!token) {
+    next();
+    return;
+  }
+
   jwt.verify(token, process.env.JWT_SECRET, async (err, decode) => {
     if (decode?._id?.length === 24) {
       try {
@@ -28,7 +33,6 @@ const CheckLogged = (req, res, next) => {
         next();
       }
     } else if (err) {
-      console.log(`Error : ${err?.name}`);
       res.clearCookie("token");
       next();
     } else {
@@ -98,6 +102,15 @@ router.post("/register", CheckLogged, async (req, res) => {
         /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
 
       if (email?.match(validRegex)) {
+        if (!mailConfigured || !process.env.SITE_URL) {
+          res.status(503).json({
+            status: 503,
+            message:
+              "Email verification is unavailable. Configure MAIL_EMAIL, MAIL_SECRET, and SITE_URL.",
+          });
+          return;
+        }
+
         email = email.toLowerCase();
 
         let secret = Math.random()?.toString(16)?.replace("0.", "");
@@ -211,6 +224,15 @@ router.post("/forgot", CheckLogged, async (req, res) => {
   let { email, password, rePassword } = req.body;
   if (email) {
     if (password?.length >= 8 && password === rePassword) {
+      if (!mailConfigured || !process.env.SITE_URL) {
+        res.status(503).json({
+          status: 503,
+          message:
+            "Password reset email is unavailable. Configure MAIL_EMAIL, MAIL_SECRET, and SITE_URL.",
+        });
+        return;
+      }
+
       email = email.toLowerCase();
       let secret = Math.random()?.toString(16)?.replace("0.", "");
 

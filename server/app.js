@@ -10,7 +10,7 @@ import userRoute from "./routes/user.js";
 import musicRoute from "./routes/music.js";
 
 // DB
-import { ConnectDB } from "./db/connection.js";
+import { ConnectDB, db } from "./db/connection.js";
 
 dotenv.config();
 
@@ -25,6 +25,24 @@ app.use(cors({ credentials: true, origin: process.env.SITE_URL }));
 app.use(cookieParser());
 app.use(express.json({ limit: "50mb" }));
 
+app.use(async (req, res, next) => {
+  if (db) {
+    next();
+    return;
+  }
+
+  ConnectDB((err) => {
+    if (err) {
+      res.status(503).json({
+        status: 503,
+        message: "Database is unavailable",
+      });
+      return;
+    }
+    next();
+  });
+});
+
 // routes
 app.use("/api/user/", userRoute);
 app.use("/api/music/", musicRoute);
@@ -38,13 +56,18 @@ app.get("/*", (req, res) => {
   res.sendFile(path.join(path.resolve(`${path.dirname("")}/dist/index.html`)));
 });
 
-app.listen(port, () => {
-  console.log(`Server Started Port : ${port}`);
-  ConnectDB((err, res) => {
-    if (err) {
-      console.log(`MongoDB Getting An Error : ${err}`);
-    } else if (res) {
-      console.log("MongoDB Successfully Connected");
-    }
+if (process.env.VERCEL !== "1") {
+  app.listen(port, () => {
+    console.log(`Server Started Port : ${port}`);
+    ConnectDB((err, res) => {
+      if (err) {
+        console.log(`MongoDB Getting An Error : ${err}`);
+      } else if (res) {
+        console.log("MongoDB Successfully Connected");
+      }
+    });
   });
-});
+}
+
+
+export default app;

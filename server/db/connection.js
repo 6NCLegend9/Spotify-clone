@@ -1,20 +1,24 @@
 import { MongoClient } from "mongodb";
 
 let db = null;
+let connectionPromise = null;
 
 export const ConnectDB = async (callback) => {
-  let dbName = "musicon";
-  try {
-    //MONGO_URL
-    let res = await MongoClient.connect(process.env.MONGO_URL, {
+  if (!connectionPromise) {
+    let dbName = process.env.MONGODB_DB_NAME || "musicon";
+    connectionPromise = MongoClient.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
-    });
-
-    if (res) {
+    }).then((res) => {
       db = res.db(dbName);
-      callback(null, res);
-    }
+      return res;
+    });
+  }
+
+  try {
+    let res = await connectionPromise;
+    callback(null, res);
   } catch (err) {
+    connectionPromise = null;
     callback(err, null);
   }
 };
