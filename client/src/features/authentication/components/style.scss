@@ -16,7 +16,7 @@
         border-radius: 5px;
         padding: 1.5rem 1rem;
         overflow-y: auto;
-        animation: modalContent .35s cubic-bezier(.2, .8, .2, 1) both;
+        animation: modalContent var(--motion-enter) cubic-bezier(.2, .8, .2, 1) both;
         scrollbar-color: transparent transparent;
         scrollbar-width: 0;
 

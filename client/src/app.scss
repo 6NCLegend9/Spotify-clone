@@ -1,11 +1,11 @@
 @import './index.scss';
 
-.page {
+    .page {
     @include expand_page;
     padding-top: 5rem;
 
     > * {
-        animation: pageReveal .55s cubic-bezier(.2, .8, .2, 1) both;
+        animation: pageReveal var(--motion-enter) cubic-bezier(.2, .8, .2, 1) both;
     }
 
     @media screen and (max-width: 767px) {

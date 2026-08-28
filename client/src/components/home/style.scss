@@ -30,11 +30,12 @@
             flex-direction: row;
             height: auto;
             border-radius: 5px;
-            animation: cardReveal .55s cubic-bezier(.2, .8, .2, 1) both;
+            animation: cardReveal var(--motion-enter) cubic-bezier(.2, .8, .2, 1) both;
+            @include transi_easy_in_out($second: $MotionStandard);
 
             @for $index from 1 through 12 {
                 &:nth-child(#{$index}) {
-                    animation-delay: #{($index - 1) * .045}s;
+                    animation-delay: #{($index - 1) * .025}s;
                 }
             }
 
@@ -99,7 +100,7 @@
                 justify-content: right;
                 margin-right: .5rem;
                 opacity: 0;
-                @include transi_easy_in_out($second: .5s);
+                @include transi_easy_in_out($second: $MotionStandard);
 
                 &:hover {
                     opacity: 1;
@@ -157,11 +158,12 @@
             position: relative;
             cursor: pointer;
             overflow: hidden;
-            animation: cardReveal .55s cubic-bezier(.2, .8, .2, 1) both;
+            animation: cardReveal var(--motion-enter) cubic-bezier(.2, .8, .2, 1) both;
+            @include transi_easy_in_out($second: $MotionStandard);
 
             @for $index from 1 through 12 {
                 &:nth-child(#{$index}) {
-                    animation-delay: #{($index - 1) * .045}s;
+                    animation-delay: #{($index - 1) * .025}s;
                 }
             }
 
@@ -175,7 +177,7 @@
                 border-radius: 5px;
                 width: 100%;
                 height: 100%;
-                transition: transform .6s cubic-bezier(.2, .8, .2, 1);
+                transition: transform var(--motion-enter) cubic-bezier(.2, .8, .2, 1);
             }
 
             &:hover img {

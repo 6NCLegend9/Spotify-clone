@@ -34,11 +34,12 @@ div[data-for="Row"] {
       background: var(--primary-bg);
       position: relative;
       padding: 1rem;
-      animation: cardReveal .55s cubic-bezier(.2, .8, .2, 1) both;
+      animation: cardReveal var(--motion-enter) cubic-bezier(.2, .8, .2, 1) both;
+      @include transi_easy_in_out($second: $MotionStandard);
 
       @for $index from 1 through 12 {
         &:nth-child(#{$index}) {
-          animation-delay: #{($index - 1) * .045}s;
+          animation-delay: #{($index - 1) * .025}s;
         }
       }
 
@@ -101,7 +102,7 @@ div[data-for="Row"] {
         justify-content: center;
         background: rgba(0, 0, 0, 0.1);
         opacity: 0;
-        @include transi_easy_in_out($second: 0.5s);
+        @include transi_easy_in_out($second: $MotionStandard);
 
         &:hover {
           opacity: 1;

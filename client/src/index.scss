@@ -1,6 +1,9 @@
 $PrimaryColor: #09c478;
 $TextSecondaryColor: #888;
 $GreyBlack: #222;
+$MotionFast: .12s;
+$MotionStandard: .2s;
+$MotionEnter: .35s;
 
 :root {
   .light {
@@ -16,6 +19,10 @@ $GreyBlack: #222;
     --content-bg: #171719;
     --primary-border: rgba(130, 140, 150, 0.1);
   }
+
+  --motion-fast: #{$MotionFast};
+  --motion-standard: #{$MotionStandard};
+  --motion-enter: #{$MotionEnter};
 }
 
 body {
@@ -40,6 +47,10 @@ body {
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+}
+
+button:active {
+  transform: scale(.97);
 }
 
 @keyframes logoAnimation {
@@ -86,8 +97,12 @@ body {
 }
 
 @mixin transi_easy_in_out($second: 0.5s) {
-  transition: all $second ease-in-out;
-  -moz-transition: all $second ease-in-out;
+  transition: transform $second ease-out, opacity $second ease-out,
+    color $second ease-out, background-color $second ease-out,
+    border-color $second ease-out, box-shadow $second ease-out;
+  -moz-transition: transform $second ease-out, opacity $second ease-out,
+    color $second ease-out, background-color $second ease-out,
+    border-color $second ease-out, box-shadow $second ease-out;
 }
 
 @mixin expand_page($expanded: false) {
@@ -110,7 +125,7 @@ body {
   background: rgba(0, 0, 0, 0.5);
   width: 100%;
   height: 100%;
-  animation: modal .5s ease-in-out forwards;
+  animation: modal var(--motion-enter) ease-out forwards;
 }
 
 @mixin media_grid_and_carousel($max-width: 330px, $colums: 1, $gap: 1rem) {
