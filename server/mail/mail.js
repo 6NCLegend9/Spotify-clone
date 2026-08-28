@@ -31,3 +31,12 @@ export const sendMail = async (details) => {
     ...details,
   });
 };
+
+export const verifyMail = async () => {
+  if (!transporter) {
+    return false;
+  }
+
+  await transporter.verify();
+  return true;
+};

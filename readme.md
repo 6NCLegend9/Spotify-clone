@@ -76,6 +76,8 @@ To run this project, you will need to add the following environment variables to
 
 ## Run Locally
 
+Run the backend and frontend in separate terminals:
+
 
 ##To Start BackEnd
 
@@ -116,6 +118,17 @@ Start
 ```bash
   npm run dev
 ```
+
+### Test Locally
+
+With the backend running on port `5000`, run:
+
+```bash
+  cd Music-Streamer/server
+  npm run test:smoke
+```
+
+To test another API URL, set `SMOKE_TEST_URL` before running the command.
 
 ## Deploy to Vercel
 
