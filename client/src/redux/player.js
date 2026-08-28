@@ -1,18 +1,34 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import instance from "../lib/axios";
+import { setUser } from "./user";
 
 export const getTrack = createAsyncThunk(
   "player/track",
-  async ({ type, id, offset }) => {
-    let response = await instance.get("/music/get-audio-tracks", {
-      params: {
-        id,
-        type,
-        offset,
-      },
-    });
+  async ({ type, id, offset }, { getState, rejectWithValue, dispatch }) => {
+    if (!getState().user) {
+      return rejectWithValue({ status: 401, message: "User not logged" });
+    }
 
-    return response?.data?.data;
+    try {
+      let response = await instance.get("/music/get-audio-tracks", {
+        params: {
+          id,
+          type,
+          offset,
+        },
+      });
+
+      return response?.data?.data;
+    } catch (error) {
+      if ([401, 403, 405].includes(error?.response?.status)) {
+        dispatch(setUser(null));
+      }
+
+      return rejectWithValue({
+        status: error?.response?.status || 500,
+        message: error?.response?.data?.message || "Unable to load track",
+      });
+    }
   }
 );
 
@@ -42,7 +58,7 @@ const playerSlice = createSlice({
 
       return state;
     },
-    resetData: (state, actions) => {
+    resetData: (state) => {
       state.data = {
         total: 0,
         offset: 0,
@@ -69,7 +85,7 @@ const playerSlice = createSlice({
       return state;
     });
 
-    callback.addCase(getTrack.rejected, (state, { error }) => {
+    callback.addCase(getTrack.rejected, (state) => {
       state.data.track = null;
       return state;
     });
