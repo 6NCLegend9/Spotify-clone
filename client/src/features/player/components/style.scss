@@ -8,6 +8,7 @@
     bottom: 0;
     background: var(--content-bg);
     border-top: 1px solid var(--primary-border);
+    animation: playerReveal .45s cubic-bezier(.2, .8, .2, 1) both;
 
     @media screen and (max-width:700px) {
         height: 5rem;

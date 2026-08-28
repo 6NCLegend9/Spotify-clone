@@ -30,6 +30,18 @@
             flex-direction: row;
             height: auto;
             border-radius: 5px;
+            animation: cardReveal .55s cubic-bezier(.2, .8, .2, 1) both;
+
+            @for $index from 1 through 12 {
+                &:nth-child(#{$index}) {
+                    animation-delay: #{($index - 1) * .045}s;
+                }
+            }
+
+            &:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 12px 24px rgba(0, 0, 0, .12);
+            }
 
             img {
                 @include coverImage;
@@ -144,12 +156,30 @@
             @include nonCopyContent;
             position: relative;
             cursor: pointer;
+            overflow: hidden;
+            animation: cardReveal .55s cubic-bezier(.2, .8, .2, 1) both;
+
+            @for $index from 1 through 12 {
+                &:nth-child(#{$index}) {
+                    animation-delay: #{($index - 1) * .045}s;
+                }
+            }
+
+            &:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 14px 28px rgba(0, 0, 0, .16);
+            }
 
             img {
                 @include coverImage;
                 border-radius: 5px;
                 width: 100%;
                 height: 100%;
+                transition: transform .6s cubic-bezier(.2, .8, .2, 1);
+            }
+
+            &:hover img {
+                transform: scale(1.04);
             }
 
             .hover-details {
