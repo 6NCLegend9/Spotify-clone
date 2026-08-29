@@ -70,6 +70,13 @@ export default function YouTubePlayer() {
     setFadeProgress(0);
   };
 
+  // Abandons an in-flight fade so a manual pause/seek never leaves a second deck audibly playing.
+  const abortCrossfade = () => {
+    if (!crossfadeInProgressRef.current) return;
+    cancelCrossfade();
+    destroyDeck(otherDeck(activeDeckRef.current));
+  };
+
   const mountDeck = (key, videoId, { onFirstPlaying } = {}) => {
     const host = deckHostRefs[key].current;
     if (!host) return null;
@@ -275,7 +282,7 @@ export default function YouTubePlayer() {
       setCurrentTime(time);
       setDuration(dur);
 
-      if (crossfadeInProgressRef.current || transitionMode === "off" || !crossfadeSeconds || !dur) return;
+      if (!isPlaying || crossfadeInProgressRef.current || transitionMode === "off" || !crossfadeSeconds || !dur) return;
       const remaining = dur - time;
       if (remaining > crossfadeSeconds || remaining <= 0.3) return;
       const index = queue.findIndex((item) => item.id === video?.id);
@@ -291,6 +298,7 @@ export default function YouTubePlayer() {
   }, []);
 
   useEffect(() => {
+    if (crossfadeInProgressRef.current) abortCrossfade();
     const player = getActivePlayer();
     if (!player?.getPlayerState) return;
     if (isPlaying) player.playVideo();
@@ -299,6 +307,7 @@ export default function YouTubePlayer() {
   }, [isPlaying]);
 
   const handlePlayPause = () => {
+    abortCrossfade();
     const player = getActivePlayer();
     if (!player?.playVideo) return;
 
@@ -319,10 +328,12 @@ export default function YouTubePlayer() {
   };
 
   const seekBy = (amount) => {
+    abortCrossfade();
     getActivePlayer()?.seekTo?.(Math.max(0, currentTime + amount), true);
   };
 
   const handleSeek = (event) => {
+    abortCrossfade();
     const nextTime = Number(event.target.value);
     setCurrentTime(nextTime);
     getActivePlayer()?.seekTo?.(nextTime, true);
