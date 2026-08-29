@@ -5,50 +5,64 @@ import {
   playPause,
   setActiveSong,
   setFullScreen,
+  setYoutubeVideo,
 } from "@/redux/features/playerSlice";
 import { BiHeadphone } from "react-icons/bi";
 import { useSelector } from "react-redux";
 
 const ListenAgainCard = ({ song, index, SongData }) => {
-  const { activeSong } = useSelector((state) => state.player);
+  const { activeSong, youtubeVideo } = useSelector((state) => state.player);
   const dispatch = useDispatch();
-  const handlePlayClick = (song, index) => {
+  const isYoutube = song?.source === "youtube";
+  const isActive = isYoutube ? youtubeVideo?.id === song?.id : activeSong?.id === song?.id;
+
+  const handlePlayClick = () => {
+    if (isYoutube) {
+      dispatch(setYoutubeVideo(song));
+      return;
+    }
     dispatch(setActiveSong({ song, data: SongData, i: index }));
     dispatch(setFullScreen(true));
     dispatch(playPause(true));
   };
 
-  const artistDisplay =
-    (Array.isArray(song?.artists?.primary) &&
-      song.artists.primary.map((artist) => artist?.name).join(", ")) ||
-    (Array.isArray(song?.artists) &&
-      song.artists.map((artist) => artist?.name).join(", ")) ||
-    (Array.isArray(song?.artists?.all) &&
-      song.artists.all.map((artist) => artist?.name).join(", ")) ||
-    "";
+  const artistDisplay = isYoutube
+    ? song?.channel || ""
+    : (Array.isArray(song?.artists?.primary) &&
+        song.artists.primary.map((artist) => artist?.name).join(", ")) ||
+      (Array.isArray(song?.artists) &&
+        song.artists.map((artist) => artist?.name).join(", ")) ||
+      (Array.isArray(song?.artists?.all) &&
+        song.artists.all.map((artist) => artist?.name).join(", ")) ||
+      "";
+
+  const coverSrc = isYoutube
+    ? song?.thumbnail || ""
+    : song?.image?.[2]?.url || song?.image?.[1]?.url || song?.image?.[2]?.link || "";
+  const titleDisplay = isYoutube
+    ? song?.title || ""
+    : song?.name?.replace("&#039;", "'")?.replace("&amp;", "&") || "";
 
   return (
     <div>
       <div
-        onClick={() => {
-          handlePlayClick(song, index);
-        }}
+        onClick={handlePlayClick}
         className={`flex w-40 md:w-80 items-center mt-5 cursor-pointer group border-b-[1px] border-gray-400 justify-between ${
-          activeSong?.id === song?.id && " text-[#00e6e6]"
+          isActive && " text-[#00e6e6]"
         }`}
       >
         <div className="flex items-center gap-5">
           <div className=" relative mb-2">
             <div className="group w-12 h-12 md:w-14 md:h-14 relative">
               <img
-                src={song?.image?.[2]?.url || song?.image?.[1]?.url || song?.image?.[2]?.link || ""}
-                alt={song?.name}
+                src={coverSrc}
+                alt={titleDisplay}
                 width={50}
                 height={50}
                 className="rounded-lg object-cover w-12 h-12 md:w-14 md:h-14"
               />
             </div>
-            {activeSong?.id === song?.id ? (
+            {isActive ? (
               <BiHeadphone
                 size={27}
                 className=" absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[#00e6e6]"
@@ -62,7 +76,7 @@ const ListenAgainCard = ({ song, index, SongData }) => {
           </div>
           <div className=" w-24 md:w-64">
             <p className="text-sm lg:text-lg font-semibold truncate">
-              {song?.name?.replace("&#039;", "'")?.replace("&amp;", "&")}
+              {titleDisplay}
             </p>
             <p className="text-gray-400 truncate text-xs">
               {artistDisplay}

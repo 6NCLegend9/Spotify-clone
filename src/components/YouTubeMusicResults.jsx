@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import FavouriteTrackButton from "./FavouriteTrackButton";
+import AddToPlaylistButton from "./AddToPlaylistButton";
 import toast from "react-hot-toast";
 
 export default function YouTubeMusicResults({ query }) {
@@ -110,7 +111,10 @@ export default function YouTubeMusicResults({ query }) {
                 <img src={video.thumbnail} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                 <span className="absolute bottom-3 left-3 rounded-full bg-[#00e6e6] px-3 py-1 text-xs font-bold text-black">Play</span>
               </button>
-              <FavouriteTrackButton track={video} className="absolute right-2 top-2 bg-black/70 text-white backdrop-blur" />
+              <div className="absolute right-2 top-2 flex gap-1">
+                <AddToPlaylistButton track={video} className="bg-black/70 text-white backdrop-blur" />
+                <FavouriteTrackButton track={video} className="bg-black/70 text-white backdrop-blur" />
+              </div>
             </div>
             <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
               <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>

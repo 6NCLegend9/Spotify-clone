@@ -10,6 +10,7 @@ import {
 } from "@/redux/features/playerSlice";
 import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
+import AddToPlaylistButton from "@/components/AddToPlaylistButton";
 
 const formatTime = (seconds) => {
   const value = Math.max(0, Math.floor(seconds || 0));
@@ -478,6 +479,7 @@ export default function YouTubePlayer() {
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>
+      {!expanded && <AddToPlaylistButton track={video} />}
       {!expanded && <FavouriteTrackButton track={video} />}
       <div className={expanded && !dataSaver && !audioOnly ? "absolute right-5 top-5 z-10 flex items-center gap-2" : "relative flex items-center gap-2"}>
         <button type="button" aria-expanded={showQueue} onClick={() => setShowQueue((value) => !value)} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}>Next up {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
