@@ -5,8 +5,10 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   playPause,
   setYoutubeVideo,
+  addToQueue,
+  appendToQueue,
 } from "@/redux/features/playerSlice";
-import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiRotateCcw, FiRotateCw, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 
 const formatTime = (seconds) => {
@@ -50,6 +52,11 @@ export default function YouTubePlayer() {
   const [showQueue, setShowQueue] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [playerError, setPlayerError] = useState("");
+  const [addQuery, setAddQuery] = useState("");
+  const [addResults, setAddResults] = useState([]);
+  const [addSearching, setAddSearching] = useState(false);
+  const autoExtendedForRef = useRef(null);
+  const autoExtendingRef = useRef(false);
 
   const getActivePlayer = () => deckPlayerRefs[activeDeckRef.current]?.current;
 
@@ -292,6 +299,49 @@ export default function YouTubePlayer() {
     };
   });
 
+  // Keeps the queue from running dry: pulls in more songs by the same channel once only one track is left.
+  useEffect(() => {
+    if (!video || autoExtendingRef.current || autoExtendedForRef.current === video.id) return;
+    const index = queue.findIndex((item) => item.id === video.id);
+    if (index === -1 || index < queue.length - 1) return;
+
+    autoExtendedForRef.current = video.id;
+    autoExtendingRef.current = true;
+    (async () => {
+      try {
+        const response = await fetch(`/api/youtube-search?type=video&q=${encodeURIComponent(video.channel || video.title)}`);
+        const data = response.ok ? await response.json() : null;
+        const existingIds = new Set(queue.map((item) => item.id));
+        const extras = (data?.results || []).filter((item) => !existingIds.has(item.id)).slice(0, 5);
+        if (extras.length > 0) dispatch(appendToQueue(extras));
+      } catch (error) {
+        // Silent: running out of extra tracks isn't worth surfacing to the user.
+      } finally {
+        autoExtendingRef.current = false;
+      }
+    })();
+  }, [video, queue, dispatch]);
+
+  const handleAddSearch = async (event) => {
+    event.preventDefault();
+    if (!addQuery.trim() || addSearching) return;
+    setAddSearching(true);
+    try {
+      const response = await fetch(`/api/youtube-search?type=video&q=${encodeURIComponent(addQuery.trim())}`);
+      const data = response.ok ? await response.json() : null;
+      setAddResults((data?.results || []).slice(0, 6));
+    } catch (error) {
+      setAddResults([]);
+    } finally {
+      setAddSearching(false);
+    }
+  };
+
+  const handleAddTrack = (track) => {
+    dispatch(addToQueue(track));
+    setAddResults((current) => current.filter((item) => item.id !== track.id));
+  };
+
   useEffect(() => {
     const interval = window.setInterval(() => tickRef.current(), 500);
     return () => window.clearInterval(interval);
@@ -444,9 +494,36 @@ export default function YouTubePlayer() {
         {showQueue && (
           <div className={expanded && !dataSaver && !audioOnly ? "absolute right-0 top-full mt-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl" : "absolute bottom-full right-0 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl"}>
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Next up</p>
-            {queue.slice(queue.findIndex((item) => item.id === video.id) + 1, queue.findIndex((item) => item.id === video.id) + 4).map((item) => (
-              <button key={item.id} type="button" onClick={() => dispatch(setYoutubeVideo(item))} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
-            ))}
+            <div className="max-h-64 overflow-y-auto">
+              {queue.slice(queue.findIndex((item) => item.id === video.id) + 1, queue.findIndex((item) => item.id === video.id) + 4).map((item) => (
+                <button key={item.id} type="button" onClick={() => dispatch(setYoutubeVideo(item))} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
+              ))}
+            </div>
+            <form onSubmit={handleAddSearch} className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
+              <input
+                type="text"
+                value={addQuery}
+                onChange={(event) => setAddQuery(event.target.value)}
+                placeholder="Add a song to queue..."
+                className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none focus:border-[#00e6e6]"
+              />
+              <button type="submit" aria-label="Search" disabled={addSearching} className="shrink-0 rounded-md bg-white/10 p-1.5 text-gray-200 hover:bg-white/20 disabled:opacity-50">
+                <FiSearch className="h-4 w-4" />
+              </button>
+            </form>
+            {addResults.length > 0 && (
+              <div className="mt-2 max-h-40 overflow-y-auto">
+                {addResults.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/10">
+                    <img src={item.thumbnail} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                    <span className="min-w-0 flex-1 truncate text-xs text-white">{item.title}</span>
+                    <button type="button" aria-label={`Add ${item.title} to queue`} onClick={() => handleAddTrack(item)} className="shrink-0 rounded-full bg-[#00e6e6]/20 p-1 text-[#00e6e6] hover:bg-[#00e6e6]/30">
+                      <FiPlus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

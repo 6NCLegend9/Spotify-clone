@@ -14,29 +14,24 @@ export default function YouTubeMusicResults({ query }) {
   const [loading, setLoading] = useState(false);
   const [songError, setSongError] = useState("");
   const [loadingPlaylistId, setLoadingPlaylistId] = useState(null);
+  const [extrasLoaded, setExtrasLoaded] = useState(false);
+  const [loadingExtras, setLoadingExtras] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const search = async () => {
       setLoading(true);
       setSongError("");
-      const searchUrl = `/api/youtube-search?q=${encodeURIComponent(query)}`;
-      // Each category is fetched separately, so one quota-limited request never hides results that did succeed.
-      const [videoRes, channelRes, playlistRes] = await Promise.allSettled([
-        fetch(`${searchUrl}&type=video`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
-        fetch(`${searchUrl}&type=channel`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
-        fetch(`${searchUrl}&type=playlist`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
-      ]);
+      setArtists([]);
+      setAlbums([]);
+      setExtrasLoaded(false);
+      // Only the song/video search runs automatically; artists and playlists cost extra quota
+      // and are fetched on demand via "Show artists & playlists" instead.
+      const response = await fetch(`/api/youtube-search?q=${encodeURIComponent(query)}&type=video`);
+      const data = response.ok ? await response.json() : null;
       if (cancelled) return;
-
-      const video = videoRes.status === "fulfilled" ? videoRes.value : null;
-      const channel = channelRes.status === "fulfilled" ? channelRes.value : null;
-      const playlist = playlistRes.status === "fulfilled" ? playlistRes.value : null;
-
-      setResults(video?.ok ? video.data.results || [] : []);
-      setArtists(channel?.ok ? channel.data.results || [] : []);
-      setAlbums(playlist?.ok ? playlist.data.results || [] : []);
-      setSongError(video?.ok ? "" : video?.data?.error || "Song search is temporarily unavailable.");
+      setResults(response.ok ? data.results || [] : []);
+      setSongError(response.ok ? "" : data?.error || "Song search is temporarily unavailable.");
       setLoading(false);
     };
 
@@ -45,6 +40,22 @@ export default function YouTubeMusicResults({ query }) {
       cancelled = true;
     };
   }, [query]);
+
+  const loadExtras = async () => {
+    if (extrasLoaded || loadingExtras) return;
+    setLoadingExtras(true);
+    const searchUrl = `/api/youtube-search?q=${encodeURIComponent(query)}`;
+    const [channelRes, playlistRes] = await Promise.allSettled([
+      fetch(`${searchUrl}&type=channel`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
+      fetch(`${searchUrl}&type=playlist`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
+    ]);
+    const channel = channelRes.status === "fulfilled" ? channelRes.value : null;
+    const playlist = playlistRes.status === "fulfilled" ? playlistRes.value : null;
+    setArtists(channel?.ok ? channel.data.results || [] : []);
+    setAlbums(playlist?.ok ? playlist.data.results || [] : []);
+    setExtrasLoaded(true);
+    setLoadingExtras(false);
+  };
 
   const playPlaylist = async (playlist) => {
     if (loadingPlaylistId) return;
@@ -82,11 +93,8 @@ export default function YouTubeMusicResults({ query }) {
 
       {loading && <p className="text-gray-400">Searching YouTube...</p>}
       {!loading && songError && <p className="text-sm text-amber-300">{songError}</p>}
-      {!loading && !songError && results.length === 0 && artists.length === 0 && albums.length === 0 && (
+      {!loading && !songError && results.length === 0 && (
         <p className="text-gray-400">No YouTube music found.</p>
-      )}
-      {!loading && songError && artists.length === 0 && albums.length === 0 && (
-        <p className="mt-2 text-sm text-gray-400">No artist or playlist results either. Try again shortly.</p>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -112,6 +120,17 @@ export default function YouTubeMusicResults({ query }) {
           );
         })}
       </div>
+
+      {!loading && results.length > 0 && !extrasLoaded && (
+        <button
+          type="button"
+          onClick={loadExtras}
+          disabled={loadingExtras}
+          className="mt-8 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-gray-300 transition hover:border-[#00e6e6] hover:text-[#00e6e6] disabled:opacity-60"
+        >
+          {loadingExtras ? "Loading artists & playlists..." : "Show artists & playlists"}
+        </button>
+      )}
 
       {artists.length > 0 && (
         <div className="mt-10">

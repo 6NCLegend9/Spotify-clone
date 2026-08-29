@@ -32,7 +32,7 @@ export async function GET(request) {
   try {
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/search?${params}`,
-      { next: { revalidate: 300 } },
+      { next: { revalidate: 3600 } },
     );
 
     if (!response.ok) {

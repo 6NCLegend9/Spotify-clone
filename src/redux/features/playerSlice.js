@@ -69,6 +69,24 @@ const playerSlice = createSlice({
       state.youtubeQueue = action.payload || [];
     },
 
+    addToQueue: (state, action) => {
+      const track = action.payload;
+      if (track?.id && !state.youtubeQueue.some((item) => item.id === track.id)) {
+        state.youtubeQueue.push(track);
+      }
+    },
+
+    appendToQueue: (state, action) => {
+      const tracks = action.payload || [];
+      const existingIds = new Set(state.youtubeQueue.map((item) => item.id));
+      tracks.forEach((track) => {
+        if (track?.id && !existingIds.has(track.id)) {
+          state.youtubeQueue.push(track);
+          existingIds.add(track.id);
+        }
+      });
+    },
+
     setFullScreen: (state, action) => {
       state.fullScreen = action.payload;
     },
@@ -87,6 +105,8 @@ export const {
   playPause,
   setYoutubeVideo,
   setYoutubeQueue,
+  addToQueue,
+  appendToQueue,
   setFullScreen,
   setAutoAdd,
 } = playerSlice.actions;

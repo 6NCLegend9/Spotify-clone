@@ -4,7 +4,7 @@ import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
 
-const GUEST_SEEDS = ["top English songs", "new English music", "English indie music"];
+const GUEST_SEEDS = ["top English songs", "new English music"];
 const DEFAULT_GENRES = ["pop", "rock", "hip hop", "electronic"];
 
 function normalizeVideo(item, reason) {
@@ -34,7 +34,7 @@ async function searchYouTube(query, apiKey, reason) {
   });
   const response = await fetch(
     `https://www.googleapis.com/youtube/v3/search?${params}`,
-    { next: { revalidate: 300 } },
+    { next: { revalidate: 3600 } },
   );
   if (!response.ok) return [];
   const data = await response.json();
@@ -78,7 +78,7 @@ async function searchPlaylists(query, apiKey) {
   });
   const response = await fetch(
     `https://www.googleapis.com/youtube/v3/search?${params}`,
-    { next: { revalidate: 300 } },
+    { next: { revalidate: 3600 } },
   );
   if (!response.ok) return [];
   const data = await response.json();
@@ -117,7 +117,7 @@ export async function GET(request) {
 
     const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
     const seeds = mode === "personalized"
-      ? genres.slice(0, 3).map((genre) => ({ query: genre, reason: `Based on your ${genre} taste` }))
+      ? genres.slice(0, 2).map((genre) => ({ query: genre, reason: `Based on your ${genre} taste` }))
       : GUEST_SEEDS.map((query) => ({ query, reason: "Editorial pick for everyone" }));
     const groups = await Promise.all(
       seeds.map(({ query, reason }) => searchYouTube(query, apiKey, reason)),
