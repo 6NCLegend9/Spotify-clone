@@ -70,8 +70,7 @@ const SongCard = ({ song, isPlaying, activeSong }) => {
     (Array.isArray(song?.artists?.all) &&
       song.artists.all.length > 0 &&
       song.artists.all.map((artist) => artist?.name).join(", ")) ||
-    (song?.subtitle != "JioSaavn" && song?.subtitle) ||
-    "";
+    song?.subtitle || "";
 
   return (
     <div
@@ -119,19 +118,13 @@ const SongCard = ({ song, isPlaying, activeSong }) => {
             } 480w, ${song?.image?.[2]?.url || song?.image?.[2]?.link || ""} 800w`}
             sizes="(max-width: 320px) 280px, (max-width: 480px) 440px, 800px"
             src={song?.image?.[1]?.url || song?.image?.[1]?.link || song?.image?.[2]?.url || ""}
-            className={`${
-              song?.type === "playlist" && song?.subtitle === "JioSaavn"
-                ? "rounded-full"
-                : "rounded-lg"
-            } w-full h-full `}
+            className="rounded-lg w-full h-full"
           />
         </div>
 
         <div className=" mt-2 lg:mt-4 flex flex-col">
           <p
-            className={`font-semibold text-xs lg:text-sm text-white truncate w-full ${
-              song?.subtitle === "JioSaavn" ? "text-center" : ""
-            }`}
+            className="font-semibold text-xs lg:text-sm text-white truncate w-full"
           >
             {song?.name?.replaceAll("&#039;", "'")?.replaceAll("&amp;", "&") ||
               song?.title}

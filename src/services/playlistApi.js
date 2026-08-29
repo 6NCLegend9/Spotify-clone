@@ -52,6 +52,25 @@ export async function deletePlaylist(id) {
   }
 }
 
+// update playlist settings or collaborators
+export async function updatePlaylist(playlistId, action, value) {
+  try {
+    const payload = action === "addCollaborator"
+      ? { playlistId, action, email: value }
+      : { playlistId, action, value };
+    const response = await fetch(`/api/userPlaylists`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    return await response.json();
+  } catch (error) {
+    console.log("Update playlist error", error);
+  }
+}
+
 // add song to playlist
 export async function addSongToPlaylist(playlistID, song) {
   try {

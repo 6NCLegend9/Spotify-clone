@@ -6,6 +6,8 @@ const initialState = {
   isActive: false,
   isPlaying: false,
   activeSong: {},
+  youtubeVideo: null,
+  youtubeQueue: [],
   fullScreen: false,
   autoAdd: false,
 };
@@ -15,6 +17,7 @@ const playerSlice = createSlice({
   initialState,
   reducers: {
     setActiveSong: (state, action) => {
+      state.youtubeVideo = null;
       if(action.payload.song){
       state.activeSong = action.payload.song;
       }
@@ -52,6 +55,20 @@ const playerSlice = createSlice({
       state.isPlaying = action.payload;
     },
 
+    setYoutubeVideo: (state, action) => {
+      state.youtubeVideo = action.payload;
+      if (action.payload) {
+        state.activeSong = {};
+        state.currentSongs = [];
+        state.isActive = false;
+        state.isPlaying = false;
+      }
+    },
+
+    setYoutubeQueue: (state, action) => {
+      state.youtubeQueue = action.payload || [];
+    },
+
     setFullScreen: (state, action) => {
       state.fullScreen = action.payload;
     },
@@ -63,6 +80,15 @@ const playerSlice = createSlice({
   },
 });
 
-export const { setActiveSong, nextSong, prevSong, playPause, setFullScreen, setAutoAdd } = playerSlice.actions;
+export const {
+  setActiveSong,
+  nextSong,
+  prevSong,
+  playPause,
+  setYoutubeVideo,
+  setYoutubeQueue,
+  setFullScreen,
+  setAutoAdd,
+} = playerSlice.actions;
 
 export default playerSlice.reducer;

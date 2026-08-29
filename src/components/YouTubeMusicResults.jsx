@@ -1,46 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import FavouriteTrackButton from "./FavouriteTrackButton";
+import toast from "react-hot-toast";
 
 export default function YouTubeMusicResults({ query }) {
   const [results, setResults] = useState([]);
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
-  const [activeVideo, setActiveVideo] = useState(null);
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [songError, setSongError] = useState("");
+  const [loadingPlaylistId, setLoadingPlaylistId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     const search = async () => {
       setLoading(true);
-      setError("");
-      try {
-        const searchUrl = `/api/youtube-search?q=${encodeURIComponent(query)}`;
-        const responses = await Promise.all([
-          fetch(`${searchUrl}&type=video`),
-          fetch(`${searchUrl}&type=channel`),
-          fetch(`${searchUrl}&type=playlist`),
-        ]);
-        const data = await Promise.all(responses.map((response) => response.json()));
-        const failedResponse = responses.find((response) => !response.ok);
-        if (failedResponse) throw new Error(data[0].error || "YouTube search failed.");
-        if (!cancelled) {
-          setResults(data[0].results || []);
-          setArtists(data[1].results || []);
-          setAlbums(data[2].results || []);
-          setActiveVideo(null);
-        }
-      } catch (searchError) {
-        if (!cancelled) {
-          setResults([]);
-          setArtists([]);
-          setAlbums([]);
-          setError(searchError.message);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      setSongError("");
+      const searchUrl = `/api/youtube-search?q=${encodeURIComponent(query)}`;
+      // Each category is fetched separately, so one quota-limited request never hides results that did succeed.
+      const [videoRes, channelRes, playlistRes] = await Promise.allSettled([
+        fetch(`${searchUrl}&type=video`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
+        fetch(`${searchUrl}&type=channel`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
+        fetch(`${searchUrl}&type=playlist`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
+      ]);
+      if (cancelled) return;
+
+      const video = videoRes.status === "fulfilled" ? videoRes.value : null;
+      const channel = channelRes.status === "fulfilled" ? channelRes.value : null;
+      const playlist = playlistRes.status === "fulfilled" ? playlistRes.value : null;
+
+      setResults(video?.ok ? video.data.results || [] : []);
+      setArtists(channel?.ok ? channel.data.results || [] : []);
+      setAlbums(playlist?.ok ? playlist.data.results || [] : []);
+      setSongError(video?.ok ? "" : video?.data?.error || "Song search is temporarily unavailable.");
+      setLoading(false);
     };
 
     if (query?.trim()) search();
@@ -48,6 +45,26 @@ export default function YouTubeMusicResults({ query }) {
       cancelled = true;
     };
   }, [query]);
+
+  const playPlaylist = async (playlist) => {
+    if (loadingPlaylistId) return;
+    setLoadingPlaylistId(playlist.id);
+    try {
+      const response = await fetch(`/api/youtube-playlist?id=${playlist.id}`);
+      const data = response.ok ? await response.json() : null;
+      const tracks = data?.tracks || [];
+      if (tracks.length === 0) {
+        toast.error("This playlist has no playable videos.");
+        return;
+      }
+      dispatch(setYoutubeQueue(tracks));
+      dispatch(setYoutubeVideo(tracks[0]));
+    } catch (playlistError) {
+      toast.error("Could not load this playlist.");
+    } finally {
+      setLoadingPlaylistId(null);
+    }
+  };
 
   return (
     <section className="mt-12 border-t border-white/10 pt-8" aria-labelledby="youtube-results-title">
@@ -64,49 +81,36 @@ export default function YouTubeMusicResults({ query }) {
       </div>
 
       {loading && <p className="text-gray-400">Searching YouTube...</p>}
-      {!loading && error && <p className="text-sm text-amber-300">{error}</p>}
-      {!loading && !error && results.length === 0 && artists.length === 0 && albums.length === 0 && (
+      {!loading && songError && <p className="text-sm text-amber-300">{songError}</p>}
+      {!loading && !songError && results.length === 0 && artists.length === 0 && albums.length === 0 && (
         <p className="text-gray-400">No YouTube music found.</p>
       )}
-
-      {activeVideo && (
-        <div className="mb-6 overflow-hidden rounded-xl border border-white/10 bg-black shadow-2xl">
-          <div className="aspect-video w-full">
-            <iframe
-              className="h-full w-full"
-              src={`https://www.youtube.com/embed/${activeVideo.id}?autoplay=1&rel=0`}
-              title={activeVideo.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-          </div>
-        </div>
+      {!loading && songError && artists.length === 0 && albums.length === 0 && (
+        <p className="mt-2 text-sm text-gray-400">No artist or playlist results either. Try again shortly.</p>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {results.map((video) => (
-          <button
-            key={video.id}
-            type="button"
-            onClick={() => setActiveVideo(video)}
-            className="group overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] text-left transition hover:-translate-y-1 hover:border-[#00e6e6]/50 hover:bg-white/[0.08]"
-          >
+        {results.map((video) => {
+          const playVideo = () => {
+            dispatch(setYoutubeQueue(results));
+            dispatch(setYoutubeVideo(video));
+          };
+          return (
+          <article key={video.id} className="group overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] text-left transition hover:-translate-y-1 hover:border-[#00e6e6]/50 hover:bg-white/[0.08]">
             <div className="relative aspect-video overflow-hidden bg-black">
-              <img
-                src={video.thumbnail}
-                alt=""
-                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-              <span className="absolute bottom-3 left-3 rounded-full bg-[#00e6e6] px-3 py-1 text-xs font-bold text-black">
-                Play
-              </span>
+              <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="h-full w-full">
+                <img src={video.thumbnail} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                <span className="absolute bottom-3 left-3 rounded-full bg-[#00e6e6] px-3 py-1 text-xs font-bold text-black">Play</span>
+              </button>
+              <FavouriteTrackButton track={video} className="absolute right-2 top-2 bg-black/70 text-white backdrop-blur" />
             </div>
-            <div className="p-4">
+            <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
               <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
               <p className="mt-2 truncate text-xs text-gray-400">{video.channel}</p>
-            </div>
-          </button>
-        ))}
+            </button>
+          </article>
+          );
+        })}
       </div>
 
       {artists.length > 0 && (
@@ -134,16 +138,16 @@ export default function YouTubeMusicResults({ query }) {
           <h3 className="mb-4 text-xl font-semibold text-white">Albums & Playlists</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {albums.map((album) => (
-              <a
+              <button
                 key={album.id}
-                href={`https://www.youtube.com/playlist?list=${album.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="group overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]"
+                type="button"
+                onClick={() => playPlaylist(album)}
+                disabled={loadingPlaylistId === album.id}
+                className="group overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] text-left disabled:opacity-60"
               >
                 <img src={album.thumbnail} alt="" className="aspect-video w-full object-cover transition duration-500 group-hover:scale-105" />
-                <p className="truncate p-4 text-sm font-semibold text-white">{album.title}</p>
-              </a>
+                <p className="truncate p-4 text-sm font-semibold text-white">{loadingPlaylistId === album.id ? "Loading..." : album.title}</p>
+              </button>
             ))}
           </div>
         </div>

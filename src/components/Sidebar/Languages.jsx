@@ -11,14 +11,6 @@ const Languages = () => {
 
   const languageList = [
     { id: "english", label: "English" },
-    { id: "haryanvi", label: "Haryanvi" },
-    { id: "punjabi", label: "Punjabi" },
-    { id: "hindi", label: "Hindi" },
-    { id: "rajasthani", label: "Rajasthani" },
-    { id: "tamil", label: "Tamil" },
-    { id: "telugu", label: "Telugu" },
-    { id: "odia", label: "Odia" },
-    // Add more languages as needed
   ];
 
   const handleLanguageChange = (event) => {

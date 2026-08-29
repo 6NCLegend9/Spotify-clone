@@ -17,7 +17,7 @@ const Searchbar = ({ mobileSearchOpen, setMobileSearchOpen }) => {
       return;
     }
     e.preventDefault();
-    router.push(`/search/${searchTerm}`);
+    router.push(`/search/${encodeURIComponent(searchTerm.trim())}`);
   };
   const handleFocus = () => {
     dispatch(setIsTyping(true));

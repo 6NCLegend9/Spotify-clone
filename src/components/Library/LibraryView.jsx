@@ -1,0 +1,360 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useDispatch } from "react-redux";
+import toast from "react-hot-toast";
+import {
+  FiChevronDown,
+  FiGrid,
+  FiHeart,
+  FiList,
+  FiLock,
+  FiMusic,
+  FiPlus,
+  FiUsers,
+  FiZap,
+} from "react-icons/fi";
+import { BsPinAngleFill } from "react-icons/bs";
+import PlaylistModal from "@/components/Sidebar/PlaylistModal";
+import { getUserPlaylists } from "@/services/playlistApi";
+import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import {
+  getFavouriteLibrary,
+  getPublicLibrary,
+  hydrateYouTubeTracks,
+  validYouTubeIds,
+} from "@/services/libraryApi";
+
+const SORT_OPTIONS = [
+  ["recents", "Recents"],
+  ["added", "Recently Added"],
+  ["alphabetical", "Alphabetical"],
+  ["creator", "Creator"],
+];
+
+function relativeDate(value) {
+  if (!value) return "Not updated yet";
+  const elapsed = Date.now() - new Date(value).getTime();
+  const days = Math.max(0, Math.floor(elapsed / 86400000));
+  if (days === 0) return "Updated today";
+  if (days === 1) return "Updated yesterday";
+  if (days < 30) return `Updated ${days} days ago`;
+  return `Updated ${new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
+function ownerDetails(playlist, currentUserId) {
+  const ownerId = playlist.user?._id || playlist.user;
+  const ownedByUser = ownerId?.toString() === currentUserId;
+  return {
+    ownedByUser,
+    creator: ownedByUser ? "You" : playlist.user?.userName || "Hayasaka listener",
+  };
+}
+
+function CollectionBadges({ item }) {
+  return (
+    <div className="mt-3 flex min-h-6 flex-wrap items-center gap-2 text-[10px] font-semibold uppercase text-gray-300">
+      {item.pinned && (
+        <span className="inline-flex items-center gap-1"><BsPinAngleFill className="text-[#00e6e6]" /> Pinned</span>
+      )}
+      {item.smartShuffle && (
+        <span className="inline-flex items-center gap-1"><FiZap className="text-emerald-400" /> Smart Shuffle</span>
+      )}
+      {item.collaborative && (
+        <span className="inline-flex items-center gap-1"><FiUsers /> Collaborative</span>
+      )}
+    </div>
+  );
+}
+
+function CollectionCover({ item }) {
+  if (item.type === "liked") {
+    return (
+      <div className="grid aspect-square w-full place-items-center bg-gradient-to-br from-[#3426a8] via-[#654be5] to-[#b9e7e5]">
+        <FiHeart className="h-16 w-16 fill-white text-white" />
+      </div>
+    );
+  }
+  if (item.cover) {
+    return <img src={item.cover} alt="" className="aspect-square w-full object-cover" />;
+  }
+  return (
+    <div className="grid aspect-square w-full place-items-center bg-[#172736] text-gray-400">
+      <FiMusic className="h-14 w-14" />
+    </div>
+  );
+}
+
+function GridItem({ item }) {
+  return (
+    <Link
+      href={item.href}
+      className="group min-w-0 overflow-hidden rounded-lg bg-white/[0.055] p-3 transition hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00e6e6]"
+    >
+      <div className="overflow-hidden rounded-md shadow-xl">
+        <CollectionCover item={item} />
+      </div>
+      <h2 className="mt-4 truncate text-base font-bold text-white">{item.title}</h2>
+      <p className="mt-1 truncate text-xs text-gray-400">{item.meta}</p>
+      <p className="mt-1 truncate text-xs text-gray-500">{item.updatedLabel}</p>
+      <CollectionBadges item={item} />
+    </Link>
+  );
+}
+
+function ListItem({ item }) {
+  return (
+    <Link
+      href={item.href}
+      className="group grid min-h-[76px] grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-2 transition hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00e6e6] sm:grid-cols-[64px_minmax(0,1fr)_minmax(150px,0.6fr)_auto]"
+    >
+      <div className="overflow-hidden rounded-md"><CollectionCover item={item} /></div>
+      <div className="min-w-0">
+        <h2 className="truncate text-sm font-semibold text-white sm:text-base">{item.title}</h2>
+        <p className="mt-1 truncate text-xs text-gray-400">{item.meta}</p>
+      </div>
+      <p className="hidden truncate text-xs text-gray-400 sm:block">{item.updatedLabel}</p>
+      <CollectionBadges item={item} />
+    </Link>
+  );
+}
+
+function GuestLibrary({ playlists, loading, error }) {
+  const dispatch = useDispatch();
+  const [loadingId, setLoadingId] = useState(null);
+
+  const playPlaylist = async (playlist) => {
+    if (loadingId) return;
+    setLoadingId(playlist.id);
+    try {
+      const response = await fetch(`/api/youtube-playlist?id=${playlist.id}`);
+      const data = response.ok ? await response.json() : null;
+      const tracks = data?.tracks || [];
+      if (tracks.length === 0) {
+        toast.error("This playlist has no playable videos.");
+        return;
+      }
+      dispatch(setYoutubeQueue(tracks));
+      dispatch(setYoutubeVideo(tracks[0]));
+    } catch (error) {
+      toast.error("Could not load this playlist.");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  return (
+    <>
+      <section className="mt-8 flex flex-col gap-5 border-y border-white/10 bg-[#101c28]/80 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="flex min-w-0 items-start gap-4">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-[#00e6e6]"><FiLock /></span>
+          <div>
+            <h2 className="text-xl font-bold text-white">Keep every favorite within reach</h2>
+            <p className="mt-2 max-w-xl text-sm text-gray-300">Save your favorite tracks in one place. Log in or create a free account.</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Link href="/login" className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-black hover:bg-gray-200">Log in</Link>
+          <Link href="/signup" className="rounded-full border border-white/40 px-5 py-2.5 text-sm font-bold text-white hover:border-white">Sign up</Link>
+        </div>
+      </section>
+
+      <section className="mt-10" aria-labelledby="featured-public-playlists">
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase text-[#00e6e6]">Public playlists</p>
+          <h2 id="featured-public-playlists" className="mt-2 text-2xl font-bold text-white">Featured for everyone</h2>
+        </div>
+        {loading && <div className="h-48 animate-pulse rounded-md bg-white/[0.06]" />}
+        {!loading && error && <p className="text-sm text-amber-300">{error}</p>}
+        {!loading && !error && playlists.length === 0 && <p className="text-sm text-gray-400">No public playlists are available right now.</p>}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {playlists.map((playlist) => (
+            <button
+              key={playlist.id}
+              type="button"
+              onClick={() => playPlaylist(playlist)}
+              disabled={loadingId === playlist.id}
+              className="group min-w-0 rounded-lg bg-white/[0.055] p-3 text-left transition hover:bg-white/[0.1] disabled:opacity-60"
+            >
+              <img src={playlist.thumbnail} alt="" className="aspect-square w-full rounded-md object-cover" />
+              <div className="mt-4 min-w-0">
+                <h3 className="line-clamp-2 text-sm font-bold text-white">{playlist.title}</h3>
+                <p className="mt-2 truncate text-xs text-gray-400">{loadingId === playlist.id ? "Loading..." : playlist.channel}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+export default function LibraryView() {
+  const { data: session, status } = useSession();
+  const [filter, setFilter] = useState("all");
+  const [view, setView] = useState("grid");
+  const [sort, setSort] = useState("recents");
+  const [favourites, setFavourites] = useState(null);
+  const [playlists, setPlaylists] = useState([]);
+  const [publicPlaylists, setPublicPlaylists] = useState([]);
+  const [covers, setCovers] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (status === "loading") return;
+    let active = true;
+
+    const loadLibrary = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        if (status === "unauthenticated") {
+          const publicData = await getPublicLibrary();
+          if (active) setPublicPlaylists(publicData.sections?.featuredPlaylists || []);
+          return;
+        }
+
+        const [favouriteData, playlistData] = await Promise.all([
+          getFavouriteLibrary(),
+          getUserPlaylists(),
+        ]);
+        if (!playlistData?.success) throw new Error(playlistData?.message || "Playlists could not be loaded.");
+        const nextPlaylists = playlistData.data?.playlists || [];
+        const coverIds = nextPlaylists.map((playlist) => validYouTubeIds(playlist.songs)[0]).filter(Boolean);
+        const coverTracks = await hydrateYouTubeTracks(coverIds);
+        if (active) {
+          setFavourites(favouriteData);
+          setPlaylists(nextPlaylists);
+          setCovers(Object.fromEntries(coverTracks.map((track) => [track.id, track.thumbnail])));
+        }
+      } catch (loadError) {
+        if (active) setError(loadError.message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadLibrary();
+    return () => {
+      active = false;
+    };
+  }, [status, refreshKey]);
+
+  const items = useMemo(() => {
+    if (status !== "authenticated" || !favourites) return [];
+    const currentUserId = session?.user?.id;
+    const favouriteIds = validYouTubeIds(favourites.favourites);
+    const likedDates = Object.values(favourites.favouriteAddedAt || {}).filter(Boolean);
+    const likedUpdatedAt = likedDates.sort().at(-1) || favourites.updatedAt;
+    const likedItem = {
+      id: "liked",
+      type: "liked",
+      href: "/library/liked",
+      title: "Liked Songs",
+      meta: `${favouriteIds.length.toLocaleString()} ${favouriteIds.length === 1 ? "song" : "songs"}`,
+      updatedAt: likedUpdatedAt,
+      createdAt: favourites.createdAt,
+      updatedLabel: relativeDate(likedUpdatedAt),
+      creator: "You",
+      pinned: true,
+    };
+    const playlistItems = playlists.map((playlist) => {
+      const { ownedByUser, creator } = ownerDetails(playlist, currentUserId);
+      const songIds = validYouTubeIds(playlist.songs);
+      return {
+        ...playlist,
+        id: playlist._id,
+        type: "playlist",
+        href: `/library/playlist/${playlist._id}`,
+        title: playlist.name,
+        creator,
+        ownedByUser,
+        collaborative: (playlist.collaborators?.length || 0) > 0,
+        meta: `${ownedByUser ? "By You" : `By ${creator}`} • ${songIds.length.toLocaleString()} ${songIds.length === 1 ? "song" : "songs"}`,
+        updatedLabel: relativeDate(playlist.updatedAt),
+        cover: covers[songIds[0]],
+      };
+    });
+
+    const visible = playlistItems.filter((item) => {
+      if (filter === "by-you") return item.ownedByUser;
+      return true;
+    });
+    visible.sort((left, right) => {
+      if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+      if (sort === "alphabetical") return left.title.localeCompare(right.title);
+      if (sort === "creator") return left.creator.localeCompare(right.creator);
+      if (sort === "added") return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
+      return new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0);
+    });
+    return filter === "all" ? [likedItem, ...visible] : visible;
+  }, [covers, favourites, filter, playlists, session?.user?.id, sort, status]);
+
+  return (
+    <main className="mx-auto min-h-screen w-[min(94%,1440px)] pb-24 text-white">
+      <header className="flex flex-col gap-5 pt-8 sm:flex-row sm:items-end sm:justify-between lg:pt-12">
+        <div>
+          <p className="text-xs font-semibold uppercase text-[#00e6e6]">Your collection</p>
+          <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Your Library</h1>
+          <p className="mt-2 text-sm text-gray-400">Saved music and playlists, organized your way.</p>
+        </div>
+        {status === "authenticated" && (
+          <button type="button" onClick={() => setShowCreate(true)} className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-black hover:bg-gray-200">
+            <FiPlus /> New playlist
+          </button>
+        )}
+      </header>
+
+      {status !== "authenticated" ? (
+        <GuestLibrary playlists={publicPlaylists} loading={loading || status === "loading"} error={error} />
+      ) : (
+        <>
+          <section className="mt-8 flex flex-col gap-4 border-y border-white/10 py-4 lg:flex-row lg:items-center lg:justify-between" aria-label="Library controls">
+            <div className="flex flex-wrap gap-2" aria-label="Library filters">
+              {[["all", "All"], ["playlists", "Playlists"], ["by-you", "By You"]].map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`rounded-full px-4 py-2 text-xs font-semibold transition ${filter === value ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/15"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex rounded-md bg-white/[0.07] p-1" aria-label="Library view">
+                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-8 w-8 place-items-center rounded ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
+                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-8 w-8 place-items-center rounded ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
+              </div>
+              <label className="relative flex items-center">
+                <span className="sr-only">Sort library</span>
+                <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-10 appearance-none rounded-md border border-white/10 bg-[#0b1722] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#00e6e6]">
+                  {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+                <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
+              </label>
+            </div>
+          </section>
+
+          {loading && <div className="mt-6 h-56 animate-pulse rounded-md bg-white/[0.06]" />}
+          {!loading && error && <p className="mt-8 text-sm text-amber-300">{error}</p>}
+          {!loading && !error && items.length === 0 && (
+            <div className="mt-14 text-center"><FiMusic className="mx-auto h-10 w-10 text-gray-500" /><h2 className="mt-4 text-lg font-bold">No playlists here yet</h2><p className="mt-2 text-sm text-gray-400">Create a playlist or try another filter.</p></div>
+          )}
+          {!loading && !error && view === "grid" && (
+            <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5" aria-label="Library collections">
+              {items.map((item) => <GridItem key={item.id} item={item} />)}
+            </section>
+          )}
+          {!loading && !error && view === "list" && (
+            <section className="mt-6 space-y-1" aria-label="Library collections">
+              {items.map((item) => <ListItem key={item.id} item={item} />)}
+            </section>
+          )}
+        </>
+      )}
+      <PlaylistModal show={showCreate} setShow={setShowCreate} onCreated={() => setRefreshKey((value) => value + 1)} />
+    </main>
+  );
+}

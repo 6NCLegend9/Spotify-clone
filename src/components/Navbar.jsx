@@ -10,11 +10,30 @@ import { setProgress } from "@/redux/features/loadingBarSlice";
 import { MdOutlineMenu } from "react-icons/md";
 import { IoClose } from "react-icons/io5";
 import Sidebar from "./Sidebar/Sidebar";
+import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 
 const Navbar = () => {
   const dispatch = useDispatch();
   const [showNav, setShowNav] = React.useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = React.useState(false);
+  const [contentFilter, setContentFilter] = React.useState("All");
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const navigation = status === "authenticated"
+    ? [
+        ["Home", "/"],
+        // ["Search", "/search/music"],
+        ["Your Library", "/library"],
+        ["Settings", "/settings"],
+      ]
+    : [
+        ["Home", "/"],
+        // ["Search", "/search/music"],
+        ["Your Library", "/library"],
+        ["Explore", "/search/discover"],
+        ["Log In / Sign Up", "/login"],
+      ];
   return (
     <>
       <div className="bg-[#020813] h-[70px] text-white flex justify-between relative items-center overflow-visible">
@@ -38,6 +57,40 @@ const Navbar = () => {
             </Link>
           </div>
         </div>
+        <nav className="hidden items-center gap-4 px-4 text-xs text-gray-300 lg:flex" aria-label="Primary navigation">
+          {navigation.map(([label, href]) => (
+            <Link key={label} href={href} aria-current={pathname === href || (href !== "/" && pathname.startsWith(href)) ? "page" : undefined} className={`transition hover:text-[#00e6e6] ${pathname === href || (href !== "/" && pathname.startsWith(href)) ? "font-semibold text-[#00e6e6]" : ""}`}>
+              {label}
+            </Link>
+          ))}
+          {status === "authenticated" ? (
+            <Link href="/settings" aria-label="Open settings" title="Open settings" className="rounded-full ring-1 ring-white/20 transition hover:ring-[#00e6e6]">
+              <img
+                src={session?.user?.image || session?.user?.imageUrl || "/icon-192x192.png"}
+                alt="Open settings"
+                className="h-9 w-9 rounded-full object-cover"
+              />
+            </Link>
+          ) : (
+            <Link href="/settings" className="transition hover:text-[#00e6e6]">
+              Settings
+            </Link>
+          )}
+          {/* {status === "authenticated" && (
+            <div className="ml-2 flex items-center gap-1 border-l border-white/10 pl-3" aria-label="Content filters">
+              {["All", "Music", "Podcasts", "Audiobooks", "Music Videos"].map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => setContentFilter(filter)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] transition ${contentFilter === filter ? "bg-[#00e6e6] text-black" : "text-gray-400 hover:bg-white/10 hover:text-white"}`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+          )} */}
+        </nav>
         <div className="relative flex items-center justify-end">
           <Searchbar
             mobileSearchOpen={mobileSearchOpen}

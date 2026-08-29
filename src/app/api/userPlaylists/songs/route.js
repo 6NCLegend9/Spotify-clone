@@ -5,10 +5,24 @@ import dbConnect from "@/utils/dbconnect";
 import Playlist from "@/models/Playlist";
 import auth from "@/utils/auth";
 
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
+function canEditPlaylist(playlist, user) {
+    if (!user) return false;
+    const userId = user._id.toString();
+    return playlist.user.toString() === userId ||
+        playlist.collaborators?.some((id) => id.toString() === userId);
+}
 
 // add song to playlist
 export async function POST(req){
     const { playlistID, song } = await req.json();
+    if (typeof song !== "string" || !YOUTUBE_ID_PATTERN.test(song)) {
+        return NextResponse.json(
+            { success: false, message: "A valid YouTube track is required", data: null },
+            { status: 400 }
+        );
+    }
     try {
         const user = await auth(req);
         if (!user) {
@@ -43,7 +57,7 @@ export async function POST(req){
                 { status: 404 }
             );
         }
-        if (playlist.user.toString() !== user._id.toString()) {
+        if (!canEditPlaylist(playlist, user)) {
             return NextResponse.json(
                 {
                     success: false,
@@ -65,11 +79,9 @@ export async function POST(req){
                 { status: 400 }
             );
         }
-         await Playlist.findByIdAndUpdate(playlistID, {
-            $push: {
-                songs: song
-            }
-        });
+        playlist.songs.push(song);
+        playlist.songAddedAt?.set(song, new Date());
+        await playlist.save();
         return NextResponse.json(
             {
                 success: true,
@@ -119,7 +131,7 @@ export async function DELETE(req){
                 { status: 404 }
             );
         }
-        if (playlist.user.toString() !== user._id.toString()) {
+        if (!canEditPlaylist(playlist, user)) {
             return NextResponse.json(
                 {
                     success: false,
@@ -141,11 +153,9 @@ export async function DELETE(req){
                 { status: 400 }
             );
         }
-        await Playlist.findByIdAndUpdate(playlistID, {
-            $pull: {
-                songs: song
-            }
-        });
+        playlist.songs = playlist.songs.filter((songId) => songId !== song);
+        playlist.songAddedAt?.delete(song);
+        await playlist.save();
         return NextResponse.json(
             {
                 success: true,
@@ -175,18 +185,8 @@ export async function GET(req){
     // console.log('playlistID', playlistID);
     // console.log('searchParams', searchParams);
     try {
-        const user = await auth(req);
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not logged in",
-                    data: null
-                },
-                { status: 404 }
-            );
-        }
         await dbConnect();
+        const user = await auth(req);
         const playlist = await Playlist.findById(playlistID);
         if (!playlist) {
             return NextResponse.json(
@@ -198,16 +198,18 @@ export async function GET(req){
                 { status: 404 }
             );
         }
-        if (playlist.user.toString() !== user._id.toString()) {
+        if (playlist.visibility !== "public" && !canEditPlaylist(playlist, user)) {
             return NextResponse.json(
                 {
                     success: false,
                     message: "Unauthorized",
                     data: null
                 },
-                { status: 401 }
+                { status: 403 }
             );
         }
+        await playlist.populate("user", "userName imageUrl");
+        await playlist.populate("collaborators", "userName imageUrl");
         return NextResponse.json(
             {
                 success: true,

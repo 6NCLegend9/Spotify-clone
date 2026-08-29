@@ -4,10 +4,8 @@ import MusicPlayer from "@/components/MusicPlayer";
 import Providers from "@/redux/Providers";
 import TopProgressBar from "@/components/topProgressBar/TopProgressBar";
 import Favicon from "./favicon.ico";
-import SongsHistory from "@/components/SongsHistory";
 import { Toaster } from "react-hot-toast";
 import AuthProvider from "./AuthProvider";
-import { Poppins } from "next/font/google";
 import Script from "next/script";
 import {
   SITE_URL,
@@ -20,12 +18,6 @@ import {
   TWITTER_HANDLE,
   absoluteUrl,
 } from "@/utils/siteConfig";
-
-const poppins = Poppins({
-  weight: "500",
-  subsets: ["latin-ext"],
-  display: "swap",
-});
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
@@ -159,7 +151,7 @@ const jsonLd = {
       image: { "@id": `${SITE_URL}/#logo` },
       foundingDate: "2023",
       slogan: SITE_TAGLINE,
-      sameAs: ["https://github.com/himanshu8443/hayasaka"],
+      sameAs: ["https://github.com/6NCLegend9"],
     },
     {
       "@type": "WebApplication",
@@ -173,7 +165,7 @@ const jsonLd = {
       operatingSystem: "Web, Android, iOS, Windows, macOS, Linux",
       browserRequirements: "Requires JavaScript and a modern browser.",
       isAccessibleForFree: true,
-      inLanguage: ["en", "hi", "pa", "ta", "te"],
+      inLanguage: "en",
       offers: {
         "@type": "Offer",
         price: "0",
@@ -187,7 +179,7 @@ const jsonLd = {
         "Favorite songs library",
         "Lyrics and album art",
         "Artist and album browsing",
-        "Multi-language music (Hindi, English, Punjabi, Tamil, Telugu)",
+        "English music",
         "Offline ready PWA",
         "Ad-light listening experience",
       ],
@@ -216,10 +208,10 @@ const jsonLd = {
         },
         {
           "@type": "Question",
-          name: "What languages of songs are available on Hayasaka?",
+          name: "What music is available on Hayasaka?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Hayasaka covers Hindi, English, Punjabi, Tamil, Telugu, Bhojpuri, Marathi, Bengali, Gujarati, and more, including Bollywood and indie tracks.",
+            text: "Hayasaka offers English music, including popular and indie tracks.",
           },
         },
         {
@@ -258,16 +250,15 @@ export default function RootLayout({ children }) {
   gtag('config', 'G-Z4FJ5T627Q');
   `}
       </Script>
-      <body className={poppins.className}>
+      <body>
         <Providers>
           <AuthProvider>
             <TopProgressBar />
-            <SongsHistory />
             <Navbar />
             <Toaster />
             {children}
-            <div className="h-20"></div>
-            <div className="fixed  bottom-0 left-0 right-0 flex backdrop-blur-lg rounded-t-3 z-50">
+            <div className="h-24 sm:h-28"></div>
+            <div className="fixed bottom-0 left-0 right-0 z-50 flex">
               <MusicPlayer />
             </div>
           </AuthProvider>

@@ -23,7 +23,11 @@ export async function GET(request) {
     q: type === "video" ? `${query} official audio` : query,
     key: apiKey,
   });
-  if (type === "video") params.set("videoCategoryId", "10");
+  if (type === "video") {
+    params.set("videoCategoryId", "10");
+    params.set("videoEmbeddable", "true");
+    params.set("videoSyndicated", "true");
+  }
 
   try {
     const response = await fetch(

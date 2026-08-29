@@ -45,16 +45,25 @@ const options = {
   secret: process.env.JWT_SECRET,
 
   callbacks: {
-    // async session({ session}) {
-    //     const  sessionUser  = await User.findOne({ email: session.user.email });
-    //     if (sessionUser) {
-    //         session.user.id = sessionUser._id;
-    //         session.userName = sessionUser.userName;
-    //         session.imageUrl = sessionUser.imageUrl;
-    //         session.isVerified = sessionUser.isVerified;
-    //     }
-    //     return session;
-    // },
+    async session({ session, token }) {
+      try {
+        await dbConnect();
+        const sessionUser = await User.findOne({ email: token.email });
+
+        if (sessionUser) {
+          session.user.id = sessionUser._id.toString();
+          session.user.name = sessionUser.userName;
+          session.user.image = sessionUser.imageUrl;
+          session.userName = sessionUser.userName;
+          session.imageUrl = sessionUser.imageUrl;
+          session.isVerified = sessionUser.isVerified;
+        }
+      } catch (error) {
+        console.error("Unable to enrich user session", error);
+      }
+
+      return session;
+    },
 
     async signIn({ account, profile }) {
       if (account.provider === "google") {

@@ -10,7 +10,7 @@ import { setIsTyping } from '@/redux/features/loadingBarSlice';
 
 
 
-const PlaylistModal = ({ show, setShow }) => {
+const PlaylistModal = ({ show, setShow, onCreated }) => {
     const dispatch = useDispatch();
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
@@ -31,6 +31,7 @@ const PlaylistModal = ({ show, setShow }) => {
                 toast.success(res.message)
                 setName('')
                 setShow(false)
+                onCreated?.(res.data?.playlist)
             }
             else{
                 toast.error(res.message)

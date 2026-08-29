@@ -1,24 +1,19 @@
 "use client";
-import { homePageData } from "@/services/dataAPI";
 import React from "react";
 import { useEffect, useState } from "react";
-import { SwiperSlide } from "swiper/react";
-import SongCard from "./SongCard";
 import { useDispatch, useSelector } from "react-redux";
-import SwiperLayout from "./Swiper";
 import { setProgress } from "@/redux/features/loadingBarSlice";
-import SongCardSkeleton from "./SongCardSkeleton";
 import { GiMusicalNotes } from "react-icons/gi";
-import SongBar from "./SongBar";
 import OnlineStatus from "./OnlineStatus";
-import ListenAgain from "./ListenAgain";
+import { useSession } from "next-auth/react";
+import RecommendationCard from "../RecommendationCard";
+import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
 
 const Home = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
-  const { activeSong, isPlaying } = useSelector((state) => state.player);
-  const { languages } = useSelector((state) => state.languages);
+  const { status } = useSession();
 
   // salutation
   const currentTime = new Date();
@@ -35,24 +30,25 @@ const Home = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       dispatch(setProgress(70));
-      const res = await homePageData(languages);
+      const response = await fetch("/api/recommendations");
+      const res = response.ok ? await response.json() : null;
       setData(res || null);
       dispatch(setProgress(100));
       setLoading(false);
     };
     fetchData();
-  }, [languages]);
+  }, [status]);
 
-  const trendingSongs = Array.isArray(data?.trending?.songs)
-    ? data.trending.songs
-    : [];
-  const trendingAlbums = Array.isArray(data?.trending?.albums)
-    ? data.trending.albums
-    : [];
-  const charts = Array.isArray(data?.charts) ? data.charts : [];
-  const albums = Array.isArray(data?.albums) ? data.albums : [];
-  const playlists = Array.isArray(data?.playlists) ? data.playlists : [];
+  const sections = data?.sections || {};
+  const isPersonalized = data?.mode === "personalized";
+  const sectionList = [
+    [isPersonalized ? "Made For You" : "Featured Editorial", sections.trending],
+    [isPersonalized ? "Top Trends For You" : "Trending Now", sections.charts],
+    [isPersonalized ? "Discover Something New" : "New Releases", sections.newReleases],
+    ["Featured Playlists", sections.featuredPlaylists],
+  ];
 
   return (
     <div className="animate-fade-in pb-8">
@@ -61,89 +57,31 @@ const Home = () => {
         "{salutation}  <GiMusicalNotes />"
       </h1>
 
-      <ListenAgain />
-
-      {/* trending */}
-      <SwiperLayout title={"Trending"}>
-        {loading ? (
-          <SongCardSkeleton />
-        ) : (
-          <>
-            {trendingSongs.map((song) => (
-              <SwiperSlide key={song?.id}>
-                <SongCard
-                  song={song}
-                  activeSong={activeSong}
-                  isPlaying={isPlaying}
-                />
-              </SwiperSlide>
+      {loading && <p className="mx-2 text-sm text-gray-400">Curating your music...</p>}
+      {!loading && sections.trending?.length > 0 && (
+        <section className="my-8">
+          <h2 className="mb-4 text-2xl font-semibold text-white">Quick Access</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {sections.trending.slice(0, 6).map((video) => (
+              <RecommendationCard key={`quick-${video.id}`} video={video} queue={sections.trending} />
             ))}
-
-            {trendingAlbums.map((song) => (
-              <SwiperSlide key={song?.id}>
-                <SongCard
-                  song={song}
-                  activeSong={activeSong}
-                  isPlaying={isPlaying}
-                />
-              </SwiperSlide>
+          </div>
+        </section>
+      )}
+      {!loading && sectionList.map(([title, videos]) => videos?.length > 0 && (
+        <section key={title} className="my-8">
+          <h2 className="mb-4 text-2xl font-semibold text-white">{title}</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {videos.map((video) => (
+              title === "Featured Playlists" ? (
+                <RecommendationPlaylistCard key={video.id} playlist={video} />
+              ) : (
+                <RecommendationCard key={video.id} video={video} queue={videos} />
+              )
             ))}
-          </>
-        )}
-      </SwiperLayout>
-
-      {/* top charts */}
-      <div className="my-8 lg:mt-14">
-        <h2 className=" text-white mt-4 text-2xl lg:text-3xl font-semibold mb-4 ">
-          Top Charts
-        </h2>
-        <div className="grid lg:grid-cols-2 gap-x-10 max-h-96 lg:max-h-full lg:overflow-y-auto overflow-y-scroll">
-          {loading ? (
-            <div className=" w-[90vw] overflow-x-hidden">
-              <SongCardSkeleton />
-            </div>
-          ) : (
-            charts.slice(0, 10).map((playlist, index) => (
-              <SongBar key={playlist?.id} playlist={playlist} i={index} />
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* New Releases */}
-      <SwiperLayout title={"New Releases"}>
-        {loading ? (
-          <SongCardSkeleton />
-        ) : (
-          albums.map((song) => (
-            <SwiperSlide key={song?.id}>
-              <SongCard
-                song={song}
-                activeSong={activeSong}
-                isPlaying={isPlaying}
-              />
-            </SwiperSlide>
-          ))
-        )}
-      </SwiperLayout>
-
-      {/* featured playlists */}
-      <SwiperLayout title={"Featured Playlists"}>
-        {loading ? (
-          <SongCardSkeleton />
-        ) : (
-          playlists.map((song) => (
-            <SwiperSlide key={song?.id}>
-              <SongCard
-                key={song?.id}
-                song={song}
-                activeSong={activeSong}
-                isPlaying={isPlaying}
-              />
-            </SwiperSlide>
-          ))
-        )}
-      </SwiperLayout>
+          </div>
+        </section>
+      ))}
     </div>
   );
 };

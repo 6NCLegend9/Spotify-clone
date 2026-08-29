@@ -3,17 +3,7 @@ import { SITE_URL, SITE_NAME } from "@/utils/siteConfig";
 const siteUrl = SITE_URL;
 
 async function getAlbumData(id) {
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/albums?id=${id}`,
-      { next: { revalidate: 86400 } },
-    );
-    const data = await response.json();
-    return data?.data;
-  } catch (error) {
-    console.log(error);
-    return null;
-  }
+  return null;
 }
 
 export async function generateMetadata({ params }) {

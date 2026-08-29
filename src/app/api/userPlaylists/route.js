@@ -114,6 +114,80 @@ export async function DELETE(req){
     }
 }
 
+// update playlist library settings or collaborators
+export async function PATCH(req){
+    const { playlistId, action, value, email } = await req.json();
+    try {
+        await dbConnect();
+        const user = await auth(req);
+        if (!user) {
+            return NextResponse.json(
+                { success: false, message: "User not logged in", data: null },
+                { status: 401 }
+            );
+        }
+
+        const playlist = await Playlist.findById(playlistId);
+        if (!playlist) {
+            return NextResponse.json(
+                { success: false, message: "Playlist not found", data: null },
+                { status: 404 }
+            );
+        }
+        if (playlist.user.toString() !== user._id.toString()) {
+            return NextResponse.json(
+                { success: false, message: "Only the playlist owner can make this change", data: null },
+                { status: 403 }
+            );
+        }
+
+        if (action === "pinned") {
+            playlist.pinned = Boolean(value);
+        } else if (action === "smartShuffle") {
+            playlist.smartShuffle = Boolean(value);
+        } else if (action === "visibility" && ["public", "private"].includes(value)) {
+            playlist.visibility = value;
+        } else if (action === "addCollaborator") {
+            const collaborator = await User.findOne({ email: email?.trim().toLowerCase() });
+            if (!collaborator) {
+                return NextResponse.json(
+                    { success: false, message: "No Hayasaka account uses that email", data: null },
+                    { status: 404 }
+                );
+            }
+            if (collaborator._id.toString() === user._id.toString()) {
+                return NextResponse.json(
+                    { success: false, message: "You already own this playlist", data: null },
+                    { status: 400 }
+                );
+            }
+            if (!playlist.collaborators.some((id) => id.toString() === collaborator._id.toString())) {
+                playlist.collaborators.push(collaborator._id);
+            }
+        } else {
+            return NextResponse.json(
+                { success: false, message: "Unsupported playlist update", data: null },
+                { status: 400 }
+            );
+        }
+
+        await playlist.save();
+        await playlist.populate("user", "userName imageUrl");
+        await playlist.populate("collaborators", "userName imageUrl");
+        return NextResponse.json({
+            success: true,
+            message: action === "addCollaborator" ? "Collaborator added" : "Playlist updated",
+            data: { playlist }
+        });
+    } catch (e) {
+        console.error(e);
+        return NextResponse.json(
+            { success: false, message: "Something went wrong", data: null },
+            { status: 500 }
+        );
+    }
+}
+
 
 // get all playlists
 export async function GET(req){
@@ -141,7 +215,7 @@ export async function GET(req){
                 { status: 404 }
             );
         }
-        const userData = await UserData.findById(user.userData).populate("playlists");
+        const userData = await UserData.findById(user.userData);
         if (!userData) {
             return NextResponse.json(
                 {
@@ -152,12 +226,21 @@ export async function GET(req){
                 { status: 404 }
             );
         }
+        const playlists = await Playlist.find({
+            $or: [
+                { _id: { $in: userData.playlists } },
+                { collaborators: user._id }
+            ]
+        })
+            .populate("user", "userName imageUrl")
+            .populate("collaborators", "userName imageUrl")
+            .sort({ updatedAt: -1 });
         return NextResponse.json(
             {
                 success: true,
                 message: "Playlists fetched",
                 data: {
-                    playlists: userData.playlists
+                    playlists
                 }
             }
         );

@@ -3,8 +3,7 @@ import { SITE_URL, SITE_NAME } from "@/utils/siteConfig";
 const siteUrl = SITE_URL;
 
 // Collapse case + whitespace + encoding variants to one canonical form so
-// /search/Bollywood%20Songs, /search/bollywood+songs and
-// /search/bollywood%20songs all point at the same canonical URL.
+// Encoded and spaced search URLs point at the same canonical URL.
 function normalizeQuery(raw) {
   try {
     return decodeURIComponent(raw.replace(/\+/g, " "))

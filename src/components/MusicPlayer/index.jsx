@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import FavouriteButton from "./FavouriteButton";
 import getPixels from "get-pixels";
 import { extractColors } from "extract-colors";
+import YouTubePlayer from "./YouTubePlayer";
 
 const MusicPlayer = () => {
   const {
@@ -31,6 +32,7 @@ const MusicPlayer = () => {
     isActive,
     isPlaying,
     fullScreen,
+    youtubeVideo,
   } = useSelector((state) => state.player);
   const { isTyping } = useSelector((state) => state.loadingBar);
   const [duration, setDuration] = useState(0);
@@ -177,13 +179,19 @@ const MusicPlayer = () => {
     }
   };
 
+  if (!activeSong?.id && !youtubeVideo) return null;
+
   return (
     <div
-      className={`relative overflow-scroll items-center min-[1180px]:items-stretch min-[1180px]:overflow-visible hideScrollBar sm:px-12  flex flex-col transition-all duration-100 ${
-        fullScreen ? "h-[100vh] w-[100vw]" : "w-full h-20 px-8 bg-black "
+      className={`relative overflow-scroll items-center min-[1180px]:items-stretch min-[1180px]:overflow-visible hideScrollBar sm:px-12 flex flex-col transition-all duration-100 ${
+        youtubeVideo
+          ? "min-h-24 w-full"
+          : fullScreen
+          ? "h-[100vh] w-[100vw]"
+          : "w-full h-20 px-8 bg-black"
       }`}
       onClick={() => {
-        if (activeSong?.id) {
+        if (!youtubeVideo && activeSong?.id) {
           dispatch(setFullScreen(!fullScreen));
         }
       }}
@@ -193,7 +201,8 @@ const MusicPlayer = () => {
           : "rgba(0,0,0,0.2)",
       }}
     >
-      <HiOutlineChevronDown
+        <YouTubePlayer />
+        <HiOutlineChevronDown
         onClick={(e) => {
           e.stopPropagation();
           dispatch(setFullScreen(!fullScreen));
@@ -202,10 +211,10 @@ const MusicPlayer = () => {
           fullScreen ? "hidden md:block" : "hidden"
         }`}
       />
-      <div
-        className={`flex flex-col  max-md:justify-center max-md:items-center ${
+      {!youtubeVideo && <div
+        className={`flex flex-col max-md:justify-center max-md:items-center ${
           fullScreen ? "max-md:min-h-screen pb-5" : ""
-        }  `}
+        }`}
       >
         <FullscreenTrack
           handleNextSong={handleNextSong}
@@ -293,7 +302,7 @@ const MusicPlayer = () => {
             setVolume={setVolume}
           />
         </div>
-      </div>
+      </div>}
 
       {fullScreen && (
         <div className=" min-[1180px]:hidden">

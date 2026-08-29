@@ -53,7 +53,7 @@ const Playlists = ({ setShowNav }) => {
                 key={index}
                 className="flex gap-3 hover:underline justify-between items-center px-3 w-full border-white mx-3 cursor-pointer mb-2"
               >
-                <Link href={`/myPlaylists/${playlist._id}`}>
+                <Link href={`/library/playlist/${playlist._id}`}>
                   <div
                     onClick={() => setShowNav(false)}
                     className="flex gap-2 items-center"

@@ -62,7 +62,7 @@ export const revalidate = 14400;
 
 export async function generateStaticParams() {
   try {
-    const res = await homePageData(["english", "hindi", "punjabi"]);
+    const res = await homePageData(["english"]);
     if (Array.isArray(res?.charts)) {
       return res.charts.map((playlist) => ({
         playlistId: playlist?.id?.toString(),

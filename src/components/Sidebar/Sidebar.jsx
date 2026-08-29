@@ -16,8 +16,8 @@ const Sidebar = ({ showNav, setShowNav }) => {
   return (
     <div
       className={`${
-        showNav ? "translate-x-0" : "-translate-x-full"
-      } transition-transform duration-300 ease-out h-screen lg:w-[300px] md:w-[250px] w-[min(82vw,320px)] fixed top-0 left-0 z-40 bg-[#020813] flex flex-col justify-between shadow-2xl shadow-black/40`}
+        showNav ? "" : "translate-x-[-100%]"
+      } transition-all duration-200  h-screen lg:w-[300px] md:w-[250px] w-[65vw] fixed top-0 left-0 z-40 bg-[#020813] flex flex-col justify-between`}
     >
       <div>
         <div className=" flex mt-3">
@@ -53,13 +53,8 @@ const Sidebar = ({ showNav, setShowNav }) => {
         </div>
       </div>
       <div className=" mb-28 text-gray-200 mx-3 flex gap-3">
-        <Link href="/dmca">
-          <p className="hover:border border-gray-200 p-1 font-medium w-fit rounded cursor-pointer text-sm">
-            DMCA
-          </p>
-        </Link>
         <a
-          href="https://github.com/himanshu8443/hayasaka"
+          href="https://github.com/6NCLegend9"
           target="_blank"
           rel="noreferrer"
         >

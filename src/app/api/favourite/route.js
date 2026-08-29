@@ -4,7 +4,7 @@ import User from "@/models/User";
 import dbConnect from "@/utils/dbconnect";
 import UserData from "@/models/UserData";
 
-
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 // Get user data
 export async function GET(req){
@@ -81,6 +81,16 @@ export async function POST(request) {
         );
     }
     const { id } = await request.json();
+    if (typeof id !== "string" || !YOUTUBE_ID_PATTERN.test(id)) {
+        return NextResponse.json(
+            {
+                success: false,
+                message: "A valid YouTube track is required",
+                data: null
+            },
+            { status: 400 }
+        );
+    }
     try {
         await dbConnect();
         const user = await User.findOne({ email: token.email });
@@ -105,22 +115,19 @@ export async function POST(request) {
                 { status: 404 }
             );
         }
-        // console.log('userData',userData.favourites);
         if (userData.favourites.includes(id)) {
-            //remove from favourites
-           await  userData.updateOne({ $pull: { favourites: id } });
-
+            userData.favourites = userData.favourites.filter((songId) => songId !== id);
+            userData.favouriteAddedAt?.delete(id);
         } else {
-            //add to favourites
-            await userData.updateOne({ $push: { favourites: id } });
+            userData.favourites.push(id);
+            userData.favouriteAddedAt?.set(id, new Date());
         }
-        // await userData.save();
-        const favourites = await UserData.findById(user.userData);
+        await userData.save();
         return NextResponse.json(
             {
                 success: true,
                 message: "Favourites updated",
-                data: favourites
+                data: userData
             }
         );
 
