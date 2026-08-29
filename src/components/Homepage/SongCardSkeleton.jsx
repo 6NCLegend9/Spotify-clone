@@ -4,7 +4,7 @@ const SongCardSkeleton = () => {
   return (
     <div className=' flex gap-3 lg:gap-6 overflow-hidden'>{
     Array(6).fill().map((_, i) => (
-    <div key={i} className="flex flex-col lg:w-[205px] p-2 bg-white/5 bg-opacity-80 backdrop-blur-sm animate-slideup rounded-lg cursor-pointer">
+    <div key={i} className="flex w-[150px] sm:w-[180px] lg:w-[205px] shrink-0 flex-col p-2 bg-white/5 bg-opacity-80 backdrop-blur-sm animate-slideup animate-shimmer rounded-lg cursor-pointer">
     <div role="status" className="animate-pulse">
       <div className="flex items-center justify-center h-24  md:h-[180px] rounded-lg dark:bg-gray-800">
        

@@ -1,13 +1,20 @@
 import { SITE_URL } from "@/utils/siteConfig";
 
 const siteUrl = SITE_URL;
+const configuredSaavnApi = process.env.NEXT_PUBLIC_SAAVN_API?.replace(/\/$/, "");
+const saavnApiBaseUrl =
+  configuredSaavnApi && !configuredSaavnApi.includes("saavn.dev")
+    ? configuredSaavnApi
+    : "https://jiosaavn-api.vercel.app";
 
 async function getArtistData(id) {
   try {
+    if (saavnApiBaseUrl.includes("jiosaavn-api.vercel.app")) return null;
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/artists?id=${id}`,
+      `${saavnApiBaseUrl}/api/artists?id=${id}`,
       { next: { revalidate: 86400 } },
     );
+    if (!response.ok) return null;
     const data = await response.json();
     return data?.data;
   } catch (error) {

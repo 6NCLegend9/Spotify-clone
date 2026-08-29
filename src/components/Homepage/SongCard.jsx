@@ -76,7 +76,7 @@ const SongCard = ({ song, isPlaying, activeSong }) => {
   return (
     <div
       key={song?.id}
-      className="flex flex-col xl:w-[205px] p-2 bg-white/5 bg-opacity-80 backdrop-blur-sm rounded-lg cursor-pointer"
+      className="flex w-[150px] sm:w-[180px] lg:w-[205px] shrink-0 flex-col p-2 bg-white/5 bg-opacity-80 backdrop-blur-sm rounded-lg cursor-pointer transition-transform duration-300 hover:-translate-y-1 hover:bg-white/10"
     >
       <Link
         onClick={(e) => {

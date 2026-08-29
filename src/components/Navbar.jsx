@@ -51,11 +51,11 @@ const Navbar = () => {
       {/* overlay */}
       <div
         onClick={() => setShowNav(false)}
-        className={`${showNav ? "" : "hidden"} transition-all duration-200 fixed top-0 left-0 z-30 w-screen h-screen bg-black bg-opacity-50`}
+        className={`fixed top-0 left-0 z-30 h-screen w-screen bg-black/50 transition-opacity duration-300 ${showNav ? "opacity-100" : "pointer-events-none opacity-0"}`}
       ></div>
       <div
         onClick={() => setShowNav(false)}
-        className={`${showNav ? "" : "hidden"} md:hidden fixed top-7 right-10 z-50 text-3xl text-white`}
+        className={`md:hidden fixed top-7 right-10 z-50 text-3xl text-white transition-all duration-300 ${showNav ? "opacity-100 rotate-0" : "pointer-events-none opacity-0 rotate-90"}`}
       >
         <IoClose />
       </div>

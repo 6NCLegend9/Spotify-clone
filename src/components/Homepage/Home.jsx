@@ -55,9 +55,9 @@ const Home = () => {
   const playlists = Array.isArray(data?.playlists) ? data.playlists : [];
 
   return (
-    <div>
+    <div className="animate-fade-in pb-8">
       <OnlineStatus />
-      <h1 className="text-4xl font-bold mx-2 m-9 text-white flex gap-2">
+      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mx-2 mt-7 mb-8 lg:m-9 text-white flex gap-2 items-center">
         "{salutation}  <GiMusicalNotes />"
       </h1>
 
@@ -93,7 +93,7 @@ const Home = () => {
       </SwiperLayout>
 
       {/* top charts */}
-      <div className="my-4 lg:mt-14">
+      <div className="my-8 lg:mt-14">
         <h2 className=" text-white mt-4 text-2xl lg:text-3xl font-semibold mb-4 ">
           Top Charts
         </h2>
