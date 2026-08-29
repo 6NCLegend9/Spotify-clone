@@ -1,9 +1,15 @@
+const configuredSaavnApi = process.env.NEXT_PUBLIC_SAAVN_API?.replace(/\/$/, "");
+const SAAVN_API_BASE_URL =
+  configuredSaavnApi && !configuredSaavnApi.includes("saavn.dev")
+    ? configuredSaavnApi
+    : "https://jiosaavn-api.vercel.app";
+
 // home page data
 export async function homePageData(language) {
   try {
     const lang = Array.isArray(language) ? language.join(",") : language?.toString() || "";
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/modules?language=${encodeURIComponent(lang)}`,
+      `${SAAVN_API_BASE_URL}/api/modules?language=${encodeURIComponent(lang)}`,
       {
         next: {
           revalidate: 86400,
@@ -23,7 +29,7 @@ export async function homePageData(language) {
 export async function getSongData(id) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/songs/${id}`,
+      `${SAAVN_API_BASE_URL}/api/songs/${id}`,
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -39,7 +45,7 @@ export async function getSongData(id) {
 export async function getAlbumData(id) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/albums?id=${id}`,
+      `${SAAVN_API_BASE_URL}/api/albums?id=${id}`,
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -54,7 +60,7 @@ export async function getAlbumData(id) {
 export async function getplaylistData(id) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/playlists?id=${id}&limit=50`,
+      `${SAAVN_API_BASE_URL}/api/playlists?id=${id}&limit=50`,
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -69,7 +75,7 @@ export async function getplaylistData(id) {
 export async function getlyricsData(lyricsId) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/songs/${encodeURIComponent(lyricsId)}/lyrics`,
+      `${SAAVN_API_BASE_URL}/api/songs/${encodeURIComponent(lyricsId)}/lyrics`,
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -84,7 +90,7 @@ export async function getlyricsData(lyricsId) {
 export async function getArtistData(id) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/artists?id=${id}`,
+      `${SAAVN_API_BASE_URL}/api/artists?id=${id}`,
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -99,7 +105,7 @@ export async function getArtistData(id) {
 export async function getArtistSongs(id, page) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/artists/${id}/songs?page=${page}&`,
+      `${SAAVN_API_BASE_URL}/api/artists/${id}/songs?page=${page}&`,
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -114,7 +120,7 @@ export async function getArtistSongs(id, page) {
 export async function getArtistAlbums(id, page) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/artists/${id}/albums?page=${page}`,
+      `${SAAVN_API_BASE_URL}/api/artists/${id}/albums?page=${page}`,
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -129,7 +135,7 @@ export async function getArtistAlbums(id, page) {
 export async function getSearchedData(query) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/search?query=${query}`,
+      `${SAAVN_API_BASE_URL}/api/search?query=${query}`,
     );
     if (!response.ok) return null;
     const data = await response.json();
@@ -227,7 +233,7 @@ export async function sendResetPasswordLink(email) {
 export async function getRecommendedSongs(artistId, songId) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SAAVN_API}/api/songs/${songId}/suggestions`,
+      `${SAAVN_API_BASE_URL}/api/songs/${songId}/suggestions`,
     );
     if (!response.ok) return null;
     const data = await response.json();
