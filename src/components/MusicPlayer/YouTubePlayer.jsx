@@ -18,7 +18,7 @@ import SyncedLyrics from "@/components/MusicPlayer/SyncedLyrics";
 import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "@/components/MusicPlayer/PictureInPictureWindow";
 import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
-import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
 import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
 
 const formatTime = (seconds) => {
@@ -36,7 +36,16 @@ const playerErrorMessage = (code) => {
 };
 
 const otherDeck = (key) => (key === "A" ? "B" : "A");
-const END_SCREEN_GUARD = 2;
+const SEEK_GUARD_MS = 5000;
+const ACTIVE_BUFFER_RECOVERY_MS = 4500;
+const HEALTHY_PLAYBACK_RESET_MS = 12000;
+const PRELOAD_START_DELAY_MS = 10000;
+const STALL_NUDGE_MS = 3000;
+const STALL_RELOAD_MS = 7000;
+const INCOMING_STALL_MS = 1000;
+const VERIFIED_ADVANCE_SECONDS = 0.2;
+const STARTUP_GRACE_MS = 12000;
+const MAX_SAFE_YOUTUBE_CROSSFADE_SECONDS = 6;
 
 // Best-effort signal for recommendations.js's skip exclusion filter; never blocks playback.
 const recordPlayEvent = (id, event) => {
@@ -68,6 +77,7 @@ export default function YouTubePlayer() {
     masterVolume,
   } = useSelector((state) => state.settings);
   const isMobile = useIsMobile();
+  const isNarrow = useMediaQuery("(max-width: 1179px)");
   const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
@@ -102,14 +112,42 @@ export default function YouTubePlayer() {
   const pipMountRef = useRef(null);
   const [showLyrics, setShowLyrics] = useState(false);
   const [mobileSheet, setMobileSheet] = useState(false);
-  const [sheetTab, setSheetTab] = useState("queue");
+  const [sheetTab, setSheetTab] = useState("lyrics");
   const swipeStartYRef = useRef(null);
   const [pipWindow, setPipWindow] = useState(null);
   const [pipFloat, setPipFloat] = useState(false);
   const videoRef = useRef(video);
   const queueRef = useRef(queue);
   const isPlayingRef = useRef(isPlaying);
-  const seekGuardRef = useRef({ seeking: false, until: 0, target: null });
+  const seekGuardRef = useRef({ seeking: false, until: 0, target: null, videoId: null });
+  const skipCrossfadeVideoRef = useRef(null);
+  const nearEndStreakRef = useRef(0);
+  const preloadedIdRef = useRef(null);
+  const preloadingRef = useRef(null);
+  const preloadNextRef = useRef(() => {});
+  const preloadRetryAtRef = useRef(0);
+  const preloadPollTimerRef = useRef(null);
+  const activeBufferTimerRef = useRef(null);
+  const healthyPlaybackTimerRef = useRef(null);
+  const activeRecoveryRef = useRef({
+    videoId: null,
+    attempts: 0,
+    lastAttemptAt: 0,
+    lastTime: 0,
+    lastAdvancedAt: 0,
+    healthySince: 0,
+  });
+  const incomingProgressRef = useRef({
+    id: null,
+    key: null,
+    generation: 0,
+    lastTime: -1,
+    lastAdvancedAt: 0,
+  });
+  const activeTrackStartedRef = useRef({ videoId: null, startedAt: 0 });
+  const handoffTimerRef = useRef(null);
+  const handoffWaitingRef = useRef(null);
+  const endedTransitionRef = useRef(null);
   videoRef.current = video;
   queueRef.current = queue;
   isPlayingRef.current = isPlaying;
@@ -135,6 +173,22 @@ export default function YouTubePlayer() {
     return guard.seeking || performance.now() < guard.until;
   };
 
+  const markSeek = (time, dragging = false) => {
+    seekGuardRef.current = {
+      seeking: dragging,
+      until: performance.now() + SEEK_GUARD_MS,
+      target: time,
+      videoId: videoRef.current?.id || null,
+    };
+    nearEndStreakRef.current = 0;
+    const recovery = activeRecoveryRef.current;
+    if (recovery.videoId === videoRef.current?.id) {
+      recovery.lastTime = time;
+      recovery.lastAdvancedAt = performance.now();
+      recovery.healthySince = 0;
+    }
+  };
+
   const getNextVideo = () => {
     const currentId = videoRef.current?.id;
     const list = queueRef.current || [];
@@ -151,37 +205,363 @@ export default function YouTubePlayer() {
     return list[index - 1] || null;
   };
 
-  const getPlayerForCurrentVideo = () => {
-    const want = videoRef.current?.id;
-    if (want) {
-      for (const key of ["A", "B"]) {
-        const player = deckPlayerRefs[key].current;
-        if (player && playerVideoId(player) === want) {
-          if (activeDeckRef.current !== key) {
-            activeDeckRef.current = key;
-            setActiveDeck(key);
-          }
-          return player;
-        }
-      }
-    }
-    return getActivePlayer();
-  };
-
-  const silenceIdleDeck = () => {
+  const hushIdleDeck = () => {
+    abortCrossfade();
     const idle = deckPlayerRefs[otherDeck(activeDeckRef.current)].current;
+    if (preloadingRef.current || preloadedIdRef.current) {
+      cancelIdlePreload(1000);
+    }
     try {
-      idle?.pauseVideo?.();
       idle?.mute?.();
       idle?.setVolume?.(0);
+      idle?.pauseVideo?.();
     } catch (error) {
       // Idle deck may already be gone.
     }
+    setFadeProgress(0);
+  };
+
+  const isRealTrackEnd = (player) => {
+    if (!player || isSeekGuarded()) return false;
+    const id = playerVideoId(player);
+    const want = videoRef.current?.id;
+    if (want && id && id !== want) return false;
+    const endedAt = player.getCurrentTime?.() || 0;
+    const endedDur = player.getDuration?.() || 0;
+    return endedDur > 8 && endedAt >= endedDur - 1.1;
   };
 
   const applyPlaybackVolume = (player, ratio = 1) => {
     const master = Number.isFinite(masterVolume) ? masterVolume : 0.85;
     player?.setVolume?.(Math.round(playbackVolume * master * ratio));
+  };
+
+  const emptyRecovery = (videoId = null) => ({
+    videoId,
+    attempts: 0,
+    lastAttemptAt: 0,
+    lastTime: 0,
+    lastAdvancedAt: videoId ? performance.now() : 0,
+    healthySince: 0,
+  });
+
+  const markPreloaded = (videoId, key) => {
+    if (!videoId || !key) {
+      preloadedIdRef.current = null;
+      return;
+    }
+    preloadedIdRef.current = {
+      id: videoId,
+      key,
+      generation: deckGenerationRef.current[key],
+    };
+  };
+
+  const isPreloadedFor = (videoId, key = null) => {
+    const token = preloadedIdRef.current;
+    if (!token?.id || token.id !== videoId) return false;
+    if (key && token.key !== key) return false;
+    if (deckGenerationRef.current[token.key] !== token.generation) return false;
+    return playerVideoId(deckPlayerRefs[token.key].current) === videoId;
+  };
+
+  const noteIncomingProgress = (key, player) => {
+    const id = playerVideoId(player);
+    const time = Number(player?.getCurrentTime?.() || 0);
+    const generation = deckGenerationRef.current[key];
+    const prev = incomingProgressRef.current;
+    const now = performance.now();
+    if (prev.id !== id || prev.key !== key || prev.generation !== generation) {
+      incomingProgressRef.current = {
+        id,
+        key,
+        generation,
+        lastTime: time,
+        lastAdvancedAt: time > 0.05 ? now : 0,
+      };
+      return incomingProgressRef.current;
+    }
+    if (time > prev.lastTime + 0.08) {
+      prev.lastTime = time;
+      prev.lastAdvancedAt = now;
+    }
+    return prev;
+  };
+
+  const isVerifiedIncoming = (
+    key,
+    player,
+    videoId,
+    { minAdvance = VERIFIED_ADVANCE_SECONDS, maxStallMs = INCOMING_STALL_MS } = {},
+  ) => {
+    if (!player || !videoId || !key) return false;
+    if (playerVideoId(player) !== videoId) return false;
+    if (player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING) return false;
+    const progress = noteIncomingProgress(key, player);
+    const now = performance.now();
+    return (
+      progress.id === videoId &&
+      progress.key === key &&
+      progress.generation === deckGenerationRef.current[key] &&
+      progress.lastTime >= minAdvance &&
+      progress.lastAdvancedAt > 0 &&
+      now - progress.lastAdvancedAt <= maxStallMs
+    );
+  };
+
+  const isActivePlaybackHealthy = () => {
+    const key = activeDeckRef.current;
+    const player = deckPlayerRefs[key].current;
+    const want = videoRef.current?.id;
+    if (!player || !want || playerVideoId(player) !== want) return false;
+    if (player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING) return false;
+    const started = activeTrackStartedRef.current;
+    const recovery = activeRecoveryRef.current;
+    const now = performance.now();
+    return (
+      started.videoId === want &&
+      started.startedAt > 0 &&
+      now - started.startedAt >= PRELOAD_START_DELAY_MS &&
+      recovery.videoId === want &&
+      recovery.lastTime >= 2 &&
+      recovery.lastAdvancedAt > 0 &&
+      now - recovery.lastAdvancedAt <= 1500
+    );
+  };
+
+  const clearPreloadTimers = () => {
+    if (preloadPollTimerRef.current) {
+      window.clearInterval(preloadPollTimerRef.current);
+      preloadPollTimerRef.current = null;
+    }
+  };
+
+  const cancelIdlePreload = (backoffMs = 3000) => {
+    clearPreloadTimers();
+    preloadedIdRef.current = null;
+    preloadingRef.current = null;
+    preloadRetryAtRef.current = performance.now() + backoffMs;
+    const idle = deckPlayerRefs[otherDeck(activeDeckRef.current)].current;
+    try {
+      idle?.mute?.();
+      idle?.setVolume?.(0);
+      idle?.pauseVideo?.();
+    } catch (error) {
+      // Idle deck may already be gone.
+    }
+  };
+
+  const clearActiveBufferTimers = () => {
+    if (activeBufferTimerRef.current) {
+      window.clearTimeout(activeBufferTimerRef.current);
+      activeBufferTimerRef.current = null;
+    }
+    if (healthyPlaybackTimerRef.current) {
+      window.clearTimeout(healthyPlaybackTimerRef.current);
+      healthyPlaybackTimerRef.current = null;
+    }
+  };
+
+  const resetActiveRecovery = (videoId = null) => {
+    clearActiveBufferTimers();
+    activeRecoveryRef.current = emptyRecovery(videoId);
+  };
+
+  const markActivePlaybackHealthy = (key, player, generation) => {
+    if (activeBufferTimerRef.current) {
+      window.clearTimeout(activeBufferTimerRef.current);
+      activeBufferTimerRef.current = null;
+    }
+    if (healthyPlaybackTimerRef.current) {
+      window.clearTimeout(healthyPlaybackTimerRef.current);
+    }
+    const videoId = playerVideoId(player);
+    const time = player.getCurrentTime?.() || 0;
+    const recovery = activeRecoveryRef.current;
+    if (recovery.videoId === videoId && time > (recovery.lastTime || 0) + 0.08) {
+      recovery.lastTime = time;
+      recovery.lastAdvancedAt = performance.now();
+      if (!recovery.healthySince) recovery.healthySince = recovery.lastAdvancedAt;
+    }
+    healthyPlaybackTimerRef.current = window.setTimeout(() => {
+      healthyPlaybackTimerRef.current = null;
+      const latest = activeRecoveryRef.current;
+      if (
+        activeDeckRef.current === key &&
+        deckGenerationRef.current[key] === generation &&
+        deckPlayerRefs[key].current === player &&
+        playerVideoId(player) === videoId &&
+        player.getPlayerState?.() === window.YT?.PlayerState?.PLAYING &&
+        latest.videoId === videoId &&
+        latest.lastAdvancedAt > 0 &&
+        performance.now() - latest.lastAdvancedAt <= 1500
+      ) {
+        activeRecoveryRef.current = {
+          ...emptyRecovery(videoId),
+          lastTime: latest.lastTime,
+          lastAdvancedAt: latest.lastAdvancedAt,
+          healthySince: latest.healthySince || performance.now(),
+        };
+      }
+    }, HEALTHY_PLAYBACK_RESET_MS);
+  };
+
+  const scheduleActiveBufferRecovery = (key, player, generation) => {
+    if (
+      crossfadeInProgressRef.current ||
+      isSeekGuarded() ||
+      !isPlayingRef.current ||
+      activeDeckRef.current !== key ||
+      deckGenerationRef.current[key] !== generation ||
+      deckPlayerRefs[key].current !== player
+    ) {
+      return;
+    }
+
+    const videoId = playerVideoId(player);
+    if (!videoId || (videoRef.current?.id && videoRef.current.id !== videoId)) return;
+    cancelIdlePreload(3000);
+    if (healthyPlaybackTimerRef.current) {
+      window.clearTimeout(healthyPlaybackTimerRef.current);
+      healthyPlaybackTimerRef.current = null;
+    }
+    if (activeRecoveryRef.current.videoId !== videoId) {
+      activeRecoveryRef.current = emptyRecovery(videoId);
+    }
+    if (activeBufferTimerRef.current) return;
+
+    const now = performance.now();
+    const activeTrack = activeTrackStartedRef.current;
+    const recentlyStarted =
+      activeTrack.videoId === videoId &&
+      activeTrack.startedAt &&
+      now - activeTrack.startedAt < STARTUP_GRACE_MS;
+    const retryGraceMs = Math.max(
+      0,
+      1500 - (now - activeRecoveryRef.current.lastAttemptAt),
+    );
+    const recoveryDelay = Math.max(
+      retryGraceMs,
+      recentlyStarted ? 1500 : ACTIVE_BUFFER_RECOVERY_MS,
+    );
+    activeBufferTimerRef.current = window.setTimeout(() => {
+      activeBufferTimerRef.current = null;
+      if (
+        crossfadeInProgressRef.current ||
+        isSeekGuarded() ||
+        !isPlayingRef.current ||
+        activeDeckRef.current !== key ||
+        deckGenerationRef.current[key] !== generation ||
+        deckPlayerRefs[key].current !== player ||
+        playerVideoId(player) !== videoId
+      ) {
+        return;
+      }
+
+      const state = player.getPlayerState?.();
+      const time = player.getCurrentTime?.() || 0;
+      const recovery = activeRecoveryRef.current.videoId === videoId
+        ? activeRecoveryRef.current
+        : emptyRecovery(videoId);
+      if (activeRecoveryRef.current.videoId !== videoId) {
+        activeRecoveryRef.current = recovery;
+      }
+      const stalledClock =
+        !recovery.lastAdvancedAt ||
+        performance.now() - recovery.lastAdvancedAt >= STALL_NUDGE_MS;
+      const recoverable =
+        state === window.YT?.PlayerState?.BUFFERING ||
+        (
+          stalledClock &&
+          (
+            state === window.YT?.PlayerState?.PLAYING ||
+            state === window.YT?.PlayerState?.CUED ||
+            state === window.YT?.PlayerState?.UNSTARTED ||
+            state === window.YT?.PlayerState?.PAUSED
+          )
+        );
+      if (!recoverable) return;
+
+      const stillStarting =
+        (activeTrackStartedRef.current.videoId === videoId &&
+          activeTrackStartedRef.current.startedAt &&
+          performance.now() - activeTrackStartedRef.current.startedAt < STARTUP_GRACE_MS) ||
+        time < 1.5;
+      if (stillStarting) {
+        player.unMute?.();
+        applyPlaybackVolume(player);
+        player.playVideo?.();
+        return;
+      }
+
+      const attempts = recovery.attempts;
+      if (attempts >= 2) {
+        setPlayerError("This video stopped buffering. Press play to retry.");
+        dispatch(playPause(false));
+        return;
+      }
+
+      activeRecoveryRef.current = {
+        ...recovery,
+        videoId,
+        attempts: attempts + 1,
+        lastAttemptAt: performance.now(),
+        healthySince: 0,
+      };
+      const resumeAt = Math.max(0, time - 0.15);
+      player.unMute?.();
+      applyPlaybackVolume(player);
+      player.loadVideoById?.({ videoId, startSeconds: resumeAt });
+      player.playVideo?.();
+    }, recoveryDelay);
+  };
+
+  const watchActiveProgress = (key, player, generation) => {
+    if (
+      crossfadeInProgressRef.current ||
+      isSeekGuarded() ||
+      !isPlayingRef.current ||
+      activeDeckRef.current !== key ||
+      !player
+    ) {
+      return;
+    }
+    const videoId = playerVideoId(player);
+    const want = videoRef.current?.id;
+    if (!videoId || (want && videoId !== want)) return;
+    const time = player.getCurrentTime?.() || 0;
+    const dur = player.getDuration?.() || 0;
+    const now = performance.now();
+    if (activeRecoveryRef.current.videoId !== videoId) {
+      activeRecoveryRef.current = {
+        ...emptyRecovery(videoId),
+        lastTime: time,
+        lastAdvancedAt: now,
+      };
+      return;
+    }
+    const recovery = activeRecoveryRef.current;
+    if (time > (recovery.lastTime || 0) + 0.08) {
+      recovery.lastTime = time;
+      recovery.lastAdvancedAt = now;
+      if (!recovery.healthySince) recovery.healthySince = now;
+      if (now - recovery.healthySince >= HEALTHY_PLAYBACK_RESET_MS) {
+        recovery.attempts = 0;
+      }
+      return;
+    }
+    recovery.healthySince = 0;
+    if (dur > 8 && time >= dur - 1.5) return;
+    const stalledFor = now - (recovery.lastAdvancedAt || now);
+    if (stalledFor < STALL_NUDGE_MS) return;
+    cancelIdlePreload(3000);
+    if (stalledFor < STALL_RELOAD_MS) {
+      player.unMute?.();
+      applyPlaybackVolume(player);
+      player.playVideo?.();
+      return;
+    }
+    scheduleActiveBufferRecovery(key, player, generation);
   };
 
   const destroyDeck = (key) => {
@@ -192,7 +572,8 @@ export default function YouTubePlayer() {
     deckHostRefs[key].current?.replaceChildren();
   };
 
-  const cancelCrossfade = () => {
+  const stopFadeTimers = () => {
+    clearPreloadTimers();
     if (crossfadeTimerRef.current) {
       window.cancelAnimationFrame(crossfadeTimerRef.current);
       window.clearTimeout(crossfadeTimerRef.current);
@@ -206,9 +587,20 @@ export default function YouTubePlayer() {
       window.clearTimeout(failSafeRef.current);
       failSafeRef.current = null;
     }
+    if (handoffTimerRef.current) {
+      window.clearTimeout(handoffTimerRef.current);
+      handoffTimerRef.current = null;
+    }
+    handoffWaitingRef.current = null;
     crossfadeInProgressRef.current = false;
     pendingNextRef.current = null;
     setFadeProgress(0);
+  };
+
+  const cancelCrossfade = () => {
+    stopFadeTimers();
+    preloadedIdRef.current = null;
+    preloadingRef.current = null;
   };
 
   // Abandons an in-flight fade so a manual pause/seek never leaves a second deck audibly playing.
@@ -216,9 +608,74 @@ export default function YouTubePlayer() {
     if (!crossfadeInProgressRef.current) return;
     cancelCrossfade();
     destroyDeck(otherDeck(activeDeckRef.current));
+    const active = getActivePlayer();
+    active?.unMute?.();
+    applyPlaybackVolume(active);
+    if (isPlayingRef.current) active?.playVideo?.();
   };
 
-  const mountDeck = (key, videoId, { onFirstPlaying } = {}) => {
+  const recoverFromIncomingFailure = (failedKey) => {
+    if (failedKey === activeDeckRef.current) return;
+    const waiting = handoffWaitingRef.current;
+    if (crossfadeInProgressRef.current) stopFadeTimers();
+    preloadedIdRef.current = null;
+    preloadingRef.current = null;
+    destroyDeck(failedKey);
+    if (waiting?.incomingKey === failedKey && waiting.nextVideo) {
+      hardSwitchOnDeck(waiting.outgoingKey, waiting.nextVideo);
+      return;
+    }
+    const outgoing = getActivePlayer();
+    outgoing?.unMute?.();
+    applyPlaybackVolume(outgoing);
+    if (isPlayingRef.current) outgoing?.playVideo?.();
+  };
+
+  const hardSwitchOnDeck = (
+    key,
+    nextVideo,
+    { recordCompletion = true } = {},
+  ) => {
+    if (!nextVideo?.id) return;
+    stopFadeTimers();
+    const player = deckPlayerRefs[key].current;
+    if (!player) {
+      dispatch(setYoutubeVideo(nextVideo));
+      return;
+    }
+
+    const oldVideoId = videoRef.current?.id;
+    if (recordCompletion && status === "authenticated" && oldVideoId) {
+      recordPlayEvent(oldVideoId, "completed");
+    }
+    videoRef.current = nextVideo;
+    skipCrossfadeVideoRef.current = null;
+    activeDeckRef.current = key;
+    setActiveDeck(key);
+    destroyDeck(otherDeck(key));
+    preloadedIdRef.current = null;
+    preloadingRef.current = null;
+    preloadRetryAtRef.current = 0;
+    resetActiveRecovery(nextVideo.id);
+    handledVideoIdRef.current = nextVideo.id;
+    setCurrentTime(0);
+    setDuration(0);
+    player.unMute?.();
+    applyPlaybackVolume(player);
+    if (videoQuality !== "auto" && videoQuality !== "audio-only") {
+      player.setPlaybackQuality?.(videoQuality);
+    }
+    player.loadVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
+    player.playVideo?.();
+    dispatch(playPause(true));
+    dispatch(setYoutubeVideo(nextVideo));
+  };
+
+  const mountDeck = (
+    key,
+    videoId,
+    { onFirstPlaying, onDeckReady, autoplay = true } = {},
+  ) => {
     const host = deckHostRefs[key].current;
     if (!host) return null;
     destroyDeck(key);
@@ -226,7 +683,7 @@ export default function YouTubePlayer() {
     const isCurrent = () => deckGenerationRef.current[key] === generation;
 
     const playerParams = new URLSearchParams({
-      autoplay: "1",
+      autoplay: autoplay ? "1" : "0",
       cc_load_policy: "0",
       controls: "0",
       disablekb: "1",
@@ -239,6 +696,12 @@ export default function YouTubePlayer() {
       playsinline: "1",
       rel: "0",
       showinfo: "0",
+      vq:
+        key !== activeDeckRef.current || videoQuality === "audio-only"
+          ? "tiny"
+          : videoQuality === "auto"
+            ? "default"
+            : videoQuality,
       widget_referrer: window.location.href,
     });
     const iframe = document.createElement("iframe");
@@ -253,6 +716,7 @@ export default function YouTubePlayer() {
     host.replaceChildren(iframe);
 
     let hasUnmutedOnce = false;
+    let firstPlayingHandled = false;
     const player = new window.YT.Player(iframe, {
       events: {
         onReady: (event) => {
@@ -267,9 +731,12 @@ export default function YouTubePlayer() {
             if (videoQuality !== "auto" && videoQuality !== "audio-only") {
               event.target.setPlaybackQuality(videoQuality);
             }
+          } else {
+            event.target.setPlaybackQuality?.("small");
           }
           event.target.mute();
-          event.target.playVideo();
+          onDeckReady?.(event.target);
+          if (autoplay) event.target.playVideo();
         },
         onStateChange: (event) => {
           if (!isCurrent()) return;
@@ -281,68 +748,154 @@ export default function YouTubePlayer() {
                 applyPlaybackVolume(event.target);
               }
             }
-            if (key === activeDeckRef.current) setPlayerError("");
-            onFirstPlaying?.(event.target);
+            if (key === activeDeckRef.current) {
+              setPlayerError("");
+              const playingId = playerVideoId(event.target);
+              if (
+                activeTrackStartedRef.current.videoId !== playingId ||
+                !activeTrackStartedRef.current.startedAt
+              ) {
+                activeTrackStartedRef.current = {
+                  videoId: playingId,
+                  startedAt: performance.now(),
+                };
+              }
+              markActivePlaybackHealthy(key, event.target, generation);
+            }
+            if (!firstPlayingHandled) {
+              firstPlayingHandled = true;
+              onFirstPlaying?.(event.target);
+            }
+            const waiting = handoffWaitingRef.current;
+            if (
+              waiting?.incomingKey === key &&
+              waiting?.nextVideo?.id === playerVideoId(event.target) &&
+              isVerifiedIncoming(key, event.target, waiting.nextVideo.id)
+            ) {
+              completeCrossfade(
+                waiting.outgoingKey,
+                waiting.incomingKey,
+                waiting.nextVideo,
+              );
+              return;
+            }
           }
           if (key !== activeDeckRef.current) return;
           if (event.data === window.YT.PlayerState.PLAYING) dispatch(playPause(true));
+          if (event.data === window.YT.PlayerState.BUFFERING) {
+            scheduleActiveBufferRecovery(key, event.target, generation);
+          }
           if (
             event.data === window.YT.PlayerState.PAUSED &&
             !crossfadeInProgressRef.current &&
             !expandLockRef.current &&
             !isSeekGuarded()
           ) {
+            clearActiveBufferTimers();
             dispatch(playPause(false));
           }
           if (event.data === window.YT.PlayerState.ENDED) {
-            // seekTo() often emits a fake ENDED. Ignore it unless we are actually at the end
-            // of the track that Redux currently has selected — otherwise we jump back to
-            // whatever song this deck was first mounted with.
-            if (isSeekGuarded()) return;
-            const endedAt = event.target.getCurrentTime?.() || 0;
-            const endedDur = event.target.getDuration?.() || 0;
-            if (endedDur > 1 && endedAt < endedDur - 1.5) return;
+            clearActiveBufferTimers();
+            if (!isRealTrackEnd(event.target)) {
+              const target = seekGuardRef.current.target ?? event.target.getCurrentTime?.() ?? 0;
+              const want = videoRef.current?.id;
+              if (want && playerVideoId(event.target) && playerVideoId(event.target) !== want) {
+                event.target.loadVideoById?.({ videoId: want, startSeconds: Math.max(0, target || 0) });
+              } else {
+                event.target.seekTo?.(Math.max(0, target), true);
+              }
+              if (isPlayingRef.current) {
+                event.target.unMute?.();
+                applyPlaybackVolume(event.target);
+                event.target.playVideo?.();
+              }
+              return;
+            }
 
+            const endedToken = `${key}:${generation}:${videoRef.current?.id || ""}`;
+            if (endedTransitionRef.current === endedToken) return;
+            endedTransitionRef.current = endedToken;
             const nextVideo = pendingNextRef.current || getNextVideo();
             const incomingKey = otherDeck(key);
             const incoming = deckPlayerRefs[incomingKey].current;
-            const incomingPlaying =
-              incoming?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING;
-            if (crossfadeInProgressRef.current && incomingPlaying && nextVideo) {
+            const incomingMatches =
+              incoming &&
+              nextVideo &&
+              playerVideoId(incoming) === nextVideo.id;
+            if (
+              crossfadeInProgressRef.current &&
+              incomingMatches &&
+              isVerifiedIncoming(incomingKey, incoming, nextVideo.id)
+            ) {
               completeCrossfade(key, incomingKey, nextVideo);
               return;
             }
+            if (crossfadeInProgressRef.current && incomingMatches) {
+              handoffWaitingRef.current = {
+                outgoingKey: key,
+                incomingKey,
+                nextVideo,
+              };
+              applyPlaybackVolume(incoming);
+              incoming.unMute?.();
+              incoming.playVideo?.();
+              if (handoffTimerRef.current) {
+                window.clearTimeout(handoffTimerRef.current);
+              }
+              const handoffStartedAt = performance.now();
+              const retryHandoff = () => {
+                if (
+                  handoffWaitingRef.current?.incomingKey !== incomingKey ||
+                  !crossfadeInProgressRef.current
+                ) {
+                  return;
+                }
+                const candidate = deckPlayerRefs[incomingKey].current;
+                if (isVerifiedIncoming(incomingKey, candidate, nextVideo.id)) {
+                  completeCrossfade(key, incomingKey, nextVideo);
+                  return;
+                }
+                candidate?.unMute?.();
+                applyPlaybackVolume(candidate);
+                candidate?.playVideo?.();
+                if (performance.now() - handoffStartedAt >= 10000) {
+                  hardSwitchOnDeck(key, nextVideo);
+                  return;
+                }
+                handoffTimerRef.current = window.setTimeout(
+                  retryHandoff,
+                  200,
+                );
+              };
+              handoffTimerRef.current = window.setTimeout(retryHandoff, 200);
+              return;
+            }
             if (crossfadeInProgressRef.current && nextVideo) {
-              cancelCrossfade();
-              destroyDeck(incomingKey);
-              dispatch(setYoutubeVideo(nextVideo));
+              hardSwitchOnDeck(key, nextVideo);
               return;
             }
             if (!crossfadeInProgressRef.current && nextVideo) {
-              if (status === "authenticated" && videoRef.current?.id) {
-                recordPlayEvent(videoRef.current.id, "completed");
-              }
-              dispatch(setYoutubeVideo(nextVideo));
+              hardSwitchOnDeck(key, nextVideo);
             }
           }
         },
         onAutoplayBlocked: () => {
           if (!isCurrent()) return;
           if (key === activeDeckRef.current) {
+            clearActiveBufferTimers();
             dispatch(playPause(false));
           } else {
-            crossfadeInProgressRef.current = false;
-            destroyDeck(key);
+            recoverFromIncomingFailure(key);
           }
         },
         onError: (event) => {
           if (!isCurrent()) return;
           if (key === activeDeckRef.current) {
+            clearActiveBufferTimers();
             setPlayerError(playerErrorMessage(event.data));
             dispatch(playPause(false));
           } else {
-            crossfadeInProgressRef.current = false;
-            destroyDeck(key);
+            recoverFromIncomingFailure(key);
           }
         },
       },
@@ -352,46 +905,135 @@ export default function YouTubePlayer() {
   };
 
   const completeCrossfade = (outgoingKey, incomingKey, nextVideo) => {
-    if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "completed");
+    if (
+      !crossfadeInProgressRef.current ||
+      pendingNextRef.current?.id !== nextVideo?.id ||
+      activeDeckRef.current !== outgoingKey
+    ) {
+      return false;
+    }
     const incomingPlayer = deckPlayerRefs[incomingKey].current;
+    if (!isVerifiedIncoming(incomingKey, incomingPlayer, nextVideo.id)) {
+      return false;
+    }
+
+    if (status === "authenticated" && videoRef.current?.id) {
+      recordPlayEvent(videoRef.current.id, "completed");
+    }
+    stopFadeTimers();
+    videoRef.current = nextVideo;
+    skipCrossfadeVideoRef.current = null;
+    activeDeckRef.current = incomingKey;
+    setActiveDeck(incomingKey);
+    activeTrackStartedRef.current = {
+      videoId: nextVideo.id,
+      startedAt: performance.now(),
+    };
+    resetActiveRecovery(nextVideo.id);
+    activeRecoveryRef.current.lastTime = incomingPlayer.getCurrentTime?.() || 0;
+    activeRecoveryRef.current.lastAdvancedAt = performance.now();
+    if (videoQuality !== "auto" && videoQuality !== "audio-only") {
+      incomingPlayer.setPlaybackQuality?.(videoQuality);
+    }
     applyPlaybackVolume(incomingPlayer);
     incomingPlayer?.unMute?.();
     incomingPlayer?.playVideo?.();
-    destroyDeck(outgoingKey);
-    activeDeckRef.current = incomingKey;
-    setActiveDeck(incomingKey);
-    setFadeProgress(0);
-    crossfadeInProgressRef.current = false;
-    pendingNextRef.current = null;
+    const outgoingPlayer = deckPlayerRefs[outgoingKey].current;
+    outgoingPlayer?.mute?.();
+    outgoingPlayer?.setVolume?.(0);
+    outgoingPlayer?.pauseVideo?.();
     handledVideoIdRef.current = nextVideo.id;
+    preloadedIdRef.current = null;
+    preloadingRef.current = null;
+    preloadRetryAtRef.current = 0;
     setCurrentTime(0);
     setDuration(incomingPlayer?.getDuration?.() || 0);
+    dispatch(playPause(true));
     dispatch(setYoutubeVideo(nextVideo));
+    return true;
   };
 
   const runCrossfadeRamp = (outgoingKey, incomingKey, nextVideo, durationSeconds) => {
-    const totalMs = Math.max(800, Math.min(durationSeconds * 1000, 10000));
-    const startedAt = performance.now();
+    const totalMs = Math.max(350, Math.min(durationSeconds * 1000, 10000));
+    let elapsedMs = 0;
+    let lastFrameAt = performance.now();
+    let bufferingSince = null;
     const outgoingGeneration = deckGenerationRef.current[outgoingKey];
     const incomingGeneration = deckGenerationRef.current[incomingKey];
 
     const step = (now) => {
+      if (!crossfadeInProgressRef.current) return;
       if (
         deckGenerationRef.current[outgoingKey] !== outgoingGeneration ||
         deckGenerationRef.current[incomingKey] !== incomingGeneration
       ) {
-        crossfadeInProgressRef.current = false;
+        stopFadeTimers();
         return;
       }
-      const progress = Math.min(1, (now - startedAt) / totalMs);
-      applyPlaybackVolume(deckPlayerRefs[outgoingKey].current, Math.cos((progress * Math.PI) / 2));
-      applyPlaybackVolume(deckPlayerRefs[incomingKey].current, Math.sin((progress * Math.PI) / 2));
+      const outgoingPlayer = deckPlayerRefs[outgoingKey].current;
+      const incomingPlayer = deckPlayerRefs[incomingKey].current;
+      const incomingState = incomingPlayer?.getPlayerState?.();
+      const incomingMatches = playerVideoId(incomingPlayer) === nextVideo.id;
+      const incomingProgress = incomingMatches
+        ? noteIncomingProgress(incomingKey, incomingPlayer)
+        : null;
+      const incomingReady =
+        incomingState === window.YT?.PlayerState?.PLAYING &&
+        incomingProgress?.lastAdvancedAt > 0 &&
+        now - incomingProgress.lastAdvancedAt <= INCOMING_STALL_MS;
+
+      if (!incomingMatches) {
+        incomingPlayer?.mute?.();
+        stopFadeTimers();
+        preloadedIdRef.current = null;
+        preloadingRef.current = null;
+        preloadRetryAtRef.current = performance.now() + 2000;
+        outgoingPlayer?.unMute?.();
+        applyPlaybackVolume(outgoingPlayer);
+        if (isPlayingRef.current) outgoingPlayer?.playVideo?.();
+        return;
+      }
+
+      // Never fade the audible deck while the incoming deck is buffering or frozen.
+      if (!incomingReady) {
+        bufferingSince ??= now;
+        lastFrameAt = now;
+        applyPlaybackVolume(outgoingPlayer);
+        applyPlaybackVolume(incomingPlayer, 0);
+        if (now - bufferingSince > 3000) {
+          incomingPlayer?.mute?.();
+          incomingPlayer?.pauseVideo?.();
+          incomingPlayer?.seekTo?.(0, true);
+          stopFadeTimers();
+          preloadedIdRef.current = null;
+          preloadingRef.current = null;
+          preloadRetryAtRef.current = performance.now() + 2000;
+          outgoingPlayer?.unMute?.();
+          applyPlaybackVolume(outgoingPlayer);
+          if (isPlayingRef.current) outgoingPlayer?.playVideo?.();
+          return;
+        }
+        crossfadeTimerRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+
+      bufferingSince = null;
+      elapsedMs += now - lastFrameAt;
+      lastFrameAt = now;
+      const progress = Math.min(1, elapsedMs / totalMs);
+      applyPlaybackVolume(outgoingPlayer, Math.cos((progress * Math.PI) / 2));
+      applyPlaybackVolume(incomingPlayer, Math.sin((progress * Math.PI) / 2));
       if (progress === 0 || progress === 1 || Math.round(progress * 20) !== Math.round((progress - 0.016) * 20)) {
         setFadeProgress(progress);
       }
 
       if (progress >= 1) {
-        completeCrossfade(outgoingKey, incomingKey, nextVideo);
+        if (!completeCrossfade(outgoingKey, incomingKey, nextVideo)) {
+          stopFadeTimers();
+          outgoingPlayer?.unMute?.();
+          applyPlaybackVolume(outgoingPlayer);
+          if (isPlayingRef.current) outgoingPlayer?.playVideo?.();
+        }
         return;
       }
       crossfadeTimerRef.current = window.requestAnimationFrame(step);
@@ -400,30 +1042,73 @@ export default function YouTubePlayer() {
   };
 
   const startCrossfade = (nextVideo, durationSeconds) => {
-    if (crossfadeInProgressRef.current) return;
-    crossfadeInProgressRef.current = true;
-    pendingNextRef.current = nextVideo;
+    if (crossfadeInProgressRef.current || !nextVideo?.id) return;
     const outgoingKey = activeDeckRef.current;
     const incomingKey = otherDeck(outgoingKey);
-    failSafeRef.current = window.setTimeout(() => {
-      if (!crossfadeInProgressRef.current) return;
-      const incoming = deckPlayerRefs[incomingKey].current;
-      if (incoming?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING) {
-        completeCrossfade(outgoingKey, incomingKey, nextVideo);
-        return;
-      }
-      cancelCrossfade();
+    const existing = deckPlayerRefs[incomingKey].current;
+    if (
+      !isPreloadedFor(nextVideo.id, incomingKey) ||
+      (existing && playerVideoId(existing) !== nextVideo.id)
+    ) {
+      preloadedIdRef.current = null;
+      return;
+    }
+
+    clearPreloadTimers();
+    crossfadeInProgressRef.current = true;
+    pendingNextRef.current = nextVideo;
+    let expectedIncomingGeneration = deckGenerationRef.current[incomingKey];
+    let rampStarted = false;
+
+    const isExpectedIncoming = (player) =>
+      deckPlayerRefs[incomingKey].current === player &&
+      deckGenerationRef.current[incomingKey] === expectedIncomingGeneration &&
+      playerVideoId(player) === nextVideo.id;
+
+    const isFreshIncomingPlaying = (player) =>
+      isExpectedIncoming(player) &&
+      isVerifiedIncoming(incomingKey, player, nextVideo.id, {
+        minAdvance: 0.12,
+        maxStallMs: 800,
+      }) &&
+      (player?.getCurrentTime?.() || 0) < 4;
+
+    const restoreOutgoing = () => {
       const outgoing = deckPlayerRefs[outgoingKey].current;
+      const incoming = deckPlayerRefs[incomingKey].current;
+      incoming?.mute?.();
+      incoming?.setVolume?.(0);
+      incoming?.pauseVideo?.();
+      incoming?.seekTo?.(0, true);
+      stopFadeTimers();
+      preloadedIdRef.current = null;
+      preloadingRef.current = null;
+      preloadRetryAtRef.current = performance.now() + 2000;
       outgoing?.unMute?.();
       applyPlaybackVolume(outgoing);
-      outgoing?.loadVideoById?.(nextVideo.id);
-      outgoing?.playVideo?.();
-      handledVideoIdRef.current = nextVideo.id;
-      dispatch(playPause(true));
-      dispatch(setYoutubeVideo(nextVideo));
-    }, 5000);
+      if (isPlayingRef.current) outgoing?.playVideo?.();
+    };
+
+    failSafeRef.current = window.setTimeout(() => {
+      if (!crossfadeInProgressRef.current || rampStarted) return;
+      const incoming = deckPlayerRefs[incomingKey].current;
+      if (isFreshIncomingPlaying(incoming)) {
+        beginRamp(incoming);
+        return;
+      }
+      restoreOutgoing();
+    }, 4000);
 
     const beginRamp = (incomingPlayer) => {
+      if (
+        rampStarted ||
+        !crossfadeInProgressRef.current ||
+        pendingNextRef.current?.id !== nextVideo.id ||
+        !isFreshIncomingPlaying(incomingPlayer)
+      ) {
+        return;
+      }
+      rampStarted = true;
       if (failSafeRef.current) {
         window.clearTimeout(failSafeRef.current);
         failSafeRef.current = null;
@@ -432,37 +1117,149 @@ export default function YouTubePlayer() {
         window.clearInterval(waitForPlayRef.current);
         waitForPlayRef.current = null;
       }
+      incomingPlayer.mute?.();
+      incomingPlayer.setVolume?.(0);
       incomingPlayer.unMute();
       applyPlaybackVolume(incomingPlayer, 0);
       incomingPlayer.playVideo?.();
-      runCrossfadeRamp(outgoingKey, incomingKey, nextVideo, durationSeconds);
+      const outgoingPlayer = deckPlayerRefs[outgoingKey].current;
+      const remaining =
+        (outgoingPlayer?.getDuration?.() || 0) -
+        (outgoingPlayer?.getCurrentTime?.() || 0);
+      const rampSeconds =
+        remaining > 0
+          ? Math.min(durationSeconds, Math.max(0.35, remaining - 0.15))
+          : durationSeconds;
+      runCrossfadeRamp(outgoingKey, incomingKey, nextVideo, rampSeconds);
     };
 
-    const existing = deckPlayerRefs[incomingKey].current;
-    if (existing?.loadVideoById) {
-      existing.mute?.();
-      existing.setVolume?.(0);
-      existing.loadVideoById(nextVideo.id);
-      existing.playVideo?.();
+    const waitUntilPlaying = (player) => {
+      if (isFreshIncomingPlaying(player)) {
+        beginRamp(player);
+        return;
+      }
       waitForPlayRef.current = window.setInterval(() => {
-        if (!crossfadeInProgressRef.current) {
+        if (!crossfadeInProgressRef.current || rampStarted) {
           window.clearInterval(waitForPlayRef.current);
           waitForPlayRef.current = null;
           return;
         }
-        if (existing.getPlayerState?.() === window.YT?.PlayerState?.PLAYING) {
+        if (
+          deckPlayerRefs[incomingKey].current !== player ||
+          deckGenerationRef.current[incomingKey] !== expectedIncomingGeneration
+        ) {
           window.clearInterval(waitForPlayRef.current);
           waitForPlayRef.current = null;
-          beginRamp(existing);
+          restoreOutgoing();
+          return;
         }
-      }, 150);
+        if (isFreshIncomingPlaying(player)) {
+          window.clearInterval(waitForPlayRef.current);
+          waitForPlayRef.current = null;
+          beginRamp(player);
+        }
+      }, 80);
+    };
+
+    // A cue-only deck has no stale media pipeline, so starting it here avoids
+    // both iframe startup latency and background-stream contention.
+    if (existing) {
+      existing.mute?.();
+      existing.setVolume?.(0);
+      existing.loadVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
+      existing.playVideo?.();
+      waitUntilPlaying(existing);
       return;
     }
 
-    mountDeck(incomingKey, nextVideo.id, {
-      onFirstPlaying: beginRamp,
+    const mounted = mountDeck(incomingKey, nextVideo.id, {
+      onFirstPlaying: waitUntilPlaying,
     });
+    expectedIncomingGeneration = deckGenerationRef.current[incomingKey];
+    if (mounted) waitUntilPlaying(mounted);
+    else restoreOutgoing();
   };
+
+  const preloadNext = (nextVideo) => {
+    if (!nextVideo?.id || !apiReady || transitionMode === "off" || dataSaver) return;
+    if (crossfadeInProgressRef.current) return;
+    if (performance.now() < preloadRetryAtRef.current) return;
+    if (!isActivePlaybackHealthy()) {
+      preloadRetryAtRef.current = performance.now() + 1000;
+      return;
+    }
+    const idleKey = otherDeck(activeDeckRef.current);
+    const idle = deckPlayerRefs[idleKey].current;
+    if (isPreloadedFor(nextVideo.id, idleKey)) return;
+    if (preloadingRef.current === nextVideo.id && idle) return;
+    clearPreloadTimers();
+    preloadingRef.current = nextVideo.id;
+    let expectedGeneration = deckGenerationRef.current[idleKey];
+
+    const isCurrentIdlePreload = (player) =>
+      !crossfadeInProgressRef.current &&
+      activeDeckRef.current !== idleKey &&
+      deckPlayerRefs[idleKey].current === player &&
+      deckGenerationRef.current[idleKey] === expectedGeneration &&
+      preloadingRef.current === nextVideo.id;
+
+    const cueIdleDeck = (player) => {
+      if (!isCurrentIdlePreload(player)) return;
+      clearPreloadTimers();
+      player.mute?.();
+      player.setVolume?.(0);
+      player.pauseVideo?.();
+      player.setPlaybackQuality?.("tiny");
+      player.cueVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
+      const cueStartedAt = performance.now();
+
+      preloadPollTimerRef.current = window.setInterval(() => {
+        if (!isCurrentIdlePreload(player)) {
+          clearPreloadTimers();
+          return;
+        }
+        const state = player.getPlayerState?.();
+        const cueReady =
+          playerVideoId(player) === nextVideo.id &&
+          (
+            state === window.YT?.PlayerState?.CUED ||
+            (state === window.YT?.PlayerState?.PAUSED && (player.getDuration?.() || 0) > 0)
+          );
+        if (cueReady) {
+          clearPreloadTimers();
+          markPreloaded(nextVideo.id, idleKey);
+          preloadingRef.current = null;
+          preloadRetryAtRef.current = 0;
+          return;
+        }
+        if (performance.now() - cueStartedAt >= 6000) {
+          clearPreloadTimers();
+          player.mute?.();
+          player.setVolume?.(0);
+          player.pauseVideo?.();
+          preloadedIdRef.current = null;
+          preloadingRef.current = null;
+          preloadRetryAtRef.current = performance.now() + 3000;
+        }
+      }, 100);
+    };
+
+    if (idle?.cueVideoById) {
+      cueIdleDeck(idle);
+      return;
+    }
+
+    const mounted = mountDeck(idleKey, nextVideo.id, {
+      autoplay: false,
+      onDeckReady: cueIdleDeck,
+    });
+    expectedGeneration = deckGenerationRef.current[idleKey];
+    if (!mounted) {
+      preloadingRef.current = null;
+      preloadRetryAtRef.current = performance.now() + 3000;
+    }
+  };
+  preloadNextRef.current = preloadNext;
 
   useEffect(() => {
     if (window.YT?.Player) {
@@ -487,6 +1284,15 @@ export default function YouTubePlayer() {
 
   useEffect(() => {
     if (!video || !apiReady) return;
+    endedTransitionRef.current = null;
+    preloadRetryAtRef.current = 0;
+    resetActiveRecovery(video.id);
+    if (skipCrossfadeVideoRef.current !== video.id) {
+      skipCrossfadeVideoRef.current = null;
+    }
+    if (activeTrackStartedRef.current.videoId !== video.id) {
+      activeTrackStartedRef.current = { videoId: video.id, startedAt: 0 };
+    }
 
     // The crossfade engine already loaded and is playing this exact track; just adopt it.
     if (handledVideoIdRef.current === video.id) {
@@ -494,8 +1300,108 @@ export default function YouTubePlayer() {
       return;
     }
 
-    cancelCrossfade();
-    seekGuardRef.current = { seeking: false, until: 0, target: null };
+    const idleKey = otherDeck(activeDeckRef.current);
+    const idle = deckPlayerRefs[idleKey].current;
+    const idleId = playerVideoId(idle);
+    if (idle && idleId === video.id) {
+      if (!isPreloadedFor(video.id, idleKey)) {
+        hardSwitchOnDeck(activeDeckRef.current, video, {
+          recordCompletion: false,
+        });
+        return;
+      }
+      stopFadeTimers();
+      const outgoingKey = activeDeckRef.current;
+      const idleGeneration = deckGenerationRef.current[idleKey];
+      const outgoing = deckPlayerRefs[outgoingKey].current;
+      let cancelled = false;
+      let promoted = false;
+      let poll = null;
+      let fallback = null;
+      preloadedIdRef.current = null;
+      preloadingRef.current = null;
+      outgoing?.unMute?.();
+      applyPlaybackVolume(outgoing);
+      if (isPlayingRef.current) outgoing?.playVideo?.();
+
+      try {
+        idle.mute?.();
+        idle.setVolume?.(0);
+        const t = idle.getCurrentTime?.() || 0;
+        if (t > 0.15) idle.seekTo?.(0, true);
+        idle.playVideo?.();
+      } catch (error) {
+        // Preloaded deck may still be buffering.
+      }
+
+      const promoteWhenPlaying = () => {
+        if (
+          cancelled ||
+          promoted ||
+          deckPlayerRefs[idleKey].current !== idle ||
+          deckGenerationRef.current[idleKey] !== idleGeneration ||
+          !isVerifiedIncoming(idleKey, idle, video.id)
+        ) {
+          return false;
+        }
+        promoted = true;
+        if (fallback) {
+          window.clearTimeout(fallback);
+          fallback = null;
+        }
+        activeDeckRef.current = idleKey;
+        setActiveDeck(idleKey);
+        activeTrackStartedRef.current = {
+          videoId: video.id,
+          startedAt: performance.now(),
+        };
+        resetActiveRecovery(video.id);
+        activeRecoveryRef.current.lastTime = idle.getCurrentTime?.() || 0;
+        activeRecoveryRef.current.lastAdvancedAt = performance.now();
+        if (videoQuality !== "auto" && videoQuality !== "audio-only") {
+          idle.setPlaybackQuality?.(videoQuality);
+        }
+        applyPlaybackVolume(idle);
+        idle.unMute?.();
+        idle.playVideo?.();
+        destroyDeck(outgoingKey);
+        setPlayerError("");
+        setCurrentTime(idle.getCurrentTime?.() || 0);
+        setDuration(idle.getDuration?.() || 0);
+        dispatch(playPause(true));
+        return true;
+      };
+
+      if (!promoteWhenPlaying()) {
+        poll = window.setInterval(() => {
+          if (promoteWhenPlaying() && poll) {
+            window.clearInterval(poll);
+            poll = null;
+          }
+        }, 60);
+        fallback = window.setTimeout(() => {
+          if (!promoted && !cancelled) {
+            if (poll) window.clearInterval(poll);
+            poll = null;
+            hardSwitchOnDeck(outgoingKey, video, {
+              recordCompletion: false,
+            });
+          }
+        }, 15000);
+      }
+
+      return () => {
+        cancelled = true;
+        if (poll) window.clearInterval(poll);
+        if (fallback) window.clearTimeout(fallback);
+      };
+    }
+
+    stopFadeTimers();
+    preloadedIdRef.current = null;
+    preloadingRef.current = null;
+    seekGuardRef.current = { seeking: false, until: 0, target: null, videoId: null };
+    nearEndStreakRef.current = 0;
     setPlayerError("");
     setCurrentTime(0);
     setDuration(0);
@@ -504,9 +1410,10 @@ export default function YouTubePlayer() {
     if (existing?.loadVideoById) {
       existing.unMute?.();
       applyPlaybackVolume(existing);
-      existing.loadVideoById(video.id);
+      existing.loadVideoById({ videoId: video.id, startSeconds: 0 });
       existing.playVideo?.();
-      silenceIdleDeck();
+      const nextId = getNextVideo()?.id;
+      if (idle && idleId && idleId !== nextId) destroyDeck(idleKey);
       return;
     }
     destroyDeck("A");
@@ -519,6 +1426,7 @@ export default function YouTubePlayer() {
 
   useEffect(() => () => {
     cancelCrossfade();
+    clearActiveBufferTimers();
     destroyDeck("A");
     destroyDeck("B");
     try {
@@ -531,29 +1439,81 @@ export default function YouTubePlayer() {
 
   useEffect(() => {
     tickRef.current = () => {
-      const activePlayer = getPlayerForCurrentVideo();
+      const activePlayer = getActivePlayer();
       if (!activePlayer?.getCurrentTime) return;
       const time = activePlayer.getCurrentTime();
       const dur = activePlayer.getDuration();
       const guard = seekGuardRef.current;
-      const seekPending = guard.target != null && (guard.seeking || Math.abs(time - guard.target) > 1.5);
+      const id = playerVideoId(activePlayer);
+      const want = videoRef.current?.id;
+      watchActiveProgress(
+        activeDeckRef.current,
+        activePlayer,
+        deckGenerationRef.current[activeDeckRef.current],
+      );
+      if (
+        activePlayer.getPlayerState?.() === window.YT?.PlayerState?.BUFFERING
+      ) {
+        scheduleActiveBufferRecovery(
+          activeDeckRef.current,
+          activePlayer,
+          deckGenerationRef.current[activeDeckRef.current],
+        );
+      }
+      if (want && id && id !== want && !crossfadeInProgressRef.current && !isSeekGuarded()) {
+        activePlayer.loadVideoById?.({ videoId: want, startSeconds: Math.max(0, guard.target || 0) });
+        activePlayer.playVideo?.();
+        markSeek(guard.target || 0);
+        return;
+      }
+      const seekPending = guard.target != null && (guard.seeking || Math.abs(time - guard.target) > 1.25);
+      if (seekPending && !guard.seeking && guard.target != null) {
+        try {
+          activePlayer.seekTo(guard.target, true);
+        } catch (error) {
+          // Player is still buffering the seek.
+        }
+      }
       setCurrentTime(seekPending ? guard.target : time);
-      setDuration(dur);
-      if (!guard.seeking && guard.target != null && Math.abs(time - guard.target) <= 1.5) {
+      if (dur > 0) setDuration(dur);
+      if (!guard.seeking && guard.target != null && Math.abs(time - guard.target) <= 1.25 && (!want || !id || id === want)) {
         guard.target = null;
       }
 
-      if (isSeekGuarded() || !isPlaying || crossfadeInProgressRef.current || !dur) return;
-      const remaining = dur - time;
       const nextVideo = getNextVideo();
-      if (!nextVideo) return;
-      const fadeSeconds = transitionMode === "off" ? 0 : Number(crossfadeSeconds) || 0;
-      if (fadeSeconds > 0 && remaining <= fadeSeconds && remaining > 0.35) {
-        startCrossfade(nextVideo, Math.min(fadeSeconds, Math.max(remaining - 0.35, 0.8)));
+      if (!crossfadeInProgressRef.current && nextVideo && !isPreloadedFor(nextVideo.id)) {
+        preloadNextRef.current(nextVideo);
+      }
+      if (isSeekGuarded() || !isPlaying || crossfadeInProgressRef.current || !dur) {
+        nearEndStreakRef.current = 0;
         return;
       }
-      if (remaining <= END_SCREEN_GUARD && remaining > 0) {
-        dispatch(setYoutubeVideo(nextVideo));
+      const remaining = dur - time;
+      const requestedFadeSeconds =
+        transitionMode === "off" ||
+        skipCrossfadeVideoRef.current === want
+          ? 0
+          : Number(crossfadeSeconds) || 0;
+      // YouTube's first iframe media segment is typically about five seconds.
+      // Releasing the outgoing stream sooner leaves headroom for segment two.
+      const fadeSeconds = Math.min(
+        requestedFadeSeconds,
+        MAX_SAFE_YOUTUBE_CROSSFADE_SECONDS,
+      );
+      if (fadeSeconds <= 0) {
+        nearEndStreakRef.current = 0;
+        return;
+      }
+      const transitionLeadSeconds = Math.min(
+        requestedFadeSeconds,
+        fadeSeconds + 3,
+      );
+      if (remaining <= transitionLeadSeconds && remaining > 0.25) nearEndStreakRef.current += 1;
+      else nearEndStreakRef.current = 0;
+      if (!nextVideo) return;
+      const ready = isPreloadedFor(nextVideo.id);
+      if (ready && nearEndStreakRef.current >= 1) {
+        startCrossfade(nextVideo, Math.min(fadeSeconds, Math.max(remaining - 0.2, 0.8)));
       }
     };
   });
@@ -630,20 +1590,17 @@ export default function YouTubePlayer() {
   }, [playbackVolume, masterVolume]);
 
   useEffect(() => {
-    if (!video || !apiReady || transitionMode === "off" || crossfadeInProgressRef.current) return;
-    const nextVideo = getNextVideo();
-    if (!nextVideo) return;
-    const idleKey = otherDeck(activeDeckRef.current);
-    const idle = deckPlayerRefs[idleKey].current;
-    if (!idle?.cueVideoById) return;
-    idle.cueVideoById(nextVideo.id);
-    idle.mute?.();
-    idle.setVolume?.(0);
-  }, [video?.id, queue, apiReady, transitionMode]);
+    if (!video || !apiReady || transitionMode === "off" || dataSaver) return;
+    const timer = window.setTimeout(
+      () => preloadNextRef.current(getNextVideo()),
+      PRELOAD_START_DELAY_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [video?.id, queue, apiReady, transitionMode, dataSaver]);
 
   useEffect(() => {
     if (crossfadeInProgressRef.current || isSeekGuarded()) return;
-    const player = getPlayerForCurrentVideo();
+    const player = getActivePlayer();
     if (!player?.getPlayerState) return;
     if (isPlaying) player.playVideo();
     else player.pauseVideo();
@@ -651,18 +1608,34 @@ export default function YouTubePlayer() {
   }, [isPlaying]);
 
   const seekOnCurrentTrack = (nextTime, { dragging = false } = {}) => {
-    const time = Math.max(0, Number(nextTime) || 0);
-    abortCrossfade();
-    silenceIdleDeck();
-    setFadeProgress(0);
-    seekGuardRef.current.seeking = dragging;
-    seekGuardRef.current.target = time;
-    seekGuardRef.current.until = performance.now() + 2500;
+    const player = getActivePlayer();
+    const dur = player?.getDuration?.() || 0;
+    const raw = Math.max(0, Number(nextTime) || 0);
+    const time = dur > 1 ? Math.min(raw, dur - 0.25) : raw;
+    hushIdleDeck();
+    preloadedIdRef.current = null;
+    const requestedFadeSeconds = Number(crossfadeSeconds) || 0;
+    skipCrossfadeVideoRef.current =
+      videoRef.current?.id &&
+      dur > 0 &&
+      dur - time <= Math.max(20, requestedFadeSeconds + 8)
+        ? videoRef.current.id
+        : null;
+    markSeek(time, dragging);
     setCurrentTime(time);
-    const player = getPlayerForCurrentVideo();
+    const want = videoRef.current?.id;
     try {
-      player?.seekTo?.(time, true);
-      if (isPlayingRef.current) player?.playVideo?.();
+      const loadedId = playerVideoId(player);
+      if (want && loadedId && loadedId !== want) {
+        player.loadVideoById?.({ videoId: want, startSeconds: time });
+      } else {
+        player?.seekTo?.(time, true);
+      }
+      if (isPlayingRef.current) {
+        player?.unMute?.();
+        applyPlaybackVolume(player);
+        player?.playVideo?.();
+      }
     } catch (error) {
       // Player may still be loading the current video.
     }
@@ -801,7 +1774,7 @@ export default function YouTubePlayer() {
   const endSeekDrag = (event) => {
     seekOnCurrentTrack(Number(event.currentTarget.value));
     seekGuardRef.current.seeking = false;
-    seekGuardRef.current.until = performance.now() + 2500;
+    seekGuardRef.current.until = performance.now() + SEEK_GUARD_MS;
   };
 
   useEffect(() => {
@@ -893,22 +1866,27 @@ export default function YouTubePlayer() {
   };
 
   const fullscreen = expanded && videoVisible;
+  const compactFullscreen = fullscreen && isNarrow;
   const currentQueueIndex = queue.findIndex((item) => item.id === video.id);
   const upcoming = currentQueueIndex === -1 ? queue : queue.slice(currentQueueIndex + 1);
-  const showDesktopQueue = showQueue && !(fullscreen && isMobile);
-  const showMobileSheet = fullscreen && isMobile && mobileSheet;
+  const showDesktopQueue = showQueue && !compactFullscreen;
+  const showMobileSheet = false;
 
   return (
     <div
-      className={fullscreen ? "relative flex h-full min-h-0 w-full flex-1 flex-col bg-black" : "relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 py-2 sm:px-6"}
+      className={compactFullscreen ? "flex w-full flex-col bg-black" : fullscreen ? "relative flex h-full min-h-0 w-full flex-1 flex-col bg-black" : "yt-dock"}
       onClick={(event) => event.stopPropagation()}
-      onTouchStart={fullscreen ? onFullscreenSwipeStart : undefined}
-      onTouchEnd={fullscreen ? onFullscreenSwipeEnd : undefined}
+      onTouchStart={fullscreen && !compactFullscreen ? onFullscreenSwipeStart : undefined}
+      onTouchEnd={fullscreen && !compactFullscreen ? onFullscreenSwipeEnd : undefined}
     >
+      <div className={compactFullscreen ? "relative flex min-h-[100dvh] flex-col" : "contents"}>
       {pipFloat && videoVisible && !expanded && (
-        <img src={video.thumbnail} alt="" className="h-14 w-[5.6rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-28" />
+        <img src={video.thumbnail} alt="" className="yt-dock-thumb h-14 w-[5.6rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-28" />
       )}
-      <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px]"}>
+      {!fullscreen && !videoVisible && (
+        <img src={video.thumbnail} alt="" className="yt-dock-thumb h-14 w-14 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-16" />
+      )}
+      <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-thumb relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px]"}>
         {["A", "B"].map((key) => (
           <div
             key={key}
@@ -937,7 +1915,7 @@ export default function YouTubePlayer() {
           </div>
         )}
       </div>
-      <div className={fullscreen ? "pointer-events-none absolute left-5 top-5 z-20 min-w-0" : "min-w-0"}>
+      <div className={compactFullscreen ? "px-4 pt-4" : fullscreen ? "pointer-events-none absolute left-5 top-5 z-20 min-w-0" : "yt-dock-track"}>
         {fullscreen ? (
           <div>
             <p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p>
@@ -945,32 +1923,25 @@ export default function YouTubePlayer() {
             <p className="text-sm text-gray-300">{video.channel}</p>
           </div>
         ) : (
-          <div className="flex min-w-0 items-center gap-3">
-            {!videoVisible && (
-              <img
-                src={video.thumbnail}
-                alt=""
-                className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-white/10 sm:h-12 sm:w-12"
-              />
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">{video.title}</p>
-              <p className="mt-1 truncate text-xs text-gray-400">{video.channel}</p>
-            </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">{video.title}</p>
+            <p className="truncate text-xs text-gray-400">{video.channel}</p>
           </div>
         )}
       </div>
-      <div className={fullscreen ? "absolute inset-x-0 bottom-4 z-20 mx-auto flex w-[min(92vw,880px)] flex-col items-center gap-2" : "flex flex-col items-center justify-center gap-1"}>
-        <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "flex shrink-0 items-center gap-1 text-gray-200"}>
-        {fullscreen && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
+      <div className={compactFullscreen ? "px-4 pb-6 pt-2" : fullscreen ? "absolute inset-x-0 bottom-4 z-20 mx-auto flex w-[min(92vw,880px)] flex-col items-center gap-2" : "yt-dock-center"}>
+        <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "yt-dock-transport"}>
+        {fullscreen && !compactFullscreen && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
           <div className={fullscreen ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 backdrop-blur" : "contents"}>
+          <AddToPlaylistButton track={video} />
           <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCcw /></button>
           <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="rounded-full bg-[#00e6e6] p-2 text-black hover:scale-105">{isPlaying ? <FiPause /> : <FiPlay />}</button>
           <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCw /></button>
+          <FavouriteTrackButton track={video} />
           </div>
-          {fullscreen && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
+          {fullscreen && !compactFullscreen && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
         </div>
-        <div className={fullscreen ? "w-full" : "w-32 sm:w-64 md:w-96"}>
+        <div className={fullscreen ? "w-full" : "yt-dock-seek"}>
           <input
             aria-label="YouTube song progress"
             type="range"
@@ -992,14 +1963,11 @@ export default function YouTubePlayer() {
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>
-      <div className={fullscreen ? "absolute right-5 top-5 z-20 flex items-center justify-end gap-2" : "flex items-center justify-end gap-2"}>
-      {!expanded && <div className="hidden sm:block"><AddToPlaylistButton track={video} /></div>}
-      {!expanded && <div className="hidden sm:block"><FavouriteTrackButton track={video} /></div>}
-      <div ref={queueMenuRef} className="relative flex items-center gap-2">
-        {!(fullscreen && isMobile) && (
-          <button type="button" aria-expanded={showQueue} onClick={() => { setShowQueue((value) => !value); if (isMobile && fullscreen) setMobileSheet((value) => !value); }} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}><span className="hidden sm:inline">Next up</span> {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
+      <div ref={queueMenuRef} className={compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : fullscreen ? "absolute right-5 top-5 z-20 flex items-center justify-end gap-1 sm:gap-2" : "yt-dock-tools"}>
+        {!compactFullscreen && (
+          <button type="button" aria-label="Next up" aria-expanded={showQueue} onClick={() => { setShowQueue((value) => !value); if (isMobile && fullscreen) setMobileSheet((value) => !value); }} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}><span className="hidden lg:inline">Next up</span> {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
         )}
-        {!(fullscreen && isMobile) && (
+        {!compactFullscreen && (
         <button
           type="button"
           aria-pressed={showLyrics}
@@ -1027,20 +1995,6 @@ export default function YouTubePlayer() {
         )}
         {!fullscreen && <PlayerVolume />}
         <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
-        <button
-          type="button"
-          aria-label="Close YouTube player"
-          title="Close YouTube player"
-          onClick={() => {
-            closePictureInPicture();
-            setExpanded(false);
-            dispatch(setFullScreen(false));
-            dispatch(setYoutubeVideo(null));
-          }}
-          className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-gray-300 transition hover:bg-white/10 hover:text-white" : "rounded-full p-2 text-gray-300 transition hover:bg-white/10 hover:text-white"}
-        >
-          <FiX size={18} />
-        </button>
         {showDesktopQueue && !fullscreen && (
           <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl">
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Next up</p>
@@ -1079,6 +2033,56 @@ export default function YouTubePlayer() {
         )}
       </div>
       </div>
+      {compactFullscreen && (
+        <div className="border-t border-white/10 bg-[#07121d] px-3 pb-10 pt-2">
+          <div className="flex w-full items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setSheetTab("queue")}
+              className={`${sheetTab === "queue" ? "border-[#00e6e6] border-b-2" : ""} m-3 text-xl font-medium text-white`}
+            >
+              Queue
+            </button>
+            <button
+              type="button"
+              onClick={() => setSheetTab("lyrics")}
+              className={`${sheetTab === "lyrics" ? "border-[#00e6e6] border-b-2" : ""} m-3 text-xl font-medium text-white`}
+            >
+              Lyrics
+            </button>
+          </div>
+          {sheetTab === "queue" ? (
+            <div className="min-h-[40vh]">
+              {queue.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Queue is empty.</p>}
+              {queue.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => playQueueItem(item)}
+                  className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 ${item.id === video.id ? "bg-white/10" : ""}`}
+                >
+                  <img src={item.thumbnail} alt="" className="h-11 w-11 rounded object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-white">{item.title}</p>
+                    <p className="truncate text-xs text-gray-400">{item.channel}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : syncedLyrics === false ? (
+            <p className="px-4 py-6 text-center text-sm text-gray-400">Live lyrics are turned off in Settings.</p>
+          ) : (
+            <SyncedLyrics
+              title={video.title}
+              artist={video.channel}
+              duration={duration}
+              currentTime={currentTime}
+              onSeek={seekOnCurrentTrack}
+              className="min-h-[40vh]"
+            />
+          )}
+        </div>
+      )}
       {showDesktopQueue && fullscreen && (
         <div className="yt-queue-panel">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Next up</p>
@@ -1090,40 +2094,7 @@ export default function YouTubePlayer() {
           </div>
         </div>
       )}
-      {fullscreen && isMobile && !mobileSheet && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-28 z-20 text-center text-[11px] uppercase tracking-[0.2em] text-white/55">Swipe up for lyrics and queue</p>
-      )}
-      {showMobileSheet && (
-        <div className="yt-mobile-sheet">
-          <div className="yt-mobile-sheet-handle" />
-          <div className="mb-3 flex gap-2">
-            <button type="button" onClick={() => setSheetTab("queue")} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${sheetTab === "queue" ? "bg-[#00e6e6] text-black" : "bg-white/10 text-gray-300"}`}>Queue</button>
-            <button type="button" onClick={() => setSheetTab("lyrics")} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${sheetTab === "lyrics" ? "bg-[#00e6e6] text-black" : "bg-white/10 text-gray-300"}`}>Lyrics</button>
-            <button type="button" aria-label="Show video" onClick={() => { setMobileSheet(false); setShowQueue(false); setShowLyrics(false); }} className="ml-auto text-xs text-gray-400">Swipe down</button>
-          </div>
-          {sheetTab === "queue" ? (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {upcoming.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Queue is empty.</p>}
-              {upcoming.map((item) => (
-                <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10">
-                  <img src={item.thumbnail} alt="" className="h-11 w-11 rounded object-cover" />
-                  <span className="min-w-0 flex-1 truncate text-sm text-white">{item.title}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <SyncedLyrics
-              title={video.title}
-              artist={video.channel}
-              duration={duration}
-              currentTime={currentTime}
-              onSeek={seekOnCurrentTrack}
-              className="min-h-0 flex-1"
-            />
-          )}
-        </div>
-      )}
-      {showLyrics && syncedLyrics !== false && !isMobile && (
+      {showLyrics && syncedLyrics !== false && !compactFullscreen && (
         <div className={fullscreen ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
           <button
             type="button"

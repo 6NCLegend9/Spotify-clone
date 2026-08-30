@@ -37,7 +37,7 @@ export default function PlayerVolume({ className = "" }) {
         aria-label={volume === 0 ? "Unmute" : "Mute"}
         title="Volume"
         onClick={() => {
-          if (window.matchMedia("(max-width: 639px)").matches) {
+          if (window.matchMedia("(max-width: 1023px)").matches) {
             setOpen((value) => !value);
             return;
           }
@@ -55,7 +55,7 @@ export default function PlayerVolume({ className = "" }) {
         step="0.01"
         value={volume}
         onChange={(event) => setVolume(Number(event.target.value))}
-        className="player-volume-slider hidden sm:block"
+        className="player-volume-slider hidden lg:block"
       />
       {open && (
         <div className="player-volume-popover">

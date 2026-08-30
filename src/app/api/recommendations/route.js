@@ -92,7 +92,7 @@ function buildGenreSeeds(profile) {
 }
 
 export async function GET(request) {
-  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 10 })) {
+    if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 20 })) {
     return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
   }
 

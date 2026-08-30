@@ -26,7 +26,12 @@ export default function AddToPlaylistButton({ track, className = "" }) {
     if (!track?.id) return;
 
     const rect = buttonRef.current.getBoundingClientRect();
-    setMenuPosition({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
+    const openUp = window.innerHeight - rect.bottom < 280;
+    setMenuPosition({
+      top: openUp ? undefined : rect.bottom + 6,
+      bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
+      right: Math.max(8, window.innerWidth - rect.right),
+    });
     setShowMenu(true);
     if (playlists === null) {
       setLoading(true);
@@ -60,7 +65,12 @@ export default function AddToPlaylistButton({ track, className = "" }) {
             <div className="fixed inset-0 z-[9998]" onClick={() => setShowMenu(false)} />
             <div
               onClick={(event) => event.stopPropagation()}
-              style={{ position: "fixed", top: menuPosition.top, right: menuPosition.right }}
+              style={{
+                position: "fixed",
+                top: menuPosition.top,
+                bottom: menuPosition.bottom,
+                right: menuPosition.right,
+              }}
               className="z-[9999] w-56 max-h-72 overflow-y-auto rounded-lg border border-white/10 bg-[#1a1a2e] p-2 shadow-xl"
             >
               <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-white/50">Add to playlist</p>

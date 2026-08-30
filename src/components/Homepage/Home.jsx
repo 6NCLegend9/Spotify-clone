@@ -9,6 +9,25 @@ import { useSession } from "next-auth/react";
 import RecommendationCard from "../RecommendationCard";
 import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
 
+const HOME_CACHE_KEY = "hayasaka-home-recommendations";
+
+const readHomeCache = () => {
+  try {
+    const raw = sessionStorage.getItem(HOME_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const writeHomeCache = (value) => {
+  try {
+    sessionStorage.setItem(HOME_CACHE_KEY, JSON.stringify(value));
+  } catch (error) {
+    // Storage may be unavailable.
+  }
+};
+
 const Home = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,12 +40,24 @@ const Home = () => {
   else if (currentHour >= 12 && currentHour < 18) salutation = "Good afternoon";
 
   useEffect(() => {
+    const cached = readHomeCache();
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+    }
     const fetchData = async () => {
-      setLoading(true);
-      dispatch(setProgress(70));
+      if (!cached) {
+        setLoading(true);
+        dispatch(setProgress(70));
+      }
       const response = await fetch("/api/recommendations");
       const res = response.ok ? await response.json() : null;
-      setData(res || null);
+      if (res?.sections) {
+        setData(res);
+        writeHomeCache(res);
+      } else if (!cached) {
+        setData(null);
+      }
       dispatch(setProgress(100));
       setLoading(false);
     };
@@ -43,34 +74,6 @@ const Home = () => {
     ["Featured Playlists", sections.featuredPlaylists],
     ...genreSections.map((section) => [section.title, section.videos]),
   ];
-
-  const handleDismiss = (id) => {
-    setData((current) => {
-      if (!current?.sections) return current;
-      const stripped = Object.fromEntries(
-        Object.entries(current.sections).map(([key, value]) => {
-          if (key === "genres" && Array.isArray(value)) {
-            return [
-              key,
-              value
-                .map((section) => ({
-                  ...section,
-                  videos: section.videos?.filter((video) => video.id !== id),
-                }))
-                .filter((section) => section.videos?.length > 0),
-            ];
-          }
-          return [key, value?.filter?.((item) => item.id !== id) ?? value];
-        }),
-      );
-      return { ...current, sections: stripped };
-    });
-    fetch("/api/notInterested", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    }).catch(() => {});
-  };
 
   return (
     <div className="page animate-fade-in">
@@ -105,11 +108,14 @@ const Home = () => {
                 key={`quick-${video.id}`}
                 video={video}
                 queue={sections.trending}
-                onDismiss={status === "authenticated" ? handleDismiss : undefined}
               />
             ))}
           </div>
         </section>
+      )}
+
+      {!loading && !sectionList.some(([, videos]) => videos?.length > 0) && (
+        <p className="mt-6 text-sm text-gray-400">Recommendations are loading slowly. Open Home again in a moment.</p>
       )}
 
       {!loading &&
@@ -127,7 +133,6 @@ const Home = () => {
                         key={video.id}
                         video={video}
                         queue={videos}
-                        onDismiss={status === "authenticated" ? handleDismiss : undefined}
                       />
                     ),
                   )}

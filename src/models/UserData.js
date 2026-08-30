@@ -73,6 +73,7 @@ const fileSchema = new mongoose.Schema(
             streamingQuality: { type: String, enum: ["auto", "low", "normal", "high", "very-high"], default: "auto" },
             normalization: { type: String, enum: ["quiet", "normal", "loud"], default: "normal" },
             monoAudio: { type: Boolean, default: false },
+            explicitContent: { type: Boolean, default: false },
             privateSession: { type: Boolean, default: false },
             tailoredAds: { type: Boolean, default: true },
             syncedLyrics: { type: Boolean, default: true },

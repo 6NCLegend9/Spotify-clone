@@ -361,6 +361,87 @@ select:-webkit-autofill {
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   }
 
+  .yt-dock {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.35rem;
+    padding: 0.45rem 0.7rem;
+    grid-template-columns: auto minmax(0, 1.15fr) minmax(16rem, 1.7fr) minmax(0, 1.15fr);
+    grid-template-areas: "thumb track center tools";
+  }
+
+  .yt-dock-thumb {
+    grid-area: thumb;
+  }
+
+  .yt-dock-track {
+    grid-area: track;
+    min-width: 0;
+  }
+
+  .yt-dock-center {
+    grid-area: center;
+    display: flex;
+    min-width: 0;
+    width: 100%;
+    max-width: 28rem;
+    flex-direction: column;
+    align-items: center;
+    justify-self: center;
+    gap: 0.15rem;
+  }
+
+  .yt-dock-transport {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    color: #e5e7eb;
+  }
+
+  .yt-dock-seek {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .yt-dock-tools {
+    grid-area: tools;
+    position: relative;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    justify-self: end;
+    gap: 0.15rem;
+  }
+
+  @media (max-width: 1023px) {
+    .yt-dock {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "thumb track tools"
+        "center center center";
+    }
+
+    .yt-dock-center {
+      max-width: none;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .yt-dock {
+      padding: 0.4rem 0.55rem 0.5rem;
+      column-gap: 0.45rem;
+    }
+
+    .yt-dock-transport {
+      gap: 0;
+    }
+  }
+
   .player-dock--full {
     position: fixed;
     inset: 0;
@@ -526,9 +607,15 @@ select:-webkit-autofill {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
 }
 
+@media (max-width: 1023px) {
+  .yt-pip-float {
+    bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .lyrics-panel {
   position: fixed;
-  inset: auto 12px 92px 12px;
+  inset: auto 12px calc(88px + env(safe-area-inset-bottom, 0px)) 12px;
   z-index: 75;
   max-height: min(58vh, 460px);
   overflow: hidden;
@@ -543,6 +630,12 @@ select:-webkit-autofill {
   .lyrics-panel {
     inset: auto 24px 108px auto;
     width: min(420px, 42vw);
+  }
+}
+
+@media (max-width: 1023px) {
+  .lyrics-panel {
+    bottom: calc(148px + env(safe-area-inset-bottom, 0px));
   }
 }
 

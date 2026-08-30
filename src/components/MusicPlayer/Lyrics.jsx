@@ -4,20 +4,22 @@ import React from "react";
 import { useSelector } from "react-redux";
 import SongsList from "../SongsList";
 import { useDispatch } from "react-redux";
-import { setAutoAdd } from "@/redux/features/playerSlice";
+import { playPause, setAutoAdd, setYoutubeVideo } from "@/redux/features/playerSlice";
 import SyncedLyrics from "./SyncedLyrics";
 
 const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
   const dispatch = useDispatch();
-  const { currentSongs, autoAdd } = useSelector((state) => state.player);
+  const { currentSongs, autoAdd, youtubeVideo, youtubeQueue } = useSelector((state) => state.player);
   const [activeTab, setActiveTab] = useState("lyrics");
 
-  const title = activeSong?.name || activeSong?.title || "";
-  const artist = Array.isArray(activeSong?.artists?.primary)
-    ? activeSong.artists.primary.map((item) => item?.name).filter(Boolean).join(", ")
-    : typeof activeSong?.artists === "string"
-    ? activeSong.artists
-    : activeSong?.primaryArtists || activeSong?.channel || "";
+  const title = youtubeVideo?.title || activeSong?.name || activeSong?.title || "";
+  const artist = youtubeVideo?.channel
+    || (Array.isArray(activeSong?.artists?.primary)
+      ? activeSong.artists.primary.map((item) => item?.name).filter(Boolean).join(", ")
+      : typeof activeSong?.artists === "string"
+        ? activeSong.artists
+        : activeSong?.primaryArtists || activeSong?.channel || "");
+  const lyricDuration = Number(youtubeVideo?.duration || activeSong?.duration) || duration;
 
   const handleAutoAdd = (checked) => {
     console.log(autoAdd);
@@ -63,13 +65,14 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
           <SyncedLyrics
             title={title}
             artist={artist}
-            duration={Number(activeSong?.duration) || duration}
+            duration={lyricDuration}
             currentTime={currentTime}
             onSeek={onSeek}
             className="md:w-[450px]"
           />
         ) : (
           <div>
+            {!youtubeVideo && (
             <div
               className=" flex justify-between gap-7 mt-4"
               onClick={(e) => e.stopPropagation()}
@@ -97,7 +100,31 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
                 <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none ring-2  ring-gray-500 ch rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-[#00e6e6]"></div>
               </label>
             </div>
-            {currentSongs?.length > 0 ? (
+            )}
+            {youtubeVideo ? (
+              youtubeQueue?.length > 0 ? (
+                <div className="mt-2 md:w-[450px]">
+                  {youtubeQueue.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        dispatch(playPause(true));
+                        dispatch(setYoutubeVideo(item));
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 ${item.id === youtubeVideo.id ? "bg-white/10" : ""}`}
+                    >
+                      <img src={item.thumbnail} alt="" className="h-11 w-11 rounded object-cover" />
+                      <span className="min-w-0 flex-1 truncate text-sm text-white">{item.title}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-white text-lg p-4 sm:p-0 mt-5 md:w-[450px] text-center">
+                  No Songs
+                </div>
+              )
+            ) : currentSongs?.length > 0 ? (
               <div className=" text-white p- mt- md:w-[450px] md:h-full overflow-y-scroll hideScrollBar ">
                 <SongsList
                   SongData={currentSongs}

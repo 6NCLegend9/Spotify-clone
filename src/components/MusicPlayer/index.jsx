@@ -254,7 +254,7 @@ const MusicPlayer = () => {
     <div
       className={`player-dock hideScrollBar flex flex-col ${
         fullScreen
-          ? `player-dock--full items-stretch ${youtubeVideo ? "overflow-hidden p-0" : "items-center min-[1180px]:items-stretch"}`
+          ? `player-dock--full items-stretch ${youtubeVideo ? "p-0 max-[1179px]:overflow-y-auto min-[1180px]:overflow-hidden" : "items-center min-[1180px]:items-stretch"}`
           : `items-center min-[1180px]:items-stretch ${youtubeVideo ? "w-full" : "h-20 w-full px-4 sm:px-8"}`
       }`}
       onClick={() => {
@@ -269,6 +269,7 @@ const MusicPlayer = () => {
       }}
     >
         <YouTubePlayer />
+        {!youtubeVideo && (
         <HiOutlineChevronDown
         onClick={(e) => {
           e.stopPropagation();
@@ -278,6 +279,7 @@ const MusicPlayer = () => {
           fullScreen ? "hidden md:block" : "hidden"
         }`}
       />
+        )}
       {!youtubeVideo && <div
         className={`flex flex-col max-md:justify-center max-md:items-center ${
           fullScreen ? "max-md:min-h-screen pb-5" : ""
@@ -388,7 +390,7 @@ const MusicPlayer = () => {
         </div>
       </div>}
 
-      {fullScreen && (
+      {fullScreen && !youtubeVideo && (
         <div className=" min-[1180px]:hidden">
           <Lyrics
             activeSong={activeSong}

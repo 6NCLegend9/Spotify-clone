@@ -48,10 +48,10 @@ export default function SettingsPage() {
   useEffect(() => {
     if (status !== "authenticated") return;
     let cancelled = false;
-    fetch("/api/recommendations")
+    fetch("/api/settings")
       .then((res) => res.json())
       .then((json) => {
-        if (!cancelled && Array.isArray(json?.profile?.genres)) setGenres(json.profile.genres);
+        if (!cancelled && Array.isArray(json?.genres)) setGenres(json.genres);
       })
       .catch(() => {});
     return () => {
@@ -73,11 +73,12 @@ export default function SettingsPage() {
   const saveSettings = async () => {
     setSaved(false);
     if (status === "authenticated") {
-      await fetch("/api/settings", {
+      const response = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings }),
       });
+      if (!response.ok) return;
     }
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2200);

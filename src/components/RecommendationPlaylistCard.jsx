@@ -47,9 +47,6 @@ export default function RecommendationPlaylistCard({ playlist }) {
           alt=""
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
-        <span className="absolute bottom-3 left-3 rounded-full bg-[#00e6e6] px-3 py-1 text-xs font-bold text-black">
-          {loading ? "Loading..." : "Play"}
-        </span>
       </div>
       <div className="p-4">
         <p className="line-clamp-2 text-sm font-semibold text-white">{playlist.title}</p>
