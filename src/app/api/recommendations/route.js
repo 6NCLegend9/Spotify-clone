@@ -82,14 +82,22 @@ async function searchPlaylists(query) {
     }));
 }
 
-// profile.genres is only ever set by a POST call nothing in the UI makes, so it's
-// always empty; real listening history is the only signal actually populated.
+// profile.genres is only set once a user picks favorite genres in Settings; real signals
+// (followed artists, listening history, recent searches) are preferred when available.
 function buildPersonalizedSeeds(profile) {
+  const followed = Array.isArray(profile?.followedArtists) ? profile.followedArtists : [];
   const history = Array.isArray(profile?.songHistory) ? profile.songHistory : [];
-  const recentChannels = [...new Set(history.map((song) => song?.channel).filter(Boolean))].slice(0, 2);
-  if (recentChannels.length > 0) {
-    return recentChannels.map((channel) => ({ query: channel, reason: `Because you played ${channel}` }));
-  }
+  const recentChannels = [...new Set(history.map((song) => song?.channel).filter(Boolean))];
+  const recentSearches = Array.isArray(profile?.searches) ? [...profile.searches].reverse() : [];
+
+  const candidates = [
+    ...followed.map((name) => ({ query: name, reason: `Because you follow ${name}` })),
+    ...recentChannels.map((channel) => ({ query: channel, reason: `Because you played ${channel}` })),
+    ...recentSearches.map((term) => ({ query: term, reason: `Because you searched "${term}"` })),
+  ];
+  const deduped = candidates.filter((seed, index, all) => all.findIndex((item) => item.query === seed.query) === index);
+  if (deduped.length > 0) return deduped.slice(0, 2);
+
   const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
   return genres.slice(0, 2).map((genre) => ({ query: genre, reason: `Based on your ${genre} taste` }));
 }
@@ -126,10 +134,11 @@ export async function GET(request) {
     const playlists = await searchPlaylists(seeds[0].query);
     const excluded = new Set(profile?.notInterested || []);
     const snoozed = new Set(profile?.snoozedTracks || []);
+    const skipped = new Set(profile?.skippedTracks || []);
     const recent = new Set((profile?.songHistory || []).map((song) => song?.id || song));
     const explicitDisabled = mode === "guest" || profile?.settings?.explicitContent === false;
     const filterRecommendations = (videos) => videos
-      .filter((video) => !excluded.has(video.id) && !snoozed.has(video.id) && !recent.has(video.id))
+      .filter((video) => !excluded.has(video.id) && !snoozed.has(video.id) && !skipped.has(video.id) && !recent.has(video.id))
       .filter((video) => !explicitDisabled || !/explicit|uncensored|18\+/i.test(`${video.title} ${video.description}`))
       .filter((video, index, all) => all.findIndex((item) => item.id === video.id) === index);
     let source = "search";
@@ -153,7 +162,7 @@ export async function GET(request) {
       profile: profile
         ? {
             genres: profile.genres || [],
-            explicitContent: profile.settings?.explicitContent ?? profile.explicitContent,
+            explicitContent: profile.settings?.explicitContent ?? false,
             privateSession: profile.settings?.privateSession ?? false,
           }
         : null,
@@ -182,7 +191,7 @@ export async function POST(request) {
   }
   const profile = await UserData.findByIdAndUpdate(
     user.userData,
-    { $set: { genres, explicitContent: Boolean(body.explicitContent) } },
+    { $set: { genres } },
     { new: true, runValidators: true },
   ).lean();
   return NextResponse.json({ success: true, profile });

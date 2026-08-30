@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
+import { useSession } from "next-auth/react";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import FavouriteTrackButton from "./FavouriteTrackButton";
 import AddToPlaylistButton from "./AddToPlaylistButton";
@@ -13,11 +14,38 @@ export default function YouTubeMusicResults({ query }) {
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
   const dispatch = useDispatch();
+  const { status } = useSession();
   const [loading, setLoading] = useState(false);
   const [songError, setSongError] = useState("");
   const [loadingPlaylistId, setLoadingPlaylistId] = useState(null);
   const [extrasLoaded, setExtrasLoaded] = useState(false);
   const [loadingExtras, setLoadingExtras] = useState(false);
+  const [followedArtists, setFollowedArtists] = useState([]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/followedArtists")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success) setFollowedArtists(json.data || []);
+      })
+      .catch(() => {});
+  }, [status]);
+
+  const toggleFollow = async (name) => {
+    if (status !== "authenticated") return;
+    const isFollowing = followedArtists.some((value) => value.toLowerCase() === name.toLowerCase());
+    setFollowedArtists((current) =>
+      isFollowing ? current.filter((value) => value.toLowerCase() !== name.toLowerCase()) : [...current, name],
+    );
+    const response = await fetch("/api/followedArtists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await response.json().catch(() => null);
+    if (data?.success) toast.success(data.message);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -35,13 +63,20 @@ export default function YouTubeMusicResults({ query }) {
       setResults(response.ok ? data.results || [] : []);
       setSongError(response.ok ? "" : data?.error || "Song search is temporarily unavailable.");
       setLoading(false);
+      if (status === "authenticated") {
+        fetch("/api/searches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ term: query }),
+        }).catch(() => {});
+      }
     };
 
     if (query?.trim()) search();
     return () => {
       cancelled = true;
     };
-  }, [query]);
+  }, [query, status]);
 
   const loadExtras = async () => {
     if (extrasLoaded || loadingExtras) return;
@@ -142,18 +177,30 @@ export default function YouTubeMusicResults({ query }) {
         <div className="mt-10">
           <h3 className="mb-4 text-xl font-semibold text-white">Artists</h3>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
-            {artists.map((artist) => (
-              <a
-                key={artist.id}
-                href={`https://www.youtube.com/channel/${artist.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="group text-center"
-              >
-                <img src={artist.thumbnail} alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition group-hover:scale-105" />
-                <p className="mt-2 truncate text-sm font-semibold text-white">{artist.title}</p>
-              </a>
-            ))}
+            {artists.map((artist) => {
+              const isFollowing = followedArtists.some((value) => value.toLowerCase() === artist.title.toLowerCase());
+              return (
+              <div key={artist.id} className="group text-center">
+                <a
+                  href={`https://www.youtube.com/channel/${artist.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <img src={artist.thumbnail} alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition group-hover:scale-105" />
+                  <p className="mt-2 truncate text-sm font-semibold text-white">{artist.title}</p>
+                </a>
+                {status === "authenticated" && (
+                  <button
+                    type="button"
+                    onClick={() => toggleFollow(artist.title)}
+                    className={`mt-1 rounded-full border px-2 py-0.5 text-[11px] transition ${isFollowing ? "border-[#00e6e6] text-[#00e6e6]" : "border-white/15 text-gray-400 hover:border-white/30"}`}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </button>
+                )}
+              </div>
+              );
+            })}
           </div>
         </div>
       )}

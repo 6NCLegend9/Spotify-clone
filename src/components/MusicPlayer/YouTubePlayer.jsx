@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useSession } from "next-auth/react";
 import {
   playPause,
   setYoutubeVideo,
@@ -31,8 +32,19 @@ const CROSSFADE_DISABLED = true;
 
 const otherDeck = (key) => (key === "A" ? "B" : "A");
 
+// Best-effort signal for recommendations.js's skip exclusion filter; never blocks playback.
+const recordPlayEvent = (id, event) => {
+  if (!id) return;
+  fetch("/api/playEvent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, event }),
+  }).catch(() => {});
+};
+
 export default function YouTubePlayer() {
   const dispatch = useDispatch();
+  const { status } = useSession();
   const { youtubeVideo: video, youtubeQueue: queue, isPlaying } = useSelector(
     (state) => state.player,
   );
@@ -154,7 +166,7 @@ export default function YouTubePlayer() {
           if (key !== activeDeckRef.current) return;
           if (event.data === window.YT.PlayerState.PLAYING) dispatch(playPause(true));
           if (event.data === window.YT.PlayerState.PAUSED) dispatch(playPause(false));
-          if (event.data === window.YT.PlayerState.ENDED && !crossfadeInProgressRef.current) handleNext();
+          if (event.data === window.YT.PlayerState.ENDED && !crossfadeInProgressRef.current) handleNext({ completed: true });
         },
         onAutoplayBlocked: () => {
           if (!isCurrent()) return;
@@ -182,6 +194,7 @@ export default function YouTubePlayer() {
   };
 
   const completeCrossfade = (outgoingKey, incomingKey, nextVideo) => {
+    if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "completed");
     const incomingPlayer = deckPlayerRefs[incomingKey].current;
     incomingPlayer?.setVolume?.(100);
     destroyDeck(outgoingKey);
@@ -387,7 +400,8 @@ export default function YouTubePlayer() {
     player.playVideo();
   };
 
-  const handleNext = () => {
+  const handleNext = ({ completed = false } = {}) => {
+    if (status === "authenticated" && video?.id) recordPlayEvent(video.id, completed ? "completed" : "skipped");
     const index = queue.findIndex((item) => item.id === video?.id);
     const nextVideo = queue[index + 1];
     if (nextVideo) dispatch(setYoutubeVideo(nextVideo));
@@ -516,7 +530,7 @@ export default function YouTubePlayer() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Next up</p>
             <div className="max-h-64 overflow-y-auto">
               {queue.slice(queue.findIndex((item) => item.id === video.id) + 1, queue.findIndex((item) => item.id === video.id) + 4).map((item) => (
-                <button key={item.id} type="button" onClick={() => dispatch(setYoutubeVideo(item))} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
+                <button key={item.id} type="button" onClick={() => { if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "skipped"); dispatch(setYoutubeVideo(item)); }} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
               ))}
             </div>
             <form onSubmit={handleAddSearch} className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
