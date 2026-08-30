@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import FavouriteTrackButton from "./FavouriteTrackButton";
 import AddToPlaylistButton from "./AddToPlaylistButton";
+import AddToQueueButton from "./AddToQueueButton";
 import toast from "react-hot-toast";
 
 export default function YouTubeMusicResults({ query }) {
@@ -112,6 +113,7 @@ export default function YouTubeMusicResults({ query }) {
                 <span className="absolute bottom-3 left-3 rounded-full bg-[#00e6e6] px-3 py-1 text-xs font-bold text-black">Play</span>
               </button>
               <div className="absolute right-2 top-2 flex gap-1">
+                <AddToQueueButton track={video} className="bg-black/70 text-white backdrop-blur" />
                 <AddToPlaylistButton track={video} className="bg-black/70 text-white backdrop-blur" />
                 <FavouriteTrackButton track={video} className="bg-black/70 text-white backdrop-blur" />
               </div>

@@ -6,11 +6,6 @@ import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/setti
 import { useSession } from "next-auth/react";
 import { FiCheck, FiSave, FiSettings } from "react-icons/fi";
 
-const transitionOptions = [
-  ["off", "Off"],
-  ["manual", "Manual Crossfade"],
-  ["automix", "AutoMix · Beat & Vocal Match"],
-];
 const qualityOptions = [["auto", "Auto"], ["low", "Low · 24 kbps"], ["normal", "Normal · 96 kbps"], ["high", "High · 160 kbps"], ["very-high", "Very High · 320 kbps"]];
 const normalizationOptions = [["quiet", "Quiet · -23 LUFS"], ["normal", "Normal · -14 LUFS"], ["loud", "Loud · -11 LUFS"]];
 const videoQualityOptions = [["auto", "Auto"], ["720p", "720p"], ["1080p", "1080p"], ["audio-only", "Audio only"]];
@@ -71,16 +66,7 @@ export default function SettingsPage() {
       </header>
 
       <section className="mb-8 grid gap-8 lg:grid-cols-2">
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-          <h2 className="mb-2 text-xl font-semibold">Audio transitions</h2>
-          <p className="mb-4 text-xs text-gray-400">Choose how tracks move into one another.</p>
-          <div className="grid gap-2">
-            {transitionOptions.map(([value, label]) => <button key={value} type="button" onClick={() => set("transitionMode", value)} className={`flex items-center justify-between rounded-md border px-3 py-3 text-left text-sm transition ${settings.transitionMode === value ? "border-[#00e6e6] bg-[#00e6e6]/10 text-[#00e6e6]" : "border-white/10 text-gray-300 hover:border-white/30"}`}>{label}{settings.transitionMode === value && <FiCheck />}</button>)}
-          </div>
-          <label className="mt-5 block text-sm text-gray-300">Manual crossfade: {settings.crossfadeSeconds}s<input type="range" min="0" max="12" value={settings.crossfadeSeconds} onChange={(event) => set("crossfadeSeconds", Number(event.target.value))} className="mt-3 w-full accent-[#00e6e6]" /></label>
-          <p className="mt-4 text-xs text-amber-300/80">Crossfade is temporarily disabled while we fix an issue. Your preference is saved and will apply once it's back.</p>
-        </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7 lg:col-span-2">
           <h2 className="mb-2 text-xl font-semibold">Audio quality</h2>
           <SelectControl label="Streaming quality" value={settings.streamingQuality} options={qualityOptions} onChange={(value) => set("streamingQuality", value)} />
           <SelectControl label="Video quality" value={settings.videoQuality} options={videoQualityOptions} onChange={(value) => set("videoQuality", value)} />

@@ -54,6 +54,7 @@ export default function YouTubePlayer() {
   const [currentTime, setCurrentTime] = useState(0);
   const [apiReady, setApiReady] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const queueMenuRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
   const [playerError, setPlayerError] = useState("");
   const [addQuery, setAddQuery] = useState("");
@@ -347,6 +348,15 @@ export default function YouTubePlayer() {
   };
 
   useEffect(() => {
+    if (!showQueue) return;
+    const handler = (event) => {
+      if (!queueMenuRef.current?.contains(event.target)) setShowQueue(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showQueue]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => tickRef.current(), 500);
     return () => window.clearInterval(interval);
   }, []);
@@ -437,9 +447,10 @@ export default function YouTubePlayer() {
 
   return (
     <div
-      className={expanded && !dataSaver && !audioOnly ? "fixed inset-0 z-[70] flex min-h-screen w-screen flex-col bg-black" : "relative flex w-full items-center gap-2 border-t border-white/10 bg-[#07121d]/95 px-4 py-2 shadow-[0_-12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:px-8"}
+      className={expanded && !dataSaver && !audioOnly ? "fixed inset-0 z-[70] flex min-h-screen w-screen flex-col bg-black" : "relative grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t border-white/10 bg-[#07121d]/95 px-4 py-2 shadow-[0_-12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:px-8"}
       onClick={(event) => event.stopPropagation()}
     >
+      <div className={expanded && !dataSaver && !audioOnly ? "contents" : "flex min-w-0 items-center gap-3"}>
       <div className={expanded && videoVisible ? "absolute inset-0 overflow-hidden bg-black" : videoVisible ? "relative aspect-video w-32 shrink-0 overflow-hidden rounded-md bg-black ring-1 ring-white/10 sm:w-40" : "pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px] overflow-hidden"}>
         {["A", "B"].map((key) => (
           <div
@@ -458,7 +469,7 @@ export default function YouTubePlayer() {
         )}
       </div>
       {expanded && !dataSaver && !audioOnly && <div className="pointer-events-none absolute left-5 top-5 z-10"><p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p><p className="mt-2 max-w-[70vw] truncate text-lg font-semibold text-white">{video.title}</p><p className="text-sm text-gray-300">{video.channel}</p></div>}
-      <div className={expanded && !dataSaver && !audioOnly ? "hidden" : "flex min-w-0 flex-1 items-center gap-3"}>
+      <div className={expanded && !dataSaver && !audioOnly ? "hidden" : "flex min-w-0 items-center gap-3"}>
         {!videoVisible && (
           <img
             src={video.thumbnail}
@@ -471,20 +482,22 @@ export default function YouTubePlayer() {
           <p className="mt-1 truncate text-xs text-gray-400">{video.channel}</p>
         </div>
       </div>
-      <div className={expanded && !dataSaver && !audioOnly ? "absolute inset-x-0 bottom-4 z-10 mx-auto flex w-[min(80vw,720px)] flex-col items-center gap-2" : "contents"}>
+      </div>
+      <div className={expanded && !dataSaver && !audioOnly ? "absolute inset-x-0 bottom-4 z-10 mx-auto flex w-[min(80vw,720px)] flex-col items-center gap-2" : "flex items-center justify-center gap-3"}>
         <div className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 text-gray-200 backdrop-blur" : "flex shrink-0 items-center gap-1 text-gray-200"}>
           <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCcw /></button>
           <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="rounded-full bg-[#00e6e6] p-2 text-black hover:scale-105">{isPlaying ? <FiPause /> : <FiPlay />}</button>
           <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCw /></button>
         </div>
-        <div className={expanded && !dataSaver && !audioOnly ? "w-full" : "min-w-0 flex-1 sm:max-w-xl"}>
+        <div className={expanded && !dataSaver && !audioOnly ? "w-full" : "w-32 shrink-0 sm:w-64 md:w-96"}>
           <input aria-label="YouTube song progress" type="range" min="0" max={duration || 0} value={Math.min(currentTime, duration || 0)} onChange={handleSeek} className="w-full accent-[#00e6e6]" />
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>
+      <div className={expanded && !dataSaver && !audioOnly ? "contents" : "flex items-center justify-end gap-2"}>
       {!expanded && <AddToPlaylistButton track={video} />}
       {!expanded && <FavouriteTrackButton track={video} />}
-      <div className={expanded && !dataSaver && !audioOnly ? "absolute right-5 top-5 z-10 flex items-center gap-2" : "relative flex items-center gap-2"}>
+      <div ref={queueMenuRef} className={expanded && !dataSaver && !audioOnly ? "absolute right-5 top-5 z-10 flex items-center gap-2" : "relative flex items-center gap-2"}>
         <button type="button" aria-expanded={showQueue} onClick={() => setShowQueue((value) => !value)} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}>Next up {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
         <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         <button
@@ -531,6 +544,7 @@ export default function YouTubePlayer() {
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

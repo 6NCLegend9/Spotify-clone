@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   BsFillVolumeUpFill,
   BsVolumeDownFill,
@@ -19,6 +19,8 @@ const VolumeBar = ({
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [playlists, setPlaylists] = useState([]);
+  const menuRef = useRef(null);
+
   useEffect(() => {
     const getPlaylists = async () => {
       const res = await getUserPlaylists();
@@ -28,6 +30,15 @@ const VolumeBar = ({
     };
     getPlaylists();
   }, []);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (event) => {
+      if (!menuRef.current?.contains(event.target)) setShowMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMenu]);
 
   // add song to playlist
   const handleAddToPlaylist = async (song, playlistID) => {
@@ -42,7 +53,7 @@ const VolumeBar = ({
   return (
     <>
       <div className="hidden min-[1180px]:flex flex-1 items-center justify-end">
-        <div className=" relative">
+        <div ref={menuRef} className=" relative">
           <BiAddToQueue
             onClick={(e) => {
               e.stopPropagation();
@@ -55,9 +66,6 @@ const VolumeBar = ({
           />
           {showMenu && (
             <div
-              onClick={() => {
-                setShowMenu(false);
-              }}
               className="absolute text-white bottom-[130%] backdrop-blur-lg rounded-lg p-3 w-32 flex flex-col gap-2 z-[100]"
               style={{
                 backgroundColor: bgColor
