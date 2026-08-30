@@ -5,11 +5,20 @@ const QUOTA_ERROR_REASONS = new Set([
   "userRateLimitExceeded",
 ]);
 
-// Supports YOUTUBE_API_KEYS="key1,key2,key3" for quota rotation, falling back to the
-// single-key YOUTUBE_API_KEY env var for backward compatibility.
+// Supports YOUTUBE_API_KEYS="key1,key2,key3" (comma-separated) for quota rotation, and/or
+// numbered YOUTUBE_API_KEY_2, YOUTUBE_API_KEY_3, ... vars, falling back to the single-key
+// YOUTUBE_API_KEY env var for backward compatibility. Duplicate values are de-duped since
+// the same key twice shares one quota pool and adds no real capacity.
 function getApiKeys() {
-  const raw = process.env.YOUTUBE_API_KEYS || process.env.YOUTUBE_API_KEY || "";
-  return raw.split(",").map((key) => key.trim()).filter(Boolean);
+  const keys = [];
+  if (process.env.YOUTUBE_API_KEY) keys.push(process.env.YOUTUBE_API_KEY);
+  if (process.env.YOUTUBE_API_KEYS) {
+    keys.push(...process.env.YOUTUBE_API_KEYS.split(","));
+  }
+  for (let index = 2; process.env[`YOUTUBE_API_KEY_${index}`]; index += 1) {
+    keys.push(process.env[`YOUTUBE_API_KEY_${index}`]);
+  }
+  return [...new Set(keys.map((key) => key.trim()).filter(Boolean))];
 }
 
 function isQuotaError(status, data) {

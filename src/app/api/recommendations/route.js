@@ -4,6 +4,7 @@ import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
 import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
 const GUEST_SEEDS = ["top English songs", "new English music"];
 const DEFAULT_GENRES = ["pop", "rock", "hip hop", "electronic"];
@@ -94,6 +95,10 @@ function buildPersonalizedSeeds(profile) {
 }
 
 export async function GET(request) {
+  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 10 })) {
+    return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
+  }
+
   if (!hasYouTubeApiKey()) {
     return NextResponse.json({ error: "Recommendations are not configured." }, { status: 503 });
   }

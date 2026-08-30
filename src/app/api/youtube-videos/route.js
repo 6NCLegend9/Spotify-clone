@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
@@ -12,6 +13,10 @@ function parseDuration(value = "") {
 }
 
 export async function GET(request) {
+  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 40 })) {
+    return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
+  }
+
   if (!hasYouTubeApiKey()) {
     return NextResponse.json(
       { error: "YouTube video details are not configured." },

@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
 const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,64}$/;
 
 export async function GET(request) {
+  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 30 })) {
+    return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
+  }
+
   if (!hasYouTubeApiKey()) {
     return NextResponse.json(
       { error: "YouTube playlists are not configured." },
