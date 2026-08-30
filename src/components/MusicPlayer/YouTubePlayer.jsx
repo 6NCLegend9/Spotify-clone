@@ -26,6 +26,9 @@ const playerErrorMessage = (code) => {
   return "YouTube playback failed.";
 };
 
+// Temporary kill-switch: crossfade is disabled regardless of user settings until re-enabled here.
+const CROSSFADE_DISABLED = true;
+
 const otherDeck = (key) => (key === "A" ? "B" : "A");
 
 export default function YouTubePlayer() {
@@ -290,7 +293,7 @@ export default function YouTubePlayer() {
       setCurrentTime(time);
       setDuration(dur);
 
-      if (!isPlaying || crossfadeInProgressRef.current || transitionMode === "off" || !crossfadeSeconds || !dur) return;
+      if (CROSSFADE_DISABLED || !isPlaying || crossfadeInProgressRef.current || transitionMode === "off" || !crossfadeSeconds || !dur) return;
       const remaining = dur - time;
       if (remaining > crossfadeSeconds || remaining <= 0.3) return;
       const index = queue.findIndex((item) => item.id === video?.id);

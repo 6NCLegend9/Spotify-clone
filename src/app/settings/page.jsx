@@ -78,7 +78,7 @@ export default function SettingsPage() {
             {transitionOptions.map(([value, label]) => <button key={value} type="button" onClick={() => set("transitionMode", value)} className={`flex items-center justify-between rounded-md border px-3 py-3 text-left text-sm transition ${settings.transitionMode === value ? "border-[#00e6e6] bg-[#00e6e6]/10 text-[#00e6e6]" : "border-white/10 text-gray-300 hover:border-white/30"}`}>{label}{settings.transitionMode === value && <FiCheck />}</button>)}
           </div>
           <label className="mt-5 block text-sm text-gray-300">Manual crossfade: {settings.crossfadeSeconds}s<input type="range" min="0" max="12" value={settings.crossfadeSeconds} onChange={(event) => set("crossfadeSeconds", Number(event.target.value))} className="mt-3 w-full accent-[#00e6e6]" /></label>
-          <p className="mt-4 text-xs text-gray-500">AutoMix controls are applied where the playback source exposes timing data.</p>
+          <p className="mt-4 text-xs text-amber-300/80">Crossfade is temporarily disabled while we fix an issue. Your preference is saved and will apply once it's back.</p>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
           <h2 className="mb-2 text-xl font-semibold">Audio quality</h2>
