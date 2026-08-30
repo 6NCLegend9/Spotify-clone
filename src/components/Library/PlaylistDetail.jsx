@@ -42,6 +42,7 @@ import {
   setYoutubeVideo,
 } from "@/redux/features/playerSlice";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
+import AddToQueueButton from "@/components/AddToQueueButton";
 
 function cleanText(value = "") {
   return value
@@ -369,11 +370,11 @@ export default function PlaylistDetail({ kind, playlistId }) {
             )}
 
             <section aria-label={`${title} tracks`}>
-              <div className="grid grid-cols-[32px_minmax(0,1fr)_50px_36px] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_36px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_40px]">
+              <div className="grid grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px]">
                 <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><FiClock className="mx-auto" /><span />
               </div>
               {filteredTracks.map((track, index) => (
-                <div key={track.id} className={`group grid min-h-[66px] grid-cols-[32px_minmax(0,1fr)_50px_36px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_36px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_40px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
+                <div key={track.id} className={`group grid min-h-[66px] grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
                   <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-9 w-9 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
                   <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
                     <img src={track.thumbnail} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
@@ -382,7 +383,10 @@ export default function PlaylistDetail({ kind, playlistId }) {
                   <span className="hidden truncate text-xs text-gray-400 md:block">-</span>
                   <span className="hidden text-xs text-gray-400 lg:block">{formatAddedDate(track.addedAt)}</span>
                   <span className="text-right text-xs tabular-nums text-gray-400">{formatDuration(track.duration)}</span>
-                  {(isLiked || canEditTracks) ? <button type="button" aria-label={isLiked ? `Remove ${cleanText(track.title)} from Liked Songs` : `Remove ${cleanText(track.title)} from playlist`} title={isLiked ? "Remove from Liked Songs" : "Remove from playlist"} onClick={() => removeTrack(track)} className="grid h-8 w-8 place-items-center rounded-full text-gray-500 opacity-100 hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100">{isLiked ? <FiHeart className="fill-current text-[#00e6e6]" /> : <FiTrash2 />}</button> : <span />}
+                  <div className="flex items-center justify-end gap-1">
+                    <AddToQueueButton track={track} className="text-gray-500 opacity-100 hover:text-white sm:opacity-0 sm:group-hover:opacity-100" />
+                    {(isLiked || canEditTracks) ? <button type="button" aria-label={isLiked ? `Remove ${cleanText(track.title)} from Liked Songs` : `Remove ${cleanText(track.title)} from playlist`} title={isLiked ? "Remove from Liked Songs" : "Remove from playlist"} onClick={() => removeTrack(track)} className="grid h-8 w-8 place-items-center rounded-full text-gray-500 opacity-100 hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100">{isLiked ? <FiHeart className="fill-current text-[#00e6e6]" /> : <FiTrash2 />}</button> : null}
+                  </div>
                 </div>
               ))}
               {tracks.length === 0 && <div className="py-16 text-center"><FiMusic className="mx-auto h-10 w-10 text-gray-500" /><h2 className="mt-4 text-lg font-bold">No tracks yet</h2><p className="mt-2 text-sm text-gray-400">Save music from Home or Search to build this collection.</p></div>}

@@ -9,6 +9,7 @@ import {
 } from "@/redux/features/playerSlice";
 import { BiHeadphone } from "react-icons/bi";
 import { useSelector } from "react-redux";
+import AddToQueueButton from "./AddToQueueButton";
 
 const ListenAgainCard = ({ song, index, SongData }) => {
   const { activeSong, youtubeVideo } = useSelector((state) => state.player);
@@ -83,6 +84,7 @@ const ListenAgainCard = ({ song, index, SongData }) => {
             </p>
           </div>
         </div>
+        {isYoutube && <AddToQueueButton track={song} />}
       </div>
     </div>
   );

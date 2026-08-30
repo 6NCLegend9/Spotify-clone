@@ -5,6 +5,7 @@ import { FiX } from "react-icons/fi";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import FavouriteTrackButton from "./FavouriteTrackButton";
 import AddToPlaylistButton from "./AddToPlaylistButton";
+import AddToQueueButton from "./AddToQueueButton";
 
 export default function RecommendationCard({ video, queue, onDismiss }) {
   const dispatch = useDispatch();
@@ -21,6 +22,7 @@ export default function RecommendationCard({ video, queue, onDismiss }) {
           <span className="absolute bottom-3 left-3 rounded-full bg-[#00e6e6] px-3 py-1 text-xs font-bold text-black">Play</span>
         </button>
         <div className="absolute right-2 top-2 flex gap-1">
+          <AddToQueueButton track={video} className="bg-black/70 text-white backdrop-blur" />
           <AddToPlaylistButton track={video} className="bg-black/70 text-white backdrop-blur" />
           <FavouriteTrackButton track={video} className="bg-black/70 text-white backdrop-blur" />
           {onDismiss && (
