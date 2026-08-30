@@ -1,11 +1,12 @@
 "use client";
 
 import { useDispatch } from "react-redux";
+import { FiX } from "react-icons/fi";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import FavouriteTrackButton from "./FavouriteTrackButton";
 import AddToPlaylistButton from "./AddToPlaylistButton";
 
-export default function RecommendationCard({ video, queue }) {
+export default function RecommendationCard({ video, queue, onDismiss }) {
   const dispatch = useDispatch();
   const playVideo = () => {
     dispatch(setYoutubeQueue(queue));
@@ -22,6 +23,20 @@ export default function RecommendationCard({ video, queue }) {
         <div className="absolute right-2 top-2 flex gap-1">
           <AddToPlaylistButton track={video} className="bg-black/70 text-white backdrop-blur" />
           <FavouriteTrackButton track={video} className="bg-black/70 text-white backdrop-blur" />
+          {onDismiss && (
+            <button
+              type="button"
+              aria-label="Not interested"
+              title="Not interested"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDismiss(video.id);
+              }}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black/70 text-white backdrop-blur transition hover:bg-white/10"
+            >
+              <FiX />
+            </button>
+          )}
         </div>
       </div>
       <button type="button" onClick={playVideo} className="block w-full p-4 text-left">

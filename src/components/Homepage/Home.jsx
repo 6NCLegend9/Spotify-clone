@@ -50,6 +50,21 @@ const Home = () => {
     ["Featured Playlists", sections.featuredPlaylists],
   ];
 
+  const handleDismiss = (id) => {
+    setData((current) => {
+      if (!current?.sections) return current;
+      const stripped = Object.fromEntries(
+        Object.entries(current.sections).map(([key, videos]) => [key, videos?.filter((video) => video.id !== id)]),
+      );
+      return { ...current, sections: stripped };
+    });
+    fetch("/api/notInterested", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }).catch(() => {});
+  };
+
   return (
     <div className="animate-fade-in pb-8">
       <OnlineStatus />
@@ -63,7 +78,7 @@ const Home = () => {
           <h2 className="mb-4 text-2xl font-semibold text-white">Quick Access</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {sections.trending.slice(0, 6).map((video) => (
-              <RecommendationCard key={`quick-${video.id}`} video={video} queue={sections.trending} />
+              <RecommendationCard key={`quick-${video.id}`} video={video} queue={sections.trending} onDismiss={status === "authenticated" ? handleDismiss : undefined} />
             ))}
           </div>
         </section>
@@ -76,7 +91,7 @@ const Home = () => {
               title === "Featured Playlists" ? (
                 <RecommendationPlaylistCard key={video.id} playlist={video} />
               ) : (
-                <RecommendationCard key={video.id} video={video} queue={videos} />
+                <RecommendationCard key={video.id} video={video} queue={videos} onDismiss={status === "authenticated" ? handleDismiss : undefined} />
               )
             ))}
           </div>
