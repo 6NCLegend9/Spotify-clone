@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function useMediaQuery(query) {
+export function useMediaQuery(query) {
   const [matches, setMatches] = useState(false);
 
   useEffect(() => {
@@ -15,6 +15,8 @@ export default function useMediaQuery(query) {
 
   return matches;
 }
+
+export default useMediaQuery;
 
 export function useIsMobile() {
   return useMediaQuery("(max-width: 767px)");
