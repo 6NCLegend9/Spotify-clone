@@ -10,6 +10,9 @@ const FullscreenTrack = ({
   activeSong,
   handlePrevSong,
   handleNextSong,
+  currentTime = 0,
+  duration = 0,
+  onSeek,
 }) => {
   const dispatch = useDispatch();
   const handlers = useSwipeable({
@@ -80,7 +83,12 @@ const FullscreenTrack = ({
         onClick={(e) => e.stopPropagation()}
         className="flex-col items-center min-[1180px]:flex hidden"
       >
-        <Lyrics activeSong={activeSong} />
+        <Lyrics
+          activeSong={activeSong}
+          currentTime={currentTime}
+          duration={duration}
+          onSeek={onSeek}
+        />
       </div>
     </div>
   );

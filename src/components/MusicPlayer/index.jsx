@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   nextSong,
@@ -23,6 +23,9 @@ import FavouriteButton from "./FavouriteButton";
 import getPixels from "get-pixels";
 import { extractColors } from "extract-colors";
 import YouTubePlayer from "./YouTubePlayer";
+import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "./PictureInPictureWindow";
+import useSyncedLyrics from "@/hooks/useSyncedLyrics";
+import { MdPictureInPictureAlt } from "react-icons/md";
 
 const MusicPlayer = () => {
   const {
@@ -35,6 +38,7 @@ const MusicPlayer = () => {
     youtubeVideo,
   } = useSelector((state) => state.player);
   const { isTyping } = useSelector((state) => state.loadingBar);
+  const { pictureInPicture } = useSelector((state) => state.settings);
   const [duration, setDuration] = useState(0);
   const [seekTime, setSeekTime] = useState(0);
   const [appTime, setAppTime] = useState(0);
@@ -47,6 +51,21 @@ const MusicPlayer = () => {
   const { status } = useSession();
   const router = useRouter();
   const [bgColor, setBgColor] = useState();
+  const pipWindowRef = useRef(null);
+  const pipMountRef = useRef(null);
+  const [pipWindow, setPipWindow] = useState(null);
+  const nativeTitle = activeSong?.name || activeSong?.title || "";
+  const nativeArtist = Array.isArray(activeSong?.artists?.primary)
+    ? activeSong.artists.primary.map((item) => item?.name).filter(Boolean).join(", ")
+    : typeof activeSong?.artists === "string"
+    ? activeSong.artists
+    : activeSong?.primaryArtists || "";
+  const nativeLyrics = useSyncedLyrics({
+    title: nativeTitle,
+    artist: nativeArtist,
+    duration,
+    enabled: Boolean(nativeTitle) && !youtubeVideo,
+  });
 
   useEffect(() => {
     if (currentSongs?.length) dispatch(playPause(true));
@@ -117,6 +136,55 @@ const MusicPlayer = () => {
     };
   }, [handleKeyPress]);
 
+  const closeNativePip = () => {
+    try {
+      pipWindowRef.current?.close?.();
+    } catch (error) {
+      // already closed
+    }
+    pipWindowRef.current = null;
+    pipMountRef.current = null;
+    setPipWindow(null);
+  };
+
+  const toggleNativePip = async (event) => {
+    event?.stopPropagation();
+    if (pictureInPicture === false) return;
+    if (pipWindowRef.current) {
+      closeNativePip();
+      return;
+    }
+    if (!window.documentPictureInPicture?.requestWindow) return;
+    try {
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 390, height: 280 });
+      const style = pip.document.createElement("style");
+      style.textContent = PIP_DOCUMENT_STYLES;
+      pip.document.head.appendChild(style);
+      const mount = pip.document.createElement("div");
+      mount.id = "hayasaka-pip";
+      mount.style.height = "100%";
+      pip.document.body.appendChild(mount);
+      pip.addEventListener("pagehide", () => {
+        pipWindowRef.current = null;
+        pipMountRef.current = null;
+        setPipWindow(null);
+      });
+      pipWindowRef.current = pip;
+      pipMountRef.current = mount;
+      setPipWindow(pip);
+    } catch (error) {
+      // User dismissed the PiP prompt or the browser blocked it.
+    }
+  };
+
+  useEffect(() => () => {
+    try {
+      pipWindowRef.current?.close?.();
+    } catch (error) {
+      // already closed
+    }
+  }, []);
+
   const handlePlayPause = (e) => {
     e?.stopPropagation();
     if (!isActive) return;
@@ -183,12 +251,10 @@ const MusicPlayer = () => {
 
   return (
     <div
-      className={`player-dock hideScrollBar flex flex-col items-center min-[1180px]:items-stretch ${
-        youtubeVideo
-          ? "w-full"
-          : fullScreen
-          ? "player-dock--full"
-          : "h-20 w-full px-4 sm:px-8"
+      className={`player-dock hideScrollBar flex flex-col ${
+        fullScreen
+          ? `player-dock--full items-stretch ${youtubeVideo ? "overflow-hidden p-0" : "items-center min-[1180px]:items-stretch"}`
+          : `items-center min-[1180px]:items-stretch ${youtubeVideo ? "w-full" : "h-20 w-full px-4 sm:px-8"}`
       }`}
       onClick={() => {
         if (!youtubeVideo && activeSong?.id) {
@@ -221,6 +287,9 @@ const MusicPlayer = () => {
           handlePrevSong={handlePrevSong}
           activeSong={activeSong}
           fullScreen={fullScreen}
+          currentTime={appTime}
+          duration={duration}
+          onSeek={setSeekTime}
         />
         <div className=" flex items-center justify-between pt-2 max-w-[1300px]">
           <Track
@@ -291,7 +360,19 @@ const MusicPlayer = () => {
               setSeekTime={setSeekTime}
             />
           </div>
-          <VolumeBar
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-pressed={Boolean(pipWindow)}
+              aria-label={pipWindow ? "Exit picture in picture" : "Picture in picture"}
+              title={pictureInPicture === false ? "Picture-in-picture is turned off in Settings" : "Picture in picture"}
+              disabled={pictureInPicture === false}
+              onClick={toggleNativePip}
+              className={`hidden rounded-full p-2 hover:bg-white/10 sm:grid ${pipWindow ? "text-[#00e6e6]" : "text-gray-300"}`}
+            >
+              <MdPictureInPictureAlt size={18} />
+            </button>
+            <VolumeBar
             activeSong={activeSong}
             bgColor={bgColor}
             fullScreen={fullScreen}
@@ -301,13 +382,38 @@ const MusicPlayer = () => {
             onChange={(event) => setVolume(event.target.value)}
             setVolume={setVolume}
           />
+          </div>
         </div>
       </div>}
 
       {fullScreen && (
         <div className=" min-[1180px]:hidden">
-          <Lyrics activeSong={activeSong} currentSongs={currentSongs} />
+          <Lyrics
+            activeSong={activeSong}
+            currentSongs={currentSongs}
+            currentTime={appTime}
+            duration={duration}
+            onSeek={setSeekTime}
+          />
         </div>
+      )}
+      {pipWindow && pipMountRef.current && !youtubeVideo && (
+        <PictureInPictureWindow
+          container={pipMountRef.current}
+          video={{
+            title: nativeTitle,
+            channel: nativeArtist,
+            thumbnail: activeSong?.image?.[2]?.url || activeSong?.image?.[1]?.url || activeSong?.image?.[0]?.url || "",
+          }}
+          currentTime={appTime}
+          duration={duration}
+          isPlaying={isPlaying}
+          lines={nativeLyrics.lines}
+          onPlayPause={handlePlayPause}
+          onSeekBy={(amount) => setSeekTime(Math.max(0, appTime + amount))}
+          onNext={handleNextSong}
+          onClose={closeNativePip}
+        />
       )}
     </div>
   );

@@ -6,12 +6,17 @@ import { useSession } from "next-auth/react";
 import {
   playPause,
   setYoutubeVideo,
+  setFullScreen,
   addToQueue,
   appendToQueue,
 } from "@/redux/features/playerSlice";
 import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
+import { MdOutlineLyrics, MdPictureInPictureAlt } from "react-icons/md";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
+import SyncedLyrics from "@/components/MusicPlayer/SyncedLyrics";
+import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "@/components/MusicPlayer/PictureInPictureWindow";
+import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
 
 const formatTime = (seconds) => {
@@ -56,6 +61,8 @@ export default function YouTubePlayer() {
     eqPreset,
     eqBands,
     normalization,
+    syncedLyrics,
+    pictureInPicture,
   } = useSelector((state) => state.settings);
   const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
@@ -80,12 +87,24 @@ export default function YouTubePlayer() {
   const [showQueue, setShowQueue] = useState(false);
   const queueMenuRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
+  const expandLockRef = useRef(false);
   const [playerError, setPlayerError] = useState("");
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState([]);
   const [addSearching, setAddSearching] = useState(false);
   const autoExtendedForRef = useRef(null);
   const autoExtendingRef = useRef(false);
+  const pipWindowRef = useRef(null);
+  const pipMountRef = useRef(null);
+  const [showLyrics, setShowLyrics] = useState(false);
+  const [pipWindow, setPipWindow] = useState(null);
+  const [pipFloat, setPipFloat] = useState(false);
+  const lyricsQuery = useSyncedLyrics({
+    title: video?.title || "",
+    artist: video?.channel || "",
+    duration,
+    enabled: Boolean(video?.title) && syncedLyrics !== false,
+  });
 
   const getActivePlayer = () => deckPlayerRefs[activeDeckRef.current]?.current;
 
@@ -194,7 +213,7 @@ export default function YouTubePlayer() {
           }
           if (key !== activeDeckRef.current) return;
           if (event.data === window.YT.PlayerState.PLAYING) dispatch(playPause(true));
-          if (event.data === window.YT.PlayerState.PAUSED && !crossfadeInProgressRef.current) {
+          if (event.data === window.YT.PlayerState.PAUSED && !crossfadeInProgressRef.current && !expandLockRef.current) {
             dispatch(playPause(false));
           }
           if (event.data === window.YT.PlayerState.ENDED) {
@@ -374,6 +393,7 @@ export default function YouTubePlayer() {
 
     cancelCrossfade();
     setExpanded(false);
+    dispatch(setFullScreen(false));
     setPlayerError("");
     setCurrentTime(0);
     setDuration(0);
@@ -397,6 +417,11 @@ export default function YouTubePlayer() {
     cancelCrossfade();
     destroyDeck("A");
     destroyDeck("B");
+    try {
+      pipWindowRef.current?.close?.();
+    } catch (error) {
+      // already closed
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -486,9 +511,10 @@ export default function YouTubePlayer() {
   }, [showQueue]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => tickRef.current(), 500);
+    const ms = showLyrics || pipWindow || pipFloat ? 120 : 500;
+    const interval = window.setInterval(() => tickRef.current(), ms);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [showLyrics, pipWindow, pipFloat]);
 
   useEffect(() => {
     applyPlaybackVolume(getActivePlayer());
@@ -542,6 +568,70 @@ export default function YouTubePlayer() {
     if (nextVideo) dispatch(setYoutubeVideo(nextVideo));
   };
 
+  const handlePrev = () => {
+    const index = queue.findIndex((item) => item.id === video?.id);
+    const previous = index > 0 ? queue[index - 1] : null;
+    if (previous) {
+      if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "skipped");
+      dispatch(setYoutubeVideo(previous));
+      return;
+    }
+    getActivePlayer()?.seekTo?.(0, true);
+  };
+
+  const closePictureInPicture = () => {
+    try {
+      pipWindowRef.current?.close?.();
+    } catch (error) {
+      // Window may already be closed.
+    }
+    pipWindowRef.current = null;
+    pipMountRef.current = null;
+    setPipWindow(null);
+    setPipFloat(false);
+  };
+
+  const openDocumentPip = async () => {
+    if (!window.documentPictureInPicture?.requestWindow) return false;
+    try {
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 390, height: 280 });
+      const style = pip.document.createElement("style");
+      style.textContent = PIP_DOCUMENT_STYLES;
+      pip.document.head.appendChild(style);
+      const mount = pip.document.createElement("div");
+      mount.id = "hayasaka-pip";
+      mount.style.height = "100%";
+      pip.document.body.appendChild(mount);
+      pip.addEventListener("pagehide", () => {
+        pipWindowRef.current = null;
+        pipMountRef.current = null;
+        setPipWindow(null);
+      });
+      pipWindowRef.current = pip;
+      pipMountRef.current = mount;
+      setPipWindow(pip);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const togglePictureInPicture = async () => {
+    if (pictureInPicture === false) return;
+    if (pipWindowRef.current || pipFloat) {
+      closePictureInPicture();
+      return;
+    }
+    abortCrossfade();
+    const opened = await openDocumentPip();
+    if (!opened) setPipFloat(true);
+  };
+
+  const toggleLyrics = () => {
+    if (syncedLyrics === false) return;
+    setShowLyrics((value) => !value);
+  };
+
   const seekBy = (amount) => {
     abortCrossfade();
     getActivePlayer()?.seekTo?.(Math.max(0, currentTime + amount), true);
@@ -569,20 +659,51 @@ export default function YouTubePlayer() {
         if (!player) return;
         if (player.isMuted?.()) player.unMute?.();
         else player.mute?.();
+      } else if (event.key === "Escape" && expanded) {
+        event.preventDefault();
+        toggleExpanded();
       } else if (event.key === "f" || event.key === "F" || event.key === "v" || event.key === "V") {
-        if (!dataSaver && !audioOnly) setExpanded((value) => !value);
+        if (!dataSaver && !audioOnly) toggleExpanded();
       } else if (event.key === "j" || event.key === "J") {
         seekBy(-10);
       } else if (event.key === "l" || event.key === "L") {
         seekBy(10);
       } else if (event.shiftKey && (event.key === "N" || event.key === "n")) {
         handleNext();
+      } else if (event.key === "p" || event.key === "P") {
+        togglePictureInPicture();
+      } else if (event.key === "t" || event.key === "T") {
+        toggleLyrics();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !video) return undefined;
+    navigator.mediaSession.metadata = new window.MediaMetadata({
+      title: video.title || "Hayasaka",
+      artist: video.channel || "",
+      artwork: video.thumbnail
+        ? [{ src: video.thumbnail, sizes: "480x360", type: "image/jpeg" }]
+        : [],
+    });
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+    try {
+      navigator.mediaSession.setActionHandler("play", handlePlayPause);
+      navigator.mediaSession.setActionHandler("pause", handlePlayPause);
+      navigator.mediaSession.setActionHandler("previoustrack", handlePrev);
+      navigator.mediaSession.setActionHandler("nexttrack", handleNext);
+      navigator.mediaSession.setActionHandler("seekbackward", () => seekBy(-10));
+      navigator.mediaSession.setActionHandler("seekforward", () => seekBy(10));
+    } catch (error) {
+      // Some browsers reject individual handlers.
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video, isPlaying]);
 
 
   if (!video) return null;
@@ -593,16 +714,35 @@ export default function YouTubePlayer() {
 
   const toggleExpanded = () => {
     if (dataSaver || audioOnly) return;
-    setExpanded((value) => !value);
+    expandLockRef.current = true;
+    window.setTimeout(() => {
+      expandLockRef.current = false;
+    }, 1500);
+    setExpanded((value) => {
+      const next = !value;
+      dispatch(setFullScreen(next));
+      if (next) closePictureInPicture();
+      return next;
+    });
+    window.requestAnimationFrame(() => {
+      const player = getActivePlayer();
+      player?.unMute?.();
+      applyPlaybackVolume(player);
+      if (isPlaying) player?.playVideo?.();
+    });
   };
+
+  const fullscreen = expanded && videoVisible;
 
   return (
     <div
-      className={expanded && !dataSaver && !audioOnly ? "fixed inset-0 z-[70] flex min-h-screen w-screen flex-col bg-black" : "relative grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 py-2 sm:px-6"}
+      className={fullscreen ? "relative flex h-full min-h-0 w-full flex-1 flex-col bg-black" : "relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 py-2 sm:px-6"}
       onClick={(event) => event.stopPropagation()}
     >
-      <div className={expanded && !dataSaver && !audioOnly ? "contents" : "flex min-w-0 items-center gap-3"}>
-      <div className={expanded && videoVisible ? "yt-crop absolute inset-0 bg-black" : videoVisible ? "yt-crop relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px]"}>
+      {pipFloat && videoVisible && !expanded && (
+        <img src={video.thumbnail} alt="" className="h-14 w-[5.6rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-28" />
+      )}
+      <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px]"}>
         {["A", "B"].map((key) => (
           <div
             key={key}
@@ -613,6 +753,17 @@ export default function YouTubePlayer() {
           </div>
         ))}
         <div className="yt-chrome-mask" aria-hidden="true" />
+        {pipFloat && !expanded && (
+          <button
+            type="button"
+            aria-label="Close picture in picture"
+            title="Close picture in picture"
+            onClick={closePictureInPicture}
+            className="absolute right-2 top-2 z-20 rounded-full bg-black/70 p-1.5 text-white hover:bg-black/90"
+          >
+            <FiX size={14} />
+          </button>
+        )}
         {playerError && (
           <div className="absolute inset-0 z-10 grid place-content-center bg-black/90 p-3 text-center">
             <p className="text-xs font-medium text-white">{playerError}</p>
@@ -620,43 +771,78 @@ export default function YouTubePlayer() {
           </div>
         )}
       </div>
-      {expanded && !dataSaver && !audioOnly && <div className="pointer-events-none absolute left-5 top-5 z-10"><p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p><p className="mt-2 max-w-[70vw] truncate text-lg font-semibold text-white">{video.title}</p><p className="text-sm text-gray-300">{video.channel}</p></div>}
-      <div className={expanded && !dataSaver && !audioOnly ? "hidden" : "flex min-w-0 items-center gap-3"}>
-        {!videoVisible && (
-          <img
-            src={video.thumbnail}
-            alt=""
-            className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-white/10 sm:h-12 sm:w-12"
-          />
+      <div className={fullscreen ? "pointer-events-none absolute left-5 top-5 z-20 min-w-0" : "min-w-0"}>
+        {fullscreen ? (
+          <div>
+            <p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p>
+            <p className="mt-2 max-w-[70vw] truncate text-lg font-semibold text-white">{video.title}</p>
+            <p className="text-sm text-gray-300">{video.channel}</p>
+          </div>
+        ) : (
+          <div className="flex min-w-0 items-center gap-3">
+            {!videoVisible && (
+              <img
+                src={video.thumbnail}
+                alt=""
+                className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-white/10 sm:h-12 sm:w-12"
+              />
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{video.title}</p>
+              <p className="mt-1 truncate text-xs text-gray-400">{video.channel}</p>
+            </div>
+          </div>
         )}
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-white">{video.title}</p>
-          <p className="mt-1 truncate text-xs text-gray-400">{video.channel}</p>
-        </div>
       </div>
-      </div>
-      <div className={expanded && !dataSaver && !audioOnly ? "absolute inset-x-0 bottom-4 z-10 mx-auto flex w-[min(80vw,720px)] flex-col items-center gap-2" : "flex flex-col items-center justify-center gap-1"}>
-        <div className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 text-gray-200 backdrop-blur" : "flex shrink-0 items-center gap-1 text-gray-200"}>
+      <div className={fullscreen ? "absolute inset-x-0 bottom-4 z-20 mx-auto flex w-[min(80vw,720px)] flex-col items-center gap-2" : "flex flex-col items-center justify-center gap-1"}>
+        <div className={fullscreen ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 text-gray-200 backdrop-blur" : "flex shrink-0 items-center gap-1 text-gray-200"}>
           <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCcw /></button>
           <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="rounded-full bg-[#00e6e6] p-2 text-black hover:scale-105">{isPlaying ? <FiPause /> : <FiPlay />}</button>
           <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCw /></button>
         </div>
-        <div className={expanded && !dataSaver && !audioOnly ? "w-full" : "w-32 sm:w-64 md:w-96"}>
+        <div className={fullscreen ? "w-full" : "w-32 sm:w-64 md:w-96"}>
           <input aria-label="YouTube song progress" type="range" min="0" max={duration || 0} value={Math.min(currentTime, duration || 0)} onChange={handleSeek} className="w-full accent-[#00e6e6]" />
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>
-      <div className={expanded && !dataSaver && !audioOnly ? "contents" : "flex items-center justify-end gap-2"}>
+      <div className={fullscreen ? "absolute right-5 top-5 z-20 flex items-center justify-end gap-2" : "flex items-center justify-end gap-2"}>
       {!expanded && <div className="hidden sm:block"><AddToPlaylistButton track={video} /></div>}
       {!expanded && <div className="hidden sm:block"><FavouriteTrackButton track={video} /></div>}
-      <div ref={queueMenuRef} className={expanded && !dataSaver && !audioOnly ? "absolute right-5 top-5 z-10 flex items-center gap-2" : "relative flex items-center gap-2"}>
+      <div ref={queueMenuRef} className="relative flex items-center gap-2">
         <button type="button" aria-expanded={showQueue} onClick={() => setShowQueue((value) => !value)} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}><span className="hidden sm:inline">Next up</span> {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
+        <button
+          type="button"
+          aria-pressed={showLyrics}
+          aria-label={showLyrics ? "Hide lyrics" : "Show live lyrics"}
+          title={syncedLyrics === false ? "Live lyrics are turned off in Settings" : showLyrics ? "Hide lyrics" : "Live lyrics"}
+          disabled={syncedLyrics === false}
+          onClick={toggleLyrics}
+          className={expanded && !dataSaver && !audioOnly ? `rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-white"}` : `rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-gray-300"}`}
+        >
+          <MdOutlineLyrics size={18} />
+        </button>
+        <button
+          type="button"
+          aria-pressed={Boolean(pipWindow || pipFloat)}
+          aria-label={pipWindow || pipFloat ? "Exit picture in picture" : "Picture in picture"}
+          title={pictureInPicture === false ? "Picture-in-picture is turned off in Settings" : "Picture in picture"}
+          disabled={pictureInPicture === false}
+          onClick={togglePictureInPicture}
+          className={expanded && !dataSaver && !audioOnly ? `rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${pipWindow || pipFloat ? "text-[#00e6e6]" : "text-white"}` : `rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${pipWindow || pipFloat ? "text-[#00e6e6]" : "text-gray-300"}`}
+        >
+          <MdPictureInPictureAlt size={18} />
+        </button>
         <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         <button
           type="button"
           aria-label="Close YouTube player"
           title="Close YouTube player"
-          onClick={() => dispatch(setYoutubeVideo(null))}
+          onClick={() => {
+            closePictureInPicture();
+            setExpanded(false);
+            dispatch(setFullScreen(false));
+            dispatch(setYoutubeVideo(null));
+          }}
           className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-gray-300 transition hover:bg-white/10 hover:text-white" : "rounded-full p-2 text-gray-300 transition hover:bg-white/10 hover:text-white"}
         >
           <FiX size={18} />
@@ -698,6 +884,43 @@ export default function YouTubePlayer() {
         )}
       </div>
       </div>
+      {showLyrics && syncedLyrics !== false && (
+        <div className={expanded && videoVisible ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
+          <button
+            type="button"
+            aria-label="Close lyrics"
+            onClick={() => setShowLyrics(false)}
+            className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
+          >
+            <FiX size={16} />
+          </button>
+          <SyncedLyrics
+            title={video.title}
+            artist={video.channel}
+            duration={duration}
+            currentTime={currentTime}
+            onSeek={(time) => {
+              abortCrossfade();
+              setCurrentTime(time);
+              getActivePlayer()?.seekTo?.(time, true);
+            }}
+          />
+        </div>
+      )}
+      {pipWindow && pipMountRef.current && (
+        <PictureInPictureWindow
+          container={pipMountRef.current}
+          video={video}
+          currentTime={currentTime}
+          duration={duration}
+          isPlaying={isPlaying}
+          lines={lyricsQuery.lines}
+          onPlayPause={handlePlayPause}
+          onSeekBy={seekBy}
+          onNext={() => handleNext()}
+          onClose={closePictureInPicture}
+        />
+      )}
     </div>
   );
 }

@@ -1,35 +1,23 @@
 "use client";
-import { getRecommendedSongs, getlyricsData } from "@/services/dataAPI";
 import { useState } from "react";
-import React, { useEffect } from "react";
+import React from "react";
 import { useSelector } from "react-redux";
 import SongsList from "../SongsList";
 import { useDispatch } from "react-redux";
 import { setAutoAdd } from "@/redux/features/playerSlice";
+import SyncedLyrics from "./SyncedLyrics";
 
-const Lyrics = ({ activeSong }) => {
+const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
   const dispatch = useDispatch();
   const { currentSongs, autoAdd } = useSelector((state) => state.player);
-  const [lyrics, setLyrics] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("queue");
+  const [activeTab, setActiveTab] = useState("lyrics");
 
-  const lyricsText =
-    typeof lyrics === "string"
-      ? lyrics
-      : lyrics?.lyrics || lyrics?.data?.lyrics || "";
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const lyricsId =
-        activeSong?.lyrics_id || activeSong?.lyricsId || activeSong?.id;
-      const res = await getlyricsData(lyricsId);
-      setLyrics(res);
-      setLoading(false);
-    };
-    if (activeSong?.id) fetchData();
-  }, [activeSong?.id]);
+  const title = activeSong?.name || activeSong?.title || "";
+  const artist = Array.isArray(activeSong?.artists?.primary)
+    ? activeSong.artists.primary.map((item) => item?.name).filter(Boolean).join(", ")
+    : typeof activeSong?.artists === "string"
+    ? activeSong.artists
+    : activeSong?.primaryArtists || activeSong?.channel || "";
 
   const handleAutoAdd = (checked) => {
     console.log(autoAdd);
@@ -72,15 +60,14 @@ const Lyrics = ({ activeSong }) => {
       </div>
       <div className="min-[1180px]:max-h-[30rem] overflow-y-auto">
         {activeTab === "lyrics" ? (
-          lyricsText ? (
-            <div className="text-white text-sm sm:text-base p-4 sm:p-0 mt-5 md:w-[450px] md:h-full overflow-y-scroll hideScrollBar text-center whitespace-pre-line">
-              {lyricsText.replace(/<br\s*\/?>/gi, "\n").replace(/\r\n/g, "\n")}
-            </div>
-          ) : (
-            <div className="text-white text-lg p-4 sm:p-0 mt-5 md:w-[450px] md:h-full overflow-y-scroll hideScrollBar text-center">
-              No Lyrics Found
-            </div>
-          )
+          <SyncedLyrics
+            title={title}
+            artist={artist}
+            duration={Number(activeSong?.duration) || duration}
+            currentTime={currentTime}
+            onSeek={onSeek}
+            className="md:w-[450px]"
+          />
         ) : (
           <div>
             <div

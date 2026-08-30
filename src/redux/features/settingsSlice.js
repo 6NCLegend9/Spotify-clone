@@ -23,6 +23,8 @@ const initialState = {
   explicitContent: false,
   privateSession: false,
   tailoredAds: true,
+  syncedLyrics: true,
+  pictureInPicture: true,
 };
 
 const settingsSlice = createSlice({
