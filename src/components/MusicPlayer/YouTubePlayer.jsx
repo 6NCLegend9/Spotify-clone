@@ -1855,17 +1855,15 @@ export default function YouTubePlayer() {
 
   const toggleExpanded = () => {
     if (dataSaver || audioOnly) return;
+    const next = !expanded;
     expandLockRef.current = true;
     window.setTimeout(() => {
       expandLockRef.current = false;
     }, 1500);
     setMobileSheet(false);
-    setExpanded((value) => {
-      const next = !value;
-      dispatch(setFullScreen(next));
-      if (next) closePictureInPicture();
-      return next;
-    });
+    setExpanded(next);
+    dispatch(setFullScreen(next));
+    if (next) closePictureInPicture();
     window.requestAnimationFrame(() => {
       const player = getActivePlayer();
       player?.unMute?.();
@@ -2126,7 +2124,6 @@ export default function YouTubePlayer() {
                 duration={duration}
                 currentTime={currentTime}
                 onSeek={seekOnCurrentTrack}
-                follow={false}
                 className="h-full"
               />
             )}

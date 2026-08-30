@@ -515,6 +515,7 @@ select:-webkit-autofill {
     inset: 0;
     z-index: 70;
     overflow: hidden;
+    overflow-anchor: none;
     background: var(--navy);
     backdrop-filter: none;
   }
@@ -733,6 +734,7 @@ select:-webkit-autofill {
   max-height: 72vh;
   flex-direction: column;
   overflow: hidden;
+  overflow-anchor: none;
   padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px));
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
@@ -770,6 +772,7 @@ select:-webkit-autofill {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   padding-bottom: 16px;
 }
@@ -787,13 +790,11 @@ select:-webkit-autofill {
   font-size: 1.05rem;
   line-height: 1.4;
   color: #7f8d9a;
-  transition: color 160ms ease, transform 160ms ease;
+  overflow-anchor: none;
 }
 
 .lyrics-line--active {
   color: #00e6e6;
-  transform: translateX(4px);
-  font-weight: 650;
 }
 
 .lyrics-live-dot {
