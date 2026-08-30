@@ -46,6 +46,12 @@ const nextConfig = {
     ];
   },
   webpack: (config, { isServer }) => {
+    // Prevent Webpack from aggressively bundling server-only native node modules
+    // that libraries like yt-search (cheerio etc) use internally.
+    if (isServer) {
+      config.externals.push("yt-search", "cheerio");
+    }
+
     config.resolve.alias = {
       ...config.resolve.alias,
       "./taglib-web.wasm$": require("path").resolve(
@@ -61,6 +67,7 @@ const nextConfig = {
         module: false,
         fs: false,
         path: false,
+        events: require.resolve("events/"),
       };
     }
     return config;

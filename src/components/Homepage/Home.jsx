@@ -8,6 +8,7 @@ import OnlineStatus from "./OnlineStatus";
 import { useSession } from "next-auth/react";
 import RecommendationCard from "../RecommendationCard";
 import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
+import GradientText from "@/components/ReactBits/GradientText";
 
 const HOME_CACHE_KEY = "hayasaka-home-recommendations";
 
@@ -76,13 +77,18 @@ const Home = () => {
   ];
 
   return (
-    <div className="page animate-fade-in">
+    <div className="page animate-fade-in relative z-10">
       <OnlineStatus />
       <header className="page-hero">
         <div>
           <p className="eyebrow">Hayasaka Music</p>
-          <h1 className="mt-2 flex items-center gap-2 text-3xl font-extrabold text-white sm:text-4xl lg:text-5xl">
-            {salutation}
+          <h1 className="mt-2 flex items-center gap-2 text-3xl font-extrabold sm:text-4xl lg:text-5xl">
+            <GradientText
+              colors={["#00e6e6", "#ffffff", "#008080", "#00e6e6"]}
+              animationSpeed={4}
+            >
+              {salutation}
+            </GradientText>
             <GiMusicalNotes className="text-[#00e6e6]" />
           </h1>
           <p className="mt-2 max-w-xl text-sm text-[#9aa8b5]">

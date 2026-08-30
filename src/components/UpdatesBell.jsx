@@ -8,20 +8,10 @@ const CURRENT_UPDATE_KEY = "hayasaka_updates_seen_v1";
 
 const CHANGES = [
   {
-    title: "Song downloads now include cover art and metadata",
+    title: "Lyrics Support & Video Sync",
     description:
-      "Downloaded songs are tagged with artwork, title, artist, album, and other track metadata.",
-  },
-  {
-    title: "Quality selection added for downloads",
-    description:
-      "Choose from multiple audio qualities before starting a download.",
-  },
-  {
-    title: "Bulk download support added",
-    description:
-      "Albums, playlists, and favourites now support bulk ZIP downloads from the app.",
-  },
+      "You can now view synchronized lyrics while watching music videos.",
+  }
 ];
 
 const UpdatesBell = () => {

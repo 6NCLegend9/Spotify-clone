@@ -2,14 +2,21 @@
 
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import { resetPassword } from "@/services/dataAPI";
-import { useState } from "react";
+import { useState, use } from "react";
 import { toast } from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
+import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
+import Link from "next/link";
 
 const page = ({ params }) => {
   const router = useRouter();
   const dispatch = useDispatch();
+  
+  // Use React.use() if params is a Promise, otherwise fallback to params
+  // Next 13 allows direct access, Next 14 handles direct with warnings, Next 15 requires use()
+  const resolvedParams = params instanceof Promise ? use(params) : params;
+  
   const [formData, setFormData] = useState({
     password: "",
     confirmPassword: "",
@@ -28,7 +35,7 @@ const page = ({ params }) => {
     const { password, confirmPassword } = formData;
     try {
       dispatch(setProgress(70));
-      const res = await resetPassword(password, confirmPassword, params.token);
+      const res = await resetPassword(password, confirmPassword, resolvedParams.token);
       if (res.success === true) {
         toast.success("Password reset successfully");
         router.push("/login");
@@ -43,13 +50,20 @@ const page = ({ params }) => {
   };
 
   return (
-    <div className="page grid min-h-full place-items-center">
-      <div className="auth-card">
-        <p className="eyebrow">Account recovery</p>
-        <h1 className="mt-2 text-3xl font-bold text-white">Reset password</h1>
-        <form onSubmit={handelSubmit} className="mt-6 flex flex-col gap-4">
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
-            New password
+    <div className="flex min-h-screen items-center justify-center bg-[#000814] px-4 py-12 sm:px-6 lg:px-8">
+      <SpotlightCard className="w-full max-w-md space-y-8 bg-[#07121d]">
+        <div className="text-center">
+          <p className="text-sm font-semibold tracking-wide text-[#00e6e6] uppercase">Account recovery</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white mb-2">Reset password</h1>
+          <p className="mt-4 text-sm text-[#9aa8b5]">
+            Please enter your new password below.
+          </p>
+        </div>
+        <form onSubmit={handelSubmit} className="mt-8 flex flex-col gap-5">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+              New password
+            </label>
             <input
               onChange={onchange}
               value={formData.password}
@@ -57,11 +71,13 @@ const page = ({ params }) => {
               type="password"
               placeholder="New password"
               required
-              className="field mt-2"
+              className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
-          </label>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
-            Confirm password
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+              Confirm password
+            </label>
             <input
               onChange={onchange}
               value={formData.confirmPassword}
@@ -69,14 +85,14 @@ const page = ({ params }) => {
               type="password"
               placeholder="Confirm password"
               required
-              className="field mt-2"
+              className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
-          </label>
-          <button type="submit" className="btn-primary w-full">
+          </div>
+          <button type="submit" className="mt-2 w-full rounded-full bg-[#00e6e6] px-4 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2] shadow-[0_0_15px_rgba(0,230,230,0.4)]">
             Save password
           </button>
         </form>
-      </div>
+      </SpotlightCard>
     </div>
   );
 };

@@ -1,57 +1,72 @@
-const QUOTA_ERROR_REASONS = new Set([
-  "quotaExceeded",
-  "dailyLimitExceeded",
-  "rateLimitExceeded",
-  "userRateLimitExceeded",
-]);
-
-// Supports YOUTUBE_API_KEYS="key1,key2,key3" (comma-separated) for quota rotation, and/or
-// numbered YOUTUBE_API_KEY_2, YOUTUBE_API_KEY_3, ... vars, falling back to the single-key
-// YOUTUBE_API_KEY env var for backward compatibility. Duplicate values are de-duped since
-// the same key twice shares one quota pool and adds no real capacity.
-function getApiKeys() {
-  const keys = [];
-  if (process.env.YOUTUBE_API_KEY) keys.push(process.env.YOUTUBE_API_KEY);
-  if (process.env.YOUTUBE_API_KEYS) {
-    keys.push(...process.env.YOUTUBE_API_KEYS.split(","));
-  }
-  for (let index = 2; process.env[`YOUTUBE_API_KEY_${index}`]; index += 1) {
-    keys.push(process.env[`YOUTUBE_API_KEY_${index}`]);
-  }
-  return [...new Set(keys.map((key) => key.trim()).filter(Boolean))];
-}
-
-function isQuotaError(status, data) {
-  if (status === 429) return true;
-  if (status !== 403) return false;
-  const reason = data?.error?.errors?.[0]?.reason;
-  return QUOTA_ERROR_REASONS.has(reason);
-}
+import yts from 'yt-search';
 
 export function hasYouTubeApiKey() {
-  return getApiKeys().length > 0;
+  return true; // yt-search doesn't need an API key!
 }
 
-// Calls a YouTube Data API v3 endpoint, rotating through configured keys whenever one
-// is quota-exhausted or rate-limited so a single key running out doesn't take a feature down.
 export async function youtubeFetch(endpoint, params, fetchOptions) {
-  const keys = getApiKeys();
-  if (keys.length === 0) return { ok: false, status: 503, data: null };
+  try {
+    if (endpoint === "search") {
+      const query = params.q || "";
+      const maxResults = parseInt(params.maxResults || "10", 10);
+      const isPlaylist = params.type === "playlist";
 
-  let lastResult = { ok: false, status: 503, data: null };
-  for (const key of keys) {
-    const url = `https://www.googleapis.com/youtube/v3/${endpoint}?${new URLSearchParams({ ...params, key })}`;
-    let response;
-    try {
-      response = await fetch(url, fetchOptions);
-    } catch (error) {
-      lastResult = { ok: false, status: 502, data: null };
-      continue;
+      // Use yt-search to scrape YouTube
+      const results = await yts(query);
+      
+      let items = [];
+      if (isPlaylist) {
+        items = results.playlists.slice(0, maxResults).map(p => ({
+          id: { playlistId: p.listId },
+          snippet: {
+            title: p.title,
+            channelTitle: p.author?.name || "YouTube",
+            description: "",
+            thumbnails: { high: { url: p.thumbnail } }
+          }
+        }));
+      } else {
+        items = results.videos.slice(0, maxResults).map(v => ({
+          id: { videoId: v.videoId },
+          snippet: {
+            title: v.title,
+            channelTitle: v.author?.name || "YouTube",
+            description: v.description || "",
+            publishedAt: v.ago || "",
+            thumbnails: { high: { url: v.thumbnail } }
+          },
+          status: {
+            embeddable: true,
+            privacyStatus: "public",
+          }
+        }));
+      }
+      
+      return { ok: true, status: 200, data: { items } };
     }
-    const data = await response.json().catch(() => null);
-    lastResult = { ok: response.ok, status: response.status, data };
-    if (response.ok || !isQuotaError(response.status, data)) return lastResult;
-    // else: this key is exhausted/rate-limited, fall through and try the next one
+    
+    // For 'videos' endpoint (trending or specific IDs)
+    if (endpoint === "videos") {
+        if (params.chart === "mostPopular") {
+            // yt-search doesn't have a direct "trending" endpoint, so we simulate it with a broad search
+            const results = await yts("Top songs this week");
+            const items = results.videos.slice(0, parseInt(params.maxResults || "24", 10)).map(v => ({
+                id: v.videoId, // Note: videos endpoint uses raw id, not id.videoId
+                snippet: {
+                  title: v.title,
+                  channelTitle: v.author?.name || "YouTube",
+                  description: v.description || "",
+                  thumbnails: { high: { url: v.thumbnail } }
+                },
+                status: { embeddable: true, privacyStatus: "public" }
+            }));
+            return { ok: true, status: 200, data: { items } };
+        }
+    }
+
+    return { ok: false, status: 404, data: null };
+  } catch (err) {
+    console.error("yt-search error:", err);
+    return { ok: false, status: 502, data: null };
   }
-  return lastResult;
 }

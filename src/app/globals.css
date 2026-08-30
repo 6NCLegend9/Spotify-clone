@@ -22,7 +22,7 @@ body {
   height: 100%;
   overflow: hidden;
   font-family: var(--font-poppins), Poppins, system-ui, sans-serif;
-  background: var(--navy);
+  background: transparent; /* Changed from var(--navy) so GhostFibers show */
   color: var(--text);
 }
 
@@ -922,3 +922,44 @@ details > summary {
     width: 16px;
   }
 }
+
+@keyframes gradient-animation {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-gradient-text {
+  position: relative;
+  display: inline-block;
+  background-size: 300% 100%;
+  animation: gradient-animation linear infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.animated-gradient-border {
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  background-size: 300% 100%;
+  animation: gradient-animation linear infinite;
+  border-radius: inherit;
+  filter: blur(8px);
+  opacity: 0.6;
+}
+
+.animated-gradient-content {
+  background: inherit;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+
+.animated-gradient-text {
+  padding-bottom: 0.2em; /* Fix text clipping like the letter g */
+}
+

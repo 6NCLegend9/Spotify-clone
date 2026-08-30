@@ -39,7 +39,12 @@ const MusicPlayer = () => {
     youtubeVideo,
   } = useSelector((state) => state.player);
   const { isTyping } = useSelector((state) => state.loadingBar);
+<<<<<<< Updated upstream
   const { pictureInPicture } = useSelector((state) => state.settings);
+=======
+  const { dataSaver, audioOnly: audioOnlyToggle, videoQuality } = useSelector((state) => state.settings);
+  const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
+>>>>>>> Stashed changes
   const [duration, setDuration] = useState(0);
   const [seekTime, setSeekTime] = useState(0);
   const [appTime, setAppTime] = useState(0);
@@ -258,7 +263,7 @@ const MusicPlayer = () => {
           : `items-center min-[1180px]:items-stretch ${youtubeVideo ? "w-full" : "h-20 w-full px-4 sm:px-8"}`
       }`}
       onClick={() => {
-        if (!youtubeVideo && activeSong?.id) {
+        if (!youtubeVideo && activeSong?.id && !audioOnly && !dataSaver) {
           dispatch(setFullScreen(!fullScreen));
         }
       }}

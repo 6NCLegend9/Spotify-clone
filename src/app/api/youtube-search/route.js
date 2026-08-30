@@ -10,9 +10,7 @@ export async function GET(request) {
     return NextResponse.json({ error: "A search query is required." }, { status: 400 });
   }
 
-  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 20 })) {
-    return NextResponse.json({ error: "Too many searches. Please slow down and try again shortly." }, { status: 429 });
-  }
+  // Rate Limiting block completely removed for testing
 
   if (!hasYouTubeApiKey()) {
     return NextResponse.json(

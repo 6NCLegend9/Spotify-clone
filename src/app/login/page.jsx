@@ -9,6 +9,7 @@ import { useDispatch } from "react-redux";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import { useSession } from "next-auth/react";
 import { FaGoogle } from "react-icons/fa";
+import GradientText from "@/components/ReactBits/GradientText";
 
 const page = () => {
   const { status } = useSession();
@@ -34,7 +35,7 @@ const page = () => {
       if (!res.error) {
         toast.success("Logged in successfully");
       } else {
-        toast.error("Invalid credentials");
+        toast.error(res.error || "Invalid credentials");
       }
     } catch (error) {
       toast.error(error?.message);
@@ -55,10 +56,17 @@ const page = () => {
   }
 
   return (
-    <div className="page grid min-h-full place-items-center">
-      <div className="auth-card">
+    <div className="page grid min-h-full place-items-center relative z-10">
+      <div className="auth-card backdrop-blur-md bg-white/[0.02]">
         <p className="eyebrow">Welcome back</p>
-        <h1 className="mt-2 text-3xl font-bold text-white">Log in</h1>
+        <h1 className="mt-2 text-3xl font-bold">
+          <GradientText
+            colors={["#00e6e6", "#ffffff", "#008080", "#00e6e6"]}
+            animationSpeed={4}
+          >
+            Log in
+          </GradientText>
+        </h1>
         <p className="mt-2 text-sm text-[#9aa8b5]">
           Sign in to keep your likes and playlists in sync.
         </p>

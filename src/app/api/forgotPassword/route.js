@@ -4,6 +4,7 @@ import mailSender from "@/utils/mailSender";
 import dbConnect from "@/utils/dbconnect";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { getResetPasswordTemplate } from "@/emails/ResetPasswordEmail";
 
 
 
@@ -56,8 +57,8 @@ export async function POST(request) {
         }
 
             const url = `${process.env.NEXTAUTH_URL}/reset-password/${resetPasswordToken}`;
-            const title = "Reset Password";
-            const body = `<p>Click <a href="${url}">here</a> to reset your password valid for 5 min</p>`;
+            const title = "Reset Password - Hayasaka";
+            const body = getResetPasswordTemplate(url);
             const mail = await mailSender(user.email, title, body);
             if (mail) {
                 return NextResponse.json(

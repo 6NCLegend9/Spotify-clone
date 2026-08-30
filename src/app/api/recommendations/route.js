@@ -30,8 +30,13 @@ async function searchYouTube(query, reason, extra = {}) {
     videoCategoryId: "10",
     videoEmbeddable: "true",
     videoSyndicated: "true",
+<<<<<<< Updated upstream
     maxResults: "8",
     q: `${query} official audio`,
+=======
+    maxResults: "15",
+    q: `${query} official music`,
+>>>>>>> Stashed changes
   };
   const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
   if (!ok) return [];
@@ -82,6 +87,7 @@ async function searchPlaylists(query) {
     }));
 }
 
+<<<<<<< Updated upstream
 function buildGenreSeeds(profile) {
   const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
   return genres.slice(0, 6).map((genre) => ({
@@ -95,6 +101,47 @@ export async function GET(request) {
     if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 20 })) {
     return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
   }
+=======
+// profile.genres is only set once a user picks favorite genres in Settings; real signals
+// (followed artists, listening history, recent searches) are preferred when available.
+function buildPersonalizedSeeds(profile) {
+  const followed = Array.isArray(profile?.followedArtists) ? profile.followedArtists : [];
+  const history = Array.isArray(profile?.songHistory) ? profile.songHistory : [];
+  const recentChannels = [...new Set(history.map((song) => song?.channel).filter(Boolean))];
+  const recentSearches = Array.isArray(profile?.searches) ? [...profile.searches].reverse() : [];
+  const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
+
+  const historyCandidates = [
+    ...followed.map((name) => ({ query: name, reason: `Because you follow ${name}` })),
+    ...recentChannels.map((channel) => ({ query: channel, reason: `Because you played ${channel}` })),
+    ...recentSearches.map((term) => ({ query: term, reason: `Because you searched "${term}"` })),
+  ];
+  
+  const seeds = [];
+  
+  // First seed: Guarantee one of their favorite genres appears
+  if (genres.length > 0) {
+    seeds.push({ query: genres[0], reason: `Based on your ${genres[0]} taste` });
+  }
+  
+  // Second seed: Pick a history/follow candidate to mix it up, otherwise use a second genre
+  if (historyCandidates.length > 0 && historyCandidates[0].query !== genres[0]) {
+    seeds.push(historyCandidates[0]);
+  } else if (genres.length > 1) {
+    seeds.push({ query: genres[1], reason: `Based on your ${genres[1]} taste` });
+  }
+
+  // Fallback to default if somehow empty
+  if (seeds.length === 0) {
+    return DEFAULT_GENRES.slice(0, 2).map((genre) => ({ query: genre, reason: `Based on your taste` }));
+  }
+
+  return seeds.slice(0, 2);
+}
+
+export async function GET(request) {
+  // Rate Limiting block completely removed for testing
+>>>>>>> Stashed changes
 
   if (!hasYouTubeApiKey()) {
     return NextResponse.json({ error: "Recommendations are not configured." }, { status: 503 });

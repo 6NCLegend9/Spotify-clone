@@ -22,13 +22,16 @@ const options = {
           console.log("credentials");
           const { email, password } = credentials;
           const user = await User.findOne({ email });
+
           if (user && (await bcrypt.compare(password, user.password))) {
+            if (!user.isVerified) {
+              throw new Error("Please verify your email before logging in.");
+            }
             return user;
           }
           return null;
         } catch (e) {
-          console.error(e);
-          return null;
+          throw new Error(e.message || "An error occurred during login.");
         }
       },
     }),

@@ -10,6 +10,7 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { FaGoogle } from "react-icons/fa";
+import GradientText from "@/components/ReactBits/GradientText";
 
 const page = () => {
   const { status } = useSession();
@@ -64,10 +65,17 @@ const page = () => {
   }
 
   return (
-    <div className="page grid min-h-full place-items-center">
-      <div className="auth-card">
+    <div className="page grid min-h-full place-items-center relative z-10">
+      <div className="auth-card backdrop-blur-md bg-white/[0.02]">
         <p className="eyebrow">Join Hayasaka</p>
-        <h1 className="mt-2 text-3xl font-bold text-white">Create account</h1>
+        <h1 className="mt-2 text-3xl font-bold">
+          <GradientText
+            colors={["#00e6e6", "#ffffff", "#008080", "#00e6e6"]}
+            animationSpeed={4}
+          >
+            Create account
+          </GradientText>
+        </h1>
         <p className="mt-2 text-sm text-[#9aa8b5]">
           Save favourites and build playlists across devices.
         </p>

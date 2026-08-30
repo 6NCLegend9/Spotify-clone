@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import Link from "next/link";
+import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 
 const page = () => {
   const dispatch = useDispatch();
@@ -29,16 +30,20 @@ const page = () => {
   };
 
   return (
-    <div className="page grid min-h-full place-items-center">
-      <div className="auth-card">
-        <p className="eyebrow">Account recovery</p>
-        <h1 className="mt-2 text-3xl font-bold text-white">Forgot password</h1>
-        <p className="mt-2 text-sm text-[#9aa8b5]">
-          Enter your email and we will send a reset link.
-        </p>
-        <form onSubmit={handelSubmit} className="mt-6 flex flex-col gap-4">
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
-            Email
+    <div className="flex min-h-screen items-center justify-center bg-[#000814] px-4 py-12 sm:px-6 lg:px-8">
+      <SpotlightCard className="w-full max-w-md space-y-8 bg-[#07121d]">
+        <div className="text-center">
+          <p className="text-sm font-semibold tracking-wide text-[#00e6e6] uppercase">Account recovery</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white mb-2">Forgot password</h1>
+          <p className="mt-4 text-sm text-[#9aa8b5]">
+            Enter your email and we will send a reset link.
+          </p>
+        </div>
+        <form onSubmit={handelSubmit} className="mt-8 flex flex-col gap-6">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+              Email Address
+            </label>
             <input
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               value={formData.email}
@@ -46,17 +51,19 @@ const page = () => {
               type="email"
               placeholder="you@email.com"
               required
-              className="field mt-2"
+              className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
-          </label>
-          <button type="submit" className="btn-primary w-full">
+          </div>
+          <button type="submit" className="w-full rounded-full bg-[#00e6e6] px-4 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2] shadow-[0_0_15px_rgba(0,230,230,0.4)]">
             Send reset link
           </button>
-          <Link href="/login" className="text-center text-sm font-semibold text-[#00e6e6]">
-            Back to login
-          </Link>
+          <div className="text-center mt-2">
+            <Link href="/login" className="text-sm font-semibold text-[#00e6e6] hover:text-[#00c2c2] transition">
+              Back to login
+            </Link>
+          </div>
         </form>
-      </div>
+      </SpotlightCard>
     </div>
   );
 };
