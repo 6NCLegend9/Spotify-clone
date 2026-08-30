@@ -2,12 +2,15 @@
 import ListenAgainCard from "../ListenAgainCard";
 import { useLayoutEffect, useState } from "react";
 import { useDispatch } from "react-redux";
+import { useSession } from "next-auth/react";
 import { setAutoAdd } from "@/redux/features/playerSlice";
 import { setLanguages } from "@/redux/features/languagesSlice";
 
 const ListenAgain = () => {
   const [songHistory, setSongHistory] = useState([]);
   const dispatch = useDispatch();
+  const { status } = useSession();
+
   useLayoutEffect(() => {
     setSongHistory(
       localStorage?.getItem("songHistory")
@@ -22,6 +25,24 @@ const ListenAgain = () => {
       )
     );
   }, []);
+
+  // Prefer the account's server-synced history when signed in, so "Listen Again" follows
+  // the user across devices/browsers instead of only reflecting this browser's localStorage.
+  useLayoutEffect(() => {
+    if (status !== "authenticated") return;
+    let cancelled = false;
+    fetch("/api/history")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled && json?.success && Array.isArray(json.data) && json.data.length > 0) {
+          setSongHistory(json.data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
 
   return (
     <div>

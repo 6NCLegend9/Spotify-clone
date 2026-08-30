@@ -2,6 +2,7 @@ import Navbar from "@/components/Navbar";
 import "./globals.css";
 import MusicPlayer from "@/components/MusicPlayer";
 import SongsHistory from "@/components/SongsHistory";
+import SettingsSync from "@/components/SettingsSync";
 import Providers from "@/redux/Providers";
 import TopProgressBar from "@/components/topProgressBar/TopProgressBar";
 import Favicon from "./favicon.ico";
@@ -256,6 +257,7 @@ export default function RootLayout({ children }) {
           <AuthProvider>
             <TopProgressBar />
             <SongsHistory />
+            <SettingsSync />
             <Navbar />
             <Toaster />
             {children}
