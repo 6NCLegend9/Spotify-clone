@@ -1,48 +1,43 @@
 import { NextResponse } from "next/server";
+import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
 
 export async function GET(request) {
   const query = request.nextUrl.searchParams.get("q")?.trim();
   const type = request.nextUrl.searchParams.get("type") || "video";
-  const apiKey = process.env.YOUTUBE_API_KEY;
 
   if (!query) {
     return NextResponse.json({ error: "A search query is required." }, { status: 400 });
   }
 
-  if (!apiKey) {
+  if (!hasYouTubeApiKey()) {
     return NextResponse.json(
       { error: "YouTube search is not configured." },
       { status: 503 },
     );
   }
 
-  const params = new URLSearchParams({
+  const params = {
     part: "snippet",
     type,
     maxResults: "12",
     q: type === "video" ? `${query} official audio` : query,
-    key: apiKey,
-  });
+  };
   if (type === "video") {
-    params.set("videoCategoryId", "10");
-    params.set("videoEmbeddable", "true");
-    params.set("videoSyndicated", "true");
+    params.videoCategoryId = "10";
+    params.videoEmbeddable = "true";
+    params.videoSyndicated = "true";
   }
 
   try {
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?${params}`,
-      { next: { revalidate: 3600 } },
-    );
+    const { ok, status, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
 
-    if (!response.ok) {
+    if (!ok) {
       return NextResponse.json(
         { error: "YouTube search failed." },
-        { status: response.status },
+        { status },
       );
     }
 
-    const data = await response.json();
     const results = (data.items || [])
       .filter((item) => item.id?.videoId || item.id?.channelId || item.id?.playlistId)
       .map((item) => ({
@@ -67,3 +62,4 @@ export async function GET(request) {
     );
   }
 }
+

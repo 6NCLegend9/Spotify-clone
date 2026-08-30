@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
@@ -11,8 +12,7 @@ function parseDuration(value = "") {
 }
 
 export async function GET(request) {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  if (!hasYouTubeApiKey()) {
     return NextResponse.json(
       { error: "YouTube video details are not configured." },
       { status: 503 },
@@ -28,26 +28,21 @@ export async function GET(request) {
     return NextResponse.json({ tracks: [] });
   }
 
-  const params = new URLSearchParams({
+  const params = {
     part: "snippet,contentDetails",
     id: ids.join(","),
-    key: apiKey,
-  });
+  };
 
   try {
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?${params}`,
-      { next: { revalidate: 3600 } },
-    );
+    const { ok, status, data } = await youtubeFetch("videos", params, { next: { revalidate: 3600 } });
 
-    if (!response.ok) {
+    if (!ok) {
       return NextResponse.json(
         { error: "YouTube video details could not be loaded." },
-        { status: response.status },
+        { status },
       );
     }
 
-    const data = await response.json();
     const tracks = (data.items || []).map((item) => ({
       id: item.id,
       title: item.snippet.title,

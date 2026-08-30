@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
 
 const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,64}$/;
 
 export async function GET(request) {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  if (!hasYouTubeApiKey()) {
     return NextResponse.json(
       { error: "YouTube playlists are not configured." },
       { status: 503 },
@@ -16,27 +16,22 @@ export async function GET(request) {
     return NextResponse.json({ error: "A valid playlist id is required." }, { status: 400 });
   }
 
-  const params = new URLSearchParams({
+  const params = {
     part: "snippet,status",
     playlistId,
     maxResults: "25",
-    key: apiKey,
-  });
+  };
 
   try {
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/playlistItems?${params}`,
-      { next: { revalidate: 900 } },
-    );
+    const { ok, status, data } = await youtubeFetch("playlistItems", params, { next: { revalidate: 900 } });
 
-    if (!response.ok) {
+    if (!ok) {
       return NextResponse.json(
         { error: "This playlist could not be loaded." },
-        { status: response.status },
+        { status },
       );
     }
 
-    const data = await response.json();
     const tracks = (data.items || [])
       .filter((item) => item.snippet?.resourceId?.videoId && item.status?.privacyStatus === "public")
       .map((item) => ({
@@ -55,3 +50,4 @@ export async function GET(request) {
     return NextResponse.json({ error: "Unable to reach YouTube." }, { status: 502 });
   }
 }
+

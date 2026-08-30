@@ -3,6 +3,7 @@ import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
+import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
 
 const GUEST_SEEDS = ["top English songs", "new English music"];
 const DEFAULT_GENRES = ["pop", "rock", "hip hop", "electronic"];
@@ -21,8 +22,8 @@ function normalizeVideo(item, reason) {
   };
 }
 
-async function searchYouTube(query, apiKey, reason) {
-  const params = new URLSearchParams({
+async function searchYouTube(query, reason) {
+  const params = {
     part: "snippet",
     type: "video",
     videoCategoryId: "10",
@@ -30,34 +31,24 @@ async function searchYouTube(query, apiKey, reason) {
     videoSyndicated: "true",
     maxResults: "8",
     q: `${query} official music`,
-    key: apiKey,
-  });
-  const response = await fetch(
-    `https://www.googleapis.com/youtube/v3/search?${params}`,
-    { next: { revalidate: 3600 } },
-  );
-  if (!response.ok) return [];
-  const data = await response.json();
+  };
+  const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
+  if (!ok) return [];
   return (data.items || [])
     .filter((item) => item.id?.videoId)
     .map((item) => normalizeVideo(item, reason));
 }
 
-async function getPopularMusic(apiKey) {
-  const params = new URLSearchParams({
+async function getPopularMusic() {
+  const params = {
     part: "snippet,status",
     chart: "mostPopular",
     videoCategoryId: "10",
     regionCode: "US",
     maxResults: "24",
-    key: apiKey,
-  });
-  const response = await fetch(
-    `https://www.googleapis.com/youtube/v3/videos?${params}`,
-    { next: { revalidate: 900 } },
-  );
-  if (!response.ok) return [];
-  const data = await response.json();
+  };
+  const { ok, data } = await youtubeFetch("videos", params, { next: { revalidate: 900 } });
+  if (!ok) return [];
   return (data.items || [])
     .filter(
       (item) =>
@@ -68,20 +59,15 @@ async function getPopularMusic(apiKey) {
     .map((item) => normalizeVideo(item, "Trending on YouTube"));
 }
 
-async function searchPlaylists(query, apiKey) {
-  const params = new URLSearchParams({
+async function searchPlaylists(query) {
+  const params = {
     part: "snippet",
     type: "playlist",
     maxResults: "6",
     q: `${query} official playlist`,
-    key: apiKey,
-  });
-  const response = await fetch(
-    `https://www.googleapis.com/youtube/v3/search?${params}`,
-    { next: { revalidate: 3600 } },
-  );
-  if (!response.ok) return [];
-  const data = await response.json();
+  };
+  const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
+  if (!ok) return [];
   return (data.items || [])
     .filter((item) => item.id?.playlistId)
     .map((item) => ({
@@ -96,8 +82,7 @@ async function searchPlaylists(query, apiKey) {
 }
 
 export async function GET(request) {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  if (!hasYouTubeApiKey()) {
     return NextResponse.json({ error: "Recommendations are not configured." }, { status: 503 });
   }
 
@@ -120,9 +105,9 @@ export async function GET(request) {
       ? genres.slice(0, 2).map((genre) => ({ query: genre, reason: `Based on your ${genre} taste` }))
       : GUEST_SEEDS.map((query) => ({ query, reason: "Editorial pick for everyone" }));
     const groups = await Promise.all(
-      seeds.map(({ query, reason }) => searchYouTube(query, apiKey, reason)),
+      seeds.map(({ query, reason }) => searchYouTube(query, reason)),
     );
-    const playlists = await searchPlaylists(seeds[0].query, apiKey);
+    const playlists = await searchPlaylists(seeds[0].query);
     const excluded = new Set(profile?.notInterested || []);
     const snoozed = new Set(profile?.snoozedTracks || []);
     const recent = new Set((profile?.songHistory || []).map((song) => song?.id || song));
@@ -136,7 +121,7 @@ export async function GET(request) {
 
     if (recommendations.length === 0) {
       source = "youtube-chart";
-      recommendations = filterRecommendations(await getPopularMusic(apiKey));
+      recommendations = filterRecommendations(await getPopularMusic());
     }
     recommendations = recommendations.slice(0, 24);
 
