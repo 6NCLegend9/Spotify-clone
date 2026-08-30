@@ -1,11 +1,17 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
 import MusicPlayer from "@/components/MusicPlayer";
+
+const LightPillar = dynamic(
+  () => import("@/components/Backgrounds/LightPillar"),
+  { ssr: false },
+);
 
 const NavContext = createContext(null);
 
@@ -45,6 +51,20 @@ export default function AppShell({ children }) {
           onClick={() => setShowNav(false)}
         />
         <div className="app-stage">
+          <LightPillar
+            className="app-light-pillar"
+            topColor="#6effff"
+            bottomColor="#00a6b8"
+            intensity={1.08}
+            rotationSpeed={0.3}
+            glowAmount={0.0065}
+            pillarWidth={4.2}
+            pillarHeight={0.52}
+            noiseIntensity={0.12}
+            pillarRotation={-8}
+            quality="medium"
+          />
+          <div className="app-light-pillar-shade" aria-hidden="true" />
           <Navbar />
           <div className="app-content">{children}</div>
         </div>
