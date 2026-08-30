@@ -10,8 +10,14 @@ import AddToQueueButton from "./AddToQueueButton";
 export default function RecommendationCard({ video, queue, onDismiss }) {
   const dispatch = useDispatch();
   const playVideo = () => {
-    dispatch(setYoutubeQueue(queue));
-    dispatch(setYoutubeVideo(video));
+    const seedQuery = video.seedQuery || video.genre;
+    const seededQueue = (queue || []).map((item) => ({
+      ...item,
+      seedQuery: item.seedQuery || item.genre || seedQuery,
+      genre: item.genre || video.genre,
+    }));
+    dispatch(setYoutubeQueue(seededQueue));
+    dispatch(setYoutubeVideo({ ...video, seedQuery, genre: video.genre || seedQuery }));
   };
 
   return (

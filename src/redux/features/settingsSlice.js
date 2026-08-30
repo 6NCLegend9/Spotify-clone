@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { EQ_PRESET_BANDS } from "@/utils/eqPresets";
 
 export const EQ_PRESETS = [
   "Flat / Neutral", "Acoustic", "Bass Boost", "Bass Reducer", "Treble Boost", "Treble Reducer",
@@ -31,12 +32,22 @@ const settingsSlice = createSlice({
     updateSetting: (state, action) => {
       const { key, value } = action.payload;
       if (key in state) state[key] = value;
+      if (key === "eqPreset" && value !== "Custom" && EQ_PRESET_BANDS[value]) {
+        state.eqBands = EQ_PRESET_BANDS[value];
+      }
     },
     updateEqBands: (state, action) => {
       state.eqBands = action.payload;
       state.eqPreset = "Custom";
     },
-    hydrateSettings: (state, action) => ({ ...state, ...action.payload }),
+    hydrateSettings: (state, action) => {
+      const next = { ...state, ...action.payload };
+      if (next.eqPreset && next.eqPreset !== "Custom" && EQ_PRESET_BANDS[next.eqPreset]) {
+        const bands = Array.isArray(next.eqBands) ? next.eqBands : [];
+        if (bands.every((value) => !value)) next.eqBands = EQ_PRESET_BANDS[next.eqPreset];
+      }
+      return next;
+    },
   },
 });
 

@@ -1,6 +1,9 @@
 "use client";
 /* eslint-disable jsx-a11y/media-has-caption */
 import React, { useRef, useEffect } from "react";
+import { useSelector } from "react-redux";
+import useAudioEq from "@/hooks/useAudioEq";
+import { bandsForPreset } from "@/utils/eqPresets";
 
 const Player = ({
   activeSong,
@@ -19,6 +22,12 @@ const Player = ({
 }) => {
   const ref = useRef(null);
   const handlePlayPauseRef = useRef(handlePlayPause);
+  const { eqPreset, eqBands, normalization, monoAudio } = useSelector((state) => state.settings);
+  useAudioEq(ref, {
+    bands: bandsForPreset(eqPreset, eqBands),
+    normalization,
+    monoAudio,
+  });
   const audioSource =
     activeSong?.downloadUrl?.[4]?.url ||
     activeSong?.downloadUrl?.[3]?.url ||

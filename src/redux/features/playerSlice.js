@@ -61,6 +61,10 @@ const playerSlice = createSlice({
         state.activeSong = {};
         state.currentSongs = [];
         state.isActive = false;
+        // Selecting a track always starts playback. YouTube can emit PAUSED/ENDED
+        // during a fade; leaving isPlaying false here is what stalled song two.
+        state.isPlaying = true;
+      } else {
         state.isPlaying = false;
       }
     },

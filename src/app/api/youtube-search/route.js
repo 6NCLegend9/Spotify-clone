@@ -56,6 +56,8 @@ export async function GET(request) {
           item.snippet.thumbnails?.high?.url ||
           item.snippet.thumbnails?.medium?.url ||
           item.snippet.thumbnails?.default?.url,
+        seedQuery: query,
+        genre: query,
       }));
 
     return NextResponse.json({ results });

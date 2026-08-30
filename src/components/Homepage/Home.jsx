@@ -35,21 +35,33 @@ const Home = () => {
 
   const sections = data?.sections || {};
   const isPersonalized = data?.mode === "personalized";
+  const genreSections = Array.isArray(sections.genres) ? sections.genres : [];
   const sectionList = [
     [isPersonalized ? "Made For You" : "Featured Editorial", sections.trending],
     [isPersonalized ? "Top Trends For You" : "Trending Now", sections.charts],
     [isPersonalized ? "Discover Something New" : "New Releases", sections.newReleases],
     ["Featured Playlists", sections.featuredPlaylists],
+    ...genreSections.map((section) => [section.title, section.videos]),
   ];
 
   const handleDismiss = (id) => {
     setData((current) => {
       if (!current?.sections) return current;
       const stripped = Object.fromEntries(
-        Object.entries(current.sections).map(([key, videos]) => [
-          key,
-          videos?.filter((video) => video.id !== id),
-        ]),
+        Object.entries(current.sections).map(([key, value]) => {
+          if (key === "genres" && Array.isArray(value)) {
+            return [
+              key,
+              value
+                .map((section) => ({
+                  ...section,
+                  videos: section.videos?.filter((video) => video.id !== id),
+                }))
+                .filter((section) => section.videos?.length > 0),
+            ];
+          }
+          return [key, value?.filter?.((item) => item.id !== id) ?? value];
+        }),
       );
       return { ...current, sections: stripped };
     });

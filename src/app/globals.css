@@ -426,6 +426,38 @@ select:-webkit-autofill {
   display: none;
 }
 
+.yt-crop {
+  position: relative;
+  overflow: hidden;
+}
+
+.yt-crop-frame,
+.yt-crop-frame iframe {
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  transform: scale(1.68);
+  transform-origin: center center;
+}
+
+@media (min-width: 768px) {
+  .yt-crop-frame,
+  .yt-crop-frame iframe {
+    transform: scale(1.48);
+  }
+}
+
+.yt-chrome-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to top, #000 0 12%, transparent 28%),
+    linear-gradient(to bottom, #000 0 10%, transparent 24%),
+    linear-gradient(to left, #000 0 8%, transparent 18%),
+    linear-gradient(to right, #000 0 8%, transparent 18%);
+}
+
 details summary::-webkit-details-marker {
   display: none !important;
 }

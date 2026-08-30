@@ -220,15 +220,26 @@ export default function PlaylistDetail({ kind, playlistId }) {
     return interleaveRecommendations(tracks, [...smartTracks]);
   };
 
+  const seedTracks = (items) =>
+    items.map((item) => ({
+      ...item,
+      seedQuery: item.seedQuery || item.genre || title,
+      genre: item.genre || title,
+    }));
+
   const playTrack = async (track) => {
-    const queue = await createQueue();
+    const queue = seedTracks(await createQueue());
     dispatch(setYoutubeQueue(queue));
-    dispatch(setYoutubeVideo(track));
+    dispatch(setYoutubeVideo({
+      ...track,
+      seedQuery: track.seedQuery || track.genre || title,
+      genre: track.genre || title,
+    }));
   };
 
   const playCollection = async () => {
     if (tracks.length === 0) return;
-    const queue = await createQueue();
+    const queue = seedTracks(await createQueue());
     dispatch(setYoutubeQueue(queue));
     dispatch(setYoutubeVideo(queue[0]));
   };

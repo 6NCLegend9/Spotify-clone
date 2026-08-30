@@ -6,10 +6,9 @@ import dbConnect from "@/utils/dbconnect";
 import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
-const GUEST_SEEDS = ["top English songs", "new English music"];
-const DEFAULT_GENRES = ["pop", "rock", "hip hop", "electronic"];
+const DEFAULT_GENRES = ["Pop", "Rock", "Hip Hop", "Electronic"];
 
-function normalizeVideo(item, reason) {
+function normalizeVideo(item, reason, extra = {}) {
   return {
     id: typeof item.id === "string" ? item.id : item.id.videoId,
     title: item.snippet.title,
@@ -20,10 +19,11 @@ function normalizeVideo(item, reason) {
       item.snippet.thumbnails?.medium?.url ||
       item.snippet.thumbnails?.default?.url,
     reason,
+    ...extra,
   };
 }
 
-async function searchYouTube(query, reason) {
+async function searchYouTube(query, reason, extra = {}) {
   const params = {
     part: "snippet",
     type: "video",
@@ -31,13 +31,13 @@ async function searchYouTube(query, reason) {
     videoEmbeddable: "true",
     videoSyndicated: "true",
     maxResults: "8",
-    q: `${query} official music`,
+    q: `${query} official audio`,
   };
   const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
   if (!ok) return [];
   return (data.items || [])
     .filter((item) => item.id?.videoId)
-    .map((item) => normalizeVideo(item, reason));
+    .map((item) => normalizeVideo(item, reason, extra));
 }
 
 async function getPopularMusic() {
@@ -82,24 +82,13 @@ async function searchPlaylists(query) {
     }));
 }
 
-// profile.genres is only set once a user picks favorite genres in Settings; real signals
-// (followed artists, listening history, recent searches) are preferred when available.
-function buildPersonalizedSeeds(profile) {
-  const followed = Array.isArray(profile?.followedArtists) ? profile.followedArtists : [];
-  const history = Array.isArray(profile?.songHistory) ? profile.songHistory : [];
-  const recentChannels = [...new Set(history.map((song) => song?.channel).filter(Boolean))];
-  const recentSearches = Array.isArray(profile?.searches) ? [...profile.searches].reverse() : [];
-
-  const candidates = [
-    ...followed.map((name) => ({ query: name, reason: `Because you follow ${name}` })),
-    ...recentChannels.map((channel) => ({ query: channel, reason: `Because you played ${channel}` })),
-    ...recentSearches.map((term) => ({ query: term, reason: `Because you searched "${term}"` })),
-  ];
-  const deduped = candidates.filter((seed, index, all) => all.findIndex((item) => item.query === seed.query) === index);
-  if (deduped.length > 0) return deduped.slice(0, 2);
-
+function buildGenreSeeds(profile) {
   const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
-  return genres.slice(0, 2).map((genre) => ({ query: genre, reason: `Based on your ${genre} taste` }));
+  return genres.slice(0, 6).map((genre) => ({
+    query: genre,
+    reason: `Based on your ${genre} taste`,
+    genre,
+  }));
 }
 
 export async function GET(request) {
@@ -125,11 +114,11 @@ export async function GET(request) {
       }
     }
 
-    const seeds = mode === "personalized"
-      ? buildPersonalizedSeeds(profile)
-      : GUEST_SEEDS.map((query) => ({ query, reason: "Editorial pick for everyone" }));
+    const seeds = buildGenreSeeds(mode === "personalized" ? profile : null);
     const groups = await Promise.all(
-      seeds.map(({ query, reason }) => searchYouTube(query, reason)),
+      seeds.map(({ query, reason, genre }) =>
+        searchYouTube(query, reason, { seedQuery: query, genre }),
+      ),
     );
     const playlists = await searchPlaylists(seeds[0].query);
     const excluded = new Set(profile?.notInterested || []);
@@ -149,6 +138,13 @@ export async function GET(request) {
       recommendations = filterRecommendations(await getPopularMusic());
     }
     recommendations = recommendations.slice(0, 24);
+    const genreSections = seeds
+      .map((seed, index) => ({
+        id: seed.query.toLowerCase().replace(/\s+/g, "-"),
+        title: seed.query,
+        videos: filterRecommendations(groups[index] || []),
+      }))
+      .filter((section) => section.videos.length > 0);
 
     return NextResponse.json({
       mode,
@@ -158,6 +154,7 @@ export async function GET(request) {
         charts: recommendations.slice(8, 16),
         newReleases: recommendations.slice(16, 24),
         featuredPlaylists: playlists,
+        genres: genreSections,
       },
       profile: profile
         ? {

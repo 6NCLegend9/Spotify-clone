@@ -105,8 +105,13 @@ export default function YouTubeMusicResults({ query }) {
         toast.error("This playlist has no playable videos.");
         return;
       }
-      dispatch(setYoutubeQueue(tracks));
-      dispatch(setYoutubeVideo(tracks[0]));
+      const seeded = tracks.map((track) => ({
+        ...track,
+        seedQuery: playlist.title || playlist.seedQuery,
+        genre: playlist.title,
+      }));
+      dispatch(setYoutubeQueue(seeded));
+      dispatch(setYoutubeVideo(seeded[0]));
     } catch (playlistError) {
       toast.error("Could not load this playlist.");
     } finally {

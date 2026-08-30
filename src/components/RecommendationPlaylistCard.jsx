@@ -20,8 +20,13 @@ export default function RecommendationPlaylistCard({ playlist }) {
         toast.error("This playlist has no playable videos.");
         return;
       }
-      dispatch(setYoutubeQueue(tracks));
-      dispatch(setYoutubeVideo(tracks[0]));
+      const seeded = tracks.map((track) => ({
+        ...track,
+        seedQuery: playlist.title,
+        genre: playlist.title,
+      }));
+      dispatch(setYoutubeQueue(seeded));
+      dispatch(setYoutubeVideo(seeded[0]));
     } catch (error) {
       toast.error("Could not load this playlist.");
     } finally {

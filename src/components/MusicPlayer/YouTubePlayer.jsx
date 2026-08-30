@@ -12,6 +12,7 @@ import {
 import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
+import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
 
 const formatTime = (seconds) => {
   const value = Math.max(0, Math.floor(seconds || 0));
@@ -27,10 +28,8 @@ const playerErrorMessage = (code) => {
   return "YouTube playback failed.";
 };
 
-// Temporary kill-switch: crossfade is disabled regardless of user settings until re-enabled here.
-const CROSSFADE_DISABLED = true;
-
 const otherDeck = (key) => (key === "A" ? "B" : "A");
+const END_SCREEN_GUARD = 2;
 
 // Best-effort signal for recommendations.js's skip exclusion filter; never blocks playback.
 const recordPlayEvent = (id, event) => {
@@ -48,9 +47,17 @@ export default function YouTubePlayer() {
   const { youtubeVideo: video, youtubeQueue: queue, isPlaying } = useSelector(
     (state) => state.player,
   );
-  const { dataSaver, audioOnly: audioOnlyToggle, videoQuality, transitionMode, crossfadeSeconds } = useSelector(
-    (state) => state.settings,
-  );
+  const {
+    dataSaver,
+    audioOnly: audioOnlyToggle,
+    videoQuality,
+    transitionMode,
+    crossfadeSeconds,
+    eqPreset,
+    eqBands,
+    normalization,
+  } = useSelector((state) => state.settings);
+  const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
   // Dual decks let one track fade out while the next fades in at the same time.
@@ -62,6 +69,9 @@ export default function YouTubePlayer() {
   const [fadeProgress, setFadeProgress] = useState(0);
   const crossfadeInProgressRef = useRef(false);
   const crossfadeTimerRef = useRef(null);
+  const waitForPlayRef = useRef(null);
+  const failSafeRef = useRef(null);
+  const pendingNextRef = useRef(null);
   const handledVideoIdRef = useRef(null);
   const tickRef = useRef(() => {});
   const [duration, setDuration] = useState(0);
@@ -79,6 +89,10 @@ export default function YouTubePlayer() {
 
   const getActivePlayer = () => deckPlayerRefs[activeDeckRef.current]?.current;
 
+  const applyPlaybackVolume = (player, ratio = 1) => {
+    player?.setVolume?.(Math.round(playbackVolume * ratio));
+  };
+
   const destroyDeck = (key) => {
     deckGenerationRef.current[key] += 1;
     const player = deckPlayerRefs[key].current;
@@ -92,7 +106,16 @@ export default function YouTubePlayer() {
       window.clearTimeout(crossfadeTimerRef.current);
       crossfadeTimerRef.current = null;
     }
+    if (waitForPlayRef.current) {
+      window.clearInterval(waitForPlayRef.current);
+      waitForPlayRef.current = null;
+    }
+    if (failSafeRef.current) {
+      window.clearTimeout(failSafeRef.current);
+      failSafeRef.current = null;
+    }
     crossfadeInProgressRef.current = false;
+    pendingNextRef.current = null;
     setFadeProgress(0);
   };
 
@@ -112,12 +135,18 @@ export default function YouTubePlayer() {
 
     const playerParams = new URLSearchParams({
       autoplay: "1",
+      cc_load_policy: "0",
       controls: "0",
+      disablekb: "1",
       enablejsapi: "1",
+      fs: "0",
+      iv_load_policy: "3",
+      modestbranding: "1",
       mute: "1",
       origin: window.location.origin,
       playsinline: "1",
       rel: "0",
+      showinfo: "0",
       widget_referrer: window.location.href,
     });
     const iframe = document.createElement("iframe");
@@ -157,7 +186,7 @@ export default function YouTubePlayer() {
               hasUnmutedOnce = true;
               if (key === activeDeckRef.current) {
                 event.target.unMute();
-                event.target.setVolume(100);
+                applyPlaybackVolume(event.target);
               }
             }
             if (key === activeDeckRef.current) setPlayerError("");
@@ -165,8 +194,27 @@ export default function YouTubePlayer() {
           }
           if (key !== activeDeckRef.current) return;
           if (event.data === window.YT.PlayerState.PLAYING) dispatch(playPause(true));
-          if (event.data === window.YT.PlayerState.PAUSED) dispatch(playPause(false));
-          if (event.data === window.YT.PlayerState.ENDED && !crossfadeInProgressRef.current) handleNext({ completed: true });
+          if (event.data === window.YT.PlayerState.PAUSED && !crossfadeInProgressRef.current) {
+            dispatch(playPause(false));
+          }
+          if (event.data === window.YT.PlayerState.ENDED) {
+            const nextVideo = pendingNextRef.current;
+            const incomingKey = otherDeck(key);
+            const incoming = deckPlayerRefs[incomingKey].current;
+            const incomingPlaying =
+              incoming?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING;
+            if (crossfadeInProgressRef.current && incomingPlaying && nextVideo) {
+              completeCrossfade(key, incomingKey, nextVideo);
+              return;
+            }
+            if (crossfadeInProgressRef.current && nextVideo) {
+              cancelCrossfade();
+              destroyDeck(incomingKey);
+              dispatch(setYoutubeVideo(nextVideo));
+              return;
+            }
+            if (!crossfadeInProgressRef.current) handleNext({ completed: true });
+          }
         },
         onAutoplayBlocked: () => {
           if (!isCurrent()) return;
@@ -196,12 +244,15 @@ export default function YouTubePlayer() {
   const completeCrossfade = (outgoingKey, incomingKey, nextVideo) => {
     if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "completed");
     const incomingPlayer = deckPlayerRefs[incomingKey].current;
-    incomingPlayer?.setVolume?.(100);
+    applyPlaybackVolume(incomingPlayer);
+    incomingPlayer?.unMute?.();
+    incomingPlayer?.playVideo?.();
     destroyDeck(outgoingKey);
     activeDeckRef.current = incomingKey;
     setActiveDeck(incomingKey);
     setFadeProgress(0);
     crossfadeInProgressRef.current = false;
+    pendingNextRef.current = null;
     handledVideoIdRef.current = nextVideo.id;
     setCurrentTime(0);
     setDuration(incomingPlayer?.getDuration?.() || 0);
@@ -224,8 +275,8 @@ export default function YouTubePlayer() {
       }
       const progress = Math.min(1, (performance.now() - startedAt) / totalMs);
       // Equal-power curve avoids the perceived volume dip of a plain linear fade.
-      deckPlayerRefs[outgoingKey].current?.setVolume?.(Math.round(Math.cos((progress * Math.PI) / 2) * 100));
-      deckPlayerRefs[incomingKey].current?.setVolume?.(Math.round(Math.sin((progress * Math.PI) / 2) * 100));
+      applyPlaybackVolume(deckPlayerRefs[outgoingKey].current, Math.cos((progress * Math.PI) / 2));
+      applyPlaybackVolume(deckPlayerRefs[incomingKey].current, Math.sin((progress * Math.PI) / 2));
       setFadeProgress(progress);
 
       if (progress >= 1) {
@@ -238,15 +289,56 @@ export default function YouTubePlayer() {
   };
 
   const startCrossfade = (nextVideo, durationSeconds) => {
+    if (crossfadeInProgressRef.current) return;
     crossfadeInProgressRef.current = true;
+    pendingNextRef.current = nextVideo;
     const outgoingKey = activeDeckRef.current;
     const incomingKey = otherDeck(outgoingKey);
+    failSafeRef.current = window.setTimeout(() => {
+      if (!crossfadeInProgressRef.current) return;
+      cancelCrossfade();
+      destroyDeck(incomingKey);
+      dispatch(setYoutubeVideo(nextVideo));
+    }, 8000);
+
+    const beginRamp = (incomingPlayer) => {
+      if (failSafeRef.current) {
+        window.clearTimeout(failSafeRef.current);
+        failSafeRef.current = null;
+      }
+      if (waitForPlayRef.current) {
+        window.clearInterval(waitForPlayRef.current);
+        waitForPlayRef.current = null;
+      }
+      incomingPlayer.unMute();
+      applyPlaybackVolume(incomingPlayer, 0);
+      incomingPlayer.playVideo?.();
+      runCrossfadeRamp(outgoingKey, incomingKey, nextVideo, durationSeconds);
+    };
+
+    const existing = deckPlayerRefs[incomingKey].current;
+    if (existing?.loadVideoById) {
+      existing.mute?.();
+      existing.setVolume?.(0);
+      existing.loadVideoById(nextVideo.id);
+      existing.playVideo?.();
+      waitForPlayRef.current = window.setInterval(() => {
+        if (!crossfadeInProgressRef.current) {
+          window.clearInterval(waitForPlayRef.current);
+          waitForPlayRef.current = null;
+          return;
+        }
+        if (existing.getPlayerState?.() === window.YT?.PlayerState?.PLAYING) {
+          window.clearInterval(waitForPlayRef.current);
+          waitForPlayRef.current = null;
+          beginRamp(existing);
+        }
+      }, 150);
+      return;
+    }
+
     mountDeck(incomingKey, nextVideo.id, {
-      onFirstPlaying: (incomingPlayer) => {
-        incomingPlayer.unMute();
-        incomingPlayer.setVolume(0);
-        runCrossfadeRamp(outgoingKey, incomingKey, nextVideo, durationSeconds);
-      },
+      onFirstPlaying: beginRamp,
     });
   };
 
@@ -285,6 +377,14 @@ export default function YouTubePlayer() {
     setPlayerError("");
     setCurrentTime(0);
     setDuration(0);
+    const existing = getActivePlayer();
+    if (existing?.loadVideoById) {
+      existing.unMute?.();
+      applyPlaybackVolume(existing);
+      existing.loadVideoById(video.id);
+      existing.playVideo?.();
+      return;
+    }
     destroyDeck("A");
     destroyDeck("B");
     activeDeckRef.current = "A";
@@ -309,13 +409,19 @@ export default function YouTubePlayer() {
       setCurrentTime(time);
       setDuration(dur);
 
-      if (CROSSFADE_DISABLED || !isPlaying || crossfadeInProgressRef.current || transitionMode === "off" || !crossfadeSeconds || !dur) return;
+      if (!isPlaying || crossfadeInProgressRef.current || !dur) return;
       const remaining = dur - time;
-      if (remaining > crossfadeSeconds || remaining <= 0.3) return;
       const index = queue.findIndex((item) => item.id === video?.id);
       const nextVideo = queue[index + 1];
       if (!nextVideo) return;
-      startCrossfade(nextVideo, Math.min(crossfadeSeconds, Math.max(remaining, 1)));
+      const fadeSeconds = transitionMode === "off" ? 0 : Number(crossfadeSeconds) || 0;
+      if (fadeSeconds > 0 && remaining <= fadeSeconds && remaining > 0.25) {
+        startCrossfade(nextVideo, Math.min(fadeSeconds, Math.max(remaining, 1)));
+        return;
+      }
+      if (remaining <= END_SCREEN_GUARD && remaining > 0) {
+        dispatch(setYoutubeVideo(nextVideo));
+      }
     };
   });
 
@@ -329,10 +435,18 @@ export default function YouTubePlayer() {
     autoExtendingRef.current = true;
     (async () => {
       try {
-        const response = await fetch(`/api/youtube-search?type=video&q=${encodeURIComponent(video.channel || video.title)}`);
+        const seed = video.seedQuery || video.genre || video.channel || video.title;
+        const response = await fetch(`/api/youtube-search?type=video&q=${encodeURIComponent(seed)}`);
         const data = response.ok ? await response.json() : null;
         const existingIds = new Set(queue.map((item) => item.id));
-        const extras = (data?.results || []).filter((item) => !existingIds.has(item.id)).slice(0, 5);
+        const extras = (data?.results || [])
+          .filter((item) => !existingIds.has(item.id))
+          .slice(0, 5)
+          .map((item) => ({
+            ...item,
+            seedQuery: video.seedQuery || video.genre || seed,
+            genre: video.genre,
+          }));
         if (extras.length > 0) dispatch(appendToQueue(extras));
       } catch (error) {
         // Silent: running out of extra tracks isn't worth surfacing to the user.
@@ -377,7 +491,28 @@ export default function YouTubePlayer() {
   }, []);
 
   useEffect(() => {
-    if (crossfadeInProgressRef.current) abortCrossfade();
+    applyPlaybackVolume(getActivePlayer());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playbackVolume]);
+
+  useEffect(() => {
+    if (!video || !apiReady || transitionMode === "off" || crossfadeInProgressRef.current) return;
+    const index = queue.findIndex((item) => item.id === video.id);
+    const nextVideo = queue[index + 1];
+    if (!nextVideo) return;
+    const idleKey = otherDeck(activeDeckRef.current);
+    const idle = deckPlayerRefs[idleKey].current;
+    if (!idle?.cueVideoById) return;
+    idle.cueVideoById(nextVideo.id);
+    idle.mute?.();
+    idle.setVolume?.(0);
+  }, [video?.id, queue, apiReady, transitionMode]);
+
+  useEffect(() => {
+    if (crossfadeInProgressRef.current) {
+      if (!isPlaying) abortCrossfade();
+      return;
+    }
     const player = getActivePlayer();
     if (!player?.getPlayerState) return;
     if (isPlaying) player.playVideo();
@@ -396,7 +531,7 @@ export default function YouTubePlayer() {
     }
 
     player.unMute?.();
-    player.setVolume?.(100);
+    applyPlaybackVolume(player);
     player.playVideo();
   };
 
@@ -467,16 +602,17 @@ export default function YouTubePlayer() {
       onClick={(event) => event.stopPropagation()}
     >
       <div className={expanded && !dataSaver && !audioOnly ? "contents" : "flex min-w-0 items-center gap-3"}>
-      <div className={expanded && videoVisible ? "absolute inset-0 overflow-hidden bg-black" : videoVisible ? "relative h-14 w-[5.6rem] shrink-0 overflow-hidden rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px] overflow-hidden"}>
+      <div className={expanded && videoVisible ? "yt-crop absolute inset-0 bg-black" : videoVisible ? "yt-crop relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px]"}>
         {["A", "B"].map((key) => (
           <div
             key={key}
             className="absolute inset-0 h-full w-full"
             style={{ opacity: key === activeDeck ? outgoingOpacity : incomingOpacity }}
           >
-            <div ref={deckHostRefs[key]} className="h-full w-full" />
+            <div ref={deckHostRefs[key]} className="yt-crop-frame h-full w-full" />
           </div>
         ))}
+        <div className="yt-chrome-mask" aria-hidden="true" />
         {playerError && (
           <div className="absolute inset-0 z-10 grid place-content-center bg-black/90 p-3 text-center">
             <p className="text-xs font-medium text-white">{playerError}</p>
