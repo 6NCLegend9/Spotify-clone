@@ -1,9 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  BsFillVolumeUpFill,
-  BsVolumeDownFill,
-  BsFillVolumeMuteFill,
-} from "react-icons/bs";
 import { BiAddToQueue } from "react-icons/bi";
 import { addSongToPlaylist, getUserPlaylists } from "@/services/playlistApi";
 import { toast } from "react-hot-toast";
@@ -98,42 +93,7 @@ const VolumeBar = ({
             </div>
           )}
         </div>
-        {value <= 1 && value > 0.5 && (
-          <BsFillVolumeUpFill
-            size={25}
-            color="#FFF"
-            className=" cursor-pointer"
-            onClick={() => setVolume(0)}
-          />
-        )}
-        {value <= 0.5 && value > 0 && (
-          <BsVolumeDownFill
-            size={25}
-            className=" cursor-pointer"
-            color="#FFF"
-            onClick={() => setVolume(0)}
-          />
-        )}
-        {value === 0 && (
-          <BsFillVolumeMuteFill
-            size={25}
-            color="#FFF"
-            className=" cursor-pointer"
-            onClick={() => setVolume(1)}
-          />
-        )}
-        <input
-          onClick={(event) => {
-            event.stopPropagation();
-          }}
-          type="range"
-          step="any"
-          value={value}
-          min={min}
-          max={max}
-          onChange={onChange}
-          className="2xl:w-24 lg:w-24 md:w-28 h-1 ml-2 accent-[#00e6e6] cursor-pointer"
-        />
+        {/* Volume lives in PlayerVolume on the dock, like YouTube Music. */}
       </div>
       {/* overlay */}
       {showMenu && (

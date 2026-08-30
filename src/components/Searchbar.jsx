@@ -27,14 +27,14 @@ const Searchbar = () => {
       <label htmlFor="search-field" className="sr-only">
         Search songs, artists, and playlists
       </label>
-      <div className="flex h-11 items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 transition focus-within:border-[#00e6e6] focus-within:bg-[#07121d]/80 focus-within:shadow-glow">
+      <div className="flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 transition focus-within:border-[#00e6e6] focus-within:bg-[#07121d]/80 focus-within:shadow-glow sm:h-11 sm:px-4">
         <FiSearch aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9aa8b5]" />
         <input
           id="search-field"
           name="search-field"
           type="search"
           autoComplete="off"
-          placeholder="Search songs, artists, playlists"
+          placeholder="Search music"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onFocus={() => dispatch(setIsTyping(true))}

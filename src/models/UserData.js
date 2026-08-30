@@ -77,6 +77,7 @@ const fileSchema = new mongoose.Schema(
             tailoredAds: { type: Boolean, default: true },
             syncedLyrics: { type: Boolean, default: true },
             pictureInPicture: { type: Boolean, default: true },
+            masterVolume: { type: Number, min: 0, max: 1, default: 0.85 },
         },
     },
     { timestamps: true, toJSON: { flattenMaps: true } }

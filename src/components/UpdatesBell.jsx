@@ -77,7 +77,7 @@ const UpdatesBell = () => {
         ref={buttonRef}
         type="button"
         onClick={handleToggle}
-        className="icon-btn relative"
+        className="icon-btn relative h-9 w-9 sm:h-10 sm:w-10"
         aria-label="Open updates"
         title="Updates"
       >

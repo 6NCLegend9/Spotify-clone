@@ -17,9 +17,11 @@ export default function PictureInPictureWindow({
   duration,
   isPlaying,
   lines = [],
+  queue = [],
   onPlayPause,
   onSeekBy,
   onNext,
+  onSelect,
   onClose,
 }) {
   if (!container || !video) return null;
@@ -60,6 +62,17 @@ export default function PictureInPictureWindow({
           <button type="button" aria-label="Forward 10 seconds" onClick={() => onSeekBy(10)}><FiRotateCw /></button>
           <button type="button" aria-label="Next song" onClick={onNext}><MdSkipNext /></button>
         </div>
+        {queue.length > 0 && (
+          <div className="yt-pip-queue">
+            <p className="yt-pip-kicker">Next up</p>
+            {queue.slice(0, 5).map((item) => (
+              <button key={item.id} type="button" className="yt-pip-queue-item" onClick={() => onSelect?.(item)}>
+                <img src={item.thumbnail} alt="" />
+                <span>{item.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>,
     container,
@@ -86,4 +99,8 @@ export const PIP_DOCUMENT_STYLES = `
   .yt-pip-times { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: #9aa8b5; }
   .yt-pip-controls { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
   .yt-pip-play { width: 40px !important; height: 40px !important; background: #00e6e6 !important; color: #000 !important; }
+  .yt-pip-queue { margin-top: 10px; min-height: 0; flex: 1; overflow: auto; }
+  .yt-pip-queue-item { display: flex; width: 100%; align-items: center; gap: 8px; margin-top: 6px; padding: 4px; border: 0; background: rgba(255,255,255,.06); color: #fff; border-radius: 8px; cursor: pointer; text-align: left; }
+  .yt-pip-queue-item img { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+  .yt-pip-queue-item span { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;

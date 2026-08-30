@@ -22,7 +22,7 @@ const Player = ({
 }) => {
   const ref = useRef(null);
   const handlePlayPauseRef = useRef(handlePlayPause);
-  const { eqPreset, eqBands, normalization, monoAudio } = useSelector((state) => state.settings);
+  const { eqPreset, eqBands, normalization, monoAudio, masterVolume } = useSelector((state) => state.settings);
   useAudioEq(ref, {
     bands: bandsForPreset(eqPreset, eqBands),
     normalization,
@@ -115,9 +115,9 @@ const Player = ({
 
   useEffect(() => {
     if (ref.current) {
-      ref.current.volume = volume;
+      ref.current.volume = volume * (Number.isFinite(masterVolume) ? masterVolume : 0.85);
     }
-  }, [volume]);
+  }, [volume, masterVolume]);
   // updates audio element only on seekTime change (and not on each rerender):
   useEffect(() => {
     if (ref.current) {

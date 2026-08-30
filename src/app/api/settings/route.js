@@ -7,7 +7,7 @@ import dbConnect from "@/utils/dbconnect";
 const allowedKeys = [
   "transitionMode", "crossfadeSeconds", "eqPreset", "eqBands", "dataSaver", "audioOnly",
   "wifiOnlyDownloads", "streamingQuality", "videoQuality", "normalization", "monoAudio", "explicitContent",
-  "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture",
+  "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture", "masterVolume",
 ];
 
 export async function GET(request) {

@@ -12,6 +12,7 @@ import Player from "./Player";
 import Seekbar from "./Seekbar";
 import Track from "./Track";
 import VolumeBar from "./VolumeBar";
+import PlayerVolume from "./PlayerVolume";
 import FullscreenTrack from "./FullscreenTrack";
 import Lyrics from "./Lyrics";
 import Downloader from "./Downloader";
@@ -368,10 +369,11 @@ const MusicPlayer = () => {
               title={pictureInPicture === false ? "Picture-in-picture is turned off in Settings" : "Picture in picture"}
               disabled={pictureInPicture === false}
               onClick={toggleNativePip}
-              className={`hidden rounded-full p-2 hover:bg-white/10 sm:grid ${pipWindow ? "text-[#00e6e6]" : "text-gray-300"}`}
+              className={`hidden rounded-full p-2 hover:bg-white/10 md:grid ${pipWindow ? "text-[#00e6e6]" : "text-gray-300"}`}
             >
               <MdPictureInPictureAlt size={18} />
             </button>
+            <PlayerVolume />
             <VolumeBar
             activeSong={activeSong}
             bgColor={bgColor}

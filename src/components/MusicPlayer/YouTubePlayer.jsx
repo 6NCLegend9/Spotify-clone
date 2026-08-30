@@ -16,7 +16,9 @@ import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
 import SyncedLyrics from "@/components/MusicPlayer/SyncedLyrics";
 import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "@/components/MusicPlayer/PictureInPictureWindow";
+import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
 
 const formatTime = (seconds) => {
@@ -63,7 +65,9 @@ export default function YouTubePlayer() {
     normalization,
     syncedLyrics,
     pictureInPicture,
+    masterVolume,
   } = useSelector((state) => state.settings);
+  const isMobile = useIsMobile();
   const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
@@ -97,8 +101,18 @@ export default function YouTubePlayer() {
   const pipWindowRef = useRef(null);
   const pipMountRef = useRef(null);
   const [showLyrics, setShowLyrics] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState(false);
+  const [sheetTab, setSheetTab] = useState("queue");
+  const swipeStartYRef = useRef(null);
   const [pipWindow, setPipWindow] = useState(null);
   const [pipFloat, setPipFloat] = useState(false);
+  const videoRef = useRef(video);
+  const queueRef = useRef(queue);
+  const isPlayingRef = useRef(isPlaying);
+  const seekGuardRef = useRef({ seeking: false, until: 0, target: null });
+  videoRef.current = video;
+  queueRef.current = queue;
+  isPlayingRef.current = isPlaying;
   const lyricsQuery = useSyncedLyrics({
     title: video?.title || "",
     artist: video?.channel || "",
@@ -108,8 +122,66 @@ export default function YouTubePlayer() {
 
   const getActivePlayer = () => deckPlayerRefs[activeDeckRef.current]?.current;
 
+  const playerVideoId = (player) => {
+    try {
+      return player?.getVideoData?.()?.video_id || "";
+    } catch (error) {
+      return "";
+    }
+  };
+
+  const isSeekGuarded = () => {
+    const guard = seekGuardRef.current;
+    return guard.seeking || performance.now() < guard.until;
+  };
+
+  const getNextVideo = () => {
+    const currentId = videoRef.current?.id;
+    const list = queueRef.current || [];
+    const index = list.findIndex((item) => item.id === currentId);
+    if (index < 0) return null;
+    return list[index + 1] || null;
+  };
+
+  const getPreviousVideo = () => {
+    const currentId = videoRef.current?.id;
+    const list = queueRef.current || [];
+    const index = list.findIndex((item) => item.id === currentId);
+    if (index <= 0) return null;
+    return list[index - 1] || null;
+  };
+
+  const getPlayerForCurrentVideo = () => {
+    const want = videoRef.current?.id;
+    if (want) {
+      for (const key of ["A", "B"]) {
+        const player = deckPlayerRefs[key].current;
+        if (player && playerVideoId(player) === want) {
+          if (activeDeckRef.current !== key) {
+            activeDeckRef.current = key;
+            setActiveDeck(key);
+          }
+          return player;
+        }
+      }
+    }
+    return getActivePlayer();
+  };
+
+  const silenceIdleDeck = () => {
+    const idle = deckPlayerRefs[otherDeck(activeDeckRef.current)].current;
+    try {
+      idle?.pauseVideo?.();
+      idle?.mute?.();
+      idle?.setVolume?.(0);
+    } catch (error) {
+      // Idle deck may already be gone.
+    }
+  };
+
   const applyPlaybackVolume = (player, ratio = 1) => {
-    player?.setVolume?.(Math.round(playbackVolume * ratio));
+    const master = Number.isFinite(masterVolume) ? masterVolume : 0.85;
+    player?.setVolume?.(Math.round(playbackVolume * master * ratio));
   };
 
   const destroyDeck = (key) => {
@@ -122,6 +194,7 @@ export default function YouTubePlayer() {
 
   const cancelCrossfade = () => {
     if (crossfadeTimerRef.current) {
+      window.cancelAnimationFrame(crossfadeTimerRef.current);
       window.clearTimeout(crossfadeTimerRef.current);
       crossfadeTimerRef.current = null;
     }
@@ -213,11 +286,24 @@ export default function YouTubePlayer() {
           }
           if (key !== activeDeckRef.current) return;
           if (event.data === window.YT.PlayerState.PLAYING) dispatch(playPause(true));
-          if (event.data === window.YT.PlayerState.PAUSED && !crossfadeInProgressRef.current && !expandLockRef.current) {
+          if (
+            event.data === window.YT.PlayerState.PAUSED &&
+            !crossfadeInProgressRef.current &&
+            !expandLockRef.current &&
+            !isSeekGuarded()
+          ) {
             dispatch(playPause(false));
           }
           if (event.data === window.YT.PlayerState.ENDED) {
-            const nextVideo = pendingNextRef.current;
+            // seekTo() often emits a fake ENDED. Ignore it unless we are actually at the end
+            // of the track that Redux currently has selected — otherwise we jump back to
+            // whatever song this deck was first mounted with.
+            if (isSeekGuarded()) return;
+            const endedAt = event.target.getCurrentTime?.() || 0;
+            const endedDur = event.target.getDuration?.() || 0;
+            if (endedDur > 1 && endedAt < endedDur - 1.5) return;
+
+            const nextVideo = pendingNextRef.current || getNextVideo();
             const incomingKey = otherDeck(key);
             const incoming = deckPlayerRefs[incomingKey].current;
             const incomingPlaying =
@@ -232,7 +318,12 @@ export default function YouTubePlayer() {
               dispatch(setYoutubeVideo(nextVideo));
               return;
             }
-            if (!crossfadeInProgressRef.current) handleNext({ completed: true });
+            if (!crossfadeInProgressRef.current && nextVideo) {
+              if (status === "authenticated" && videoRef.current?.id) {
+                recordPlayEvent(videoRef.current.id, "completed");
+              }
+              dispatch(setYoutubeVideo(nextVideo));
+            }
           }
         },
         onAutoplayBlocked: () => {
@@ -279,12 +370,12 @@ export default function YouTubePlayer() {
   };
 
   const runCrossfadeRamp = (outgoingKey, incomingKey, nextVideo, durationSeconds) => {
-    const totalMs = Math.max(500, durationSeconds * 1000);
+    const totalMs = Math.max(800, Math.min(durationSeconds * 1000, 10000));
     const startedAt = performance.now();
     const outgoingGeneration = deckGenerationRef.current[outgoingKey];
     const incomingGeneration = deckGenerationRef.current[incomingKey];
 
-    const step = () => {
+    const step = (now) => {
       if (
         deckGenerationRef.current[outgoingKey] !== outgoingGeneration ||
         deckGenerationRef.current[incomingKey] !== incomingGeneration
@@ -292,19 +383,20 @@ export default function YouTubePlayer() {
         crossfadeInProgressRef.current = false;
         return;
       }
-      const progress = Math.min(1, (performance.now() - startedAt) / totalMs);
-      // Equal-power curve avoids the perceived volume dip of a plain linear fade.
+      const progress = Math.min(1, (now - startedAt) / totalMs);
       applyPlaybackVolume(deckPlayerRefs[outgoingKey].current, Math.cos((progress * Math.PI) / 2));
       applyPlaybackVolume(deckPlayerRefs[incomingKey].current, Math.sin((progress * Math.PI) / 2));
-      setFadeProgress(progress);
+      if (progress === 0 || progress === 1 || Math.round(progress * 20) !== Math.round((progress - 0.016) * 20)) {
+        setFadeProgress(progress);
+      }
 
       if (progress >= 1) {
         completeCrossfade(outgoingKey, incomingKey, nextVideo);
         return;
       }
-      crossfadeTimerRef.current = window.setTimeout(step, 100);
+      crossfadeTimerRef.current = window.requestAnimationFrame(step);
     };
-    step();
+    crossfadeTimerRef.current = window.requestAnimationFrame(step);
   };
 
   const startCrossfade = (nextVideo, durationSeconds) => {
@@ -315,10 +407,21 @@ export default function YouTubePlayer() {
     const incomingKey = otherDeck(outgoingKey);
     failSafeRef.current = window.setTimeout(() => {
       if (!crossfadeInProgressRef.current) return;
+      const incoming = deckPlayerRefs[incomingKey].current;
+      if (incoming?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING) {
+        completeCrossfade(outgoingKey, incomingKey, nextVideo);
+        return;
+      }
       cancelCrossfade();
-      destroyDeck(incomingKey);
+      const outgoing = deckPlayerRefs[outgoingKey].current;
+      outgoing?.unMute?.();
+      applyPlaybackVolume(outgoing);
+      outgoing?.loadVideoById?.(nextVideo.id);
+      outgoing?.playVideo?.();
+      handledVideoIdRef.current = nextVideo.id;
+      dispatch(playPause(true));
       dispatch(setYoutubeVideo(nextVideo));
-    }, 8000);
+    }, 5000);
 
     const beginRamp = (incomingPlayer) => {
       if (failSafeRef.current) {
@@ -392,17 +495,18 @@ export default function YouTubePlayer() {
     }
 
     cancelCrossfade();
-    setExpanded(false);
-    dispatch(setFullScreen(false));
+    seekGuardRef.current = { seeking: false, until: 0, target: null };
     setPlayerError("");
     setCurrentTime(0);
     setDuration(0);
+    dispatch(playPause(true));
     const existing = getActivePlayer();
     if (existing?.loadVideoById) {
       existing.unMute?.();
       applyPlaybackVolume(existing);
       existing.loadVideoById(video.id);
       existing.playVideo?.();
+      silenceIdleDeck();
       return;
     }
     destroyDeck("A");
@@ -427,21 +531,25 @@ export default function YouTubePlayer() {
 
   useEffect(() => {
     tickRef.current = () => {
-      const activePlayer = getActivePlayer();
+      const activePlayer = getPlayerForCurrentVideo();
       if (!activePlayer?.getCurrentTime) return;
       const time = activePlayer.getCurrentTime();
       const dur = activePlayer.getDuration();
-      setCurrentTime(time);
+      const guard = seekGuardRef.current;
+      const seekPending = guard.target != null && (guard.seeking || Math.abs(time - guard.target) > 1.5);
+      setCurrentTime(seekPending ? guard.target : time);
       setDuration(dur);
+      if (!guard.seeking && guard.target != null && Math.abs(time - guard.target) <= 1.5) {
+        guard.target = null;
+      }
 
-      if (!isPlaying || crossfadeInProgressRef.current || !dur) return;
+      if (isSeekGuarded() || !isPlaying || crossfadeInProgressRef.current || !dur) return;
       const remaining = dur - time;
-      const index = queue.findIndex((item) => item.id === video?.id);
-      const nextVideo = queue[index + 1];
+      const nextVideo = getNextVideo();
       if (!nextVideo) return;
       const fadeSeconds = transitionMode === "off" ? 0 : Number(crossfadeSeconds) || 0;
-      if (fadeSeconds > 0 && remaining <= fadeSeconds && remaining > 0.25) {
-        startCrossfade(nextVideo, Math.min(fadeSeconds, Math.max(remaining, 1)));
+      if (fadeSeconds > 0 && remaining <= fadeSeconds && remaining > 0.35) {
+        startCrossfade(nextVideo, Math.min(fadeSeconds, Math.max(remaining - 0.35, 0.8)));
         return;
       }
       if (remaining <= END_SCREEN_GUARD && remaining > 0) {
@@ -519,12 +627,11 @@ export default function YouTubePlayer() {
   useEffect(() => {
     applyPlaybackVolume(getActivePlayer());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playbackVolume]);
+  }, [playbackVolume, masterVolume]);
 
   useEffect(() => {
     if (!video || !apiReady || transitionMode === "off" || crossfadeInProgressRef.current) return;
-    const index = queue.findIndex((item) => item.id === video.id);
-    const nextVideo = queue[index + 1];
+    const nextVideo = getNextVideo();
     if (!nextVideo) return;
     const idleKey = otherDeck(activeDeckRef.current);
     const idle = deckPlayerRefs[idleKey].current;
@@ -535,16 +642,31 @@ export default function YouTubePlayer() {
   }, [video?.id, queue, apiReady, transitionMode]);
 
   useEffect(() => {
-    if (crossfadeInProgressRef.current) {
-      if (!isPlaying) abortCrossfade();
-      return;
-    }
-    const player = getActivePlayer();
+    if (crossfadeInProgressRef.current || isSeekGuarded()) return;
+    const player = getPlayerForCurrentVideo();
     if (!player?.getPlayerState) return;
     if (isPlaying) player.playVideo();
     else player.pauseVideo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying]);
+
+  const seekOnCurrentTrack = (nextTime, { dragging = false } = {}) => {
+    const time = Math.max(0, Number(nextTime) || 0);
+    abortCrossfade();
+    silenceIdleDeck();
+    setFadeProgress(0);
+    seekGuardRef.current.seeking = dragging;
+    seekGuardRef.current.target = time;
+    seekGuardRef.current.until = performance.now() + 2500;
+    setCurrentTime(time);
+    const player = getPlayerForCurrentVideo();
+    try {
+      player?.seekTo?.(time, true);
+      if (isPlayingRef.current) player?.playVideo?.();
+    } catch (error) {
+      // Player may still be loading the current video.
+    }
+  };
 
   const handlePlayPause = () => {
     abortCrossfade();
@@ -562,21 +684,20 @@ export default function YouTubePlayer() {
   };
 
   const handleNext = ({ completed = false } = {}) => {
-    if (status === "authenticated" && video?.id) recordPlayEvent(video.id, completed ? "completed" : "skipped");
-    const index = queue.findIndex((item) => item.id === video?.id);
-    const nextVideo = queue[index + 1];
+    const current = videoRef.current;
+    if (status === "authenticated" && current?.id) recordPlayEvent(current.id, completed ? "completed" : "skipped");
+    const nextVideo = getNextVideo();
     if (nextVideo) dispatch(setYoutubeVideo(nextVideo));
   };
 
   const handlePrev = () => {
-    const index = queue.findIndex((item) => item.id === video?.id);
-    const previous = index > 0 ? queue[index - 1] : null;
+    const previous = getPreviousVideo();
     if (previous) {
-      if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "skipped");
+      if (status === "authenticated" && videoRef.current?.id) recordPlayEvent(videoRef.current.id, "skipped");
       dispatch(setYoutubeVideo(previous));
       return;
     }
-    getActivePlayer()?.seekTo?.(0, true);
+    seekOnCurrentTrack(0);
   };
 
   const closePictureInPicture = () => {
@@ -594,7 +715,7 @@ export default function YouTubePlayer() {
   const openDocumentPip = async () => {
     if (!window.documentPictureInPicture?.requestWindow) return false;
     try {
-      const pip = await window.documentPictureInPicture.requestWindow({ width: 390, height: 280 });
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 420, height: 520 });
       const style = pip.document.createElement("style");
       style.textContent = PIP_DOCUMENT_STYLES;
       pip.document.head.appendChild(style);
@@ -617,7 +738,7 @@ export default function YouTubePlayer() {
   };
 
   const togglePictureInPicture = async () => {
-    if (pictureInPicture === false) return;
+    if (isMobile || pictureInPicture === false) return;
     if (pipWindowRef.current || pipFloat) {
       closePictureInPicture();
       return;
@@ -627,21 +748,60 @@ export default function YouTubePlayer() {
     if (!opened) setPipFloat(true);
   };
 
+  const playQueueItem = (item) => {
+    if (!item?.id) return;
+    if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "skipped");
+    abortCrossfade();
+    dispatch(playPause(true));
+    dispatch(setYoutubeVideo(item));
+    setShowQueue(false);
+  };
+
+  const onFullscreenSwipeStart = (event) => {
+    swipeStartYRef.current = event.touches?.[0]?.clientY ?? null;
+  };
+
+  const onFullscreenSwipeEnd = (event) => {
+    if (swipeStartYRef.current == null) return;
+    const endY = event.changedTouches?.[0]?.clientY;
+    const delta = (endY ?? swipeStartYRef.current) - swipeStartYRef.current;
+    swipeStartYRef.current = null;
+    if (delta < -56) {
+      setMobileSheet(true);
+      setShowQueue(true);
+      setShowLyrics(syncedLyrics !== false);
+      return;
+    }
+    if (delta > 56) {
+      setMobileSheet(false);
+      setShowQueue(false);
+      setShowLyrics(false);
+    }
+  };
+
   const toggleLyrics = () => {
     if (syncedLyrics === false) return;
     setShowLyrics((value) => !value);
   };
 
+  useEffect(() => {
+    if (isMobile) closePictureInPicture();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
+
   const seekBy = (amount) => {
-    abortCrossfade();
-    getActivePlayer()?.seekTo?.(Math.max(0, currentTime + amount), true);
+    const base = seekGuardRef.current.target ?? currentTime;
+    seekOnCurrentTrack(Math.max(0, base + amount));
   };
 
   const handleSeek = (event) => {
-    abortCrossfade();
-    const nextTime = Number(event.target.value);
-    setCurrentTime(nextTime);
-    getActivePlayer()?.seekTo?.(nextTime, true);
+    seekOnCurrentTrack(Number(event.target.value), { dragging: seekGuardRef.current.seeking });
+  };
+
+  const endSeekDrag = (event) => {
+    seekOnCurrentTrack(Number(event.currentTarget.value));
+    seekGuardRef.current.seeking = false;
+    seekGuardRef.current.until = performance.now() + 2500;
   };
 
   useEffect(() => {
@@ -733,11 +893,17 @@ export default function YouTubePlayer() {
   };
 
   const fullscreen = expanded && videoVisible;
+  const currentQueueIndex = queue.findIndex((item) => item.id === video.id);
+  const upcoming = currentQueueIndex === -1 ? queue : queue.slice(currentQueueIndex + 1);
+  const showDesktopQueue = showQueue && !(fullscreen && isMobile);
+  const showMobileSheet = fullscreen && isMobile && mobileSheet;
 
   return (
     <div
       className={fullscreen ? "relative flex h-full min-h-0 w-full flex-1 flex-col bg-black" : "relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 py-2 sm:px-6"}
       onClick={(event) => event.stopPropagation()}
+      onTouchStart={fullscreen ? onFullscreenSwipeStart : undefined}
+      onTouchEnd={fullscreen ? onFullscreenSwipeEnd : undefined}
     >
       {pipFloat && videoVisible && !expanded && (
         <img src={video.thumbnail} alt="" className="h-14 w-[5.6rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-28" />
@@ -794,14 +960,35 @@ export default function YouTubePlayer() {
           </div>
         )}
       </div>
-      <div className={fullscreen ? "absolute inset-x-0 bottom-4 z-20 mx-auto flex w-[min(80vw,720px)] flex-col items-center gap-2" : "flex flex-col items-center justify-center gap-1"}>
-        <div className={fullscreen ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 text-gray-200 backdrop-blur" : "flex shrink-0 items-center gap-1 text-gray-200"}>
+      <div className={fullscreen ? "absolute inset-x-0 bottom-4 z-20 mx-auto flex w-[min(92vw,880px)] flex-col items-center gap-2" : "flex flex-col items-center justify-center gap-1"}>
+        <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "flex shrink-0 items-center gap-1 text-gray-200"}>
+        {fullscreen && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
+          <div className={fullscreen ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 backdrop-blur" : "contents"}>
           <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCcw /></button>
           <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="rounded-full bg-[#00e6e6] p-2 text-black hover:scale-105">{isPlaying ? <FiPause /> : <FiPlay />}</button>
           <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCw /></button>
+          </div>
+          {fullscreen && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
         </div>
         <div className={fullscreen ? "w-full" : "w-32 sm:w-64 md:w-96"}>
-          <input aria-label="YouTube song progress" type="range" min="0" max={duration || 0} value={Math.min(currentTime, duration || 0)} onChange={handleSeek} className="w-full accent-[#00e6e6]" />
+          <input
+            aria-label="YouTube song progress"
+            type="range"
+            min="0"
+            max={duration || 0}
+            value={Math.min(currentTime, duration || 0)}
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+              seekGuardRef.current.seeking = true;
+            }}
+            onPointerUp={endSeekDrag}
+            onPointerCancel={() => {
+              seekGuardRef.current.seeking = false;
+              seekGuardRef.current.until = performance.now() + 2500;
+            }}
+            onChange={handleSeek}
+            className="w-full accent-[#00e6e6]"
+          />
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>
@@ -809,7 +996,10 @@ export default function YouTubePlayer() {
       {!expanded && <div className="hidden sm:block"><AddToPlaylistButton track={video} /></div>}
       {!expanded && <div className="hidden sm:block"><FavouriteTrackButton track={video} /></div>}
       <div ref={queueMenuRef} className="relative flex items-center gap-2">
-        <button type="button" aria-expanded={showQueue} onClick={() => setShowQueue((value) => !value)} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}><span className="hidden sm:inline">Next up</span> {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
+        {!(fullscreen && isMobile) && (
+          <button type="button" aria-expanded={showQueue} onClick={() => { setShowQueue((value) => !value); if (isMobile && fullscreen) setMobileSheet((value) => !value); }} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}><span className="hidden sm:inline">Next up</span> {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
+        )}
+        {!(fullscreen && isMobile) && (
         <button
           type="button"
           aria-pressed={showLyrics}
@@ -821,6 +1011,8 @@ export default function YouTubePlayer() {
         >
           <MdOutlineLyrics size={18} />
         </button>
+        )}
+        {!isMobile && (
         <button
           type="button"
           aria-pressed={Boolean(pipWindow || pipFloat)}
@@ -832,6 +1024,8 @@ export default function YouTubePlayer() {
         >
           <MdPictureInPictureAlt size={18} />
         </button>
+        )}
+        {!fullscreen && <PlayerVolume />}
         <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         <button
           type="button"
@@ -847,12 +1041,13 @@ export default function YouTubePlayer() {
         >
           <FiX size={18} />
         </button>
-        {showQueue && (
-          <div className={expanded && !dataSaver && !audioOnly ? "absolute right-0 top-full mt-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl" : "absolute bottom-full right-0 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl"}>
+        {showDesktopQueue && !fullscreen && (
+          <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl">
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Next up</p>
-            <div className="max-h-64 overflow-y-auto">
-              {queue.slice(queue.findIndex((item) => item.id === video.id) + 1, queue.findIndex((item) => item.id === video.id) + 4).map((item) => (
-                <button key={item.id} type="button" onClick={() => { if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "skipped"); dispatch(setYoutubeVideo(item)); }} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
+            <div className="max-h-72 overflow-y-auto">
+              {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
+              {upcoming.slice(0, 12).map((item) => (
+                <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
               ))}
             </div>
             <form onSubmit={handleAddSearch} className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
@@ -884,8 +1079,52 @@ export default function YouTubePlayer() {
         )}
       </div>
       </div>
-      {showLyrics && syncedLyrics !== false && (
-        <div className={expanded && videoVisible ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
+      {showDesktopQueue && fullscreen && (
+        <div className="yt-queue-panel">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Next up</p>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
+            {upcoming.slice(0, 12).map((item) => (
+              <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
+            ))}
+          </div>
+        </div>
+      )}
+      {fullscreen && isMobile && !mobileSheet && (
+        <p className="pointer-events-none absolute inset-x-0 bottom-28 z-20 text-center text-[11px] uppercase tracking-[0.2em] text-white/55">Swipe up for lyrics and queue</p>
+      )}
+      {showMobileSheet && (
+        <div className="yt-mobile-sheet">
+          <div className="yt-mobile-sheet-handle" />
+          <div className="mb-3 flex gap-2">
+            <button type="button" onClick={() => setSheetTab("queue")} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${sheetTab === "queue" ? "bg-[#00e6e6] text-black" : "bg-white/10 text-gray-300"}`}>Queue</button>
+            <button type="button" onClick={() => setSheetTab("lyrics")} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${sheetTab === "lyrics" ? "bg-[#00e6e6] text-black" : "bg-white/10 text-gray-300"}`}>Lyrics</button>
+            <button type="button" aria-label="Show video" onClick={() => { setMobileSheet(false); setShowQueue(false); setShowLyrics(false); }} className="ml-auto text-xs text-gray-400">Swipe down</button>
+          </div>
+          {sheetTab === "queue" ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {upcoming.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Queue is empty.</p>}
+              {upcoming.map((item) => (
+                <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10">
+                  <img src={item.thumbnail} alt="" className="h-11 w-11 rounded object-cover" />
+                  <span className="min-w-0 flex-1 truncate text-sm text-white">{item.title}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <SyncedLyrics
+              title={video.title}
+              artist={video.channel}
+              duration={duration}
+              currentTime={currentTime}
+              onSeek={seekOnCurrentTrack}
+              className="min-h-0 flex-1"
+            />
+          )}
+        </div>
+      )}
+      {showLyrics && syncedLyrics !== false && !isMobile && (
+        <div className={fullscreen ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
           <button
             type="button"
             aria-label="Close lyrics"
@@ -899,15 +1138,11 @@ export default function YouTubePlayer() {
             artist={video.channel}
             duration={duration}
             currentTime={currentTime}
-            onSeek={(time) => {
-              abortCrossfade();
-              setCurrentTime(time);
-              getActivePlayer()?.seekTo?.(time, true);
-            }}
+            onSeek={seekOnCurrentTrack}
           />
         </div>
       )}
-      {pipWindow && pipMountRef.current && (
+      {pipWindow && pipMountRef.current && !isMobile && (
         <PictureInPictureWindow
           container={pipMountRef.current}
           video={video}
@@ -915,9 +1150,11 @@ export default function YouTubePlayer() {
           duration={duration}
           isPlaying={isPlaying}
           lines={lyricsQuery.lines}
+          queue={upcoming}
           onPlayPause={handlePlayPause}
           onSeekBy={seekBy}
           onNext={() => handleNext()}
+          onSelect={playQueueItem}
           onClose={closePictureInPicture}
         />
       )}

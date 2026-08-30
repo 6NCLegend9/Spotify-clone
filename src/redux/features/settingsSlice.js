@@ -25,6 +25,7 @@ const initialState = {
   tailoredAds: true,
   syncedLyrics: true,
   pictureInPicture: true,
+  masterVolume: 0.85,
 };
 
 const settingsSlice = createSlice({
