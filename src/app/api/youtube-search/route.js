@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
 export async function GET(request) {
   const query = request.nextUrl.searchParams.get("q")?.trim();
@@ -7,6 +8,10 @@ export async function GET(request) {
 
   if (!query) {
     return NextResponse.json({ error: "A search query is required." }, { status: 400 });
+  }
+
+  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 20 })) {
+    return NextResponse.json({ error: "Too many searches. Please slow down and try again shortly." }, { status: 429 });
   }
 
   if (!hasYouTubeApiKey()) {

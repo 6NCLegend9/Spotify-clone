@@ -81,6 +81,18 @@ async function searchPlaylists(query) {
     }));
 }
 
+// profile.genres is only ever set by a POST call nothing in the UI makes, so it's
+// always empty; real listening history is the only signal actually populated.
+function buildPersonalizedSeeds(profile) {
+  const history = Array.isArray(profile?.songHistory) ? profile.songHistory : [];
+  const recentChannels = [...new Set(history.map((song) => song?.channel).filter(Boolean))].slice(0, 2);
+  if (recentChannels.length > 0) {
+    return recentChannels.map((channel) => ({ query: channel, reason: `Because you played ${channel}` }));
+  }
+  const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
+  return genres.slice(0, 2).map((genre) => ({ query: genre, reason: `Based on your ${genre} taste` }));
+}
+
 export async function GET(request) {
   if (!hasYouTubeApiKey()) {
     return NextResponse.json({ error: "Recommendations are not configured." }, { status: 503 });
@@ -100,9 +112,8 @@ export async function GET(request) {
       }
     }
 
-    const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
     const seeds = mode === "personalized"
-      ? genres.slice(0, 2).map((genre) => ({ query: genre, reason: `Based on your ${genre} taste` }))
+      ? buildPersonalizedSeeds(profile)
       : GUEST_SEEDS.map((query) => ({ query, reason: "Editorial pick for everyone" }));
     const groups = await Promise.all(
       seeds.map(({ query, reason }) => searchYouTube(query, reason)),
