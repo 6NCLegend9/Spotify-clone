@@ -13,9 +13,15 @@ const LanguageSync = () => {
   const languages = useSelector((state) => state.languages.languages);
   const hydratedRef = useRef(false);
   const skipNextPushRef = useRef(false);
+  const readyToPushRef = useRef(false);
 
   useEffect(() => {
-    if (status !== "authenticated" || hydratedRef.current) return;
+    if (status !== "authenticated") {
+      hydratedRef.current = false;
+      readyToPushRef.current = false;
+      return;
+    }
+    if (hydratedRef.current) return;
     hydratedRef.current = true;
     let cancelled = false;
     fetch("/api/language")
@@ -26,14 +32,17 @@ const LanguageSync = () => {
           dispatch(setLanguages(json.language));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) readyToPushRef.current = true;
+      });
     return () => {
       cancelled = true;
     };
   }, [status, dispatch]);
 
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (status !== "authenticated" || !readyToPushRef.current) return;
     if (skipNextPushRef.current) {
       skipNextPushRef.current = false;
       return;

@@ -8,7 +8,7 @@ import { useDispatch } from "react-redux";
 import Link from "next/link";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 
-const page = () => {
+const ForgotPasswordPage = () => {
   const dispatch = useDispatch();
   const [formData, setFormData] = useState({ email: "" });
 
@@ -17,10 +17,10 @@ const page = () => {
     try {
       dispatch(setProgress(70));
       const res = await sendResetPasswordLink(formData.email);
-      if (res.success === true) {
+      if (res?.success === true) {
         toast.success("Password reset link sent to your email");
       } else {
-        toast.error(res.message);
+        toast.error(res?.message || "Unable to send a reset link right now.");
       }
     } catch (error) {
       toast.error(error?.message || "Something went wrong");
@@ -51,6 +51,8 @@ const page = () => {
               type="email"
               placeholder="you@email.com"
               required
+              autoComplete="email"
+              maxLength={254}
               className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
           </div>
@@ -68,4 +70,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default ForgotPasswordPage;

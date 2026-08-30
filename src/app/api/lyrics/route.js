@@ -8,9 +8,15 @@ const HEADERS = {
   "User-Agent": "Hayasaka/1.0 (https://github.com/6NCLegend9/Spotify-clone)",
 };
 
+export const runtime = "nodejs";
+
 async function lrclibGet(params) {
   const url = `${LRCLIB}/get?${params}`;
-  const response = await fetch(url, { headers: HEADERS, next: { revalidate: 86400 } });
+  const response = await fetch(url, {
+    headers: HEADERS,
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(5_000),
+  });
   if (response.status === 404) return null;
   if (!response.ok) return null;
   return response.json();
@@ -18,7 +24,11 @@ async function lrclibGet(params) {
 
 async function lrclibSearch(params) {
   const url = `${LRCLIB}/search?${params}`;
-  const response = await fetch(url, { headers: HEADERS, next: { revalidate: 86400 } });
+  const response = await fetch(url, {
+    headers: HEADERS,
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(5_000),
+  });
   if (!response.ok) return [];
   const data = await response.json();
   return Array.isArray(data) ? data : [];
@@ -43,9 +53,13 @@ function toPayload(hit) {
 }
 
 export async function GET(request) {
-  const title = request.nextUrl.searchParams.get("title")?.trim() || "";
-  const artist = request.nextUrl.searchParams.get("artist")?.trim() || "";
-  const duration = Number(request.nextUrl.searchParams.get("duration")) || 0;
+  const title = request.nextUrl.searchParams.get("title")?.trim().slice(0, 200) || "";
+  const artist = request.nextUrl.searchParams.get("artist")?.trim().slice(0, 200) || "";
+  const requestedDuration = Number(request.nextUrl.searchParams.get("duration"));
+  const duration =
+    Number.isFinite(requestedDuration) && requestedDuration > 0 && requestedDuration <= 86_400
+      ? requestedDuration
+      : 0;
 
   if (!title && !artist) {
     return NextResponse.json({ error: "A title or artist is required." }, { status: 400 });

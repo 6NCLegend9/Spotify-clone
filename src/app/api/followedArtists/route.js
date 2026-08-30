@@ -3,11 +3,12 @@ import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
+import { tokenOptions } from "@/utils/authToken";
 
 const MAX_FOLLOWED_ARTISTS = 100;
 
 export async function GET(request) {
-  const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+  const token = await getToken(tokenOptions(request));
   if (!token?.email) {
     return NextResponse.json({ success: false, message: "User not logged in", data: null }, { status: 401 });
   }
@@ -29,7 +30,7 @@ export async function GET(request) {
 // Toggles a followed channel/artist by name (YouTube channel IDs aren't a clean search
 // query, so we store the channel display name used directly as a recommendations seed).
 export async function POST(request) {
-  const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+  const token = await getToken(tokenOptions(request));
   if (!token?.email) {
     return NextResponse.json({ success: false, message: "User not logged in", data: null }, { status: 401 });
   }

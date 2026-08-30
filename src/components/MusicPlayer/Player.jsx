@@ -22,6 +22,7 @@ const Player = ({
 }) => {
   const ref = useRef(null);
   const handlePlayPauseRef = useRef(handlePlayPause);
+  const mediaActionsRef = useRef({});
   const { eqPreset, eqBands, normalization, monoAudio, masterVolume } = useSelector((state) => state.settings);
   useAudioEq(ref, {
     bands: bandsForPreset(eqPreset, eqBands),
@@ -37,6 +38,16 @@ const Player = ({
   useEffect(() => {
     handlePlayPauseRef.current = handlePlayPause;
   }, [handlePlayPause]);
+
+  useEffect(() => {
+    mediaActionsRef.current = {
+      handlePlayPause,
+      handlePrevSong,
+      handleNextSong,
+      isPlaying,
+      setSeekTime,
+    };
+  }, [handleNextSong, handlePlayPause, handlePrevSong, isPlaying, setSeekTime]);
 
   useEffect(() => {
     const audio = ref.current;
@@ -58,60 +69,63 @@ const Player = ({
     ? activeSong.artists
     : activeSong?.primaryArtists || "Artist";
 
-  // media session metadata:
-  const mediaMetaData = activeSong?.name
-    ? {
-        title: activeSong?.name,
-        artist: artistName,
-        album: activeSong?.album?.name || "",
-        artwork: [
-          {
-            src:
-              activeSong?.image?.[2]?.url ||
-              activeSong?.image?.[1]?.url ||
-              activeSong?.image?.[0]?.url ||
-              "",
-            sizes: "500x500",
-            type: "image/jpg",
-          },
-        ],
-      }
-    : {};
+  const artwork =
+    activeSong?.image?.[2]?.url ||
+    activeSong?.image?.[1]?.url ||
+    activeSong?.image?.[0]?.url ||
+    "";
+  const albumName = activeSong?.album?.name || "";
+
   useEffect(() => {
-    // Check if the Media Session API is available in the browser environment
-    if ("mediaSession" in navigator && activeSong?.name) {
-      // Set media metadata
-      navigator.mediaSession.metadata = new window.MediaMetadata(mediaMetaData);
+    if (!("mediaSession" in navigator) || !activeSong?.name) return undefined;
 
-      // Define media session event handlers
-      navigator.mediaSession.setActionHandler("play", onPlay);
-      navigator.mediaSession.setActionHandler("pause", onPause);
-      navigator.mediaSession.setActionHandler("previoustrack", onPreviousTrack);
-      navigator.mediaSession.setActionHandler("nexttrack", onNextTrack);
-      navigator.mediaSession.setActionHandler("seekbackward", () => {
-        setSeekTime(appTime - 5);
-      });
-      navigator.mediaSession.setActionHandler("seekforward", () => {
-        setSeekTime(appTime + 5);
-      });
+    navigator.mediaSession.metadata = new window.MediaMetadata({
+      title: activeSong.name,
+      artist: artistName,
+      album: albumName,
+      artwork: artwork
+        ? [{ src: artwork, sizes: "500x500", type: "image/jpeg" }]
+        : [],
+    });
+
+    const setAction = (action, handler) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch (error) {
+        // Some browsers expose Media Session but not every action.
+      }
+    };
+    const seekBy = (amount) => {
+      const currentTime = ref.current?.currentTime || 0;
+      mediaActionsRef.current.setSeekTime?.(Math.max(0, currentTime + amount));
+    };
+
+    setAction("play", () => {
+      if (!mediaActionsRef.current.isPlaying) {
+        mediaActionsRef.current.handlePlayPause?.();
+      }
+    });
+    setAction("pause", () => {
+      if (mediaActionsRef.current.isPlaying) {
+        mediaActionsRef.current.handlePlayPause?.();
+      }
+    });
+    setAction("previoustrack", () => mediaActionsRef.current.handlePrevSong?.());
+    setAction("nexttrack", () => mediaActionsRef.current.handleNextSong?.());
+    setAction("seekbackward", (details) => seekBy(-(details.seekOffset || 5)));
+    setAction("seekforward", (details) => seekBy(details.seekOffset || 5));
+
+    return () => {
+      ["play", "pause", "previoustrack", "nexttrack", "seekbackward", "seekforward"]
+        .forEach((action) => setAction(action, null));
+    };
+  }, [activeSong?.name, albumName, artistName, artwork]);
+
+  useEffect(() => {
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
     }
-  }, [mediaMetaData]);
-  // media session handlers:
-  const onPlay = () => {
-    handlePlayPause();
-  };
-
-  const onPause = () => {
-    handlePlayPause();
-  };
-
-  const onPreviousTrack = () => {
-    handlePrevSong();
-  };
-
-  const onNextTrack = () => {
-    handleNextSong();
-  };
+  }, [isPlaying]);
 
   useEffect(() => {
     if (ref.current) {

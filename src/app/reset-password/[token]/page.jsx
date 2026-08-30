@@ -2,20 +2,17 @@
 
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import { resetPassword } from "@/services/dataAPI";
-import { useState, use } from "react";
+import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { useDispatch } from "react-redux";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 import Link from "next/link";
 
-const page = ({ params }) => {
+const ResetPasswordPage = () => {
   const router = useRouter();
   const dispatch = useDispatch();
-  
-  // Use React.use() if params is a Promise, otherwise fallback to params
-  // Next 13 allows direct access, Next 14 handles direct with warnings, Next 15 requires use()
-  const resolvedParams = params instanceof Promise ? use(params) : params;
+  const { token } = useParams();
   
   const [formData, setFormData] = useState({
     password: "",
@@ -35,12 +32,12 @@ const page = ({ params }) => {
     const { password, confirmPassword } = formData;
     try {
       dispatch(setProgress(70));
-      const res = await resetPassword(password, confirmPassword, resolvedParams.token);
+      const res = await resetPassword(password, confirmPassword, token);
       if (res.success === true) {
         toast.success("Password reset successfully");
         router.push("/login");
       } else {
-        toast.error("Invalid Token");
+        toast.error(res?.message || "Invalid or expired reset link");
       }
     } catch (error) {
       toast.error(error?.message || "Something went wrong");
@@ -71,6 +68,9 @@ const page = ({ params }) => {
               type="password"
               placeholder="New password"
               required
+              autoComplete="new-password"
+              minLength={8}
+              maxLength={72}
               className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
           </div>
@@ -85,6 +85,9 @@ const page = ({ params }) => {
               type="password"
               placeholder="Confirm password"
               required
+              autoComplete="new-password"
+              minLength={8}
+              maxLength={72}
               className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
           </div>
@@ -97,4 +100,4 @@ const page = ({ params }) => {
   );
 };
 
-export default page;
+export default ResetPasswordPage;

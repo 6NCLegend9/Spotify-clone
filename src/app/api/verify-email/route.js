@@ -1,20 +1,33 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/utils/dbconnect";
 import User from "@/models/User";
+import crypto from "crypto";
+import { getClientKey, isRateLimited } from "@/utils/rateLimit";
+
+export const runtime = "nodejs";
 
 export async function POST(request) {
-    try {
-        const { token } = await request.json();
+    if (isRateLimited(getClientKey(request), { windowMs: 15 * 60_000, max: 20 })) {
+        return NextResponse.json(
+            { success: false, message: "Too many verification attempts. Please try again later." },
+            { status: 429 },
+        );
+    }
 
-        if (!token) {
+    try {
+        const payload = await request.json().catch(() => null);
+        const token = typeof payload?.token === "string" ? payload.token.trim() : "";
+
+        if (!/^[a-f0-9]{40,128}$/i.test(token)) {
             return NextResponse.json({ success: false, message: "Token is required" }, { status: 400 });
         }
 
         await dbConnect();
+        const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
         // Find the user by the verification token and ensure it hasn't expired
         const user = await User.findOne({
-            verificationToken: token,
+            verificationToken: { $in: [token, tokenHash] },
             verificationTokenExpires: { $gt: Date.now() }
         });
 

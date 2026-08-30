@@ -78,6 +78,7 @@ export default function YouTubePlayer() {
   } = useSelector((state) => state.settings);
   const isMobile = useIsMobile();
   const isNarrow = useMediaQuery("(max-width: 1179px)");
+  const videoId = video?.id || "";
   const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
@@ -1283,7 +1284,14 @@ export default function YouTubePlayer() {
   }, []);
 
   useEffect(() => {
-    if (!video || !apiReady) return;
+    if (!video) {
+      cancelCrossfade();
+      clearActiveBufferTimers();
+      destroyDeck("A");
+      destroyDeck("B");
+      return;
+    }
+    if (!apiReady) return;
     endedTransitionRef.current = null;
     preloadRetryAtRef.current = 0;
     resetActiveRecovery(video.id);
@@ -1590,13 +1598,13 @@ export default function YouTubePlayer() {
   }, [playbackVolume, masterVolume]);
 
   useEffect(() => {
-    if (!video || !apiReady || transitionMode === "off" || dataSaver) return;
+    if (!videoId || !apiReady || transitionMode === "off" || dataSaver) return;
     const timer = window.setTimeout(
       () => preloadNextRef.current(getNextVideo()),
       PRELOAD_START_DELAY_MS,
     );
     return () => window.clearTimeout(timer);
-  }, [video?.id, queue, apiReady, transitionMode, dataSaver]);
+  }, [videoId, queue, apiReady, transitionMode, dataSaver]);
 
   useEffect(() => {
     if (crossfadeInProgressRef.current || isSeekGuarded()) return;

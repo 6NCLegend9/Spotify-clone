@@ -83,7 +83,7 @@ export default function VerifyEmailClient({ token }) {
               </h2>
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#00e6e6]/20 mb-4 mt-6">
                 <svg className="h-10 w-10 text-[#00e6e6]" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinelinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               </div>
               <p className="mt-4 text-sm text-[#9aa8b5] font-medium">{message}</p>
@@ -103,7 +103,7 @@ export default function VerifyEmailClient({ token }) {
               </h2>
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20 mb-4 mt-6">
                 <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinelinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
               <p className="mt-4 text-sm text-[#9aa8b5]">{message}</p>

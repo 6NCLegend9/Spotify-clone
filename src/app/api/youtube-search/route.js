@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
+export const runtime = "nodejs";
+
 export async function GET(request) {
   const query = request.nextUrl.searchParams.get("q")?.trim();
   const type = request.nextUrl.searchParams.get("type") || "video";
@@ -10,7 +12,13 @@ export async function GET(request) {
     return NextResponse.json({ error: "A search query is required." }, { status: 400 });
   }
 
-  // Rate Limiting block completely removed for testing
+  if (query.length > 100 || !["video", "playlist"].includes(type)) {
+    return NextResponse.json({ error: "Invalid search parameters." }, { status: 400 });
+  }
+
+  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 30 })) {
+    return NextResponse.json({ error: "Too many search requests. Please slow down." }, { status: 429 });
+  }
 
   if (!hasYouTubeApiKey()) {
     return NextResponse.json(
@@ -58,7 +66,14 @@ export async function GET(request) {
         genre: query,
       }));
 
-    return NextResponse.json({ results });
+    return NextResponse.json(
+      { results },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+        },
+      },
+    );
   } catch (error) {
     console.error("YouTube search error:", error);
     return NextResponse.json(

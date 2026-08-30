@@ -3,9 +3,10 @@ import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
+import { tokenOptions } from "@/utils/authToken";
 
 export async function GET(request) {
-  const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+  const token = await getToken(tokenOptions(request));
   if (!token?.email) return NextResponse.json({ authenticated: false, language: null });
 
   await dbConnect();
@@ -15,7 +16,7 @@ export async function GET(request) {
 }
 
 export async function PUT(request) {
-  const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+  const token = await getToken(tokenOptions(request));
   if (!token?.email) return NextResponse.json({ error: "You must be logged in." }, { status: 401 });
 
   const body = await request.json().catch(() => null);

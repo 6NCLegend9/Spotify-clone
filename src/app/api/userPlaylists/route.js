@@ -5,11 +5,23 @@ import dbConnect from "@/utils/dbconnect";
 import Playlist from "@/models/Playlist";
 import UserData from "@/models/UserData";
 import auth from "@/utils/auth";
+import { tokenOptions } from "@/utils/authToken";
 
 
 // Create a new playlist
 export async function POST(req){
-    const { name } = await req.json();
+    const body = await req.json().catch(() => null);
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    if (!name || name.length > 80) {
+        return NextResponse.json(
+            {
+                success: false,
+                message: "A playlist name between 1 and 80 characters is required",
+                data: null
+            },
+            { status: 400 }
+        );
+    }
     try {
         await dbConnect();
         const user = await auth(req);
@@ -20,15 +32,26 @@ export async function POST(req){
                     message: "User not logged in",
                     data: null
                 },
-                { status: 404 }
+                { status: 401 }
             );
         }
-        const  playlist = await Playlist.create({
+        const playlist = await Playlist.create({
             name,
             user: user._id
         });
 
         const userData = await UserData.findById(user.userData);
+        if (!userData) {
+            await Playlist.deleteOne({ _id: playlist._id }).catch(() => {});
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "User data not found",
+                    data: null
+                },
+                { status: 404 }
+            );
+        }
         userData.playlists.push(playlist._id);
         await userData.save();
         return NextResponse.json(
@@ -191,7 +214,7 @@ export async function PATCH(req){
 
 // get all playlists
 export async function GET(req){
-    const token = await getToken({ req, secret: process.env.JWT_SECRET });
+    const token = await getToken(tokenOptions(req));
     if (!token) {
         return NextResponse.json(
             {

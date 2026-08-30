@@ -4,6 +4,8 @@ import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
+export const runtime = "nodejs";
+
 function parseDuration(value = "") {
   const match = value.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 0;
@@ -64,7 +66,14 @@ export async function GET(request) {
     const order = new Map(ids.map((id, index) => [id, index]));
     tracks.sort((left, right) => order.get(left.id) - order.get(right.id));
 
-    return NextResponse.json({ tracks });
+    return NextResponse.json(
+      { tracks },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+        },
+      },
+    );
   } catch (error) {
     console.error("YouTube video details error:", error);
     return NextResponse.json(

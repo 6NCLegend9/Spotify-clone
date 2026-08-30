@@ -1,4 +1,5 @@
 import { SITE_URL, SITE_NAME } from "@/utils/siteConfig";
+import { resolveParams } from "@/utils/routeParams";
 
 const siteUrl = SITE_URL;
 
@@ -16,7 +17,8 @@ function normalizeQuery(raw) {
 }
 
 export async function generateMetadata({ params }) {
-  const normalized = normalizeQuery(params.query);
+  const { query } = await resolveParams(params);
+  const normalized = normalizeQuery(query || "");
   const display = normalized.replace(/\b\w/g, (c) => c.toUpperCase());
   const canonicalSlug = encodeURIComponent(normalized);
   const canonicalUrl = `${siteUrl}/search/${canonicalSlug}`;

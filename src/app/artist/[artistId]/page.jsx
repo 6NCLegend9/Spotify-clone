@@ -9,14 +9,16 @@ import {
   getArtistData,
   getArtistSongs,
 } from "@/services/dataAPI";
-import Image from "next/image";
+import Link from "next/link";
 import React from "react";
 import { useEffect } from "react";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { SwiperSlide } from "swiper/react";
+import { useParams } from "next/navigation";
 
-const page = ({ params }) => {
+const ArtistPage = () => {
+  const { artistId } = useParams();
   const dispatch = useDispatch();
   const [artistDetails, setArtistDetails] = useState({});
   const [artistSongs, setArtistSongs] = useState([]);
@@ -26,19 +28,19 @@ const page = ({ params }) => {
   useEffect(() => {
     const fetchData = async () => {
       dispatch(setProgress(30));
-      const details = await getArtistData(params.artistId);
+      const details = await getArtistData(artistId);
       dispatch(setProgress(60));
       setArtistDetails(details || {});
-      const songs = await getArtistSongs(params.artistId, 1);
+      const songs = await getArtistSongs(artistId, 1);
       dispatch(setProgress(90));
       setArtistSongs(songs);
-      const albums = await getArtistAlbums(params.artistId, 1);
+      const albums = await getArtistAlbums(artistId, 1);
       setArtistAlbums(albums?.albums || (Array.isArray(albums) ? albums : []));
       dispatch(setProgress(100));
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [artistId, dispatch]);
 
   const songsList = Array.isArray(artistSongs?.songs)
     ? artistSongs.songs
@@ -47,6 +49,20 @@ const page = ({ params }) => {
     : [];
 
   const albumsList = Array.isArray(artistAlbums) ? artistAlbums : [];
+
+  if (!loading && !artistDetails?.name) {
+    return (
+      <div className="page text-gray-200">
+        <h1 className="text-3xl font-bold text-white">Artist unavailable</h1>
+        <p className="mt-3 text-sm text-[#9aa8b5]">
+          This catalog page is no longer available. Search YouTube music instead.
+        </p>
+        <Link href="/" className="mt-6 inline-block text-[#00e6e6] hover:underline">
+          Back to Home
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -126,4 +142,4 @@ const page = ({ params }) => {
   );
 };
 
-export default page;
+export default ArtistPage;

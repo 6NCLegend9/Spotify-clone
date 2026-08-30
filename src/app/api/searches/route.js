@@ -3,6 +3,7 @@ import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
+import { tokenOptions } from "@/utils/authToken";
 
 const MAX_SEARCHES = 30;
 
@@ -10,7 +11,7 @@ const MAX_SEARCHES = 30;
 // accounts that haven't played anything yet (previously this field was declared
 // in the schema but never written to).
 export async function POST(request) {
-  const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+  const token = await getToken(tokenOptions(request));
   if (!token?.email) {
     return NextResponse.json({ success: false, message: "User not logged in", data: null }, { status: 401 });
   }

@@ -1,6 +1,8 @@
 "use client";
 
-const error = () => {
+import Link from "next/link";
+
+const ErrorPage = () => {
   return (
     <div className="page grid min-h-full place-items-center text-center text-white">
       <div>
@@ -9,12 +11,12 @@ const error = () => {
         <p className="mt-2 text-sm text-[#9aa8b5]">
           The page failed to load. Refresh or head back home.
         </p>
-        <a href="/" className="btn-primary mt-6">
+        <Link href="/" className="btn-primary mt-6">
           Back to Home
-        </a>
+        </Link>
       </div>
     </div>
   );
 };
 
-export default error;
+export default ErrorPage;

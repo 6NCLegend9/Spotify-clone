@@ -8,22 +8,23 @@ import OnlineStatus from "./OnlineStatus";
 import { useSession } from "next-auth/react";
 import RecommendationCard from "../RecommendationCard";
 import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
+import ListenAgain from "./ListenAgain";
 import GradientText from "@/components/ReactBits/GradientText";
 
 const HOME_CACHE_KEY = "hayasaka-home-recommendations";
 
-const readHomeCache = () => {
+const readHomeCache = (status) => {
   try {
-    const raw = sessionStorage.getItem(HOME_CACHE_KEY);
+    const raw = sessionStorage.getItem(`${HOME_CACHE_KEY}:${status}`);
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
     return null;
   }
 };
 
-const writeHomeCache = (value) => {
+const writeHomeCache = (status, value) => {
   try {
-    sessionStorage.setItem(HOME_CACHE_KEY, JSON.stringify(value));
+    sessionStorage.setItem(`${HOME_CACHE_KEY}:${status}`, JSON.stringify(value));
   } catch (error) {
     // Storage may be unavailable.
   }
@@ -35,13 +36,20 @@ const Home = () => {
   const dispatch = useDispatch();
   const { status } = useSession();
 
-  const currentHour = new Date().getHours();
-  let salutation = "Good evening";
-  if (currentHour >= 5 && currentHour < 12) salutation = "Good morning";
-  else if (currentHour >= 12 && currentHour < 18) salutation = "Good afternoon";
+  const [salutation, setSalutation] = useState("Welcome");
 
   useEffect(() => {
-    const cached = readHomeCache();
+    const currentHour = new Date().getHours();
+    if (currentHour >= 5 && currentHour < 12) setSalutation("Good morning");
+    else if (currentHour >= 12 && currentHour < 18) setSalutation("Good afternoon");
+    else setSalutation("Good evening");
+  }, []);
+
+  useEffect(() => {
+    if (status === "loading") return;
+    const controller = new AbortController();
+    let cancelled = false;
+    const cached = readHomeCache(status);
     if (cached) {
       setData(cached);
       setLoading(false);
@@ -51,19 +59,35 @@ const Home = () => {
         setLoading(true);
         dispatch(setProgress(70));
       }
-      const response = await fetch("/api/recommendations");
-      const res = response.ok ? await response.json() : null;
-      if (res?.sections) {
-        setData(res);
-        writeHomeCache(res);
-      } else if (!cached) {
-        setData(null);
+      try {
+        const response = await fetch("/api/recommendations", {
+          signal: controller.signal,
+        });
+        const res = response.ok ? await response.json() : null;
+        if (cancelled) return;
+        if (res?.sections) {
+          setData(res);
+          writeHomeCache(status, res);
+        } else if (!cached) {
+          setData(null);
+        }
+      } catch (error) {
+        if (!cancelled && error.name !== "AbortError" && !cached) {
+          setData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          dispatch(setProgress(100));
+          setLoading(false);
+        }
       }
-      dispatch(setProgress(100));
-      setLoading(false);
     };
     fetchData();
-  }, [status]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [dispatch, status]);
 
   const sections = data?.sections || {};
   const isPersonalized = data?.mode === "personalized";
@@ -96,6 +120,8 @@ const Home = () => {
           </p>
         </div>
       </header>
+
+      <ListenAgain />
 
       {loading && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

@@ -4,6 +4,8 @@ import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
 const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,64}$/;
 
+export const runtime = "nodejs";
+
 export async function GET(request) {
   if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 30 })) {
     return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
@@ -49,7 +51,14 @@ export async function GET(request) {
           item.snippet.thumbnails?.default?.url,
       }));
 
-    return NextResponse.json({ tracks });
+    return NextResponse.json(
+      { tracks },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
+        },
+      },
+    );
   } catch (error) {
     console.error("YouTube playlist error:", error);
     return NextResponse.json({ error: "Unable to reach YouTube." }, { status: 502 });

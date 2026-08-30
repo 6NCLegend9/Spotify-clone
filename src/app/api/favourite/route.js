@@ -3,12 +3,13 @@ import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import dbConnect from "@/utils/dbconnect";
 import UserData from "@/models/UserData";
+import { tokenOptions } from "@/utils/authToken";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 // Get user data
 export async function GET(req){
-    const token = await getToken({ req, secret: process.env.JWT_SECRET });
+    const token = await getToken(tokenOptions(req));
     if (!token) {
         return NextResponse.json(
             {
@@ -32,7 +33,7 @@ export async function GET(req){
                 { status: 404 }
             );
         }
-        const userData = await UserData.findById(user.userData);
+        const userData = await UserData.findById(user.userData).select("favourites favouriteAddedAt").lean();
         if (!userData) {
             return NextResponse.json(
                 {
@@ -47,7 +48,10 @@ export async function GET(req){
             {
                 success: true,
                 message: "User Data found",
-                data: userData
+                data: {
+                    favourites: userData.favourites || [],
+                    favouriteAddedAt: userData.favouriteAddedAt || {},
+                }
             }
         );
 
@@ -69,7 +73,7 @@ export async function GET(req){
 
 // Add to favourites
 export async function POST(request) {
-    const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+    const token = await getToken(tokenOptions(request));
     if (!token) {
         return NextResponse.json(
             {
@@ -127,12 +131,15 @@ export async function POST(request) {
             {
                 success: true,
                 message: "Favourites updated",
-                data: userData
+                data: {
+                    favourites: userData.favourites || [],
+                    favouriteAddedAt: userData.favouriteAddedAt || {},
+                }
             }
         );
 
     } catch (e) {
-        console.log('add to favourites error', e);  
+        console.error('add to favourites error', e);  
         return NextResponse.json(
             {
                 success: false,

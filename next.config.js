@@ -1,7 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ["youtubei.js"],
   images: {
-    domains: [],
+    remotePatterns: [
+      { protocol: "https", hostname: "i.ytimg.com" },
+      { protocol: "https", hostname: "yt3.ggpht.com" },
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      { protocol: "https", hostname: "api.dicebear.com" },
+    ],
   },
   async headers() {
     return [
@@ -46,12 +52,6 @@ const nextConfig = {
     ];
   },
   webpack: (config, { isServer }) => {
-    // Prevent Webpack from aggressively bundling server-only native node modules
-    // that libraries like yt-search (cheerio etc) use internally.
-    if (isServer) {
-      config.externals.push("yt-search", "cheerio");
-    }
-
     config.resolve.alias = {
       ...config.resolve.alias,
       "./taglib-web.wasm$": require("path").resolve(

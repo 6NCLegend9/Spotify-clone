@@ -12,8 +12,10 @@ import React, { useEffect } from "react";
 import { useState } from "react";
 import { BsPlayFill } from "react-icons/bs";
 import { useDispatch } from "react-redux";
+import { useParams } from "next/navigation";
 
-const page = ({ params }) => {
+const AlbumPage = () => {
+  const { albumId } = useParams();
   const [albumData, setAlbumData] = useState(null);
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
@@ -21,13 +23,13 @@ const page = ({ params }) => {
   useEffect(() => {
     const fetchData = async () => {
       dispatch(setProgress(50));
-      const response = await getAlbumData(params.albumId);
+      const response = await getAlbumData(albumId);
       dispatch(setProgress(100));
       setAlbumData(response);
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [albumId, dispatch]);
 
   const handlePlayClick = (song, index) => {
     dispatch(setActiveSong({ song, data: albumData?.songs, i: index }));
@@ -52,6 +54,20 @@ const page = ({ params }) => {
     : Array.isArray(albumData?.artists)
     ? albumData.artists
     : null;
+
+  if (!loading && !albumData) {
+    return (
+      <div className="page text-gray-200">
+        <h1 className="text-3xl font-bold text-white">Album unavailable</h1>
+        <p className="mt-3 text-sm text-[#9aa8b5]">
+          This catalog page is no longer available. Search YouTube music instead.
+        </p>
+        <Link href="/" className="mt-6 inline-block text-[#00e6e6] hover:underline">
+          Back to Home
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -167,4 +183,4 @@ const page = ({ params }) => {
   );
 };
 
-export default page;
+export default AlbumPage;

@@ -6,6 +6,7 @@ import { activeLyricIndex } from "@/utils/lyricsLookup";
 export default function useSyncedLyrics({ title, artist, duration, enabled = true }) {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("idle");
+  const roundedDuration = Math.round(duration || 0);
 
   useEffect(() => {
     if (!enabled || !title) {
@@ -17,7 +18,7 @@ export default function useSyncedLyrics({ title, artist, duration, enabled = tru
     const controller = new AbortController();
     setStatus("loading");
     const params = new URLSearchParams({ title, artist: artist || "" });
-    if (duration > 20) params.set("duration", String(Math.round(duration)));
+    if (roundedDuration > 20) params.set("duration", String(roundedDuration));
 
     fetch(`/api/lyrics?${params}`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
@@ -37,9 +38,9 @@ export default function useSyncedLyrics({ title, artist, duration, enabled = tru
       });
 
     return () => controller.abort();
-  }, [title, artist, Math.round(duration || 0), enabled]);
+  }, [artist, enabled, roundedDuration, title]);
 
-  const lines = data?.lines || [];
+  const lines = useMemo(() => data?.lines || [], [data?.lines]);
 
   const indexFor = useMemo(
     () => (time) => activeLyricIndex(lines, time),

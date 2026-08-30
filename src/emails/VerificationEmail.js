@@ -1,4 +1,14 @@
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export const getVerificationEmailTemplate = (userName, url) => {
+  const safeName = escapeHtml(String(userName || "there").slice(0, 32));
+  const safeUrl = escapeHtml(url);
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -28,17 +38,17 @@ export const getVerificationEmailTemplate = (userName, url) => {
             <span class="logo" style="vertical-align: middle;">Hayasaka</span>
         </div>
         <div class="content">
-            <h2>Welcome to Hayasaka, ${userName}!</h2>
+            <h2>Welcome to Hayasaka, ${safeName}!</h2>
             <p>Thanks for signing up. We're thrilled to have you join our community of music lovers. To start syncing your playlists and personalized recommendations, we just need to verify your email address.</p>
             
             <div class="btn-container">
-                <a href="${url}" class="btn">Verify Email Address</a>
+                <a href="${safeUrl}" class="btn">Verify Email Address</a>
             </div>
             
             <p>This verification link will expire in 1 hour. If you didn't create an account with Hayasaka, you can safely ignore this email.</p>
             
             <p style="margin-bottom: 0;">If you're having trouble clicking the button, copy and paste this URL into your browser:</p>
-            <p class="link-text">${url}</p>
+            <p class="link-text">${safeUrl}</p>
         </div>
         <div class="footer">
              &copy; 2026 Hayasaka. All rights reserved.

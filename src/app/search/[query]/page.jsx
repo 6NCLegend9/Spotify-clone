@@ -1,8 +1,10 @@
 "use client";
 import YouTubeMusicResults from "@/components/YouTubeMusicResults";
+import { useParams } from "next/navigation";
 
-const page = ({ params }) => {
-  const query = decodeURIComponent(params.query || "");
+const SearchPage = () => {
+  const params = useParams();
+  const query = decodeURIComponent(params?.query || "");
 
   return (
     <div className="page text-gray-200">
@@ -15,4 +17,4 @@ const page = ({ params }) => {
   );
 };
 
-export default page;
+export default SearchPage;

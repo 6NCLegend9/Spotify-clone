@@ -1,33 +1,30 @@
 "use client";
 
 import Homepage from "@/components/Homepage/Home";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function HomeClient() {
   const [showtip, setShowtip] = useState(false);
-  const [toturialComplete, setToturialComplete] = useState(false);
+  const [tutorialComplete, setTutorialComplete] = useState(false);
 
-  useLayoutEffect(() => {
-    setToturialComplete(JSON.parse(localStorage.getItem("toturialComplete")));
+  useEffect(() => {
+    const isComplete = localStorage.getItem("toturialComplete") === "true";
+    setTutorialComplete(isComplete);
+    if (isComplete) return undefined;
 
-    setTimeout(() => {
-      if (!toturialComplete) {
-        setShowtip(true);
-      }
-    }, 5000);
+    const timer = window.setTimeout(() => setShowtip(true), 5000);
+    return () => window.clearTimeout(timer);
   }, []);
-
-  useEffect(() => {}, [toturialComplete]);
 
   const handleClick = () => {
     setShowtip(false);
-    setToturialComplete(true);
-    localStorage.setItem("toturialComplete", true);
+    setTutorialComplete(true);
+    localStorage.setItem("toturialComplete", "true");
   };
 
   return (
     <div className="relative">
-      {showtip && !toturialComplete && (
+      {showtip && !tutorialComplete && (
         <div className="fixed bottom-32 left-4 z-40 max-w-xs sm:left-8 lg:left-[284px]">
           <div className="rounded-2xl border border-white/10 bg-[#07121d] p-4 shadow-dock">
             <p className="text-sm text-gray-300">

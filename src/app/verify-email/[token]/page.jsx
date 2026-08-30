@@ -1,12 +1,11 @@
 import VerifyEmailClient from "./VerifyEmailClient";
-import { use } from "react";
+import { resolveParams } from "@/utils/routeParams";
 
 export const metadata = {
   title: "Verify Email - Hayasaka",
 };
 
-export default function VerifyEmailPage({ params }) {
-  // Unwrap parameters automatically for React 19/Next 14 constraints
-  const { token } = params;
+export default async function VerifyEmailPage({ params }) {
+  const { token } = await resolveParams(params);
   return <VerifyEmailClient token={token} />;
 }

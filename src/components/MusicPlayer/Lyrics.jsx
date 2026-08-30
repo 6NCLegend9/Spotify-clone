@@ -22,7 +22,6 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
   const lyricDuration = Number(youtubeVideo?.duration || activeSong?.duration) || duration;
 
   const handleAutoAdd = (checked) => {
-    console.log(autoAdd);
     if (checked) {
       dispatch(setAutoAdd(true));
       localStorage.setItem("autoAdd", true);

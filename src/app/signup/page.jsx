@@ -12,7 +12,7 @@ import { signIn } from "next-auth/react";
 import { FaGoogle } from "react-icons/fa";
 import GradientText from "@/components/ReactBits/GradientText";
 
-const page = () => {
+const SignupPage = () => {
   const { status } = useSession();
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -36,7 +36,6 @@ const page = () => {
           userName: formData.userName,
           email: formData.email,
           password: formData.password,
-          imageUrl: `https://api.dicebear.com/6.x/thumbs/svg?seed=${formData.userName}`,
         }),
       });
       const data = await res.json();
@@ -88,6 +87,8 @@ const page = () => {
               type="text"
               placeholder="Your name"
               required
+              autoComplete="name"
+              maxLength={50}
               id="userName"
               name="userName"
               className="field mt-2"
@@ -102,6 +103,8 @@ const page = () => {
               type="email"
               placeholder="you@email.com"
               required
+              autoComplete="email"
+              maxLength={254}
               className="field mt-2"
             />
           </label>
@@ -114,6 +117,9 @@ const page = () => {
               type="password"
               placeholder="Password"
               required
+              autoComplete="new-password"
+              minLength={8}
+              maxLength={72}
               className="field mt-2"
             />
           </label>
@@ -145,4 +151,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default SignupPage;

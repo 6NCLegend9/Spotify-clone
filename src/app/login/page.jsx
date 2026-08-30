@@ -11,7 +11,7 @@ import { useSession } from "next-auth/react";
 import { FaGoogle } from "react-icons/fa";
 import GradientText from "@/components/ReactBits/GradientText";
 
-const page = () => {
+const LoginPage = () => {
   const { status } = useSession();
   const dispatch = useDispatch();
   const [formData, setFormData] = useState({
@@ -80,6 +80,8 @@ const page = () => {
               type="email"
               placeholder="you@email.com"
               required
+              autoComplete="email"
+              maxLength={254}
               className="field mt-2"
             />
           </label>
@@ -92,6 +94,9 @@ const page = () => {
               type="password"
               placeholder="Password"
               required
+              autoComplete="current-password"
+              minLength={8}
+              maxLength={72}
               className="field mt-2"
             />
           </label>
@@ -126,4 +131,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default LoginPage;

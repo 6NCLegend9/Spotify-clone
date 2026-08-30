@@ -159,7 +159,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
         if (active) {
           setCollection(nextCollection);
           setTracks(datedTracks);
-          setSmartShuffle(isLiked ? autoAdd : Boolean(nextCollection.smartShuffle));
+          if (!isLiked) setSmartShuffle(Boolean(nextCollection.smartShuffle));
         }
       } catch (loadError) {
         if (active) setError(loadError.message);
@@ -171,7 +171,11 @@ export default function PlaylistDetail({ kind, playlistId }) {
     return () => {
       active = false;
     };
-  }, [autoAdd, isLiked, playlistId, status]);
+  }, [isLiked, playlistId, status]);
+
+  useEffect(() => {
+    if (isLiked) setSmartShuffle(autoAdd);
+  }, [autoAdd, isLiked]);
 
   const ownerId = collection?.user?._id || collection?.user;
   const isOwner = isLiked

@@ -3,10 +3,35 @@ import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
-import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { youtubeFetch } from "@/utils/youtubeApi";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
+import { tokenOptions } from "@/utils/authToken";
 
 const DEFAULT_GENRES = ["Pop", "Rock", "Hip Hop", "Electronic"];
+const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_SEARCH_CACHE_ENTRIES = 40;
+const searchCache = new Map();
+
+export const runtime = "nodejs";
+
+function getCachedSearches(key) {
+  const cached = searchCache.get(key);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    searchCache.delete(key);
+    return null;
+  }
+  return cached.value;
+}
+
+function cacheSearches(key, value) {
+  if (searchCache.size >= MAX_SEARCH_CACHE_ENTRIES) {
+    searchCache.delete(searchCache.keys().next().value);
+  }
+  searchCache.set(key, {
+    expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+    value,
+  });
+}
 
 function normalizeVideo(item, reason, extra = {}) {
   return {
@@ -30,13 +55,8 @@ async function searchYouTube(query, reason, extra = {}) {
     videoCategoryId: "10",
     videoEmbeddable: "true",
     videoSyndicated: "true",
-<<<<<<< Updated upstream
     maxResults: "8",
     q: `${query} official audio`,
-=======
-    maxResults: "15",
-    q: `${query} official music`,
->>>>>>> Stashed changes
   };
   const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
   if (!ok) return [];
@@ -87,68 +107,51 @@ async function searchPlaylists(query) {
     }));
 }
 
-<<<<<<< Updated upstream
 function buildGenreSeeds(profile) {
   const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
-  return genres.slice(0, 6).map((genre) => ({
+  return genres.slice(0, 3).map((genre) => ({
     query: genre,
     reason: `Based on your ${genre} taste`,
     genre,
   }));
 }
 
-export async function GET(request) {
-    if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 20 })) {
-    return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
-  }
-=======
-// profile.genres is only set once a user picks favorite genres in Settings; real signals
-// (followed artists, listening history, recent searches) are preferred when available.
+function addSeed(seeds, seen, query, reason, extra = {}) {
+  const normalized = typeof query === "string" ? query.trim() : "";
+  const key = normalized.toLowerCase();
+  if (!normalized || seen.has(key) || seeds.length >= 3) return;
+  seen.add(key);
+  seeds.push({ query: normalized, reason, ...extra });
+}
+
 function buildPersonalizedSeeds(profile) {
-  const followed = Array.isArray(profile?.followedArtists) ? profile.followedArtists : [];
-  const history = Array.isArray(profile?.songHistory) ? profile.songHistory : [];
-  const recentChannels = [...new Set(history.map((song) => song?.channel).filter(Boolean))];
-  const recentSearches = Array.isArray(profile?.searches) ? [...profile.searches].reverse() : [];
-  const genres = profile?.genres?.length ? profile.genres : DEFAULT_GENRES;
-
-  const historyCandidates = [
-    ...followed.map((name) => ({ query: name, reason: `Because you follow ${name}` })),
-    ...recentChannels.map((channel) => ({ query: channel, reason: `Because you played ${channel}` })),
-    ...recentSearches.map((term) => ({ query: term, reason: `Because you searched "${term}"` })),
-  ];
-  
   const seeds = [];
-  
-  // First seed: Guarantee one of their favorite genres appears
-  if (genres.length > 0) {
-    seeds.push({ query: genres[0], reason: `Based on your ${genres[0]} taste` });
-  }
-  
-  // Second seed: Pick a history/follow candidate to mix it up, otherwise use a second genre
-  if (historyCandidates.length > 0 && historyCandidates[0].query !== genres[0]) {
-    seeds.push(historyCandidates[0]);
-  } else if (genres.length > 1) {
-    seeds.push({ query: genres[1], reason: `Based on your ${genres[1]} taste` });
-  }
+  const seen = new Set();
 
-  // Fallback to default if somehow empty
-  if (seeds.length === 0) {
-    return DEFAULT_GENRES.slice(0, 2).map((genre) => ({ query: genre, reason: `Based on your taste` }));
-  }
+  (profile?.followedArtists || []).forEach((artist) => {
+    addSeed(seeds, seen, artist, `Because you follow ${artist}`);
+  });
+  (profile?.songHistory || []).forEach((song) => {
+    const channel = typeof song?.channel === "string" ? song.channel : "";
+    addSeed(seeds, seen, channel, `Because you listened to ${channel}`);
+  });
+  (profile?.searches || []).forEach((term) => {
+    addSeed(seeds, seen, term, `Because you searched for ${term}`);
+  });
+  (profile?.genres || []).forEach((genre) => {
+    addSeed(seeds, seen, genre, `Based on your ${genre} taste`, { genre });
+  });
 
-  return seeds.slice(0, 2);
+  return seeds.length ? seeds : buildGenreSeeds(null);
 }
 
 export async function GET(request) {
-  // Rate Limiting block completely removed for testing
->>>>>>> Stashed changes
-
-  if (!hasYouTubeApiKey()) {
-    return NextResponse.json({ error: "Recommendations are not configured." }, { status: 503 });
+  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 20 })) {
+    return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
   }
 
   try {
-    const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+    const token = await getToken(tokenOptions(request));
     let mode = "guest";
     let profile = null;
 
@@ -161,13 +164,30 @@ export async function GET(request) {
       }
     }
 
-    const seeds = buildGenreSeeds(mode === "personalized" ? profile : null);
-    const groups = await Promise.all(
-      seeds.map(({ query, reason, genre }) =>
-        searchYouTube(query, reason, { seedQuery: query, genre }),
-      ),
-    );
-    const playlists = await searchPlaylists(seeds[0].query);
+    const seeds = mode === "personalized"
+      ? buildPersonalizedSeeds(profile)
+      : buildGenreSeeds(null);
+    const cacheKey = seeds.map((seed) => seed.query).join("|");
+    let groups;
+    let playlists;
+    const cached = getCachedSearches(cacheKey);
+    if (cached) {
+      groups = cached.groups;
+      playlists = cached.playlists;
+    } else {
+      const [searchGroups, featuredPlaylists] = await Promise.all([
+        Promise.all(
+          seeds.map(({ query, reason, genre }) =>
+            searchYouTube(query, reason, { seedQuery: query, genre }),
+          ),
+        ),
+        searchPlaylists(seeds[0].query),
+      ]);
+      groups = searchGroups;
+      playlists = featuredPlaylists;
+      cacheSearches(cacheKey, { groups, playlists });
+    }
+
     const excluded = new Set(profile?.notInterested || []);
     const snoozed = new Set(profile?.snoozedTracks || []);
     const skipped = new Set(profile?.skippedTracks || []);
@@ -218,7 +238,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+  const token = await getToken(tokenOptions(request));
   if (!token?.email) {
     return NextResponse.json({ error: "You must be logged in." }, { status: 401 });
   }

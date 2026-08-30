@@ -5,6 +5,7 @@ import {
   playPause,
   setActiveSong,
   setFullScreen,
+  setYoutubeQueue,
   setYoutubeVideo,
 } from "@/redux/features/playerSlice";
 import { BiHeadphone } from "react-icons/bi";
@@ -19,6 +20,10 @@ const ListenAgainCard = ({ song, index, SongData }) => {
 
   const handlePlayClick = () => {
     if (isYoutube) {
+      const queue = Array.isArray(SongData)
+        ? SongData.filter((item) => item?.source === "youtube" && item?.id)
+        : [song];
+      dispatch(setYoutubeQueue(queue.length ? queue : [song]));
       dispatch(setYoutubeVideo(song));
       return;
     }

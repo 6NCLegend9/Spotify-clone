@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import dbConnect from "@/utils/dbconnect";
+import { tokenOptions } from "@/utils/authToken";
 
 
 // Get user info
 export async function GET(req){
-    const token = await getToken({ req, secret: process.env.JWT_SECRET });
+    const token = await getToken(tokenOptions(req));
     if (!token) {
         return NextResponse.json(
             {

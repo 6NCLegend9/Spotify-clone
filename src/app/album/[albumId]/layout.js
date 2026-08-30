@@ -1,4 +1,5 @@
 import { SITE_URL, SITE_NAME } from "@/utils/siteConfig";
+import { resolveParams } from "@/utils/routeParams";
 
 const siteUrl = SITE_URL;
 
@@ -7,7 +8,8 @@ async function getAlbumData(id) {
 }
 
 export async function generateMetadata({ params }) {
-  const albumData = await getAlbumData(params.albumId);
+  const { albumId } = await resolveParams(params);
+  const albumData = await getAlbumData(albumId);
 
   if (!albumData) {
     return {
@@ -39,7 +41,7 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title: `${albumName} by ${artistNames} | Hayasaka`,
       description: `Listen to ${albumName} by ${artistNames}. ${songCount} songs. Stream and download for free.`,
-      url: `${siteUrl}/album/${params.albumId}`,
+      url: `${siteUrl}/album/${albumId}`,
       siteName: "Hayasaka",
       type: "music.album",
       images: albumData?.image?.[2]?.url
@@ -60,7 +62,7 @@ export async function generateMetadata({ params }) {
       images: albumData?.image?.[2]?.url ? [albumData.image[2].url] : [],
     },
     alternates: {
-      canonical: `${siteUrl}/album/${params.albumId}`,
+      canonical: `${siteUrl}/album/${albumId}`,
     },
   };
 }

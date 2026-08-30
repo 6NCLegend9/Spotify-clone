@@ -1,9 +1,15 @@
 import PlayButton from "@/components/PlayButton";
 import SongList from "@/components/SongsList";
 import { getplaylistData, homePageData } from "@/services/dataAPI";
+import { resolveParams } from "@/utils/routeParams";
+import { redirect } from "next/navigation";
 
-const page = async ({ params }) => {
-  const playlistData = await getplaylistData(params.playlistId);
+const PlaylistPage = async ({ params }) => {
+  const { playlistId } = await resolveParams(params);
+  const playlistData = await getplaylistData(playlistId);
+  if (!playlistData) {
+    redirect("/");
+  }
 
   return (
     <div className="page">
@@ -55,7 +61,7 @@ const page = async ({ params }) => {
   );
 };
 
-export default page;
+export default PlaylistPage;
 
 // 4 hour
 export const revalidate = 14400;
@@ -70,7 +76,7 @@ export async function generateStaticParams() {
     }
     return [];
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return [];
   }
 }

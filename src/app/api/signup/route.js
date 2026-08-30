@@ -6,56 +6,89 @@ import UserData from "@/models/UserData";
 import crypto from "crypto";
 import mailSender from "@/utils/mailSender";
 import { getVerificationEmailTemplate } from "@/emails/VerificationEmail";
+import { getAppUrl } from "@/utils/appUrl";
+import { getClientKey, isRateLimited } from "@/utils/rateLimit";
+
+export const runtime = "nodejs";
 
 export async function POST(request) {
-    const {userName, email, password, imageUrl } = await request.json();
+    if (isRateLimited(getClientKey(request), { windowMs: 15 * 60_000, max: 8 })) {
+        return NextResponse.json(
+            { success: false, message: "Too many signup attempts. Please try again later.", data: null },
+            { status: 429 },
+        );
+    }
+
+    const payload = await request.json().catch(() => null);
+    const userName = typeof payload?.userName === "string" ? payload.userName.trim().slice(0, 50) : "";
+    const email = typeof payload?.email === "string" ? payload.email.trim().toLowerCase() : "";
+    const password = typeof payload?.password === "string" ? payload.password : "";
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!userName || !emailPattern.test(email) || password.length < 8 || password.length > 72) {
+        return NextResponse.json(
+            {
+                success: false,
+                message: "Enter a valid name, email, and password between 8 and 72 characters.",
+                data: null,
+            },
+            { status: 400 },
+        );
+    }
+
+    let userData = null;
+    let createdUser = null;
     try {
-        if (!userName || !email || !password || !imageUrl) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Please fill all the fields",
-                    data: null
-                },
-                { status: 400 }
-            );
-        }
         await dbConnect();
 
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ email }).select("_id").lean();
         if (existingUser) {
             return NextResponse.json(
-                {
-                    success: false,
-                    message: "User already exists",
-                    data: null
-                },
-                { status: 400 }
+                { success: false, message: "User already exists", data: null },
+                { status: 409 },
             );
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const userData = await UserData.create({});
-        
-        // Generate Verification Token
-        const verificationToken = crypto.randomBytes(20).toString('hex');
-        
-        const result = await User.create({ 
+        userData = await UserData.create({});
+        const verificationToken = crypto.randomBytes(32).toString("hex");
+        const verificationTokenHash = crypto
+            .createHash("sha256")
+            .update(verificationToken)
+            .digest("hex");
+
+        const result = await User.create({
             userName,
             email,
             password: hashedPassword,
-            imageUrl,
+            imageUrl: `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(userName)}`,
             userData: userData._id,
-            verificationToken: verificationToken,
-            verificationTokenExpires: Date.now() + 3600000, // 1 Hour
-         });
+            verificationToken: verificationTokenHash,
+            verificationTokenExpires: Date.now() + 60 * 60_000,
+        });
+        createdUser = result;
 
-        // Send Email
-        const url = `${process.env.NEXTAUTH_URL}/verify-email/${verificationToken}`;
+        const url = `${getAppUrl(request)}/verify-email/${verificationToken}`;
         const title = "Welcome to Hayasaka! Verify Your Email";
         const body = getVerificationEmailTemplate(userName, url);
 
-        await mailSender(email, title, body);
+        try {
+            await mailSender(email, title, body);
+        } catch (mailError) {
+            await Promise.allSettled([
+                User.deleteOne({ _id: result._id }),
+                UserData.deleteOne({ _id: userData._id }),
+            ]);
+            console.error("Signup email delivery failed:", mailError);
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "We could not send the verification email. Please try again.",
+                    data: null,
+                },
+                { status: 502 },
+            );
+        }
 
         return NextResponse.json(
             {
@@ -64,19 +97,29 @@ export async function POST(request) {
                 data: {
                     userName: result.userName,
                     email: result.email,
-                    _id: result._id
-                }
-            }
-        );
-    } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
+                },
             },
-            { status: 500 }
+            { status: 201 },
+        );
+    } catch (error) {
+        console.error("Signup error:", error);
+        await Promise.allSettled([
+            createdUser?._id
+                ? User.deleteOne({ _id: createdUser._id })
+                : Promise.resolve(),
+            userData?._id
+                ? UserData.deleteOne({ _id: userData._id })
+                : Promise.resolve(),
+        ]);
+        if (error?.code === 11000) {
+            return NextResponse.json(
+                { success: false, message: "User already exists", data: null },
+                { status: 409 },
+            );
+        }
+        return NextResponse.json(
+            { success: false, message: "Something went wrong", data: null },
+            { status: 500 },
         );
     }
-    }
+}

@@ -21,12 +21,53 @@ import { addFavourite, getFavourite } from "@/services/dataAPI";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import FavouriteButton from "./FavouriteButton";
-import getPixels from "get-pixels";
-import { extractColors } from "extract-colors";
 import YouTubePlayer from "./YouTubePlayer";
 import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "./PictureInPictureWindow";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { MdPictureInPictureAlt } from "react-icons/md";
+
+function getAverageImageColor(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.referrerPolicy = "no-referrer";
+
+    image.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 32;
+        canvas.height = 32;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) throw new Error("Canvas is unavailable.");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let count = 0;
+
+        for (let index = 0; index < pixels.length; index += 4) {
+          if (pixels[index + 3] < 128) continue;
+          red += pixels[index];
+          green += pixels[index + 1];
+          blue += pixels[index + 2];
+          count += 1;
+        }
+
+        if (!count) throw new Error("Image has no visible pixels.");
+        resolve({
+          red: Math.round(red / count),
+          green: Math.round(green / count),
+          blue: Math.round(blue / count),
+        });
+      } catch (error) {
+        reject(error);
+      }
+    };
+    image.onerror = () => reject(new Error("Album artwork could not be loaded."));
+    image.src = src;
+  });
+}
 
 const MusicPlayer = () => {
   const {
@@ -39,12 +80,13 @@ const MusicPlayer = () => {
     youtubeVideo,
   } = useSelector((state) => state.player);
   const { isTyping } = useSelector((state) => state.loadingBar);
-<<<<<<< Updated upstream
-  const { pictureInPicture } = useSelector((state) => state.settings);
-=======
-  const { dataSaver, audioOnly: audioOnlyToggle, videoQuality } = useSelector((state) => state.settings);
+  const {
+    pictureInPicture,
+    dataSaver,
+    audioOnly: audioOnlyToggle,
+    videoQuality,
+  } = useSelector((state) => state.settings);
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
->>>>>>> Stashed changes
   const [duration, setDuration] = useState(0);
   const [seekTime, setSeekTime] = useState(0);
   const [appTime, setAppTime] = useState(0);
@@ -73,74 +115,94 @@ const MusicPlayer = () => {
     enabled: Boolean(nativeTitle) && !youtubeVideo,
   });
 
+  const songCount = currentSongs?.length || 0;
   useEffect(() => {
-    if (currentSongs?.length) dispatch(playPause(true));
-  }, [currentIndex]);
+    if (songCount) dispatch(playPause(true));
+  }, [currentIndex, dispatch, songCount]);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchFavourites = async () => {
+      if (status !== "authenticated") {
+        setFavouriteSongs([]);
+        return;
+      }
       try {
         setLoading(true);
         const res = await getFavourite();
-        // console.log("favourites",res);
-        if (res) {
+        if (!cancelled && res) {
           setFavouriteSongs(res);
         }
-        setLoading(false);
       } catch (error) {
-        setLoading(false);
+        // The player remains usable if favourites cannot be synchronized.
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
     fetchFavourites();
-    // set ambient background
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
+  useEffect(() => {
+    let cancelled = false;
     const src = activeSong?.image?.[1]?.url;
 
     if (src) {
-      getPixels(src, (err, pixels) => {
-        if (!err) {
-          const data = [...pixels.data];
-          const width = Math.round(Math.sqrt(data.length / 4));
-          const height = width;
-
-          extractColors({ data, width, height })
-            .then((colors) => {
-              setBgColor(colors[0]);
-            })
-            .catch(console.log);
-        }
-      });
+      getAverageImageColor(src)
+        .then((color) => {
+          if (!cancelled) setBgColor(color);
+        })
+        .catch(() => {
+          if (!cancelled) setBgColor(undefined);
+        });
+    } else {
+      setBgColor(undefined);
     }
-    // change page title to song name
+
     if (activeSong?.name) {
       document.title = activeSong?.name;
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeSong]);
 
   // off scroll when full screen
   useEffect(() => {
-    document.documentElement.style.overflow = fullScreen ? "hidden" : "auto";
+    document.documentElement.style.overflow = fullScreen ? "hidden" : "";
 
     return () => {
-      document.documentElement.style.overflow = "auto";
+      document.documentElement.style.overflow = "";
     };
   }, [fullScreen]);
 
-  // Hotkey for play pause
-  const handleKeyPress = (event) => {
-    // Check if the pressed key is the spacebar (keyCode 32 or key " ")
-    if (!isTyping && (event.keyCode === 32 || event.key === " ")) {
-      event.preventDefault();
-      handlePlayPause();
-    }
-  };
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyPress);
+    const handleKeyPress = (event) => {
+      const target = event.target;
+      const isEditable =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+      if (
+        !isTyping &&
+        !isEditable &&
+        isActive &&
+        (event.code === "Space" || event.key === " ")
+      ) {
+        event.preventDefault();
+        dispatch(playPause(!isPlaying));
+      }
+    };
 
-    // Clean up the event listener when the component unmounts
+    document.addEventListener("keydown", handleKeyPress);
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [handleKeyPress]);
+  }, [dispatch, isActive, isPlaying, isTyping]);
 
   const closeNativePip = () => {
     try {

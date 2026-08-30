@@ -3,6 +3,7 @@ import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
+import { tokenOptions } from "@/utils/authToken";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const MAX_NOT_INTERESTED = 200;
@@ -10,7 +11,7 @@ const MAX_NOT_INTERESTED = 200;
 // Marks a track as "not interested" so recommendations.js's existing exclusion
 // filter (previously always a no-op, since nothing wrote to this field) has data.
 export async function POST(request) {
-  const token = await getToken({ req: request, secret: process.env.JWT_SECRET });
+  const token = await getToken(tokenOptions(request));
   if (!token?.email) {
     return NextResponse.json({ success: false, message: "User not logged in", data: null }, { status: 401 });
   }

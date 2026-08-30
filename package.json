@@ -2,34 +2,30 @@
   "name": "hayasaka",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint src --ext .js,.jsx --no-cache --max-warnings=0",
+    "check": "npm run lint && npm run build"
   },
   "dependencies": {
-    "@ducanh2912/next-pwa": "^10.2.6",
-    "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^8.18.0",
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@reduxjs/toolkit": "^1.9.5",
-    "autoprefixer": "10.4.14",
-    "axios": "^1.4.0",
+    "axios": "^1.20.0",
     "bcryptjs": "^2.4.3",
-    "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
-    "eslint-config-next": "^14.2.1",
     "events": "^3.3.0",
-    "extract-colors": "^4.0.2",
     "framer-motion": "^13.1.1",
-    "get-pixels": "^3.3.3",
     "jsonwebtoken": "^9.0.1",
     "jszip": "^3.10.1",
-    "mongoose": "^7.4.1",
-    "next": "^14.2.1",
+    "mongoose": "^8.24.4",
+    "next": "^15.5.21",
     "next-auth": "^4.24.15",
-    "nodemailer": "^7.0.11",
-    "postcss": "^8.4.38",
+    "nodemailer": "^9.0.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
@@ -37,21 +33,21 @@
     "react-redux": "^8.1.1",
     "react-swipeable": "^7.0.1",
     "react-top-loading-bar": "^2.3.1",
-    "react-tsparticles": "^2.12.2",
     "react-use-downloader": "^1.2.4",
     "redux": "^4.2.1",
     "redux-persist": "^6.0.0",
-    "swiper": "^10.0.4",
+    "sharp": "^0.35.4",
+    "swiper": "^14.2.0",
     "taglib-wasm": "^1.2.1",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss": "3.3.3",
     "three": "^0.185.1",
-<<<<<<< Updated upstream
-    "uuid": "^9.0.1"
-=======
-    "tsparticles": "^4.3.2",
-    "uuid": "^9.0.1",
-    "yt-search": "^2.13.1"
->>>>>>> Stashed changes
+    "youtubei.js": "^18.0.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.14",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.5.21",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^3.3.3"
   }
 }
