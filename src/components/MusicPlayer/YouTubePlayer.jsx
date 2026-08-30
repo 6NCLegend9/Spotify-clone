@@ -36,9 +36,11 @@ export default function YouTubePlayer() {
   const { youtubeVideo: video, youtubeQueue: queue, isPlaying } = useSelector(
     (state) => state.player,
   );
-  const { dataSaver, audioOnly, videoQuality, transitionMode, crossfadeSeconds } = useSelector(
+  const { dataSaver, audioOnly: audioOnlyToggle, videoQuality, transitionMode, crossfadeSeconds } = useSelector(
     (state) => state.settings,
   );
+  // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
+  const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
   // Dual decks let one track fade out while the next fades in at the same time.
   const deckHostRefs = { A: useRef(null), B: useRef(null) };
   const deckPlayerRefs = { A: useRef(null), B: useRef(null) };
@@ -483,22 +485,22 @@ export default function YouTubePlayer() {
         </div>
       </div>
       </div>
-      <div className={expanded && !dataSaver && !audioOnly ? "absolute inset-x-0 bottom-4 z-10 mx-auto flex w-[min(80vw,720px)] flex-col items-center gap-2" : "flex items-center justify-center gap-3"}>
+      <div className={expanded && !dataSaver && !audioOnly ? "absolute inset-x-0 bottom-4 z-10 mx-auto flex w-[min(80vw,720px)] flex-col items-center gap-2" : "flex flex-col items-center justify-center gap-1"}>
         <div className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 text-gray-200 backdrop-blur" : "flex shrink-0 items-center gap-1 text-gray-200"}>
           <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCcw /></button>
           <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="rounded-full bg-[#00e6e6] p-2 text-black hover:scale-105">{isPlaying ? <FiPause /> : <FiPlay />}</button>
           <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCw /></button>
         </div>
-        <div className={expanded && !dataSaver && !audioOnly ? "w-full" : "w-32 shrink-0 sm:w-64 md:w-96"}>
+        <div className={expanded && !dataSaver && !audioOnly ? "w-full" : "w-32 sm:w-64 md:w-96"}>
           <input aria-label="YouTube song progress" type="range" min="0" max={duration || 0} value={Math.min(currentTime, duration || 0)} onChange={handleSeek} className="w-full accent-[#00e6e6]" />
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>
       <div className={expanded && !dataSaver && !audioOnly ? "contents" : "flex items-center justify-end gap-2"}>
-      {!expanded && <AddToPlaylistButton track={video} />}
-      {!expanded && <FavouriteTrackButton track={video} />}
+      {!expanded && <div className="hidden sm:block"><AddToPlaylistButton track={video} /></div>}
+      {!expanded && <div className="hidden sm:block"><FavouriteTrackButton track={video} /></div>}
       <div ref={queueMenuRef} className={expanded && !dataSaver && !audioOnly ? "absolute right-5 top-5 z-10 flex items-center gap-2" : "relative flex items-center gap-2"}>
-        <button type="button" aria-expanded={showQueue} onClick={() => setShowQueue((value) => !value)} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}>Next up {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
+        <button type="button" aria-expanded={showQueue} onClick={() => setShowQueue((value) => !value)} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}><span className="hidden sm:inline">Next up</span> {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
         <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         <button
           type="button"

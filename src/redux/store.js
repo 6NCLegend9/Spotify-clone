@@ -26,15 +26,21 @@ const storage =
     ? createWebStorage("local")
     : createNoopStorage();
 
-const persistConfig = {
-  key: "root",
+const persistConfig = (key) => ({
+  key,
   storage,
-  whitelist: ["languages", "settings"],
-};
+});
 
+// Each slice gets its own persistReducer wrapper so the state shape (state.languages,
+// state.settings) stays unchanged for every existing useSelector call site.
 const languagePersistedReducer = persistReducer(
-  persistConfig,
+  persistConfig("languages"),
   languagesReducer
+);
+
+const settingsPersistedReducer = persistReducer(
+  persistConfig("settings"),
+  settingsReducer
 );
 
 export const store = configureStore({
@@ -42,7 +48,7 @@ export const store = configureStore({
     player: playerReducer,
     loadingBar: loadingBarReducer,
     languages: languagePersistedReducer,
-    settings: settingsReducer,
+    settings: settingsPersistedReducer,
   },
   middleware: [thunk],
 });
