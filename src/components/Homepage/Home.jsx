@@ -1,7 +1,7 @@
 "use client";
-import React from "react";
+
 import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import { GiMusicalNotes } from "react-icons/gi";
 import OnlineStatus from "./OnlineStatus";
@@ -15,18 +15,10 @@ const Home = () => {
   const dispatch = useDispatch();
   const { status } = useSession();
 
-  // salutation
-  const currentTime = new Date();
-  const currentHour = currentTime.getHours();
-
-  let salutation = "";
-  if (currentHour >= 5 && currentHour < 12) {
-    salutation = "Good morning";
-  } else if (currentHour >= 12 && currentHour < 18) {
-    salutation = "Good afternoon";
-  } else {
-    salutation = "Good evening";
-  }
+  const currentHour = new Date().getHours();
+  let salutation = "Good evening";
+  if (currentHour >= 5 && currentHour < 12) salutation = "Good morning";
+  else if (currentHour >= 12 && currentHour < 18) salutation = "Good afternoon";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,7 +46,10 @@ const Home = () => {
     setData((current) => {
       if (!current?.sections) return current;
       const stripped = Object.fromEntries(
-        Object.entries(current.sections).map(([key, videos]) => [key, videos?.filter((video) => video.id !== id)]),
+        Object.entries(current.sections).map(([key, videos]) => [
+          key,
+          videos?.filter((video) => video.id !== id),
+        ]),
       );
       return { ...current, sections: stripped };
     });
@@ -66,37 +61,68 @@ const Home = () => {
   };
 
   return (
-    <div className="animate-fade-in pb-8">
+    <div className="page animate-fade-in">
       <OnlineStatus />
-      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mx-2 mt-7 mb-8 lg:m-9 text-white flex gap-2 items-center">
-        "{salutation}  <GiMusicalNotes />"
-      </h1>
+      <header className="page-hero">
+        <div>
+          <p className="eyebrow">Hayasaka Music</p>
+          <h1 className="mt-2 flex items-center gap-2 text-3xl font-extrabold text-white sm:text-4xl lg:text-5xl">
+            {salutation}
+            <GiMusicalNotes className="text-[#00e6e6]" />
+          </h1>
+          <p className="mt-2 max-w-xl text-sm text-[#9aa8b5]">
+            Stream, save, and download tracks without leaving the app.
+          </p>
+        </div>
+      </header>
 
-      {loading && <p className="mx-2 text-sm text-gray-400">Curating your music...</p>}
+      {loading && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="card animate-shimmer aspect-video bg-white/5" />
+          ))}
+        </div>
+      )}
+
       {!loading && sections.trending?.length > 0 && (
-        <section className="my-8">
-          <h2 className="mb-4 text-2xl font-semibold text-white">Quick Access</h2>
+        <section className="mb-10">
+          <h2 className="section-title">Quick Access</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {sections.trending.slice(0, 6).map((video) => (
-              <RecommendationCard key={`quick-${video.id}`} video={video} queue={sections.trending} onDismiss={status === "authenticated" ? handleDismiss : undefined} />
+              <RecommendationCard
+                key={`quick-${video.id}`}
+                video={video}
+                queue={sections.trending}
+                onDismiss={status === "authenticated" ? handleDismiss : undefined}
+              />
             ))}
           </div>
         </section>
       )}
-      {!loading && sectionList.map(([title, videos]) => videos?.length > 0 && (
-        <section key={title} className="my-8">
-          <h2 className="mb-4 text-2xl font-semibold text-white">{title}</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {videos.map((video) => (
-              title === "Featured Playlists" ? (
-                <RecommendationPlaylistCard key={video.id} playlist={video} />
-              ) : (
-                <RecommendationCard key={video.id} video={video} queue={videos} onDismiss={status === "authenticated" ? handleDismiss : undefined} />
-              )
-            ))}
-          </div>
-        </section>
-      ))}
+
+      {!loading &&
+        sectionList.map(
+          ([title, videos]) =>
+            videos?.length > 0 && (
+              <section key={title} className="mb-10">
+                <h2 className="section-title">{title}</h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {videos.map((video) =>
+                    title === "Featured Playlists" ? (
+                      <RecommendationPlaylistCard key={video.id} playlist={video} />
+                    ) : (
+                      <RecommendationCard
+                        key={video.id}
+                        video={video}
+                        queue={videos}
+                        onDismiss={status === "authenticated" ? handleDismiss : undefined}
+                      />
+                    ),
+                  )}
+                </div>
+              </section>
+            ),
+        )}
     </div>
   );
 };

@@ -1,14 +1,13 @@
-import Navbar from "@/components/Navbar";
+import { Poppins } from "next/font/google";
 import "./globals.css";
-import MusicPlayer from "@/components/MusicPlayer";
 import SongsHistory from "@/components/SongsHistory";
 import SettingsSync from "@/components/SettingsSync";
 import LanguageSync from "@/components/LanguageSync";
 import Providers from "@/redux/Providers";
 import TopProgressBar from "@/components/topProgressBar/TopProgressBar";
 import Favicon from "./favicon.ico";
-import { Toaster } from "react-hot-toast";
 import AuthProvider from "./AuthProvider";
+import AppShell from "@/components/Layout/AppShell";
 import Script from "next/script";
 import {
   SITE_URL,
@@ -105,6 +104,13 @@ export const metadata = {
     "theme-color": "#000000",
   },
 };
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-poppins",
+  display: "swap",
+});
 
 export const viewport = {
   themeColor: "#000000",
@@ -232,7 +238,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={poppins.variable}>
       <head>
         <script
           type="application/ld+json"
@@ -253,20 +259,14 @@ export default function RootLayout({ children }) {
   gtag('config', 'G-Z4FJ5T627Q');
   `}
       </Script>
-      <body>
+      <body className={poppins.className}>
         <Providers>
           <AuthProvider>
             <TopProgressBar />
             <SongsHistory />
             <SettingsSync />
             <LanguageSync />
-            <Navbar />
-            <Toaster />
-            {children}
-            <div className="h-24 sm:h-28"></div>
-            <div className="fixed bottom-0 left-0 right-0 z-50 flex">
-              <MusicPlayer />
-            </div>
+            <AppShell>{children}</AppShell>
           </AuthProvider>
         </Providers>
       </body>

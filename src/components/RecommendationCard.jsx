@@ -15,7 +15,7 @@ export default function RecommendationCard({ video, queue, onDismiss }) {
   };
 
   return (
-    <article className="group w-full overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] text-left transition hover:-translate-y-1 hover:border-[#00e6e6]/50 hover:bg-white/[0.08]">
+    <article className="card group w-full text-left">
       <div className="relative aspect-video overflow-hidden bg-black">
         <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="h-full w-full">
           <img src={video.thumbnail} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />

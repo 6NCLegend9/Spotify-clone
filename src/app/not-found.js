@@ -1,4 +1,3 @@
-import React from "react";
 import Link from "next/link";
 import { SITE_URL, SITE_NAME } from "@/utils/siteConfig";
 
@@ -11,19 +10,19 @@ export const metadata = {
 
 const NotFound = () => {
   return (
-    <div className="flex flex-col items-center justify-center h-screen overflow-hidden text-white px-6 text-center">
-      <h1 className="text-9xl font-bold">404</h1>
-      <h2 className="text-2xl font-bold mt-2">Page Not Found</h2>
-      <p className="mt-3 max-w-md text-gray-300">
-        The page you are looking for moved, renamed, or never existed on{" "}
-        {SITE_NAME}.
-      </p>
-      <Link
-        href="/"
-        className="mt-6 bg-[#00e6e6] text-black px-5 py-2 rounded-lg font-medium"
-      >
-        Back to Home
-      </Link>
+    <div className="page grid min-h-full place-items-center text-center text-white">
+      <div>
+        <p className="eyebrow">Error</p>
+        <h1 className="mt-2 text-8xl font-black text-[#00e6e6]">404</h1>
+        <h2 className="mt-3 text-2xl font-bold">Page not found</h2>
+        <p className="mx-auto mt-3 max-w-md text-[#9aa8b5]">
+          The page you are looking for moved, renamed, or never existed on{" "}
+          {SITE_NAME}.
+        </p>
+        <Link href="/" className="btn-primary mt-6">
+          Back to Home
+        </Link>
+      </div>
     </div>
   );
 };

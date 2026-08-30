@@ -115,7 +115,7 @@ export default function YouTubeMusicResults({ query }) {
   };
 
   return (
-    <section className="mt-12 border-t border-white/10 pt-8" aria-labelledby="youtube-results-title">
+    <section className="mt-8" aria-labelledby="youtube-results-title">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00e6e6]">
@@ -141,7 +141,7 @@ export default function YouTubeMusicResults({ query }) {
             dispatch(setYoutubeVideo(video));
           };
           return (
-          <article key={video.id} className="group overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] text-left transition hover:-translate-y-1 hover:border-[#00e6e6]/50 hover:bg-white/[0.08]">
+          <article key={video.id} className="card group text-left">
             <div className="relative aspect-video overflow-hidden bg-black">
               <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="h-full w-full">
                 <img src={video.thumbnail} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />

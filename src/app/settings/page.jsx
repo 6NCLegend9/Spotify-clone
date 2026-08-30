@@ -84,14 +84,14 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="mx-auto min-h-screen w-11/12 max-w-6xl pb-32 pt-16 text-white">
-      <header className="mb-10 flex items-end justify-between gap-4 border-b border-white/10 pb-6">
+    <main className="page text-white">
+      <header className="page-hero border-b border-white/10 pb-6">
         <div>
-          <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#00e6e6]"><FiSettings /> Settings</p>
+          <p className="eyebrow mb-3 flex items-center gap-2"><FiSettings /> Settings</p>
           <h1 className="text-3xl font-bold sm:text-5xl">Tune your listening.</h1>
-          <p className="mt-3 max-w-2xl text-sm text-gray-400">Playback, discovery, privacy, and audio preferences in one place.</p>
+          <p className="mt-3 max-w-2xl text-sm text-[#9aa8b5]">Playback, discovery, privacy, and audio preferences in one place.</p>
         </div>
-        <button type="button" onClick={saveSettings} className="flex shrink-0 items-center gap-2 rounded-md bg-[#00e6e6] px-4 py-2 text-sm font-semibold text-black transition hover:bg-white">
+        <button type="button" onClick={saveSettings} className="btn-primary h-10 shrink-0 px-4 text-sm">
           {saved ? <FiCheck /> : <FiSave />} {saved ? "Saved" : "Save"}
         </button>
       </header>

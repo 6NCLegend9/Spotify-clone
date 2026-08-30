@@ -1,70 +1,98 @@
-import React from "react";
-import logoWhite from "../../assets/logoWhite.png";
-import Languages from "./Languages";
-import Favourites from "./Favourites";
-import { FaGithub } from "react-icons/fa";
-import { MdOutlineMenu } from "react-icons/md";
-import Image from "next/image";
-import Link from "next/link";
-import Profile from "./Profile";
-import { useDispatch } from "react-redux";
-import Playlists from "./Playlists";
-import { setProgress } from "@/redux/features/loadingBarSlice";
+"use client";
 
-const Sidebar = ({ showNav, setShowNav }) => {
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useDispatch } from "react-redux";
+import { FaGithub } from "react-icons/fa";
+import { FiHeart, FiHome, FiSettings, FiDisc } from "react-icons/fi";
+import { IoClose } from "react-icons/io5";
+import { setProgress } from "@/redux/features/loadingBarSlice";
+import BrandMark from "../Layout/BrandMark";
+import { useNav } from "../Layout/AppShell";
+import Profile from "./Profile";
+import Languages from "./Languages";
+import Playlists from "./Playlists";
+
+const Sidebar = () => {
+  const { showNav, setShowNav } = useNav();
+  const pathname = usePathname();
   const dispatch = useDispatch();
+  const { status } = useSession();
+
+  const close = () => setShowNav(false);
+  const go = () => {
+    dispatch(setProgress(100));
+    close();
+  };
+
+  const isActive = (href) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const links = [
+    ["Home", "/", FiHome],
+    ["Your Library", "/library", FiDisc],
+    ["Liked Songs", "/library/liked", FiHeart],
+    ["Settings", "/settings", FiSettings],
+  ];
+
   return (
-    <div
-      className={`${
-        showNav ? "" : "translate-x-[-100%]"
-      } transition-all duration-200  h-screen lg:w-[300px] md:w-[250px] w-[65vw] fixed top-0 left-0 z-40 bg-[#020813] flex flex-col justify-between`}
-    >
-      <div>
-        <div className=" flex mt-3">
-          <MdOutlineMenu
-            onClick={() => setShowNav(false)}
-            className=" mx-4 text-2xl lg:text-3xl my-auto text-white cursor-pointer"
-          />
-          <div className=" flex justify-center items-center">
-            <Link href="/">
-              <Image
-                onClick={() => {
-                  dispatch(setProgress(100));
-                }}
-                src={logoWhite}
-                alt="logo"
-                className=" lg:py-2 aspect-video w-[139px] h-[31px] lg:h-[60px] lg:w-[190px]"
-              />
-            </Link>
-          </div>
-        </div>
-        <div className=" mt-7 pb-7 border-b border-gray-400 w-[95%]">
-          <Profile setShowNav={setShowNav} />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Languages />
-          <hr className="border-gray-400 w-[95%] mx-auto" />
-        </div>
-        <Favourites setShowNav={setShowNav} />
-        <div className="flex flex-col gap-1">
-          <hr className="border-gray-400 w-[95%] mx-auto" />
-          <Playlists setShowNav={setShowNav} />
-          <hr className="border-gray-400 w-[95%] mx-auto" />
-        </div>
+    <aside className={`app-sidebar ${showNav ? "is-open" : ""}`}>
+      <div className="flex h-16 items-center justify-between px-4">
+        <BrandMark variant="white" onClick={go} />
+        <button
+          type="button"
+          onClick={close}
+          className="icon-btn lg:hidden"
+          aria-label="Close menu"
+        >
+          <IoClose className="text-xl" />
+        </button>
       </div>
-      <div className=" mb-28 text-gray-200 mx-3 flex gap-3">
+
+      <div className="px-3 pb-3">
+        <Profile />
+      </div>
+
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
+        {links.map(([label, href, Icon]) => (
+          <Link
+            key={href}
+            href={href}
+            onClick={go}
+            className={`nav-link ${isActive(href) ? "is-active" : ""}`}
+          >
+            <Icon className="text-lg" />
+            {label}
+          </Link>
+        ))}
+
+        {status !== "authenticated" && (
+          <Link href="/signup" onClick={go} className="nav-link">
+            Create account
+          </Link>
+        )}
+
+        <div className="mt-3 border-t border-white/10 pt-3">
+          <Languages />
+        </div>
+        <div className="border-t border-white/10 pt-2">
+          <Playlists />
+        </div>
+      </nav>
+
+      <div className="border-t border-white/10 px-4 py-4">
         <a
           href="https://github.com/6NCLegend9"
           target="_blank"
           rel="noreferrer"
+          className="inline-flex items-center gap-2 text-sm text-[#9aa8b5] transition hover:text-[#00e6e6]"
         >
-          <p className=" hover:border border-gray-200 p-1 font-medium w-fit rounded cursor-pointer text-sm flex items-center gap-1">
-            <FaGithub />
-            Github
-          </p>
+          <FaGithub />
+          Github
         </a>
       </div>
-    </div>
+    </aside>
   );
 };
 

@@ -6,8 +6,8 @@ const page = async ({ params }) => {
   const playlistData = await getplaylistData(params.playlistId);
 
   return (
-    <div className="w-11/12 m-auto mt-16">
-      <div className=" flex flex-col lg:flex-row items-center">
+    <div className="page">
+      <div className="flex flex-col items-center lg:flex-row lg:items-end">
         {false ? (
           <div
             role="status"
@@ -27,7 +27,7 @@ const page = async ({ params }) => {
           </div>
         ) : (
           <img
-            className=" rounded-full"
+            className="rounded-2xl shadow-2xl"
             src={playlistData?.image?.[2]?.url || playlistData?.image?.[1]?.url || playlistData?.image?.[0]?.url || ""}
             alt={playlistData?.name || playlistData?.title}
             width={300}
@@ -35,7 +35,7 @@ const page = async ({ params }) => {
           />
         )}
 
-        <div className="lg:ml-10 text-gray-100 mt-12 flex flex-col gap-2 items-center md:items-start">
+        <div className="mt-8 flex flex-col items-center gap-2 text-gray-100 md:items-start lg:ml-10 lg:mt-0">
           <h1 className=" text-xl lg:text-4xl font-bold">
             {playlistData?.name}
           </h1>

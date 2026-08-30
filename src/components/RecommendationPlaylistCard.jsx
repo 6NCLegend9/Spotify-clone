@@ -34,7 +34,7 @@ export default function RecommendationPlaylistCard({ playlist }) {
       type="button"
       onClick={playPlaylist}
       disabled={loading}
-      className="group block w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] text-left transition hover:-translate-y-1 hover:border-[#00e6e6]/50 hover:bg-white/[0.08] disabled:opacity-60"
+      className="card group block w-full text-left disabled:opacity-60"
     >
       <div className="relative aspect-video overflow-hidden bg-black">
         <img

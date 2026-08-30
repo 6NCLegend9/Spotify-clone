@@ -101,13 +101,13 @@ function LikedCover({ className = "" }) {
 
 function AccessGate() {
   return (
-    <main className="mx-auto min-h-screen w-[min(94%,1100px)] pb-24 pt-12 text-white">
-      <section className="flex flex-col items-start gap-6 border-y border-white/10 bg-[#101c28]/85 px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
+    <main className="page text-white">
+      <section className="flex flex-col items-start gap-6 rounded-2xl border border-white/10 bg-[#101c28]/85 px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
         <div className="flex gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/10 text-[#00e6e6]"><FiLock /></span>
           <div><h1 className="text-2xl font-bold">Liked Songs are yours to keep</h1><p className="mt-2 text-sm text-gray-300">Save your favorite tracks in one place. Log in or create a free account.</p></div>
         </div>
-        <div className="flex gap-2"><Link href="/login" className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-black">Log in</Link><Link href="/signup" className="rounded-full border border-white/40 px-5 py-2.5 text-sm font-bold">Sign up</Link></div>
+        <div className="flex gap-2"><Link href="/login" className="btn-primary h-10 px-5 text-sm">Log in</Link><Link href="/signup" className="btn-ghost h-10 px-5 text-sm">Sign up</Link></div>
       </section>
     </main>
   );
@@ -314,8 +314,8 @@ export default function PlaylistDetail({ kind, playlistId }) {
   if (!loading && isLiked && status === "unauthenticated") return <AccessGate />;
 
   return (
-    <main className="min-h-screen pb-28 text-white">
-      <section className="bg-[linear-gradient(180deg,rgba(40,78,88,0.92),rgba(7,18,29,0.86))] px-[3vw] pb-8 pt-10">
+    <main className="text-white">
+      <section className="bg-[linear-gradient(180deg,rgba(100,201,215,0.28),rgba(7,18,29,0.92))] px-[3vw] pb-8 pt-8">
         <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 sm:flex-row sm:items-end">
           {isLiked ? (
             <LikedCover className="aspect-square w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60" />
@@ -344,8 +344,8 @@ export default function PlaylistDetail({ kind, playlistId }) {
         {!loading && !error && (
           <>
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
-              <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="mr-2 grid h-14 w-14 place-items-center rounded-full bg-[#1ed760] text-xl text-black transition hover:scale-105 hover:bg-[#3be477] disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
-              <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition ${smartShuffle ? "bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-400/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
+              <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="mr-2 grid h-14 w-14 place-items-center rounded-full bg-[#00e6e6] text-xl text-black transition hover:scale-105 hover:bg-[#64c9d7] disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
+              <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition ${smartShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
               <button type="button" disabled={!isOwner || isLiked} onClick={() => setShowCollaborator(true)} title={isLiked ? "Dynamic collections cannot have collaborators" : isOwner ? "Add collaborator" : "Only the owner can invite collaborators"} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiUserPlus /> <span className="hidden sm:inline">Add collaborator</span></button>
               <button type="button" aria-label="Search in playlist" title="Search in playlist" aria-expanded={showSearch} onClick={() => setShowSearch((value) => !value)} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"><FiSearch /> <span className="hidden sm:inline">Search in playlist</span></button>
               <div className="relative ml-auto">

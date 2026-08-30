@@ -11,23 +11,21 @@ const SwiperLayout = ({ children, title }) => {
   const ablumPrv = useRef(null);
 
   return (
-    <div className=" my-4 lg:mt-14">
-      <div className=" flex justify-between">
-        <h2 className=" text-white mt-4 text-2xl lg:text-3xl font-semibold mb-4 ">
-          {title}
-        </h2>
-        <div className=" hidden md:flex gap-1">
+    <div className="my-4">
+      <div className="flex items-center justify-between">
+        <h2 className="section-title mb-0">{title}</h2>
+        <div className="hidden gap-2 md:flex">
           <div
             ref={ablumPrv}
-            className=" m-4 mb-5 border border-white rounded-full cursor-pointer"
+            className="icon-btn cursor-pointer"
           >
-            <MdNavigateBefore size={35} className="text-white text-xl" />
+            <MdNavigateBefore size={22} />
           </div>
           <div
             ref={albumNext}
-            className=" m-4 mb-5 border border-white rounded-full cursor-pointer"
+            className="icon-btn cursor-pointer"
           >
-            <MdNavigateNext size={35} className="text-white text-xl" />
+            <MdNavigateNext size={22} />
           </div>
         </div>
       </div>

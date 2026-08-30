@@ -9,23 +9,24 @@ export const metadata = {
 
 const Page = () => {
   return (
-    <div className="w-11/12 mt-20 mx-auto text-white min-h-screen">
-      <h1 className="mt-4 text-3xl font-bold">Disclaimer</h1>
-      <p className="mt-4 text-lg">
+    <div className="page max-w-3xl text-white">
+      <p className="eyebrow">Legal</p>
+      <h1 className="mt-2 text-3xl font-bold">Disclaimer</h1>
+      <p className="mt-4 text-base leading-7 text-[#c9d4de]">
         {SITE_NAME} is a music search engine using open source APIs and does not
         upload or host any files on its server. If you are a valid owner of any
         content listed here and want to remove it, please send us a
         DMCA-formatted takedown notice at{" "}
-        <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-cyan-400">
+        <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#00e6e6] underline">
           {ORG_CONTACT_EMAIL}
         </a>
         . We will remove your content as soon as possible.
       </p>
 
-      <h2 className="text-2xl mt-5 font-bold">
+      <h2 className="mt-8 text-2xl font-bold">
         DMCA takedown request requirements
       </h2>
-      <p className="mt-4 text-lg">
+      <p className="mt-4 text-base leading-7 text-[#c9d4de]">
         We take the intellectual property rights of others seriously and require
         that our users do the same. The Digital Millennium Copyright Act (DMCA)
         established a process for addressing claims of copyright infringement.
@@ -34,10 +35,10 @@ const Page = () => {
         material on or through {SITE_NAME}, please submit a DMCA report to the
         email above and we will take appropriate action.
       </p>
-      <h3 className="mt-4 text-xl font-bold">
+      <h3 className="mt-6 text-xl font-bold">
         To submit a DMCA request, please provide:
       </h3>
-      <ul className="list-disc list-item">
+      <ul className="mt-4 list-disc space-y-2 pl-5 text-[#c9d4de]">
         <li>
           Identification of the material that is claimed to be infringing or to
           be the subject of infringing activity, with information reasonably
@@ -67,7 +68,7 @@ const Page = () => {
           behalf of the owner of an exclusive right that is allegedly infringed.
         </li>
       </ul>
-      <p className="mt-4 text-xl font-bold">
+      <p className="mt-6 text-base font-semibold text-white">
         {SITE_NAME} does not store any files on our server, we only link to
         media hosted on third-party services.
       </p>

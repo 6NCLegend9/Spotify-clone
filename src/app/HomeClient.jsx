@@ -26,30 +26,23 @@ export default function HomeClient() {
   };
 
   return (
-    <div>
+    <div className="relative">
       {showtip && !toturialComplete && (
-        <div className="absolute top-4 left-16 z-50">
-          <div className="relative bg-[#3a3b3b] p-4 rounded-lg">
-            <p className="text-lg text-gray-300">
+        <div className="absolute left-4 top-3 z-30 max-w-xs sm:left-8">
+          <div className="rounded-2xl border border-white/10 bg-[#07121d] p-4 shadow-dock">
+            <p className="text-sm text-gray-300">
               Create your own <span className="text-[#00e6e6]">Playlists</span>{" "}
-              <br />
-              and add songs to <span className="text-[#00e6e6]">Favourite</span>
+              and add songs to <span className="text-[#00e6e6]">Liked Songs</span>.
             </p>
-            <div className="flex items-center mt-2 justify-end">
-              <button
-                onClick={handleClick}
-                className="bg-[#00e6e6] text-black px-3 py-2 rounded-lg"
-              >
-                Ok
+            <div className="mt-3 flex justify-end">
+              <button onClick={handleClick} className="btn-primary h-9 px-4 text-sm">
+                Got it
               </button>
             </div>
-            <div className="absolute top-2 -left-2 bg-[#3a3b3b] rotate-[50deg] w-6 h-6"></div>
           </div>
         </div>
       )}
-      <div className="mx-auto relative flex flex-col w-11/12 text-white">
-        <Homepage />
-      </div>
+      <Homepage />
     </div>
   );
 }

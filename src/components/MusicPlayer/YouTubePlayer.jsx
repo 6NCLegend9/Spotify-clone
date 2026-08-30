@@ -463,11 +463,11 @@ export default function YouTubePlayer() {
 
   return (
     <div
-      className={expanded && !dataSaver && !audioOnly ? "fixed inset-0 z-[70] flex min-h-screen w-screen flex-col bg-black" : "relative grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t border-white/10 bg-[#07121d]/95 px-4 py-2 shadow-[0_-12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:px-8"}
+      className={expanded && !dataSaver && !audioOnly ? "fixed inset-0 z-[70] flex min-h-screen w-screen flex-col bg-black" : "relative grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 py-2 sm:px-6"}
       onClick={(event) => event.stopPropagation()}
     >
       <div className={expanded && !dataSaver && !audioOnly ? "contents" : "flex min-w-0 items-center gap-3"}>
-      <div className={expanded && videoVisible ? "absolute inset-0 overflow-hidden bg-black" : videoVisible ? "relative aspect-video w-32 shrink-0 overflow-hidden rounded-md bg-black ring-1 ring-white/10 sm:w-40" : "pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px] overflow-hidden"}>
+      <div className={expanded && videoVisible ? "absolute inset-0 overflow-hidden bg-black" : videoVisible ? "relative h-14 w-[5.6rem] shrink-0 overflow-hidden rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px] overflow-hidden"}>
         {["A", "B"].map((key) => (
           <div
             key={key}

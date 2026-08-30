@@ -147,7 +147,7 @@ function GuestLibrary({ playlists, loading, error }) {
 
   return (
     <>
-      <section className="mt-8 flex flex-col gap-5 border-y border-white/10 bg-[#101c28]/80 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <section className="mt-2 flex flex-col gap-5 rounded-2xl border border-white/10 bg-[#101c28]/80 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <div className="flex min-w-0 items-start gap-4">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-[#00e6e6]"><FiLock /></span>
           <div>
@@ -156,8 +156,8 @@ function GuestLibrary({ playlists, loading, error }) {
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Link href="/login" className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-black hover:bg-gray-200">Log in</Link>
-          <Link href="/signup" className="rounded-full border border-white/40 px-5 py-2.5 text-sm font-bold text-white hover:border-white">Sign up</Link>
+          <Link href="/login" className="btn-primary h-10 px-5 text-sm">Log in</Link>
+          <Link href="/signup" className="btn-ghost h-10 px-5 text-sm">Sign up</Link>
         </div>
       </section>
 
@@ -296,15 +296,15 @@ export default function LibraryView() {
   }, [covers, favourites, filter, playlists, session?.user?.id, sort, status]);
 
   return (
-    <main className="mx-auto min-h-screen w-[min(94%,1440px)] pb-24 text-white">
-      <header className="flex flex-col gap-5 pt-8 sm:flex-row sm:items-end sm:justify-between lg:pt-12">
+    <main className="page text-white">
+      <header className="page-hero">
         <div>
-          <p className="text-xs font-semibold uppercase text-[#00e6e6]">Your collection</p>
+          <p className="eyebrow">Your collection</p>
           <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Your Library</h1>
-          <p className="mt-2 text-sm text-gray-400">Saved music and playlists, organized your way.</p>
+          <p className="mt-2 text-sm text-[#9aa8b5]">Saved music and playlists, organized your way.</p>
         </div>
         {status === "authenticated" && (
-          <button type="button" onClick={() => setShowCreate(true)} className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-black hover:bg-gray-200">
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary h-10 px-4 text-sm">
             <FiPlus /> New playlist
           </button>
         )}

@@ -97,7 +97,7 @@ const SongsList = ({
               onClick={() => {
                 handlePlayClick(song, index);
               }}
-              className={`flex items-center mt-5 cursor-pointer group border-b-[1px] border-gray-400 justify-between ${
+              className={`group mt-1 flex cursor-pointer items-center justify-between rounded-lg border-b border-white/10 px-2 py-2.5 transition hover:bg-white/5 ${
                 activeSong?.id === song?.id && " text-[#00e6e6]"
               }`}
             >
@@ -162,7 +162,7 @@ const SongsList = ({
                       onClick={() => {
                         setShowMenu(false);
                       }}
-                      className="absolute text-white top-0 right-0 bg-black/50 bg-opacity-80 backdrop-blur-sm rounded-lg p-3 w-32 flex flex-col gap-2 z-40"
+                      className="absolute right-0 top-0 z-40 flex w-40 flex-col gap-2 rounded-xl border border-white/10 bg-[#07121d] p-3 text-white shadow-dock"
                     >
                       <p className="text-sm font-semibold flex gap-1 empty:hidden border-b border-white items-center">
                         {isUserPlaylist ? null : "Add to playlist"}

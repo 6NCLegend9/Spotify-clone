@@ -183,12 +183,12 @@ const MusicPlayer = () => {
 
   return (
     <div
-      className={`relative overflow-scroll items-center min-[1180px]:items-stretch min-[1180px]:overflow-visible hideScrollBar sm:px-12 flex flex-col transition-all duration-100 ${
+      className={`player-dock hideScrollBar flex flex-col items-center min-[1180px]:items-stretch ${
         youtubeVideo
-          ? "min-h-24 w-full"
+          ? "w-full"
           : fullScreen
-          ? "h-[100vh] w-[100vw]"
-          : "w-full h-20 px-8 bg-black"
+          ? "player-dock--full"
+          : "h-20 w-full px-4 sm:px-8"
       }`}
       onClick={() => {
         if (!youtubeVideo && activeSong?.id) {
@@ -197,8 +197,8 @@ const MusicPlayer = () => {
       }}
       style={{
         backgroundColor: bgColor
-          ? `rgba(${bgColor.red}, ${bgColor.green}, ${bgColor.blue}, 0.2)`
-          : "rgba(0,0,0,0.2)",
+          ? `rgba(${bgColor.red}, ${bgColor.green}, ${bgColor.blue}, 0.22)`
+          : undefined,
       }}
     >
         <YouTubePlayer />

@@ -54,8 +54,8 @@ const page = ({ params }) => {
     : null;
 
   return (
-    <div className="w-11/12 m-auto mt-16">
-      <div className=" flex flex-col lg:flex-row items-center">
+    <div className="page">
+      <div className="flex flex-col items-center lg:flex-row lg:items-end">
         {loading ? (
           <div
             role="status"
@@ -75,7 +75,7 @@ const page = ({ params }) => {
           </div>
         ) : (
           <img
-            className=" rounded-lg"
+            className="rounded-2xl shadow-2xl"
             src={albumData?.image?.[2]?.url || albumData?.image?.[1]?.url || albumData?.image?.[0]?.url || ""}
             alt={albumData?.name || albumData?.title}
             width={300}
@@ -83,7 +83,7 @@ const page = ({ params }) => {
           />
         )}
 
-        <div className=" lg:ml-10 text-gray-100 mt-12 flex flex-col gap-2">
+        <div className="mt-8 flex flex-col gap-2 text-gray-100 lg:ml-10 lg:mt-0">
           <h1 className="text-xl lg:text-4xl font-bold">{albumData?.name}</h1>
           <h2 className="text-xl font-semibold">{albumData?.subtitle}</h2>
           <h3 className="text-xl font-semibold cursor-pointer">
@@ -132,7 +132,7 @@ const page = ({ params }) => {
                 onClick={() => {
                   handlePlayClick(song, index);
                 }}
-                className="flex items-center  mt-5 cursor-pointer group border-b-[1px] border-gray-400 justify-between"
+                className="mt-2 flex cursor-pointer items-center justify-between rounded-lg border-b border-white/10 px-2 py-3 transition hover:bg-white/5"
               >
                 <div className="flex items-center gap-5">
                   <div className=" relative">

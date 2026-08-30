@@ -49,8 +49,8 @@ const page = ({ params }) => {
   const albumsList = Array.isArray(artistAlbums) ? artistAlbums : [];
 
   return (
-    <div className="w-11/12 m-auto">
-      <div className=" mt-16 flex flex-col lg:flex-row ">
+    <div className="page">
+      <div className="flex flex-col lg:flex-row lg:items-end">
         {loading ? (
           <div
             role="status"
@@ -75,13 +75,13 @@ const page = ({ params }) => {
               alt={artistDetails?.name}
               width={300}
               height={300}
-              className="lg:w-[400px] lg:h-[400px] rounded-lg object-cover"
+              className="h-[300px] w-[300px] rounded-2xl object-cover shadow-2xl lg:h-[400px] lg:w-[400px]"
             />
             <div className="absolute lg:w-[400px] w-[300px] inset-0 bg-gradient-to-t from-black via-transparent"></div>
           </div>
         )}
 
-        <div className=" lg:ml-10 text-gray-100 mt-12 flex flex-col gap-y-2">
+        <div className="mt-8 flex flex-col gap-y-2 text-gray-100 lg:ml-10 lg:mt-0">
           <h1 className="text-2xl lg:text-4xl font-bold">
             {artistDetails?.name}
           </h1>
