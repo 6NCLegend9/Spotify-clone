@@ -1,7 +1,15 @@
 import { Innertube, Log, UniversalCache } from "youtubei.js";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
-const REQUEST_TIMEOUT_MS = 12_000;
+const REQUEST_TIMEOUT_MS = 6_000;
+const INNERTUBE_CLIENT = {
+  clientName: "WEB",
+  clientVersion: "2.20260101.00.00",
+  hl: "en",
+  gl: "US",
+};
+// Public WEB client key shipped in YouTube's own player (same one youtubei.js uses).
+const INNERTUBE_WEB_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 const VIDEO_CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_VIDEO_CACHE_ENTRIES = 500;
 const videoCache = new Map();
@@ -22,18 +30,17 @@ export function hasYouTubeApiKey() {
   return true;
 }
 
-function requestSignal(existingSignal) {
-  const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-  return existingSignal
-    ? AbortSignal.any([existingSignal, timeoutSignal])
-    : timeoutSignal;
-}
-
 async function timedFetch(input, init = {}) {
-  return fetch(input, {
-    ...init,
-    signal: requestSignal(init.signal),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function getInnertube() {
@@ -253,16 +260,170 @@ function officialApiAvailable() {
   return Date.now() >= officialApiCooldownUntil && Boolean(youtubeApiKey());
 }
 
-async function fetchFromOfficialApi(endpoint, params, fetchOptions) {
-  if (!officialApiAvailable()) return null;
+function runsText(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value.content === "string") return value.content;
+  if (typeof value.simpleText === "string") return value.simpleText;
+  if (Array.isArray(value.runs)) {
+    return value.runs.map((run) => run?.text).filter(Boolean).join("");
+  }
+  return "";
+}
 
-  const query = new URLSearchParams();
-  Object.entries(params || {}).forEach(([name, value]) => {
-    if (value !== undefined && value !== null) query.set(name, String(value));
+function thumbnailUrl(node) {
+  const thumbs =
+    node?.thumbnails ||
+    node?.thumbnail?.thumbnails ||
+    node?.image?.sources ||
+    node?.thumbnailViewModel?.image?.sources;
+  if (!Array.isArray(thumbs) || thumbs.length === 0) return "";
+  return thumbs[thumbs.length - 1]?.url || thumbs[0]?.url || "";
+}
+
+function mapVideoRenderer(renderer) {
+  if (!renderer?.videoId) return null;
+  return {
+    id: { videoId: renderer.videoId },
+    snippet: {
+      title: runsText(renderer.title),
+      channelTitle: runsText(renderer.ownerText || renderer.shortBylineText || renderer.longBylineText) || "YouTube",
+      description: runsText(renderer.descriptionSnippet),
+      publishedAt: runsText(renderer.publishedTimeText),
+      thumbnails: { high: { url: thumbnailUrl(renderer.thumbnail || renderer) } },
+    },
+    status: { embeddable: true, privacyStatus: "public" },
+  };
+}
+
+function mapPlaylistRenderer(renderer) {
+  if (!renderer?.playlistId) return null;
+  return {
+    id: { playlistId: renderer.playlistId },
+    snippet: {
+      title: runsText(renderer.title),
+      channelTitle: runsText(renderer.shortBylineText || renderer.longBylineText) || "YouTube",
+      description: "",
+      publishedAt: "",
+      thumbnails: { high: { url: thumbnailUrl(renderer.thumbnails?.[0] || renderer.thumbnail || renderer) } },
+    },
+  };
+}
+
+function mapLockupView(view, type) {
+  const id = view?.contentId;
+  if (!id) return null;
+  const title =
+    view?.metadata?.lockupMetadataViewModel?.title?.content ||
+    view?.metadata?.title?.content ||
+    "";
+  const rows =
+    view?.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows;
+  const channel = rows?.[0]?.metadataParts?.[0]?.text?.content || "YouTube";
+  const image =
+    view?.contentImage?.thumbnailViewModel?.image?.sources ||
+    view?.contentImage?.image?.sources;
+  const mapped = {
+    snippet: {
+      title,
+      channelTitle: channel,
+      description: "",
+      publishedAt: "",
+      thumbnails: { high: { url: thumbnailUrl({ thumbnails: image }) } },
+    },
+    status: { embeddable: true, privacyStatus: "public" },
+  };
+  if (type === "playlist" && id.length > 11) {
+    return { ...mapped, id: { playlistId: id } };
+  }
+  if (type !== "playlist" && /^[A-Za-z0-9_-]{11}$/.test(id)) {
+    return { ...mapped, id: { videoId: id } };
+  }
+  return null;
+}
+
+function collectSearchItems(node, type, items, seen) {
+  if (!node || items.length >= 50) return items;
+  if (Array.isArray(node)) {
+    node.forEach((child) => collectSearchItems(child, type, items, seen));
+    return items;
+  }
+  if (typeof node !== "object") return items;
+
+  const video = mapVideoRenderer(
+    node.videoRenderer || node.compactVideoRenderer || node.videoWithContextRenderer,
+  );
+  if (type !== "playlist" && video && !seen.has(video.id.videoId)) {
+    seen.add(video.id.videoId);
+    items.push(video);
+  }
+
+  const playlist = mapPlaylistRenderer(node.playlistRenderer || node.compactPlaylistRenderer);
+  if (type === "playlist" && playlist && !seen.has(playlist.id.playlistId)) {
+    seen.add(playlist.id.playlistId);
+    items.push(playlist);
+  }
+
+  if (node.lockupViewModel) {
+    const lockup = mapLockupView(node.lockupViewModel, type);
+    const lockupId = lockup?.id?.videoId || lockup?.id?.playlistId;
+    if (lockup && lockupId && !seen.has(lockupId)) {
+      seen.add(lockupId);
+      items.push(lockup);
+    }
+  }
+
+  Object.values(node).forEach((child) => {
+    if (child && typeof child === "object") collectSearchItems(child, type, items, seen);
   });
-  query.set("key", key);
+  return items;
+}
+
+async function searchViaInnerTubeHttp(query, type, maxResults) {
+  const cacheKey = `http:${type}:${maxResults}:${query}`;
+  const cached = getCachedSearch(cacheKey);
+  if (cached) return cached;
+
+  const response = await timedFetch(
+    `https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=${INNERTUBE_WEB_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-YouTube-Client-Name": "1",
+        "X-YouTube-Client-Version": INNERTUBE_CLIENT.clientVersion,
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      },
+      body: JSON.stringify({
+        context: { client: INNERTUBE_CLIENT },
+        query,
+        params: type === "playlist" ? "EgIQAw==" : "EgIQAQ==",
+      }),
+    },
+  );
+  if (!response.ok) return null;
+  const payload = await response.json().catch(() => null);
+  if (!payload) return null;
+
+  const items = collectSearchItems(payload, type, [], new Set()).slice(0, maxResults);
+  if (items.length === 0) return null;
+  const result = { ok: true, status: 200, data: { items } };
+  cacheSearch(cacheKey, result);
+  return result;
+}
+
+async function fetchFromOfficialApi(endpoint, params, fetchOptions) {
+  const key = youtubeApiKey();
+  if (!key || Date.now() < officialApiCooldownUntil) return null;
 
   try {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([name, value]) => {
+      if (value !== undefined && value !== null) query.set(name, String(value));
+    });
+    query.set("key", key);
+
     const response = await timedFetch(
       `${YOUTUBE_API_BASE}/${endpoint}?${query}`,
       fetchOptions,
@@ -341,10 +502,35 @@ async function fetchFromInnertube(endpoint, params = {}) {
 }
 
 export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
-  const officialResult = await fetchFromOfficialApi(endpoint, params, fetchOptions);
-  if (officialResult) return officialResult;
-
   try {
+    const officialResult = await fetchFromOfficialApi(endpoint, params, fetchOptions);
+    if (officialResult) return officialResult;
+
+    const maxResults = Math.min(
+      50,
+      Math.max(1, Number.parseInt(params.maxResults || "10", 10) || 10),
+    );
+    if (endpoint === "search") {
+      const type = params.type === "playlist" ? "playlist" : "video";
+      const httpResult = await searchViaInnerTubeHttp(params.q || "", type, maxResults);
+      if (httpResult) return httpResult;
+    }
+    if (endpoint === "videos" && params.chart === "mostPopular") {
+      const httpResult = await searchViaInnerTubeHttp("top songs this week", "video", maxResults);
+      if (httpResult) {
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            items: (httpResult.data.items || []).map((item) => ({
+              ...item,
+              id: item.id.videoId,
+            })),
+          },
+        };
+      }
+    }
+
     return await fetchFromInnertube(endpoint, params);
   } catch (error) {
     console.error(`YouTube ${endpoint} fallback failed:`, error);

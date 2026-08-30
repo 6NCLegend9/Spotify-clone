@@ -321,7 +321,7 @@ const MusicPlayer = () => {
     <div
       className={`player-dock hideScrollBar flex flex-col ${
         fullScreen
-          ? `player-dock--full items-stretch ${youtubeVideo ? "p-0 max-[1179px]:overflow-y-auto min-[1180px]:overflow-hidden" : "items-center min-[1180px]:items-stretch"}`
+          ? `player-dock--full items-stretch ${youtubeVideo ? "p-0 overflow-hidden" : "items-center min-[1180px]:items-stretch"}`
           : `items-center min-[1180px]:items-stretch ${youtubeVideo ? "w-full" : "h-20 w-full px-4 sm:px-8"}`
       }`}
       onClick={() => {

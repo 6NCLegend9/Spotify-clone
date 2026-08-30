@@ -514,7 +514,7 @@ select:-webkit-autofill {
     position: fixed;
     inset: 0;
     z-index: 70;
-    overflow: auto;
+    overflow: hidden;
     background: var(--navy);
     backdrop-filter: none;
   }
@@ -730,7 +730,9 @@ select:-webkit-autofill {
   z-index: 30;
   display: flex;
   height: min(72vh, 640px);
+  max-height: 72vh;
   flex-direction: column;
+  overflow: hidden;
   padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px));
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
@@ -768,7 +770,13 @@ select:-webkit-autofill {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-bottom: 16px;
+}
+
+.lyrics-live--sheet {
+  height: 55vh;
+  max-height: 55vh;
 }
 
 .lyrics-line {

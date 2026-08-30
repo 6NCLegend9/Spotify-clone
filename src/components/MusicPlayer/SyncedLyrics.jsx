@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 
+const FOLLOW_RESUME_MS = 5000;
+
 export default function SyncedLyrics({
   title,
   artist,
@@ -10,6 +12,7 @@ export default function SyncedLyrics({
   currentTime = 0,
   onSeek,
   compact = false,
+  follow = true,
   className = "",
 }) {
   const { data, lines, status, indexFor, live } = useSyncedLyrics({
@@ -19,11 +22,45 @@ export default function SyncedLyrics({
     enabled: Boolean(title),
   });
   const activeIndex = indexFor(currentTime);
+  const listRef = useRef(null);
   const activeRef = useRef(null);
+  const followRef = useRef(follow);
+  const resumeTimerRef = useRef(null);
+  const programmaticRef = useRef(false);
+
+  const pauseFollow = () => {
+    followRef.current = false;
+    window.clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = window.setTimeout(() => {
+      followRef.current = true;
+      scrollActiveIntoList();
+    }, FOLLOW_RESUME_MS);
+  };
+
+  followRef.current = follow;
+
+  const scrollActiveIntoList = () => {
+    const list = listRef.current;
+    const line = activeRef.current;
+    if (!follow || !list || !line || !followRef.current) return;
+    if (list.scrollHeight <= list.clientHeight + 2) return;
+
+    const nextTop = line.offsetTop - list.clientHeight / 2 + line.clientHeight / 2;
+    programmaticRef.current = true;
+    list.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+    window.setTimeout(() => {
+      programmaticRef.current = false;
+    }, 400);
+  };
 
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    scrollActiveIntoList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex]);
+
+  useEffect(() => () => {
+    window.clearTimeout(resumeTimerRef.current);
+  }, []);
 
   if (status === "loading") {
     return <p className={`px-4 py-6 text-center text-sm text-gray-400 ${className}`}>Loading live lyrics…</p>;
@@ -51,13 +88,23 @@ export default function SyncedLyrics({
           </span>
         )}
       </div>
-      <div className="lyrics-live-list hideScrollBar">
+      <div
+        ref={listRef}
+        className="lyrics-live-list hideScrollBar"
+        onWheel={pauseFollow}
+        onTouchStart={pauseFollow}
+        onPointerDown={pauseFollow}
+        onScroll={() => {
+          if (!programmaticRef.current) pauseFollow();
+        }}
+      >
         {lines.map((line, index) => {
           const isActive = index === activeIndex;
           return (
             <button
               key={`${line.time}-${index}`}
               type="button"
+              tabIndex={-1}
               ref={isActive ? activeRef : null}
               onClick={() => {
                 if (!line.unsynced) onSeek?.(line.time);

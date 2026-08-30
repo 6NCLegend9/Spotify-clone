@@ -1859,6 +1859,7 @@ export default function YouTubePlayer() {
     window.setTimeout(() => {
       expandLockRef.current = false;
     }, 1500);
+    setMobileSheet(false);
     setExpanded((value) => {
       const next = !value;
       dispatch(setFullScreen(next));
@@ -1878,16 +1879,24 @@ export default function YouTubePlayer() {
   const currentQueueIndex = queue.findIndex((item) => item.id === video.id);
   const upcoming = currentQueueIndex === -1 ? queue : queue.slice(currentQueueIndex + 1);
   const showDesktopQueue = showQueue && !compactFullscreen;
-  const showMobileSheet = false;
+
+  const toggleSheetTab = (tab) => {
+    if (mobileSheet && sheetTab === tab) {
+      setMobileSheet(false);
+      return;
+    }
+    setSheetTab(tab);
+    setMobileSheet(true);
+  };
 
   return (
     <div
-      className={compactFullscreen ? "flex w-full flex-col bg-black" : fullscreen ? "relative flex h-full min-h-0 w-full flex-1 flex-col bg-black" : "yt-dock"}
+      className={compactFullscreen ? "relative flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-black" : fullscreen ? "relative flex h-full min-h-0 w-full flex-1 flex-col bg-black" : "yt-dock"}
       onClick={(event) => event.stopPropagation()}
       onTouchStart={fullscreen && !compactFullscreen ? onFullscreenSwipeStart : undefined}
       onTouchEnd={fullscreen && !compactFullscreen ? onFullscreenSwipeEnd : undefined}
     >
-      <div className={compactFullscreen ? "relative flex min-h-[100dvh] flex-col" : "contents"}>
+      <div className={compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
       {pipFloat && videoVisible && !expanded && (
         <img src={video.thumbnail} alt="" className="yt-dock-thumb h-14 w-[5.6rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-28" />
       )}
@@ -1972,22 +1981,38 @@ export default function YouTubePlayer() {
         </div>
       </div>
       <div ref={queueMenuRef} className={compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : fullscreen ? "absolute right-5 top-5 z-20 flex items-center justify-end gap-1 sm:gap-2" : "yt-dock-tools"}>
-        {!compactFullscreen && (
-          <button type="button" aria-label="Next up" aria-expanded={showQueue} onClick={() => { setShowQueue((value) => !value); if (isMobile && fullscreen) setMobileSheet((value) => !value); }} className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}><span className="hidden lg:inline">Next up</span> {showQueue ? <FiChevronDown /> : <FiChevronUp />}</button>
-        )}
-        {!compactFullscreen && (
         <button
           type="button"
-          aria-pressed={showLyrics}
-          aria-label={showLyrics ? "Hide lyrics" : "Show live lyrics"}
-          title={syncedLyrics === false ? "Live lyrics are turned off in Settings" : showLyrics ? "Hide lyrics" : "Live lyrics"}
+          aria-label="Next up"
+          aria-expanded={compactFullscreen ? mobileSheet && sheetTab === "queue" : showQueue}
+          onClick={() => {
+            if (compactFullscreen) {
+              toggleSheetTab("queue");
+              return;
+            }
+            setShowQueue((value) => !value);
+          }}
+          className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}
+        >
+          <span className="hidden lg:inline">Next up</span> {compactFullscreen ? (mobileSheet && sheetTab === "queue" ? <FiChevronDown /> : <FiChevronUp />) : (showQueue ? <FiChevronDown /> : <FiChevronUp />)}
+        </button>
+        <button
+          type="button"
+          aria-pressed={compactFullscreen ? mobileSheet && sheetTab === "lyrics" : showLyrics}
+          aria-label={compactFullscreen ? (mobileSheet && sheetTab === "lyrics" ? "Hide lyrics" : "Show live lyrics") : (showLyrics ? "Hide lyrics" : "Show live lyrics")}
+          title={syncedLyrics === false ? "Live lyrics are turned off in Settings" : "Live lyrics"}
           disabled={syncedLyrics === false}
-          onClick={toggleLyrics}
-          className={expanded && !dataSaver && !audioOnly ? `rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-white"}` : `rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-gray-300"}`}
+          onClick={() => {
+            if (compactFullscreen) {
+              toggleSheetTab("lyrics");
+              return;
+            }
+            toggleLyrics();
+          }}
+          className={expanded && !dataSaver && !audioOnly ? `rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${(compactFullscreen ? mobileSheet && sheetTab === "lyrics" : showLyrics) ? "text-[#00e6e6]" : "text-white"}` : `rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-gray-300"}`}
         >
           <MdOutlineLyrics size={18} />
         </button>
-        )}
         {!isMobile && (
         <button
           type="button"
@@ -2041,8 +2066,14 @@ export default function YouTubePlayer() {
         )}
       </div>
       </div>
-      {compactFullscreen && (
-        <div className="border-t border-white/10 bg-[#07121d] px-3 pb-10 pt-2">
+      {compactFullscreen && mobileSheet && (
+        <div className="yt-mobile-sheet">
+          <button
+            type="button"
+            aria-label="Close"
+            className="yt-mobile-sheet-handle"
+            onClick={() => setMobileSheet(false)}
+          />
           <div className="flex w-full items-center justify-center">
             <button
               type="button"
@@ -2058,37 +2089,48 @@ export default function YouTubePlayer() {
             >
               Lyrics
             </button>
+            <button
+              type="button"
+              aria-label="Close panel"
+              onClick={() => setMobileSheet(false)}
+              className="absolute right-3 top-3 rounded-full p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
+            >
+              <FiX size={16} />
+            </button>
           </div>
-          {sheetTab === "queue" ? (
-            <div className="min-h-[40vh]">
-              {queue.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Queue is empty.</p>}
-              {queue.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => playQueueItem(item)}
-                  className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 ${item.id === video.id ? "bg-white/10" : ""}`}
-                >
-                  <img src={item.thumbnail} alt="" className="h-11 w-11 rounded object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-white">{item.title}</p>
-                    <p className="truncate text-xs text-gray-400">{item.channel}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : syncedLyrics === false ? (
-            <p className="px-4 py-6 text-center text-sm text-gray-400">Live lyrics are turned off in Settings.</p>
-          ) : (
-            <SyncedLyrics
-              title={video.title}
-              artist={video.channel}
-              duration={duration}
-              currentTime={currentTime}
-              onSeek={seekOnCurrentTrack}
-              className="min-h-[40vh]"
-            />
-          )}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {sheetTab === "queue" ? (
+              <div>
+                {queue.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Queue is empty.</p>}
+                {queue.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => playQueueItem(item)}
+                    className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 ${item.id === video.id ? "bg-white/10" : ""}`}
+                  >
+                    <img src={item.thumbnail} alt="" className="h-11 w-11 rounded object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-white">{item.title}</p>
+                      <p className="truncate text-xs text-gray-400">{item.channel}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : syncedLyrics === false ? (
+              <p className="px-4 py-6 text-center text-sm text-gray-400">Live lyrics are turned off in Settings.</p>
+            ) : (
+              <SyncedLyrics
+                title={video.title}
+                artist={video.channel}
+                duration={duration}
+                currentTime={currentTime}
+                onSeek={seekOnCurrentTrack}
+                follow={false}
+                className="h-full"
+              />
+            )}
+          </div>
         </div>
       )}
       {showDesktopQueue && fullscreen && (
