@@ -33,6 +33,75 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  transform: translateY(-180%);
+  border-radius: 0.375rem;
+  background: #fff;
+  padding: 0.625rem 0.875rem;
+  color: #000814;
+  font-weight: 700;
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+html[data-a11y-text-size="large"] {
+  font-size: 112.5%;
+}
+
+html[data-a11y-contrast="high"] {
+  --accent: #6affff;
+  --teal: #a7ffff;
+  --teal-mid: #6affff;
+  --navy: #000;
+  --navy-deep: #000;
+  --navy-surface: #000;
+  --navy-raised: #000;
+  --navy-panel: #000;
+  --text: #fff;
+  --muted: #f3f6f8;
+}
+
+html[data-a11y-contrast="high"] :is(.app-shell, .app-stage, .app-content) {
+  background: #000;
+  background-image: none;
+}
+
+html[data-a11y-contrast="high"] :is(.app-sidebar, .app-navbar, .player-dock, .lyrics-panel, .auth-card, .card) {
+  border-color: #fff;
+  background: #000;
+}
+
+html[data-a11y-contrast="high"] :is(.nav-link, .btn-ghost, .icon-btn, .field) {
+  border-color: #fff;
+  background-color: #000;
+  color: #fff;
+}
+
+html[data-a11y-contrast="high"] :is(.nav-link:hover, .nav-link.is-active) {
+  background: #fff;
+  color: #000;
+}
+
+html[data-a11y-reduced-motion="true"] *,
+html[data-a11y-reduced-motion="true"] *::before,
+html[data-a11y-reduced-motion="true"] *::after {
+  animation: none !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
 input {
   caret-color: var(--accent);
 }

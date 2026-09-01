@@ -1,7 +1,7 @@
 // Single source of truth for SEO + metadata.
 // If the domain ever changes again, update SITE_URL only.
 
-export const SITE_URL = "https://spotify-clone-iota-pink.vercel.app";
+export const SITE_URL = "https://haykasa.vercel.app";
 export const SITE_NAME = "HeyKasa";
 export const SITE_BRAND = "HeyKasa Music";
 export const SITE_TAGLINE = "Free Music Streaming, MP3 Download & Playlists";

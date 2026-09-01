@@ -72,8 +72,9 @@ export async function POST(request) {
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
-    user.resetPasswordToken = hashToken(resetToken);
-    user.resetPasswordExpires = Date.now() + 15 * 60_000;
+    const resetTokenHash = hashToken(resetToken);
+    user.resetPasswordToken = resetTokenHash;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60_000);
     await user.save();
 
     const url = `${getAppUrl(request)}/reset-password/${resetToken}`;
@@ -82,11 +83,13 @@ export async function POST(request) {
         user.email,
         "Reset Password - HeyKasa",
         getResetPasswordTemplate(url),
+        { inlineLogo: true },
       );
     } catch (mailError) {
-      user.resetPasswordToken = null;
-      user.resetPasswordExpires = null;
-      await user.save().catch(() => {});
+      await User.updateOne(
+        { _id: user._id, resetPasswordToken: resetTokenHash },
+        { $set: { resetPasswordToken: null, resetPasswordExpires: null } },
+      ).catch(() => {});
       console.error("Reset email delivery failed:", mailError);
       return NextResponse.json(
         {

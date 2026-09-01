@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
+import Genre from "@/models/Genre";
 import dbConnect from "@/utils/dbconnect";
 import { youtubeFetch } from "@/utils/youtubeApi";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { tokenOptions } from "@/utils/authToken";
-import { DEFAULT_GENRES } from "@/utils/genres";
+import { ensureSystemGenres } from "@/services/genreCatalog";
+import { normalizeGenreName } from "@/utils/genreTaxonomy";
+
+const DEFAULT_GENRES = ["Pop", "Rock", "Hip Hop", "Electronic"];
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_SEARCH_CACHE_ENTRIES = 40;
 const searchCache = new Map();
@@ -144,6 +148,30 @@ function buildPersonalizedSeeds(profile) {
   return seeds.length ? seeds : buildGenreSeeds(null);
 }
 
+function resolveGenrePreferences(values, catalog) {
+  const genresByKey = new Map();
+  catalog.forEach((genre) => {
+    [genre.normalizedName, ...(genre.aliasKeys || [])].forEach((key) => {
+      if (key && !genresByKey.has(key)) genresByKey.set(key, genre);
+    });
+  });
+
+  const seen = new Set();
+  return values.reduce((preferences, value) => {
+    const displayName = value.trim().replace(/\s+/g, " ");
+    const normalizedName = normalizeGenreName(displayName);
+    if (!normalizedName || seen.has(normalizedName)) return preferences;
+
+    const genre = genresByKey.get(normalizedName);
+    const resolvedName = genre?.displayName || displayName;
+    const resolvedKey = normalizeGenreName(resolvedName);
+    if (seen.has(resolvedKey)) return preferences;
+    seen.add(resolvedKey);
+    preferences.push({ name: resolvedName, id: genre?._id });
+    return preferences;
+  }, []);
+}
+
 export async function GET(request) {
   if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 20 })) {
     return NextResponse.json({ error: "Too many requests. Please slow down and try again shortly." }, { status: 429 });
@@ -242,19 +270,32 @@ export async function POST(request) {
     return NextResponse.json({ error: "You must be logged in." }, { status: 401 });
   }
 
-  const body = await request.json();
-  const genres = Array.isArray(body.genres)
-    ? [...new Set(body.genres.filter((genre) => typeof genre === "string"))].slice(0, 24)
+  const body = await request.json().catch(() => null);
+  const requestedGenres = Array.isArray(body?.genres)
+    ? body.genres.filter((genre) => typeof genre === "string").slice(0, 12)
     : [];
 
   await dbConnect();
-  const user = await User.findOne({ email: token.email });
+  const [systemGenres, user] = await Promise.all([
+    ensureSystemGenres(),
+    User.findOne({ email: token.email }).select("_id userData").lean(),
+  ]);
   if (!user?.userData) {
     return NextResponse.json({ error: "User profile not found." }, { status: 404 });
   }
+  const personalGenres = await Genre.find({
+    scope: "personal",
+    ownerId: user._id,
+  }).select("_id displayName normalizedName aliasKeys").lean();
+  const preferences = resolveGenrePreferences(requestedGenres, [...systemGenres, ...personalGenres]);
   const profile = await UserData.findByIdAndUpdate(
     user.userData,
-    { $set: { genres } },
+    {
+      $set: {
+        genres: preferences.map((preference) => preference.name),
+        genreIds: preferences.flatMap((preference) => preference.id ? [preference.id] : []),
+      },
+    },
     { new: true, runValidators: true },
   ).lean();
   return NextResponse.json({ success: true, profile });

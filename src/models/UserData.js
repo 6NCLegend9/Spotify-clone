@@ -47,6 +47,22 @@ const fileSchema = new mongoose.Schema(
             type: [String],
             default: []
         },
+        genreIds: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "genre"
+            }
+        ],
+        tags: {
+            type: [String],
+            default: []
+        },
+        tagIds: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "tag"
+            }
+        ],
         followedArtists: {
             type: [String],
             default: []
@@ -68,8 +84,8 @@ const fileSchema = new mongoose.Schema(
             default: false
         },
         settings: {
-            transitionMode: { type: String, enum: ["off", "manual", "automix"], default: "automix" },
-            crossfadeSeconds: { type: Number, min: 0, max: 12, default: 6 },
+            transitionMode: { type: String, enum: ["off", "manual", "automix"], default: "off" },
+            crossfadeSeconds: { type: Number, min: 0, max: 12, default: 0 },
             eqPreset: { type: String, default: "Flat / Neutral" },
             eqBands: { type: [Number], default: [0, 0, 0, 0, 0] },
             dataSaver: { type: Boolean, default: false },

@@ -4,6 +4,9 @@ import { tokenOptions } from "@/utils/authToken";
 import mailSender from "@/utils/mailSender";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
+import Playlist from "@/models/Playlist";
+import Genre from "@/models/Genre";
+import Tag from "@/models/Tag";
 import dbConnect from "@/utils/dbconnect";
 
 export async function POST(request) {
@@ -22,10 +25,17 @@ export async function POST(request) {
     // 3. Execute actual record deletion in the database
     const user = await User.findOne({ email: userEmail });
     if (user) {
-      if (user.userData) {
-        await UserData.findByIdAndDelete(user.userData);
-      }
-      await User.findOneAndDelete({ email: userEmail });
+      await Promise.all([
+        user.userData ? UserData.findByIdAndDelete(user.userData) : Promise.resolve(),
+        Playlist.deleteMany({ user: user._id }),
+        Playlist.updateMany(
+          { collaborators: user._id },
+          { $pull: { collaborators: user._id } }
+        ),
+        Genre.deleteMany({ scope: "personal", ownerId: user._id }),
+        Tag.deleteMany({ scope: "personal", ownerId: user._id }),
+      ]);
+      await User.findByIdAndDelete(user._id);
     }
 
     // 4. Dispatch notification using process.env.MONITORED_INBOX
@@ -34,7 +44,7 @@ export async function POST(request) {
       await mailSender(
         monitoredInbox,
         `DATA DELETED - ${userEmail}`,
-        `<p>A user has formally requested their account to be deleted.</p><p>Identifier: <strong>${userEmail}</strong></p><p>Status: All associated database records successfully wiped securely.</p>`
+        `<p>A user has formally requested their account to be deleted.</p><p>Identifier: <strong>${userEmail}</strong></p><p>Status: Account and associated user records have been deleted.</p>`
       );
     }
 

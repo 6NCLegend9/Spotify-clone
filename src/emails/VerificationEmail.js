@@ -33,8 +33,9 @@ export const getVerificationEmailTemplate = (userName, url) => {
 </head>
 <body>
     <div class="container">
+        <img src="cid:heykasa-light-pillar" alt="" role="presentation" width="600" height="156" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
         <div class="header">
-            <img src="https://spotify-clone-iota-pink.vercel.app/icon-192x192.png" alt="HeyKasa Logo" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
+            <img src="cid:heykasa-logo" alt="HeyKasa Logo" width="40" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
             <span class="logo" style="vertical-align: middle;">HeyKasa</span>
         </div>
         <div class="content">

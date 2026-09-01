@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
 import { FaGithub } from "react-icons/fa";
-import { FiHeart, FiHome, FiSettings, FiDisc, FiGrid } from "react-icons/fi";
+import { FiDisc, FiFileText, FiGrid, FiHeart, FiHome, FiInfo, FiSettings, FiShield } from "react-icons/fi";
 import { IoClose } from "react-icons/io5";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import BrandMark from "../Layout/BrandMark";
@@ -35,6 +35,9 @@ const Sidebar = () => {
     ["Genres", "/genres", FiGrid],
     ["Liked Songs", "/library/liked", FiHeart],
     ["Settings", "/settings", FiSettings],
+    ["Terms of Service", "/terms", FiFileText],
+    ["Privacy Policy", "/privacy", FiShield],
+    ["Accessibility", "/accessibility", FiInfo],
   ];
 
   return (

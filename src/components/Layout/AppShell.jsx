@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
-import Link from "next/link";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -75,17 +74,7 @@ export default function AppShell({ children }) {
           />
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Navbar />
-          <div className="app-content">
-            {children}
-            <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
-              <div className="flex justify-center gap-4">
-                <Link href="/terms" className="hover:text-white transition">Terms of Service</Link>
-                <Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link>
-                <Link href="/accessibility" className="hover:text-white transition">Accessibility</Link>
-              </div>
-              <p className="mt-4">&copy; {new Date().getFullYear()} HeyKasa Music. All rights reserved.</p>
-            </footer>
-          </div>
+          <div className="app-content">{children}</div>
         </div>
         <div className="app-player">
           <MusicPlayer />

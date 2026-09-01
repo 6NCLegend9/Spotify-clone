@@ -8,9 +8,9 @@ const CURRENT_UPDATE_KEY = "HeyKasa_updates_seen_v1";
 
 const CHANGES = [
   {
-    title: "Lyrics Support & Video Sync",
+    title: "Updated Privacy Policy",
     description:
-      "You can now view synchronized lyrics while watching music videos.",
+      "We have updated our Privacy Policy to better protect your data.",
   }
 ];
 

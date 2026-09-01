@@ -8,6 +8,7 @@ import TopProgressBar from "@/components/topProgressBar/TopProgressBar";
 import Favicon from "./favicon.ico";
 import AuthProvider from "./AuthProvider";
 import AppShell from "@/components/Layout/AppShell";
+import { AccessibilityPreferencesProvider } from "@/components/AccessibilityPreferences";
 import Script from "next/script";
 import {
   SITE_URL,
@@ -128,7 +129,7 @@ const jsonLd = {
       "@id": `${SITE_URL}/#website`,
       url: SITE_URL,
       name: SITE_NAME,
-      alternateName: ["HeyKasa Music", "HeyKasa App", "HeyKasa.8man.in"],
+      alternateName: ["HeyKasa Music", "HeyKasa App"],
       description: DEFAULT_DESCRIPTION,
       inLanguage: "en-US",
       publisher: { "@id": `${SITE_URL}/#organization` },
@@ -260,15 +261,17 @@ export default function RootLayout({ children }) {
   `}
       </Script>
       <body className={poppins.className}>
-        <Providers>
-          <AuthProvider>
-            <TopProgressBar />
-            <SongsHistory />
-            <SettingsSync />
-            <LanguageSync />
-            <AppShell>{children}</AppShell>
-          </AuthProvider>
-        </Providers>
+        <AccessibilityPreferencesProvider>
+          <Providers>
+            <AuthProvider>
+              <TopProgressBar />
+              <SongsHistory />
+              <SettingsSync />
+              <LanguageSync />
+              <AppShell>{children}</AppShell>
+            </AuthProvider>
+          </Providers>
+        </AccessibilityPreferencesProvider>
       </body>
     </html>
   );

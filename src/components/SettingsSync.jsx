@@ -4,7 +4,7 @@ import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import { hydrateSettings } from "@/redux/features/settingsSlice";
 
-// Pulls the account's server-saved preferences (crossfade, quality, EQ, etc.) into Redux
+// Pulls the account's server-saved preferences (quality, EQ, etc.) into Redux
 // on login, so settings follow the user across devices/browsers instead of only reflecting
 // whatever was last saved locally via redux-persist on this particular browser.
 const SettingsSync = () => {

@@ -1497,11 +1497,7 @@ export default function YouTubePlayer() {
         return;
       }
       const remaining = dur - time;
-      const requestedFadeSeconds =
-        transitionMode === "off" ||
-        skipCrossfadeVideoRef.current === want
-          ? 0
-          : Number(crossfadeSeconds) || 0;
+      const requestedFadeSeconds = 0;
       // YouTube's first iframe media segment is typically about five seconds.
       // Releasing the outgoing stream sooner leaves headroom for segment two.
       const fadeSeconds = Math.min(

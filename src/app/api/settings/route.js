@@ -6,7 +6,7 @@ import dbConnect from "@/utils/dbconnect";
 import { tokenOptions } from "@/utils/authToken";
 
 const allowedKeys = [
-  "transitionMode", "crossfadeSeconds", "eqPreset", "eqBands", "dataSaver", "audioOnly",
+  "eqPreset", "eqBands", "dataSaver", "audioOnly",
   "wifiOnlyDownloads", "streamingQuality", "videoQuality", "normalization", "monoAudio", "explicitContent",
   "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture", "masterVolume",
 ];

@@ -86,7 +86,7 @@ export async function POST(request) {
         const body = getVerificationEmailTemplate(userName, url);
 
         try {
-            await mailSender(email, title, body);
+            await mailSender(email, title, body, { inlineLogo: true });
         } catch (mailError) {
             await Promise.allSettled([
                 User.deleteOne({ _id: result._id }),

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import { useAccessibilityPreferences } from "@/components/AccessibilityPreferences";
 
 const QUALITY_SETTINGS = {
   low: {
@@ -58,7 +59,9 @@ export default function LightPillar({
   const materialRef = useRef(null);
   const frameRef = useRef(null);
   const [webGLSupported, setWebGLSupported] = useState(true);
-  const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const systemReduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const { preferences } = useAccessibilityPreferences();
+  const reduceMotion = systemReduceMotion || preferences.reducedMotion;
 
   useEffect(() => {
     const canvas = document.createElement("canvas");

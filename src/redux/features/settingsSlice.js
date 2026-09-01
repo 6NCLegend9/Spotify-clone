@@ -9,8 +9,8 @@ export const EQ_PRESETS = [
 ];
 
 const initialState = {
-  transitionMode: "automix",
-  crossfadeSeconds: 6,
+  transitionMode: "off",
+  crossfadeSeconds: 0,
   eqPreset: "Flat / Neutral",
   eqBands: [0, 0, 0, 0, 0],
   dataSaver: false,
