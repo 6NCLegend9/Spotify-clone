@@ -78,6 +78,10 @@ html[data-a11y-contrast="high"] :is(.app-shell, .app-stage, .app-content) {
   background-image: none;
 }
 
+html[data-a11y-contrast="high"] :is(.app-ghost-fibers, .app-ghost-fibers-shade) {
+  display: none;
+}
+
 html[data-a11y-contrast="high"] :is(.app-sidebar, .app-navbar, .player-dock, .lyrics-panel, .auth-card, .card) {
   border-color: #fff;
   background: #000;

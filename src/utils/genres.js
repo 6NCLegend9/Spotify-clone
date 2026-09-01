@@ -1,100 +1,6 @@
-export const GENRE_CATALOG = [
-  {
-    id: "pop",
-    name: "Pop",
-    aliases: ["popular", "top 40"],
-    subgenres: ["Dance Pop", "Indie Pop", "Synth Pop", "K-Pop", "Teen Pop", "Electropop"],
-  },
-  {
-    id: "rock",
-    name: "Rock",
-    aliases: ["guitar", "alt rock"],
-    subgenres: ["Indie Rock", "Classic Rock", "Punk Rock", "Alternative Rock", "Soft Rock", "Metal"],
-  },
-  {
-    id: "hip-hop",
-    name: "Hip-Hop / Rap",
-    aliases: ["hip hop", "hiphop", "rap", "hip-hop"],
-    subgenres: ["Trap", "Boom Bap", "Lo-fi Hip Hop", "Drill", "Old School Rap", "R&B Rap"],
-  },
-  {
-    id: "electronic",
-    name: "Electronic",
-    aliases: ["edm", "dance", "electro"],
-    subgenres: ["House", "Techno", "Drum & Bass", "Dubstep", "Ambient", "Trance"],
-  },
-  {
-    id: "rnb",
-    name: "R&B",
-    aliases: ["rnb", "rhythm and blues", "r and b"],
-    subgenres: ["Contemporary R&B", "Neo Soul", "Quiet Storm", "New Jack Swing"],
-  },
-  {
-    id: "jazz",
-    name: "Jazz",
-    aliases: [],
-    subgenres: ["Smooth Jazz", "Bebop", "Jazz Fusion", "Vocal Jazz", "Lo-fi Jazz"],
-  },
-  {
-    id: "classical",
-    name: "Classical",
-    aliases: ["orchestra", "piano classical"],
-    subgenres: ["Baroque", "Romantic", "Contemporary Classical", "Film Score", "Opera"],
-  },
-  {
-    id: "country",
-    name: "Country",
-    aliases: [],
-    subgenres: ["Modern Country", "Americana", "Country Pop", "Outlaw Country"],
-  },
-  {
-    id: "latin",
-    name: "Latin",
-    aliases: ["reggaeton", "salsa"],
-    subgenres: ["Reggaeton", "Salsa", "Bachata", "Latin Pop", "Cumbia"],
-  },
-  {
-    id: "indie",
-    name: "Indie",
-    aliases: ["alternative", "alt"],
-    subgenres: ["Indie Folk", "Indie Electronic", "Dream Pop", "Shoegaze"],
-  },
-  {
-    id: "reggae",
-    name: "Reggae",
-    aliases: ["ska"],
-    subgenres: ["Dancehall", "Roots Reggae", "Dub", "Ska"],
-  },
-  {
-    id: "blues",
-    name: "Blues",
-    aliases: [],
-    subgenres: ["Chicago Blues", "Delta Blues", "Blues Rock", "Soul Blues"],
-  },
-  {
-    id: "folk",
-    name: "Folk",
-    aliases: ["acoustic"],
-    subgenres: ["Indie Folk", "Folk Rock", "Singer-Songwriter", "Celtic"],
-  },
-  {
-    id: "metal",
-    name: "Metal",
-    aliases: ["heavy metal"],
-    subgenres: ["Heavy Metal", "Metalcore", "Thrash", "Doom Metal"],
-  },
-  {
-    id: "punk",
-    name: "Punk",
-    aliases: [],
-    subgenres: ["Pop Punk", "Hardcore Punk", "Post-Punk", "Emo"],
-  },
-  {
-    id: "kpop",
-    name: "K-Pop",
-    aliases: ["kpop", "k pop"],
-    subgenres: ["K-R&B", "K-Hip Hop", "K-Ballad", "J-Pop"],
-  },
+import { MAJOR_GENRES } from "@/utils/genreTaxonomy";
+
+const MOOD_CATALOG = [
   {
     id: "chill",
     name: "Chill / Focus",
@@ -133,6 +39,16 @@ export const GENRE_CATALOG = [
   },
 ];
 
+export const GENRE_CATALOG = [
+  ...MAJOR_GENRES.map((genre) => ({
+    id: genre.slug,
+    name: genre.name,
+    aliases: genre.aliases || [],
+    subgenres: genre.subgenres || [],
+  })),
+  ...MOOD_CATALOG,
+];
+
 export const GENRE_OPTIONS = GENRE_CATALOG.flatMap((genre) => [
   genre.name,
   ...genre.subgenres,
@@ -140,7 +56,7 @@ export const GENRE_OPTIONS = GENRE_CATALOG.flatMap((genre) => [
 
 export const PRIMARY_GENRE_NAMES = GENRE_CATALOG.map((genre) => genre.name);
 
-export const DEFAULT_GENRES = ["Pop", "Rock", "Hip-Hop / Rap", "Electronic"];
+export const DEFAULT_GENRES = ["Pop", "Rock", "Hip Hop & Rap", "Electronic & Dance"];
 
 function normalize(value) {
   return String(value || "")

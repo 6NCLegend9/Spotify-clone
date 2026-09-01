@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mesh, Program, Renderer, Triangle } from "ogl";
+import { useAccessibilityPreferences } from "@/components/AccessibilityPreferences";
 
 const hexToRgb = (hex) => {
   const value = String(hex || "").trim().replace(/^#/, "");
@@ -182,6 +183,8 @@ export default function GhostFibers({
 }) {
   const containerRef = useRef(null);
   const [supported, setSupported] = useState(true);
+  const { preferences } = useAccessibilityPreferences();
+  const motionPaused = paused || preferences.reducedMotion || preferences.highContrast;
 
   useEffect(() => {
     const probe = document.createElement("canvas");
@@ -395,7 +398,7 @@ export default function GhostFibers({
     uniforms.uGrain.value = grain;
     uniforms.uLightMode.value = lightMode ? 1 : 0;
     context.setFps(fps);
-    context.setPaused(paused);
+    context.setPaused(motionPaused);
     context.render();
   }, [
     lineColor,
@@ -424,7 +427,7 @@ export default function GhostFibers({
     grain,
     lightMode,
     fps,
-    paused,
+    motionPaused,
     dpr,
   ]);
 

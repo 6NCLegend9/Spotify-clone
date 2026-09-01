@@ -30,7 +30,16 @@ export default function AccessibilityPage() {
             Use the <strong>Tab</strong> key to move through links, controls, form fields, and
             playback actions. A visible focus indicator shows where you are. The first keyboard
             focusable item on a page is a Skip to main content link, allowing you to bypass
-            navigation and move directly to the page content.
+            navigation and move directly to the page content. Menus close with Escape. Form errors
+            are announced as alerts and include a Try again action.
+          </p>
+        </section>
+
+        <section className="border-b border-white/10 py-8" aria-labelledby="readable-errors">
+          <h2 id="readable-errors" className="text-2xl font-bold">Readable errors</h2>
+          <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
+            Sign-in and form errors use plain language instead of codes like CredentialsSignin.
+            Failed logins include a Try again action and a link to reset your password.
           </p>
         </section>
 

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
@@ -49,6 +50,9 @@ export default function AppShell({ children }) {
   return (
     <NavContext.Provider value={value}>
       <div className="app-shell">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <Sidebar />
         <div
           className={`app-overlay lg:hidden ${showNav ? "is-open" : ""}`}
@@ -74,7 +78,17 @@ export default function AppShell({ children }) {
           />
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Navbar />
-          <div className="app-content">{children}</div>
+          <div className="app-content" id="main-content" tabIndex={-1}>
+            {children}
+            <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
+              <div className="flex justify-center gap-4">
+                <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>
+                <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
+                <Link href="/accessibility" className="transition hover:text-white">Accessibility</Link>
+              </div>
+              <p className="mt-4">&copy; {new Date().getFullYear()} HeyKasa Music. All rights reserved.</p>
+            </footer>
+          </div>
         </div>
         <div className="app-player">
           <MusicPlayer />

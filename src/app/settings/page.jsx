@@ -320,6 +320,29 @@ export default function SettingsPage() {
       </section>
 
       <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+        <h2 className="mb-2 text-xl font-semibold">Crossfade</h2>
+        <p className="mb-4 text-xs text-gray-400">Preloads the next queued track and blends it in before the current song ends.</p>
+        <SelectControl
+          label="Transition"
+          value={settings.transitionMode}
+          options={[["off", "Off"], ["automix", "Automix / crossfade"]]}
+          onChange={(value) => set("transitionMode", value)}
+        />
+        <label className="mt-4 block text-sm text-gray-300">
+          Crossfade length · {settings.crossfadeSeconds}s
+          <input
+            type="range"
+            min="1"
+            max="12"
+            value={settings.crossfadeSeconds}
+            disabled={settings.transitionMode === "off"}
+            onChange={(event) => set("crossfadeSeconds", Number(event.target.value))}
+            className="mt-3 w-full accent-[#00e6e6] disabled:opacity-40"
+          />
+        </label>
+      </section>
+
+      <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
         <div className="mb-5 flex items-end justify-between gap-4"><div><h2 className="text-xl font-semibold">Equalizer presets</h2><p className="mt-1 text-xs text-gray-400">Five-band profile applied to the current track. Presets write real band values so playback can use them.</p></div><span className="text-xs text-[#00e6e6]">{settings.eqPreset}</span></div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           {EQ_PRESETS.map((preset, index) => <button key={preset} type="button" onClick={() => set("eqPreset", preset)} className={`min-h-12 rounded-md border px-2 text-left text-xs transition ${settings.eqPreset === preset ? "border-[#00e6e6] bg-[#00e6e6]/10 text-[#00e6e6]" : "border-white/10 text-gray-300 hover:border-white/30"}`}><span className="mr-1 text-gray-500">{String(index + 1).padStart(2, "0")}</span>{preset}</button>)}
@@ -329,7 +352,7 @@ export default function SettingsPage() {
 
       <section className="grid gap-8 lg:grid-cols-2 mb-8">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Playback & data</h2><SelectControl label="Video quality" value={settings.videoQuality} options={videoQualityOptions} onChange={(value) => set("videoQuality", value)} /><Toggle label="Data Saver mode" checked={settings.dataSaver} onChange={(value) => set("dataSaver", value)} /><Toggle label="Audio-only mode" checked={settings.audioOnly} onChange={(value) => set("audioOnly", value)} /><Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} /><Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} /><Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} /></div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><p className="mt-4 text-xs text-gray-500">Private session prevents new listening activity from being used for recommendations.</p></div>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><Toggle label="Tailored advertising" checked={settings.tailoredAds} onChange={(value) => set("tailoredAds", value)} /><p className="mt-4 text-xs text-gray-500">Private session prevents new listening activity from being used for recommendations.</p></div>
       </section>
 
       {status === "authenticated" && (
