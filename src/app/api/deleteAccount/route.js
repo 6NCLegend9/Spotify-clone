@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { tokenOptions } from "@/utils/authToken";
-import { sendMail } from "@/utils/mailSender";
+import mailSender from "@/utils/mailSender";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
 import dbConnect from "@/utils/dbconnect";
@@ -31,11 +31,11 @@ export async function POST(request) {
     // 4. Dispatch notification using process.env.MONITORED_INBOX
     const monitoredInbox = process.env.MONITORED_INBOX;
     if (monitoredInbox) {
-      await sendMail({
-        email: monitoredInbox,
-        subject: `DATA DELETED - ${userEmail}`,
-        body: `<p>A user has formally requested their account to be deleted.</p><p>Identifier: <strong>${userEmail}</strong></p><p>Status: All associated database records successfully wiped securely.</p>`
-      });
+      await mailSender(
+        monitoredInbox,
+        `DATA DELETED - ${userEmail}`,
+        `<p>A user has formally requested their account to be deleted.</p><p>Identifier: <strong>${userEmail}</strong></p><p>Status: All associated database records successfully wiped securely.</p>`
+      );
     }
 
     // 5. Structure JSON Response
