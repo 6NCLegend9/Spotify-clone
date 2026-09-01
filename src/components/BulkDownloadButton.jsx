@@ -183,7 +183,7 @@ const BulkDownloadButton = ({ songList }) => {
         }}
         title={downloading ? "Downloading" : `Download ${downloadTitle}`}
         aria-label={downloading ? "Downloading" : `Download ${downloadTitle}`}
-        className={`relative overflow-hidden flex h-12 w-full sm:w-auto sm:min-w-[220px] items-center justify-center gap-3 rounded-full border border-white/25 px-5 sm:px-6 text-gray-100 shadow-[0_0_28px_rgba(0,230,230,0.12)] transition-all duration-300 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-[#00e6e6]/20 sm:min-w-[260px] ${
+        className={`relative overflow-hidden flex h-12 w-full sm:w-auto items-center justify-center gap-3 rounded-full border border-white/25 px-5 sm:px-6 text-gray-100 shadow-[0_0_28px_rgba(0,230,230,0.12)] transition-all duration-300 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-[#00e6e6]/20 sm:min-w-[260px] ${
           downloading
             ? "cursor-not-allowed bg-slate-800"
             : completed
