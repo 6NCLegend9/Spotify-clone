@@ -8,6 +8,8 @@ import { useDispatch } from "react-redux";
 import { useParams, useRouter } from "next/navigation";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 import Link from "next/link";
+import AuthMessage from "@/components/AuthMessage";
+import { humanizeError, validatePassword } from "@/utils/authErrors";
 
 const ResetPasswordPage = () => {
   const router = useRouter();
@@ -19,28 +21,37 @@ const ResetPasswordPage = () => {
     confirmPassword: "",
   });
 
+  const [formError, setFormError] = useState(null);
+
   const onchange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (formError) setFormError(null);
   };
 
   const handelSubmit = async (e) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      toast.error("Password and Confirm Password are not same");
+    const passwordError = validatePassword(formData.password, {
+      confirm: formData.confirmPassword,
+    });
+    if (passwordError) {
+      setFormError(passwordError);
       return;
     }
     const { password, confirmPassword } = formData;
     try {
       dispatch(setProgress(70));
       const res = await resetPassword(password, confirmPassword, token);
-      if (res.success === true) {
-        toast.success("Password reset successfully");
+      if (res?.success === true) {
+        toast.success("Password updated. You can log in now.");
         router.push("/login");
       } else {
-        toast.error(res?.message || "Invalid or expired reset link");
+        setFormError({
+          title: "Couldn't reset password",
+          message: humanizeError(res).message,
+        });
       }
     } catch (error) {
-      toast.error(error?.message || "Something went wrong");
+      setFormError(humanizeError(error));
     } finally {
       dispatch(setProgress(100));
     }
@@ -56,7 +67,14 @@ const ResetPasswordPage = () => {
             Please enter your new password below.
           </p>
         </div>
-        <form onSubmit={handelSubmit} className="mt-8 flex flex-col gap-5">
+        <form onSubmit={handelSubmit} className="mt-8 flex flex-col gap-5" noValidate>
+          <AuthMessage
+            title={formError?.title}
+            message={formError?.message}
+            onRetry={() => setFormError(null)}
+            href="/reset-password"
+            hrefLabel="Request a new password link"
+          />
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
               New password

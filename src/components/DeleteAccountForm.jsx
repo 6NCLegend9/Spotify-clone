@@ -31,7 +31,7 @@ export default function DeleteAccountForm() {
         toast.success("Account and data permanently deleted.");
         // Optional: you can force log out or redirect here
       } else {
-        toast.error(data.error || "Failed to process database deletion request.");
+        toast.error(data.message || data.error || "We couldn't delete your account. Please try again.");
       }
     } catch (error) {
       toast.error("An internal server error occurred.");

@@ -43,6 +43,14 @@ import {
 } from "@/redux/features/playerSlice";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import AddToQueueButton from "@/components/AddToQueueButton";
+import PlaylistCover from "@/components/PlaylistCover";
+import LikePlaylistButton from "@/components/LikePlaylistButton";
+import CoverUploader from "@/components/CoverUploader";
+import AuthMessage from "@/components/AuthMessage";
+import { PlaylistHeroSkeleton, SongRowsSkeleton } from "@/components/Skeleton";
+import MediaImage from "@/components/MediaImage";
+import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
+import { humanizeError } from "@/utils/authErrors";
 
 function cleanText(value = "") {
   return value
@@ -146,7 +154,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
       setError("");
       try {
         const source = isLiked ? await getFavouriteLibrary() : await getSinglePlaylist(playlistId);
-        if (!isLiked && !source?.success) throw new Error(source?.message || "Playlist could not be loaded.");
+        if (!isLiked && !source?.success) throw new Error(humanizeError(source).message);
         const nextCollection = isLiked ? source : source.data;
         const ids = validYouTubeIds(nextCollection[isLiked ? "favourites" : "songs"]);
         if (isLiked) ids.reverse();
@@ -188,7 +196,9 @@ export default function PlaylistDetail({ kind, playlistId }) {
   const ownerName = isLiked ? session?.user?.name || "You" : collection?.user?.userName || "HeyKasa listener";
   const ownerImage = isLiked ? session?.user?.image : collection?.user?.imageUrl;
   const title = isLiked ? "Liked Songs" : collection?.name || "Playlist";
-  const typeLabel = isLiked ? "Dynamic Collection" : `${collection?.visibility === "public" ? "Public" : "Private"} Playlist`;
+  const typeLabel = isLiked
+    ? "Dynamic Collection"
+    : `${collection?.visibility === "public" ? "Public" : "Private"} ${collection?.category || "Pop"} Playlist`;
 
   const filteredTracks = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
@@ -275,7 +285,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
       toast.error(response?.message || "Playlist could not be updated.");
     }
     setSaving(false);
-    setShowOptions(false);
+    if (action !== "cover" && action !== "category") setShowOptions(false);
   };
 
   const addCollaborator = async (event) => {
@@ -334,10 +344,15 @@ export default function PlaylistDetail({ kind, playlistId }) {
         <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 sm:flex-row sm:items-end">
           {isLiked ? (
             <LikedCover className="aspect-square w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60" />
-          ) : collection?.songs?.length > 0 && tracks[0]?.thumbnail ? (
-            <img src={tracks[0].thumbnail} alt="" className="aspect-square w-40 shrink-0 rounded-md object-cover shadow-2xl sm:w-52 lg:w-60" />
           ) : (
-            <div className="grid aspect-square w-40 shrink-0 place-items-center rounded-md bg-[#172736] text-gray-400 shadow-2xl sm:w-52 lg:w-60"><FiMusic className="h-16 w-16" /></div>
+            <PlaylistCover
+              playlist={{
+                ...collection,
+                cover: tracks[0]?.thumbnail,
+              }}
+              showLabel
+              className="w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60"
+            />
           )}
           <div className="min-w-0 pb-1">
             <p className="text-xs font-bold uppercase text-white/80">{typeLabel}</p>
@@ -354,21 +369,59 @@ export default function PlaylistDetail({ kind, playlistId }) {
       </section>
 
       <div className="mx-auto w-[min(94%,1440px)]">
-        {loading && <div className="mt-8 h-64 animate-pulse rounded-md bg-white/[0.06]" />}
-        {!loading && error && <section className="mt-10 border-y border-white/10 py-10 text-center"><h2 className="text-xl font-bold">This playlist is unavailable</h2><p className="mt-2 text-sm text-amber-300">{error}</p><Link href="/library" className="mt-5 inline-block rounded-full bg-white px-5 py-2 text-sm font-bold text-black">Back to Library</Link></section>}
+        {loading && (
+          <div className="mt-8">
+            <PlaylistHeroSkeleton />
+            <SongRowsSkeleton />
+          </div>
+        )}
+        {!loading && error && (
+          <section className="mt-10">
+            <AuthMessage
+              title="This playlist is unavailable"
+              message={humanizeError(error).message}
+              href="/library"
+              hrefLabel="Back to Library"
+            />
+          </section>
+        )}
         {!loading && !error && (
           <>
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
               <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="mr-2 grid h-14 w-14 place-items-center rounded-full bg-[#00e6e6] text-xl text-black transition hover:scale-105 hover:bg-[#64c9d7] disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
-              <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition ${smartShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
+              <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${smartShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
+              {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => ({ ...current, ...next }))} /> : null}
               <button type="button" disabled={!isOwner || isLiked} onClick={() => setShowCollaborator(true)} title={isLiked ? "Dynamic collections cannot have collaborators" : isOwner ? "Add collaborator" : "Only the owner can invite collaborators"} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiUserPlus /> <span className="hidden sm:inline">Add collaborator</span></button>
               <button type="button" aria-label="Search in playlist" title="Search in playlist" aria-expanded={showSearch} onClick={() => setShowSearch((value) => !value)} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"><FiSearch /> <span className="hidden sm:inline">Search in playlist</span></button>
               <div className="relative ml-auto">
                 <button type="button" aria-label="Playlist options" title="Playlist options" aria-expanded={showOptions} disabled={!isOwner || isLiked} onClick={() => setShowOptions((value) => !value)} className="grid h-10 w-10 place-items-center rounded-full text-xl text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiMoreHorizontal /></button>
                 {showOptions && (
-                  <div className="absolute right-0 top-12 z-20 w-56 rounded-md border border-white/10 bg-[#111d28] p-1.5 text-sm shadow-2xl">
+                  <div className="absolute right-0 top-12 z-20 w-80 rounded-md border border-white/10 bg-[#111d28] p-1.5 text-sm shadow-2xl">
                     <button type="button" disabled={saving} onClick={() => updateSetting("pinned", !collection.pinned)} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10"><BsPinAngleFill /> {collection.pinned ? "Unpin from Library" : "Pin to Library"}</button>
                     <button type="button" disabled={saving} onClick={() => updateSetting("visibility", collection.visibility === "public" ? "private" : "public")} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10">{collection.visibility === "public" ? <FiLock /> : <FiGlobe />} Make {collection.visibility === "public" ? "private" : "public"}</button>
+                    <div className="border-t border-white/10 px-3 py-2">
+                      <p className="mb-2 text-[10px] font-semibold uppercase text-gray-400">Playlist type</p>
+                      <div className="flex flex-wrap gap-1">
+                        {PLAYLIST_CATEGORIES.map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            disabled={saving}
+                            onClick={() => updateSetting("category", item)}
+                            className={`rounded-full px-2 py-1 text-[10px] ${collection.category === item ? "bg-[#00e6e6] text-black" : "bg-white/10 text-gray-300"}`}
+                          >
+                            {item}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="border-t border-white/10 px-3 py-3" onClick={(event) => event.stopPropagation()}>
+                      <CoverUploader
+                        value={collection.coverImage || ""}
+                        disabled={saving}
+                        onChange={(value) => updateSetting("cover", value)}
+                      />
+                    </div>
                     <button type="button" disabled={saving} onClick={removePlaylist} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-red-300 hover:bg-red-400/10"><FiTrash2 /> Delete playlist</button>
                   </div>
                 )}
@@ -392,7 +445,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
                 <div key={track.id} className={`group grid min-h-[66px] grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
                   <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-9 w-9 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
                   <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
-                    <img src={track.thumbnail} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
+                    <MediaImage src={track.thumbnail} size="mq" alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
                     <span className="min-w-0"><span className={`block truncate text-sm font-semibold ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-white"}`}>{cleanText(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{track.channel}</span></span>
                   </button>
                   <span className="hidden truncate text-xs text-gray-400 md:block">-</span>

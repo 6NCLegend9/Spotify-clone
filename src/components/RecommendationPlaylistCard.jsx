@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
+import MediaImage from "@/components/MediaImage";
 
 export default function RecommendationPlaylistCard({ playlist }) {
   const dispatch = useDispatch();
@@ -42,10 +43,11 @@ export default function RecommendationPlaylistCard({ playlist }) {
       className="card group block w-full text-left disabled:opacity-60"
     >
       <div className="relative aspect-video overflow-hidden bg-black">
-        <img
+        <MediaImage
           src={playlist.thumbnail}
+          size="hq"
           alt=""
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03] group-active:scale-[0.98]"
         />
       </div>
       <div className="p-4">

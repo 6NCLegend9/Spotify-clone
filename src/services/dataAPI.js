@@ -98,12 +98,10 @@ export async function resetPassword(password, confirmPassword, token) {
         "Content-Type": "application/json",
       },
     });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data;
+    const data = await response.json().catch(() => null);
+    return data || { success: false, message: "We couldn't reset that password. Please try again." };
   } catch (error) {
-    console.log("Reset password API error", error);
-    return null;
+    return { success: false, message: "We couldn't reset that password. Please try again." };
   }
 }
 
@@ -117,12 +115,10 @@ export async function sendResetPasswordLink(email) {
         "Content-Type": "application/json",
       },
     });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data;
+    const data = await response.json().catch(() => null);
+    return data || { success: false, message: "We couldn't send a reset link. Please try again." };
   } catch (error) {
-    console.log("Send reset password link API error", error);
-    return null;
+    return { success: false, message: "We couldn't send a reset link. Please try again." };
   }
 }
 

@@ -6,6 +6,11 @@ import dbConnect from "@/utils/dbconnect";
 import GoogleProvider from "next-auth/providers/google";
 import UserData from "@/models/UserData";
 import { isRateLimited } from "@/utils/rateLimit";
+import {
+  AuthError,
+  EMAIL_PATTERN,
+  LOGIN_ERRORS,
+} from "@/utils/authErrors";
 
 const googleProvider =
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -31,29 +36,68 @@ export const authOptions = {
             ? credentials.password
             : "";
 
-        if (!email || !password || password.length > 72) return null;
+        if (!email) {
+          throw new AuthError("Please enter your email address.", {
+            title: "Email required",
+          });
+        }
+        if (!EMAIL_PATTERN.test(email)) {
+          throw new AuthError("Please enter a valid email address.", {
+            title: "Invalid email",
+          });
+        }
+        if (!password) {
+          throw new AuthError("Please enter your password.", {
+            title: "Password required",
+          });
+        }
+        if (password.length > 72) {
+          throw new AuthError("Passwords must be 72 characters or fewer.", {
+            title: "Password too long",
+          });
+        }
         if (
           isRateLimited(`credentials:${email}`, {
             windowMs: 15 * 60_000,
             max: 10,
           })
         ) {
-          throw new Error("Too many login attempts. Please try again later.");
+          throw new AuthError(LOGIN_ERRORS.rateLimited.message, {
+            title: LOGIN_ERRORS.rateLimited.title,
+          });
         }
 
         try {
           await dbConnect();
           const user = await User.findOne({ email });
 
-          if (user?.password && (await bcrypt.compare(password, user.password))) {
-            if (!user.isVerified) {
-              throw new Error("Please verify your email before logging in.");
-            }
-            return user;
+          if (!user) {
+            throw new AuthError(LOGIN_ERRORS.emailNotFound.message, {
+              title: LOGIN_ERRORS.emailNotFound.title,
+            });
           }
-          return null;
+          if (!user.password) {
+            throw new AuthError(LOGIN_ERRORS.googleOnly.message, {
+              title: LOGIN_ERRORS.googleOnly.title,
+            });
+          }
+          const passwordMatches = await bcrypt.compare(password, user.password);
+          if (!passwordMatches) {
+            throw new AuthError(LOGIN_ERRORS.wrongPassword.message, {
+              title: LOGIN_ERRORS.wrongPassword.title,
+            });
+          }
+          if (!user.isVerified) {
+            throw new AuthError(LOGIN_ERRORS.unverified.message, {
+              title: LOGIN_ERRORS.unverified.title,
+            });
+          }
+          return user;
         } catch (e) {
-          throw new Error(e.message || "An error occurred during login.");
+          if (e?.name === "AuthError") throw e;
+          throw new AuthError("We couldn't sign you in. Please try again.", {
+            title: "Couldn't sign in",
+          });
         }
       },
     }),
@@ -61,7 +105,7 @@ export const authOptions = {
   pages: {
     signIn: "/login",
     signOut: "/",
-    error: "/",
+    error: "/login",
   },
   session: {
     strategy: "jwt",

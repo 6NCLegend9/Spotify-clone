@@ -4,13 +4,22 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
 export default function VerifyEmailClient({ token }) {
   const [status, setStatus] = useState("verifying"); // verifying, success, error
   const [message, setMessage] = useState("");
   const router = useRouter();
   const verifyAttempted = useRef(false);
+  const reduceMotion = useReducedMotion();
+  const motionProps = reduceMotion
+    ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 1 }, transition: { duration: 0 } }
+    : {
+        initial: { opacity: 0, y: 8 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -6 },
+        transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+      };
 
   useEffect(() => {
     if (!token || verifyAttempted.current) return;
@@ -55,9 +64,7 @@ export default function VerifyEmailClient({ token }) {
           {status === "verifying" && (
             <motion.div
               key="verifying"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
+              {...motionProps}
               className="z-10 relative"
             >
               <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white mb-2">
@@ -73,9 +80,7 @@ export default function VerifyEmailClient({ token }) {
           {status === "success" && (
             <motion.div
               key="success"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", bounce: 0.5 }}
+              {...motionProps}
               className="z-10 relative"
             >
               <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white mb-2">
@@ -93,9 +98,7 @@ export default function VerifyEmailClient({ token }) {
           {status === "error" && (
             <motion.div
               key="error"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ type: "spring", bounce: 0.5 }}
+              {...motionProps}
               className="z-10 relative"
             >
               <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white mb-2">

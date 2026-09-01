@@ -4,12 +4,52 @@ export function validYouTubeIds(values = []) {
   return [...new Set(values.filter((value) => typeof value === "string" && YOUTUBE_ID_PATTERN.test(value)))];
 }
 
+const TRACK_CACHE_KEY = "HeyKasa-track-cache-v1";
+const TRACK_CACHE_TTL_MS = 30 * 60 * 1000;
+
+function readTrackCache() {
+  try {
+    const raw = sessionStorage.getItem(TRACK_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTrackCache(cache) {
+  try {
+    sessionStorage.setItem(TRACK_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Storage may be unavailable.
+  }
+}
+
 export async function hydrateYouTubeTracks(values = []) {
   const ids = validYouTubeIds(values);
-  const batches = [];
+  if (ids.length === 0) return [];
+  const cache = typeof window === "undefined" ? {} : readTrackCache();
+  const now = Date.now();
+  const missing = [];
+  const hydrated = [];
 
-  for (let index = 0; index < ids.length; index += 50) {
-    batches.push(ids.slice(index, index + 50));
+  ids.forEach((id) => {
+    const cached = cache[id];
+    if (cached?.track && cached.expiresAt > now) {
+      hydrated.push(cached.track);
+    } else {
+      missing.push(id);
+    }
+  });
+
+  if (missing.length === 0) {
+    const byId = new Map(hydrated.map((track) => [track.id, track]));
+    return ids.map((id) => byId.get(id)).filter(Boolean);
+  }
+
+  const batches = [];
+  for (let index = 0; index < missing.length; index += 50) {
+    batches.push(missing.slice(index, index + 50));
   }
 
   const responses = await Promise.all(
@@ -23,7 +63,16 @@ export async function hydrateYouTubeTracks(values = []) {
     }),
   );
 
-  const tracksById = new Map(responses.flat().map((track) => [track.id, track]));
+  const fetched = responses.flat();
+  fetched.forEach((track) => {
+    cache[track.id] = { track, expiresAt: now + TRACK_CACHE_TTL_MS };
+  });
+  if (typeof window !== "undefined") writeTrackCache(cache);
+
+  const tracksById = new Map([
+    ...hydrated.map((track) => [track.id, track]),
+    ...fetched.map((track) => [track.id, track]),
+  ]);
   return ids.map((id) => tracksById.get(id)).filter(Boolean);
 }
 

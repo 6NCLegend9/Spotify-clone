@@ -38,6 +38,27 @@ const fileSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    category: {
+      type: String,
+      enum: ["Sports", "Workout", "Chill", "Party", "Romance", "Gaming", "Hip-Hop", "Pop", "Rock"],
+      default: "Pop",
+    },
+    subgenre: {
+      type: String,
+      default: "",
+      maxlength: 48,
+    },
+    coverImage: {
+      type: String,
+      default: "",
+      maxlength: 320000,
+    },
+    likedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "user",
+      },
+    ],
   },
   { timestamps: true, toJSON: { flattenMaps: true } }
 );

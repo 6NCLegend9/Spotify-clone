@@ -2,6 +2,7 @@
 
 import { useDispatch } from "react-redux";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import MediaImage from "@/components/MediaImage";
 
 export default function RecommendationCard({ video, queue }) {
   const dispatch = useDispatch();
@@ -19,7 +20,7 @@ export default function RecommendationCard({ video, queue }) {
   return (
     <article className="card group w-full text-left">
       <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
-        <img src={video.thumbnail} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+        <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03] group-active:scale-[0.98]" />
       </button>
       <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
         <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>

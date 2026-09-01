@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { resolveParams } from "@/utils/routeParams";
 import HomeClient from "./HomeClient";
 
 const featuredSearches = [
@@ -6,7 +8,12 @@ const featuredSearches = [
   "New releases",
 ];
 
-export default function Home() {
+export default async function Home({ searchParams }) {
+  const params = await resolveParams(searchParams);
+  if (params?.error) {
+    redirect(`/login?error=${encodeURIComponent(String(params.error))}`);
+  }
+
   return (
     <div>
       <section className="sr-only" aria-label="HeyKasa music streaming">

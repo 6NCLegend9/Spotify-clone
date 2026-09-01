@@ -33,6 +33,12 @@ const fileSchema = new mongoose.Schema(
                 ref: "playlist"
             }
         ],
+        likedPlaylists: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "playlist"
+            }
+        ],
         language: {
             type: Array,
             default: []

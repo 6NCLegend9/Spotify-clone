@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
+import MediaImage from "@/components/MediaImage";
+import { CardGridSkeleton } from "@/components/Skeleton";
+import { searchGenres, searchQueryForGenre } from "@/utils/genres";
+import Link from "next/link";
 
 export default function YouTubeMusicResults({ query }) {
   const [results, setResults] = useState([]);
@@ -28,6 +32,8 @@ export default function YouTubeMusicResults({ query }) {
       })
       .catch(() => {});
   }, [status]);
+
+  const genreHits = useMemo(() => searchGenres(query, { limit: 8 }), [query]);
 
   const toggleFollow = async (name) => {
     if (status !== "authenticated") return;
@@ -130,7 +136,24 @@ export default function YouTubeMusicResults({ query }) {
         <span className="hidden text-xs text-gray-400 sm:block">Official videos and audio</span>
       </div>
 
-      {loading && <p className="text-gray-400">Searching YouTube...</p>}
+      {genreHits.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">Matching genres</p>
+          <div className="flex flex-wrap gap-2">
+            {genreHits.map((match) => (
+              <Link
+                key={`${match.id}-${match.matchLabel}`}
+                href={`/search/${encodeURIComponent(searchQueryForGenre(match))}`}
+                className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-gray-300 transition duration-200 ease-out hover:border-[#00e6e6] hover:text-[#00e6e6]"
+              >
+                {match.matchLabel}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {loading && <CardGridSkeleton count={6} aspect="aspect-video" />}
       {!loading && songError && <p className="text-sm text-amber-300">{songError}</p>}
       {!loading && !songError && results.length === 0 && (
         <p className="text-gray-400">No YouTube music found.</p>
@@ -145,7 +168,7 @@ export default function YouTubeMusicResults({ query }) {
           return (
           <article key={video.id} className="card group text-left">
             <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
-              <img src={video.thumbnail} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+              <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
             </button>
             <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
               <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
@@ -180,7 +203,7 @@ export default function YouTubeMusicResults({ query }) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <img src={artist.thumbnail} alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition group-hover:scale-105" />
+                  <MediaImage src={artist.thumbnail} size="mq" alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
                   <p className="mt-2 truncate text-sm font-semibold text-white">{artist.title}</p>
                 </a>
                 {status === "authenticated" && (
@@ -211,7 +234,7 @@ export default function YouTubeMusicResults({ query }) {
                 disabled={loadingPlaylistId === album.id}
                 className="group overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] text-left disabled:opacity-60"
               >
-                <img src={album.thumbnail} alt="" className="aspect-video w-full object-cover transition duration-500 group-hover:scale-105" />
+                <MediaImage src={album.thumbnail} size="hq" alt="" className="aspect-video w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
                 <p className="truncate p-4 text-sm font-semibold text-white">{loadingPlaylistId === album.id ? "Loading..." : album.title}</p>
               </button>
             ))}

@@ -44,6 +44,18 @@ export default function sitemap() {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: `${SITE_URL}/genres`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${SITE_URL}/library`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
   ];
 
   const searchPages = POPULAR_SEARCH_TERMS.map((term) => ({

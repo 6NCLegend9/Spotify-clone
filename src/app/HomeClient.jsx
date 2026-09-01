@@ -32,7 +32,7 @@ export default function HomeClient() {
               and add songs to <span className="text-[#00e6e6]">Liked Songs</span>.
             </p>
             <div className="mt-3 flex justify-end">
-              <button onClick={handleClick} className="btn-primary h-9 px-4 text-sm">
+              <button type="button" onClick={handleClick} className="btn-primary h-9 px-4 text-sm">
                 Got it
               </button>
             </div>

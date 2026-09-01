@@ -10,6 +10,9 @@ import RecommendationCard from "../RecommendationCard";
 import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
 import ListenAgain from "./ListenAgain";
 import GradientText from "@/components/ReactBits/GradientText";
+import GenreBrowser from "@/components/GenreBrowser";
+import { HomeSectionSkeleton } from "@/components/Skeleton";
+import Link from "next/link";
 
 const HOME_CACHE_KEY = "HeyKasa-home-recommendations";
 
@@ -185,11 +188,10 @@ const Home = () => {
       <ListenAgain />
 
       {loading && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="card animate-shimmer aspect-video bg-white/5" />
-          ))}
-        </div>
+        <>
+          <HomeSectionSkeleton />
+          <HomeSectionSkeleton />
+        </>
       )}
 
       {!loading && sections.trending?.length > 0 && (
@@ -215,7 +217,7 @@ const Home = () => {
         sectionList.map(
           ([title, videos]) =>
             videos?.length > 0 && (
-              <section key={title} className="mb-10">
+              <section key={title} className="mb-10 animate-fade-in">
                 <h2 className="section-title">{title}</h2>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {videos.map((video) =>
@@ -233,6 +235,16 @@ const Home = () => {
               </section>
             ),
         )}
+
+      <section className="mb-6">
+        <div className="mb-4 flex items-end justify-between">
+          <h2 className="section-title mb-0">Browse genres</h2>
+          <Link href="/genres" className="text-xs font-semibold text-[#00e6e6]">
+            See all
+          </Link>
+        </div>
+        <GenreBrowser title="" compact />
+      </section>
     </div>
   );
 };

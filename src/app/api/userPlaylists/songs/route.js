@@ -3,6 +3,7 @@ import User from "@/models/User";
 import dbConnect from "@/utils/dbconnect";
 import Playlist from "@/models/Playlist";
 import auth from "@/utils/auth";
+import { serializePlaylist } from "@/utils/playlistThemes";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
@@ -60,7 +61,7 @@ export async function POST(req){
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Unauthorized",
+                    message: "You don't have permission to change this playlist.",
                     data: null
                 },
                 { status: 401 }
@@ -134,7 +135,7 @@ export async function DELETE(req){
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Unauthorized",
+                    message: "You don't have permission to change this playlist.",
                     data: null
                 },
                 { status: 401 }
@@ -201,7 +202,7 @@ export async function GET(req){
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Unauthorized",
+                    message: "This playlist is private. Ask the owner for access.",
                     data: null
                 },
                 { status: 403 }
@@ -213,7 +214,7 @@ export async function GET(req){
             {
                 success: true,
                 message: "Songs of playlist",
-                data: playlist
+                data: serializePlaylist(playlist, user?._id)
             },
             { status: 200 }
         );

@@ -1,18 +1,18 @@
 // create playlist
-export async function createPlaylist(name) {
+export async function createPlaylist(name, extra = {}) {
   try {
     const response = await fetch(`/api/userPlaylists`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, ...extra }),
     });
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.log("Create playlist error", error);
+    return { success: false, message: "We couldn't create that playlist. Please try again." };
   }
 }
 
@@ -29,7 +29,7 @@ export async function getUserPlaylists() {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.log("Get user playlists error", error);
+    return { success: false, message: "Playlists could not be loaded. Please try again." };
   }
 }
 
@@ -48,7 +48,7 @@ export async function deletePlaylist(id) {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.log("Delete playlist error", error);
+    return { success: false, message: "We couldn't delete that playlist. Please try again." };
   }
 }
 
@@ -67,7 +67,20 @@ export async function updatePlaylist(playlistId, action, value) {
     });
     return await response.json();
   } catch (error) {
-    console.log("Update playlist error", error);
+    return { success: false, message: "The playlist could not be updated. Please try again." };
+  }
+}
+
+export async function togglePlaylistLike(playlistId) {
+  try {
+    const response = await fetch(`/api/userPlaylists/like`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playlistId }),
+    });
+    return await response.json();
+  } catch (error) {
+    return { success: false, message: "We couldn't update that like. Please try again." };
   }
 }
 
@@ -87,7 +100,7 @@ export async function addSongToPlaylist(playlistID, song) {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.log("Add song to playlist error", error);
+    return { success: false, message: "We couldn't add that song. Please try again." };
   }
 }
 
@@ -107,7 +120,7 @@ export async function deleteSongFromPlaylist(playlistID, song) {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.log("Delete song from playlist error", error);
+    return { success: false, message: "We couldn't remove that song. Please try again." };
   }
 }
 
@@ -123,6 +136,6 @@ export async function getSinglePlaylist(id) {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.log("Get single playlist error", error);
+    return { success: false, message: "This playlist could not be loaded. Please try again." };
   }
 }

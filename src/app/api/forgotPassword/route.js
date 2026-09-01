@@ -10,9 +10,6 @@ import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 
 export const runtime = "nodejs";
 
-const GENERIC_RESET_MESSAGE =
-  "If an account exists for that email, a reset link has been sent.";
-
 function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
@@ -31,9 +28,28 @@ export async function POST(request) {
       ? payload.email.trim().toLowerCase()
       : "";
 
+  if (!email) {
+    return NextResponse.json(
+      {
+        success: false,
+        code: "EMAIL_REQUIRED",
+        title: "Email required",
+        message: "Please enter your email address.",
+        data: null,
+      },
+      { status: 400 },
+    );
+  }
+
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json(
-      { success: false, message: "Enter a valid email address.", data: null },
+      {
+        success: false,
+        code: "INVALID_EMAIL",
+        title: "Invalid email",
+        message: "Please enter a valid email address.",
+        data: null,
+      },
       { status: 400 },
     );
   }
@@ -42,11 +58,17 @@ export async function POST(request) {
     await dbConnect();
     const user = await User.findOne({ email });
     if (!user) {
-      return NextResponse.json({
-        success: true,
-        message: GENERIC_RESET_MESSAGE,
-        data: null,
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          code: "EMAIL_NOT_FOUND",
+          title: "Email not found",
+          message:
+            "We couldn't find an account using that email. Please check the spelling or try requesting a new link.",
+          data: null,
+        },
+        { status: 404 },
+      );
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -78,7 +100,8 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: GENERIC_RESET_MESSAGE,
+      title: "Check your email",
+      message: "If that inbox can receive mail, a reset link is on the way. It expires in 15 minutes.",
       data: null,
     });
   } catch (error) {

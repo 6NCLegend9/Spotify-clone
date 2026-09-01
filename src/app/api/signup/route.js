@@ -25,13 +25,21 @@ export async function POST(request) {
     const password = typeof payload?.password === "string" ? payload.password : "";
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (!userName || !emailPattern.test(email) || password.length < 8 || password.length > 72) {
+    if (!userName) {
         return NextResponse.json(
-            {
-                success: false,
-                message: "Enter a valid name, email, and password between 8 and 72 characters.",
-                data: null,
-            },
+            { success: false, title: "Name required", message: "Please enter a username.", data: null },
+            { status: 400 },
+        );
+    }
+    if (!emailPattern.test(email)) {
+        return NextResponse.json(
+            { success: false, title: "Invalid email", message: "Please enter a valid email address.", data: null },
+            { status: 400 },
+        );
+    }
+    if (password.length < 8 || password.length > 72) {
+        return NextResponse.json(
+            { success: false, title: "Password too short", message: "Use a password between 8 and 72 characters.", data: null },
             { status: 400 },
         );
     }
@@ -44,7 +52,12 @@ export async function POST(request) {
         const existingUser = await User.findOne({ email }).select("_id").lean();
         if (existingUser) {
             return NextResponse.json(
-                { success: false, message: "User already exists", data: null },
+                {
+                    success: false,
+                    title: "Account already exists",
+                    message: "An account with that email already exists. Try logging in, or request a new password link.",
+                    data: null,
+                },
                 { status: 409 },
             );
         }
@@ -113,7 +126,7 @@ export async function POST(request) {
         ]);
         if (error?.code === 11000) {
             return NextResponse.json(
-                { success: false, message: "User already exists", data: null },
+                { success: false, title: "Account already exists", message: "An account with that email already exists. Try logging in.", data: null },
                 { status: 409 },
             );
         }

@@ -11,6 +11,8 @@ import { redirect } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { FaGoogle } from "react-icons/fa";
 import GradientText from "@/components/ReactBits/GradientText";
+import AuthMessage from "@/components/AuthMessage";
+import { humanizeError, validateEmail, validatePassword } from "@/utils/authErrors";
 
 const SignupPage = () => {
   const { status } = useSession();
@@ -20,14 +22,32 @@ const SignupPage = () => {
     email: "",
     password: "",
   });
+  const [formError, setFormError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const onchange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (formError) setFormError(null);
   };
   const dispatch = useDispatch();
 
   const handelSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.userName.trim()) {
+      setFormError({ title: "Name required", message: "Please enter a username." });
+      return;
+    }
+    const emailError = validateEmail(formData.email);
+    if (emailError) {
+      setFormError(emailError);
+      return;
+    }
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      setFormError(passwordError);
+      return;
+    }
     try {
+      setSubmitting(true);
       dispatch(setProgress(70));
       const res = await fetch("/api/signup", {
         method: "POST",
@@ -40,14 +60,18 @@ const SignupPage = () => {
       });
       const data = await res.json();
       if (data.success === true) {
-        toast.success("Account created successfully");
+        toast.success("Account created. Check your email to verify.");
         router.push("/login");
       } else {
-        toast.error(data?.message);
+        setFormError({
+          title: data?.title || "Couldn't create account",
+          message: humanizeError(data).message,
+        });
       }
     } catch (error) {
-      toast.error(error?.message);
+      setFormError(humanizeError(error));
     } finally {
+      setSubmitting(false);
       dispatch(setProgress(100));
     }
   };
@@ -65,7 +89,7 @@ const SignupPage = () => {
 
   return (
     <div className="page grid min-h-full place-items-center relative z-10">
-      <div className="auth-card backdrop-blur-md bg-white/[0.02]">
+      <div className="auth-card animate-fade-in backdrop-blur-md bg-white/[0.02]">
         <p className="eyebrow">Join HeyKasa</p>
         <h1 className="mt-2 text-3xl font-bold">
           <GradientText
@@ -78,7 +102,14 @@ const SignupPage = () => {
         <p className="mt-2 text-sm text-[#9aa8b5]">
           Save favourites and build playlists across devices.
         </p>
-        <form onSubmit={handelSubmit} className="mt-6 flex flex-col gap-4">
+        <form onSubmit={handelSubmit} className="mt-6 flex flex-col gap-4" noValidate>
+          <AuthMessage
+            title={formError?.title}
+            message={formError?.message}
+            onRetry={() => setFormError(null)}
+            href="/login"
+            hrefLabel="Log in instead"
+          />
           <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
             Username
             <input
@@ -123,8 +154,8 @@ const SignupPage = () => {
               className="field mt-2"
             />
           </label>
-          <button type="submit" className="btn-primary w-full">
-            Sign up
+          <button type="submit" disabled={submitting} className="btn-primary w-full">
+            {submitting ? "Creating account..." : "Sign up"}
           </button>
           <div className="flex items-center gap-3 text-xs text-[#9aa8b5]">
             <span className="h-px flex-1 bg-white/15" />

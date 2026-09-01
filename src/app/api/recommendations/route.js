@@ -6,8 +6,7 @@ import dbConnect from "@/utils/dbconnect";
 import { youtubeFetch } from "@/utils/youtubeApi";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { tokenOptions } from "@/utils/authToken";
-
-const DEFAULT_GENRES = ["Pop", "Rock", "Hip Hop", "Electronic"];
+import { DEFAULT_GENRES } from "@/utils/genres";
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_SEARCH_CACHE_ENTRIES = 40;
 const searchCache = new Map();
@@ -245,7 +244,7 @@ export async function POST(request) {
 
   const body = await request.json();
   const genres = Array.isArray(body.genres)
-    ? [...new Set(body.genres.filter((genre) => typeof genre === "string"))].slice(0, 12)
+    ? [...new Set(body.genres.filter((genre) => typeof genre === "string"))].slice(0, 24)
     : [];
 
   await dbConnect();

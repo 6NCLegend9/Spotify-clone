@@ -18,6 +18,10 @@ import {
 } from "react-icons/fi";
 import { BsPinAngleFill } from "react-icons/bs";
 import PlaylistModal from "@/components/Sidebar/PlaylistModal";
+import PlaylistCover from "@/components/PlaylistCover";
+import LikePlaylistButton from "@/components/LikePlaylistButton";
+import MediaImage from "@/components/MediaImage";
+import { CardGridSkeleton } from "@/components/Skeleton";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import {
@@ -26,6 +30,8 @@ import {
   hydrateYouTubeTracks,
   validYouTubeIds,
 } from "@/services/libraryApi";
+import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
+import { humanizeError } from "@/utils/authErrors";
 
 const SORT_OPTIONS = [
   ["recents", "Recents"],
@@ -77,47 +83,46 @@ function CollectionCover({ item }) {
       </div>
     );
   }
-  if (item.cover) {
-    return <img src={item.cover} alt="" className="aspect-square w-full object-cover" />;
-  }
-  return (
-    <div className="grid aspect-square w-full place-items-center bg-[#172736] text-gray-400">
-      <FiMusic className="h-14 w-14" />
-    </div>
-  );
+  return <PlaylistCover playlist={item} />;
 }
 
 function GridItem({ item }) {
   return (
-    <Link
-      href={item.href}
-      className="group min-w-0 overflow-hidden rounded-lg bg-white/[0.055] p-3 transition hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00e6e6]"
-    >
-      <div className="overflow-hidden rounded-md shadow-xl">
-        <CollectionCover item={item} />
-      </div>
-      <h2 className="mt-4 truncate text-base font-bold text-white">{item.title}</h2>
-      <p className="mt-1 truncate text-xs text-gray-400">{item.meta}</p>
-      <p className="mt-1 truncate text-xs text-gray-500">{item.updatedLabel}</p>
-      <CollectionBadges item={item} />
-    </Link>
+    <div className="group relative min-w-0 overflow-hidden rounded-lg bg-white/[0.055] p-3 transition duration-200 ease-out hover:bg-white/[0.1] hover:-translate-y-0.5 active:scale-[0.98] focus-within:ring-2 focus-within:ring-[#00e6e6]">
+      <Link href={item.href} className="block focus-visible:outline-none">
+        <div className="overflow-hidden rounded-md shadow-xl">
+          <CollectionCover item={item} />
+        </div>
+        <h2 className="mt-4 truncate text-base font-bold text-white">{item.title}</h2>
+        <p className="mt-1 truncate text-xs text-gray-400">{item.meta}</p>
+        <p className="mt-1 truncate text-xs text-gray-500">{item.updatedLabel}</p>
+        {item.category && item.type === "playlist" ? (
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#00e6e6]">{item.category}{item.subgenre ? ` · ${item.subgenre}` : ""}</p>
+        ) : null}
+        <CollectionBadges item={item} />
+      </Link>
+      {item.type === "playlist" ? (
+        <div className="absolute right-2 top-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+          <LikePlaylistButton playlist={item} className="bg-black/50 backdrop-blur" />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 function ListItem({ item }) {
   return (
-    <Link
-      href={item.href}
-      className="group grid min-h-[76px] grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-2 transition hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00e6e6] sm:grid-cols-[64px_minmax(0,1fr)_minmax(150px,0.6fr)_auto]"
-    >
-      <div className="overflow-hidden rounded-md"><CollectionCover item={item} /></div>
-      <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold text-white sm:text-base">{item.title}</h2>
-        <p className="mt-1 truncate text-xs text-gray-400">{item.meta}</p>
-      </div>
-      <p className="hidden truncate text-xs text-gray-400 sm:block">{item.updatedLabel}</p>
-      <CollectionBadges item={item} />
-    </Link>
+    <div className="group grid min-h-[76px] grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-2 transition duration-200 ease-out hover:bg-white/[0.07] sm:grid-cols-[64px_minmax(0,1fr)_minmax(150px,0.6fr)_auto]">
+      <Link href={item.href} className="contents">
+        <div className="overflow-hidden rounded-md"><CollectionCover item={item} /></div>
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-white sm:text-base">{item.title}</h2>
+          <p className="mt-1 truncate text-xs text-gray-400">{item.meta}{item.category ? ` · ${item.category}` : ""}</p>
+        </div>
+        <p className="hidden truncate text-xs text-gray-400 sm:block">{item.updatedLabel}</p>
+      </Link>
+      {item.type === "playlist" ? <LikePlaylistButton playlist={item} /> : <CollectionBadges item={item} />}
+    </div>
   );
 }
 
@@ -171,7 +176,7 @@ function GuestLibrary({ playlists, loading, error }) {
           <p className="text-xs font-semibold uppercase text-[#00e6e6]">Public playlists</p>
           <h2 id="featured-public-playlists" className="mt-2 text-2xl font-bold text-white">Featured for everyone</h2>
         </div>
-        {loading && <div className="h-48 animate-pulse rounded-md bg-white/[0.06]" />}
+        {loading && <CardGridSkeleton count={5} />}
         {!loading && error && <p className="text-sm text-amber-300">{error}</p>}
         {!loading && !error && playlists.length === 0 && <p className="text-sm text-gray-400">No public playlists are available right now.</p>}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -183,7 +188,7 @@ function GuestLibrary({ playlists, loading, error }) {
               disabled={loadingId === playlist.id}
               className="group min-w-0 rounded-lg bg-white/[0.055] p-3 text-left transition hover:bg-white/[0.1] disabled:opacity-60"
             >
-              <img src={playlist.thumbnail} alt="" className="aspect-square w-full rounded-md object-cover" />
+              <MediaImage src={playlist.thumbnail} size="hq" alt="" className="aspect-square w-full rounded-md object-cover" />
               <div className="mt-4 min-w-0">
                 <h3 className="line-clamp-2 text-sm font-bold text-white">{playlist.title}</h3>
                 <p className="mt-2 truncate text-xs text-gray-400">{loadingId === playlist.id ? "Loading..." : playlist.channel}</p>
@@ -228,7 +233,7 @@ export default function LibraryView() {
           getFavouriteLibrary(),
           getUserPlaylists(),
         ]);
-        if (!playlistData?.success) throw new Error(playlistData?.message || "Playlists could not be loaded.");
+        if (!playlistData?.success) throw new Error(humanizeError(playlistData).message);
         const nextPlaylists = playlistData.data?.playlists || [];
         const coverIds = nextPlaylists.map((playlist) => validYouTubeIds(playlist.songs)[0]).filter(Boolean);
         const coverTracks = await hydrateYouTubeTracks(coverIds);
@@ -282,12 +287,14 @@ export default function LibraryView() {
         collaborative: (playlist.collaborators?.length || 0) > 0,
         meta: `${ownedByUser ? "By You" : `By ${creator}`} • ${songIds.length.toLocaleString()} ${songIds.length === 1 ? "song" : "songs"}`,
         updatedLabel: relativeDate(playlist.updatedAt),
-        cover: covers[songIds[0]],
+        cover: playlist.coverImage || covers[songIds[0]],
       };
     });
 
     const visible = playlistItems.filter((item) => {
       if (filter === "by-you") return item.ownedByUser;
+      if (filter === "liked") return Boolean(item.liked);
+      if (PLAYLIST_CATEGORIES.includes(filter)) return item.category === filter;
       return true;
     });
     visible.sort((left, right) => {
@@ -321,13 +328,27 @@ export default function LibraryView() {
         <>
           <section className="mt-8 flex flex-col gap-4 border-y border-white/10 py-4 lg:flex-row lg:items-center lg:justify-between" aria-label="Library controls">
             <div className="flex flex-wrap gap-2" aria-label="Library filters">
-              {[["all", "All"], ["playlists", "Playlists"], ["by-you", "By You"]].map(([value, label]) => (
+              {[["all", "All"], ["playlists", "Playlists"], ["by-you", "By You"], ["liked", "Liked"]].map(([value, label]) => (
                 <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`rounded-full px-4 py-2 text-xs font-semibold transition ${filter === value ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/15"}`}>
                   {label}
                 </button>
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <label className="relative flex items-center">
+                <span className="sr-only">Filter by playlist type</span>
+                <select
+                  value={PLAYLIST_CATEGORIES.includes(filter) ? filter : ""}
+                  onChange={(event) => setFilter(event.target.value || "playlists")}
+                  className="h-10 appearance-none rounded-full border border-white/10 bg-[#0b1722] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#00e6e6]"
+                >
+                  <option value="">All types</option>
+                  {PLAYLIST_CATEGORIES.map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+                <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
+              </label>
               <div className="flex rounded-md bg-white/[0.07] p-1" aria-label="Library view">
                 <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-8 w-8 place-items-center rounded ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
                 <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-8 w-8 place-items-center rounded ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
@@ -342,7 +363,7 @@ export default function LibraryView() {
             </div>
           </section>
 
-          {loading && <div className="mt-6 h-56 animate-pulse rounded-md bg-white/[0.06]" />}
+          {loading && <div className="mt-6"><CardGridSkeleton /></div>}
           {!loading && error && <p className="mt-8 text-sm text-amber-300">{error}</p>}
           {!loading && !error && items.length === 0 && (
             <div className="mt-14 text-center"><FiMusic className="mx-auto h-10 w-10 text-gray-500" /><h2 className="mt-4 text-lg font-bold">No playlists here yet</h2><p className="mt-2 text-sm text-gray-400">Create a playlist or try another filter.</p></div>

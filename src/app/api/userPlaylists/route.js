@@ -6,12 +6,16 @@ import Playlist from "@/models/Playlist";
 import UserData from "@/models/UserData";
 import auth from "@/utils/auth";
 import { tokenOptions } from "@/utils/authToken";
+import { inferPlaylistCategory, normalizePlaylistCategory, serializePlaylist, isCoverDataUrl } from "@/utils/playlistThemes";
 
 
 // Create a new playlist
 export async function POST(req){
     const body = await req.json().catch(() => null);
     const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const category = inferPlaylistCategory(name, body?.category);
+    const subgenre = typeof body?.subgenre === "string" ? body.subgenre.trim().slice(0, 48) : "";
+    const coverImage = isCoverDataUrl(body?.coverImage) ? body.coverImage : "";
     if (!name || name.length > 80) {
         return NextResponse.json(
             {
@@ -37,7 +41,10 @@ export async function POST(req){
         }
         const playlist = await Playlist.create({
             name,
-            user: user._id
+            user: user._id,
+            category,
+            subgenre,
+            coverImage,
         });
 
         const userData = await UserData.findById(user.userData);
@@ -59,7 +66,7 @@ export async function POST(req){
                 success: true,
                 message: "Playlist created",
                 data: {
-                    playlist
+                    playlist: serializePlaylist(playlist, user._id)
                 }
             }
         );
@@ -114,9 +121,10 @@ export async function DELETE(req){
             );
         }
         await Playlist.deleteOne({ _id: playlistId });
-        const userData = await UserData.findById(user.userData);
-        userData.playlists = userData.playlists.filter((playlist) => playlist.toString() !== playlistId);
-        await userData.save();
+        await UserData.updateMany(
+            { $or: [{ playlists: playlistId }, { likedPlaylists: playlistId }] },
+            { $pull: { playlists: playlistId, likedPlaylists: playlistId } },
+        );
         return NextResponse.json(
             {
                 success: true,
@@ -170,6 +178,21 @@ export async function PATCH(req){
             playlist.smartShuffle = Boolean(value);
         } else if (action === "visibility" && ["public", "private"].includes(value)) {
             playlist.visibility = value;
+        } else if (action === "category") {
+            playlist.category = normalizePlaylistCategory(value);
+        } else if (action === "subgenre") {
+            playlist.subgenre = typeof value === "string" ? value.trim().slice(0, 48) : "";
+        } else if (action === "cover") {
+            if (value === "" || value == null) {
+                playlist.coverImage = "";
+            } else if (!isCoverDataUrl(value)) {
+                return NextResponse.json(
+                    { success: false, message: "That cover image is too large or not a supported type.", data: null },
+                    { status: 400 }
+                );
+            } else {
+                playlist.coverImage = value;
+            }
         } else if (action === "addCollaborator") {
             const collaborator = await User.findOne({ email: email?.trim().toLowerCase() });
             if (!collaborator) {
@@ -200,7 +223,7 @@ export async function PATCH(req){
         return NextResponse.json({
             success: true,
             message: action === "addCollaborator" ? "Collaborator added" : "Playlist updated",
-            data: { playlist }
+            data: { playlist: serializePlaylist(playlist, user._id) }
         });
     } catch (e) {
         console.error(e);
@@ -252,6 +275,7 @@ export async function GET(req){
         const playlists = await Playlist.find({
             $or: [
                 { _id: { $in: userData.playlists } },
+                { _id: { $in: userData.likedPlaylists || [] } },
                 { collaborators: user._id }
             ]
         })
@@ -263,7 +287,7 @@ export async function GET(req){
                 success: true,
                 message: "Playlists fetched",
                 data: {
-                    playlists
+                    playlists: playlists.map((playlist) => serializePlaylist(playlist, user._id))
                 }
             }
         );

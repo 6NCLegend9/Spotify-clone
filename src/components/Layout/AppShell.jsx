@@ -6,11 +6,15 @@ import { usePathname } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
-import MusicPlayer from "@/components/MusicPlayer";
 import Link from "next/link";
 
-const LightPillar = dynamic(
-  () => import("@/components/Backgrounds/LightPillar"),
+const MusicPlayer = dynamic(
+  () => import("@/components/MusicPlayer"),
+  { ssr: false },
+);
+
+const GhostFibers = dynamic(
+  () => import("@/components/ReactBits/GhostFibers"),
   { ssr: false },
 );
 
@@ -52,20 +56,24 @@ export default function AppShell({ children }) {
           onClick={() => setShowNav(false)}
         />
         <div className="app-stage">
-          <LightPillar
-            className="app-light-pillar"
-            topColor="#6effff"
-            bottomColor="#00a6b8"
-            intensity={1.08}
-            rotationSpeed={0.3}
-            glowAmount={0.0065}
-            pillarWidth={4.2}
-            pillarHeight={0.52}
-            noiseIntensity={0.12}
-            pillarRotation={-8}
-            quality="medium"
+          <GhostFibers
+            className="app-ghost-fibers"
+            lineColor="#0a5c66"
+            glowColor="#00e6e6"
+            backdropColor="#000814"
+            speed={0.18}
+            scale={2.1}
+            rotation={-8}
+            rotationSpeed={0.16}
+            layers={4}
+            glowIntensity={1.2}
+            brightness={1.4}
+            blueBoost={0.9}
+            vignette={0.74}
+            grain={0.035}
+            fps={45}
           />
-          <div className="app-light-pillar-shade" aria-hidden="true" />
+          <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Navbar />
           <div className="app-content">
             {children}
