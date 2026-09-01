@@ -51,6 +51,15 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/genres",
+        destination: "/settings",
+        permanent: true,
+      },
+    ];
+  },
   webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,

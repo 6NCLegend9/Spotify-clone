@@ -87,19 +87,6 @@ const Searchbar = () => {
               </button>
             </li>
           ))}
-          <li>
-            <button
-              type="button"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                setOpen(false);
-                router.push("/genres");
-              }}
-              className="w-full px-3 py-2 text-left text-xs font-semibold text-[#00e6e6] hover:bg-white/10"
-            >
-              Browse all genres
-            </button>
-          </li>
         </ul>
       ) : null}
     </form>

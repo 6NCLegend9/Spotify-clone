@@ -10,9 +10,7 @@ import RecommendationCard from "../RecommendationCard";
 import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
 import ListenAgain from "./ListenAgain";
 import GradientText from "@/components/ReactBits/GradientText";
-import GenreBrowser from "@/components/GenreBrowser";
 import { HomeSectionSkeleton } from "@/components/Skeleton";
-import Link from "next/link";
 
 const HOME_CACHE_KEY = "HeyKasa-home-recommendations";
 
@@ -235,16 +233,6 @@ const Home = () => {
               </section>
             ),
         )}
-
-      <section className="mb-6">
-        <div className="mb-4 flex items-end justify-between">
-          <h2 className="section-title mb-0">Browse genres</h2>
-          <Link href="/genres" className="text-xs font-semibold text-[#00e6e6]">
-            See all
-          </Link>
-        </div>
-        <GenreBrowser title="" compact />
-      </section>
     </div>
   );
 };
