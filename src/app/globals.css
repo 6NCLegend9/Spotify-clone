@@ -723,19 +723,41 @@ select:-webkit-autofill {
   overflow: hidden;
 }
 
-.yt-crop-frame,
-.yt-crop-frame iframe {
+.yt-crop-frame {
+  --yt-frame-width: 854px;
+  --yt-frame-height: 480px;
+  position: relative;
   width: 100% !important;
   height: 100% !important;
+}
+
+.yt-crop-frame--hd720 {
+  --yt-frame-width: 1280px;
+  --yt-frame-height: 720px;
+}
+
+.yt-crop-frame--hd1080,
+.yt-crop-frame--highres {
+  --yt-frame-width: 1920px;
+  --yt-frame-height: 1080px;
+}
+
+.yt-crop-frame iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--yt-frame-width)) !important;
+  height: max(100%, var(--yt-frame-height)) !important;
+  min-width: var(--yt-frame-width);
+  min-height: var(--yt-frame-height);
   pointer-events: none !important;
-  transform: scale(1.68);
+  transform: translate(-50%, -50%) scale(1.04);
   transform-origin: center center;
 }
 
-@media (min-width: 768px) {
-  .yt-crop-frame,
+@media (max-width: 767px) {
   .yt-crop-frame iframe {
-    transform: scale(1.48);
+    transform: translate(-50%, -50%) scale(1.08);
   }
 }
 

@@ -46,6 +46,34 @@ const INCOMING_STALL_MS = 1000;
 const VERIFIED_ADVANCE_SECONDS = 0.2;
 const STARTUP_GRACE_MS = 12000;
 const MAX_SAFE_YOUTUBE_CROSSFADE_SECONDS = 6;
+const STREAMING_QUALITY_PREFERENCES = {
+  auto: "default",
+  low: "medium",
+  normal: "large",
+  high: "hd720",
+  "very-high": "hd1080",
+};
+const YOUTUBE_QUALITY_LABELS = {
+  tiny: "144p",
+  small: "240p",
+  medium: "360p",
+  large: "480p",
+  hd720: "720p",
+  hd1080: "1080p",
+  highres: "High resolution",
+};
+
+function resolveYouTubeQuality(videoQuality, streamingQuality, dataSaver) {
+  if (videoQuality === "1080p") return "hd1080";
+  if (videoQuality === "720p") return "hd720";
+  if (dataSaver) return "medium";
+  return STREAMING_QUALITY_PREFERENCES[streamingQuality]
+    || STREAMING_QUALITY_PREFERENCES.auto;
+}
+
+function requestYouTubeQuality(player, preferredQuality) {
+  if (preferredQuality !== "default") player?.setPlaybackQuality?.(preferredQuality);
+}
 
 // Best-effort signal for recommendations.js's skip exclusion filter; never blocks playback.
 const recordPlayEvent = (id, event) => {
@@ -67,6 +95,7 @@ export default function YouTubePlayer() {
     dataSaver,
     audioOnly: audioOnlyToggle,
     videoQuality,
+    streamingQuality,
     eqPreset,
     eqBands,
     normalization,
@@ -82,6 +111,11 @@ export default function YouTubePlayer() {
   const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
+  const requestedYouTubeQuality = resolveYouTubeQuality(
+    videoQuality,
+    streamingQuality,
+    dataSaver,
+  );
   // Dual decks let one track fade out while the next fades in at the same time.
   const deckHostRefs = { A: useRef(null), B: useRef(null) };
   const deckPlayerRefs = { A: useRef(null), B: useRef(null) };
@@ -99,6 +133,7 @@ export default function YouTubePlayer() {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [apiReady, setApiReady] = useState(false);
+  const [deliveredVideoQuality, setDeliveredVideoQuality] = useState("");
   const [showQueue, setShowQueue] = useState(false);
   const queueMenuRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
@@ -160,6 +195,14 @@ export default function YouTubePlayer() {
   });
 
   const getActivePlayer = () => deckPlayerRefs[activeDeckRef.current]?.current;
+
+  const reportPlaybackQuality = (player, key) => {
+    if (key !== activeDeckRef.current) return;
+    const quality = player?.getPlaybackQuality?.();
+    if (quality) {
+      setDeliveredVideoQuality((current) => (current === quality ? current : quality));
+    }
+  };
 
   const playerVideoId = (player) => {
     try {
@@ -661,11 +704,10 @@ export default function YouTubePlayer() {
     handledVideoIdRef.current = nextVideo.id;
     setCurrentTime(0);
     setDuration(0);
+    setDeliveredVideoQuality("");
     player.unMute?.();
     applyPlaybackVolume(player);
-    if (videoQuality !== "auto" && videoQuality !== "audio-only") {
-      player.setPlaybackQuality?.(videoQuality);
-    }
+    requestYouTubeQuality(player, requestedYouTubeQuality);
     player.loadVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
     player.playVideo?.();
     dispatch(playPause(true));
@@ -697,12 +739,7 @@ export default function YouTubePlayer() {
       playsinline: "1",
       rel: "0",
       showinfo: "0",
-      vq:
-        key !== activeDeckRef.current || videoQuality === "audio-only"
-          ? "tiny"
-          : videoQuality === "auto"
-            ? "default"
-            : videoQuality,
+      vq: key !== activeDeckRef.current ? "small" : requestedYouTubeQuality,
       widget_referrer: window.location.href,
     });
     const iframe = document.createElement("iframe");
@@ -729,9 +766,8 @@ export default function YouTubePlayer() {
           frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
           if (key === activeDeckRef.current) {
             setDuration(event.target.getDuration());
-            if (videoQuality !== "auto" && videoQuality !== "audio-only") {
-              event.target.setPlaybackQuality(videoQuality);
-            }
+            requestYouTubeQuality(event.target, requestedYouTubeQuality);
+            reportPlaybackQuality(event.target, key);
           } else {
             event.target.setPlaybackQuality?.("small");
           }
@@ -751,6 +787,8 @@ export default function YouTubePlayer() {
             }
             if (key === activeDeckRef.current) {
               setPlayerError("");
+              requestYouTubeQuality(event.target, requestedYouTubeQuality);
+              reportPlaybackQuality(event.target, key);
               const playingId = playerVideoId(event.target);
               if (
                 activeTrackStartedRef.current.videoId !== playingId ||
@@ -880,6 +918,13 @@ export default function YouTubePlayer() {
             }
           }
         },
+        onPlaybackQualityChange: (event) => {
+          if (!isCurrent() || key !== activeDeckRef.current) return;
+          const quality = event.data || event.target.getPlaybackQuality?.();
+          if (quality) {
+            setDeliveredVideoQuality((current) => (current === quality ? current : quality));
+          }
+        },
         onAutoplayBlocked: () => {
           if (!isCurrent()) return;
           if (key === activeDeckRef.current) {
@@ -933,9 +978,7 @@ export default function YouTubePlayer() {
     resetActiveRecovery(nextVideo.id);
     activeRecoveryRef.current.lastTime = incomingPlayer.getCurrentTime?.() || 0;
     activeRecoveryRef.current.lastAdvancedAt = performance.now();
-    if (videoQuality !== "auto" && videoQuality !== "audio-only") {
-      incomingPlayer.setPlaybackQuality?.(videoQuality);
-    }
+    requestYouTubeQuality(incomingPlayer, requestedYouTubeQuality);
     applyPlaybackVolume(incomingPlayer);
     incomingPlayer?.unMute?.();
     incomingPlayer?.playVideo?.();
@@ -1366,9 +1409,7 @@ export default function YouTubePlayer() {
         resetActiveRecovery(video.id);
         activeRecoveryRef.current.lastTime = idle.getCurrentTime?.() || 0;
         activeRecoveryRef.current.lastAdvancedAt = performance.now();
-        if (videoQuality !== "auto" && videoQuality !== "audio-only") {
-          idle.setPlaybackQuality?.(videoQuality);
-        }
+        requestYouTubeQuality(idle, requestedYouTubeQuality);
         applyPlaybackVolume(idle);
         idle.unMute?.();
         idle.playVideo?.();
@@ -1413,6 +1454,7 @@ export default function YouTubePlayer() {
     setPlayerError("");
     setCurrentTime(0);
     setDuration(0);
+    setDeliveredVideoQuality("");
     dispatch(playPause(true));
     const existing = getActivePlayer();
     if (existing?.loadVideoById) {
@@ -1592,6 +1634,12 @@ export default function YouTubePlayer() {
     applyPlaybackVolume(getActivePlayer());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playbackVolume, masterVolume]);
+
+  useEffect(() => {
+    requestYouTubeQuality(getActivePlayer(), requestedYouTubeQuality);
+    reportPlaybackQuality(getActivePlayer(), activeDeckRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedYouTubeQuality]);
 
   useEffect(() => {
     if (!videoId || !apiReady || transitionMode === "off" || dataSaver) return;
@@ -1846,6 +1894,7 @@ export default function YouTubePlayer() {
   if (!video) return null;
 
   const videoVisible = !dataSaver && !audioOnly;
+  const deliveredQualityLabel = YOUTUBE_QUALITY_LABELS[deliveredVideoQuality] || "";
   const outgoingOpacity = 1 - fadeProgress;
   const incomingOpacity = fadeProgress;
 
@@ -1864,6 +1913,8 @@ export default function YouTubePlayer() {
       const player = getActivePlayer();
       player?.unMute?.();
       applyPlaybackVolume(player);
+      requestYouTubeQuality(player, requestedYouTubeQuality);
+      reportPlaybackQuality(player, activeDeckRef.current);
       if (isPlaying) player?.playVideo?.();
     });
   };
@@ -1904,7 +1955,10 @@ export default function YouTubePlayer() {
             className="absolute inset-0 h-full w-full"
             style={{ opacity: key === activeDeck ? outgoingOpacity : incomingOpacity }}
           >
-            <div ref={deckHostRefs[key]} className="yt-crop-frame h-full w-full" />
+            <div
+              ref={deckHostRefs[key]}
+              className={`yt-crop-frame h-full w-full ${key === activeDeck ? `yt-crop-frame--${requestedYouTubeQuality}` : ""}`}
+            />
           </div>
         ))}
         <div className="yt-chrome-mask" aria-hidden="true" />
@@ -1932,11 +1986,21 @@ export default function YouTubePlayer() {
             <p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p>
             <p className="mt-2 max-w-[70vw] truncate text-lg font-semibold text-white">{video.title}</p>
             <p className="text-sm text-gray-300">{video.channel}</p>
+            {deliveredQualityLabel && (
+              <p className="mt-1 text-[10px] font-medium text-[#9aa8b5]" aria-live="polite">
+                Video: {deliveredQualityLabel}
+              </p>
+            )}
           </div>
         ) : (
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{video.title}</p>
             <p className="truncate text-xs text-gray-400">{video.channel}</p>
+            {videoVisible && deliveredQualityLabel && (
+              <p className="mt-0.5 text-[10px] font-medium text-[#9aa8b5]" aria-live="polite">
+                Video: {deliveredQualityLabel}
+              </p>
+            )}
           </div>
         )}
       </div>
