@@ -44,7 +44,12 @@ const settingsSlice = createSlice({
       state.eqPreset = "Custom";
     },
     hydrateSettings: (state, action) => {
-      const next = { ...state, ...action.payload };
+      const next = {
+        ...state,
+        ...action.payload,
+        transitionMode: "off",
+        crossfadeSeconds: 0,
+      };
       if (next.eqPreset && next.eqPreset !== "Custom" && EQ_PRESET_BANDS[next.eqPreset]) {
         const bands = Array.isArray(next.eqBands) ? next.eqBands : [];
         if (bands.every((value) => !value)) next.eqBands = EQ_PRESET_BANDS[next.eqPreset];

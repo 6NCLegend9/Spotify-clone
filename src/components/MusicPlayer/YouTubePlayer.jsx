@@ -67,8 +67,6 @@ export default function YouTubePlayer() {
     dataSaver,
     audioOnly: audioOnlyToggle,
     videoQuality,
-    transitionMode,
-    crossfadeSeconds,
     eqPreset,
     eqBands,
     normalization,
@@ -76,6 +74,8 @@ export default function YouTubePlayer() {
     pictureInPicture,
     masterVolume,
   } = useSelector((state) => state.settings);
+  const transitionMode = "off";
+  const crossfadeSeconds = 0;
   const isMobile = useIsMobile();
   const isNarrow = useMediaQuery("(max-width: 1179px)");
   const videoId = video?.id || "";

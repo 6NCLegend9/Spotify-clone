@@ -6,6 +6,7 @@ import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/setti
 import { useSession } from "next-auth/react";
 import { FiCheck, FiPlus, FiSave, FiSearch, FiSettings, FiX } from "react-icons/fi";
 import DeleteAccountForm from "@/components/DeleteAccountForm";
+import GenreBrowser from "@/components/GenreBrowser";
 import { normalizeGenreName } from "@/utils/genreTaxonomy";
 
 const qualityOptions = [["auto", "Auto"], ["low", "Low · 24 kbps"], ["normal", "Normal · 96 kbps"], ["high", "High · 160 kbps"], ["very-high", "Very High · 320 kbps"]];
@@ -50,15 +51,7 @@ function GenreSelector({
   onToggle,
   onAddPersonal,
 }) {
-  const normalizedQuery = normalizeGenreName(query);
-  const majorGenres = catalog.filter((genre) => genre.scope === "system" && genre.depth === 0);
-  const matches = normalizedQuery
-    ? catalog.filter((genre) => [genre.defaultName, ...genre.aliases]
-      .some((value) => normalizeGenreName(value).includes(normalizedQuery))).slice(0, 12)
-    : [];
-  const hasExactMatch = matches.some((genre) =>
-    [genre.defaultName, ...genre.aliases].some((value) => normalizeGenreName(value) === normalizedQuery),
-  );
+  const canAdd = Boolean(query.trim());
 
   return (
     <div className="space-y-4">
@@ -69,9 +62,9 @@ function GenreSelector({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && normalizedQuery && !hasExactMatch) onAddPersonal();
+            if (event.key === "Enter" && canAdd) onAddPersonal();
           }}
-          placeholder="Search genres or add your own"
+          placeholder="Add a personal genre"
           className="h-11 w-full rounded-md border border-white/15 bg-[#101b29] pl-10 pr-10 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#00e6e6]"
         />
         {query && (
@@ -86,36 +79,15 @@ function GenreSelector({
         )}
       </div>
 
-      {normalizedQuery && (
-        <div role="listbox" aria-label="Matching genres" className="max-w-xl overflow-hidden rounded-md border border-white/10 bg-[#101b29]">
-          {matches.map((genre) => {
-            const selected = genres.some((value) => matchesSelectedGenre(value, genre));
-            return (
-              <button
-                key={genre.id}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onClick={() => onToggle(genre)}
-                disabled={loading}
-                className="flex w-full items-center justify-between gap-3 border-b border-white/10 px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <span className="min-w-0 truncate text-white">{genre.name}</span>
-                <span className="shrink-0 text-xs text-gray-500">{genre.depth === 0 ? "Major genre" : "Subgenre"}</span>
-              </button>
-            );
-          })}
-          {!hasExactMatch && (
-            <button
-              type="button"
-              onClick={onAddPersonal}
-              disabled={loading}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#00e6e6] hover:bg-[#00e6e6]/10 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <FiPlus /> Add &quot;{query.trim()}&quot; as a personal genre
-            </button>
-          )}
-        </div>
+      {canAdd && (
+        <button
+          type="button"
+          onClick={onAddPersonal}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-md border border-[#00e6e6]/40 px-3 py-2 text-sm text-[#00e6e6] hover:bg-[#00e6e6]/10 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <FiPlus /> Add &quot;{query.trim()}&quot; as a personal genre
+        </button>
       )}
 
       {genres.length > 0 && (
@@ -141,28 +113,6 @@ function GenreSelector({
       )}
 
       {error && <p role="alert" className="text-xs text-amber-300">{error}</p>}
-
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Major genres</p>
-        <div className="flex flex-wrap gap-2">
-          {majorGenres.map((genre) => {
-            const selected = genres.some((value) => matchesSelectedGenre(value, genre));
-            return (
-              <button
-                key={genre.id}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => onToggle(genre)}
-                disabled={loading}
-                className={`rounded-full border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${selected ? "border-[#00e6e6] bg-[#00e6e6]/10 text-[#00e6e6]" : "border-white/15 text-gray-300 hover:border-white/30"}`}
-              >
-                {genre.name}
-              </button>
-            );
-          })}
-          {majorGenres.length === 0 && !error && <span className="text-xs text-gray-500">Loading genre catalog...</span>}
-        </div>
-      </div>
     </div>
   );
 }
@@ -306,40 +256,25 @@ export default function SettingsPage() {
         {status !== "authenticated" ? (
           <p className="text-xs text-gray-500">Log in to pick genres and personalize your homepage.</p>
         ) : (
-          <GenreSelector
-            genres={genres}
-            catalog={genreCatalog}
-            query={genreSearch}
-            loading={genreLoading}
-            error={genreError}
-            onQueryChange={setGenreSearch}
-            onToggle={toggleGenre}
-            onAddPersonal={addPersonalGenre}
-          />
+          <div className="space-y-6">
+            <GenreSelector
+              genres={genres}
+              catalog={genreCatalog}
+              query={genreSearch}
+              loading={genreLoading}
+              error={genreError}
+              onQueryChange={setGenreSearch}
+              onToggle={toggleGenre}
+              onAddPersonal={addPersonalGenre}
+            />
+            <GenreBrowser
+              title=""
+              selectable
+              selected={genres}
+              onToggle={toggleGenre}
+            />
+          </div>
         )}
-      </section>
-
-      <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-        <h2 className="mb-2 text-xl font-semibold">Crossfade</h2>
-        <p className="mb-4 text-xs text-gray-400">Preloads the next queued track and blends it in before the current song ends.</p>
-        <SelectControl
-          label="Transition"
-          value={settings.transitionMode}
-          options={[["off", "Off"], ["automix", "Automix / crossfade"]]}
-          onChange={(value) => set("transitionMode", value)}
-        />
-        <label className="mt-4 block text-sm text-gray-300">
-          Crossfade length · {settings.crossfadeSeconds}s
-          <input
-            type="range"
-            min="1"
-            max="12"
-            value={settings.crossfadeSeconds}
-            disabled={settings.transitionMode === "off"}
-            onChange={(event) => set("crossfadeSeconds", Number(event.target.value))}
-            className="mt-3 w-full accent-[#00e6e6] disabled:opacity-40"
-          />
-        </label>
       </section>
 
       <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
