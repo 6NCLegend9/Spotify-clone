@@ -5,7 +5,7 @@ import { parseArtistAndTitle, parseLrc, pickBestLyrics, plainToLines } from "@/u
 const LRCLIB = "https://lrclib.net/api";
 const HEADERS = {
   Accept: "application/json",
-  "User-Agent": "Hayasaka/1.0 (https://github.com/6NCLegend9/Spotify-clone)",
+  "User-Agent": "HeyKasa/1.0 (https://github.com/6NCLegend9/Spotify-clone)",
 };
 
 export const runtime = "nodejs";

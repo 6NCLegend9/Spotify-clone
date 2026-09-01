@@ -14,7 +14,7 @@ export async function generateMetadata({ params }) {
   if (!artistData) {
     return {
       title: "Artist",
-      description: "Listen to this artist on Hayasaka",
+      description: "Listen to this artist on HeyKasa",
     };
   }
 
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `${artistName} Songs - Download & Listen Free`,
-    description: `Listen to ${artistName} songs online for free. ${fanCount}. Download ${artistName} mp3 songs, albums, and top hits. Stream all ${artistName} music on Hayasaka.`,
+    description: `Listen to ${artistName} songs online for free. ${fanCount}. Download ${artistName} mp3 songs, albums, and top hits. Stream all ${artistName} music on HeyKasa.`,
     keywords: [
       artistName,
       `${artistName} songs`,
@@ -37,10 +37,10 @@ export async function generateMetadata({ params }) {
       "artist songs download",
     ],
     openGraph: {
-      title: `${artistName} - Songs, Albums & Music | Hayasaka`,
+      title: `${artistName} - Songs, Albums & Music | HeyKasa`,
       description: `Listen to ${artistName} songs online for free. ${fanCount}. Stream all ${artistName} music and download mp3.`,
       url: `${siteUrl}/artist/${artistId}`,
-      siteName: "Hayasaka",
+      siteName: "HeyKasa",
       type: "profile",
       images: artistData?.image?.[2]?.url
         ? [
@@ -55,7 +55,7 @@ export async function generateMetadata({ params }) {
     },
     twitter: {
       card: "summary_large_image",
-      title: `${artistName} - Songs, Albums & Music | Hayasaka`,
+      title: `${artistName} - Songs, Albums & Music | HeyKasa`,
       description: `Listen to ${artistName} songs online for free. Stream and download all ${artistName} music.`,
       images: artistData?.image?.[2]?.url ? [artistData.image[2].url] : [],
     },

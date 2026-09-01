@@ -66,7 +66,7 @@ const SignupPage = () => {
   return (
     <div className="page grid min-h-full place-items-center relative z-10">
       <div className="auth-card backdrop-blur-md bg-white/[0.02]">
-        <p className="eyebrow">Join Hayasaka</p>
+        <p className="eyebrow">Join HeyKasa</p>
         <h1 className="mt-2 text-3xl font-bold">
           <GradientText
             colors={["#00e6e6", "#ffffff", "#008080", "#00e6e6"]}

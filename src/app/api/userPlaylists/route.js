@@ -174,7 +174,7 @@ export async function PATCH(req){
             const collaborator = await User.findOne({ email: email?.trim().toLowerCase() });
             if (!collaborator) {
                 return NextResponse.json(
-                    { success: false, message: "No Hayasaka account uses that email", data: null },
+                    { success: false, message: "No HeyKasa account uses that email", data: null },
                     { status: 404 }
                 );
             }

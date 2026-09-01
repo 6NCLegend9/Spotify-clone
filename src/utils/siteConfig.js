@@ -2,18 +2,18 @@
 // If the domain ever changes again, update SITE_URL only.
 
 export const SITE_URL = "https://spotify-clone-iota-pink.vercel.app";
-export const SITE_NAME = "Hayasaka";
-export const SITE_BRAND = "Hayasaka Music";
+export const SITE_NAME = "HeyKasa";
+export const SITE_BRAND = "HeyKasa Music";
 export const SITE_TAGLINE = "Free Music Streaming, MP3 Download & Playlists";
 
 export const DEFAULT_TITLE = `${SITE_NAME} - ${SITE_TAGLINE}`;
 export const DEFAULT_DESCRIPTION =
-  "Hayasaka is a free music streaming platform. Listen songs in high quality. Download MP3, build playlists, follow artists, and discover new releases - all without paywalls.";
+  "HeyKasa is a free music streaming platform. Listen songs in high quality. Download MP3, build playlists, follow artists, and discover new releases - all without paywalls.";
 
 export const DEFAULT_KEYWORDS = [
-  "hayasaka",
-  "hayasaka music",
-  "hayasaka app",
+  "HeyKasa",
+  "HeyKasa music",
+  "HeyKasa app",
   "music streaming",
   "free music streaming",
   "free music download",

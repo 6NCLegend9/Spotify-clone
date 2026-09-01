@@ -30,7 +30,7 @@ function getTransporter() {
 const mailSender = async (email, title, body) => {
     const sender = (process.env.MAIL_FROM || process.env.MAIL_USER || "").trim();
     return getTransporter().sendMail({
-        from: `"Hayasaka" <${sender}>`,
+        from: `"HeyKasa" <${sender}>`,
         to: email,
         subject: title,
         html: body,

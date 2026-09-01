@@ -11,7 +11,7 @@ import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
 import ListenAgain from "./ListenAgain";
 import GradientText from "@/components/ReactBits/GradientText";
 
-const HOME_CACHE_KEY = "hayasaka-home-recommendations";
+const HOME_CACHE_KEY = "HeyKasa-home-recommendations";
 
 const readHomeCache = (status) => {
   try {
@@ -105,7 +105,7 @@ const Home = () => {
       <OnlineStatus />
       <header className="page-hero">
         <div>
-          <p className="eyebrow">Hayasaka Music</p>
+          <p className="eyebrow">HeyKasa Music</p>
           <h1 className="mt-2 flex items-center gap-2 text-3xl font-extrabold sm:text-4xl lg:text-5xl">
             <GradientText
               colors={["#00e6e6", "#ffffff", "#008080", "#00e6e6"]}

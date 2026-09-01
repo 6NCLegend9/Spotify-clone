@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineBell } from "react-icons/hi2";
 import { IoClose } from "react-icons/io5";
 
-const CURRENT_UPDATE_KEY = "hayasaka_updates_seen_v1";
+const CURRENT_UPDATE_KEY = "HeyKasa_updates_seen_v1";
 
 const CHANGES = [
   {

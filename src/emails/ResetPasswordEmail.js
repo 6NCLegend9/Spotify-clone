@@ -24,12 +24,12 @@ export const getResetPasswordTemplate = (url) => {
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://spotify-clone-iota-pink.vercel.app/icon-192x192.png" alt="Hayasaka Logo" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
-            <span class="logo" style="vertical-align: middle;">Hayasaka</span>
+            <img src="https://spotify-clone-iota-pink.vercel.app/icon-192x192.png" alt="HeyKasa Logo" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
+            <span class="logo" style="vertical-align: middle;">HeyKasa</span>
         </div>
         <div class="content">
             <h2>Reset Your Password</h2>
-            <p>We received a request to reset the password for your Hayasaka account. If you made this request, please click the button below to choose a new password.</p>
+            <p>We received a request to reset the password for your HeyKasa account. If you made this request, please click the button below to choose a new password.</p>
             
             <div class="btn-container">
                 <a href="${url}" class="btn">Reset Password</a>
@@ -41,7 +41,7 @@ export const getResetPasswordTemplate = (url) => {
             <p class="link-text">${url}</p>
         </div>
         <div class="footer">
-             &copy; 2026 Hayasaka. All rights reserved.
+             &copy; 2026 HeyKasa. All rights reserved.
         </div>
     </div>
 </body>

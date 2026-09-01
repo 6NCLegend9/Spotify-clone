@@ -128,7 +128,7 @@ const jsonLd = {
       "@id": `${SITE_URL}/#website`,
       url: SITE_URL,
       name: SITE_NAME,
-      alternateName: ["Hayasaka Music", "Hayasaka App", "Hayasaka.8man.in"],
+      alternateName: ["HeyKasa Music", "HeyKasa App", "HeyKasa.8man.in"],
       description: DEFAULT_DESCRIPTION,
       inLanguage: "en-US",
       publisher: { "@id": `${SITE_URL}/#organization` },
@@ -147,7 +147,7 @@ const jsonLd = {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: SITE_NAME,
-      legalName: "Hayasaka Music",
+      legalName: "HeyKasa Music",
       url: SITE_URL,
       logo: {
         "@type": "ImageObject",
@@ -166,7 +166,7 @@ const jsonLd = {
       "@type": "WebApplication",
       "@id": `${SITE_URL}/#webapp`,
       name: SITE_NAME,
-      alternateName: "Hayasaka Music",
+      alternateName: "HeyKasa Music",
       description: DEFAULT_DESCRIPTION,
       url: SITE_URL,
       applicationCategory: "MusicApplication",
@@ -201,34 +201,34 @@ const jsonLd = {
       mainEntity: [
         {
           "@type": "Question",
-          name: "Is Hayasaka free to use?",
+          name: "Is HeyKasa free to use?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Yes. Hayasaka is completely free. You can stream and download music, build playlists, and follow artists without paying anything.",
+            text: "Yes. HeyKasa is completely free. You can stream and download music, build playlists, and follow artists without paying anything.",
           },
         },
         {
           "@type": "Question",
-          name: "Do I need to sign up to listen on Hayasaka?",
+          name: "Do I need to sign up to listen on HeyKasa?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "You can stream music on Hayasaka without an account. Sign up only if you want to save favorites and create personal playlists synced across devices.",
+            text: "You can stream music on HeyKasa without an account. Sign up only if you want to save favorites and create personal playlists synced across devices.",
           },
         },
         {
           "@type": "Question",
-          name: "What music is available on Hayasaka?",
+          name: "What music is available on HeyKasa?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Hayasaka offers English music, including popular and indie tracks.",
+            text: "HeyKasa offers English music, including popular and indie tracks.",
           },
         },
         {
           "@type": "Question",
-          name: "Can I download MP3 songs from Hayasaka?",
+          name: "Can I download MP3 songs from HeyKasa?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Yes. Each track on Hayasaka offers a download option so you can save songs in MP3 format for offline listening.",
+            text: "Yes. Each track on HeyKasa offers a download option so you can save songs in MP3 format for offline listening.",
           },
         },
       ],

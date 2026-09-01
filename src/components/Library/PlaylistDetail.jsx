@@ -185,7 +185,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
     (user) => (user?._id || user)?.toString() === session?.user?.id,
   );
   const canEditTracks = isOwner || isCollaborator;
-  const ownerName = isLiked ? session?.user?.name || "You" : collection?.user?.userName || "Hayasaka listener";
+  const ownerName = isLiked ? session?.user?.name || "You" : collection?.user?.userName || "HeyKasa listener";
   const ownerImage = isLiked ? session?.user?.image : collection?.user?.imageUrl;
   const title = isLiked ? "Liked Songs" : collection?.name || "Playlist";
   const typeLabel = isLiked ? "Dynamic Collection" : `${collection?.visibility === "public" ? "Public" : "Private"} Playlist`;

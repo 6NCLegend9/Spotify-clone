@@ -1701,7 +1701,7 @@ export default function YouTubePlayer() {
       style.textContent = PIP_DOCUMENT_STYLES;
       pip.document.head.appendChild(style);
       const mount = pip.document.createElement("div");
-      mount.id = "hayasaka-pip";
+      mount.id = "HeyKasa-pip";
       mount.style.height = "100%";
       pip.document.body.appendChild(mount);
       pip.addEventListener("pagehide", () => {
@@ -1825,7 +1825,7 @@ export default function YouTubePlayer() {
   useEffect(() => {
     if (!("mediaSession" in navigator) || !video) return undefined;
     navigator.mediaSession.metadata = new window.MediaMetadata({
-      title: video.title || "Hayasaka",
+      title: video.title || "HeyKasa",
       artist: video.channel || "",
       artwork: video.thumbnail
         ? [{ src: video.thumbnail, sizes: "480x360", type: "image/jpeg" }]

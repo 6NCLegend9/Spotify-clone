@@ -69,7 +69,7 @@ export async function POST(request) {
         createdUser = result;
 
         const url = `${getAppUrl(request)}/verify-email/${verificationToken}`;
-        const title = "Welcome to Hayasaka! Verify Your Email";
+        const title = "Welcome to HeyKasa! Verify Your Email";
         const body = getVerificationEmailTemplate(userName, url);
 
         try {

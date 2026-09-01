@@ -11,7 +11,7 @@ export default function TermsPage() {
       </section>
       <section className="mb-6">
         <h2 className="text-2xl font-semibold mb-2">2. Description of Service</h2>
-        <p>Hayasaka provides music streaming and related services.</p>
+        <p>HeyKasa provides music streaming and related services.</p>
       </section>
        <section className="mb-6">
         <h2 className="text-2xl font-semibold mb-2">3. User Conduct</h2>

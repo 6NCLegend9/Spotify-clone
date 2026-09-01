@@ -34,24 +34,24 @@ export const getVerificationEmailTemplate = (userName, url) => {
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://spotify-clone-iota-pink.vercel.app/icon-192x192.png" alt="Hayasaka Logo" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
-            <span class="logo" style="vertical-align: middle;">Hayasaka</span>
+            <img src="https://spotify-clone-iota-pink.vercel.app/icon-192x192.png" alt="HeyKasa Logo" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
+            <span class="logo" style="vertical-align: middle;">HeyKasa</span>
         </div>
         <div class="content">
-            <h2>Welcome to Hayasaka, ${safeName}!</h2>
+            <h2>Welcome to HeyKasa, ${safeName}!</h2>
             <p>Thanks for signing up. We're thrilled to have you join our community of music lovers. To start syncing your playlists and personalized recommendations, we just need to verify your email address.</p>
             
             <div class="btn-container">
                 <a href="${safeUrl}" class="btn">Verify Email Address</a>
             </div>
             
-            <p>This verification link will expire in 1 hour. If you didn't create an account with Hayasaka, you can safely ignore this email.</p>
+            <p>This verification link will expire in 1 hour. If you didn't create an account with HeyKasa, you can safely ignore this email.</p>
             
             <p style="margin-bottom: 0;">If you're having trouble clicking the button, copy and paste this URL into your browser:</p>
             <p class="link-text">${safeUrl}</p>
         </div>
         <div class="footer">
-             &copy; 2026 Hayasaka. All rights reserved.
+             &copy; 2026 HeyKasa. All rights reserved.
         </div>
     </div>
 </body>

@@ -2,7 +2,7 @@ import VerifyEmailClient from "./VerifyEmailClient";
 import { resolveParams } from "@/utils/routeParams";
 
 export const metadata = {
-  title: "Verify Email - Hayasaka",
+  title: "Verify Email - HeyKasa",
 };
 
 export default async function VerifyEmailPage({ params }) {

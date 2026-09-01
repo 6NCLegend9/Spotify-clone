@@ -9,10 +9,10 @@ const featuredSearches = [
 export default function Home() {
   return (
     <div>
-      <section className="sr-only" aria-label="Hayasaka music streaming">
-        <h1>Hayasaka Music - Free Music Streaming and MP3 Download</h1>
+      <section className="sr-only" aria-label="HeyKasa music streaming">
+        <h1>HeyKasa Music - Free Music Streaming and MP3 Download</h1>
         <p>
-          Hayasaka is a free music streaming app for English songs.
+          HeyKasa is a free music streaming app for English songs.
           Listen online, download MP3 tracks, create
           playlists, save favourites, explore albums, and discover artists in a
           fast web music player.

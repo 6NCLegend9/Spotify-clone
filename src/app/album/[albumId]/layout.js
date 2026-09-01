@@ -14,7 +14,7 @@ export async function generateMetadata({ params }) {
   if (!albumData) {
     return {
       title: "Album",
-      description: "Listen to this album on Hayasaka",
+      description: "Listen to this album on HeyKasa",
     };
   }
 
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `${albumName} - ${artistNames}`,
-    description: `Listen to ${albumName} by ${artistNames}. ${songCount} songs. Download and stream ${albumName} album for free on Hayasaka. Released in ${year}.`,
+    description: `Listen to ${albumName} by ${artistNames}. ${songCount} songs. Download and stream ${albumName} album for free on HeyKasa. Released in ${year}.`,
     keywords: [
       albumName,
       artistNames,
@@ -39,10 +39,10 @@ export async function generateMetadata({ params }) {
       "free music",
     ],
     openGraph: {
-      title: `${albumName} by ${artistNames} | Hayasaka`,
+      title: `${albumName} by ${artistNames} | HeyKasa`,
       description: `Listen to ${albumName} by ${artistNames}. ${songCount} songs. Stream and download for free.`,
       url: `${siteUrl}/album/${albumId}`,
-      siteName: "Hayasaka",
+      siteName: "HeyKasa",
       type: "music.album",
       images: albumData?.image?.[2]?.url
         ? [
@@ -57,7 +57,7 @@ export async function generateMetadata({ params }) {
     },
     twitter: {
       card: "summary_large_image",
-      title: `${albumName} by ${artistNames} | Hayasaka`,
+      title: `${albumName} by ${artistNames} | HeyKasa`,
       description: `Listen to ${albumName} by ${artistNames}. ${songCount} songs. Stream and download for free.`,
       images: albumData?.image?.[2]?.url ? [albumData.image[2].url] : [],
     },

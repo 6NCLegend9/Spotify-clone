@@ -4,12 +4,12 @@ const getMongoUrl = () =>
   (process.env.MONGODB_URL || process.env.MONGODB_URI || "").trim();
 
 const globalCache = globalThis;
-const cached = globalCache.__hayasakaMongoose || {
+const cached = globalCache.__HeyKasaMongoose || {
   connection: null,
   promise: null,
 };
 
-globalCache.__hayasakaMongoose = cached;
+globalCache.__HeyKasaMongoose = cached;
 mongoose.set("bufferCommands", false);
 
 const dbConnect = async () => {

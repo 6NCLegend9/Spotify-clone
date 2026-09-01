@@ -229,7 +229,7 @@ const MusicPlayer = () => {
       style.textContent = PIP_DOCUMENT_STYLES;
       pip.document.head.appendChild(style);
       const mount = pip.document.createElement("div");
-      mount.id = "hayasaka-pip";
+      mount.id = "HeyKasa-pip";
       mount.style.height = "100%";
       pip.document.body.appendChild(mount);
       pip.addEventListener("pagehide", () => {

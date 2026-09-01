@@ -21,7 +21,7 @@
 2. Install the required packages.
 
    ```sh
-   cd hayasaka
+   cd HeyKasa
    ```
 
    ```sh

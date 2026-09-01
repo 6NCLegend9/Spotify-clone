@@ -75,7 +75,7 @@ export default function AppShell({ children }) {
                 <Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link>
                 <Link href="/accessibility" className="hover:text-white transition">Accessibility</Link>
               </div>
-              <p className="mt-4">&copy; {new Date().getFullYear()} Hayasaka Music. All rights reserved.</p>
+              <p className="mt-4">&copy; {new Date().getFullYear()} HeyKasa Music. All rights reserved.</p>
             </footer>
           </div>
         </div>

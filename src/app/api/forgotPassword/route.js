@@ -58,7 +58,7 @@ export async function POST(request) {
     try {
       await mailSender(
         user.email,
-        "Reset Password - Hayasaka",
+        "Reset Password - HeyKasa",
         getResetPasswordTemplate(url),
       );
     } catch (mailError) {
