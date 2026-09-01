@@ -13,6 +13,67 @@ import GradientText from "@/components/ReactBits/GradientText";
 
 const HOME_CACHE_KEY = "HeyKasa-home-recommendations";
 
+const TAGLINES = [
+  "Your Next Favorite Song",
+  "Press Play. Feel Alive.",
+  "New Music Drops Here",
+  "Built for Your Playlist",
+  "Discover the Sound You’ll Love",
+  "Turn Up Your Day",
+  "Fresh Tracks, Every Time",
+  "From Vibes to Favorites",
+  "Find Your Mood—Fast",
+  "Stream the Energy",
+  "Loud Vibes Only",
+  "New Release, Real Heat",
+  "Make Your Playlist Legendary",
+  "Skip Less. Enjoy More.",
+  "Your Sound, Your World",
+  "Let the Music Speak",
+  "Stay Tuned for Fresh Beats",
+  "Bangers Start Here",
+  "Headphones On—Let’s Go",
+  "Now Trending in Your Ear",
+  "Music Made for Moments",
+  "Catch the Rhythm",
+  "Go Beyond the Playlist",
+  "Feel the Beat Drop",
+  "Every Track Hits Different",
+  "Your Daily Dose of Music",
+  "Curated for Your Ears",
+  "Serious Sound Starts Here",
+  "Discover • Listen • Repeat",
+  "The Soundtrack to Your Life",
+  "New Finds, No Filler",
+  "Unlock Your Next Obsession",
+  "Where Fresh Artists Shine",
+  "In Tune with Your Mood",
+  "From Underground to Unstoppable",
+  "One Click to More Music",
+  "Your Next Favorite Genre",
+  "Play It Loud",
+  "Made for Late Nights",
+  "Good Music Never Sleeps",
+  "Find the Beat That Fits",
+  "Upgrade Your Listening",
+  "Tap. Play. Vibe.",
+  "Only the Hits",
+  "Let’s Build Your Sound",
+  "The Heat Is Streaming",
+  "Start Listening Now",
+  "Fresh Sounds, Straight Up",
+  "Press Play on Your Mood",
+  "Big Energy. Big Sound."
+];
+
+function RandomTagline() {
+  const [tagline, setTagline] = useState("Stream, save, and download tracks without leaving the app.");
+  useEffect(() => {
+    setTagline(TAGLINES[Math.floor(Math.random() * TAGLINES.length)]);
+  }, []);
+  return <>{tagline}</>;
+}
+
 const readHomeCache = (status) => {
   try {
     const raw = sessionStorage.getItem(`${HOME_CACHE_KEY}:${status}`);
@@ -116,7 +177,7 @@ const Home = () => {
             <GiMusicalNotes className="text-[#00e6e6]" />
           </h1>
           <p className="mt-2 max-w-xl text-sm text-[#9aa8b5]">
-            Stream, save, and download tracks without leaving the app.
+            <RandomTagline />
           </p>
         </div>
       </header>
