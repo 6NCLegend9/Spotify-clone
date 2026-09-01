@@ -6,19 +6,21 @@ export default function DeleteAccountForm() {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
-    const confirmDelete = window.confirm("Are you sure you want to request data deletion? This will alert our support team.");
+    const confirmDelete = window.confirm("Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.");
     if (!confirmDelete) return;
 
     setLoading(true);
     try {
       const res = await fetch("/api/deleteAccount", { method: "POST" });
-      if (res.ok) {
-        toast.success("Account deletion request submitted to support.");
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        toast.success("Account and data permanently deleted.");
       } else {
-        toast.error("Failed to submit request.");
+        toast.error(data.error || "Failed to process database deletion request.");
       }
     } catch (error) {
-      toast.error("An error occurred.");
+      toast.error("An internal server error occurred.");
     }
     setLoading(false);
   };
@@ -31,7 +33,7 @@ export default function DeleteAccountForm() {
         loading ? "opacity-50 cursor-not-allowed" : ""
       }`}
     >
-      {loading ? "Processing..." : "Request Account Deletion"}
+      {loading ? "Deleting Data Server-Side..." : "Permanently Delete My Data"}
     </button>
   );
 }
