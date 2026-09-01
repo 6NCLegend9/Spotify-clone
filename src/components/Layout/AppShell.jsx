@@ -7,6 +7,7 @@ import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
 import MusicPlayer from "@/components/MusicPlayer";
+import Link from "next/link";
 
 const LightPillar = dynamic(
   () => import("@/components/Backgrounds/LightPillar"),
@@ -66,7 +67,17 @@ export default function AppShell({ children }) {
           />
           <div className="app-light-pillar-shade" aria-hidden="true" />
           <Navbar />
-          <div className="app-content">{children}</div>
+          <div className="app-content">
+            {children}
+            <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
+              <div className="flex justify-center gap-4">
+                <Link href="/terms" className="hover:text-white transition">Terms of Service</Link>
+                <Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link>
+                <Link href="/accessibility" className="hover:text-white transition">Accessibility</Link>
+              </div>
+              <p className="mt-4">&copy; {new Date().getFullYear()} Hayasaka Music. All rights reserved.</p>
+            </footer>
+          </div>
         </div>
         <div className="app-player">
           <MusicPlayer />
