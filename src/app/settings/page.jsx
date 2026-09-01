@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/settingsSlice";
 import { useSession } from "next-auth/react";
 import { FiCheck, FiSave, FiSettings } from "react-icons/fi";
+import DeleteAccountForm from "@/components/DeleteAccountForm";
 
 const GENRE_OPTIONS = [
   "Pop", "Rock", "Hip Hop", "Electronic", "R&B", "Jazz", "Classical", "Country",
@@ -160,10 +161,18 @@ export default function SettingsPage() {
         <div className="mt-6 grid gap-4 sm:grid-cols-5">{settings.eqBands.map((value, index) => <label key={bandLabels[index]} className="text-xs text-gray-400">{bandLabels[index]}<input type="range" min="-12" max="12" value={value} onChange={(event) => dispatch(updateEqBands(settings.eqBands.map((band, bandIndex) => bandIndex === index ? Number(event.target.value) : band)))} className="mt-3 w-full accent-[#00e6e6]" /><span className="mt-1 block text-white">{value > 0 ? "+" : ""}{value} dB</span></label>)}</div>
       </section>
 
-      <section className="grid gap-8 lg:grid-cols-2">
+      <section className="grid gap-8 lg:grid-cols-2 mb-8">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Playback & data</h2><SelectControl label="Video quality" value={settings.videoQuality} options={videoQualityOptions} onChange={(value) => set("videoQuality", value)} /><Toggle label="Data Saver mode" checked={settings.dataSaver} onChange={(value) => set("dataSaver", value)} /><Toggle label="Audio-only mode" checked={settings.audioOnly} onChange={(value) => set("audioOnly", value)} /><Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} /><Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} /><Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} /></div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><Toggle label="Tailored advertising" checked={settings.tailoredAds} onChange={(value) => set("tailoredAds", value)} /><p className="mt-4 text-xs text-gray-500">Private session prevents new listening activity from being used for recommendations.</p></div>
       </section>
+
+      {status === "authenticated" && (
+        <section className="mb-8 rounded-xl border border-red-500/30 bg-red-500/10 p-5 sm:p-7">
+          <h2 className="mb-2 text-xl font-semibold text-red-500">Danger Zone</h2>
+          <p className="mb-4 text-xs text-gray-400">Permanently delete your account and all associated data. This action cannot be undone.</p>
+          <DeleteAccountForm />
+        </section>
+      )}
     </main>
   );
 }
