@@ -25,7 +25,8 @@ const dbConnect = async () => {
   if (!cached.promise) {
     cached.promise = mongoose.connect(mongoUrl, {
       dbName: (process.env.DB_NAME || "").trim() || undefined,
-      maxPoolSize: 10,
+      maxPoolSize: 1,
+      maxIdleTimeMS: 10_000,
       serverSelectionTimeoutMS: 10_000,
     });
   }

@@ -1,3 +1,22 @@
+import { requestJson } from "@/services/http";
+import { toUserError } from "@/utils/userError";
+
+function mutationFailure(error, fallback) {
+  const normalized = toUserError(error);
+  const userError = normalized.code === "UNAUTHORIZED"
+    ? toUserError({ code: "UNAUTHORIZED", status: normalized.status })
+    : toUserError(error, fallback);
+  return {
+    success: false,
+    code: userError.code,
+    title: userError.title,
+    message: userError.message,
+    retryable: userError.retryable,
+    action: userError.action,
+    status: userError.status,
+  };
+}
+
 // home page data
 export async function homePageData(language) {
   return null;
@@ -46,80 +65,87 @@ export async function getSearchedData(query) {
 // add and remove from favourite
 export async function addFavourite(id) {
   try {
-    const response = await fetch("/api/favourite", {
+    const data = await requestJson("/api/favourite", {
       method: "POST",
-      body: JSON.stringify(id),
-      headers: {
-        "Content-Type": "application/json",
-      },
+      body: id,
+      fallbackTitle: "Liked Songs not updated",
+      fallbackMessage: "We couldn’t update your Liked Songs. Please try again.",
     });
-    if (!response.ok) return null;
-    const data = await response.json();
+    if (!data || typeof data !== "object") {
+      throw toUserError(null, {
+        title: "Liked Songs not updated",
+        message: "We couldn’t update your Liked Songs. Please try again.",
+      });
+    }
+    if (data.success === false) {
+      return mutationFailure({ code: data.code, status: data.status }, {
+        title: "Liked Songs not updated",
+        message: "We couldn’t update your Liked Songs. Please try again.",
+      });
+    }
     return data;
   } catch (error) {
-    console.log("Add favourite API error", error);
-    return null;
+    return mutationFailure(error, {
+      title: "Liked Songs not updated",
+      message: "We couldn’t update your Liked Songs. Please try again.",
+    });
   }
 }
 
 // get favourite
 export async function getFavourite() {
+  const fallback = {
+    title: "Liked Songs unavailable",
+    message: "We couldn’t load your Liked Songs. Please try again.",
+  };
   try {
-    const response = await fetch("/api/favourite");
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data?.data?.favourites;
+    const data = await requestJson("/api/favourite", {
+      fallbackTitle: fallback.title,
+      fallbackMessage: fallback.message,
+    });
+    if (!data?.data || !Array.isArray(data.data.favourites)) {
+      throw toUserError(null, fallback);
+    }
+    return data.data.favourites;
   } catch (error) {
-    console.log("Get favourite API error", error);
-    return null;
+    const normalized = toUserError(error);
+    throw normalized.code === "UNAUTHORIZED"
+      ? toUserError({ code: "UNAUTHORIZED", status: normalized.status })
+      : toUserError(error, fallback);
   }
 }
 
 // user info
 export async function getUserInfo() {
   try {
-    const response = await fetch("/api/userInfo");
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data?.data;
-  } catch (error) {
-    console.log("Get user info API error", error);
+    const data = await requestJson("/api/userInfo", {
+      fallbackTitle: "Profile unavailable",
+      fallbackMessage: "We couldn’t load your profile. Please try again.",
+    });
+    return data?.data && typeof data.data === "object" ? data.data : null;
+  } catch {
     return null;
   }
 }
 
 // reset password
 export async function resetPassword(password, confirmPassword, token) {
-  try {
-    const response = await fetch("/api/forgotPassword", {
-      method: "PUT",
-      body: JSON.stringify({ password, confirmPassword, token }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    const data = await response.json().catch(() => null);
-    return data || { success: false, message: "We couldn't reset that password. Please try again." };
-  } catch (error) {
-    return { success: false, message: "We couldn't reset that password. Please try again." };
-  }
+  return requestJson("/api/forgotPassword", {
+    method: "PUT",
+    body: { password, confirmPassword, token },
+    fallbackTitle: "Couldn't reset password",
+    fallbackMessage: "We couldn't reset your password. Please try again.",
+  });
 }
 
 // send reset password link
 export async function sendResetPasswordLink(email) {
-  try {
-    const response = await fetch("/api/forgotPassword", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    const data = await response.json().catch(() => null);
-    return data || { success: false, message: "We couldn't send a reset link. Please try again." };
-  } catch (error) {
-    return { success: false, message: "We couldn't send a reset link. Please try again." };
-  }
+  return requestJson("/api/forgotPassword", {
+    method: "POST",
+    body: { email },
+    fallbackTitle: "Couldn't send link",
+    fallbackMessage: "We couldn't send a reset link. Please try again.",
+  });
 }
 
 // get  recommended songs

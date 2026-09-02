@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HiOutlineBell } from "react-icons/hi2";
 import { IoClose } from "react-icons/io5";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const CURRENT_UPDATE_KEY = "HeyKasa_updates_seen_v1";
 
@@ -19,6 +20,12 @@ const UpdatesBell = () => {
   const [hasUnread, setHasUnread] = useState(true);
   const panelRef = useRef(null);
   const buttonRef = useRef(null);
+
+  useFocusTrap({
+    enabled: open,
+    onClose: () => setOpen(false),
+    containerRef: panelRef,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -39,15 +46,9 @@ const UpdatesBell = () => {
       }
     };
 
-    const handleEscape = (event) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-
     document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("keydown", handleEscape);
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleEscape);
     };
   }, [open]);
 
@@ -68,24 +69,38 @@ const UpdatesBell = () => {
         type="button"
         onClick={handleToggle}
         className="icon-btn relative h-9 w-9 sm:h-10 sm:w-10"
-        aria-label="Open updates"
+        aria-label={hasUnread ? "Open updates, unread" : "Open updates"}
         title="Updates"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-controls="updates-panel"
       >
-        <HiOutlineBell className="h-5 w-5" />
+        <HiOutlineBell aria-hidden="true" className="h-5 w-5" />
         {hasUnread ? (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#00e6e6] shadow-[0_0_0_2px_rgba(2,8,19,0.95)]" />
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#00e6e6] shadow-[0_0_0_2px_rgba(2,8,19,0.95)]">
+            <span className="sr-only">Unread</span>
+          </span>
         ) : null}
       </button>
 
       {open ? (
         <>
-          <div className="fixed inset-0 z-40 bg-black/40" />
+          <button
+            type="button"
+            aria-label="Close updates"
+            className="fixed inset-0 z-40 cursor-default bg-black/40"
+            onClick={() => setOpen(false)}
+          />
           <div
             ref={panelRef}
+            id="updates-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="updates-title"
             className="fixed right-3 top-[72px] z-50 w-[calc(100vw-1.5rem)] max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#07121d] text-white shadow-dock md:right-6"
           >
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <h2 className="text-lg font-semibold">What&apos;s new</h2>
+              <h2 id="updates-title" className="text-lg font-semibold">What&apos;s new</h2>
               <button
                 type="button"
                 onClick={() => setOpen(false)}

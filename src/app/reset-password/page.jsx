@@ -1,14 +1,15 @@
 "use client";
 
 import { setProgress } from "@/redux/features/loadingBarSlice";
-import { sendResetPasswordLink } from "@/services/dataAPI";
+import { requestJson } from "@/services/http";
 import { useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import Link from "next/link";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 import AuthMessage from "@/components/AuthMessage";
-import { humanizeError, RESET_ERRORS, validateEmail } from "@/utils/authErrors";
+import { RESET_ERRORS, validateEmail } from "@/utils/authErrors";
+import { userErrorDetails } from "@/utils/userError";
 
 const ForgotPasswordPage = () => {
   const dispatch = useDispatch();
@@ -18,8 +19,8 @@ const ForgotPasswordPage = () => {
   const [success, setSuccess] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handelSubmit = async (e) => {
-    e.preventDefault();
+  const sendResetLink = async () => {
+    if (submitting) return;
     setSuccess(null);
     const emailError = validateEmail(formData.email);
     if (emailError) {
@@ -29,28 +30,40 @@ const ForgotPasswordPage = () => {
     try {
       setSubmitting(true);
       dispatch(setProgress(70));
-      const res = await sendResetPasswordLink(formData.email);
+      const res = await requestJson("/api/forgotPassword", {
+        method: "POST",
+        body: { email: formData.email },
+        fallbackTitle: "Couldn't send link",
+        fallbackMessage: "We couldn't send a reset link. Please try again.",
+      });
       if (res?.success === true) {
         setFormError(null);
         setSuccess({
-          title: res.title || "Check your email",
-          message: res.message || "A reset link is on the way.",
+          title: "Check your email",
+          message: "If an account matches that email, a reset link is on the way. It expires in 15 minutes.",
         });
         toast.success("If that email can receive mail, a reset link is on the way.");
-      } else if (res?.code === "EMAIL_NOT_FOUND") {
-        setFormError(RESET_ERRORS.emailNotFound);
       } else {
         setFormError({
-          title: res?.title || "Couldn't send link",
-          message: humanizeError(res).message,
+          title: "Couldn't send link",
+          message: "We couldn't send a reset link. Please try again.",
+          retryable: true,
         });
       }
     } catch (error) {
-      setFormError(humanizeError(error));
+      setFormError(userErrorDetails(error, {
+        title: "Couldn't send link",
+        message: "We couldn't send a reset link. Please try again.",
+      }));
     } finally {
       setSubmitting(false);
       dispatch(setProgress(100));
     }
+  };
+
+  const handelSubmit = (event) => {
+    event.preventDefault();
+    void sendResetLink();
   };
 
   return (
@@ -68,12 +81,9 @@ const ForgotPasswordPage = () => {
             tone={success ? "success" : "error"}
             title={(success || formError)?.title}
             message={(success || formError)?.message}
-            onRetry={formError ? () => {
-              setFormError(null);
-              emailRef.current?.focus();
-            } : undefined}
-            href={formError ? "/reset-password" : undefined}
-            hrefLabel="Request a new password link"
+            onRetry={formError?.retryable ? sendResetLink : undefined}
+            retryLabel="Try sending again"
+            busy={submitting}
           />
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">

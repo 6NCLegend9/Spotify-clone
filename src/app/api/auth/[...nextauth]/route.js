@@ -11,6 +11,10 @@ import {
   EMAIL_PATTERN,
   LOGIN_ERRORS,
 } from "@/utils/authErrors";
+import { ensureUserData } from "@/utils/userAccount";
+
+export const runtime = "nodejs";
+export const maxDuration = 15;
 
 const googleProvider =
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -56,20 +60,18 @@ export const authOptions = {
             title: "Password too long",
           });
         }
-        if (
-          isRateLimited(`credentials:${email}`, {
-            windowMs: 15 * 60_000,
-            max: 10,
-          })
-        ) {
-          throw new AuthError(LOGIN_ERRORS.rateLimited.message, {
-            title: LOGIN_ERRORS.rateLimited.title,
-          });
-        }
-
         try {
           await dbConnect();
-          const user = await User.findOne({ email });
+          const rateLimit = await isRateLimited(`credentials:${email}`, {
+            windowMs: 15 * 60_000,
+            max: 10,
+          });
+          if (rateLimit.limited) {
+            throw new AuthError(LOGIN_ERRORS.rateLimited.message, {
+              title: LOGIN_ERRORS.rateLimited.title,
+            });
+          }
+          const user = await User.findOne({ email }).select("+password");
 
           if (!user) {
             throw new AuthError(LOGIN_ERRORS.emailNotFound.message, {
@@ -92,6 +94,7 @@ export const authOptions = {
               title: LOGIN_ERRORS.unverified.title,
             });
           }
+          await ensureUserData(user);
           return user;
         } catch (e) {
           if (e?.name === "AuthError") throw e;
@@ -116,10 +119,13 @@ export const authOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.email = user.email;
+        token.email =
+          typeof user.email === "string"
+            ? user.email.trim().toLowerCase()
+            : token.email;
         token.name = user.userName || user.name;
         token.picture = user.imageUrl || user.image;
-        token.id = user._id?.toString?.() || user.id;
+        token.id = user._id?.toString?.();
         token.userName = user.userName || user.name;
         token.imageUrl = user.imageUrl || user.image;
         token.isVerified = user.isVerified ?? true;
@@ -129,7 +135,12 @@ export const authOptions = {
       if (token.email && !token.hydrated) {
         try {
           await dbConnect();
-          const sessionUser = await User.findOne({ email: token.email }).lean();
+          const email =
+            typeof token.email === "string"
+              ? token.email.trim().toLowerCase()
+              : "";
+          token.email = email;
+          const sessionUser = await User.findOne({ email }).lean();
           if (sessionUser) {
             token.id = sessionUser._id.toString();
             token.name = sessionUser.userName;
@@ -161,18 +172,23 @@ export const authOptions = {
     },
 
     async signIn({ account, profile }) {
-      if (account.provider === "google") {
+      if (account?.provider === "google") {
         try {
           await dbConnect();
-          const { name, email, picture } = profile;
-          if (!email || profile.email_verified === false) return false;
+          const name = typeof profile?.name === "string" ? profile.name.trim() : "";
+          const email =
+            typeof profile?.email === "string"
+              ? profile.email.trim().toLowerCase()
+              : "";
+          const picture = typeof profile?.picture === "string" ? profile.picture : "";
+          if (!email || profile?.email_verified === false) return false;
           const userDB = await User.findOne({ email });
           if (!userDB) {
             const userData = await UserData.create({});
             try {
               await User.create({
                 userName: name || email.split("@")[0],
-                email: email.toLowerCase(),
+                email,
                 imageUrl: picture || "/icon-192x192.png",
                 userData: userData._id,
                 isVerified: true,
@@ -181,10 +197,13 @@ export const authOptions = {
               await UserData.deleteOne({ _id: userData._id }).catch(() => {});
               throw error;
             }
-          } else if (!userDB.isVerified) {
-            userDB.isVerified = true;
-            if (picture) userDB.imageUrl = picture;
-            await userDB.save();
+          } else {
+            if (!userDB.isVerified) {
+              userDB.isVerified = true;
+              if (picture) userDB.imageUrl = picture;
+              await userDB.save();
+            }
+            await ensureUserData(userDB);
           }
           return true;
         } catch (e) {

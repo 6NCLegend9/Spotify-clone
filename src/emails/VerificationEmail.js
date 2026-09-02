@@ -6,9 +6,15 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-export const getVerificationEmailTemplate = (userName, url) => {
+export const getVerificationEmailTemplate = (
+  userName,
+  url,
+  { logoUrl, lightPillarUrl },
+) => {
   const safeName = escapeHtml(String(userName || "there").slice(0, 32));
   const safeUrl = escapeHtml(url);
+  const safeLogoUrl = escapeHtml(logoUrl);
+  const safeLightPillarUrl = escapeHtml(lightPillarUrl);
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -33,9 +39,9 @@ export const getVerificationEmailTemplate = (userName, url) => {
 </head>
 <body>
     <div class="container">
-        <img src="cid:heykasa-light-pillar" alt="" role="presentation" width="600" height="156" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
+        <img src="${safeLightPillarUrl}" alt="" role="presentation" width="600" height="156" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
         <div class="header">
-            <img src="cid:heykasa-logo" alt="HeyKasa Logo" width="40" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
+            <img src="${safeLogoUrl}" alt="HeyKasa Logo" width="40" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
             <span class="logo" style="vertical-align: middle;">HeyKasa</span>
         </div>
         <div class="content">

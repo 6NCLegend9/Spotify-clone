@@ -198,9 +198,12 @@ export default function GhostFibers({
 
     const isMobile = window.matchMedia("(max-width: 767px)").matches;
     const isLowEnd = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
-    const effectiveDpr = isMobile ? 0.55 : isLowEnd ? 0.75 : Math.min(Math.max(dpr, 0.5), 1.25);
-    const effectiveFps = isMobile ? 30 : isLowEnd ? 40 : fps;
-    const effectiveLayers = isMobile ? Math.min(layers, 3) : layers;
+    const requestedDpr = Number.isFinite(dpr) ? dpr : 1;
+    const requestedFps = Number.isFinite(fps) ? fps : 45;
+    const requestedLayers = Number.isFinite(layers) ? layers : 4;
+    const effectiveDpr = isMobile ? 0.55 : isLowEnd ? 0.75 : Math.min(Math.max(requestedDpr, 0.5), 1.25);
+    const effectiveFps = isMobile ? 30 : isLowEnd ? 40 : Math.min(Math.max(requestedFps, 1), 120);
+    const effectiveLayers = isMobile ? Math.min(requestedLayers, 3) : requestedLayers;
 
     let renderer;
     try {
@@ -223,48 +226,57 @@ export default function GhostFibers({
     canvas.setAttribute("aria-hidden", "true");
     container.appendChild(canvas);
 
-    const geometry = new Triangle(gl);
-    const program = new Program(gl, {
-      vertex,
-      fragment,
-      uniforms: {
-        uResolution: { value: new Float32Array([1, 1]) },
-        uTime: { value: 0 },
-        uSpeed: { value: speed },
-        uScale: { value: scale },
-        uRotation: { value: rotation },
-        uRotationSpeed: { value: rotationSpeed },
-        uLayers: { value: effectiveLayers },
-        uWaveAmplitude: { value: waveAmplitude },
-        uWaveFrequency: { value: waveFrequency },
-        uWaveSpeed: { value: waveSpeed },
-        uLayerSpeed: { value: layerSpeed },
-        uTwist: { value: twist },
-        uTwistFrequency: { value: twistFrequency },
-        uTwistSpeed: { value: twistSpeed },
-        uLineFrequency: { value: lineFrequency },
-        uLineSpacing: { value: lineSpacing },
-        uLineSharpness: { value: lineSharpness },
-        uGlowFalloff: { value: glowFalloff },
-        uGlowIntensity: { value: glowIntensity },
-        uBrightness: { value: brightness },
-        uBlueBoost: { value: blueBoost },
-        uVignette: { value: vignette },
-        uGrain: { value: grain },
-        uLightMode: { value: lightMode ? 1 : 0 },
-        uLineColor: { value: new Float32Array(hexToRgb(lineColor)) },
-        uGlowColor: { value: new Float32Array(hexToRgb(glowColor)) },
-        uBackdrop: { value: new Float32Array(hexToRgb(backdropColor)) },
-      },
-    });
-    const mesh = new Mesh(gl, { geometry, program });
+    let program;
+    let mesh;
+    try {
+      const geometry = new Triangle(gl);
+      program = new Program(gl, {
+        vertex,
+        fragment,
+        uniforms: {
+          uResolution: { value: new Float32Array([1, 1]) },
+          uTime: { value: 0 },
+          uSpeed: { value: speed },
+          uScale: { value: scale },
+          uRotation: { value: rotation },
+          uRotationSpeed: { value: rotationSpeed },
+          uLayers: { value: effectiveLayers },
+          uWaveAmplitude: { value: waveAmplitude },
+          uWaveFrequency: { value: waveFrequency },
+          uWaveSpeed: { value: waveSpeed },
+          uLayerSpeed: { value: layerSpeed },
+          uTwist: { value: twist },
+          uTwistFrequency: { value: twistFrequency },
+          uTwistSpeed: { value: twistSpeed },
+          uLineFrequency: { value: lineFrequency },
+          uLineSpacing: { value: lineSpacing },
+          uLineSharpness: { value: lineSharpness },
+          uGlowFalloff: { value: glowFalloff },
+          uGlowIntensity: { value: glowIntensity },
+          uBrightness: { value: brightness },
+          uBlueBoost: { value: blueBoost },
+          uVignette: { value: vignette },
+          uGrain: { value: grain },
+          uLightMode: { value: lightMode ? 1 : 0 },
+          uLineColor: { value: new Float32Array(hexToRgb(lineColor)) },
+          uGlowColor: { value: new Float32Array(hexToRgb(glowColor)) },
+          uBackdrop: { value: new Float32Array(hexToRgb(backdropColor)) },
+        },
+      });
+      mesh = new Mesh(gl, { geometry, program });
+    } catch {
+      if (canvas.parentNode === container) container.removeChild(canvas);
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      setSupported(false);
+      return undefined;
+    }
 
     let frameId = 0;
     let elapsed = 0;
     let previousTime = performance.now();
     let lastRenderTime = 0;
     let frameRate = effectiveFps;
-    let isPaused = paused;
+    let isPaused = motionPaused;
     let isVisible = true;
     let isPageVisible = !document.hidden;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -317,19 +329,28 @@ export default function GhostFibers({
       }
     };
 
-    const resizeObserver = new ResizeObserver(setSize);
-    resizeObserver.observe(container);
-    const intersectionObserver = new IntersectionObserver(
-      ([entry]) => {
-        isVisible = entry.isIntersecting;
-        if (canAnimate()) start();
-        else stop();
-      },
-      { threshold: 0 },
-    );
-    intersectionObserver.observe(container);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(setSize);
+    if (resizeObserver) resizeObserver.observe(container);
+    else window.addEventListener("resize", setSize);
+    const intersectionObserver =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver(
+            ([entry]) => {
+              isVisible = entry.isIntersecting;
+              if (canAnimate()) start();
+              else stop();
+            },
+            { threshold: 0 },
+          );
+    intersectionObserver?.observe(container);
     document.addEventListener("visibilitychange", handleVisibility);
-    reducedMotion.addEventListener("change", handleReducedMotion);
+    if (typeof reducedMotion.addEventListener === "function") {
+      reducedMotion.addEventListener("change", handleReducedMotion);
+    } else {
+      reducedMotion.addListener(handleReducedMotion);
+    }
 
     contexts.set(container, {
       program,
@@ -343,7 +364,8 @@ export default function GhostFibers({
         }
       },
       setFps(value) {
-        frameRate = Math.min(Math.max(value, 1), 120);
+        const nextFps = Number.isFinite(value) ? value : 45;
+        frameRate = Math.min(Math.max(nextFps, 1), 120);
       },
     });
 
@@ -352,10 +374,15 @@ export default function GhostFibers({
 
     return () => {
       stop();
-      resizeObserver.disconnect();
-      intersectionObserver.disconnect();
+      resizeObserver?.disconnect();
+      if (!resizeObserver) window.removeEventListener("resize", setSize);
+      intersectionObserver?.disconnect();
       document.removeEventListener("visibilitychange", handleVisibility);
-      reducedMotion.removeEventListener("change", handleReducedMotion);
+      if (typeof reducedMotion.removeEventListener === "function") {
+        reducedMotion.removeEventListener("change", handleReducedMotion);
+      } else {
+        reducedMotion.removeListener(handleReducedMotion);
+      }
       contexts.delete(container);
       if (canvas.parentNode === container) container.removeChild(canvas);
       gl.getExtension("WEBGL_lose_context")?.loseContext();
@@ -379,7 +406,8 @@ export default function GhostFibers({
     uniforms.uRotation.value = rotation;
     uniforms.uRotationSpeed.value = rotationSpeed;
     const isMobile = window.matchMedia("(max-width: 767px)").matches;
-    uniforms.uLayers.value = Math.min(Math.max(Math.round(layers), 1), isMobile ? 3 : 10);
+    const nextLayers = Number.isFinite(layers) ? layers : 4;
+    uniforms.uLayers.value = Math.min(Math.max(Math.round(nextLayers), 1), isMobile ? 3 : 10);
     uniforms.uWaveAmplitude.value = waveAmplitude;
     uniforms.uWaveFrequency.value = waveFrequency;
     uniforms.uWaveSpeed.value = waveSpeed;
@@ -436,6 +464,10 @@ export default function GhostFibers({
       ref={containerRef}
       className={`ghost-fibers ${className}`.trim()}
       aria-hidden="true"
+      style={{
+        display: preferences.highContrast ? "none" : undefined,
+        pointerEvents: "none",
+      }}
     >
       {!supported ? <div className="ghost-fibers-fallback" /> : null}
     </div>

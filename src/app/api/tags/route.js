@@ -8,9 +8,18 @@ import { ensureSystemTags, toCatalogItem } from "@/services/genreCatalog";
 import { normalizeGenreName, slugifyGenre } from "@/utils/genreTaxonomy";
 import { tokenOptions } from "@/utils/authToken";
 import dbConnect from "@/utils/dbconnect";
+import { isRateLimited } from "@/utils/rateLimit";
+import {
+  ApiRouteError,
+  apiError,
+  handleApiError,
+  readRequestJson,
+} from "@/utils/apiResponse";
 
 const MAX_PERSONAL_TAGS = 80;
 const MAX_SEARCH_RESULTS = 50;
+const MAX_QUERY_LENGTH = 100;
+const LOCALE_PATTERN = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
 
 function matchesQuery(tag, normalizedQuery) {
   if (!normalizedQuery) return true;
@@ -21,16 +30,24 @@ function matchesQuery(tag, normalizedQuery) {
 async function authenticatedUser(request) {
   const token = await getToken(tokenOptions(request));
   if (!token?.email) return null;
+  await dbConnect();
   return User.findOne({ email: token.email }).select("_id userData").lean();
 }
 
 export const runtime = "nodejs";
+export const maxDuration = 15;
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const locale = searchParams.get("locale") || "en";
-    const normalizedQuery = normalizeGenreName(searchParams.get("q"));
+    const query = searchParams.get("q") || "";
+    if (!LOCALE_PATTERN.test(locale) || query.length > MAX_QUERY_LENGTH) {
+      throw new ApiRouteError("VALIDATION_ERROR", {
+        message: "The tag search parameters are invalid.",
+      });
+    }
+    const normalizedQuery = normalizeGenreName(query);
 
     await dbConnect();
     const [systemTags, user] = await Promise.all([
@@ -47,31 +64,44 @@ export async function GET(request) {
 
     return NextResponse.json({ tags });
   } catch (error) {
-    console.error("Get tags error:", error);
-    return NextResponse.json({ error: "Unable to load tags." }, { status: 500 });
+    return handleApiError(error, "Load tags");
   }
 }
 
 export async function POST(request) {
-  const user = await authenticatedUser(request);
-  if (!user) return NextResponse.json({ error: "You must be logged in." }, { status: 401 });
-
-  const body = await request.json().catch(() => null);
-  const displayName = typeof body?.name === "string"
-    ? body.name.trim().replace(/\s+/g, " ")
-    : "";
-  const normalizedName = normalizeGenreName(displayName);
-  const category = typeof body?.category === "string" ? body.category : "other";
-
-  if (displayName.length < 2 || displayName.length > 80 || normalizedName.length < 2) {
-    return NextResponse.json({ error: "Tag names must be between 2 and 80 characters." }, { status: 422 });
-  }
-  if (!TAG_CATEGORIES.includes(category)) {
-    return NextResponse.json({ error: "The tag category is invalid." }, { status: 422 });
-  }
-
   try {
-    await dbConnect();
+    const user = await authenticatedUser(request);
+    if (!user) {
+      return apiError("UNAUTHORIZED", { message: "You must be logged in." });
+    }
+
+    const rateLimit = await isRateLimited(`tags:create:${user._id}`, {
+      windowMs: 15 * 60_000,
+      max: 40,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many tag changes. Please wait before trying again.",
+      });
+    }
+
+    const body = await readRequestJson(request);
+    const displayName = typeof body.name === "string"
+      ? body.name.trim().replace(/\s+/g, " ")
+      : "";
+    const normalizedName = normalizeGenreName(displayName);
+    const category = body.category === undefined ? "other" : body.category;
+
+    if (displayName.length < 2 || displayName.length > 80 || normalizedName.length < 2) {
+      return apiError("UNPROCESSABLE", {
+        message: "Tag names must be between 2 and 80 characters.",
+      });
+    }
+    if (typeof category !== "string" || !TAG_CATEGORIES.includes(category)) {
+      return apiError("UNPROCESSABLE", { message: "The tag category is invalid." });
+    }
+
     const systemTags = await ensureSystemTags();
     const matchingSystemTag = systemTags.find((tag) =>
       [tag.normalizedName, ...(tag.aliasKeys || [])].includes(normalizedName),
@@ -99,7 +129,7 @@ export async function POST(request) {
 
     const personalTagCount = await Tag.countDocuments({ scope: "personal", ownerId: user._id });
     if (personalTagCount >= MAX_PERSONAL_TAGS) {
-      return NextResponse.json({ error: "You can save up to 80 personal tags." }, { status: 422 });
+      return apiError("UNPROCESSABLE", { message: "You can save up to 80 personal tags." });
     }
 
     const tag = await Tag.create({
@@ -121,26 +151,39 @@ export async function POST(request) {
     }, { status: 201 });
   } catch (error) {
     if (error?.code === 11000) {
-      return NextResponse.json({ error: "That tag already exists in your catalog." }, { status: 409 });
+      return apiError("CONFLICT", { message: "That tag already exists in your catalog." });
     }
-    console.error("Create personal tag error:", error);
-    return NextResponse.json({ error: "Unable to create the tag." }, { status: 500 });
+    return handleApiError(error, "Create personal tag");
   }
 }
 
 export async function DELETE(request) {
-  const user = await authenticatedUser(request);
-  if (!user) return NextResponse.json({ error: "You must be logged in." }, { status: 401 });
-
-  const id = new URL(request.url).searchParams.get("id");
-  if (!mongoose.isValidObjectId(id)) {
-    return NextResponse.json({ error: "The tag identifier is invalid." }, { status: 422 });
-  }
-
   try {
-    await dbConnect();
+    const user = await authenticatedUser(request);
+    if (!user) {
+      return apiError("UNAUTHORIZED", { message: "You must be logged in." });
+    }
+
+    const rateLimit = await isRateLimited(`tags:delete:${user._id}`, {
+      windowMs: 15 * 60_000,
+      max: 60,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many tag changes. Please wait before trying again.",
+      });
+    }
+
+    const id = new URL(request.url).searchParams.get("id");
+    if (!mongoose.isValidObjectId(id)) {
+      return apiError("UNPROCESSABLE", { message: "The tag identifier is invalid." });
+    }
+
     const tag = await Tag.findOneAndDelete({ _id: id, scope: "personal", ownerId: user._id }).lean();
-    if (!tag) return NextResponse.json({ error: "Personal tag not found." }, { status: 404 });
+    if (!tag) {
+      return apiError("NOT_FOUND", { message: "Personal tag not found." });
+    }
 
     if (user.userData) {
       await UserData.findByIdAndUpdate(user.userData, {
@@ -153,7 +196,6 @@ export async function DELETE(request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete personal tag error:", error);
-    return NextResponse.json({ error: "Unable to delete the tag." }, { status: 500 });
+    return handleApiError(error, "Delete personal tag");
   }
 }

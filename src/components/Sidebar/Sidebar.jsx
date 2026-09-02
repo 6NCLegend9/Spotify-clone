@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -10,15 +11,23 @@ import { IoClose } from "react-icons/io5";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import BrandMark from "../Layout/BrandMark";
 import { useNav } from "../Layout/AppShell";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import Profile from "./Profile";
 import Languages from "./Languages";
 import Playlists from "./Playlists";
 
 const Sidebar = () => {
-  const { showNav, setShowNav } = useNav();
+  const { showNav, setShowNav, navModal } = useNav();
   const pathname = usePathname();
   const dispatch = useDispatch();
   const { status } = useSession();
+  const sidebarRef = useRef(null);
+
+  useFocusTrap({
+    enabled: Boolean(navModal),
+    onClose: () => setShowNav(false),
+    containerRef: sidebarRef,
+  });
 
   const close = () => setShowNav(false);
   const go = () => {
@@ -40,7 +49,13 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className={`app-sidebar ${showNav ? "is-open" : ""}`}>
+    <aside
+      ref={sidebarRef}
+      id="app-sidebar"
+      className={`app-sidebar ${showNav ? "is-open" : ""}`}
+      aria-label="Main menu"
+      {...(navModal ? { role: "dialog", "aria-modal": true } : {})}
+    >
       <div className="flex h-16 items-center justify-between px-4">
         <BrandMark variant="white" onClick={go} />
         <button
@@ -49,7 +64,7 @@ const Sidebar = () => {
           className="icon-btn lg:hidden"
           aria-label="Close menu"
         >
-          <IoClose className="text-xl" />
+          <IoClose aria-hidden="true" className="text-xl" />
         </button>
       </div>
 
@@ -57,15 +72,16 @@ const Sidebar = () => {
         <Profile />
       </div>
 
-      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
+      <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
         {links.map(([label, href, Icon]) => (
           <Link
             key={href}
             href={href}
             onClick={go}
+            aria-current={isActive(href) ? "page" : undefined}
             className={`nav-link ${isActive(href) ? "is-active" : ""}`}
           >
-            <Icon className="text-lg" />
+            <Icon aria-hidden="true" className="text-lg" />
             {label}
           </Link>
         ))}
@@ -88,11 +104,11 @@ const Sidebar = () => {
         <a
           href="https://github.com/6NCLegend9"
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-sm text-[#9aa8b5] transition hover:text-[#00e6e6]"
         >
-          <FaGithub />
-          Github
+          <FaGithub aria-hidden="true" />
+          GitHub
         </a>
       </div>
     </aside>

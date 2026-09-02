@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import User from "@/models/User";
-import UserData from "@/models/UserData";
-import dbConnect from "@/utils/dbconnect";
-import { tokenOptions } from "@/utils/authToken";
+import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
+import { isRateLimited } from "@/utils/rateLimit";
+import { getAuthenticatedAccount } from "@/utils/userAccount";
+
+export const runtime = "nodejs";
+export const maxDuration = 15;
 
 const MAX_SEARCHES = 30;
 
@@ -11,26 +12,30 @@ const MAX_SEARCHES = 30;
 // accounts that haven't played anything yet (previously this field was declared
 // in the schema but never written to).
 export async function POST(request) {
-  const token = await getToken(tokenOptions(request));
-  if (!token?.email) {
-    return NextResponse.json({ success: false, message: "User not logged in", data: null }, { status: 401 });
-  }
-
-  const body = await request.json().catch(() => null);
-  const term = typeof body?.term === "string" ? body.term.trim().slice(0, 100) : "";
-  if (!term) {
-    return NextResponse.json({ success: false, message: "A search term is required", data: null }, { status: 400 });
-  }
-
   try {
-    await dbConnect();
-    const user = await User.findOne({ email: token.email }).select("userData").lean();
-    if (!user?.userData) {
-      return NextResponse.json({ success: false, message: "User data not found", data: null }, { status: 404 });
+    const { userData, email } = await getAuthenticatedAccount(request);
+    const rateLimit = await isRateLimited(`search-history:${email}`, {
+      windowMs: 60_000,
+      max: 60,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many activity updates. Please slow down.",
+      });
     }
-    const userData = await UserData.findById(user.userData).select("searches");
-    if (!userData) {
-      return NextResponse.json({ success: false, message: "User data not found", data: null }, { status: 404 });
+    const body = await readRequestJson(request);
+    const term = typeof body.term === "string" ? body.term.trim().slice(0, 100) : "";
+    if (!term) {
+      return apiError("VALIDATION_ERROR", { message: "A search term is required" });
+    }
+
+    if (userData.settings?.privateSession) {
+      return NextResponse.json({
+        success: true,
+        message: "Private session enabled; search not recorded",
+        data: userData.searches || [],
+      });
     }
     const existing = Array.isArray(userData.searches) ? userData.searches : [];
     const deduped = existing.filter((value) => value.toLowerCase() !== term.toLowerCase());
@@ -38,7 +43,6 @@ export async function POST(request) {
     await userData.save();
     return NextResponse.json({ success: true, message: "Search recorded", data: userData.searches });
   } catch (e) {
-    console.error("searches error", e);
-    return NextResponse.json({ success: false, message: "Something went wrong", data: null }, { status: 500 });
+    return handleApiError(e, "record search");
   }
 }

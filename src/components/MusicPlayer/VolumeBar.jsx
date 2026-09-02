@@ -32,7 +32,14 @@ const VolumeBar = ({
       if (!menuRef.current?.contains(event.target)) setShowMenu(false);
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const onKey = (event) => {
+      if (event.key === "Escape") setShowMenu(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [showMenu]);
 
   // add song to playlist
@@ -49,18 +56,24 @@ const VolumeBar = ({
     <>
       <div className="hidden min-[1180px]:flex flex-1 items-center justify-end">
         <div ref={menuRef} className=" relative">
-          <BiAddToQueue
+          <button
+            type="button"
+            aria-label="Add to playlist"
+            aria-expanded={showMenu}
+            aria-haspopup="menu"
+            title="Add to Playlist"
             onClick={(e) => {
               e.stopPropagation();
               setShowMenu(!showMenu);
             }}
-            title="Add to Playlist"
-            size={25}
-            color={"white"}
-            className={`${!true ? "hidden sm:block" : " m-3"} cursor-pointer`}
-          />
+            className="m-3 grid place-items-center rounded-full p-1 text-white hover:bg-white/10"
+          >
+            <BiAddToQueue size={25} aria-hidden="true" />
+          </button>
           {showMenu && (
             <div
+              role="menu"
+              aria-label="Add to playlist"
               className="absolute text-white bottom-[130%] backdrop-blur-lg rounded-lg p-3 w-32 flex flex-col gap-2 z-[100]"
               style={{
                 backgroundColor: bgColor
@@ -75,7 +88,9 @@ const VolumeBar = ({
               {playlists?.length > 0 ? (
                 playlists?.map((playlist, index) => (
                   <button
-                    key={index}
+                    key={playlist?._id || index}
+                    type="button"
+                    role="menuitem"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleAddToPlaylist(activeSong?.id, playlist._id);
@@ -97,13 +112,15 @@ const VolumeBar = ({
       </div>
       {/* overlay */}
       {showMenu && (
-        <div
+        <button
+          type="button"
+          aria-label="Close playlist menu"
           onClick={(e) => {
             e.stopPropagation();
             setShowMenu(false);
           }}
-          className=" absolute w-screen h-screen bottom-0 left-0 z-[50]"
-        ></div>
+          className="absolute bottom-0 left-0 z-[50] h-screen w-screen cursor-default"
+        />
       )}
     </>
   );

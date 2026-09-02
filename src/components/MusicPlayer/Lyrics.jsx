@@ -5,12 +5,17 @@ import { useSelector } from "react-redux";
 import SongsList from "../SongsList";
 import { useDispatch } from "react-redux";
 import { playPause, setAutoAdd, setYoutubeVideo } from "@/redux/features/playerSlice";
+import UserMessage from "@/components/UserMessage";
 import SyncedLyrics from "./SyncedLyrics";
 
 const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
   const dispatch = useDispatch();
   const { currentSongs, autoAdd, youtubeVideo, youtubeQueue } = useSelector((state) => state.player);
   const [activeTab, setActiveTab] = useState("lyrics");
+  const playableYoutubeQueue = Array.isArray(youtubeQueue)
+    ? youtubeQueue.filter((item) => item?.id)
+    : [];
+  const nativeQueue = Array.isArray(currentSongs) ? currentSongs : [];
 
   const title = youtubeVideo?.title || activeSong?.name || activeSong?.title || "";
   const artist = youtubeVideo?.channel
@@ -101,13 +106,14 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
             </div>
             )}
             {youtubeVideo ? (
-              youtubeQueue?.length > 0 ? (
+              playableYoutubeQueue.length > 0 ? (
                 <div className="mt-2 md:w-[450px]">
-                  {youtubeQueue.map((item) => (
+                  {playableYoutubeQueue.map((item) => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => {
+                        if (!item?.id) return;
                         dispatch(playPause(true));
                         dispatch(setYoutubeVideo(item));
                       }}
@@ -119,22 +125,32 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
                   ))}
                 </div>
               ) : (
-                <div className="text-white text-lg p-4 sm:p-0 mt-5 md:w-[450px] text-center">
-                  No Songs
+                <div className="mt-5 p-4 sm:p-0 md:w-[450px]">
+                  <UserMessage
+                    tone="info"
+                    title="Queue is empty"
+                    message="Add a track to keep listening."
+                    compact
+                  />
                 </div>
               )
-            ) : currentSongs?.length > 0 ? (
+            ) : nativeQueue.length > 0 ? (
               <div className=" text-white p- mt- md:w-[450px] md:h-full overflow-y-scroll hideScrollBar ">
                 <SongsList
-                  SongData={currentSongs}
+                  SongData={nativeQueue}
                   loading={false}
                   hidePlays={true}
                   activeSong={activeSong}
                 />
               </div>
             ) : (
-              <div className="text-white text-lg p-4 sm:p-0 mt-5 md:w-[450px] h-full overflow-y-scroll hideScrollBar text-center">
-                No Songs
+              <div className="mt-5 p-4 sm:p-0 md:w-[450px]">
+                <UserMessage
+                  tone="info"
+                  title="Queue is empty"
+                  message="Add a track to keep listening."
+                  compact
+                />
               </div>
             )}
           </div>

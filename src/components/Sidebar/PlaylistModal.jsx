@@ -7,12 +7,15 @@ import { createPlaylist } from "@/services/playlistApi";
 import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import CoverUploader from "@/components/CoverUploader";
-import AuthMessage from "@/components/AuthMessage";
+import UserMessage from "@/components/UserMessage";
+import AccessibleDialog from "@/components/AccessibleDialog";
 import { PLAYLIST_CATEGORIES, inferPlaylistCategory } from "@/utils/playlistThemes";
-import { humanizeError } from "@/utils/authErrors";
+import { toUserError } from "@/utils/userError";
+import { useSession } from "next-auth/react";
 
 const PlaylistModal = ({ show, setShow, onCreated }) => {
   const dispatch = useDispatch();
+  const { status } = useSession();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Pop");
   const [coverImage, setCoverImage] = useState("");
@@ -20,6 +23,11 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
   const [formError, setFormError] = useState(null);
 
   const handelCreate = async () => {
+    if (loading) return;
+    if (status !== "authenticated") {
+      setFormError(toUserError({ code: "UNAUTHORIZED" }));
+      return;
+    }
     if (!name.trim()) {
       setFormError({ title: "Name required", message: "Give your playlist a name." });
       return;
@@ -27,18 +35,21 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
     setLoading(true);
     setFormError(null);
     const res = await createPlaylist(name.trim(), { category, coverImage });
-    if (res?.success == true) {
-      toast.success(res.message || "Playlist created");
+    if (res?.success === true) {
+      toast.success("Playlist created");
       setName("");
       setCategory("Pop");
       setCoverImage("");
       setShow(false);
       onCreated?.(res.data?.playlist);
     } else {
-      setFormError({
-        title: "Couldn't create playlist",
-        message: humanizeError(res).message,
-      });
+      const normalized = toUserError(res);
+      setFormError(normalized.code === "UNAUTHORIZED"
+        ? normalized
+        : toUserError(res, {
+          title: "Playlist not created",
+          message: "We couldn’t create that playlist. Please try again.",
+        }));
     }
     setLoading(false);
   };
@@ -46,34 +57,40 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
   if (!show) return null;
 
   return (
-    <div
-      onClick={() => setShow(false)}
-      className="fixed inset-0 z-[80] grid place-items-center bg-black/60 px-4"
+    <AccessibleDialog
+      open={show}
+      onClose={() => setShow(false)}
+      titleId="create-playlist-title"
+      closeLabel="Close create playlist dialog"
+      disableClose={loading}
+      panelClassName="auth-card max-h-[90vh] overflow-y-auto animate-fade-in"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="auth-card max-h-[90vh] overflow-y-auto animate-fade-in"
-      >
         <div className="mb-5 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-white">Create playlist</h1>
+          <h2 id="create-playlist-title" className="text-lg font-semibold text-white">Create playlist</h2>
           <button
             type="button"
             onClick={() => setShow(false)}
+            disabled={loading}
             className="icon-btn h-9 w-9"
             aria-label="Close"
           >
             ×
           </button>
         </div>
-        <AuthMessage
-          title={formError?.title}
+        <UserMessage
+          tone={status === "loading" ? "info" : "error"}
+          title={status === "loading" ? "Checking your account…" : formError?.title}
           message={formError?.message}
-          onRetry={() => setFormError(null)}
+          href={formError?.action === "login" ? "/login" : undefined}
+          hrefLabel="Log in"
         />
-        <label className="mb-2 mt-3 block text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
+        {status === "authenticated" ? (
+          <>
+        <label htmlFor="playlist-name" className="mb-2 mt-3 block text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
           Name
         </label>
         <input
+          id="playlist-name"
           onFocus={() => dispatch(setIsTyping(true))}
           onBlur={() => dispatch(setIsTyping(false))}
           onChange={(e) => {
@@ -87,8 +104,8 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
           placeholder="Playlist name"
           className="field"
         />
-        <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">Type</p>
-        <div className="flex flex-wrap gap-2">
+        <p id="playlist-type-label" className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">Type</p>
+        <div className="flex flex-wrap gap-2" role="group" aria-labelledby="playlist-type-label">
           {PLAYLIST_CATEGORIES.map((item) => (
             <button
               key={item}
@@ -111,13 +128,23 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
         <button
           type="button"
           onClick={handelCreate}
+          disabled={loading}
+          aria-busy={loading}
           className="btn-primary mt-5 w-full"
         >
-          {loading ? <span className="custom-loader" /> : <FaPlus />}
-          Create
+          {loading ? <span className="custom-loader" aria-hidden="true" /> : <FaPlus aria-hidden="true" />}
+          {loading ? "Creating…" : "Create"}
         </button>
-      </div>
-    </div>
+          </>
+        ) : status === "unauthenticated" && !formError ? (
+          <UserMessage
+            title="Please log in"
+            message="Log in to create and save playlists."
+            href="/login"
+            hrefLabel="Log in"
+          />
+        ) : null}
+    </AccessibleDialog>
   );
 };
 

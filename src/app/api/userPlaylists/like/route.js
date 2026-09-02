@@ -1,45 +1,49 @@
 import { NextResponse } from "next/server";
-import dbConnect from "@/utils/dbconnect";
+import mongoose from "mongoose";
 import Playlist from "@/models/Playlist";
-import UserData from "@/models/UserData";
-import auth from "@/utils/auth";
+import { isRateLimited } from "@/utils/rateLimit";
+import {
+  apiError,
+  handleApiError,
+  readRequestJson,
+} from "@/utils/apiResponse";
 import { serializePlaylist } from "@/utils/playlistThemes";
+import { getAuthenticatedAccount } from "@/utils/userAccount";
+
+export const runtime = "nodejs";
+export const maxDuration = 15;
+
+const MAX_LIKED_PLAYLISTS = 500;
 
 export async function POST(req) {
-  const body = await req.json().catch(() => null);
-  const playlistId = typeof body?.playlistId === "string" ? body.playlistId : "";
-  if (!playlistId) {
-    return NextResponse.json(
-      { success: false, message: "A playlist is required.", data: null },
-      { status: 400 },
-    );
-  }
-
   try {
-    await dbConnect();
-    const user = await auth(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Log in to like playlists.", data: null },
-        { status: 401 },
-      );
+    const { user, userData } = await getAuthenticatedAccount(req);
+    const rateLimit = await isRateLimited(`playlist-like:${user._id}`, {
+      windowMs: 15 * 60_000,
+      max: 120,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many playlist like updates. Please wait before trying again.",
+      });
+    }
+
+    const body = await readRequestJson(req);
+    const playlistId = body.playlistId;
+    if (typeof playlistId !== "string" || !mongoose.isObjectIdOrHexString(playlistId)) {
+      return apiError("VALIDATION_ERROR", { message: "A valid playlist is required." });
     }
 
     const playlist = await Playlist.findById(playlistId);
     if (!playlist) {
-      return NextResponse.json(
-        { success: false, message: "This playlist could not be found.", data: null },
-        { status: 404 },
-      );
+      return apiError("NOT_FOUND", { message: "This playlist could not be found." });
     }
 
     const isOwner = playlist.user.toString() === user._id.toString();
     const isCollaborator = playlist.collaborators?.some((id) => id.toString() === user._id.toString());
     if (playlist.visibility !== "public" && !isOwner && !isCollaborator) {
-      return NextResponse.json(
-        { success: false, message: "This playlist is private.", data: null },
-        { status: 403 },
-      );
+      return apiError("FORBIDDEN", { message: "This playlist is private." });
     }
 
     const alreadyLiked = (playlist.likedBy || []).some((id) => id.toString() === user._id.toString());
@@ -50,17 +54,17 @@ export async function POST(req) {
     }
     await playlist.save();
 
-    const userData = await UserData.findById(user.userData);
-    if (userData) {
-      if (alreadyLiked) {
-        userData.likedPlaylists = (userData.likedPlaylists || []).filter(
-          (id) => id.toString() !== playlistId,
-        );
-      } else if (!(userData.likedPlaylists || []).some((id) => id.toString() === playlistId)) {
-        userData.likedPlaylists = [...(userData.likedPlaylists || []), playlist._id];
-      }
-      await userData.save();
+    if (alreadyLiked) {
+      userData.likedPlaylists = (userData.likedPlaylists || []).filter(
+        (id) => id.toString() !== playlistId,
+      );
+    } else if (!(userData.likedPlaylists || []).some((id) => id.toString() === playlistId)) {
+      userData.likedPlaylists = [
+        ...(userData.likedPlaylists || []),
+        playlist._id,
+      ].slice(-MAX_LIKED_PLAYLISTS);
     }
+    await userData.save();
 
     const serialized = serializePlaylist(playlist, user._id);
     return NextResponse.json({
@@ -69,10 +73,6 @@ export async function POST(req) {
       data: serialized,
     });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { success: false, message: "We couldn't update that like. Please try again.", data: null },
-      { status: 500 },
-    );
+    return handleApiError(error, "update playlist like");
   }
 }

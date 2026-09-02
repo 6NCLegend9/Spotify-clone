@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { tokenOptions } from "@/utils/authToken";
 import mailSender from "@/utils/mailSender";
@@ -8,21 +7,37 @@ import Playlist from "@/models/Playlist";
 import Genre from "@/models/Genre";
 import Tag from "@/models/Tag";
 import dbConnect from "@/utils/dbconnect";
+import { apiError, apiSuccess, handleApiError } from "@/utils/apiResponse";
+import { isRateLimited } from "@/utils/rateLimit";
+
+export const runtime = "nodejs";
+export const maxDuration = 30;
 
 export async function POST(request) {
   try {
     const token = await getToken(tokenOptions(request));
-    const userEmail = token?.email;
+    const userEmail =
+      typeof token?.email === "string"
+        ? token.email.trim().toLowerCase()
+        : "";
     
-    // 1. Authenticate request. Reject if no valid JWT.
     if (!userEmail) {
-      return NextResponse.json({ error: "Unauthorized. Must be logged in to delete data." }, { status: 401 });
+      return apiError("UNAUTHORIZED");
     }
-    
-    // 2. Server-side connection to the database
+
+    const rateLimit = await isRateLimited(`delete-account:${userEmail}`, {
+      windowMs: 60 * 60_000,
+      max: 3,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many account deletion attempts. Please wait before trying again.",
+      });
+    }
+
     await dbConnect();
     
-    // 3. Execute actual record deletion in the database
     const user = await User.findOne({ email: userEmail });
     if (user) {
       await Promise.all([
@@ -38,20 +53,21 @@ export async function POST(request) {
       await User.findByIdAndDelete(user._id);
     }
 
-    // 4. Dispatch notification using process.env.MONITORED_INBOX
     const monitoredInbox = process.env.MONITORED_INBOX;
     if (monitoredInbox) {
-      await mailSender(
-        monitoredInbox,
-        `DATA DELETED - ${userEmail}`,
-        `<p>A user has formally requested their account to be deleted.</p><p>Identifier: <strong>${userEmail}</strong></p><p>Status: Account and associated user records have been deleted.</p>`
-      );
+      try {
+        await mailSender(
+          monitoredInbox,
+          `DATA DELETED - ${userEmail}`,
+          `<p>A user has formally requested their account to be deleted.</p><p>Identifier: <strong>${userEmail}</strong></p><p>Status: Account and associated user records have been deleted.</p>`
+        );
+      } catch {
+        console.error("Account deletion notification could not be sent.");
+      }
     }
 
-    // 5. Structure JSON Response
-    return NextResponse.json({ success: true, message: "Account data permanently deleted." }, { status: 200 });
+    return apiSuccess(null, { message: "Account data permanently deleted." });
   } catch (error) {
-    console.error("Deletion request error:", error);
-    return NextResponse.json({ error: "Failed to process database deletion request." }, { status: 500 });
+    return handleApiError(error, "Account deletion");
   }
 }

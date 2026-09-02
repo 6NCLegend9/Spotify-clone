@@ -1,6 +1,10 @@
+import { requestJson } from "@/services/http";
+import { toUserError } from "@/utils/userError";
+
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 export function validYouTubeIds(values = []) {
+  if (!Array.isArray(values)) return [];
   return [...new Set(values.filter((value) => typeof value === "string" && YOUTUBE_ID_PATTERN.test(value)))];
 }
 
@@ -23,6 +27,13 @@ function writeTrackCache(cache) {
   } catch {
     // Storage may be unavailable.
   }
+}
+
+function libraryLoadError(error, fallback) {
+  const normalized = toUserError(error);
+  return normalized.code === "UNAUTHORIZED"
+    ? toUserError({ code: "UNAUTHORIZED", status: normalized.status })
+    : toUserError(error, fallback);
 }
 
 export async function hydrateYouTubeTracks(values = []) {
@@ -56,10 +67,18 @@ export async function hydrateYouTubeTracks(values = []) {
     batches.map(async (batch) => {
       const params = new URLSearchParams();
       batch.forEach((id) => params.append("id", id));
-      const response = await fetch(`/api/youtube-videos?${params}`);
-      if (!response.ok) throw new Error("Saved tracks could not be loaded.");
-      const data = await response.json();
-      return data.tracks || [];
+      const data = await requestJson(`/api/youtube-videos?${params}`, {
+        fallbackTitle: "Saved tracks unavailable",
+        fallbackMessage: "We couldn’t load the tracks in this collection. Please try again.",
+      });
+      if (!data || !Array.isArray(data.tracks)) {
+        throw toUserError(null, {
+          fallbackCode: "INTERNAL_ERROR",
+          title: "Saved tracks unavailable",
+          message: "We couldn’t load the tracks in this collection. Please try again.",
+        });
+      }
+      return data.tracks;
     }),
   );
 
@@ -77,16 +96,45 @@ export async function hydrateYouTubeTracks(values = []) {
 }
 
 export async function getFavouriteLibrary() {
-  const response = await fetch("/api/favourite");
-  if (!response.ok) throw new Error("Liked Songs could not be loaded.");
-  const data = await response.json();
-  return data.data || { favourites: [], favouriteAddedAt: {} };
+  const fallback = {
+    fallbackCode: "INTERNAL_ERROR",
+    title: "Liked Songs unavailable",
+    message: "We couldn’t load your Liked Songs. Please try again.",
+  };
+  try {
+    const data = await requestJson("/api/favourite", {
+      fallbackTitle: fallback.title,
+      fallbackMessage: fallback.message,
+    });
+    if (!data?.data || typeof data.data !== "object") {
+      throw toUserError(null, fallback);
+    }
+    return {
+      ...data.data,
+      favourites: Array.isArray(data.data.favourites) ? data.data.favourites : [],
+      favouriteAddedAt:
+        data.data.favouriteAddedAt && typeof data.data.favouriteAddedAt === "object"
+          ? data.data.favouriteAddedAt
+          : {},
+    };
+  } catch (error) {
+    throw libraryLoadError(error, fallback);
+  }
 }
 
 export async function getPublicLibrary() {
-  const response = await fetch("/api/recommendations");
-  if (!response.ok) throw new Error("Featured playlists could not be loaded.");
-  return response.json();
+  const data = await requestJson("/api/recommendations", {
+    fallbackTitle: "Featured playlists unavailable",
+    fallbackMessage: "We couldn’t load featured playlists. Please try again.",
+  });
+  if (!data || typeof data !== "object") {
+    throw toUserError(null, {
+      fallbackCode: "INTERNAL_ERROR",
+      title: "Featured playlists unavailable",
+      message: "We couldn’t load featured playlists. Please try again.",
+    });
+  }
+  return data;
 }
 
 export function valueFromDateMap(dateMap, id) {

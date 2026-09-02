@@ -30,7 +30,7 @@ export default function AddToQueueButton({ track, className = "" }) {
       onClick={handleClick}
       className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-gray-300 transition hover:bg-white/10 ${className}`}
     >
-      <BiAddToQueue />
+      <BiAddToQueue aria-hidden="true" />
     </button>
   );
 }

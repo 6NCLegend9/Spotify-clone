@@ -5,6 +5,8 @@ import { useDispatch } from "react-redux";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
+import { requestJson } from "@/services/http";
+import { toUserError } from "@/utils/userError";
 
 export default function RecommendationPlaylistCard({ playlist }) {
   const dispatch = useDispatch();
@@ -14,9 +16,15 @@ export default function RecommendationPlaylistCard({ playlist }) {
     if (loading) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/youtube-playlist?id=${playlist.id}`);
-      const data = response.ok ? await response.json() : null;
-      const tracks = data?.tracks || [];
+      const data = await requestJson(
+        `/api/youtube-playlist?id=${encodeURIComponent(playlist.id)}`,
+        {
+          fallbackCode: "PLAYBACK_ERROR",
+          fallbackTitle: "Playlist unavailable",
+          fallbackMessage: "We couldn’t load this playlist. Please try again.",
+        },
+      );
+      const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
       if (tracks.length === 0) {
         toast.error("This playlist has no playable videos.");
         return;
@@ -29,7 +37,11 @@ export default function RecommendationPlaylistCard({ playlist }) {
       dispatch(setYoutubeQueue(seeded));
       dispatch(setYoutubeVideo(seeded[0]));
     } catch (error) {
-      toast.error("Could not load this playlist.");
+      const userError = toUserError(error, {
+        title: "Playlist unavailable",
+        message: "We couldn’t load this playlist. Please try again.",
+      });
+      toast.error(userError.message);
     } finally {
       setLoading(false);
     }

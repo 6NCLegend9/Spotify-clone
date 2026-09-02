@@ -14,7 +14,7 @@ export default function PrivacyPage() {
         <header className="border-b border-white/10 pb-6">
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Privacy Policy</h1>
-          <p className="mt-3 text-sm text-[#9aa8b5]">Last updated: September 1, 2026</p>
+          <p className="mt-3 text-sm text-[#9aa8b5]">Last updated: September 2, 2026</p>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-[#c9d4de]">
             This policy explains the information {SITE_NAME} stores when you use the service,
             why it is used, and how you can request deletion of your account data.
@@ -44,11 +44,16 @@ export default function PrivacyPage() {
             account actions. Authentication sessions are handled through signed session tokens.
           </p>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
-            We use Google Analytics and Simple Analytics to understand aggregate traffic and
-            service performance. Google Analytics may use cookies or similar browser identifiers.
-            Our hosting, analytics, and service providers may process standard technical request
-            information, such as IP address, browser type, device information, request timing,
-            and error or security logs, to deliver and protect the service.
+            Google Analytics and Simple Analytics run only after you explicitly select
+            <strong> Accept</strong> in this browser. If you select <strong>Necessary only</strong>,
+            those analytics scripts are not loaded. We use this optional analytics data to
+            understand aggregate usage and service performance, not to serve or personalize
+            advertising. You can change your choice at any time in Settings.
+          </p>
+          <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
+            Our hosting and service providers may process standard technical request information,
+            such as IP address, browser type, device information, request timing, and error or
+            security logs, to deliver and protect the service.
           </p>
         </section>
 
@@ -72,10 +77,10 @@ export default function PrivacyPage() {
           <h2 id="information-sharing" className="text-2xl font-bold">3. Information Sharing</h2>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             We share only the information needed for the service to function: with infrastructure,
-            analytics, authentication, email-delivery, and third-party media providers that support
-            the features you use. Music searches and playback may send your request to a third-party
-            source in order to return results or play media. Those providers operate under their own
-            privacy terms.
+            authentication, email-delivery, and third-party media providers that support the
+            features you use, and with analytics providers only when you consent to usage analytics.
+            Music searches and playback may send your request to a third-party source in order to
+            return results or play media. Those providers operate under their own privacy terms.
           </p>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             Public playlists may be visible to people using the service. Private playlists are intended

@@ -1,26 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FiHeart } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { togglePlaylistLike } from "@/services/playlistApi";
-import { humanizeError } from "@/utils/authErrors";
+import { toUserError } from "@/utils/userError";
 
 export default function LikePlaylistButton({ playlist, onChange, className = "" }) {
   const { status } = useSession();
+  const router = useRouter();
   const [liked, setLiked] = useState(Boolean(playlist?.liked));
   const [count, setCount] = useState(Number(playlist?.likesCount) || 0);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    setLiked(Boolean(playlist?.liked));
+    setCount(Math.max(0, Number(playlist?.likesCount) || 0));
+  }, [playlist?.liked, playlist?.likesCount]);
 
   const toggle = async (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     if (status !== "authenticated") {
       toast.error("Log in to like playlists.");
+      router.push("/login");
       return;
     }
     if (pending || !playlist?._id) return;
+    const previousLiked = liked;
+    const previousCount = count;
     const nextLiked = !liked;
     setLiked(nextLiked);
     setCount((value) => Math.max(0, value + (nextLiked ? 1 : -1)));
@@ -28,20 +38,31 @@ export default function LikePlaylistButton({ playlist, onChange, className = "" 
     const response = await togglePlaylistLike(playlist._id);
     setPending(false);
     if (!response?.success) {
-      setLiked(!nextLiked);
-      setCount((value) => Math.max(0, value + (nextLiked ? -1 : 1)));
-      toast.error(humanizeError(response?.message).message);
+      setLiked(previousLiked);
+      setCount(previousCount);
+      const normalized = toUserError(response);
+      toast.error((normalized.code === "UNAUTHORIZED"
+        ? normalized
+        : toUserError(response, {
+          title: "Like not updated",
+          message: "We couldn’t update that playlist like. Please try again.",
+        })).message);
       return;
     }
-    setLiked(Boolean(response.data?.liked));
-    setCount(Number(response.data?.likesCount) || 0);
-    onChange?.(response.data);
+    const nextData = response.data && typeof response.data === "object"
+      ? response.data
+      : { liked: nextLiked, likesCount: previousCount + (nextLiked ? 1 : -1) };
+    setLiked(Boolean(nextData.liked));
+    setCount(Math.max(0, Number(nextData.likesCount) || 0));
+    onChange?.(nextData);
   };
 
   return (
     <button
       type="button"
       onClick={toggle}
+      disabled={pending}
+      aria-busy={pending}
       aria-pressed={liked}
       aria-label={liked ? "Unlike playlist" : "Like playlist"}
       title={liked ? "Unlike" : "Like"}

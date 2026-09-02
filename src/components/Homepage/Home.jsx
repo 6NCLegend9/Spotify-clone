@@ -4,13 +4,16 @@ import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import { GiMusicalNotes } from "react-icons/gi";
-import OnlineStatus from "./OnlineStatus";
 import { useSession } from "next-auth/react";
 import RecommendationCard from "../RecommendationCard";
 import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
 import ListenAgain from "./ListenAgain";
 import GradientText from "@/components/ReactBits/GradientText";
 import { HomeSectionSkeleton } from "@/components/Skeleton";
+import EmptyState from "@/components/EmptyState";
+import UserMessage from "@/components/UserMessage";
+import { requestJson } from "@/services/http";
+import { toUserError } from "@/utils/userError";
 
 const HOME_CACHE_KEY = "HeyKasa-home-recommendations";
 
@@ -95,6 +98,9 @@ const writeHomeCache = (status, value) => {
 const Home = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [retryKey, setRetryKey] = useState(0);
   const dispatch = useDispatch();
   const { status } = useSession();
 
@@ -117,39 +123,55 @@ const Home = () => {
       setLoading(false);
     }
     const fetchData = async () => {
+      setRefreshing(true);
+      setError(null);
       if (!cached) {
         setLoading(true);
         dispatch(setProgress(70));
       }
       try {
-        const response = await fetch("/api/recommendations", {
+        const res = await requestJson("/api/recommendations", {
           signal: controller.signal,
+          fallbackTitle: "Home is temporarily unavailable",
+          fallbackMessage: "We couldn’t load your recommendations. Please try again.",
         });
-        const res = response.ok ? await response.json() : null;
         if (cancelled) return;
         if (res?.sections) {
           setData(res);
           writeHomeCache(status, res);
-        } else if (!cached) {
-          setData(null);
+        } else {
+          throw toUserError(
+            { code: "INTERNAL_ERROR" },
+            {
+              title: "Home is temporarily unavailable",
+              message: "We couldn’t load your recommendations. Please try again.",
+            },
+          );
         }
       } catch (error) {
-        if (!cancelled && error.name !== "AbortError" && !cached) {
-          setData(null);
+        if (!cancelled && !controller.signal.aborted) {
+          setError(
+            toUserError(error, {
+              title: "Home is temporarily unavailable",
+              message: "We couldn’t load your recommendations. Please try again.",
+            }),
+          );
+          if (!cached) setData(null);
         }
       } finally {
         if (!cancelled) {
           dispatch(setProgress(100));
           setLoading(false);
+          setRefreshing(false);
         }
       }
     };
-    fetchData();
+    void fetchData();
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [dispatch, status]);
+  }, [dispatch, retryKey, status]);
 
   const sections = data?.sections || {};
   const isPersonalized = data?.mode === "personalized";
@@ -164,7 +186,6 @@ const Home = () => {
 
   return (
     <div className="page animate-fade-in relative z-10">
-      <OnlineStatus />
       <header className="page-hero">
         <div>
           <p className="eyebrow">HeyKasa Music</p>
@@ -184,6 +205,19 @@ const Home = () => {
       </header>
 
       <ListenAgain />
+
+      {!loading && error && data && (
+        <div className="mb-8">
+          <UserMessage
+            tone="warning"
+            title={error.title}
+            message={error.message}
+            onRetry={() => setRetryKey((value) => value + 1)}
+            busy={refreshing}
+            compact
+          />
+        </div>
+      )}
 
       {loading && (
         <>
@@ -207,8 +241,23 @@ const Home = () => {
         </section>
       )}
 
-      {!loading && !sectionList.some(([, videos]) => videos?.length > 0) && (
-        <p className="mt-6 text-sm text-gray-400">Recommendations are loading slowly. Open Home again in a moment.</p>
+      {!loading && error && !data && (
+        <UserMessage
+          title={error.title}
+          message={error.message}
+          onRetry={() => setRetryKey((value) => value + 1)}
+          busy={refreshing}
+        />
+      )}
+
+      {!loading && !error && !sectionList.some(([, videos]) => videos?.length > 0) && (
+        <EmptyState
+          eyebrow="Home"
+          title="No recommendations yet"
+          message="Try another refresh while we look for music for you."
+          actionLabel="Refresh recommendations"
+          onAction={() => setRetryKey((value) => value + 1)}
+        />
       )}
 
       {!loading &&

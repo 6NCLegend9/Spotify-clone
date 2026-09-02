@@ -20,13 +20,14 @@ const Seekbar = ({
     >
       <button
         type="button"
+        aria-label="Seek back 5 seconds"
         onClick={(e) => {
           e.stopPropagation();
           setSeekTime(appTime - 5);
         }}
         className="hidden lg:mr-4 lg:block text-white"
       >
-        <GiFastBackwardButton size={20} className=" text-gray-300" />
+        <GiFastBackwardButton size={20} aria-hidden="true" className=" text-gray-300" />
       </button>
       <p className="text-white text-xs sm:text-base w-5">
         {value === 0 ? "0:00" : getTime(value)}
@@ -41,6 +42,8 @@ const Seekbar = ({
         min={min}
         max={max}
         onInput={onInput}
+        aria-label="Song progress"
+        aria-valuetext={value === 0 ? "0:00" : getTime(value)}
         className="md:block w-[70vw] min-[1085px]:w-[650px] md:w-[250px] 2xl:w-[50vw] h-1 mx-4 2xl:mx-6 rounded-lg accent-[#00e6e6] cursor-pointer"
       />
       <p className="text-white text-xs sm:text-base">
@@ -48,13 +51,14 @@ const Seekbar = ({
       </p>
       <button
         type="button"
+        aria-label="Seek forward 5 seconds"
         onClick={(e) => {
           e.stopPropagation();
           setSeekTime(appTime + 5);
         }}
         className="hidden lg:ml-4 lg:block text-white"
       >
-        <GiFastForwardButton size={20} className=" text-gray-300 " />
+        <GiFastForwardButton size={20} aria-hidden="true" className=" text-gray-300 " />
       </button>
     </div>
   );

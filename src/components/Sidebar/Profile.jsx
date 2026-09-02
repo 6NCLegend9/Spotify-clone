@@ -14,16 +14,31 @@ const Profile = () => {
   const { status, data } = useSession();
   const [user, setUser] = useState(null);
   const [imageFailed, setImageFailed] = useState(false);
-  const userName = data?.user?.name || data?.userName || user?.userName || "Account";
-  const userEmail = data?.user?.email || data?.email || user?.email;
-  const imageUrl = data?.user?.image || data?.imageUrl || user?.imageUrl || user?.image;
+  const rawUserName = data?.user?.name || data?.userName || user?.userName;
+  const userName =
+    typeof rawUserName === "string" && rawUserName.trim()
+      ? rawUserName.trim()
+      : "Account";
+  const rawUserEmail = data?.user?.email || data?.email || user?.email;
+  const userEmail = typeof rawUserEmail === "string" ? rawUserEmail : "";
+  const rawImageUrl =
+    data?.user?.image || data?.imageUrl || user?.imageUrl || user?.image;
+  const imageUrl = typeof rawImageUrl === "string" ? rawImageUrl : "";
 
   useEffect(() => {
+    if (status !== "authenticated") {
+      setUser(null);
+      return undefined;
+    }
+    let cancelled = false;
     const fetchUser = async () => {
       const res = await getUserInfo();
-      setUser(res);
+      if (!cancelled) setUser(res && typeof res === "object" ? res : null);
     };
-    fetchUser();
+    void fetchUser();
+    return () => {
+      cancelled = true;
+    };
   }, [status]);
 
   useEffect(() => {
@@ -35,7 +50,7 @@ const Profile = () => {
   if (status === "loading") {
     return (
       <div className="flex h-16 items-center px-2">
-        <span className="loading" />
+        <span className="loading" role="status" aria-label="Loading account" />
       </div>
     );
   }
@@ -85,7 +100,7 @@ const Profile = () => {
           />
         ) : (
           <span className="grid h-11 w-11 place-items-center rounded-full bg-[#00e6e6] text-base font-semibold text-black">
-            {userName.trim().charAt(0).toUpperCase()}
+            {userName.charAt(0).toUpperCase()}
           </span>
         )}
       </Link>
@@ -97,14 +112,16 @@ const Profile = () => {
             aria-label="Log out"
             onClick={() => {
               close();
-              signOut();
+              void signOut();
             }}
             className="text-white/80 transition hover:text-[#00e6e6]"
           >
             <MdLogout size={18} />
           </button>
         </div>
-        <p className="truncate text-[11px] text-[#9aa8b5]">{userEmail}</p>
+        {userEmail ? (
+          <p className="truncate text-[11px] text-[#9aa8b5]">{userEmail}</p>
+        ) : null}
       </div>
     </div>
   );

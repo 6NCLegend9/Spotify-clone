@@ -3,6 +3,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { MdOutlineFileDownload, MdDownloadForOffline } from "react-icons/md";
 import { toast } from "react-hot-toast";
+import { useSelector } from "react-redux";
+import { checkWifiDownloadConnection } from "@/utils/downloadConnection";
+import { toUserError } from "@/utils/userError";
 import {
   QUALITY_OPTIONS,
   buildTagInput,
@@ -18,6 +21,10 @@ const Downloader = ({ activeSong, icon }) => {
   const menuButtonRef = useRef(null);
   const menuPanelRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState(null);
+  const [announcement, setAnnouncement] = useState("");
+  const wifiOnlyDownloads = useSelector(
+    (state) => state.settings.wifiOnlyDownloads,
+  );
 
   const updateMenuPosition = () => {
     if (typeof window === "undefined" || !menuButtonRef.current) return;
@@ -53,15 +60,41 @@ const Downloader = ({ activeSong, icon }) => {
     };
   }, [showMenu]);
 
+  const canStartDownload = () => {
+    if (!wifiOnlyDownloads) return true;
+
+    const connection = checkWifiDownloadConnection();
+    if (connection.status === "non-wifi") {
+      const message =
+        "Wi-Fi-only downloads are enabled. Connect to Wi-Fi or turn off this setting to download.";
+      setAnnouncement(message);
+      toast.error(message);
+      return false;
+    }
+
+    if (connection.status === "unknown") {
+      const message =
+        "This browser can’t verify whether you’re on Wi-Fi. The download will continue, and your network may charge for data.";
+      setAnnouncement(message);
+      toast(message, { icon: "ℹ️" });
+    }
+
+    return true;
+  };
+
   const handleDownload = async (quality) => {
     setShowMenu(false);
+    if (!canStartDownload()) return;
+
     setDownloading(true);
     setProgress(0);
 
     try {
       const songUrl = activeSong?.downloadUrl?.[quality.index]?.url;
       if (!songUrl) {
-        toast.error("Download URL not available for this quality");
+        const message = "This quality is not available for download.";
+        setAnnouncement(message);
+        toast.error(message);
         return;
       }
 
@@ -112,10 +145,19 @@ const Downloader = ({ activeSong, icon }) => {
       );
 
       setProgress(100);
-      toast.success(`Downloaded "${songName}" (${quality.label})`);
+      const message = `Downloaded "${songName}" (${quality.label}).`;
+      setAnnouncement(message);
+      toast.success(message);
     } catch (err) {
-      console.error("Download error:", err);
-      toast.error("Download failed. Please try again.");
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Download failed:", err?.message || "Unknown download error");
+      }
+      const userError = toUserError(err, {
+        title: "Download failed",
+      });
+      const message = `${userError.title}. ${userError.message}`;
+      setAnnouncement(message);
+      toast.error(message);
     } finally {
       setDownloading(false);
       setProgress(0);
@@ -129,7 +171,8 @@ const Downloader = ({ activeSong, icon }) => {
 
   return (
     <div className="relative flex mb-1 cursor-pointer w-7" ref={menuButtonRef}>
-      <div
+      <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           if (!downloading) {
@@ -140,7 +183,10 @@ const Downloader = ({ activeSong, icon }) => {
             });
           }
         }}
+        disabled={downloading}
         title={downloading ? "Downloading" : "Download"}
+        aria-label={downloading ? `Downloading, ${progress}%` : "Download song"}
+        aria-expanded={showMenu}
         className={
           downloading ? "download-button flex justify-center items-center" : ""
         }
@@ -152,7 +198,7 @@ const Downloader = ({ activeSong, icon }) => {
         ) : (
           <MdOutlineFileDownload size={25} color={"#fff"} />
         )}
-      </div>
+      </button>
 
       {/* Quality selection menu */}
       {showMenu && menuPosition && typeof document !== "undefined"
@@ -160,6 +206,8 @@ const Downloader = ({ activeSong, icon }) => {
             <div
               ref={menuPanelRef}
               onClick={(e) => e.stopPropagation()}
+              role="group"
+              aria-label="Download quality"
               className="bg-[#1a1a2e] border border-white/10 rounded-lg shadow-xl backdrop-blur-md z-[9999] min-w-[140px] overflow-hidden animate-fade-in"
               style={{
                 position: "fixed",
@@ -189,6 +237,9 @@ const Downloader = ({ activeSong, icon }) => {
             document.body,
           )
         : null}
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </p>
     </div>
   );
 };

@@ -1,3 +1,10 @@
+import {
+  normalizeGenreName,
+  slugifyGenre,
+} from "./genreNormalization.mjs";
+
+export { normalizeGenreName, slugifyGenre };
+
 export const MAX_GENRE_DEPTH = 3;
 
 export const MAJOR_GENRES = [
@@ -142,22 +149,6 @@ export const MAJOR_GENRES = [
     subgenres: ["Avant-Garde", "Noise", "Musique Concrete", "Minimalism", "Industrial", "Glitch"],
   },
 ];
-
-export function normalizeGenreName(value) {
-  return String(value || "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[\u2018\u2019']/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-export function slugifyGenre(value) {
-  return normalizeGenreName(value).replace(/\s+/g, "-");
-}
 
 export function resolveMajorGenre(value) {
   const normalized = normalizeGenreName(value);

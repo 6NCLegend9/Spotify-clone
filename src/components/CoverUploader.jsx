@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { FiImage, FiX } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { resizeCoverFile } from "@/utils/imageOptimize";
-import { humanizeError } from "@/utils/authErrors";
+import { toUserError } from "@/utils/userError";
 
 export default function CoverUploader({ value, onChange, disabled }) {
   const inputRef = useRef(null);
@@ -19,7 +19,10 @@ export default function CoverUploader({ value, onChange, disabled }) {
       const dataUrl = await resizeCoverFile(file);
       onChange?.(dataUrl);
     } catch (error) {
-      toast.error(humanizeError(error).message);
+      toast.error(toUserError(error, {
+        title: "Cover image not ready",
+        message: "We couldn’t prepare that image. Try another JPG, PNG, or WebP file.",
+      }).message);
     } finally {
       setBusy(false);
     }
@@ -31,7 +34,7 @@ export default function CoverUploader({ value, onChange, disabled }) {
       <div className="flex items-center gap-3">
         <div className="h-16 w-16 overflow-hidden rounded-md bg-white/5">
           {value ? <img src={value} alt="" className="h-full w-full object-cover" /> : (
-            <span className="grid h-full w-full place-items-center text-gray-500"><FiImage /></span>
+            <span className="grid h-full w-full place-items-center text-gray-500"><FiImage aria-hidden="true" /></span>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -51,7 +54,7 @@ export default function CoverUploader({ value, onChange, disabled }) {
               className="icon-btn h-9 w-9"
               aria-label="Remove cover image"
             >
-              <FiX />
+              <FiX aria-hidden="true" />
             </button>
           ) : null}
         </div>
@@ -59,6 +62,7 @@ export default function CoverUploader({ value, onChange, disabled }) {
           ref={inputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp"
+          aria-label="Cover image file"
           className="sr-only"
           onChange={onFile}
         />

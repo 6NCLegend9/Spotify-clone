@@ -9,10 +9,12 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { FaGoogle } from "react-icons/fa";
 import GradientText from "@/components/ReactBits/GradientText";
 import AuthMessage from "@/components/AuthMessage";
-import { humanizeError, validateEmail, validatePassword } from "@/utils/authErrors";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
+import { AUTH_CODES, validateEmail, validatePassword } from "@/utils/authErrors";
+import { requestJson } from "@/services/http";
+import { userErrorDetails } from "@/utils/userError";
 
 const SignupPage = () => {
   const { status } = useSession();
@@ -24,62 +26,112 @@ const SignupPage = () => {
   });
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [retryAction, setRetryAction] = useState(null);
   const onchange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (formError) setFormError(null);
+    if (formError) {
+      setFormError(null);
+      setRetryAction(null);
+    }
   };
   const dispatch = useDispatch();
 
-  const handelSubmit = async (e) => {
-    e.preventDefault();
+  const submitAccount = async () => {
+    if (submitting || googleSubmitting) return;
     if (!formData.userName.trim()) {
       setFormError({ title: "Name required", message: "Please enter a username." });
+      setRetryAction(null);
       return;
     }
     const emailError = validateEmail(formData.email);
     if (emailError) {
       setFormError(emailError);
+      setRetryAction(null);
       return;
     }
     const passwordError = validatePassword(formData.password);
     if (passwordError) {
       setFormError(passwordError);
+      setRetryAction(null);
       return;
     }
     try {
       setSubmitting(true);
+      setRetryAction(null);
       dispatch(setProgress(70));
-      const res = await fetch("/api/signup", {
+      const data = await requestJson("/api/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           userName: formData.userName,
           email: formData.email,
           password: formData.password,
-        }),
+        },
+        fallbackTitle: "Couldn't create account",
+        fallbackMessage: "We couldn't create your account. Please try again.",
       });
-      const data = await res.json();
-      if (data.success === true) {
+      if (data?.success === true) {
         toast.success("Account created. Check your email to verify.");
         router.push("/login");
       } else {
-        setFormError({
-          title: data?.title || "Couldn't create account",
-          message: humanizeError(data).message,
-        });
+        setFormError(AUTH_CODES.Default);
+        setRetryAction(null);
       }
     } catch (error) {
-      setFormError(humanizeError(error));
+      const details = userErrorDetails(error, {
+        title: "Couldn't create account",
+        message: "We couldn't create your account. Please try again.",
+      });
+      setFormError(details);
+      setRetryAction(details.retryable ? "credentials" : null);
     } finally {
       setSubmitting(false);
       dispatch(setProgress(100));
     }
   };
 
+  const handelSubmit = (e) => {
+    e.preventDefault();
+    void submitAccount();
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (submitting || googleSubmitting) return;
+    setGoogleSubmitting(true);
+    setFormError(null);
+    setRetryAction(null);
+    try {
+      const result = await signIn("google", {
+        callbackUrl: "/",
+        redirect: false,
+      });
+      if (result?.error) {
+        setFormError(userErrorDetails(result.error, AUTH_CODES.OAuthCreateAccount));
+        setRetryAction(null);
+        return;
+      }
+      if (!result?.url) throw new Error("Google sign-in did not return a redirect.");
+      window.location.assign(result.url);
+    } catch (error) {
+      const details = userErrorDetails(error, AUTH_CODES.OAuthSignin);
+      setFormError(details);
+      setRetryAction(details.retryable ? "google" : null);
+    } finally {
+      setGoogleSubmitting(false);
+    }
+  };
+
+  const retryRequest =
+    retryAction === "google"
+      ? handleGoogleSignIn
+      : retryAction === "credentials"
+        ? submitAccount
+        : undefined;
+
   if (status === "loading") {
     return (
-      <div className="page-loading">
-        <span className="loader" />
+      <div className="page-loading" role="status" aria-label="Loading sign up">
+        <span className="loader" aria-hidden="true" />
       </div>
     );
   }
@@ -106,7 +158,8 @@ const SignupPage = () => {
           <AuthMessage
             title={formError?.title}
             message={formError?.message}
-            onRetry={() => setFormError(null)}
+            onRetry={retryRequest}
+            busy={submitting || googleSubmitting}
             href="/login"
             hrefLabel="Log in instead"
           />
@@ -154,22 +207,14 @@ const SignupPage = () => {
               className="field mt-2"
             />
           </label>
-          <button type="submit" disabled={submitting} className="btn-primary w-full">
+          <button type="submit" disabled={submitting || googleSubmitting} className="btn-primary w-full">
             {submitting ? "Creating account..." : "Sign up"}
           </button>
-          <div className="flex items-center gap-3 text-xs text-[#9aa8b5]">
-            <span className="h-px flex-1 bg-white/15" />
-            or
-            <span className="h-px flex-1 bg-white/15" />
-          </div>
-          <button
-            onClick={() => signIn("google")}
-            type="button"
-            className="btn-ghost w-full"
-          >
-            <FaGoogle />
-            Continue with Google
-          </button>
+          <GoogleSignInButton
+            onClick={handleGoogleSignIn}
+            disabled={submitting}
+            busy={googleSubmitting}
+          />
           <p className="text-center text-sm text-[#c9d4de]">
             Already have an account?{" "}
             <Link href="/login" className="font-semibold text-[#00e6e6]">

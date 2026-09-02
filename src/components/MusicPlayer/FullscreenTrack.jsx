@@ -1,6 +1,4 @@
 import Lyrics from "./Lyrics";
-import React from "react";
-import Link from "next/link";
 import { useDispatch } from "react-redux";
 import { setFullScreen } from "@/redux/features/playerSlice";
 import { useSwipeable } from "react-swipeable";
@@ -29,6 +27,14 @@ const FullscreenTrack = ({
     : Array.isArray(activeSong?.artists)
     ? activeSong.artists
     : [];
+  const artistDisplay =
+    primaryArtists
+      .map((artist) => artist?.name?.trim())
+      .filter(Boolean)
+      .join(", ") ||
+    (typeof activeSong?.artists === "string" && activeSong.artists.trim()
+      ? activeSong.artists
+      : "Artist");
 
   return (
     <div
@@ -57,25 +63,7 @@ const FullscreenTrack = ({
               : "Song"}
           </p>
           <p className="truncate text-gray-300">
-            {primaryArtists.length > 0 ? (
-              primaryArtists.map((artist, index) => (
-                <React.Fragment key={artist?.id || index}>
-                  <Link
-                    className=" hover:underline mx-1"
-                    href={`/artist/${artist?.id}`}
-                    onClick={() => {
-                      dispatch(setFullScreen(false));
-                    }}
-                  >
-                    {artist?.name?.trim()}
-                  </Link>
-                </React.Fragment>
-              ))
-            ) : typeof activeSong?.artists === "string" ? (
-              activeSong.artists
-            ) : (
-              "Artist"
-            )}
+            {artistDisplay}
           </p>
         </div>
       </div>

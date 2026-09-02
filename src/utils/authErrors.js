@@ -50,7 +50,7 @@ export const AUTH_CODES = {
 };
 
 const TECHNICAL_PATTERN =
-  /CredentialsSignin|OAuthSignin|OAuthCallback|OAuthCreateAccount|OAuthAccountNotLinked|AccessDenied|Configuration|Callback|SessionRequired|EmailSignin|Mongo(Server)?Error|ECONNREFUSED|Internal Server Error|TypeError|Prisma|Cast to ObjectId/i;
+  /CredentialsSignin|OAuthSignin|OAuthCallback|OAuthCreateAccount|OAuthAccountNotLinked|AccessDenied|Configuration|Callback|SessionRequired|EmailSignin|Mongo(Server)?Error|Mongoose|ECONN|ENOTFOUND|EAI_AGAIN|Internal Server Error|TypeError|SyntaxError|Unexpected token|Prisma|Cast to ObjectId|node_modules|fetch failed|at\s+\S+\s+\([^)]+:\d+:\d+\)|\bstack\b/i;
 
 export class AuthError extends Error {
   constructor(message, { title = "Something went wrong", code = "Default" } = {}) {
@@ -70,6 +70,13 @@ function decodeErrorText(value) {
   } catch {
     return raw;
   }
+}
+
+function safeAuthText(value) {
+  if (typeof value !== "string") return "";
+  const text = decodeErrorText(value);
+  if (!text || text.length > 180 || TECHNICAL_PATTERN.test(text)) return "";
+  return text;
 }
 
 export function validateEmail(email) {
@@ -119,22 +126,34 @@ export function validatePassword(password, { confirm } = {}) {
 }
 
 export function humanizeError(error, fallback = AUTH_CODES.Default) {
+  const safeFallback = {
+    title: safeAuthText(fallback?.title) || AUTH_CODES.Default.title,
+    message: safeAuthText(fallback?.message) || AUTH_CODES.Default.message,
+  };
+  const structuredError =
+    error
+    && typeof error === "object"
+    && !(error instanceof Error)
+    && typeof error.message === "string";
   const raw =
     typeof error === "string"
       ? error
-      : error?.title && error?.message
+      : structuredError
         ? error
         : error?.message || error?.error || error?.code || "";
 
   if (raw && typeof raw === "object" && raw.message) {
+    const title = safeAuthText(raw.title);
+    const message = safeAuthText(raw.message);
+    if (!message) return safeFallback;
     return {
-      title: raw.title || fallback.title,
-      message: raw.message,
+      title: title || safeFallback.title,
+      message,
     };
   }
 
   const text = decodeErrorText(raw);
-  if (!text) return fallback;
+  if (!text) return safeFallback;
 
   if (AUTH_CODES[text]) return AUTH_CODES[text];
 
@@ -149,12 +168,7 @@ export function humanizeError(error, fallback = AUTH_CODES.Default) {
   );
   if (matchedCode) return AUTH_CODES[matchedCode];
 
-  if (TECHNICAL_PATTERN.test(text) || text.length > 180) return fallback;
-
-  return {
-    title: fallback.title,
-    message: text,
-  };
+  return safeFallback;
 }
 
 export const LOGIN_ERRORS = {
@@ -185,9 +199,9 @@ export const LOGIN_ERRORS = {
 
 export const RESET_ERRORS = {
   emailNotFound: {
-    title: "Email not found",
+    title: "Check your email",
     message:
-      "We couldn't find an account using that email. Please check the spelling or try requesting a new link.",
+      "If an account matches that email, a reset link is on the way. It expires in 15 minutes.",
   },
   invalidEmail: {
     title: "Invalid email",

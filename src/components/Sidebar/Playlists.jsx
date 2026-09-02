@@ -8,27 +8,88 @@ import Link from "next/link";
 import PlaylistModal from "./PlaylistModal";
 import { deletePlaylist, getUserPlaylists } from "@/services/playlistApi";
 import { useNav } from "../Layout/AppShell";
+import EmptyState from "@/components/EmptyState";
+import UserMessage from "@/components/UserMessage";
+import { toUserError } from "@/utils/userError";
+import { toast } from "react-hot-toast";
+import { useSession } from "next-auth/react";
 
 const Playlists = () => {
   const { setShowNav } = useNav();
+  const { status } = useSession();
   const [show, setShow] = useState(false);
   const [playlists, setPlaylists] = useState([]);
   const [showMenu, setShowMenu] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    if (status === "loading") {
+      setLoading(true);
+      return;
+    }
+    if (status !== "authenticated") {
+      setPlaylists([]);
+      setError(toUserError({ code: "UNAUTHORIZED" }));
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
     const getPlaylists = async () => {
+      setLoading(true);
+      setError(null);
       const res = await getUserPlaylists();
-      if (res?.success == true) {
-        setPlaylists(res?.data?.playlists);
+      if (!active) return;
+      if (res?.success === true) {
+        setPlaylists(
+          Array.isArray(res.data?.playlists)
+            ? res.data.playlists.filter(
+              (playlist) => playlist && typeof playlist === "object" && playlist._id,
+            )
+            : [],
+        );
+      } else {
+        const normalized = toUserError(res);
+        setError(normalized.code === "UNAUTHORIZED"
+          ? normalized
+          : toUserError(res, {
+            title: "Playlists unavailable",
+            message: "We couldn’t load your playlists. Please try again.",
+          }));
       }
+      setLoading(false);
     };
     getPlaylists();
-  }, [show]);
+    return () => {
+      active = false;
+    };
+  }, [refreshKey, status]);
 
   const handleDelete = async (id) => {
+    if (deletingId) return;
+    const previousPlaylists = playlists;
+    setDeleteError(null);
+    setDeletingId(id);
+    setPlaylists((current) => current.filter((playlist) => playlist._id !== id));
     const res = await deletePlaylist(id);
-    if (res?.success == true) {
-      setPlaylists(playlists.filter((playlist) => playlist._id !== id));
+    setDeletingId(null);
+    if (res?.success === true) {
+      toast.success("Playlist deleted");
+    } else {
+      setPlaylists(previousPlaylists);
+      const normalized = toUserError(res);
+      const userError = normalized.code === "UNAUTHORIZED"
+        ? normalized
+        : toUserError(res, {
+          title: "Playlist not deleted",
+          message: "We couldn’t delete that playlist. Please try again.",
+        });
+      setDeleteError(userError);
+      toast.error(userError.message);
     }
   };
 
@@ -46,7 +107,41 @@ const Playlists = () => {
         </button>
       </div>
       <div className="flex max-h-52 flex-col overflow-y-auto">
-        {playlists?.map((playlist) => (
+        {loading ? <p className="px-2 py-3 text-xs text-[#9aa8b5]">Loading playlists…</p> : null}
+        {!loading && error ? (
+          <div className="px-2 py-2">
+            <UserMessage
+              compact
+              title={error.title}
+              message={error.message}
+              onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined}
+              href={error.action === "login" ? "/login" : undefined}
+              hrefLabel="Log in"
+            />
+          </div>
+        ) : null}
+        {!loading && !error && deleteError ? (
+          <div className="px-2 py-2">
+            <UserMessage
+              compact
+              title={deleteError.title}
+              message={deleteError.message}
+              href={deleteError.action === "login" ? "/login" : undefined}
+              hrefLabel="Log in"
+            />
+          </div>
+        ) : null}
+        {!loading && !error && playlists.length === 0 ? (
+          <div className="px-2 py-2">
+            <EmptyState
+              title="No playlists yet"
+              message="Create one to keep songs together."
+              actionLabel="Create playlist"
+              onAction={() => setShow(true)}
+            />
+          </div>
+        ) : null}
+        {!loading && !error && playlists.map((playlist) => (
           <div
             key={playlist._id}
             className="group flex items-center justify-between rounded-lg pr-1 hover:bg-white/5"
@@ -71,6 +166,7 @@ const Playlists = () => {
               {showMenu === playlist._id && (
                 <button
                   type="button"
+                  disabled={deletingId === playlist._id}
                   onClick={() => {
                     setShowMenu(false);
                     handleDelete(playlist._id);
@@ -84,11 +180,17 @@ const Playlists = () => {
           </div>
         ))}
       </div>
-      <PlaylistModal show={show} setShow={setShow} />
+      <PlaylistModal
+        show={show}
+        setShow={setShow}
+        onCreated={() => setRefreshKey((value) => value + 1)}
+      />
       {showMenu && (
-        <div
+        <button
+          type="button"
+          aria-label="Close playlist options"
           onClick={() => setShowMenu(false)}
-          className="fixed inset-0 z-30"
+          className="fixed inset-0 z-30 cursor-default"
         />
       )}
     </>

@@ -1,9 +1,11 @@
 "use client";
 /* eslint-disable jsx-a11y/media-has-caption */
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import UserMessage from "@/components/UserMessage";
 import useAudioEq from "@/hooks/useAudioEq";
 import { bandsForPreset } from "@/utils/eqPresets";
+import { toUserError } from "@/utils/userError";
 
 const Player = ({
   activeSong,
@@ -23,6 +25,7 @@ const Player = ({
   const ref = useRef(null);
   const handlePlayPauseRef = useRef(handlePlayPause);
   const mediaActionsRef = useRef({});
+  const [playbackError, setPlaybackError] = useState(null);
   const { eqPreset, eqBands, normalization, monoAudio, masterVolume } = useSelector((state) => state.settings);
   useAudioEq(ref, {
     bands: bandsForPreset(eqPreset, eqBands),
@@ -50,18 +53,74 @@ const Player = ({
   }, [handleNextSong, handlePlayPause, handlePrevSong, isPlaying, setSeekTime]);
 
   useEffect(() => {
+    setPlaybackError(null);
+  }, [activeSong?.id, audioSource]);
+
+  useEffect(() => {
     const audio = ref.current;
     if (!audio) return;
 
-    if (!isPlaying || !audioSource) {
+    if (!isPlaying) {
       audio.pause();
       return;
     }
 
+    if (!audioSource) {
+      setPlaybackError(toUserError(
+        { code: "PLAYBACK_ERROR" },
+        { message: "This track does not have a playable audio source." },
+      ));
+      handlePlayPauseRef.current?.();
+      return;
+    }
+
     audio.play().catch((error) => {
-      if (error.name !== "AbortError") handlePlayPauseRef.current();
+      if (error.name === "AbortError") return;
+      setPlaybackError(toUserError(
+        { code: "PLAYBACK_ERROR", cause: error },
+        { message: "The audio could not start. Try again or skip to another track." },
+      ));
+      handlePlayPauseRef.current?.();
     });
   }, [audioSource, isPlaying]);
+
+  const handleAudioError = (event) => {
+    const mediaError = event.currentTarget.error;
+    setPlaybackError(toUserError(
+      { code: "PLAYBACK_ERROR", cause: mediaError },
+      { message: "The audio source could not be loaded. Try again or skip to another track." },
+    ));
+    if (mediaActionsRef.current.isPlaying) {
+      handlePlayPauseRef.current?.();
+    }
+  };
+
+  const retryPlayback = () => {
+    if (!audioSource || !ref.current) {
+      setPlaybackError(toUserError(
+        { code: "PLAYBACK_ERROR" },
+        { message: "This track does not have a playable audio source." },
+      ));
+      return;
+    }
+
+    setPlaybackError(null);
+    ref.current.load();
+    if (!mediaActionsRef.current.isPlaying) {
+      handlePlayPauseRef.current?.();
+    } else {
+      ref.current.play().catch((error) => {
+        if (error.name === "AbortError") return;
+        setPlaybackError(toUserError(
+          { code: "PLAYBACK_ERROR", cause: error },
+          { message: "The audio could not start. Try again or skip to another track." },
+        ));
+        if (mediaActionsRef.current.isPlaying) {
+          handlePlayPauseRef.current?.();
+        }
+      });
+    }
+  };
 
   const artistName = Array.isArray(activeSong?.artists?.primary)
     ? activeSong.artists.primary.map((a) => a?.name).join(", ")
@@ -147,8 +206,23 @@ const Player = ({
         loop={repeat}
         onEnded={onEnded}
         onTimeUpdate={onTimeUpdate}
-        onLoadedData={onLoadedData}
+        onLoadedData={(event) => {
+          setPlaybackError(null);
+          onLoadedData?.(event);
+        }}
+        onError={handleAudioError}
       />
+      {playbackError ? (
+        <div className="mt-2 w-full max-w-md" onClick={(event) => event.stopPropagation()}>
+          <UserMessage
+            tone="error"
+            title={playbackError.title}
+            message={playbackError.message}
+            onRetry={retryPlayback}
+            compact
+          />
+        </div>
+      ) : null}
     </>
   );
 };

@@ -1,44 +1,67 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import mongoose from "mongoose";
 import User from "@/models/User";
-import dbConnect from "@/utils/dbconnect";
 import Playlist from "@/models/Playlist";
 import UserData from "@/models/UserData";
-import auth from "@/utils/auth";
-import { tokenOptions } from "@/utils/authToken";
+import { isRateLimited } from "@/utils/rateLimit";
+import {
+    ApiRouteError,
+    apiError,
+    handleApiError,
+    readRequestJson,
+} from "@/utils/apiResponse";
 import { inferPlaylistCategory, normalizePlaylistCategory, serializePlaylist, isCoverDataUrl } from "@/utils/playlistThemes";
+import { getAuthenticatedAccount } from "@/utils/userAccount";
 
+export const runtime = "nodejs";
+export const maxDuration = 15;
+
+const MAX_USER_PLAYLISTS = 200;
+const MAX_COLLABORATORS = 50;
+
+async function getAuthenticatedUser(req) {
+    const { user } = await getAuthenticatedAccount(req);
+    return user;
+}
+
+function requirePlaylistId(value) {
+    if (typeof value !== "string" || !mongoose.isObjectIdOrHexString(value)) {
+        throw new ApiRouteError("VALIDATION_ERROR", { message: "A valid playlist is required" });
+    }
+    return value;
+}
 
 // Create a new playlist
 export async function POST(req){
-    const body = await req.json().catch(() => null);
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-    const category = inferPlaylistCategory(name, body?.category);
-    const subgenre = typeof body?.subgenre === "string" ? body.subgenre.trim().slice(0, 48) : "";
-    const coverImage = isCoverDataUrl(body?.coverImage) ? body.coverImage : "";
-    if (!name || name.length > 80) {
-        return NextResponse.json(
-            {
-                success: false,
-                message: "A playlist name between 1 and 80 characters is required",
-                data: null
-            },
-            { status: 400 }
-        );
-    }
     try {
-        await dbConnect();
-        const user = await auth(req);
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not logged in",
-                    data: null
-                },
-                { status: 401 }
-            );
+        const { user, userData } = await getAuthenticatedAccount(req);
+        const rateLimit = await isRateLimited(`playlists:create:${user._id}`, {
+            windowMs: 15 * 60_000,
+            max: 30,
+        });
+        if (rateLimit.limited) {
+            return apiError("RATE_LIMITED", {
+                retryAfter: rateLimit.retryAfter,
+                message: "Too many playlist changes. Please wait before trying again.",
+            });
         }
+        const body = await readRequestJson(req);
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        const category = inferPlaylistCategory(name, body.category);
+        const subgenre = typeof body.subgenre === "string" ? body.subgenre.trim().slice(0, 48) : "";
+        const coverImage = isCoverDataUrl(body.coverImage) ? body.coverImage : "";
+        if (!name || name.length > 80) {
+            return apiError("VALIDATION_ERROR", {
+                message: "A playlist name between 1 and 80 characters is required",
+            });
+        }
+
+        if ((userData.playlists || []).length >= MAX_USER_PLAYLISTS) {
+            return apiError("VALIDATION_ERROR", {
+                message: `You can create up to ${MAX_USER_PLAYLISTS} playlists`,
+            });
+        }
+
         const playlist = await Playlist.create({
             name,
             user: user._id,
@@ -46,21 +69,16 @@ export async function POST(req){
             subgenre,
             coverImage,
         });
-
-        const userData = await UserData.findById(user.userData);
-        if (!userData) {
-            await Playlist.deleteOne({ _id: playlist._id }).catch(() => {});
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User data not found",
-                    data: null
-                },
-                { status: 404 }
-            );
+        if (!Array.isArray(userData.playlists)) {
+            userData.playlists = [];
         }
         userData.playlists.push(playlist._id);
-        await userData.save();
+        try {
+            await userData.save();
+        } catch (error) {
+            await Playlist.deleteOne({ _id: playlist._id }).catch(() => {});
+            throw error;
+        }
         return NextResponse.json(
             {
                 success: true,
@@ -71,54 +89,34 @@ export async function POST(req){
             }
         );
     } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "create playlist");
     }
 }
 
 // delete a playlist
 export async function DELETE(req){
-    const { playlistId } = await req.json();
     try {
-        await dbConnect();
-        const user = await auth(req);
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not logged in",
-                    data: null
-                },
-                { status: 404 }
-            );
+        const user = await getAuthenticatedUser(req);
+        const rateLimit = await isRateLimited(`playlists:delete:${user._id}`, {
+            windowMs: 15 * 60_000,
+            max: 40,
+        });
+        if (rateLimit.limited) {
+            return apiError("RATE_LIMITED", {
+                retryAfter: rateLimit.retryAfter,
+                message: "Too many playlist changes. Please wait before trying again.",
+            });
         }
+        const body = await readRequestJson(req);
+        const playlistId = requirePlaylistId(body.playlistId);
         const playlist = await Playlist.findById(playlistId);
         if (!playlist) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Playlist not found",
-                    data: null
-                },
-                { status: 404 }
-            );
+            return apiError("NOT_FOUND", { message: "Playlist not found" });
         }
         if (playlist.user.toString() !== user._id.toString()) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "You are not authorized to delete this playlist",
-                    data: null
-                },
-                { status: 401 }
-            );
+            return apiError("FORBIDDEN", {
+                message: "You are not authorized to delete this playlist",
+            });
         }
         await Playlist.deleteOne({ _id: playlistId });
         await UserData.updateMany(
@@ -133,49 +131,49 @@ export async function DELETE(req){
             }
         );
     } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "delete playlist");
     }
 }
 
 // update playlist library settings or collaborators
 export async function PATCH(req){
-    const { playlistId, action, value, email } = await req.json();
     try {
-        await dbConnect();
-        const user = await auth(req);
-        if (!user) {
-            return NextResponse.json(
-                { success: false, message: "User not logged in", data: null },
-                { status: 401 }
-            );
+        const user = await getAuthenticatedUser(req);
+        const rateLimit = await isRateLimited(`playlists:update:${user._id}`, {
+            windowMs: 15 * 60_000,
+            max: 120,
+        });
+        if (rateLimit.limited) {
+            return apiError("RATE_LIMITED", {
+                retryAfter: rateLimit.retryAfter,
+                message: "Too many playlist changes. Please wait before trying again.",
+            });
         }
-
+        const body = await readRequestJson(req);
+        const playlistId = requirePlaylistId(body.playlistId);
+        const { action, value, email } = body;
         const playlist = await Playlist.findById(playlistId);
         if (!playlist) {
-            return NextResponse.json(
-                { success: false, message: "Playlist not found", data: null },
-                { status: 404 }
-            );
+            return apiError("NOT_FOUND", { message: "Playlist not found" });
         }
         if (playlist.user.toString() !== user._id.toString()) {
-            return NextResponse.json(
-                { success: false, message: "Only the playlist owner can make this change", data: null },
-                { status: 403 }
-            );
+            return apiError("FORBIDDEN", {
+                message: "Only the playlist owner can make this change",
+            });
         }
 
         if (action === "pinned") {
-            playlist.pinned = Boolean(value);
+            if (typeof value !== "boolean") {
+                return apiError("VALIDATION_ERROR", { message: "Pinned must be true or false" });
+            }
+            playlist.pinned = value;
         } else if (action === "smartShuffle") {
-            playlist.smartShuffle = Boolean(value);
+            if (typeof value !== "boolean") {
+                return apiError("VALIDATION_ERROR", {
+                    message: "Smart shuffle must be true or false",
+                });
+            }
+            playlist.smartShuffle = value;
         } else if (action === "visibility" && ["public", "private"].includes(value)) {
             playlist.visibility = value;
         } else if (action === "category") {
@@ -186,35 +184,47 @@ export async function PATCH(req){
             if (value === "" || value == null) {
                 playlist.coverImage = "";
             } else if (!isCoverDataUrl(value)) {
-                return NextResponse.json(
-                    { success: false, message: "That cover image is too large or not a supported type.", data: null },
-                    { status: 400 }
-                );
+                return apiError("VALIDATION_ERROR", {
+                    message: "That cover image is too large or not a supported type.",
+                });
             } else {
                 playlist.coverImage = value;
             }
         } else if (action === "addCollaborator") {
-            const collaborator = await User.findOne({ email: email?.trim().toLowerCase() });
+            const collaboratorEmail = typeof email === "string"
+                ? email.trim().toLowerCase().slice(0, 254)
+                : "";
+            if (!collaboratorEmail) {
+                return apiError("VALIDATION_ERROR", {
+                    message: "A collaborator email is required",
+                });
+            }
+            const collaborator = await User.findOne({ email: collaboratorEmail });
             if (!collaborator) {
-                return NextResponse.json(
-                    { success: false, message: "No HeyKasa account uses that email", data: null },
-                    { status: 404 }
-                );
+                return apiError("NOT_FOUND", {
+                    message: "No HeyKasa account uses that email",
+                });
             }
             if (collaborator._id.toString() === user._id.toString()) {
-                return NextResponse.json(
-                    { success: false, message: "You already own this playlist", data: null },
-                    { status: 400 }
-                );
+                return apiError("VALIDATION_ERROR", {
+                    message: "You already own this playlist",
+                });
             }
-            if (!playlist.collaborators.some((id) => id.toString() === collaborator._id.toString())) {
+            const alreadyCollaborating = playlist.collaborators.some(
+                (id) => id.toString() === collaborator._id.toString(),
+            );
+            if (!alreadyCollaborating && playlist.collaborators.length >= MAX_COLLABORATORS) {
+                return apiError("VALIDATION_ERROR", {
+                    message: `A playlist can have up to ${MAX_COLLABORATORS} collaborators`,
+                });
+            }
+            if (!alreadyCollaborating) {
                 playlist.collaborators.push(collaborator._id);
             }
         } else {
-            return NextResponse.json(
-                { success: false, message: "Unsupported playlist update", data: null },
-                { status: 400 }
-            );
+            return apiError("VALIDATION_ERROR", {
+                message: "Unsupported playlist update",
+            });
         }
 
         await playlist.save();
@@ -226,55 +236,18 @@ export async function PATCH(req){
             data: { playlist: serializePlaylist(playlist, user._id) }
         });
     } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            { success: false, message: "Something went wrong", data: null },
-            { status: 500 }
-        );
+        return handleApiError(e, "update playlist");
     }
 }
 
 
 // get all playlists
 export async function GET(req){
-    const token = await getToken(tokenOptions(req));
-    if (!token) {
-        return NextResponse.json(
-            {
-                success: false,
-                message: "User not logged in",
-                data: null
-            },
-            { status: 401 }
-        );
-    }
     try {
-        await dbConnect();
-        const user = await User.findOne({ email: token.email });
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not found",
-                    data: null
-                },
-                { status: 404 }
-            );
-        }
-        const userData = await UserData.findById(user.userData);
-        if (!userData) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User data not found",
-                    data: null
-                },
-                { status: 404 }
-            );
-        }
+        const { user, userData } = await getAuthenticatedAccount(req);
         const playlists = await Playlist.find({
             $or: [
-                { _id: { $in: userData.playlists } },
+                { _id: { $in: userData.playlists || [] } },
                 { _id: { $in: userData.likedPlaylists || [] } },
                 { collaborators: user._id }
             ]
@@ -293,14 +266,6 @@ export async function GET(req){
         );
 
     } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "get playlists");
     }
 }

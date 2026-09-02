@@ -11,7 +11,6 @@ import {
   FiHeart,
   FiList,
   FiLock,
-  FiMusic,
   FiPlus,
   FiUsers,
   FiZap,
@@ -21,8 +20,11 @@ import PlaylistModal from "@/components/Sidebar/PlaylistModal";
 import PlaylistCover from "@/components/PlaylistCover";
 import LikePlaylistButton from "@/components/LikePlaylistButton";
 import MediaImage from "@/components/MediaImage";
+import EmptyState from "@/components/EmptyState";
+import UserMessage from "@/components/UserMessage";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import { getUserPlaylists } from "@/services/playlistApi";
+import { requestJson } from "@/services/http";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import {
   getFavouriteLibrary,
@@ -31,7 +33,7 @@ import {
   validYouTubeIds,
 } from "@/services/libraryApi";
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
-import { humanizeError } from "@/utils/authErrors";
+import { toUserError } from "@/utils/userError";
 
 const SORT_OPTIONS = [
   ["recents", "Recents"],
@@ -126,7 +128,7 @@ function ListItem({ item }) {
   );
 }
 
-function GuestLibrary({ playlists, loading, error }) {
+function GuestLibrary({ playlists, loading, error, onRetry }) {
   const dispatch = useDispatch();
   const [loadingId, setLoadingId] = useState(null);
 
@@ -134,9 +136,11 @@ function GuestLibrary({ playlists, loading, error }) {
     if (loadingId) return;
     setLoadingId(playlist.id);
     try {
-      const response = await fetch(`/api/youtube-playlist?id=${playlist.id}`);
-      const data = response.ok ? await response.json() : null;
-      const tracks = data?.tracks || [];
+      const data = await requestJson(`/api/youtube-playlist?id=${encodeURIComponent(playlist.id)}`, {
+        fallbackTitle: "Playlist unavailable",
+        fallbackMessage: "We couldn’t load this playlist. Please try again.",
+      });
+      const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
       if (tracks.length === 0) {
         toast.error("This playlist has no playable videos.");
         return;
@@ -148,8 +152,11 @@ function GuestLibrary({ playlists, loading, error }) {
       }));
       dispatch(setYoutubeQueue(seeded));
       dispatch(setYoutubeVideo(seeded[0]));
-    } catch (error) {
-      toast.error("Could not load this playlist.");
+    } catch (playError) {
+      toast.error(toUserError(playError, {
+        title: "Playlist unavailable",
+        message: "We couldn’t load this playlist. Please try again.",
+      }).message);
     } finally {
       setLoadingId(null);
     }
@@ -177,10 +184,22 @@ function GuestLibrary({ playlists, loading, error }) {
           <h2 id="featured-public-playlists" className="mt-2 text-2xl font-bold text-white">Featured for everyone</h2>
         </div>
         {loading && <CardGridSkeleton count={5} />}
-        {!loading && error && <p className="text-sm text-amber-300">{error}</p>}
-        {!loading && !error && playlists.length === 0 && <p className="text-sm text-gray-400">No public playlists are available right now.</p>}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {playlists.map((playlist) => (
+        {!loading && error && (
+          <UserMessage
+            title={error.title}
+            message={error.message}
+            onRetry={onRetry}
+          />
+        )}
+        {!loading && !error && playlists.length === 0 && (
+          <EmptyState
+            title="No featured playlists right now"
+            message="Check back soon for more music."
+          />
+        )}
+        {!loading && !error && playlists.length > 0 && (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {playlists.map((playlist) => (
             <button
               key={playlist.id}
               type="button"
@@ -194,8 +213,9 @@ function GuestLibrary({ playlists, loading, error }) {
                 <p className="mt-2 truncate text-xs text-gray-400">{loadingId === playlist.id ? "Loading..." : playlist.channel}</p>
               </div>
             </button>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
@@ -211,7 +231,7 @@ export default function LibraryView() {
   const [publicPlaylists, setPublicPlaylists] = useState([]);
   const [covers, setCovers] = useState({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -221,11 +241,19 @@ export default function LibraryView() {
 
     const loadLibrary = async () => {
       setLoading(true);
-      setError("");
+      setError(null);
       try {
         if (status === "unauthenticated") {
           const publicData = await getPublicLibrary();
-          if (active) setPublicPlaylists(publicData.sections?.featuredPlaylists || []);
+          if (active) {
+            setPublicPlaylists(
+              Array.isArray(publicData?.sections?.featuredPlaylists)
+                ? publicData.sections.featuredPlaylists.filter(
+                  (playlist) => playlist && typeof playlist === "object" && playlist.id,
+                )
+                : [],
+            );
+          }
           return;
         }
 
@@ -233,17 +261,34 @@ export default function LibraryView() {
           getFavouriteLibrary(),
           getUserPlaylists(),
         ]);
-        if (!playlistData?.success) throw new Error(humanizeError(playlistData).message);
-        const nextPlaylists = playlistData.data?.playlists || [];
+        if (!playlistData?.success) throw playlistData;
+        const nextPlaylists = Array.isArray(playlistData.data?.playlists)
+          ? playlistData.data.playlists.filter(
+            (playlist) => playlist && typeof playlist === "object" && playlist._id,
+          )
+          : [];
         const coverIds = nextPlaylists.map((playlist) => validYouTubeIds(playlist.songs)[0]).filter(Boolean);
-        const coverTracks = await hydrateYouTubeTracks(coverIds);
+        let coverTracks = [];
+        try {
+          coverTracks = await hydrateYouTubeTracks(coverIds);
+        } catch {
+          // Covers are optional; keep the loaded collections usable.
+        }
         if (active) {
           setFavourites(favouriteData);
           setPlaylists(nextPlaylists);
           setCovers(Object.fromEntries(coverTracks.map((track) => [track.id, track.thumbnail])));
         }
       } catch (loadError) {
-        if (active) setError(loadError.message);
+        if (active) {
+          const normalized = toUserError(loadError);
+          setError(normalized.code === "UNAUTHORIZED"
+            ? normalized
+            : toUserError(loadError, {
+              title: "Library unavailable",
+              message: "We couldn’t load your library. Please try again.",
+            }));
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -323,7 +368,12 @@ export default function LibraryView() {
       </header>
 
       {status !== "authenticated" ? (
-        <GuestLibrary playlists={publicPlaylists} loading={loading || status === "loading"} error={error} />
+        <GuestLibrary
+          playlists={publicPlaylists}
+          loading={loading || status === "loading"}
+          error={error}
+          onRetry={() => setRefreshKey((value) => value + 1)}
+        />
       ) : (
         <>
           <section className="mt-8 flex flex-col gap-4 border-y border-white/10 py-4 lg:flex-row lg:items-center lg:justify-between" aria-label="Library controls">
@@ -364,9 +414,26 @@ export default function LibraryView() {
           </section>
 
           {loading && <div className="mt-6"><CardGridSkeleton /></div>}
-          {!loading && error && <p className="mt-8 text-sm text-amber-300">{error}</p>}
+          {!loading && error && (
+            <div className="mt-8">
+              <UserMessage
+                title={error.title}
+                message={error.message}
+                onRetry={() => setRefreshKey((value) => value + 1)}
+                href={error.action === "login" ? "/login" : undefined}
+                hrefLabel="Log in"
+              />
+            </div>
+          )}
           {!loading && !error && items.length === 0 && (
-            <div className="mt-14 text-center"><FiMusic className="mx-auto h-10 w-10 text-gray-500" /><h2 className="mt-4 text-lg font-bold">No playlists here yet</h2><p className="mt-2 text-sm text-gray-400">Create a playlist or try another filter.</p></div>
+            <div className="mt-8">
+              <EmptyState
+                title="No playlists here yet"
+                message={filter === "all" ? "Create a playlist to start building your library." : "Try another filter or create a new playlist."}
+                actionLabel={filter === "all" ? "Create playlist" : "Show all"}
+                onAction={filter === "all" ? () => setShowCreate(true) : () => setFilter("all")}
+              />
+            </div>
           )}
           {!loading && !error && view === "grid" && (
             <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5" aria-label="Library collections">

@@ -28,18 +28,19 @@ export default function AccessibilityPage() {
           <h2 id="keyboard-navigation" className="text-2xl font-bold">Keyboard navigation</h2>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             Use the <strong>Tab</strong> key to move through links, controls, form fields, and
-            playback actions. A visible focus indicator shows where you are. The first keyboard
-            focusable item on a page is a Skip to main content link, allowing you to bypass
-            navigation and move directly to the page content. Menus close with Escape. Form errors
-            are announced as alerts and include a Try again action.
+            available playback actions. The first keyboard focusable item is a Skip to main content
+            link, allowing you to bypass navigation and move directly to the page content. Genre
+            suggestions in search support the arrow, Home, End, Enter, and Escape keys. The mobile
+            navigation and search suggestions can be closed with Escape.
           </p>
         </section>
 
         <section className="border-b border-white/10 py-8" aria-labelledby="readable-errors">
           <h2 id="readable-errors" className="text-2xl font-bold">Readable errors</h2>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
-            Sign-in and form errors use plain language instead of codes like CredentialsSignin.
-            Failed logins include a Try again action and a link to reset your password.
+            Errors shown by HeyKasa use plain language instead of exposing internal codes. Important
+            errors are announced to assistive technology, and a Try again action is included when
+            the failed operation can be safely repeated.
           </p>
         </section>
 
@@ -48,7 +49,7 @@ export default function AccessibilityPage() {
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             The controls above can increase text size, increase color contrast, and reduce
             non-essential motion across the app. Your choices take effect immediately and are
-            saved locally in this browser. HeyKasa also respects your operating system&apos;s
+            saved locally when browser storage is available. HeyKasa also respects your operating system&apos;s
             <strong> prefers-reduced-motion</strong> setting, including for decorative animated
             backgrounds.
           </p>

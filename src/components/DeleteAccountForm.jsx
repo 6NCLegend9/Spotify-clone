@@ -1,8 +1,10 @@
 "use client";
 import React, { useState } from "react";
-import toast from "react-hot-toast";
 import { signOut } from "next-auth/react";
 import { persistor } from "@/redux/store";
+import { requestJson } from "@/services/http";
+import { userErrorDetails } from "@/utils/userError";
+import UserMessage from "@/components/UserMessage";
 
 const LOCAL_ACCOUNT_STORAGE_KEYS = [
   "songHistory",
@@ -30,41 +32,64 @@ export default function DeleteAccountForm() {
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [statusMessage, setStatusMessage] = useState(null);
 
   const initiateDelete = () => {
+    setStatusMessage(null);
     setShowConfirm(true);
   };
 
   const cancelDelete = () => {
     setShowConfirm(false);
     setConfirmText("");
+    setStatusMessage(null);
   };
 
   const handleDelete = async () => {
     if (confirmText !== "DELETE") {
-      toast.error("Please type DELETE to confirm.");
+      setStatusMessage({
+        title: "Confirmation required",
+        message: "Type DELETE exactly to confirm account deletion.",
+        retryable: false,
+      });
       return;
     }
 
     setLoading(true);
+    setStatusMessage({
+      tone: "info",
+      title: "Deleting your account",
+      message: "Please keep this page open while we remove your data.",
+    });
     try {
-      const res = await fetch("/api/deleteAccount", { method: "POST" });
-      const data = await res.json();
-      
-      if (res.ok && data.success) {
-        toast.success("Account and data permanently deleted.");
-        await clearLocalAccountData();
-        await signOut({ callbackUrl: "/", redirect: false });
-        window.location.assign("/");
-        return;
-      } else {
-        toast.error(data.message || data.error || "We couldn't delete your account. Please try again.");
-      }
+      const data = await requestJson("/api/deleteAccount", {
+        method: "POST",
+        fallbackTitle: "Couldn't delete account",
+        fallbackMessage: "We couldn't delete your account. Please try again.",
+      });
+      if (data?.success !== true) throw new Error("Account deletion did not complete.");
     } catch (error) {
-      toast.error("An internal server error occurred.");
+      const userError = userErrorDetails(error, {
+        title: "Couldn't delete account",
+        message: "We couldn't delete your account. Please try again.",
+      });
+      setStatusMessage(userError);
+      setLoading(false);
+      return;
     }
-    setLoading(false);
-    setShowConfirm(false);
+
+    setStatusMessage({
+      tone: "success",
+      title: "Account deleted",
+      message: "Your account data was removed. Signing you out now.",
+    });
+    await clearLocalAccountData().catch(() => {});
+    try {
+      const result = await signOut({ callbackUrl: "/", redirect: false });
+      window.location.replace(result?.url || "/");
+    } catch {
+      window.location.replace("/api/auth/signout?callbackUrl=%2F");
+    }
   };
 
   if (showConfirm) {
@@ -73,10 +98,23 @@ export default function DeleteAccountForm() {
         <p className="text-sm text-red-500 font-semibold">
           This action cannot be undone. To verify, please type <strong>DELETE</strong> below:
         </p>
+        {statusMessage ? (
+          <UserMessage
+            tone={statusMessage.tone || "error"}
+            title={statusMessage.title}
+            message={statusMessage.message}
+            onRetry={statusMessage.retryable ? handleDelete : undefined}
+            retryLabel="Retry deletion"
+            busy={loading}
+          />
+        ) : null}
         <input
           type="text"
           value={confirmText}
-          onChange={(e) => setConfirmText(e.target.value)}
+          onChange={(e) => {
+            setConfirmText(e.target.value);
+            if (!loading && statusMessage) setStatusMessage(null);
+          }}
           placeholder="DELETE"
           className="rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-red-500"
           autoFocus

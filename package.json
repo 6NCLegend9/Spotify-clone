@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=20.9.0 <24"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src --ext .js,.jsx --no-cache --max-warnings=0",
-    "check": "npm run lint && npm run build"
+    "test": "node --test",
+    "lint": "eslint src test --ext .js,.jsx,.mjs --no-cache --max-warnings=0",
+    "check": "npm test && npm run lint && npm run build"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

@@ -6,6 +6,8 @@ import { TbRepeat, TbRepeatOnce, TbArrowsShuffle } from "react-icons/tb";
 import Downloader from "./Downloader";
 import FavouriteButton from "./FavouriteButton";
 
+const iconButtonClass = "grid place-items-center rounded-full text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e6e6]";
+
 const Controls = ({
   isPlaying,
   repeat,
@@ -22,6 +24,8 @@ const Controls = ({
   favouriteSongs,
   loading,
 }) => {
+  const hasQueue = Boolean(currentSongs?.length);
+
   return (
     <div className="flex items-center justify-around md:w-80 text-lg lg:w-80 2xl:w-80 gap-4 sm:gap-0">
       <FavouriteButton
@@ -31,77 +35,69 @@ const Controls = ({
         handleAddToFavourite={handleAddToFavourite}
         style={" sm:block hidden"}
       />
-      {!repeat ? (
-        <TbRepeat
-          title="Repeat"
-          size={25}
-          color={"white"}
-          onClick={(e) => {
-            e.stopPropagation();
-            setRepeat((prev) => !prev);
-          }}
-          className={`${
-            !fullScreen ? "hidden sm:block" : " m-3"
-          } cursor-pointer`}
-        />
-      ) : (
-        <TbRepeatOnce
-          title="Repeat Once"
-          size={25}
-          color={repeat ? "#00e6e6" : "white"}
-          onClick={(e) => {
-            e.stopPropagation();
-            setRepeat((prev) => !prev);
-          }}
-          className={`${
-            !fullScreen ? "hidden sm:block" : " m-3"
-          } cursor-pointer`}
-        />
-      )}
-
-      {
-        <MdSkipPrevious
-          title="Previous"
-          size={35}
-          color={currentSongs?.length ? "#ffff" : "#b3b3b3"}
-          className="cursor-pointer"
-          onClick={handlePrevSong}
-        />
-      }
-      {isPlaying ? (
-        <BsFillPauseFill
-          size={45}
-          color="#00e6e6"
-          onClick={handlePlayPause}
-          className="cursor-pointer"
-        />
-      ) : (
-        <BsFillPlayFill
-          size={45}
-          color="#00e6e6"
-          onClick={handlePlayPause}
-          className="cursor-pointer"
-        />
-      )}
-      {
-        <MdSkipNext
-          title="Next"
-          size={35}
-          color={currentSongs?.length ? "#ffff" : "#b3b3b3"}
-          className="cursor-pointer"
-          onClick={handleNextSong}
-        />
-      }
-      <TbArrowsShuffle
+      <button
+        type="button"
+        title={repeat ? "Repeat one" : "Repeat"}
+        aria-label={repeat ? "Repeat one, on" : "Repeat"}
+        aria-pressed={repeat}
+        onClick={(e) => {
+          e.stopPropagation();
+          setRepeat((prev) => !prev);
+        }}
+        className={`${iconButtonClass} ${!fullScreen ? "hidden sm:grid" : "m-3"} p-1`}
+      >
+        {repeat ? (
+          <TbRepeatOnce size={25} color="#00e6e6" aria-hidden="true" />
+        ) : (
+          <TbRepeat size={25} aria-hidden="true" />
+        )}
+      </button>
+      <button
+        type="button"
+        title="Previous"
+        aria-label="Previous song"
+        disabled={!hasQueue}
+        onClick={handlePrevSong}
+        className={`${iconButtonClass} disabled:cursor-not-allowed disabled:opacity-40`}
+      >
+        <MdSkipPrevious size={35} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        title={isPlaying ? "Pause" : "Play"}
+        aria-label={isPlaying ? "Pause" : "Play"}
+        onClick={handlePlayPause}
+        className={iconButtonClass}
+      >
+        {isPlaying ? (
+          <BsFillPauseFill size={45} color="#00e6e6" aria-hidden="true" />
+        ) : (
+          <BsFillPlayFill size={45} color="#00e6e6" aria-hidden="true" />
+        )}
+      </button>
+      <button
+        type="button"
+        title="Next"
+        aria-label="Next song"
+        disabled={!hasQueue}
+        onClick={handleNextSong}
+        className={`${iconButtonClass} disabled:cursor-not-allowed disabled:opacity-40`}
+      >
+        <MdSkipNext size={35} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
         title="Shuffle"
-        size={25}
-        color={shuffle ? "#00e6e6" : "white"}
+        aria-label={shuffle ? "Shuffle, on" : "Shuffle"}
+        aria-pressed={shuffle}
         onClick={(e) => {
           e.stopPropagation();
           setShuffle((prev) => !prev);
         }}
-        className={`${!fullScreen ? "hidden sm:block" : "m-3"} cursor-pointer`}
-      />
+        className={`${iconButtonClass} ${!fullScreen ? "hidden sm:grid" : "m-3"} p-1`}
+      >
+        <TbArrowsShuffle size={25} color={shuffle ? "#00e6e6" : "white"} aria-hidden="true" />
+      </button>
       {activeSong?.downloadUrl?.[4]?.url && (
         <div className=" hidden sm:block mt-1 ">
           <Downloader activeSong={activeSong} fullScreen={fullScreen} />

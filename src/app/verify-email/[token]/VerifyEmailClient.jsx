@@ -5,12 +5,17 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import UserMessage from "@/components/UserMessage";
+import { requestJson } from "@/services/http";
+import { userErrorDetails } from "@/utils/userError";
 
 export default function VerifyEmailClient({ token }) {
   const [status, setStatus] = useState("verifying"); // verifying, success, error
   const [message, setMessage] = useState("");
+  const [errorDetails, setErrorDetails] = useState(null);
+  const [attempt, setAttempt] = useState(0);
   const router = useRouter();
-  const verifyAttempted = useRef(false);
+  const redirectTimerRef = useRef(null);
   const reduceMotion = useReducedMotion();
   const motionProps = reduceMotion
     ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 1 }, transition: { duration: 0 } }
@@ -22,39 +27,57 @@ export default function VerifyEmailClient({ token }) {
       };
 
   useEffect(() => {
-    if (!token || verifyAttempted.current) return;
-    verifyAttempted.current = true;
+    if (typeof token !== "string" || !/^[a-f0-9]{64}$/i.test(token.trim())) {
+      setStatus("error");
+      setErrorDetails({
+        title: "Invalid verification link",
+        message: "This verification link is incomplete or invalid. Request a new link and try again.",
+        retryable: false,
+      });
+      return undefined;
+    }
 
+    let cancelled = false;
+    const controller = new AbortController();
     const verify = async () => {
+      setStatus("verifying");
+      setErrorDetails(null);
       try {
-        const response = await fetch("/api/verify-email", {
+        const data = await requestJson("/api/verify-email", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ token }),
+          body: { token: token.trim() },
+          signal: controller.signal,
+          fallbackTitle: "Verification failed",
+          fallbackMessage: "We couldn't verify your email. Please try again.",
         });
-        
-        const data = await response.json();
 
-        if (response.ok && data.success) {
+        if (!cancelled && data?.success) {
           setStatus("success");
           setMessage("Your email has been verified successfully. You will be redirected to the login page shortly.");
-          setTimeout(() => {
+          redirectTimerRef.current = window.setTimeout(() => {
             router.push("/login");
           }, 3500);
         } else {
-          setStatus("error");
-          setMessage(data.message || "The verification link is invalid or has expired.");
+          throw new Error("Verification did not complete.");
         }
       } catch (error) {
-        setStatus("error");
-        setMessage("An unexpected error occurred while verifying your email.");
+        if (!cancelled) {
+          setStatus("error");
+          setErrorDetails(userErrorDetails(error, {
+            title: "Verification failed",
+            message: "We couldn't verify your email. Please try again.",
+          }));
+        }
       }
     };
 
-    verify();
-  }, [token, router]);
+    void verify();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (redirectTimerRef.current) window.clearTimeout(redirectTimerRef.current);
+    };
+  }, [attempt, token, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#000814] px-4 py-12 sm:px-6 lg:px-8">
@@ -109,7 +132,14 @@ export default function VerifyEmailClient({ token }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <p className="mt-4 text-sm text-[#9aa8b5]">{message}</p>
+              <div className="mt-5 text-left">
+                <UserMessage
+                  title={errorDetails?.title}
+                  message={errorDetails?.message}
+                  onRetry={errorDetails?.retryable ? () => setAttempt((value) => value + 1) : undefined}
+                  retryLabel="Verify again"
+                />
+              </div>
               <div className="mt-6">
                 <Link
                   href="/login"

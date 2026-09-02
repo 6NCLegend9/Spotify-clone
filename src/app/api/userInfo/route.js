@@ -3,34 +3,24 @@ import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import dbConnect from "@/utils/dbconnect";
 import { tokenOptions } from "@/utils/authToken";
+import { apiError, handleApiError } from "@/utils/apiResponse";
 
+export const runtime = "nodejs";
+export const maxDuration = 15;
 
 // Get user info
 export async function GET(req){
-    const token = await getToken(tokenOptions(req));
-    if (!token) {
-        return NextResponse.json(
-            {
-                success: false,
-                message: "User not logged in",
-                data: null
-            },
-            { status: 401 }
-        );
-    }
     try {
+        const token = await getToken(tokenOptions(req));
+        if (!token?.email) {
+            return apiError("UNAUTHORIZED", { message: "Log in to view your profile." });
+        }
         await dbConnect();
-        // console.log('token', token);
-        const user = await User.findOne({ email: token.email });
+        const user = await User.findOne({ email: token.email })
+            .select("userName email imageUrl isVerified")
+            .lean();
         if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not found",
-                    data: null
-                },
-                { status: 404 }
-            );
+            return apiError("NOT_FOUND", { message: "Your profile is no longer available." });
         }
         return NextResponse.json(
             {
@@ -44,17 +34,7 @@ export async function GET(req){
                 }
             }
         );
-
-
     } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "Load user profile");
     }
 }

@@ -1,70 +1,40 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import User from "@/models/User";
-import dbConnect from "@/utils/dbconnect";
-import UserData from "@/models/UserData";
-import { tokenOptions } from "@/utils/authToken";
+import { isRateLimited } from "@/utils/rateLimit";
+import {
+    apiError,
+    handleApiError,
+    readRequestJson,
+} from "@/utils/apiResponse";
+import { getAuthenticatedAccount } from "@/utils/userAccount";
+
+export const runtime = "nodejs";
+export const maxDuration = 15;
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const MAX_FAVOURITES = 500;
+
+function favouritePayload(userData) {
+    const json = typeof userData?.toJSON === "function" ? userData.toJSON() : userData;
+    return {
+        favourites: json.favourites || [],
+        favouriteAddedAt: json.favouriteAddedAt || {},
+    };
+}
 
 // Get user data
 export async function GET(req){
-    const token = await getToken(tokenOptions(req));
-    if (!token) {
-        return NextResponse.json(
-            {
-                success: false,
-                message: "User not logged in",
-                data: null
-            },
-            { status: 401 }
-        );
-    }
     try {
-        await dbConnect();
-        const user = await User.findOne({ email: token.email });
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not found",
-                    data: null
-                },
-                { status: 404 }
-            );
-        }
-        const userData = await UserData.findById(user.userData).select("favourites favouriteAddedAt").lean();
-        if (!userData) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User data not found",
-                    data: null
-                },
-                { status: 404 }
-            );
-        }
+        const { userData } = await getAuthenticatedAccount(req);
         return NextResponse.json(
             {
                 success: true,
                 message: "User Data found",
-                data: {
-                    favourites: userData.favourites || [],
-                    favouriteAddedAt: userData.favouriteAddedAt || {},
-                }
+                data: favouritePayload(userData),
             }
         );
 
     } catch (e) {
-        console.error('get user data error', e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "get favourites");
     }
 
 }
@@ -73,81 +43,52 @@ export async function GET(req){
 
 // Add to favourites
 export async function POST(request) {
-    const token = await getToken(tokenOptions(request));
-    if (!token) {
-        return NextResponse.json(
-            {
-                success: false,
-                message: "User not logged in",
-                data: null
-            },
-            { status: 401 }
-        );
-    }
-    const { id } = await request.json();
-    if (typeof id !== "string" || !YOUTUBE_ID_PATTERN.test(id)) {
-        return NextResponse.json(
-            {
-                success: false,
-                message: "A valid YouTube track is required",
-                data: null
-            },
-            { status: 400 }
-        );
-    }
     try {
-        await dbConnect();
-        const user = await User.findOne({ email: token.email });
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not found",
-                    data: null
-                },
-                { status: 404 }
-            );
+        const { userData, email } = await getAuthenticatedAccount(request);
+        const rateLimit = await isRateLimited(`favourite:${email}`, {
+            windowMs: 60_000,
+            max: 60,
+        });
+        if (rateLimit.limited) {
+            return apiError("RATE_LIMITED", {
+                retryAfter: rateLimit.retryAfter,
+                message: "Too many favourite updates. Please slow down.",
+            });
         }
-        const userData = await UserData.findById(user.userData);
-        if (!userData) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User data not found",
-                    data: null
-                },
-                { status: 404 }
-            );
+        const { id } = await readRequestJson(request);
+        if (typeof id !== "string" || !YOUTUBE_ID_PATTERN.test(id)) {
+            return apiError("VALIDATION_ERROR", {
+                message: "A valid YouTube track is required",
+            });
         }
-        if (userData.favourites.includes(id)) {
-            userData.favourites = userData.favourites.filter((songId) => songId !== id);
+        const favourites = Array.isArray(userData.favourites) ? userData.favourites : [];
+        if (favourites.includes(id)) {
+            userData.favourites = favourites.filter((songId) => songId !== id);
             userData.favouriteAddedAt?.delete(id);
         } else {
-            userData.favourites.push(id);
+            userData.favourites = [
+                ...favourites,
+                id,
+            ].slice(-MAX_FAVOURITES);
             userData.favouriteAddedAt?.set(id, new Date());
+            const retained = new Set(userData.favourites);
+            for (const favouriteId of userData.favouriteAddedAt?.keys() || []) {
+                if (!retained.has(favouriteId)) {
+                    userData.favouriteAddedAt.delete(favouriteId);
+                }
+            }
         }
         await userData.save();
         return NextResponse.json(
             {
                 success: true,
                 message: "Favourites updated",
-                data: {
-                    favourites: userData.favourites || [],
-                    favouriteAddedAt: userData.favouriteAddedAt || {},
-                }
+                data: favouritePayload(userData),
             }
         );
 
     } catch (e) {
-        console.error('add to favourites error', e);  
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "update favourites");
     }
 
 }

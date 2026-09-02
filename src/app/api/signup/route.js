@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import dbConnect from "@/utils/dbconnect";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
@@ -6,69 +5,80 @@ import UserData from "@/models/UserData";
 import crypto from "crypto";
 import mailSender from "@/utils/mailSender";
 import { getVerificationEmailTemplate } from "@/emails/VerificationEmail";
-import { getAppUrl } from "@/utils/appUrl";
+import { getAppUrl, getPublicAssetUrl } from "@/utils/appUrl";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
+import {
+    apiError,
+    apiSuccess,
+    handleApiError,
+    readRequestJson,
+} from "@/utils/apiResponse";
+import { EMAIL_PATTERN } from "@/utils/authErrors";
+import { hashToken } from "@/utils/tokenHash.mjs";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
 export async function POST(request) {
-    if (isRateLimited(getClientKey(request), { windowMs: 15 * 60_000, max: 8 })) {
-        return NextResponse.json(
-            { success: false, message: "Too many signup attempts. Please try again later.", data: null },
-            { status: 429 },
-        );
-    }
-
-    const payload = await request.json().catch(() => null);
-    const userName = typeof payload?.userName === "string" ? payload.userName.trim().slice(0, 50) : "";
-    const email = typeof payload?.email === "string" ? payload.email.trim().toLowerCase() : "";
-    const password = typeof payload?.password === "string" ? payload.password : "";
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!userName) {
-        return NextResponse.json(
-            { success: false, title: "Name required", message: "Please enter a username.", data: null },
-            { status: 400 },
-        );
-    }
-    if (!emailPattern.test(email)) {
-        return NextResponse.json(
-            { success: false, title: "Invalid email", message: "Please enter a valid email address.", data: null },
-            { status: 400 },
-        );
-    }
-    if (password.length < 8 || password.length > 72) {
-        return NextResponse.json(
-            { success: false, title: "Password too short", message: "Use a password between 8 and 72 characters.", data: null },
-            { status: 400 },
-        );
-    }
-
     let userData = null;
     let createdUser = null;
+
     try {
+        const rateLimit = await isRateLimited(getClientKey(request), {
+            windowMs: 15 * 60_000,
+            max: 8,
+        });
+        if (rateLimit.limited) {
+            return apiError("RATE_LIMITED", {
+                retryAfter: rateLimit.retryAfter,
+                message: "Too many signup attempts. Please try again later.",
+            });
+        }
+
+        const payload = await readRequestJson(request);
+        const userName =
+            typeof payload.userName === "string"
+                ? payload.userName.trim().slice(0, 50)
+                : "";
+        const email =
+            typeof payload.email === "string"
+                ? payload.email.trim().toLowerCase()
+                : "";
+        const password = typeof payload.password === "string" ? payload.password : "";
+
+        if (!userName) {
+            return apiError("VALIDATION_ERROR", {
+                title: "Name required",
+                message: "Please enter a username.",
+            });
+        }
+        if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+            return apiError("VALIDATION_ERROR", {
+                title: "Invalid email",
+                message: "Please enter a valid email address.",
+            });
+        }
+        if (password.length < 8 || password.length > 72) {
+            return apiError("VALIDATION_ERROR", {
+                title: "Invalid password",
+                message: "Use a password between 8 and 72 characters.",
+            });
+        }
+
         await dbConnect();
 
         const existingUser = await User.findOne({ email }).select("_id").lean();
         if (existingUser) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    title: "Account already exists",
-                    message: "An account with that email already exists. Try logging in, or request a new password link.",
-                    data: null,
-                },
-                { status: 409 },
-            );
+            return apiError("CONFLICT", {
+                title: "Account already exists",
+                message: "An account with that email already exists. Try logging in, or request a new password link.",
+            });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
         userData = await UserData.create({});
         const verificationToken = crypto.randomBytes(32).toString("hex");
-        const verificationTokenHash = crypto
-            .createHash("sha256")
-            .update(verificationToken)
-            .digest("hex");
+        const verificationTokenHash = hashToken(verificationToken);
 
         const result = await User.create({
             userName,
@@ -83,39 +93,35 @@ export async function POST(request) {
 
         const url = `${getAppUrl(request)}/verify-email/${verificationToken}`;
         const title = "Welcome to HeyKasa! Verify Your Email";
-        const body = getVerificationEmailTemplate(userName, url);
+        const body = getVerificationEmailTemplate(userName, url, {
+            logoUrl: getPublicAssetUrl("/icon-192x192.png", request),
+            lightPillarUrl: getPublicAssetUrl("/email-light-pillar.png", request),
+        });
 
         try {
-            await mailSender(email, title, body, { inlineLogo: true });
-        } catch (mailError) {
+            await mailSender(email, title, body);
+        } catch {
             await Promise.allSettled([
                 User.deleteOne({ _id: result._id }),
                 UserData.deleteOne({ _id: userData._id }),
             ]);
-            console.error("Signup email delivery failed:", mailError);
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "We could not send the verification email. Please try again.",
-                    data: null,
-                },
-                { status: 502 },
-            );
+            return apiError("BAD_GATEWAY", {
+                title: "Verification email unavailable",
+                message: "We could not send the verification email. Please try again.",
+            });
         }
 
-        return NextResponse.json(
+        return apiSuccess(
             {
-                success: true,
-                message: "User created successfully. Please check your email to verify your account.",
-                data: {
-                    userName: result.userName,
-                    email: result.email,
-                },
+                userName: result.userName,
+                email: result.email,
             },
-            { status: 201 },
+            {
+                status: 201,
+                message: "User created successfully. Please check your email to verify your account.",
+            },
         );
     } catch (error) {
-        console.error("Signup error:", error);
         await Promise.allSettled([
             createdUser?._id
                 ? User.deleteOne({ _id: createdUser._id })
@@ -125,14 +131,11 @@ export async function POST(request) {
                 : Promise.resolve(),
         ]);
         if (error?.code === 11000) {
-            return NextResponse.json(
-                { success: false, title: "Account already exists", message: "An account with that email already exists. Try logging in.", data: null },
-                { status: 409 },
-            );
+            return apiError("CONFLICT", {
+                title: "Account already exists",
+                message: "An account with that email already exists. Try logging in.",
+            });
         }
-        return NextResponse.json(
-            { success: false, message: "Something went wrong", data: null },
-            { status: 500 },
-        );
+        return handleApiError(error, "Signup");
     }
 }

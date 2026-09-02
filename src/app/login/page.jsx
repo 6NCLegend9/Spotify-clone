@@ -8,15 +8,16 @@ import { redirect, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import { useSession } from "next-auth/react";
-import { FaGoogle } from "react-icons/fa";
 import GradientText from "@/components/ReactBits/GradientText";
 import AuthMessage from "@/components/AuthMessage";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 import {
   AUTH_CODES,
   humanizeError,
   validateEmail,
   validatePassword,
 } from "@/utils/authErrors";
+import { userErrorDetails } from "@/utils/userError";
 
 const LoginPage = () => {
   const { status } = useSession();
@@ -29,6 +30,8 @@ const LoginPage = () => {
   });
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [retryAction, setRetryAction] = useState(null);
 
   useEffect(() => {
     const code = searchParams.get("error");
@@ -37,47 +40,96 @@ const LoginPage = () => {
 
   const onchange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (formError) setFormError(null);
+    if (formError) {
+      setFormError(null);
+      setRetryAction(null);
+    }
   };
 
-  const handelSubmit = async (e) => {
-    e.preventDefault();
+  const submitCredentials = async () => {
+    if (submitting || googleSubmitting) return;
     const emailError = validateEmail(formData.email);
     if (emailError) {
       setFormError(emailError);
+      setRetryAction(null);
       return;
     }
     const passwordError = validatePassword(formData.password);
     if (passwordError) {
       setFormError(passwordError);
+      setRetryAction(null);
       return;
     }
     try {
       setSubmitting(true);
+      setRetryAction(null);
       dispatch(setProgress(70));
       const res = await signIn("credentials", {
         redirect: false,
         email: formData.email,
         password: formData.password,
       });
-      if (!res?.error) {
+      if (!res || typeof res.ok !== "boolean") {
+        throw new Error("Sign-in did not return a usable response.");
+      }
+      if (res.ok && !res.error) {
         toast.success("Logged in successfully");
         setFormError(null);
       } else {
         setFormError(humanizeError(res.error, AUTH_CODES.CredentialsSignin));
+        setRetryAction(null);
       }
     } catch (error) {
-      setFormError(humanizeError(error));
+      const details = userErrorDetails(error, AUTH_CODES.Default);
+      setFormError(details);
+      setRetryAction(details.retryable ? "credentials" : null);
     } finally {
       setSubmitting(false);
       dispatch(setProgress(100));
     }
   };
 
+  const handelSubmit = (e) => {
+    e.preventDefault();
+    void submitCredentials();
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (submitting || googleSubmitting) return;
+    setGoogleSubmitting(true);
+    setFormError(null);
+    setRetryAction(null);
+    try {
+      const result = await signIn("google", {
+        callbackUrl: "/",
+        redirect: false,
+      });
+      if (result?.error) {
+        setFormError(humanizeError(result.error, AUTH_CODES.OAuthSignin));
+        return;
+      }
+      if (!result?.url) throw new Error("Google sign-in did not return a redirect.");
+      window.location.assign(result.url);
+    } catch (error) {
+      const details = userErrorDetails(error, AUTH_CODES.OAuthSignin);
+      setFormError(details);
+      setRetryAction(details.retryable ? "google" : null);
+    } finally {
+      setGoogleSubmitting(false);
+    }
+  };
+
+  const retryRequest =
+    retryAction === "google"
+      ? handleGoogleSignIn
+      : retryAction === "credentials"
+        ? submitCredentials
+        : undefined;
+
   if (status === "loading") {
     return (
-      <div className="page-loading">
-        <span className="loader" />
+      <div className="page-loading" role="status" aria-label="Loading sign in">
+        <span className="loader" aria-hidden="true" />
       </div>
     );
   }
@@ -105,10 +157,8 @@ const LoginPage = () => {
             id="login-error"
             title={formError?.title}
             message={formError?.message}
-            onRetry={() => {
-              setFormError(null);
-              emailRef.current?.focus();
-            }}
+            onRetry={retryRequest}
+            busy={submitting || googleSubmitting}
             href="/reset-password"
           />
           <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
@@ -146,22 +196,14 @@ const LoginPage = () => {
           <Link href="/reset-password" className="text-xs font-semibold text-[#00e6e6]">
             Forgot password?
           </Link>
-          <button type="submit" disabled={submitting} className="btn-primary w-full">
+          <button type="submit" disabled={submitting || googleSubmitting} className="btn-primary w-full">
             {submitting ? "Signing in..." : "Log in"}
           </button>
-          <div className="flex items-center gap-3 text-xs text-[#9aa8b5]">
-            <span className="h-px flex-1 bg-white/15" />
-            or
-            <span className="h-px flex-1 bg-white/15" />
-          </div>
-          <button
-            onClick={() => signIn("google")}
-            type="button"
-            className="btn-ghost w-full"
-          >
-            <FaGoogle />
-            Continue with Google
-          </button>
+          <GoogleSignInButton
+            onClick={handleGoogleSignIn}
+            disabled={submitting}
+            busy={googleSubmitting}
+          />
           <p className="text-center text-sm text-[#c9d4de]">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="font-semibold text-[#00e6e6]">
@@ -178,8 +220,8 @@ export default function LoginPageWithSearch() {
   return (
     <Suspense
       fallback={
-        <div className="page-loading">
-          <span className="loader" />
+        <div className="page-loading" role="status" aria-label="Loading sign in">
+          <span className="loader" aria-hidden="true" />
         </div>
       }
     >

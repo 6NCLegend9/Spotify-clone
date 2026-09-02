@@ -8,9 +8,18 @@ import { ensureSystemGenres, toCatalogItem } from "@/services/genreCatalog";
 import { MAX_GENRE_DEPTH, normalizeGenreName, slugifyGenre } from "@/utils/genreTaxonomy";
 import { tokenOptions } from "@/utils/authToken";
 import dbConnect from "@/utils/dbconnect";
+import { isRateLimited } from "@/utils/rateLimit";
+import {
+  ApiRouteError,
+  apiError,
+  handleApiError,
+  readRequestJson,
+} from "@/utils/apiResponse";
 
 const MAX_PERSONAL_GENRES = 40;
 const MAX_SEARCH_RESULTS = 50;
+const MAX_QUERY_LENGTH = 100;
+const LOCALE_PATTERN = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
 
 function matchesQuery(genre, normalizedQuery) {
   if (!normalizedQuery) return true;
@@ -35,16 +44,24 @@ function buildGenreTree(genres, locale) {
 async function authenticatedUser(request) {
   const token = await getToken(tokenOptions(request));
   if (!token?.email) return null;
+  await dbConnect();
   return User.findOne({ email: token.email }).select("_id userData").lean();
 }
 
 export const runtime = "nodejs";
+export const maxDuration = 15;
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const locale = searchParams.get("locale") || "en";
-    const normalizedQuery = normalizeGenreName(searchParams.get("q"));
+    const query = searchParams.get("q") || "";
+    if (!LOCALE_PATTERN.test(locale) || query.length > MAX_QUERY_LENGTH) {
+      throw new ApiRouteError("VALIDATION_ERROR", {
+        message: "The genre search parameters are invalid.",
+      });
+    }
+    const normalizedQuery = normalizeGenreName(query);
 
     await dbConnect();
     const [systemGenres, user] = await Promise.all([
@@ -66,27 +83,40 @@ export async function GET(request) {
       personalGenres: personalGenres.map((genre) => toCatalogItem(genre, locale)),
     });
   } catch (error) {
-    console.error("Get genres error:", error);
-    return NextResponse.json({ error: "Unable to load genres." }, { status: 500 });
+    return handleApiError(error, "Load genres");
   }
 }
 
 export async function POST(request) {
-  const user = await authenticatedUser(request);
-  if (!user) return NextResponse.json({ error: "You must be logged in." }, { status: 401 });
-
-  const body = await request.json().catch(() => null);
-  const displayName = typeof body?.name === "string"
-    ? body.name.trim().replace(/\s+/g, " ")
-    : "";
-  const normalizedName = normalizeGenreName(displayName);
-
-  if (displayName.length < 2 || displayName.length > 80 || normalizedName.length < 2) {
-    return NextResponse.json({ error: "Genre names must be between 2 and 80 characters." }, { status: 422 });
-  }
-
   try {
-    await dbConnect();
+    const user = await authenticatedUser(request);
+    if (!user) {
+      return apiError("UNAUTHORIZED", { message: "You must be logged in." });
+    }
+
+    const rateLimit = await isRateLimited(`genres:create:${user._id}`, {
+      windowMs: 15 * 60_000,
+      max: 30,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many genre changes. Please wait before trying again.",
+      });
+    }
+
+    const body = await readRequestJson(request);
+    const displayName = typeof body.name === "string"
+      ? body.name.trim().replace(/\s+/g, " ")
+      : "";
+    const normalizedName = normalizeGenreName(displayName);
+
+    if (displayName.length < 2 || displayName.length > 80 || normalizedName.length < 2) {
+      return apiError("UNPROCESSABLE", {
+        message: "Genre names must be between 2 and 80 characters.",
+      });
+    }
+
     const systemGenres = await ensureSystemGenres();
     const matchingSystemGenre = systemGenres.find((genre) =>
       matchesQuery(genre, normalizedName) && [genre.normalizedName, ...(genre.aliasKeys || [])].includes(normalizedName),
@@ -114,21 +144,25 @@ export async function POST(request) {
 
     const personalGenreCount = await Genre.countDocuments({ scope: "personal", ownerId: user._id });
     if (personalGenreCount >= MAX_PERSONAL_GENRES) {
-      return NextResponse.json({ error: "You can save up to 40 personal genres." }, { status: 422 });
+      return apiError("UNPROCESSABLE", { message: "You can save up to 40 personal genres." });
     }
 
     let parent = null;
-    if (body.parentId) {
+    if (body.parentId !== undefined && body.parentId !== null && body.parentId !== "") {
+      if (typeof body.parentId !== "string") {
+        return apiError("UNPROCESSABLE", { message: "The selected parent genre is invalid." });
+      }
       if (!mongoose.isValidObjectId(body.parentId)) {
-        return NextResponse.json({ error: "The selected parent genre is invalid." }, { status: 422 });
+        return apiError("UNPROCESSABLE", { message: "The selected parent genre is invalid." });
       }
       parent = await Genre.findById(body.parentId).lean();
-      const ownsPersonalParent = parent?.scope === "personal" && parent.ownerId.toString() === user._id.toString();
+      const ownsPersonalParent = parent?.scope === "personal"
+        && parent.ownerId?.toString() === user._id.toString();
       if (!parent || (parent.scope !== "system" && !ownsPersonalParent)) {
-        return NextResponse.json({ error: "The selected parent genre is unavailable." }, { status: 404 });
+        return apiError("NOT_FOUND", { message: "The selected parent genre is unavailable." });
       }
       if (parent.depth >= MAX_GENRE_DEPTH) {
-        return NextResponse.json({ error: "Genres can be nested up to four levels." }, { status: 422 });
+        return apiError("UNPROCESSABLE", { message: "Genres can be nested up to four levels." });
       }
     }
 
@@ -149,26 +183,39 @@ export async function POST(request) {
     return NextResponse.json({ success: true, created: true, genre: toCatalogItem(genre, "en") }, { status: 201 });
   } catch (error) {
     if (error?.code === 11000) {
-      return NextResponse.json({ error: "That genre already exists in your catalog." }, { status: 409 });
+      return apiError("CONFLICT", { message: "That genre already exists in your catalog." });
     }
-    console.error("Create personal genre error:", error);
-    return NextResponse.json({ error: "Unable to create the genre." }, { status: 500 });
+    return handleApiError(error, "Create personal genre");
   }
 }
 
 export async function DELETE(request) {
-  const user = await authenticatedUser(request);
-  if (!user) return NextResponse.json({ error: "You must be logged in." }, { status: 401 });
-
-  const id = new URL(request.url).searchParams.get("id");
-  if (!mongoose.isValidObjectId(id)) {
-    return NextResponse.json({ error: "The genre identifier is invalid." }, { status: 422 });
-  }
-
   try {
-    await dbConnect();
+    const user = await authenticatedUser(request);
+    if (!user) {
+      return apiError("UNAUTHORIZED", { message: "You must be logged in." });
+    }
+
+    const rateLimit = await isRateLimited(`genres:delete:${user._id}`, {
+      windowMs: 15 * 60_000,
+      max: 40,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many genre changes. Please wait before trying again.",
+      });
+    }
+
+    const id = new URL(request.url).searchParams.get("id");
+    if (!mongoose.isValidObjectId(id)) {
+      return apiError("UNPROCESSABLE", { message: "The genre identifier is invalid." });
+    }
+
     const genre = await Genre.findOne({ _id: id, scope: "personal", ownerId: user._id }).lean();
-    if (!genre) return NextResponse.json({ error: "Personal genre not found." }, { status: 404 });
+    if (!genre) {
+      return apiError("NOT_FOUND", { message: "Personal genre not found." });
+    }
 
     const removedGenres = await Genre.find({
       scope: "personal",
@@ -188,7 +235,6 @@ export async function DELETE(request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Delete personal genre error:", error);
-    return NextResponse.json({ error: "Unable to delete the genre." }, { status: 500 });
+    return handleApiError(error, "Delete personal genre");
   }
 }

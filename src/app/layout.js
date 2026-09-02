@@ -9,7 +9,7 @@ import Favicon from "./favicon.ico";
 import AuthProvider from "./AuthProvider";
 import AppShell from "@/components/Layout/AppShell";
 import { AccessibilityPreferencesProvider } from "@/components/AccessibilityPreferences";
-import Script from "next/script";
+import AnalyticsConsent from "@/components/AnalyticsConsent";
 import {
   SITE_URL,
   SITE_NAME,
@@ -188,7 +188,6 @@ const jsonLd = {
         "Custom playlist creation",
         "Favorite songs library",
         "Lyrics and album art",
-        "Artist and album browsing",
         "English music",
         "Offline ready PWA",
         "Ad-light listening experience",
@@ -246,24 +245,11 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <Script src="https://scripts.simpleanalyticscdn.com/latest.js" />
-      <Script
-        async
-        src="https://www.googletagmanager.com/gtag/js?id=G-Z4FJ5T627Q"
-      ></Script>
-      <Script id="google-analytics">
-        {`
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-Z4FJ5T627Q');
-  `}
-      </Script>
       <body className={poppins.className}>
         <AccessibilityPreferencesProvider>
           <Providers>
             <AuthProvider>
+              <AnalyticsConsent />
               <TopProgressBar />
               <SongsHistory />
               <SettingsSync />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
@@ -9,6 +9,10 @@ import MediaImage from "@/components/MediaImage";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 import Link from "next/link";
+import EmptyState from "@/components/EmptyState";
+import UserMessage from "@/components/UserMessage";
+import { requestJson } from "@/services/http";
+import { toUserError } from "@/utils/userError";
 
 export default function YouTubeMusicResults({ query }) {
   const [results, setResults] = useState([]);
@@ -17,93 +21,265 @@ export default function YouTubeMusicResults({ query }) {
   const dispatch = useDispatch();
   const { status } = useSession();
   const [loading, setLoading] = useState(false);
-  const [songError, setSongError] = useState("");
+  const [songError, setSongError] = useState(null);
+  const [searchRetryKey, setSearchRetryKey] = useState(0);
   const [loadingPlaylistId, setLoadingPlaylistId] = useState(null);
   const [extrasLoaded, setExtrasLoaded] = useState(false);
   const [loadingExtras, setLoadingExtras] = useState(false);
+  const [extrasError, setExtrasError] = useState(null);
   const [followedArtists, setFollowedArtists] = useState([]);
+  const [followError, setFollowError] = useState(null);
+  const [loadingFollows, setLoadingFollows] = useState(false);
+  const [followRetryKey, setFollowRetryKey] = useState(0);
+  const [updatingArtists, setUpdatingArtists] = useState([]);
+  const extrasRequestId = useRef(0);
 
   useEffect(() => {
-    if (status !== "authenticated") return;
-    fetch("/api/followedArtists")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json?.success) setFollowedArtists(json.data || []);
-      })
-      .catch(() => {});
-  }, [status]);
+    if (status !== "authenticated") {
+      setFollowError(null);
+      setFollowedArtists([]);
+      setLoadingFollows(false);
+      return;
+    }
+    const controller = new AbortController();
+    let cancelled = false;
+    const loadFollowedArtists = async () => {
+      setLoadingFollows(true);
+      setFollowError(null);
+      try {
+        const json = await requestJson("/api/followedArtists", {
+          signal: controller.signal,
+          fallbackTitle: "Follow status unavailable",
+          fallbackMessage: "You can still browse artists and try syncing follows again.",
+        });
+        if (json?.success !== true || !Array.isArray(json.data)) {
+          throw new Error("Follow status did not return usable data.");
+        }
+        if (!cancelled) setFollowedArtists(json.data);
+      } catch (error) {
+        if (!cancelled && !controller.signal.aborted) {
+          setFollowError(
+            toUserError(error, {
+              title: "Follow status unavailable",
+              message: "You can still browse artists and try syncing follows again.",
+            }),
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingFollows(false);
+      }
+    };
+    void loadFollowedArtists();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [followRetryKey, status]);
 
   const genreHits = useMemo(() => searchGenres(query, { limit: 8 }), [query]);
 
   const toggleFollow = async (name) => {
     if (status !== "authenticated") return;
     const isFollowing = followedArtists.some((value) => value.toLowerCase() === name.toLowerCase());
+    const normalizedName = name.toLowerCase();
+    if (updatingArtists.includes(normalizedName)) return;
+    setUpdatingArtists((current) => [...current, normalizedName]);
     setFollowedArtists((current) =>
       isFollowing ? current.filter((value) => value.toLowerCase() !== name.toLowerCase()) : [...current, name],
     );
-    const response = await fetch("/api/followedArtists", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    const data = await response.json().catch(() => null);
-    if (data?.success) toast.success(data.message);
+    try {
+      const data = await requestJson("/api/followedArtists", {
+        method: "POST",
+        body: { name },
+        fallbackTitle: "Follow couldn’t be updated",
+        fallbackMessage: "Your follow change wasn’t saved. Please try again.",
+      });
+      if (data?.success !== true || !Array.isArray(data.data)) {
+        throw new Error("Follow update did not return usable data.");
+      }
+      setFollowedArtists(data.data);
+      const successMessage =
+        typeof data?.message === "string" && data.message.trim()
+          ? data.message
+          : isFollowing
+            ? "Unfollowed"
+            : "Followed";
+      toast.success(successMessage);
+    } catch (error) {
+      setFollowedArtists((current) => {
+        const containsArtist = current.some(
+          (value) => value.toLowerCase() === normalizedName,
+        );
+        if (isFollowing && !containsArtist) return [...current, name];
+        if (!isFollowing && containsArtist) {
+          return current.filter((value) => value.toLowerCase() !== normalizedName);
+        }
+        return current;
+      });
+      const userError = toUserError(error, {
+        title: "Follow couldn’t be updated",
+        message: "Your follow change wasn’t saved. Please try again.",
+      });
+      toast.error(userError.message);
+    } finally {
+      setUpdatingArtists((current) =>
+        current.filter((value) => value !== normalizedName),
+      );
+    }
   };
 
   useEffect(() => {
+    const controller = new AbortController();
     let cancelled = false;
     const search = async () => {
       setLoading(true);
-      setSongError("");
+      setSongError(null);
       setArtists([]);
       setAlbums([]);
       setExtrasLoaded(false);
+      setExtrasError(null);
+      setLoadingExtras(false);
+      extrasRequestId.current += 1;
       // Only the song/video search runs automatically; artists and playlists cost extra quota
       // and are fetched on demand via "Show artists & playlists" instead.
-      const response = await fetch(`/api/youtube-search?q=${encodeURIComponent(query)}&type=video`);
-      const data = response.ok ? await response.json() : null;
-      if (cancelled) return;
-      setResults(response.ok ? data.results || [] : []);
-      setSongError(response.ok ? "" : data?.error || "Song search is temporarily unavailable.");
-      setLoading(false);
-      if (status === "authenticated") {
-        fetch("/api/searches", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ term: query }),
-        }).catch(() => {});
+      try {
+        const data = await requestJson(
+          `/api/youtube-search?q=${encodeURIComponent(query)}&type=video`,
+          {
+            signal: controller.signal,
+            fallbackTitle: "Search is temporarily unavailable",
+            fallbackMessage: "We couldn’t search YouTube Music. Please try again.",
+          },
+        );
+        if (cancelled) return;
+        setResults(Array.isArray(data?.results) ? data.results : []);
+        if (status === "authenticated") {
+          void requestJson("/api/searches", {
+            method: "POST",
+            body: { term: query },
+          }).catch(() => {
+            // Search history is optional and must not interrupt visible results.
+          });
+        }
+      } catch (error) {
+        if (!cancelled && !controller.signal.aborted) {
+          setResults([]);
+          setSongError(
+            toUserError(error, {
+              title: "Search is temporarily unavailable",
+              message: "We couldn’t search YouTube Music. Please try again.",
+            }),
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
-    if (query?.trim()) search();
+    if (query?.trim()) {
+      void search();
+    } else {
+      setResults([]);
+      setSongError(null);
+      setLoading(false);
+    }
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [query, status]);
+  }, [query, searchRetryKey, status]);
 
-  const loadExtras = async () => {
-    if (extrasLoaded || loadingExtras) return;
+  const loadExtras = async ({ retry = false } = {}) => {
+    if ((!retry && extrasLoaded) || loadingExtras) return;
+    const requestId = extrasRequestId.current + 1;
+    extrasRequestId.current = requestId;
     setLoadingExtras(true);
-    const searchUrl = `/api/youtube-search?q=${encodeURIComponent(query)}`;
-    const [channelRes, playlistRes] = await Promise.allSettled([
-      fetch(`${searchUrl}&type=channel`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
-      fetch(`${searchUrl}&type=playlist`).then((response) => response.json().then((data) => ({ ok: response.ok, data }))),
-    ]);
-    const channel = channelRes.status === "fulfilled" ? channelRes.value : null;
-    const playlist = playlistRes.status === "fulfilled" ? playlistRes.value : null;
-    setArtists(channel?.ok ? channel.data.results || [] : []);
-    setAlbums(playlist?.ok ? playlist.data.results || [] : []);
-    setExtrasLoaded(true);
-    setLoadingExtras(false);
+    setExtrasError(null);
+    try {
+      const searchUrl = `/api/youtube-search?q=${encodeURIComponent(query)}`;
+      const [channelResult, playlistResult] = await Promise.allSettled([
+        requestJson(`${searchUrl}&type=channel`, {
+          fallbackTitle: "Artists couldn’t be loaded",
+          fallbackMessage: "Artist results are temporarily unavailable.",
+        }),
+        requestJson(`${searchUrl}&type=playlist`, {
+          fallbackTitle: "Playlists couldn’t be loaded",
+          fallbackMessage: "Playlist results are temporarily unavailable.",
+        }),
+      ]);
+      if (requestId !== extrasRequestId.current) return;
+
+      if (channelResult.status === "fulfilled") {
+        setArtists(
+          Array.isArray(channelResult.value?.results)
+            ? channelResult.value.results
+            : [],
+        );
+      } else {
+        setArtists([]);
+      }
+      if (playlistResult.status === "fulfilled") {
+        setAlbums(
+          Array.isArray(playlistResult.value?.results)
+            ? playlistResult.value.results
+            : [],
+        );
+      } else {
+        setAlbums([]);
+      }
+
+      const failedLabels = [
+        channelResult.status === "rejected" ? "artists" : null,
+        playlistResult.status === "rejected" ? "playlists" : null,
+      ].filter(Boolean);
+      if (failedLabels.length > 0) {
+        const sourceError =
+          channelResult.status === "rejected"
+            ? channelResult.reason
+            : playlistResult.reason;
+        const normalized = toUserError(sourceError);
+        setExtrasError({
+          title: failedLabels.length === 2
+            ? "Artists and playlists couldn’t load"
+            : `${failedLabels[0][0].toUpperCase()}${failedLabels[0].slice(1)} couldn’t load`,
+          message:
+            failedLabels.length === 2
+              ? "The main song results are still available. Try loading these extras again."
+              : `${failedLabels[0][0].toUpperCase()}${failedLabels[0].slice(1)} are temporarily unavailable. Other results are still available.`,
+          retryable: normalized.retryable,
+        });
+      }
+    } catch (error) {
+      if (requestId === extrasRequestId.current) {
+        const normalized = toUserError(error, {
+          title: "Artists and playlists couldn’t load",
+          message: "The main song results are still available. Try loading these extras again.",
+        });
+        setArtists([]);
+        setAlbums([]);
+        setExtrasError(normalized);
+      }
+    } finally {
+      if (requestId === extrasRequestId.current) {
+        setExtrasLoaded(true);
+        setLoadingExtras(false);
+      }
+    }
   };
 
   const playPlaylist = async (playlist) => {
     if (loadingPlaylistId) return;
     setLoadingPlaylistId(playlist.id);
     try {
-      const response = await fetch(`/api/youtube-playlist?id=${playlist.id}`);
-      const data = response.ok ? await response.json() : null;
-      const tracks = data?.tracks || [];
+      const data = await requestJson(
+        `/api/youtube-playlist?id=${encodeURIComponent(playlist.id)}`,
+        {
+          fallbackCode: "PLAYBACK_ERROR",
+          fallbackTitle: "Playlist unavailable",
+          fallbackMessage: "We couldn’t load this playlist. Please try again.",
+        },
+      );
+      const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
       if (tracks.length === 0) {
         toast.error("This playlist has no playable videos.");
         return;
@@ -115,8 +291,12 @@ export default function YouTubeMusicResults({ query }) {
       }));
       dispatch(setYoutubeQueue(seeded));
       dispatch(setYoutubeVideo(seeded[0]));
-    } catch (playlistError) {
-      toast.error("Could not load this playlist.");
+    } catch (error) {
+      const userError = toUserError(error, {
+        title: "Playlist unavailable",
+        message: "We couldn’t load this playlist. Please try again.",
+      });
+      toast.error(userError.message);
     } finally {
       setLoadingPlaylistId(null);
     }
@@ -154,9 +334,22 @@ export default function YouTubeMusicResults({ query }) {
       )}
 
       {loading && <CardGridSkeleton count={6} aspect="aspect-video" />}
-      {!loading && songError && <p className="text-sm text-amber-300">{songError}</p>}
+      {!loading && songError && (
+        <UserMessage
+          title={songError.title}
+          message={songError.message}
+          onRetry={() => setSearchRetryKey((value) => value + 1)}
+          busy={loading}
+        />
+      )}
       {!loading && !songError && results.length === 0 && (
-        <p className="text-gray-400">No YouTube music found.</p>
+        <EmptyState
+          eyebrow="Search"
+          title="No music found"
+          message={`We couldn’t find playable YouTube Music results for “${query}”. Try another search.`}
+          href="/"
+          actionLabel="Start another search"
+        />
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -182,12 +375,52 @@ export default function YouTubeMusicResults({ query }) {
       {!loading && results.length > 0 && !extrasLoaded && (
         <button
           type="button"
-          onClick={loadExtras}
+          onClick={() => void loadExtras()}
           disabled={loadingExtras}
           className="mt-8 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-gray-300 transition hover:border-[#00e6e6] hover:text-[#00e6e6] disabled:opacity-60"
         >
           {loadingExtras ? "Loading artists & playlists..." : "Show artists & playlists"}
         </button>
+      )}
+
+      {extrasError && (
+        <div className="mt-6">
+          <UserMessage
+            tone="warning"
+            title={extrasError.title}
+            message={extrasError.message}
+            onRetry={() => void loadExtras({ retry: true })}
+            busy={loadingExtras}
+            compact
+          />
+        </div>
+      )}
+
+      {extrasLoaded &&
+        !loadingExtras &&
+        !extrasError &&
+        artists.length === 0 &&
+        albums.length === 0 && (
+          <div className="mt-6">
+            <EmptyState
+              eyebrow="Artists and playlists"
+              title="No extra results found"
+              message="The song results above are still ready to play."
+            />
+          </div>
+        )}
+
+      {extrasLoaded && followError && (
+        <div className="mt-6">
+          <UserMessage
+            tone="warning"
+            title={followError.title}
+            message={followError.message}
+            onRetry={() => setFollowRetryKey((value) => value + 1)}
+            busy={loadingFollows}
+            compact
+          />
+        </div>
       )}
 
       {artists.length > 0 && (
@@ -196,6 +429,7 @@ export default function YouTubeMusicResults({ query }) {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
             {artists.map((artist) => {
               const isFollowing = followedArtists.some((value) => value.toLowerCase() === artist.title.toLowerCase());
+              const isUpdating = updatingArtists.includes(artist.title.toLowerCase());
               return (
               <div key={artist.id} className="group text-center">
                 <a
@@ -209,10 +443,12 @@ export default function YouTubeMusicResults({ query }) {
                 {status === "authenticated" && (
                   <button
                     type="button"
-                    onClick={() => toggleFollow(artist.title)}
+                    onClick={() => void toggleFollow(artist.title)}
+                    disabled={isUpdating}
+                    aria-pressed={isFollowing}
                     className={`mt-1 rounded-full border px-2 py-0.5 text-[11px] transition ${isFollowing ? "border-[#00e6e6] text-[#00e6e6]" : "border-white/15 text-gray-400 hover:border-white/30"}`}
                   >
-                    {isFollowing ? "Following" : "Follow"}
+                    {isUpdating ? "Saving…" : isFollowing ? "Following" : "Follow"}
                   </button>
                 )}
               </div>

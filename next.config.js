@@ -1,5 +1,43 @@
+const isProduction = process.env.NODE_ENV === "production";
+const disablePwa =
+  process.env.NODE_ENV === "development"
+  || process.env.DISABLE_PWA === "1";
+const scriptSources = [
+  "'self'",
+  "'unsafe-inline'",
+  "https://www.youtube.com",
+  "https://www.googletagmanager.com",
+  "https://scripts.simpleanalyticscdn.com",
+];
+
+if (!isProduction) {
+  scriptSources.push("'unsafe-eval'");
+}
+
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src ${scriptSources.join(" ")}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://i.ytimg.com https://yt3.ggpht.com https://lh3.googleusercontent.com https://api.dicebear.com https://avatars.githubusercontent.com https://queue.simpleanalyticscdn.com https://*.simpleanalyticscdn.com https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://*.googletagmanager.com",
+  "font-src 'self' data:",
+  "media-src 'self' blob: https://*.googlevideo.com",
+  "connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://scripts.simpleanalyticscdn.com https://queue.simpleanalyticscdn.com https://*.simpleanalyticscdn.com https://simpleanalytics.com",
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+  ...(isProduction ? ["upgrade-insecure-requests"] : []),
+].join("; ");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
+  experimental: {
+    webpackMemoryOptimizations: true,
+  },
   serverExternalPackages: ["youtubei.js"],
   images: {
     remotePatterns: [
@@ -22,6 +60,15 @@ const nextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          ...(isProduction
+            ? [
+                {
+                  key: "Strict-Transport-Security",
+                  value: "max-age=63072000; includeSubDomains; preload",
+                },
+              ]
+            : []),
         ],
       },
       {
@@ -85,10 +132,52 @@ const nextConfig = {
 
 const withPWA = require("@ducanh2912/next-pwa").default({
   dest: "public",
-  disable: process.env.NODE_ENV === "development",
+  disable: disablePwa,
+  cacheStartUrl: false,
   skipWaiting: true,
   clientsClaim: true,
   cleanupOutdatedCaches: true,
+  workboxOptions: {
+    runtimeCaching: [
+      {
+        urlPattern: ({ sameOrigin, url }) =>
+          sameOrigin
+          && (
+            url.pathname.startsWith("/api/")
+            || url.pathname === "/api"
+            || /^\/(?:login|signup|reset-password|verify-email)(?:\/|$)/.test(
+              url.pathname,
+            )
+          ),
+        handler: "NetworkOnly",
+      },
+      {
+        urlPattern: ({ sameOrigin, request }) =>
+          sameOrigin
+          && ["script", "style", "worker", "font"].includes(request.destination),
+        handler: "CacheFirst",
+        options: {
+          cacheName: "static-resources",
+          expiration: {
+            maxEntries: 96,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
+          },
+        },
+      },
+      {
+        urlPattern: ({ request }) => request.destination === "image",
+        handler: "StaleWhileRevalidate",
+        options: {
+          cacheName: "image-resources",
+          expiration: {
+            maxEntries: 128,
+            maxAgeSeconds: 7 * 24 * 60 * 60,
+          },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+    ],
+  },
 });
 
 module.exports = withPWA(nextConfig);

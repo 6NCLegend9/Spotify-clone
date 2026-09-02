@@ -1,4 +1,7 @@
 import { MAJOR_GENRES } from "@/utils/genreTaxonomy";
+import { DEFAULT_GENRES } from "./recommendationSeeds.mjs";
+
+export { DEFAULT_GENRES };
 
 const MOOD_CATALOG = [
   {
@@ -55,8 +58,6 @@ export const GENRE_OPTIONS = GENRE_CATALOG.flatMap((genre) => [
 ]);
 
 export const PRIMARY_GENRE_NAMES = GENRE_CATALOG.map((genre) => genre.name);
-
-export const DEFAULT_GENRES = ["Pop", "Rock", "Hip Hop & Rap", "Electronic & Dance"];
 
 function normalize(value) {
   return String(value || "")

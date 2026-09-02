@@ -1,5 +1,6 @@
 "use client";
 
+import UserMessage from "@/components/UserMessage";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 
 export default function SyncedLyrics({
@@ -11,7 +12,7 @@ export default function SyncedLyrics({
   compact = false,
   className = "",
 }) {
-  const { data, lines, status, indexFor, live } = useSyncedLyrics({
+  const { data, error, lines, status, indexFor, live, retry } = useSyncedLyrics({
     title,
     artist,
     duration,
@@ -19,11 +20,33 @@ export default function SyncedLyrics({
   });
   const activeIndex = indexFor(currentTime);
 
+  if (!title) {
+    return (
+      <div className={`px-4 py-6 ${className}`}>
+        <UserMessage
+          tone="info"
+          title="No track selected"
+          message="Choose a track to view its lyrics."
+          compact
+        />
+      </div>
+    );
+  }
   if (status === "loading") {
     return <p className={`px-4 py-6 text-center text-sm text-gray-400 ${className}`}>Loading live lyrics…</p>;
   }
   if (status === "error") {
-    return <p className={`px-4 py-6 text-center text-sm text-gray-400 ${className}`}>Lyrics could not be loaded.</p>;
+    return (
+      <div className={`px-4 py-6 ${className}`}>
+        <UserMessage
+          tone="error"
+          title={error?.title || "Lyrics unavailable"}
+          message={error?.message || "We couldn’t load lyrics for this track."}
+          onRetry={error?.retryable === false ? undefined : retry}
+          compact
+        />
+      </div>
+    );
   }
   if (data?.instrumental) {
     return <p className={`px-4 py-6 text-center text-sm text-gray-400 ${className}`}>This track is instrumental.</p>;

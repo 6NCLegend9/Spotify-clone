@@ -97,7 +97,7 @@ const fileSchema = new mongoose.Schema(
             monoAudio: { type: Boolean, default: false },
             explicitContent: { type: Boolean, default: false },
             privateSession: { type: Boolean, default: false },
-            tailoredAds: { type: Boolean, default: true },
+            tailoredAds: { type: Boolean, default: false },
             syncedLyrics: { type: Boolean, default: true },
             pictureInPicture: { type: Boolean, default: true },
             masterVolume: { type: Number, min: 0, max: 1, default: 0.85 },

@@ -1,7 +1,34 @@
 // Single source of truth for SEO + metadata.
-// If the domain ever changes again, update SITE_URL only.
+export const PRODUCTION_SITE_URL = "https://haykasa.vercel.app";
 
-export const SITE_URL = "https://haykasa.vercel.app";
+export function normalizeAppUrl(value, { allowHttp = false } = {}) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+
+  try {
+    const url = new URL(
+      /^[a-z][a-z\d+.-]*:\/\//i.test(rawValue)
+        ? rawValue
+        : `https://${rawValue}`,
+    );
+    const isLocalHttp =
+      allowHttp
+      && url.protocol === "http:"
+      && ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+
+    if (url.protocol !== "https:" && !isLocalHttp) return "";
+    if (url.username || url.password) return "";
+
+    return url.origin;
+  } catch {
+    return "";
+  }
+}
+
+export const SITE_URL =
+  normalizeAppUrl(process.env.NEXT_PUBLIC_APP_URL) ||
+  normalizeAppUrl(process.env.NEXTAUTH_URL) ||
+  PRODUCTION_SITE_URL;
 export const SITE_NAME = "HeyKasa";
 export const SITE_BRAND = "HeyKasa Music";
 export const SITE_TAGLINE = "Free Music Streaming, MP3 Download & Playlists";

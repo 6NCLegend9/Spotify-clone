@@ -2,7 +2,17 @@
 import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
+import { toast } from "react-hot-toast";
 import { setLanguages } from "@/redux/features/languagesSlice";
+import { requestJson } from "@/services/http";
+
+const SYNC_ERROR_TOAST_ID = "account-preferences-sync-error";
+
+function notifySyncFailure() {
+  toast.error("Some account preferences couldn't sync. Your choices on this device are still available.", {
+    id: SYNC_ERROR_TOAST_ID,
+  });
+}
 
 // Mirrors SettingsSync.jsx: pulls the account's saved language preference on login,
 // and pushes local changes back so the preference follows the account across devices
@@ -24,20 +34,28 @@ const LanguageSync = () => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
     let cancelled = false;
-    fetch("/api/language")
-      .then((res) => res.json())
+    const controller = new AbortController();
+    requestJson("/api/language", {
+      signal: controller.signal,
+      fallbackTitle: "Preferences couldn't sync",
+      fallbackMessage: "Some account preferences couldn't sync.",
+    })
       .then((json) => {
+        if (!json || typeof json.authenticated !== "boolean") {
+          throw new Error("Language sync did not return usable data.");
+        }
         if (!cancelled && json?.authenticated && Array.isArray(json.language) && json.language.length > 0) {
           skipNextPushRef.current = true;
           dispatch(setLanguages(json.language));
         }
-      })
-      .catch(() => {})
-      .finally(() => {
         if (!cancelled) readyToPushRef.current = true;
+      })
+      .catch(() => {
+        if (!cancelled) notifySyncFailure();
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [status, dispatch]);
 
@@ -47,11 +65,16 @@ const LanguageSync = () => {
       skipNextPushRef.current = false;
       return;
     }
-    fetch("/api/language", {
+    requestJson("/api/language", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ language: languages }),
-    }).catch(() => {});
+      body: { language: languages },
+      fallbackTitle: "Preferences couldn't sync",
+      fallbackMessage: "Some account preferences couldn't sync.",
+    })
+      .then((json) => {
+        if (json?.success !== true) throw new Error("Language sync did not complete.");
+      })
+      .catch(() => notifySyncFailure());
   }, [languages, status]);
 
   return null;

@@ -8,6 +8,9 @@ import {
   MdOutlineAutorenew,
 } from "react-icons/md";
 import { toast } from "react-hot-toast";
+import { useSelector } from "react-redux";
+import { checkWifiDownloadConnection } from "@/utils/downloadConnection";
+import { toUserError } from "@/utils/userError";
 import {
   QUALITY_OPTIONS,
   buildTagInput,
@@ -25,6 +28,10 @@ const BulkDownloadButton = ({ songList }) => {
   const menuRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState(null);
   const resetTimerRef = useRef(null);
+  const [announcement, setAnnouncement] = useState("");
+  const wifiOnlyDownloads = useSelector(
+    (state) => state.settings.wifiOnlyDownloads,
+  );
 
   const songs = songList?.songs || songList || [];
   const downloadTitle = songList?.name || "songs";
@@ -63,17 +70,44 @@ const BulkDownloadButton = ({ songList }) => {
     };
   }, [showMenu]);
 
+  const canStartDownload = () => {
+    if (!wifiOnlyDownloads) return true;
+
+    const connection = checkWifiDownloadConnection();
+    if (connection.status === "non-wifi") {
+      const message =
+        "Wi-Fi-only downloads are enabled. Connect to Wi-Fi or turn off this setting to download.";
+      setAnnouncement(message);
+      toast.error(message);
+      return false;
+    }
+
+    if (connection.status === "unknown") {
+      const message =
+        "This browser can’t verify whether you’re on Wi-Fi. The download will continue, and your network may charge for data.";
+      setAnnouncement(message);
+      toast(message, { icon: "ℹ️" });
+    }
+
+    return true;
+  };
+
   const handleBulkDownload = async (quality) => {
     setShowMenu(false);
 
     if (!songs.length) {
-      toast.error("No songs available to download");
+      const message = "No songs are available to download.";
+      setAnnouncement(message);
+      toast.error(message);
       return;
     }
+
+    if (!canStartDownload()) return;
 
     setDownloading(true);
     setCompleted(false);
     setProgress(0);
+    let downloadCreated = false;
 
     try {
       const [{ default: JSZip }, { applyCoverArt, applyTags }] =
@@ -87,62 +121,120 @@ const BulkDownloadButton = ({ songList }) => {
       );
 
       if (!availableSongs.length) {
-        toast.error("No downloads available for this quality");
+        const message = "No songs are available at this download quality.";
+        setAnnouncement(message);
+        toast.error(message);
         return;
       }
+
+      let downloadedCount = 0;
+      const failedSongs = [];
 
       for (let index = 0; index < songs.length; index += 1) {
         const song = songs[index];
         const songUrl = song?.downloadUrl?.[quality.index]?.url;
 
         if (!songUrl) {
+          setProgress(Math.round(((index + 1) / songs.length) * 85));
           continue;
         }
 
-        const audioRes = await fetch(songUrl);
-        if (!audioRes.ok) {
-          continue;
-        }
+        let taggedBuffer;
+        let lastError;
 
-        const audioBuffer = await audioRes.arrayBuffer();
-        let taggedBuffer = await applyTags(
-          new Uint8Array(audioBuffer),
-          buildTagInput(song),
-        );
-
-        const coverUrl =
-          song?.image?.[2]?.url ||
-          song?.image?.[1]?.url ||
-          song?.image?.[0]?.url;
-
-        if (coverUrl) {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
-            const imgRes = await fetch(coverUrl);
-            if (imgRes.ok) {
-              const imgBuffer = await imgRes.arrayBuffer();
-              taggedBuffer = await applyCoverArt(
-                taggedBuffer,
-                new Uint8Array(imgBuffer),
-                getCoverType(imgRes.headers.get("content-type")),
-              );
+            const audioRes = await fetch(songUrl);
+            if (!audioRes.ok) {
+              const fetchError = new Error("Audio download failed");
+              fetchError.status = audioRes.status;
+              throw fetchError;
             }
-          } catch {
-            // Keep the audio file even if artwork fetch fails.
+
+            const audioBuffer = await audioRes.arrayBuffer();
+            taggedBuffer = await applyTags(
+              new Uint8Array(audioBuffer),
+              buildTagInput(song),
+            );
+
+            const coverUrl =
+              song?.image?.[2]?.url ||
+              song?.image?.[1]?.url ||
+              song?.image?.[0]?.url;
+
+            if (coverUrl) {
+              try {
+                const imgRes = await fetch(coverUrl);
+                if (imgRes.ok) {
+                  const imgBuffer = await imgRes.arrayBuffer();
+                  taggedBuffer = await applyCoverArt(
+                    taggedBuffer,
+                    new Uint8Array(imgBuffer),
+                    getCoverType(imgRes.headers.get("content-type")),
+                  );
+                }
+              } catch {
+                // Keep the audio file even if artwork fetch fails.
+              }
+            }
+
+            break;
+          } catch (error) {
+            lastError = error;
           }
         }
 
-        const fileName = `${sanitize(song?.name) || "track"}.m4a`;
-        folder.file(fileName, taggedBuffer);
+        if (taggedBuffer) {
+          const fileName = `${sanitize(song?.name) || "track"}.m4a`;
+          folder.file(fileName, taggedBuffer);
+          downloadedCount += 1;
+        } else {
+          failedSongs.push(song);
+          if (process.env.NODE_ENV === "development") {
+            console.warn("Bulk track download failed after retry:", lastError?.message || "Unknown download error");
+          }
+        }
+
         setProgress(Math.round(((index + 1) / songs.length) * 85));
+      }
+
+      if (!downloadedCount) {
+        const message = `None of the ${availableSongs.length} available songs could be downloaded after one retry.`;
+        setAnnouncement(message);
+        toast.error(message);
+        return;
       }
 
       const zipBlob = await zip.generateAsync({ type: "blob" });
       downloadBlob(zipBlob, `${folderName}.zip`);
+      downloadCreated = true;
       setProgress(100);
       setCompleted(true);
-      toast.success(
-        `Downloaded ${availableSongs.length} songs from ${folderName}`,
-      );
+
+      const unavailableCount = songs.length - availableSongs.length;
+      const resultParts = [
+        `Downloaded ${downloadedCount} of ${availableSongs.length} available songs from ${folderName}.`,
+      ];
+      if (failedSongs.length) {
+        resultParts.push(
+          `${failedSongs.length} failed after one retry.`,
+        );
+      }
+      if (unavailableCount) {
+        resultParts.push(
+          `${unavailableCount} ${
+            unavailableCount === 1 ? "song was" : "songs were"
+          } unavailable at this quality.`,
+        );
+      }
+
+      const resultMessage = resultParts.join(" ");
+      setAnnouncement(resultMessage);
+      if (failedSongs.length) {
+        toast(resultMessage, { icon: "⚠️" });
+      } else {
+        toast.success(resultMessage);
+      }
 
       if (resetTimerRef.current) {
         clearTimeout(resetTimerRef.current);
@@ -154,10 +246,15 @@ const BulkDownloadButton = ({ songList }) => {
       }, 2500);
     } catch (error) {
       console.error("Bulk download error:", error);
-      toast.error("Bulk download failed. Please try again.");
+      const userError = toUserError(error, {
+        title: "Bulk download failed",
+      });
+      const message = `${userError.title}. ${userError.message}`;
+      setAnnouncement(message);
+      toast.error(message);
     } finally {
       setDownloading(false);
-      if (!completed) {
+      if (!downloadCreated) {
         setProgress(0);
       }
     }
@@ -181,8 +278,11 @@ const BulkDownloadButton = ({ songList }) => {
             });
           }
         }}
+        disabled={downloading}
         title={downloading ? "Downloading" : `Download ${downloadTitle}`}
         aria-label={downloading ? "Downloading" : `Download ${downloadTitle}`}
+        aria-expanded={showMenu}
+        aria-busy={downloading}
         className={`relative overflow-hidden flex h-12 w-full sm:w-auto items-center justify-center gap-3 rounded-full border border-white/25 px-5 sm:px-6 text-gray-100 shadow-[0_0_28px_rgba(0,230,230,0.12)] transition-all duration-300 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-[#00e6e6]/20 sm:min-w-[260px] ${
           downloading
             ? "cursor-not-allowed bg-slate-800"
@@ -232,6 +332,8 @@ const BulkDownloadButton = ({ songList }) => {
             <div
               ref={menuRef}
               onClick={(e) => e.stopPropagation()}
+              role="group"
+              aria-label="Bulk download quality"
               className="bg-[#1a1a2e] border border-white/10 rounded-lg shadow-xl backdrop-blur-md z-[9999] min-w-[160px] overflow-hidden animate-fade-in"
               style={{
                 position: "fixed",
@@ -261,6 +363,9 @@ const BulkDownloadButton = ({ songList }) => {
             document.body,
           )
         : null}
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </p>
     </div>
   );
 };

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { parseArtistAndTitle, parseLrc, pickBestLyrics, plainToLines } from "@/utils/lyricsLookup";
+import {
+  ApiRouteError,
+  apiError,
+  handleApiError,
+} from "@/utils/apiResponse";
 
 const LRCLIB = "https://lrclib.net/api";
 const HEADERS = {
@@ -9,29 +14,64 @@ const HEADERS = {
 };
 
 export const runtime = "nodejs";
+export const maxDuration = 15;
+
+function upstreamError(status) {
+  const code = status === 429
+    ? "RATE_LIMITED"
+    : status === 503
+      ? "SERVICE_UNAVAILABLE"
+      : "BAD_GATEWAY";
+  return new ApiRouteError(code, {
+    message: "Lyrics are temporarily unavailable.",
+  });
+}
+
+async function responseJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    throw upstreamError(502);
+  }
+}
 
 async function lrclibGet(params) {
-  const url = `${LRCLIB}/get?${params}`;
-  const response = await fetch(url, {
-    headers: HEADERS,
-    next: { revalidate: 86400 },
-    signal: AbortSignal.timeout(5_000),
-  });
+  let response;
+  try {
+    const url = `${LRCLIB}/get?${params}`;
+    response = await fetch(url, {
+      headers: HEADERS,
+      next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch {
+    throw upstreamError(502);
+  }
   if (response.status === 404) return null;
-  if (!response.ok) return null;
-  return response.json();
+  if (!response.ok) throw upstreamError(response.status);
+  const data = await responseJson(response);
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw upstreamError(502);
+  }
+  return data;
 }
 
 async function lrclibSearch(params) {
-  const url = `${LRCLIB}/search?${params}`;
-  const response = await fetch(url, {
-    headers: HEADERS,
-    next: { revalidate: 86400 },
-    signal: AbortSignal.timeout(5_000),
-  });
-  if (!response.ok) return [];
-  const data = await response.json();
-  return Array.isArray(data) ? data : [];
+  let response;
+  try {
+    const url = `${LRCLIB}/search?${params}`;
+    response = await fetch(url, {
+      headers: HEADERS,
+      next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch {
+    throw upstreamError(502);
+  }
+  if (!response.ok) throw upstreamError(response.status);
+  const data = await responseJson(response);
+  if (!Array.isArray(data)) throw upstreamError(502);
+  return data;
 }
 
 function toPayload(hit) {
@@ -53,23 +93,27 @@ function toPayload(hit) {
 }
 
 export async function GET(request) {
-  const title = request.nextUrl.searchParams.get("title")?.trim().slice(0, 200) || "";
-  const artist = request.nextUrl.searchParams.get("artist")?.trim().slice(0, 200) || "";
-  const requestedDuration = Number(request.nextUrl.searchParams.get("duration"));
-  const duration =
-    Number.isFinite(requestedDuration) && requestedDuration > 0 && requestedDuration <= 86_400
-      ? requestedDuration
-      : 0;
-
-  if (!title && !artist) {
-    return NextResponse.json({ error: "A title or artist is required." }, { status: 400 });
-  }
-
-  if (isRateLimited(getClientKey(request), { windowMs: 60_000, max: 24 })) {
-    return NextResponse.json({ error: "Too many lyrics requests. Please slow down." }, { status: 429 });
-  }
-
   try {
+    const title = request.nextUrl.searchParams.get("title")?.trim().slice(0, 200) || "";
+    const artist = request.nextUrl.searchParams.get("artist")?.trim().slice(0, 200) || "";
+    const requestedDuration = Number(request.nextUrl.searchParams.get("duration"));
+    const duration =
+      Number.isFinite(requestedDuration) && requestedDuration > 0 && requestedDuration <= 86_400
+        ? requestedDuration
+        : 0;
+
+    if (!title && !artist) {
+      return apiError("VALIDATION_ERROR", { message: "A title or artist is required." });
+    }
+
+    const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 24 });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many lyrics requests. Please slow down.",
+      });
+    }
+
     const parsed = parseArtistAndTitle(title, artist);
     const trackName = parsed.title || title;
     const artistName = parsed.artist || artist;
@@ -109,7 +153,6 @@ export async function GET(request) {
     }
     return NextResponse.json(payload);
   } catch (error) {
-    console.error("Lyrics error:", error);
-    return NextResponse.json({ error: "Unable to load lyrics." }, { status: 502 });
+    return handleApiError(error, "Load lyrics");
   }
 }

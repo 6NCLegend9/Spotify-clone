@@ -1,186 +1,25 @@
 "use client";
-import { setProgress } from "@/redux/features/loadingBarSlice";
-import {
-  playPause,
-  setActiveSong,
-  setFullScreen,
-} from "@/redux/features/playerSlice";
-import { getAlbumData } from "@/services/dataAPI";
-import PlayButton from "@/components/PlayButton";
-import Link from "next/link";
-import React, { useEffect } from "react";
-import { useState } from "react";
-import { BsPlayFill } from "react-icons/bs";
-import { useDispatch } from "react-redux";
-import { useParams } from "next/navigation";
 
-const AlbumPage = () => {
-  const { albumId } = useParams();
-  const [albumData, setAlbumData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const dispatch = useDispatch();
+import EmptyState from "@/components/EmptyState";
 
-  useEffect(() => {
-    const fetchData = async () => {
-      dispatch(setProgress(50));
-      const response = await getAlbumData(albumId);
-      dispatch(setProgress(100));
-      setAlbumData(response);
-      setLoading(false);
-    };
-    fetchData();
-  }, [albumId, dispatch]);
-
-  const handlePlayClick = (song, index) => {
-    dispatch(setActiveSong({ song, data: albumData?.songs, i: index }));
-    dispatch(setFullScreen(true));
-    dispatch(playPause(true));
+export default function AlbumPage() {
+  const focusSearch = () => {
+    const searchInput = document.querySelector('input[name="search-field"]');
+    searchInput?.focus();
+    searchInput?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  // Utility function to format the duration in seconds to "m:ss" format (without leading zero for minutes)
-  function formatDuration(durationInSeconds) {
-    const minutes = Math.floor(durationInSeconds / 60);
-    const seconds = Math.round(durationInSeconds % 60);
-
-    if (minutes > 0) {
-      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    } else {
-      return `${seconds}`;
-    }
-  }
-
-  const primaryArtistsList = Array.isArray(albumData?.artists?.primary)
-    ? albumData.artists.primary
-    : Array.isArray(albumData?.artists)
-    ? albumData.artists
-    : null;
-
-  if (!loading && !albumData) {
-    return (
-      <div className="page text-gray-200">
-        <h1 className="text-3xl font-bold text-white">Album unavailable</h1>
-        <p className="mt-3 text-sm text-[#9aa8b5]">
-          This catalog page is no longer available. Search YouTube music instead.
-        </p>
-        <Link href="/" className="mt-6 inline-block text-[#00e6e6] hover:underline">
-          Back to Home
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="page">
-      <div className="flex flex-col items-center lg:flex-row lg:items-end">
-        {loading ? (
-          <div
-            role="status"
-            className="space-y-8 animate-pulse md:space-y-0 md:space-x-8 md:flex md:items-center"
-          >
-            <div className="flex rounded-lg items-center justify-center w-[300px] h-[300px] bg-gray-300 dark:bg-gray-700">
-              <svg
-                className="w-10 h-10 text-gray-200 dark:text-gray-600"
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="currentColor"
-                viewBox="0 0 20 18"
-              >
-                <path d="M18 0H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2Zm-5.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm4.376 10.481A1 1 0 0 1 16 15H4a1 1 0 0 1-.895-1.447l3.5-7A1 1 0 0 1 7.468 6a.965.965 0 0 1 .9.5l2.775 4.757 1.546-1.887a1 1 0 0 1 1.618.1l2.541 4a1 1 0 0 1 .028 1.011Z" />
-              </svg>
-            </div>
-          </div>
-        ) : (
-          <img
-            className="rounded-2xl shadow-2xl"
-            src={albumData?.image?.[2]?.url || albumData?.image?.[1]?.url || albumData?.image?.[0]?.url || ""}
-            alt={albumData?.name || albumData?.title}
-            width={300}
-            height={300}
-          />
-        )}
-
-        <div className="mt-8 flex flex-col gap-2 text-gray-100 lg:ml-10 lg:mt-0">
-          <h1 className="text-xl lg:text-4xl font-bold">{albumData?.name}</h1>
-          <h2 className="text-xl font-semibold">{albumData?.subtitle}</h2>
-          <h3 className="text-xl font-semibold cursor-pointer">
-            {primaryArtistsList && primaryArtistsList.length > 0
-              ? primaryArtistsList.map((artist, index) => (
-                  <React.Fragment key={artist?.id || index}>
-                    <Link
-                      className=" hover:underline"
-                      href={`/artist/${artist?.id}`}
-                    >
-                      {artist?.name?.trim()?.replaceAll("&amp;", "&")}
-                    </Link>
-                    {index < primaryArtistsList.length - 1 && ", "}
-                  </React.Fragment>
-                ))
-              : albumData?.primaryArtists?.split(",")?.map((artist, index) => (
-                  <React.Fragment key={index}>
-                    <Link
-                      className=" hover:underline"
-                      href={`/artist/${albumData?.primaryArtistsId
-                        ?.split(",")
-                        [index]?.trim()}`}
-                    >
-                      {artist?.trim()?.replaceAll("&amp;", "&")}
-                    </Link>
-                    {index < albumData.primaryArtists.split(",").length - 1 && ", "}
-                  </React.Fragment>
-                ))}
-          </h3>
-          <ul className="flex items-center gap-3 text-gray-300">
-            <li className="text-lg font-semibold">• {albumData?.year}</li>
-            <li className="text-lg font-semibold">
-              • {albumData?.songCount} songs
-            </li>
-          </ul>
-          <PlayButton songList={albumData} />
-        </div>
-      </div>
-      <div className="mt-10 text-gray-200">
-        <h1 className="text-3xl font-bold">Songs</h1>
-        <div className="mt-5">
-          {Array.isArray(albumData?.songs) &&
-            albumData.songs.map((song, index) => (
-              <div
-                key={song?.id || index}
-                onClick={() => {
-                  handlePlayClick(song, index);
-                }}
-                className="mt-2 flex cursor-pointer items-center justify-between rounded-lg border-b border-white/10 px-2 py-3 transition hover:bg-white/5"
-              >
-                <div className="flex items-center gap-5">
-                  <div className=" relative">
-                    <div className=" w-10 h-10" />
-                    <p className=" group-hover:hidden font-extrabold absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200">
-                      {index + 1}.
-                    </p>
-                    <BsPlayFill
-                      size={25}
-                      className=" group-hover:block hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200"
-                    />
-                  </div>
-                  <div className=" w-32 lg:w-80">
-                    <p className=" text-sm lg:text-lg font-semibold truncate">
-                      {song?.name?.replace("&#039;", "'")?.replace("&amp;", "&")}
-                    </p>
-                  </div>
-                </div>
-                <div className=" hidden lg:block w-28">
-                  {song?.playCount && (
-                    <p className="text-gray-400">{song?.playCount} plays</p>
-                  )}
-                </div>
-                <div>
-                  <p>{formatDuration(song?.duration)}</p>
-                </div>
-              </div>
-            ))}
-        </div>
-      </div>
+    <div className="page text-gray-200">
+      <EmptyState
+        eyebrow="Legacy album link"
+        title="This album page is unavailable"
+        message="This older catalog link is no longer supported. Search for the album or its songs to find playable results."
+        actionLabel="Search music"
+        onAction={focusSearch}
+        secondaryHref="/"
+        secondaryLabel="Back to Home"
+      />
     </div>
   );
-};
-
-export default AlbumPage;
+}

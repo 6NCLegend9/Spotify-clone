@@ -1,66 +1,66 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import User from "@/models/User";
-import UserData from "@/models/UserData";
-import dbConnect from "@/utils/dbconnect";
-import { tokenOptions } from "@/utils/authToken";
+import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
+import { isRateLimited } from "@/utils/rateLimit";
+import { getAuthenticatedAccount } from "@/utils/userAccount";
+
+export const runtime = "nodejs";
+export const maxDuration = 15;
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const MAX_HISTORY_ENTRIES = 20;
 
 // Fetch the signed-in user's server-synced listening history.
 export async function GET(request) {
-  const token = await getToken(tokenOptions(request));
-  if (!token?.email) {
-    return NextResponse.json({ success: false, message: "User not logged in", data: null }, { status: 401 });
-  }
-
   try {
-    await dbConnect();
-    const user = await User.findOne({ email: token.email }).select("userData").lean();
-    if (!user?.userData) {
-      return NextResponse.json({ success: false, message: "User data not found", data: null }, { status: 404 });
-    }
-    const userData = await UserData.findById(user.userData).select("songHistory").lean();
-    return NextResponse.json({ success: true, message: "History found", data: userData?.songHistory || [] });
+    const { userData } = await getAuthenticatedAccount(request);
+    return NextResponse.json({
+      success: true,
+      message: "History found",
+      data: userData.songHistory || [],
+    });
   } catch (e) {
-    console.error("get history error", e);
-    return NextResponse.json({ success: false, message: "Something went wrong", data: null }, { status: 500 });
+    return handleApiError(e, "get history");
   }
 }
 
 // Record a played track in the signed-in user's server-synced listening history.
 export async function POST(request) {
-  const token = await getToken(tokenOptions(request));
-  if (!token?.email) {
-    return NextResponse.json({ success: false, message: "User not logged in", data: null }, { status: 401 });
-  }
-
-  const body = await request.json().catch(() => null);
-  const raw = body?.entry;
-  const clip = (value, max) => (typeof value === "string" ? value.trim().slice(0, max) : "");
-  const entry = raw && typeof raw.id === "string"
-    ? {
-        id: raw.id.trim(),
-        source: "youtube",
-        title: clip(raw.title, 200),
-        channel: clip(raw.channel, 120),
-        thumbnail: clip(raw.thumbnail, 500),
-      }
-    : null;
-  if (!entry || !YOUTUBE_ID_PATTERN.test(entry.id)) {
-    return NextResponse.json({ success: false, message: "A valid YouTube track entry is required", data: null }, { status: 400 });
-  }
-
   try {
-    await dbConnect();
-    const user = await User.findOne({ email: token.email }).select("userData").lean();
-    if (!user?.userData) {
-      return NextResponse.json({ success: false, message: "User data not found", data: null }, { status: 404 });
+    const { userData, email } = await getAuthenticatedAccount(request);
+    const rateLimit = await isRateLimited(`history:${email}`, {
+      windowMs: 60_000,
+      max: 120,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many activity updates. Please slow down.",
+      });
     }
-    const userData = await UserData.findById(user.userData);
-    if (!userData) {
-      return NextResponse.json({ success: false, message: "User data not found", data: null }, { status: 404 });
+    const body = await readRequestJson(request);
+    const raw = body.entry;
+    const clip = (value, max) => (typeof value === "string" ? value.trim().slice(0, max) : "");
+    const entry = raw && typeof raw === "object" && !Array.isArray(raw) && typeof raw.id === "string"
+      ? {
+          id: raw.id.trim(),
+          source: "youtube",
+          title: clip(raw.title, 200),
+          channel: clip(raw.channel, 120),
+          thumbnail: clip(raw.thumbnail, 500),
+        }
+      : null;
+    if (!entry || !YOUTUBE_ID_PATTERN.test(entry.id)) {
+      return apiError("VALIDATION_ERROR", {
+        message: "A valid YouTube track entry is required",
+      });
+    }
+
+    if (userData.settings?.privateSession) {
+      return NextResponse.json({
+        success: true,
+        message: "Private session enabled; history not updated",
+        data: userData.songHistory || [],
+      });
     }
     const existing = Array.isArray(userData.songHistory) ? userData.songHistory : [];
     const deduped = existing.filter((song) => song?.id !== entry.id);
@@ -69,7 +69,6 @@ export async function POST(request) {
     await userData.save();
     return NextResponse.json({ success: true, message: "History updated", data: userData.songHistory });
   } catch (e) {
-    console.error("post history error", e);
-    return NextResponse.json({ success: false, message: "Something went wrong", data: null }, { status: 500 });
+    return handleApiError(e, "update history");
   }
 }

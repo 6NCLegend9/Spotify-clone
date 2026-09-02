@@ -1,11 +1,24 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
+import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import dbConnect from "@/utils/dbconnect";
 import Playlist from "@/models/Playlist";
-import auth from "@/utils/auth";
+import { tokenOptions } from "@/utils/authToken";
+import { isRateLimited } from "@/utils/rateLimit";
+import {
+    ApiRouteError,
+    apiError,
+    handleApiError,
+    readRequestJson,
+} from "@/utils/apiResponse";
 import { serializePlaylist } from "@/utils/playlistThemes";
 
+export const runtime = "nodejs";
+export const maxDuration = 15;
+
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const MAX_PLAYLIST_SONGS = 500;
 
 function canEditPlaylist(playlist, user) {
     if (!user) return false;
@@ -14,70 +27,77 @@ function canEditPlaylist(playlist, user) {
         playlist.collaborators?.some((id) => id.toString() === userId);
 }
 
+function requirePlaylistId(value) {
+    if (typeof value !== "string" || !mongoose.isObjectIdOrHexString(value)) {
+        throw new ApiRouteError("VALIDATION_ERROR", { message: "A valid playlist is required" });
+    }
+    return value;
+}
+
+function requireYoutubeId(value) {
+    if (typeof value !== "string" || !YOUTUBE_ID_PATTERN.test(value)) {
+        throw new ApiRouteError("VALIDATION_ERROR", {
+            message: "A valid YouTube track is required",
+        });
+    }
+    return value;
+}
+
+async function resolveUser(req, required = true) {
+    const token = await getToken(tokenOptions(req));
+    if (!token?.email) {
+        if (required) {
+            throw new ApiRouteError("UNAUTHORIZED", { message: "User not logged in" });
+        }
+        return null;
+    }
+
+    await dbConnect();
+    const user = await User.findOne({ email: token.email });
+    if (!user) {
+        throw new ApiRouteError("NOT_FOUND", { message: "User not found" });
+    }
+    return user;
+}
+
 // add song to playlist
 export async function POST(req){
-    const { playlistID, song } = await req.json();
-    if (typeof song !== "string" || !YOUTUBE_ID_PATTERN.test(song)) {
-        return NextResponse.json(
-            { success: false, message: "A valid YouTube track is required", data: null },
-            { status: 400 }
-        );
-    }
     try {
-        const user = await auth(req);
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not logged in",
-                    data: null
-                },
-                { status: 404 }
-            );
+        const user = await resolveUser(req);
+        const rateLimit = await isRateLimited(`playlist-songs:add:${user._id}`, {
+            windowMs: 15 * 60_000,
+            max: 120,
+        });
+        if (rateLimit.limited) {
+            return apiError("RATE_LIMITED", {
+                retryAfter: rateLimit.retryAfter,
+                message: "Too many playlist song changes. Please wait before trying again.",
+            });
         }
+        const body = await readRequestJson(req);
+        const playlistID = requirePlaylistId(body.playlistID);
+        const song = requireYoutubeId(body.song);
         await dbConnect();
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not found",
-                    data: null
-                },
-                { status: 404 }
-            );
-        }
         const playlist = await Playlist.findById(playlistID);
         if (!playlist) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Playlist not found",
-                    data: null
-                },
-                { status: 404 }
-            );
+            return apiError("NOT_FOUND", { message: "Playlist not found" });
         }
         if (!canEditPlaylist(playlist, user)) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "You don't have permission to change this playlist.",
-                    data: null
-                },
-                { status: 401 }
-            );
+            return apiError("FORBIDDEN", {
+                message: "You don't have permission to change this playlist.",
+            });
         }
         // check if song already exists in playlist
         const songExists = playlist.songs.find((s) => s === song);
         if (songExists) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Song already exists in playlist",
-                    data: null
-                },
-                { status: 400 }
-            );
+            return apiError("CONFLICT", {
+                message: "Song already exists in playlist",
+            });
+        }
+        if (playlist.songs.length >= MAX_PLAYLIST_SONGS) {
+            return apiError("VALIDATION_ERROR", {
+                message: `A playlist can contain up to ${MAX_PLAYLIST_SONGS} songs`,
+            });
         }
         playlist.songs.push(song);
         playlist.songAddedAt?.set(song, new Date());
@@ -91,67 +111,44 @@ export async function POST(req){
             { status: 200 }
         );
     } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "add playlist song");
     }
 }
 
 
 // delete song from playlist
 export async function DELETE(req){
-    const { playlistID, song } = await req.json();
     try {
-        const user = await auth(req);
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "User not logged in",
-                    data: null
-                },
-                { status: 404 }
-            );
+        const user = await resolveUser(req);
+        const rateLimit = await isRateLimited(`playlist-songs:delete:${user._id}`, {
+            windowMs: 15 * 60_000,
+            max: 120,
+        });
+        if (rateLimit.limited) {
+            return apiError("RATE_LIMITED", {
+                retryAfter: rateLimit.retryAfter,
+                message: "Too many playlist song changes. Please wait before trying again.",
+            });
         }
+        const body = await readRequestJson(req);
+        const playlistID = requirePlaylistId(body.playlistID);
+        const song = requireYoutubeId(body.song);
         await dbConnect();
         const playlist = await Playlist.findById(playlistID);
         if (!playlist) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Playlist not found",
-                    data: null
-                },
-                { status: 404 }
-            );
+            return apiError("NOT_FOUND", { message: "Playlist not found" });
         }
         if (!canEditPlaylist(playlist, user)) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "You don't have permission to change this playlist.",
-                    data: null
-                },
-                { status: 401 }
-            );
+            return apiError("FORBIDDEN", {
+                message: "You don't have permission to change this playlist.",
+            });
         }
         // check if song exists in playlist
         const songExists = playlist.songs.find((s) => s === song);
         if (!songExists) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Song does not exist in playlist",
-                    data: null
-                },
-                { status: 400 }
-            );
+            return apiError("NOT_FOUND", {
+                message: "Song does not exist in playlist",
+            });
         }
         playlist.songs = playlist.songs.filter((songId) => songId !== song);
         playlist.songAddedAt?.delete(song);
@@ -165,48 +162,29 @@ export async function DELETE(req){
             { status: 200 }
         );
     } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "delete playlist song");
     }
 }
 
 
 // get songs of playlist
 export async function GET(req){
-    const { searchParams } = new URL(req.url);
-    const playlistID = searchParams.get("playlist");
-    // console.log('playlistID', playlistID);
-    // console.log('searchParams', searchParams);
     try {
+        const { searchParams } = new URL(req.url);
+        const playlistID = requirePlaylistId(searchParams.get("playlist"));
         await dbConnect();
-        const user = await auth(req);
+        const user = await resolveUser(req, false);
         const playlist = await Playlist.findById(playlistID);
         if (!playlist) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Playlist not found",
-                    data: null
-                },
-                { status: 404 }
-            );
+            return apiError("NOT_FOUND", { message: "Playlist not found" });
         }
         if (playlist.visibility !== "public" && !canEditPlaylist(playlist, user)) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "This playlist is private. Ask the owner for access.",
-                    data: null
-                },
-                { status: 403 }
-            );
+            const code = user ? "FORBIDDEN" : "UNAUTHORIZED";
+            return apiError(code, {
+                message: user
+                    ? "This playlist is private. Ask the owner for access."
+                    : "User not logged in",
+            });
         }
         await playlist.populate("user", "userName imageUrl");
         await playlist.populate("collaborators", "userName imageUrl");
@@ -219,14 +197,6 @@ export async function GET(req){
             { status: 200 }
         );
     } catch (e) {
-        console.error(e);
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-                data: null
-            },
-            { status: 500 }
-        );
+        return handleApiError(e, "get playlist songs");
     }
 }

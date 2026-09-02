@@ -16,7 +16,6 @@ import {
   FiMusic,
   FiPlay,
   FiSearch,
-  FiSettings,
   FiShuffle,
   FiTrash2,
   FiUserPlus,
@@ -46,11 +45,14 @@ import AddToQueueButton from "@/components/AddToQueueButton";
 import PlaylistCover from "@/components/PlaylistCover";
 import LikePlaylistButton from "@/components/LikePlaylistButton";
 import CoverUploader from "@/components/CoverUploader";
-import AuthMessage from "@/components/AuthMessage";
+import EmptyState from "@/components/EmptyState";
+import UserMessage from "@/components/UserMessage";
+import AccessibleDialog from "@/components/AccessibleDialog";
 import { PlaylistHeroSkeleton, SongRowsSkeleton } from "@/components/Skeleton";
 import MediaImage from "@/components/MediaImage";
+import { requestJson } from "@/services/http";
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
-import { humanizeError } from "@/utils/authErrors";
+import { toUserError } from "@/utils/userError";
 
 function cleanText(value = "") {
   return value
@@ -140,6 +142,8 @@ export default function PlaylistDetail({ kind, playlistId }) {
   const [collaboratorEmail, setCollaboratorEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [smartShuffle, setSmartShuffle] = useState(isLiked && autoAdd);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -151,11 +155,17 @@ export default function PlaylistDetail({ kind, playlistId }) {
     let active = true;
     const loadCollection = async () => {
       setLoading(true);
-      setError("");
+      setError(null);
       try {
         const source = isLiked ? await getFavouriteLibrary() : await getSinglePlaylist(playlistId);
-        if (!isLiked && !source?.success) throw new Error(humanizeError(source).message);
+        if (!isLiked && !source?.success) throw source;
         const nextCollection = isLiked ? source : source.data;
+        if (!nextCollection || typeof nextCollection !== "object") {
+          throw toUserError(null, {
+            title: "Collection unavailable",
+            message: "We couldn’t load this collection. Please try again.",
+          });
+        }
         const ids = validYouTubeIds(nextCollection[isLiked ? "favourites" : "songs"]);
         if (isLiked) ids.reverse();
         const hydratedTracks = await hydrateYouTubeTracks(ids);
@@ -170,7 +180,17 @@ export default function PlaylistDetail({ kind, playlistId }) {
           if (!isLiked) setSmartShuffle(Boolean(nextCollection.smartShuffle));
         }
       } catch (loadError) {
-        if (active) setError(loadError.message);
+        if (active) {
+          const normalized = toUserError(loadError);
+          setError(normalized.code === "UNAUTHORIZED"
+            ? normalized
+            : toUserError(loadError, {
+              title: isLiked ? "Liked Songs unavailable" : "Playlist unavailable",
+              message: isLiked
+                ? "We couldn’t load your Liked Songs. Please try again."
+                : "We couldn’t load this playlist. Please try again.",
+            }));
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -179,7 +199,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
     return () => {
       active = false;
     };
-  }, [isLiked, playlistId, status]);
+  }, [isLiked, playlistId, refreshKey, status]);
 
   useEffect(() => {
     if (isLiked) setSmartShuffle(autoAdd);
@@ -213,13 +233,14 @@ export default function PlaylistDetail({ kind, playlistId }) {
   const fetchSmartRecommendations = async () => {
     if (recommendations.length > 0) return recommendations;
     try {
-      const response = await fetch("/api/recommendations");
-      if (!response.ok) return [];
-      const data = await response.json();
+      const data = await requestJson("/api/recommendations", {
+        fallbackTitle: "Recommendations unavailable",
+        fallbackMessage: "Smart Shuffle recommendations couldn’t be loaded.",
+      });
       const nextRecommendations = [
-        ...(data.sections?.trending || []),
-        ...(data.sections?.charts || []),
-        ...(data.sections?.newReleases || []),
+        ...(Array.isArray(data?.sections?.trending) ? data.sections.trending : []),
+        ...(Array.isArray(data?.sections?.charts) ? data.sections.charts : []),
+        ...(Array.isArray(data?.sections?.newReleases) ? data.sections.newReleases : []),
       ];
       setRecommendations(nextRecommendations);
       return nextRecommendations;
@@ -258,6 +279,15 @@ export default function PlaylistDetail({ kind, playlistId }) {
     dispatch(setYoutubeVideo(queue[0]));
   };
 
+  const reportMutationError = (failure, fallback) => {
+    const normalized = toUserError(failure);
+    const userError = normalized.code === "UNAUTHORIZED"
+      ? normalized
+      : toUserError(failure, fallback);
+    setActionError(userError);
+    toast.error(userError.message);
+  };
+
   const toggleSmartShuffle = async () => {
     const nextValue = !smartShuffle;
     setSmartShuffle(nextValue);
@@ -268,9 +298,13 @@ export default function PlaylistDetail({ kind, playlistId }) {
       if (!response?.success) {
         setSmartShuffle(!nextValue);
         dispatch(setAutoAdd(!nextValue));
-        toast.error(response?.message || "Smart Shuffle could not be updated.");
+        reportMutationError(response, {
+          title: "Smart Shuffle not updated",
+          message: "We couldn’t update Smart Shuffle. Please try again.",
+        });
       } else {
-        setCollection(response.data.playlist);
+        setActionError(null);
+        if (response.data?.playlist) setCollection(response.data.playlist);
       }
     }
   };
@@ -279,10 +313,14 @@ export default function PlaylistDetail({ kind, playlistId }) {
     setSaving(true);
     const response = await updatePlaylist(playlistId, action, value);
     if (response?.success) {
-      setCollection(response.data.playlist);
-      toast.success(response.message);
+      setActionError(null);
+      if (response.data?.playlist) setCollection(response.data.playlist);
+      toast.success("Playlist updated");
     } else {
-      toast.error(response?.message || "Playlist could not be updated.");
+      reportMutationError(response, {
+        title: "Playlist not updated",
+        message: "We couldn’t update that playlist. Please try again.",
+      });
     }
     setSaving(false);
     if (action !== "cover" && action !== "category") setShowOptions(false);
@@ -294,41 +332,76 @@ export default function PlaylistDetail({ kind, playlistId }) {
     setSaving(true);
     const response = await updatePlaylist(playlistId, "addCollaborator", collaboratorEmail);
     if (response?.success) {
-      setCollection(response.data.playlist);
+      setActionError(null);
+      if (response.data?.playlist) setCollection(response.data.playlist);
       setCollaboratorEmail("");
       setShowCollaborator(false);
-      toast.success(response.message);
+      toast.success("Collaborator added");
     } else {
-      toast.error(response?.message || "Collaborator could not be added.");
+      reportMutationError(response, {
+        title: "Collaborator not added",
+        message: "We couldn’t add that collaborator. Please try again.",
+      });
     }
     setSaving(false);
   };
 
   const removeTrack = async (track) => {
+    const previousTracks = tracks;
+    const previousCollection = collection;
+    setTracks((current) => current.filter((item) => item.id !== track.id));
+    if (!isLiked) {
+      setCollection((current) => current ? ({
+        ...current,
+        songs: Array.isArray(current.songs)
+          ? current.songs.filter((id) => id !== track.id)
+          : [],
+      }) : current);
+    }
+
     if (isLiked) {
       const response = await addFavourite({ id: track.id });
-      if (!response?.success) return toast.error(response?.message || "Liked Songs could not be updated.");
-      setTracks((current) => current.filter((item) => item.id !== track.id));
-      window.dispatchEvent(new CustomEvent("favourites-changed", { detail: response.data.favourites }));
+      if (!response?.success) {
+        setTracks(previousTracks);
+        reportMutationError(response, {
+          title: "Liked Songs not updated",
+          message: "We couldn’t update your Liked Songs. Please try again.",
+        });
+        return;
+      }
+      setActionError(null);
+      const nextFavourites = Array.isArray(response.data?.favourites)
+        ? response.data.favourites
+        : [];
+      window.dispatchEvent(new CustomEvent("favourites-changed", { detail: nextFavourites }));
       return;
     }
     const response = await deleteSongFromPlaylist(playlistId, track.id);
-    if (!response?.success) return toast.error(response?.message || "Track could not be removed.");
-    setTracks((current) => current.filter((item) => item.id !== track.id));
-    setCollection((current) => ({
-      ...current,
-      songs: current.songs.filter((id) => id !== track.id),
-    }));
+    if (!response?.success) {
+      setTracks(previousTracks);
+      setCollection(previousCollection);
+      reportMutationError(response, {
+        title: "Song not removed",
+        message: "We couldn’t remove that song. Please try again.",
+      });
+      return;
+    }
+    setActionError(null);
+    toast.success("Song removed from playlist");
   };
 
   const removePlaylist = async () => {
     setSaving(true);
     const response = await deletePlaylist(playlistId);
     if (response?.success) {
+      setActionError(null);
       toast.success("Playlist deleted");
       router.push("/library");
     } else {
-      toast.error(response?.message || "Playlist could not be deleted.");
+      reportMutationError(response, {
+        title: "Playlist not deleted",
+        message: "We couldn’t delete that playlist. Please try again.",
+      });
       setSaving(false);
     }
   };
@@ -340,33 +413,35 @@ export default function PlaylistDetail({ kind, playlistId }) {
 
   return (
     <main className="text-white">
-      <section className="bg-[linear-gradient(180deg,rgba(100,201,215,0.28),rgba(7,18,29,0.92))] px-[3vw] pb-8 pt-8">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 sm:flex-row sm:items-end">
-          {isLiked ? (
-            <LikedCover className="aspect-square w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60" />
-          ) : (
-            <PlaylistCover
-              playlist={{
-                ...collection,
-                cover: tracks[0]?.thumbnail,
-              }}
-              showLabel
-              className="w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60"
-            />
-          )}
-          <div className="min-w-0 pb-1">
-            <p className="text-xs font-bold uppercase text-white/80">{typeLabel}</p>
-            <h1 className="mt-3 break-words text-4xl font-black sm:text-5xl lg:text-7xl">{title}</h1>
-            <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-gray-200">
-              {ownerImage ? <img src={ownerImage} alt="" className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10"><FiMusic /></span>}
-              <strong className="text-white">{ownerName}</strong>
-              <span>&bull;</span>
-              <span>{tracks.length.toLocaleString()} {tracks.length === 1 ? "song" : "songs"}, {formatTotalDuration(totalDuration)}</span>
-              {!isLiked && collection?.collaborators?.length > 0 && <><span>&bull;</span><span>{collection.collaborators.length} collaborator{collection.collaborators.length === 1 ? "" : "s"}</span></>}
+      {!loading && !error && collection ? (
+        <section className="bg-[linear-gradient(180deg,rgba(100,201,215,0.28),rgba(7,18,29,0.92))] px-[3vw] pb-8 pt-8">
+          <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 sm:flex-row sm:items-end">
+            {isLiked ? (
+              <LikedCover className="aspect-square w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60" />
+            ) : (
+              <PlaylistCover
+                playlist={{
+                  ...collection,
+                  cover: tracks[0]?.thumbnail,
+                }}
+                showLabel
+                className="w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60"
+              />
+            )}
+            <div className="min-w-0 pb-1">
+              <p className="text-xs font-bold uppercase text-white/80">{typeLabel}</p>
+              <h1 className="mt-3 break-words text-4xl font-black sm:text-5xl lg:text-7xl">{title}</h1>
+              <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-gray-200">
+                {ownerImage ? <img src={ownerImage} alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10"><FiMusic /></span>}
+                <strong className="text-white">{ownerName}</strong>
+                <span>&bull;</span>
+                <span>{tracks.length.toLocaleString()} {tracks.length === 1 ? "song" : "songs"}, {formatTotalDuration(totalDuration)}</span>
+                {!isLiked && collection.collaborators?.length > 0 && <><span>&bull;</span><span>{collection.collaborators.length} collaborator{collection.collaborators.length === 1 ? "" : "s"}</span></>}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <div className="mx-auto w-[min(94%,1440px)]">
         {loading && (
@@ -377,25 +452,37 @@ export default function PlaylistDetail({ kind, playlistId }) {
         )}
         {!loading && error && (
           <section className="mt-10">
-            <AuthMessage
-              title="This playlist is unavailable"
-              message={humanizeError(error).message}
-              href="/library"
-              hrefLabel="Back to Library"
+            <UserMessage
+              title={error.title}
+              message={error.message}
+              onRetry={() => setRefreshKey((value) => value + 1)}
+              href={error.action === "login" ? "/login" : "/library"}
+              hrefLabel={error.action === "login" ? "Log in" : "Back to Library"}
             />
           </section>
         )}
         {!loading && !error && (
           <>
+            {actionError ? (
+              <div className="pt-6">
+                <UserMessage
+                  title={actionError.title}
+                  message={actionError.message}
+                  href={actionError.action === "login" ? "/login" : undefined}
+                  hrefLabel="Log in"
+                  compact
+                />
+              </div>
+            ) : null}
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
               <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="mr-2 grid h-14 w-14 place-items-center rounded-full bg-[#00e6e6] text-xl text-black transition hover:scale-105 hover:bg-[#64c9d7] disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
               <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${smartShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
-              {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => ({ ...current, ...next }))} /> : null}
+              {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => current ? ({ ...current, ...next }) : current)} /> : null}
               <button type="button" disabled={!isOwner || isLiked} onClick={() => setShowCollaborator(true)} title={isLiked ? "Dynamic collections cannot have collaborators" : isOwner ? "Add collaborator" : "Only the owner can invite collaborators"} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiUserPlus /> <span className="hidden sm:inline">Add collaborator</span></button>
               <button type="button" aria-label="Search in playlist" title="Search in playlist" aria-expanded={showSearch} onClick={() => setShowSearch((value) => !value)} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"><FiSearch /> <span className="hidden sm:inline">Search in playlist</span></button>
               <div className="relative ml-auto">
                 <button type="button" aria-label="Playlist options" title="Playlist options" aria-expanded={showOptions} disabled={!isOwner || isLiked} onClick={() => setShowOptions((value) => !value)} className="grid h-10 w-10 place-items-center rounded-full text-xl text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiMoreHorizontal /></button>
-                {showOptions && (
+                {showOptions && collection && (
                   <div className="absolute right-0 top-12 z-20 w-80 rounded-md border border-white/10 bg-[#111d28] p-1.5 text-sm shadow-2xl">
                     <button type="button" disabled={saving} onClick={() => updateSetting("pinned", !collection.pinned)} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10"><BsPinAngleFill /> {collection.pinned ? "Unpin from Library" : "Pin to Library"}</button>
                     <button type="button" disabled={saving} onClick={() => updateSetting("visibility", collection.visibility === "public" ? "private" : "public")} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10">{collection.visibility === "public" ? <FiLock /> : <FiGlobe />} Make {collection.visibility === "public" ? "private" : "public"}</button>
@@ -445,7 +532,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
                 <div key={track.id} className={`group grid min-h-[66px] grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
                   <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-9 w-9 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
                   <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
-                    <MediaImage src={track.thumbnail} size="mq" alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
+                    <MediaImage src={track.thumbnail} size="mq" alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-11 w-11 shrink-0 rounded object-cover" />
                     <span className="min-w-0"><span className={`block truncate text-sm font-semibold ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-white"}`}>{cleanText(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{track.channel}</span></span>
                   </button>
                   <span className="hidden truncate text-xs text-gray-400 md:block">-</span>
@@ -457,21 +544,65 @@ export default function PlaylistDetail({ kind, playlistId }) {
                   </div>
                 </div>
               ))}
-              {tracks.length === 0 && <div className="py-16 text-center"><FiMusic className="mx-auto h-10 w-10 text-gray-500" /><h2 className="mt-4 text-lg font-bold">No tracks yet</h2><p className="mt-2 text-sm text-gray-400">Save music from Home or Search to build this collection.</p></div>}
-              {tracks.length > 0 && filteredTracks.length === 0 && <div className="py-14 text-center"><FiSearch className="mx-auto h-8 w-8 text-gray-500" /><p className="mt-3 text-sm text-gray-400">No tracks match &quot;{search}&quot;.</p></div>}
+              {tracks.length === 0 && (
+                <div className="py-8">
+                  <EmptyState
+                    title="No tracks yet"
+                    message="Save music from Home or Search to build this collection."
+                  />
+                </div>
+              )}
+              {tracks.length > 0 && filteredTracks.length === 0 && (
+                <div className="py-8">
+                  <EmptyState
+                    title="No matching tracks"
+                    message={`No tracks match “${search}”.`}
+                    actionLabel="Clear search"
+                    onAction={() => setSearch("")}
+                  />
+                </div>
+              )}
             </section>
           </>
         )}
       </div>
 
       {showCollaborator && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/70 px-4" onClick={() => setShowCollaborator(false)}>
-          <form onSubmit={addCollaborator} onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-lg border border-white/10 bg-[#0c1823] p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4"><div><h2 className="text-xl font-bold">Add a collaborator</h2><p className="mt-2 text-sm text-gray-400">They can add and remove tracks from this playlist.</p></div><button type="button" aria-label="Close" onClick={() => setShowCollaborator(false)} className="grid h-9 w-9 place-items-center rounded-full text-gray-400 hover:bg-white/10 hover:text-white"><FiX /></button></div>
-            <label className="mt-6 block text-xs font-semibold uppercase text-gray-400">Account email<input type="email" required value={collaboratorEmail} onChange={(event) => setCollaboratorEmail(event.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} placeholder="listener@example.com" className="mt-2 h-11 w-full rounded-md border border-white/15 bg-white/[0.06] px-3 text-sm normal-case text-white outline-none focus:border-[#00e6e6]" /></label>
-            <button type="submit" disabled={saving} className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-bold text-black disabled:opacity-50"><FiCheck /> {saving ? "Adding..." : "Add collaborator"}</button>
+        <AccessibleDialog
+          open={showCollaborator}
+          onClose={() => setShowCollaborator(false)}
+          titleId="collaborator-title"
+          describedBy="collaborator-description"
+          closeLabel="Close add collaborator dialog"
+          panelClassName="w-full max-w-md rounded-lg border border-white/10 bg-[#0c1823] p-6 shadow-2xl"
+        >
+          <form onSubmit={addCollaborator}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="collaborator-title" className="text-xl font-bold">Add a collaborator</h2>
+                <p id="collaborator-description" className="mt-2 text-sm text-gray-400">They can add and remove tracks from this playlist.</p>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setShowCollaborator(false)} className="grid h-9 w-9 place-items-center rounded-full text-gray-400 hover:bg-white/10 hover:text-white">
+                <FiX aria-hidden="true" />
+              </button>
+            </div>
+            <label htmlFor="collaborator-email" className="mt-6 block text-xs font-semibold uppercase text-gray-400">Account email</label>
+            <input
+              id="collaborator-email"
+              type="email"
+              required
+              value={collaboratorEmail}
+              onChange={(event) => setCollaboratorEmail(event.target.value)}
+              onFocus={handleInputFocus}
+              onBlur={handleInputBlur}
+              placeholder="listener@example.com"
+              className="mt-2 h-11 w-full rounded-md border border-white/15 bg-white/[0.06] px-3 text-sm normal-case text-white outline-none focus:border-[#00e6e6]"
+            />
+            <button type="submit" disabled={saving} className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-bold text-black disabled:opacity-50">
+              <FiCheck aria-hidden="true" /> {saving ? "Adding..." : "Add collaborator"}
+            </button>
           </form>
-        </div>
+        </AccessibleDialog>
       )}
     </main>
   );

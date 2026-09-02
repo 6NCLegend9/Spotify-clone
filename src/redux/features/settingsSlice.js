@@ -22,7 +22,7 @@ const initialState = {
   monoAudio: false,
   explicitContent: false,
   privateSession: false,
-  tailoredAds: true,
+  tailoredAds: false,
   syncedLyrics: true,
   pictureInPicture: true,
   masterVolume: 0.85,

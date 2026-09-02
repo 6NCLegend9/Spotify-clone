@@ -21,10 +21,12 @@ import { addFavourite, getFavourite } from "@/services/dataAPI";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import FavouriteButton from "./FavouriteButton";
+import UserMessage from "@/components/UserMessage";
 import YouTubePlayer from "./YouTubePlayer";
 import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "./PictureInPictureWindow";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { MdPictureInPictureAlt } from "react-icons/md";
+import { toUserError } from "@/utils/userError";
 
 function getAverageImageColor(src) {
   return new Promise((resolve, reject) => {
@@ -95,6 +97,7 @@ const MusicPlayer = () => {
   const [shuffle, setShuffle] = useState(false);
   const [favouriteSongs, setFavouriteSongs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [favouriteFeedback, setFavouriteFeedback] = useState(null);
   const dispatch = useDispatch();
   const { status } = useSession();
   const router = useRouter();
@@ -115,10 +118,10 @@ const MusicPlayer = () => {
     enabled: Boolean(nativeTitle) && !youtubeVideo,
   });
 
-  const songCount = currentSongs?.length || 0;
+  const songCount = Array.isArray(currentSongs) ? currentSongs.length : 0;
   useEffect(() => {
-    if (songCount) dispatch(playPause(true));
-  }, [currentIndex, dispatch, songCount]);
+    if (songCount && activeSong?.id) dispatch(playPause(true));
+  }, [activeSong?.id, currentIndex, dispatch, songCount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +148,10 @@ const MusicPlayer = () => {
       cancelled = true;
     };
   }, [status]);
+
+  useEffect(() => {
+    setFavouriteFeedback(null);
+  }, [activeSong?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,7 +262,7 @@ const MusicPlayer = () => {
 
   const handlePlayPause = (e) => {
     e?.stopPropagation();
-    if (!isActive) return;
+    if (!isActive || (!activeSong?.id && !youtubeVideo?.id)) return;
 
     if (isPlaying) {
       dispatch(playPause(false));
@@ -266,64 +273,120 @@ const MusicPlayer = () => {
 
   const handleNextSong = (e) => {
     e?.stopPropagation();
+    if (!songCount) return;
     dispatch(playPause(false));
+    const safeIndex = Number.isInteger(currentIndex) && currentIndex >= 0
+      ? currentIndex
+      : 0;
 
     if (!shuffle) {
-      dispatch(nextSong((currentIndex + 1) % currentSongs.length));
+      dispatch(nextSong((safeIndex + 1) % songCount));
     } else {
-      dispatch(nextSong(Math.floor(Math.random() * currentSongs.length)));
+      dispatch(nextSong(Math.floor(Math.random() * songCount)));
     }
   };
 
   const handlePrevSong = (e) => {
     e?.stopPropagation();
-    if (currentIndex === 0) {
-      dispatch(prevSong(currentSongs.length - 1));
+    if (!songCount) return;
+    const safeIndex = Number.isInteger(currentIndex) && currentIndex >= 0
+      ? currentIndex
+      : 0;
+    if (safeIndex === 0) {
+      dispatch(prevSong(songCount - 1));
     } else if (shuffle) {
-      dispatch(prevSong(Math.floor(Math.random() * currentSongs.length)));
+      dispatch(prevSong(Math.floor(Math.random() * songCount)));
     } else {
-      dispatch(prevSong(currentIndex - 1));
+      dispatch(prevSong(safeIndex - 1));
     }
   };
 
   const handleAddToFavourite = async (favsong) => {
-    if (status === "unauthenticated") {
-      dispatch(setFullScreen(false));
-      router.push("/login");
+    if (!favsong?.id || loading) return;
+
+    if (status === "loading") {
+      setFavouriteFeedback({
+        tone: "info",
+        title: "Checking your account",
+        message: "Please wait a moment, then try again.",
+      });
+      return;
     }
 
-    if (favsong?.id && status === "authenticated") {
-      try {
-        setLoading(true);
-        // optimistic update
-        if (favouriteSongs?.find((song) => song === favsong?.id)) {
-          setFavouriteSongs(
-            favouriteSongs?.filter((song) => song !== favsong?.id),
-          );
-        } else {
-          setFavouriteSongs([...favouriteSongs, favsong?.id]);
-        }
-        const res = await addFavourite(favsong);
-        if (res?.success === true) {
-          setFavouriteSongs(res?.data?.favourites);
-        }
-        setLoading(false);
-      } catch (error) {
-        setLoading(false);
-        console.log("add to fav error", error);
+    if (status !== "authenticated") {
+      setFavouriteFeedback({
+        tone: "info",
+        title: "Log in to save tracks",
+        message: "Log in to add this track to your Liked Songs.",
+        href: "/login",
+      });
+      dispatch(setFullScreen(false));
+      router.push("/login");
+      return;
+    }
+
+    const previousSongs = Array.isArray(favouriteSongs) ? favouriteSongs : [];
+    const wasFavourite = previousSongs.includes(favsong.id);
+    const optimisticSongs = wasFavourite
+      ? previousSongs.filter((songId) => songId !== favsong.id)
+      : [...previousSongs, favsong.id];
+
+    setLoading(true);
+    setFavouriteFeedback(null);
+    setFavouriteSongs(optimisticSongs);
+
+    try {
+      const res = await addFavourite({ id: favsong.id });
+      if (!res?.success) {
+        setFavouriteSongs(previousSongs);
+        setFavouriteFeedback({
+          tone: "error",
+          title: res?.title || "Liked Songs not updated",
+          message: res?.message || "We couldn’t update your Liked Songs. Please try again.",
+          retryable: res?.retryable !== false,
+        });
+        window.dispatchEvent(new CustomEvent("favourites-changed", { detail: previousSongs }));
+        return;
       }
+
+      const nextSongs = Array.isArray(res?.data?.favourites)
+        ? res.data.favourites
+        : optimisticSongs;
+      setFavouriteSongs(nextSongs);
+      setFavouriteFeedback({
+        tone: "success",
+        title: wasFavourite ? "Removed from Liked Songs" : "Added to Liked Songs",
+      });
+      window.dispatchEvent(new CustomEvent("favourites-changed", { detail: nextSongs }));
+    } catch (error) {
+      const userError = toUserError(error, {
+        title: "Liked Songs not updated",
+        message: "We couldn’t update your Liked Songs. Please try again.",
+      });
+      setFavouriteSongs(previousSongs);
+      setFavouriteFeedback({
+        tone: "error",
+        title: userError.title,
+        message: userError.message,
+        retryable: userError.retryable,
+      });
+      window.dispatchEvent(new CustomEvent("favourites-changed", { detail: previousSongs }));
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!activeSong?.id && !youtubeVideo) return null;
+  if (!activeSong?.id && !youtubeVideo?.id) return null;
 
-  return (
+    return (
     <div
       className={`player-dock hideScrollBar flex flex-col ${
         fullScreen
           ? `player-dock--full items-stretch ${youtubeVideo ? "p-0 overflow-hidden" : "items-center min-[1180px]:items-stretch"}`
           : `items-center min-[1180px]:items-stretch ${youtubeVideo ? "w-full" : "h-20 w-full px-4 sm:px-8"}`
       }`}
+      role="region"
+      aria-label="Now playing"
       onClick={() => {
         if (!youtubeVideo && activeSong?.id && !audioOnly && !dataSaver) {
           dispatch(setFullScreen(!fullScreen));
@@ -337,15 +400,23 @@ const MusicPlayer = () => {
     >
         <YouTubePlayer />
         {!youtubeVideo && (
-        <HiOutlineChevronDown
-        onClick={(e) => {
-          e.stopPropagation();
-          dispatch(setFullScreen(!fullScreen));
-        }}
-        className={` absolute top-16 md:top-10 right-7 text-white text-3xl cursor-pointer ${
-          fullScreen ? "hidden md:block" : "hidden"
-        }`}
-      />
+        <button
+          type="button"
+          aria-label={fullScreen ? "Minimize player" : "Expand player"}
+          title={fullScreen ? "Minimize player" : "Expand player"}
+          onClick={(e) => {
+            e.stopPropagation();
+            dispatch(setFullScreen(!fullScreen));
+          }}
+          className={`absolute z-10 grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10 ${
+            fullScreen ? "top-16 right-7 hidden md:grid md:top-10" : "right-2 top-2"
+          }`}
+        >
+          <HiOutlineChevronDown
+            aria-hidden="true"
+            className={`text-2xl ${fullScreen ? "" : "rotate-180"}`}
+          />
+        </button>
         )}
       {!youtubeVideo && <div
         className={`flex flex-col max-md:justify-center max-md:items-center ${
@@ -429,6 +500,27 @@ const MusicPlayer = () => {
               appTime={appTime}
               setSeekTime={setSeekTime}
             />
+            {favouriteFeedback ? (
+              <div
+                className="mt-2 w-full max-w-md"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <UserMessage
+                  tone={favouriteFeedback.tone}
+                  title={favouriteFeedback.title}
+                  message={favouriteFeedback.message}
+                  href={favouriteFeedback.href}
+                  hrefLabel="Log in"
+                  onRetry={
+                    favouriteFeedback.retryable
+                      ? () => handleAddToFavourite(activeSong)
+                      : undefined
+                  }
+                  busy={loading}
+                  compact
+                />
+              </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <button

@@ -8,22 +8,34 @@ const DEFAULT_PREFERENCES = {
   largeText: false,
   reducedMotion: false,
 };
+const PREFERENCE_KEYS = new Set(Object.keys(DEFAULT_PREFERENCES));
 
 const AccessibilityPreferencesContext = createContext(null);
 
 function normalizePreferences(value) {
   return {
-    highContrast: Boolean(value?.highContrast),
-    largeText: Boolean(value?.largeText),
-    reducedMotion: Boolean(value?.reducedMotion),
+    highContrast: value?.highContrast === true,
+    largeText: value?.largeText === true,
+    reducedMotion: value?.reducedMotion === true,
   };
 }
 
 function getStoredPreferences() {
   try {
-    return normalizePreferences(JSON.parse(window.localStorage.getItem(STORAGE_KEY)));
+    const storedValue = window.localStorage.getItem(STORAGE_KEY);
+    if (!storedValue) {
+      return { preferences: { ...DEFAULT_PREFERENCES }, storageAvailable: true };
+    }
+    try {
+      return {
+        preferences: normalizePreferences(JSON.parse(storedValue)),
+        storageAvailable: true,
+      };
+    } catch {
+      return { preferences: { ...DEFAULT_PREFERENCES }, storageAvailable: true };
+    }
   } catch {
-    return DEFAULT_PREFERENCES;
+    return { preferences: { ...DEFAULT_PREFERENCES }, storageAvailable: false };
   }
 }
 
@@ -37,29 +49,62 @@ function applyPreferences(preferences) {
 export function AccessibilityPreferencesProvider({ children }) {
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [isReady, setIsReady] = useState(false);
+  const [storageStatus, setStorageStatus] = useState("loading");
 
   useEffect(() => {
-    setPreferences(getStoredPreferences());
+    const stored = getStoredPreferences();
+    applyPreferences(stored.preferences);
+    setPreferences(stored.preferences);
+    setStorageStatus(stored.storageAvailable ? "saved" : "unavailable");
     setIsReady(true);
   }, []);
 
   useEffect(() => {
     if (!isReady) return;
     applyPreferences(preferences);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+      setStorageStatus("saved");
+    } catch {
+      setStorageStatus("unavailable");
+    }
   }, [isReady, preferences]);
 
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (event.key !== STORAGE_KEY) return;
+      if (!event.newValue) {
+        setPreferences({ ...DEFAULT_PREFERENCES });
+        return;
+      }
+      try {
+        setPreferences(normalizePreferences(JSON.parse(event.newValue)));
+      } catch {
+        setPreferences({ ...DEFAULT_PREFERENCES });
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const updatePreference = (key, value) => {
+    if (!PREFERENCE_KEYS.has(key)) return;
     setPreferences((current) => ({ ...current, [key]: Boolean(value) }));
   };
 
   const resetPreferences = () => {
-    setPreferences(DEFAULT_PREFERENCES);
+    setPreferences({ ...DEFAULT_PREFERENCES });
   };
 
   return (
     <AccessibilityPreferencesContext.Provider
-      value={{ isReady, preferences, resetPreferences, updatePreference }}
+      value={{
+        isReady,
+        preferences,
+        resetPreferences,
+        storageStatus,
+        updatePreference,
+      }}
     >
       {children}
     </AccessibilityPreferencesContext.Provider>

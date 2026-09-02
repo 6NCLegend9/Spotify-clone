@@ -1,74 +1,66 @@
-import { NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import User from "@/models/User";
 import mailSender from "@/utils/mailSender";
 import dbConnect from "@/utils/dbconnect";
 import { getResetPasswordTemplate } from "@/emails/ResetPasswordEmail";
-import { getAppUrl } from "@/utils/appUrl";
+import { getAppUrl, getPublicAssetUrl } from "@/utils/appUrl";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
+import {
+  apiError,
+  apiSuccess,
+  handleApiError,
+  readRequestJson,
+} from "@/utils/apiResponse";
+import { EMAIL_PATTERN } from "@/utils/authErrors";
+import { hashToken } from "@/utils/tokenHash.mjs";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
-function hashToken(token) {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
+const RESET_REQUEST_RESPONSE = {
+  title: "Check your email",
+  message:
+    "If an account matches that email, a reset link is on the way. It expires in 15 minutes.",
+};
 
 export async function POST(request) {
-  if (isRateLimited(getClientKey(request), { windowMs: 15 * 60_000, max: 6 })) {
-    return NextResponse.json(
-      { success: false, message: "Too many reset attempts. Please try again later.", data: null },
-      { status: 429 },
-    );
-  }
+  try {
+    const rateLimit = await isRateLimited(getClientKey(request), {
+      windowMs: 15 * 60_000,
+      max: 6,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many reset attempts. Please try again later.",
+      });
+    }
 
-  const payload = await request.json().catch(() => null);
-  const email =
-    typeof payload?.email === "string"
-      ? payload.email.trim().toLowerCase()
-      : "";
+    const payload = await readRequestJson(request);
+    const email =
+      typeof payload.email === "string"
+        ? payload.email.trim().toLowerCase()
+        : "";
 
-  if (!email) {
-    return NextResponse.json(
-      {
-        success: false,
-        code: "EMAIL_REQUIRED",
+    if (!email) {
+      return apiError("VALIDATION_ERROR", {
         title: "Email required",
         message: "Please enter your email address.",
-        data: null,
-      },
-      { status: 400 },
-    );
-  }
+      });
+    }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json(
-      {
-        success: false,
-        code: "INVALID_EMAIL",
+    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+      return apiError("VALIDATION_ERROR", {
         title: "Invalid email",
         message: "Please enter a valid email address.",
-        data: null,
-      },
-      { status: 400 },
-    );
-  }
+      });
+    }
 
-  try {
     await dbConnect();
     const user = await User.findOne({ email });
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "EMAIL_NOT_FOUND",
-          title: "Email not found",
-          message:
-            "We couldn't find an account using that email. Please check the spelling or try requesting a new link.",
-          data: null,
-        },
-        { status: 404 },
-      );
+      return apiSuccess(null, RESET_REQUEST_RESPONSE);
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -82,81 +74,70 @@ export async function POST(request) {
       await mailSender(
         user.email,
         "Reset Password - HeyKasa",
-        getResetPasswordTemplate(url),
-        { inlineLogo: true },
+        getResetPasswordTemplate(url, {
+          logoUrl: getPublicAssetUrl("/icon-192x192.png", request),
+          lightPillarUrl: getPublicAssetUrl("/email-light-pillar.png", request),
+        }),
       );
-    } catch (mailError) {
+    } catch {
       await User.updateOne(
         { _id: user._id, resetPasswordToken: resetTokenHash },
         { $set: { resetPasswordToken: null, resetPasswordExpires: null } },
       ).catch(() => {});
-      console.error("Reset email delivery failed:", mailError);
-      return NextResponse.json(
-        {
-          success: false,
-          message: "We could not send the reset email. Please try again.",
-          data: null,
-        },
-        { status: 502 },
-      );
+      return apiSuccess(null, RESET_REQUEST_RESPONSE);
     }
 
-    return NextResponse.json({
-      success: true,
-      title: "Check your email",
-      message: "If that inbox can receive mail, a reset link is on the way. It expires in 15 minutes.",
-      data: null,
-    });
+    return apiSuccess(null, RESET_REQUEST_RESPONSE);
   } catch (error) {
-    console.error("Forgot password error:", error);
-    return NextResponse.json(
-      { success: false, message: "Something went wrong", data: null },
-      { status: 500 },
-    );
+    return handleApiError(error, "Forgot password");
   }
 }
 
 export async function PUT(request) {
-  if (isRateLimited(getClientKey(request), { windowMs: 15 * 60_000, max: 10 })) {
-    return NextResponse.json(
-      { success: false, message: "Too many reset attempts. Please try again later.", data: null },
-      { status: 429 },
-    );
-  }
-
-  const payload = await request.json().catch(() => null);
-  const token = typeof payload?.token === "string" ? payload.token.trim() : "";
-  const password = typeof payload?.password === "string" ? payload.password : "";
-  const confirmPassword =
-    typeof payload?.confirmPassword === "string"
-      ? payload.confirmPassword
-      : "";
-
-  if (!/^[a-f0-9]{40,128}$/i.test(token)) {
-    return NextResponse.json(
-      { success: false, message: "Invalid or expired reset link.", data: null },
-      { status: 400 },
-    );
-  }
-  if (password.length < 8 || password.length > 72) {
-    return NextResponse.json(
-      { success: false, message: "Password must be between 8 and 72 characters.", data: null },
-      { status: 400 },
-    );
-  }
-  if (password !== confirmPassword) {
-    return NextResponse.json(
-      { success: false, message: "Passwords do not match.", data: null },
-      { status: 400 },
-    );
-  }
-
   try {
+    const rateLimit = await isRateLimited(getClientKey(request), {
+      windowMs: 15 * 60_000,
+      max: 10,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many reset attempts. Please try again later.",
+      });
+    }
+
+    const payload = await readRequestJson(request);
+    const token = typeof payload.token === "string" ? payload.token.trim() : "";
+    const password = typeof payload.password === "string" ? payload.password : "";
+    const confirmPassword =
+      typeof payload.confirmPassword === "string"
+        ? payload.confirmPassword
+        : "";
+
+    if (!/^[a-f0-9]{64}$/i.test(token)) {
+      return apiError("VALIDATION_ERROR", {
+        title: "Invalid reset link",
+        message: "Invalid or expired reset link.",
+      });
+    }
+    if (password.length < 8 || password.length > 72) {
+      return apiError("VALIDATION_ERROR", {
+        title: "Invalid password",
+        message: "Password must be between 8 and 72 characters.",
+      });
+    }
+    if (password !== confirmPassword) {
+      return apiError("VALIDATION_ERROR", {
+        title: "Passwords don't match",
+        message: "Passwords do not match.",
+      });
+    }
+
     await dbConnect();
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.findOneAndUpdate(
       {
-        resetPasswordToken: { $in: [token, hashToken(token)] },
+        resetPasswordToken: hashToken(token),
         resetPasswordExpires: { $gt: Date.now() },
       },
       {
@@ -170,22 +151,16 @@ export async function PUT(request) {
     ).select("_id");
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Invalid or expired reset link.", data: null },
-        { status: 400 },
-      );
+      return apiError("VALIDATION_ERROR", {
+        title: "Invalid reset link",
+        message: "Invalid or expired reset link.",
+      });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Password updated successfully",
-      data: null,
+    return apiSuccess(null, {
+      message: "Password updated successfully.",
     });
   } catch (error) {
-    console.error("Reset password error:", error);
-    return NextResponse.json(
-      { success: false, message: "Something went wrong", data: null },
-      { status: 500 },
-    );
+    return handleApiError(error, "Reset password");
   }
 }

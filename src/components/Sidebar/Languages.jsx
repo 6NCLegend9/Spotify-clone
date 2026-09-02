@@ -12,8 +12,9 @@ const Languages = () => {
 
   const languageList = [{ id: "english", label: "English" }];
 
-  const handleLanguageChange = (event) => {
+    const handleLanguageChange = (event) => {
     const { value, checked } = event.target;
+    if (!checked && selectedLanguages.length <= 1) return;
     const updatedLanguages = checked
       ? [...selectedLanguages, value]
       : selectedLanguages.filter((lang) => lang !== value);
@@ -29,7 +30,7 @@ const Languages = () => {
           <p className="text-sm font-semibold">Languages</p>
           <p className="text-[11px] text-[#9aa8b5]">Pick what you like to hear</p>
         </div>
-        <FaChevronDown className="text-xs text-[#9aa8b5] transition group-open:rotate-180" />
+        <FaChevronDown aria-hidden="true" className="text-xs text-[#9aa8b5] transition group-open:rotate-180" />
       </summary>
       <form className="mt-2 grid grid-cols-2 gap-2 px-1 pb-2">
         {languageList.map((language) => (

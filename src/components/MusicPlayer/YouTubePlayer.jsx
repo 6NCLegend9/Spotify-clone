@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import {
@@ -18,6 +18,7 @@ import SyncedLyrics from "@/components/MusicPlayer/SyncedLyrics";
 import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "@/components/MusicPlayer/PictureInPictureWindow";
 import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
+import { requestJson } from "@/services/http";
 import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
 import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
 
@@ -138,10 +139,11 @@ export default function YouTubePlayer() {
   const queueMenuRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
   const expandLockRef = useRef(false);
-  const [playerError, setPlayerError] = useState("");
+  const [playerError, setPlayerError] = useState(null);
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState([]);
   const [addSearching, setAddSearching] = useState(false);
+  const [addSearchError, setAddSearchError] = useState("");
   const autoExtendedForRef = useRef(null);
   const autoExtendingRef = useRef(false);
   const pipWindowRef = useRef(null);
@@ -185,7 +187,11 @@ export default function YouTubePlayer() {
   const handoffWaitingRef = useRef(null);
   const endedTransitionRef = useRef(null);
   videoRef.current = video;
-  queueRef.current = queue;
+  const safeQueue = useMemo(
+    () => (Array.isArray(queue) ? queue.filter((item) => item?.id) : []),
+    [queue],
+  );
+  queueRef.current = safeQueue;
   isPlayingRef.current = isPlaying;
   const lyricsQuery = useSyncedLyrics({
     title: video?.title || "",
@@ -235,18 +241,20 @@ export default function YouTubePlayer() {
 
   const getNextVideo = () => {
     const currentId = videoRef.current?.id;
-    const list = queueRef.current || [];
-    const index = list.findIndex((item) => item.id === currentId);
+    if (!currentId) return null;
+    const list = Array.isArray(queueRef.current) ? queueRef.current : [];
+    const index = list.findIndex((item) => item?.id === currentId);
     if (index < 0) return null;
-    return list[index + 1] || null;
+    return list.slice(index + 1).find((item) => item?.id) || null;
   };
 
   const getPreviousVideo = () => {
     const currentId = videoRef.current?.id;
-    const list = queueRef.current || [];
-    const index = list.findIndex((item) => item.id === currentId);
+    if (!currentId) return null;
+    const list = Array.isArray(queueRef.current) ? queueRef.current : [];
+    const index = list.findIndex((item) => item?.id === currentId);
     if (index <= 0) return null;
-    return list[index - 1] || null;
+    return list.slice(0, index).reverse().find((item) => item?.id) || null;
   };
 
   const hushIdleDeck = () => {
@@ -540,7 +548,10 @@ export default function YouTubePlayer() {
 
       const attempts = recovery.attempts;
       if (attempts >= 2) {
-        setPlayerError("This video stopped buffering. Press play to retry.");
+        setPlayerError({
+          kind: "playback",
+          message: "This video stopped buffering. Retry playback or skip to the next track.",
+        });
         dispatch(playPause(false));
         return;
       }
@@ -786,7 +797,7 @@ export default function YouTubePlayer() {
               }
             }
             if (key === activeDeckRef.current) {
-              setPlayerError("");
+              setPlayerError(null);
               requestYouTubeQuality(event.target, requestedYouTubeQuality);
               reportPlaybackQuality(event.target, key);
               const playingId = playerVideoId(event.target);
@@ -929,6 +940,10 @@ export default function YouTubePlayer() {
           if (!isCurrent()) return;
           if (key === activeDeckRef.current) {
             clearActiveBufferTimers();
+            setPlayerError({
+              kind: "autoplay",
+              message: "Your browser blocked autoplay. Select Retry to start playback.",
+            });
             dispatch(playPause(false));
           } else {
             recoverFromIncomingFailure(key);
@@ -938,7 +953,10 @@ export default function YouTubePlayer() {
           if (!isCurrent()) return;
           if (key === activeDeckRef.current) {
             clearActiveBufferTimers();
-            setPlayerError(playerErrorMessage(event.data));
+            setPlayerError({
+              kind: "playback",
+              message: playerErrorMessage(event.data),
+            });
             dispatch(playPause(false));
           } else {
             recoverFromIncomingFailure(key);
@@ -1327,7 +1345,7 @@ export default function YouTubePlayer() {
   }, []);
 
   useEffect(() => {
-    if (!video) {
+    if (!video?.id) {
       cancelCrossfade();
       clearActiveBufferTimers();
       destroyDeck("A");
@@ -1414,7 +1432,7 @@ export default function YouTubePlayer() {
         idle.unMute?.();
         idle.playVideo?.();
         destroyDeck(outgoingKey);
-        setPlayerError("");
+        setPlayerError(null);
         setCurrentTime(idle.getCurrentTime?.() || 0);
         setDuration(idle.getDuration?.() || 0);
         dispatch(playPause(true));
@@ -1451,7 +1469,7 @@ export default function YouTubePlayer() {
     preloadingRef.current = null;
     seekGuardRef.current = { seeking: false, until: 0, target: null, videoId: null };
     nearEndStreakRef.current = 0;
-    setPlayerError("");
+    setPlayerError(null);
     setCurrentTime(0);
     setDuration(0);
     setDeliveredVideoQuality("");
@@ -1566,20 +1584,27 @@ export default function YouTubePlayer() {
 
   // Keeps the queue from running dry: pulls in more songs by the same channel once only one track is left.
   useEffect(() => {
-    if (!video || autoExtendingRef.current || autoExtendedForRef.current === video.id) return;
-    const index = queue.findIndex((item) => item.id === video.id);
-    if (index === -1 || index < queue.length - 1) return;
+    if (!video?.id || autoExtendingRef.current || autoExtendedForRef.current === video.id) return;
+    const index = safeQueue.findIndex((item) => item.id === video.id);
+    if (index === -1 || index < safeQueue.length - 1) return;
 
     autoExtendedForRef.current = video.id;
     autoExtendingRef.current = true;
     (async () => {
       try {
         const seed = video.seedQuery || video.genre || video.channel || video.title;
-        const response = await fetch(`/api/youtube-search?type=video&q=${encodeURIComponent(seed)}`);
-        const data = response.ok ? await response.json() : null;
-        const existingIds = new Set(queue.map((item) => item.id));
-        const extras = (data?.results || [])
-          .filter((item) => !existingIds.has(item.id))
+        if (!seed) return;
+        const data = await requestJson(
+          `/api/youtube-search?type=video&q=${encodeURIComponent(seed)}`,
+          {
+            fallbackTitle: "Queue search is temporarily unavailable",
+            fallbackMessage: "We couldn’t find more tracks right now.",
+          },
+        );
+        const existingIds = new Set(safeQueue.map((item) => item.id));
+        const results = Array.isArray(data?.results) ? data.results : [];
+        const extras = results
+          .filter((item) => item?.id && !existingIds.has(item.id))
           .slice(0, 5)
           .map((item) => ({
             ...item,
@@ -1593,21 +1618,34 @@ export default function YouTubePlayer() {
         autoExtendingRef.current = false;
       }
     })();
-  }, [video, queue, dispatch]);
+  }, [video, safeQueue, dispatch]);
 
-  const handleAddSearch = async (event) => {
-    event.preventDefault();
-    if (!addQuery.trim() || addSearching) return;
+  const searchForQueueTracks = async () => {
+    const query = addQuery.trim();
+    if (!query || addSearching) return;
     setAddSearching(true);
+    setAddSearchError("");
     try {
-      const response = await fetch(`/api/youtube-search?type=video&q=${encodeURIComponent(addQuery.trim())}`);
-      const data = response.ok ? await response.json() : null;
-      setAddResults((data?.results || []).slice(0, 6));
+      const data = await requestJson(
+        `/api/youtube-search?type=video&q=${encodeURIComponent(query)}`,
+        {
+          fallbackTitle: "Queue search is temporarily unavailable",
+          fallbackMessage: "We couldn’t search for tracks. Please try again.",
+        },
+      );
+      const results = Array.isArray(data?.results) ? data.results : [];
+      setAddResults(results.filter((item) => item?.id).slice(0, 6));
     } catch (error) {
       setAddResults([]);
+      setAddSearchError("We couldn’t search for tracks. Please try again.");
     } finally {
       setAddSearching(false);
     }
+  };
+
+  const handleAddSearch = (event) => {
+    event.preventDefault();
+    void searchForQueueTracks();
   };
 
   const handleAddTrack = (track) => {
@@ -1708,11 +1746,37 @@ export default function YouTubePlayer() {
     player.playVideo();
   };
 
+  const handleRetryPlayback = () => {
+    const current = videoRef.current;
+    if (!current?.id) return;
+    abortCrossfade();
+    setPlayerError(null);
+    dispatch(playPause(true));
+    const player = getActivePlayer();
+    if (!player?.playVideo) {
+      if (apiReady) mountDeck(activeDeckRef.current, current.id);
+      return;
+    }
+    const resumeAt = Math.max(0, player.getCurrentTime?.() || currentTime || 0);
+    if (playerVideoId(player) !== current.id) {
+      player.loadVideoById?.({ videoId: current.id, startSeconds: resumeAt });
+    }
+    player.unMute?.();
+    applyPlaybackVolume(player);
+    player.playVideo();
+  };
+
   const handleNext = ({ completed = false } = {}) => {
     const current = videoRef.current;
     if (status === "authenticated" && current?.id) recordPlayEvent(current.id, completed ? "completed" : "skipped");
     const nextVideo = getNextVideo();
     if (nextVideo) dispatch(setYoutubeVideo(nextVideo));
+  };
+
+  const handleSkipPlaybackFailure = () => {
+    if (!getNextVideo()) return;
+    setPlayerError(null);
+    handleNext();
   };
 
   const handlePrev = () => {
@@ -1891,7 +1955,7 @@ export default function YouTubePlayer() {
   }, [video, isPlaying]);
 
 
-  if (!video) return null;
+  if (!video?.id) return null;
 
   const videoVisible = !dataSaver && !audioOnly;
   const deliveredQualityLabel = YOUTUBE_QUALITY_LABELS[deliveredVideoQuality] || "";
@@ -1921,8 +1985,8 @@ export default function YouTubePlayer() {
 
   const fullscreen = expanded && videoVisible;
   const compactFullscreen = fullscreen && isNarrow;
-  const currentQueueIndex = queue.findIndex((item) => item.id === video.id);
-  const upcoming = currentQueueIndex === -1 ? queue : queue.slice(currentQueueIndex + 1);
+  const currentQueueIndex = safeQueue.findIndex((item) => item.id === video.id);
+  const upcoming = currentQueueIndex === -1 ? safeQueue : safeQueue.slice(currentQueueIndex + 1);
   const showDesktopQueue = showQueue && !compactFullscreen;
 
   const toggleSheetTab = (tab) => {
@@ -1974,9 +2038,21 @@ export default function YouTubePlayer() {
           </button>
         )}
         {playerError && (
-          <div className="absolute inset-0 z-10 grid place-content-center bg-black/90 p-3 text-center">
-            <p className="text-xs font-medium text-white">{playerError}</p>
-            <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noreferrer" className="mt-2 text-xs font-semibold text-[#00e6e6] hover:underline">Open on YouTube</a>
+          <div
+            className="absolute inset-0 z-10 grid place-content-center bg-black/90 p-3 text-center"
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+          >
+            <p className="text-xs font-medium text-white">{playerError.message}</p>
+            {playerError.kind === "autoplay" && (
+              <p className="mt-1 text-[11px] text-gray-300">You may need to allow autoplay in your browser settings.</p>
+            )}
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <button type="button" onClick={handleRetryPlayback} className="rounded-md bg-[#00e6e6] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>
+              <button type="button" onClick={handleSkipPlaybackFailure} disabled={!getNextVideo()} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50">Skip</button>
+              <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#00e6e6] hover:bg-white/20">Open YouTube</a>
+            </div>
           </div>
         )}
       </div>
@@ -2120,6 +2196,12 @@ export default function YouTubePlayer() {
                 ))}
               </div>
             )}
+            {addSearchError && (
+              <div className="mt-2 flex items-center justify-between gap-3 rounded-md bg-red-500/10 px-2 py-1.5" role="alert">
+                <p className="text-xs text-red-200">{addSearchError}</p>
+                <button type="button" onClick={() => void searchForQueueTracks()} disabled={addSearching || !addQuery.trim()} className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-[#00e6e6] hover:bg-white/10 disabled:opacity-50">Retry</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2159,8 +2241,8 @@ export default function YouTubePlayer() {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {sheetTab === "queue" ? (
               <div>
-                {queue.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Queue is empty.</p>}
-                {queue.map((item) => (
+                {safeQueue.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Queue is empty.</p>}
+                {safeQueue.map((item) => (
                   <button
                     key={item.id}
                     type="button"

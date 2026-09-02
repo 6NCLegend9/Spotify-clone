@@ -1,4 +1,18 @@
-export const getResetPasswordTemplate = (url) => {
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export const getResetPasswordTemplate = (
+  url,
+  { logoUrl, lightPillarUrl },
+) => {
+  const safeUrl = escapeHtml(url);
+  const safeLogoUrl = escapeHtml(logoUrl);
+  const safeLightPillarUrl = escapeHtml(lightPillarUrl);
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -23,9 +37,9 @@ export const getResetPasswordTemplate = (url) => {
 </head>
 <body>
     <div class="container">
-        <img src="cid:heykasa-light-pillar" alt="" role="presentation" width="600" height="156" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
+        <img src="${safeLightPillarUrl}" alt="" role="presentation" width="600" height="156" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
         <div class="header">
-            <img src="cid:heykasa-logo" alt="HeyKasa Logo" width="40" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
+            <img src="${safeLogoUrl}" alt="HeyKasa Logo" width="40" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
             <span class="logo" style="vertical-align: middle;">HeyKasa</span>
         </div>
         <div class="content">
@@ -33,13 +47,13 @@ export const getResetPasswordTemplate = (url) => {
             <p>We received a request to reset the password for your HeyKasa account. If you made this request, please click the button below to choose a new password.</p>
             
             <div class="btn-container">
-                <a href="${url}" class="btn">Reset Password</a>
+                <a href="${safeUrl}" class="btn">Reset Password</a>
             </div>
             
-            <p>This link will expire in 5 minutes for your security. If you didn't request a password reset, you can safely ignore this email and your password will remain unchanged.</p>
+            <p>This link will expire in 15 minutes for your security. If you didn't request a password reset, you can safely ignore this email and your password will remain unchanged.</p>
             
             <p style="margin-bottom: 0;">If you're having trouble clicking the button, copy and paste this URL into your browser:</p>
-            <p class="link-text">${url}</p>
+            <p class="link-text">${safeUrl}</p>
         </div>
         <div class="footer">
              &copy; 2026 HeyKasa. All rights reserved.

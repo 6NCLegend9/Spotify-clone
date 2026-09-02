@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import OnlineStatus from "@/components/Homepage/OnlineStatus";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -31,34 +33,60 @@ export function useNav() {
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const [showNav, setShowNav] = useState(false);
+  const [isCompactNav, setIsCompactNav] = useState(false);
 
   useEffect(() => {
     setShowNav(false);
   }, [pathname]);
 
   useEffect(() => {
-    if (!showNav) return undefined;
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsCompactNav(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  const navModal = showNav && isCompactNav;
+
+  useEffect(() => {
+    if (!navModal) return undefined;
     const onKey = (event) => {
       if (event.key === "Escape") setShowNav(false);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [showNav]);
+  }, [navModal]);
 
-  const value = useMemo(() => ({ showNav, setShowNav }), [showNav]);
+  const value = useMemo(
+    () => ({ showNav, setShowNav, navModal }),
+    [navModal, showNav],
+  );
 
   return (
     <NavContext.Provider value={value}>
       <div className="app-shell">
-        <a href="#main-content" className="skip-link">
+        <a
+          href="#main-content"
+          className="skip-link"
+          onClick={() => {
+            window.requestAnimationFrame(() => {
+              document.getElementById("main-content")?.focus();
+            });
+          }}
+        >
           Skip to main content
         </a>
         <Sidebar />
-        <div
+        <button
+          type="button"
+          aria-label="Close navigation"
+          aria-hidden={!showNav}
+          tabIndex={-1}
           className={`app-overlay lg:hidden ${showNav ? "is-open" : ""}`}
           onClick={() => setShowNav(false)}
         />
-        <div className="app-stage">
+        <div className="app-stage" {...(navModal ? { inert: "" } : {})}>
           <GhostFibers
             className="app-ghost-fibers"
             lineColor="#0a5c66"
@@ -79,6 +107,7 @@ export default function AppShell({ children }) {
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Navbar />
           <div className="app-content" id="main-content" tabIndex={-1}>
+            <OnlineStatus />
             {children}
             <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
               <div className="flex justify-center gap-4">
@@ -91,12 +120,23 @@ export default function AppShell({ children }) {
           </div>
         </div>
         <div className="app-player">
-          <MusicPlayer />
+          <ErrorBoundary
+            name="Music player"
+            title="The music player stopped"
+            message="Reload the player to keep listening. Your queue and library are safe."
+          >
+            <MusicPlayer />
+          </ErrorBoundary>
         </div>
       </div>
       <Toaster
         position="top-center"
         toastOptions={{
+          duration: 4500,
+          ariaProps: {
+            role: "status",
+            "aria-live": "polite",
+          },
           style: {
             background: "#07121d",
             color: "#fff",

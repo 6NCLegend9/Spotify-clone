@@ -48,7 +48,7 @@
     {
       "name": "My favourites",
       "short_name": "Favourites",
-      "url": "/favourite",
+      "url": "/library/liked",
       "description": "Open your favourite songs"
     }
   ]

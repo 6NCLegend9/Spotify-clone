@@ -1,7 +1,7 @@
 "use client";
 
 import { setProgress } from "@/redux/features/loadingBarSlice";
-import { resetPassword } from "@/services/dataAPI";
+import { requestJson } from "@/services/http";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { useDispatch } from "react-redux";
@@ -9,12 +9,22 @@ import { useParams, useRouter } from "next/navigation";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 import Link from "next/link";
 import AuthMessage from "@/components/AuthMessage";
-import { humanizeError, validatePassword } from "@/utils/authErrors";
+import { validatePassword } from "@/utils/authErrors";
+import { userErrorDetails } from "@/utils/userError";
 
 const ResetPasswordPage = () => {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { token } = useParams();
+  const params = useParams();
+  const tokenValue = Array.isArray(params?.token) ? params.token[0] : params?.token;
+  const token = typeof tokenValue === "string" ? tokenValue.trim() : "";
+  const tokenIsValid = /^[a-f0-9]{64}$/i.test(token);
+  const tokenError = tokenIsValid
+    ? null
+    : {
+        title: "Invalid reset link",
+        message: "This password reset link is incomplete or invalid. Request a new link and try again.",
+      };
   
   const [formData, setFormData] = useState({
     password: "",
@@ -22,14 +32,19 @@ const ResetPasswordPage = () => {
   });
 
   const [formError, setFormError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const onchange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (formError) setFormError(null);
   };
 
-  const handelSubmit = async (e) => {
-    e.preventDefault();
+  const submitPassword = async () => {
+    if (submitting) return;
+    if (!tokenIsValid) {
+      setFormError(tokenError);
+      return;
+    }
     const passwordError = validatePassword(formData.password, {
       confirm: formData.confirmPassword,
     });
@@ -39,22 +54,38 @@ const ResetPasswordPage = () => {
     }
     const { password, confirmPassword } = formData;
     try {
+      setSubmitting(true);
       dispatch(setProgress(70));
-      const res = await resetPassword(password, confirmPassword, token);
+      const res = await requestJson("/api/forgotPassword", {
+        method: "PUT",
+        body: { password, confirmPassword, token },
+        fallbackTitle: "Couldn't reset password",
+        fallbackMessage: "We couldn't reset your password. Please try again.",
+      });
       if (res?.success === true) {
         toast.success("Password updated. You can log in now.");
         router.push("/login");
       } else {
         setFormError({
           title: "Couldn't reset password",
-          message: humanizeError(res).message,
+          message: "We couldn't reset your password. Please try again.",
+          retryable: true,
         });
       }
     } catch (error) {
-      setFormError(humanizeError(error));
+      setFormError(userErrorDetails(error, {
+        title: "Couldn't reset password",
+        message: "We couldn't reset your password. Please try again.",
+      }));
     } finally {
+      setSubmitting(false);
       dispatch(setProgress(100));
     }
+  };
+
+  const handelSubmit = (event) => {
+    event.preventDefault();
+    void submitPassword();
   };
 
   return (
@@ -69,9 +100,11 @@ const ResetPasswordPage = () => {
         </div>
         <form onSubmit={handelSubmit} className="mt-8 flex flex-col gap-5" noValidate>
           <AuthMessage
-            title={formError?.title}
-            message={formError?.message}
-            onRetry={() => setFormError(null)}
+            title={(formError || tokenError)?.title}
+            message={(formError || tokenError)?.message}
+            onRetry={tokenIsValid && formError?.retryable ? submitPassword : undefined}
+            retryLabel="Try resetting again"
+            busy={submitting}
             href="/reset-password"
             hrefLabel="Request a new password link"
           />
@@ -86,6 +119,7 @@ const ResetPasswordPage = () => {
               type="password"
               placeholder="New password"
               required
+              disabled={!tokenIsValid}
               autoComplete="new-password"
               minLength={8}
               maxLength={72}
@@ -103,14 +137,15 @@ const ResetPasswordPage = () => {
               type="password"
               placeholder="Confirm password"
               required
+              disabled={!tokenIsValid}
               autoComplete="new-password"
               minLength={8}
               maxLength={72}
               className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
           </div>
-          <button type="submit" className="mt-2 w-full rounded-full bg-[#00e6e6] px-4 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2] shadow-[0_0_15px_rgba(0,230,230,0.4)]">
-            Save password
+          <button type="submit" disabled={submitting || !tokenIsValid} className="mt-2 w-full rounded-full bg-[#00e6e6] px-4 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2] disabled:cursor-wait disabled:opacity-60 shadow-[0_0_15px_rgba(0,230,230,0.4)]">
+            {submitting ? "Saving password..." : "Save password"}
           </button>
         </form>
       </SpotlightCard>
