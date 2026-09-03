@@ -9,7 +9,7 @@ import Favicon from "./favicon.ico";
 import AuthProvider from "./AuthProvider";
 import AppShell from "@/components/Layout/AppShell";
 import { AccessibilityPreferencesProvider } from "@/components/AccessibilityPreferences";
-import AnalyticsConsent from "@/components/AnalyticsConsent";
+import AnalyticsCleanup from "@/components/AnalyticsCleanup";
 import {
   SITE_URL,
   SITE_NAME,
@@ -258,7 +258,7 @@ export default function RootLayout({ children }) {
         <AccessibilityPreferencesProvider>
           <Providers>
             <AuthProvider>
-              <AnalyticsConsent />
+              <AnalyticsCleanup />
               <TopProgressBar />
               <SongsHistory />
               <SettingsSync />

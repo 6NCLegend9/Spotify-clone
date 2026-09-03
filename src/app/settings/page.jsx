@@ -11,10 +11,6 @@ import GenrePreferences from "@/components/GenrePreferences";
 import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
-import {
-  ANALYTICS_CONSENT,
-  writeAnalyticsConsent,
-} from "@/utils/analyticsConsent";
 
 const qualityOptions = [["auto", "Automatic"], ["low", "Data saver"], ["normal", "Balanced"], ["high", "High quality"], ["very-high", "Best available"]];
 const normalizationOptions = [["quiet", "Quiet · -23 LUFS"], ["normal", "Normal · -14 LUFS"], ["loud", "Loud · -11 LUFS"]];
@@ -77,12 +73,6 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState(null);
   const savedTimerRef = useRef(null);
   const set = (key, value) => dispatch(updateSetting({ key, value }));
-  const setUsageAnalytics = (value) => {
-    writeAnalyticsConsent(
-      value ? ANALYTICS_CONSENT.accepted : ANALYTICS_CONSENT.necessary,
-    );
-    set("tailoredAds", value);
-  };
 
   useEffect(() => () => {
     if (savedTimerRef.current) window.clearTimeout(savedTimerRef.current);
@@ -181,7 +171,7 @@ export default function SettingsPage() {
 
       <section className="grid gap-8 lg:grid-cols-2 mb-8">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Playback & data</h2><Toggle label="Data Saver mode" checked={settings.dataSaver} onChange={(value) => set("dataSaver", value)} /><Toggle label="Audio-only mode" checked={settings.audioOnly} onChange={(value) => set("audioOnly", value)} /><Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them." checked={settings.captions !== false} onChange={(value) => set("captions", value)} /><Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} /><Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} /><Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} /><Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} /></div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><Toggle label="Usage analytics" description="Allow Simple Analytics to measure aggregate usage and service performance. This is optional and is not used for advertising." checked={settings.tailoredAds} onChange={setUsageAnalytics} /><p className="mt-4 text-xs text-[#9aa8b5]">Private session prevents new listening activity from being used for recommendations. Analytics consent applies only to this browser and can be changed here at any time.</p></div>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><p className="mt-4 text-xs text-[#9aa8b5]">Private session prevents new listening activity from being used for recommendations.</p></div>
       </section>
 
       {status === "authenticated" && (
