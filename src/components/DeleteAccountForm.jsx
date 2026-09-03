@@ -1,30 +1,22 @@
 "use client";
 import React, { useState } from "react";
 import { signOut } from "next-auth/react";
-import { persistor } from "@/redux/store";
+import { store, persistor, RESET_STORE } from "@/redux/store";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
 import UserMessage from "@/components/UserMessage";
 
-const LOCAL_ACCOUNT_STORAGE_KEYS = [
-  "songHistory",
-  "autoAdd",
-  "heykasa-accessibility-preferences",
-];
-
 async function clearLocalAccountData() {
+  // Stop persistence, reset the live Redux store, then wipe all browser storage.
   persistor.pause();
+  store.dispatch({ type: RESET_STORE });
   await persistor.purge();
 
-  for (const storageKey of LOCAL_ACCOUNT_STORAGE_KEYS) {
-    window.localStorage.removeItem(storageKey);
-  }
-
-  for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
-    const storageKey = window.sessionStorage.key(index);
-    if (storageKey?.startsWith("HeyKasa-home-recommendations")) {
-      window.sessionStorage.removeItem(storageKey);
-    }
+  try {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  } catch {
+    // Storage may be unavailable (e.g., private browsing).
   }
 }
 
