@@ -162,7 +162,7 @@ export default function SettingsPage() {
       <GenrePreferences status={status} />
 
       <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-        <div className="mb-5 flex items-end justify-between gap-4"><div><h2 className="text-xl font-semibold">Equalizer presets</h2><p className="mt-1 text-xs text-gray-400">Five-band profile applied to the current track. Presets write real band values so playback can use them.</p></div><span className="text-sm text-[#00e6e6]">{settings.eqPreset}</span></div>
+        <div className="mb-5 flex items-end justify-between gap-4"><div><h2 className="text-xl font-semibold">Equalizer presets</h2><p className="mt-1 text-xs text-gray-400">Shapes bass, mids, and treble for direct-audio tracks. YouTube tracks adjust overall loudness only.</p></div><span className="text-sm text-[#00e6e6]">{settings.eqPreset}</span></div>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
           {EQ_PRESETS.map((preset, index) => <button key={preset} type="button" aria-pressed={settings.eqPreset === preset} onClick={() => set("eqPreset", preset)} className={`min-h-14 rounded-md border px-3 py-2 text-left text-[13px] leading-snug transition ${settings.eqPreset === preset ? "border-[#00e6e6] bg-[#00e6e6]/10 text-[#00e6e6]" : "border-white/10 text-gray-300 hover:border-white/30"}`}><span className="mr-1.5 text-gray-400">{String(index + 1).padStart(2, "0")}</span>{preset}</button>)}
         </div>

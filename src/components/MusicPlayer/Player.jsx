@@ -203,6 +203,7 @@ const Player = ({
       <audio
         src={audioSource}
         ref={ref}
+        crossOrigin="anonymous"
         loop={repeat}
         onEnded={onEnded}
         onTimeUpdate={onTimeUpdate}
