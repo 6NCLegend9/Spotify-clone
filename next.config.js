@@ -163,7 +163,11 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         },
       },
       {
-        urlPattern: ({ request }) => request.destination === "image",
+        // Only same-origin images (incl. /_next/image) are cached. Cross-origin
+        // images (YouTube, DiceBear, avatars) pass straight through to the network;
+        // intercepting their opaque responses here breaks them in the service worker.
+        urlPattern: ({ sameOrigin, request }) =>
+          sameOrigin && request.destination === "image",
         handler: "StaleWhileRevalidate",
         options: {
           cacheName: "image-resources",
