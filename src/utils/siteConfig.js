@@ -1,6 +1,10 @@
 // Single source of truth for SEO + metadata.
 export const PRODUCTION_SITE_URL = "https://haykasa.vercel.app";
 
+// Google Sign-In (OAuth) is disabled; the app uses email/password only.
+// The Gmail SMTP mail system is unaffected by this flag.
+export const GOOGLE_SIGN_IN_ENABLED = false;
+
 export function normalizeAppUrl(value, { allowHttp = false } = {}) {
   const rawValue = String(value || "").trim();
   if (!rawValue) return "";

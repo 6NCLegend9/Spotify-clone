@@ -11,6 +11,7 @@ import { useSession } from "next-auth/react";
 import GradientText from "@/components/ReactBits/GradientText";
 import AuthMessage from "@/components/AuthMessage";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import { GOOGLE_SIGN_IN_ENABLED } from "@/utils/siteConfig";
 import {
   AUTH_CODES,
   humanizeError,
@@ -203,11 +204,13 @@ const LoginPage = () => {
           <button type="submit" disabled={submitting || googleSubmitting} className="btn-primary w-full">
             {submitting ? "Signing in..." : "Log in"}
           </button>
-          <GoogleSignInButton
-            onClick={handleGoogleSignIn}
-            disabled={submitting}
-            busy={googleSubmitting}
-          />
+          {GOOGLE_SIGN_IN_ENABLED && (
+            <GoogleSignInButton
+              onClick={handleGoogleSignIn}
+              disabled={submitting}
+              busy={googleSubmitting}
+            />
+          )}
           <p className="text-center text-sm text-[#c9d4de]">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="font-semibold text-[#00e6e6]">

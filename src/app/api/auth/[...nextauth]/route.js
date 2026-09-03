@@ -12,12 +12,15 @@ import {
   LOGIN_ERRORS,
 } from "@/utils/authErrors";
 import { ensureUserData } from "@/utils/userAccount";
+import { GOOGLE_SIGN_IN_ENABLED } from "@/utils/siteConfig";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const googleProvider =
-  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+  GOOGLE_SIGN_IN_ENABLED
+  && process.env.GOOGLE_CLIENT_ID
+  && process.env.GOOGLE_CLIENT_SECRET
     ? GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
