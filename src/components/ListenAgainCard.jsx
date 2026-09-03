@@ -11,6 +11,7 @@ import {
 import { BiHeadphone } from "react-icons/bi";
 import { useSelector } from "react-redux";
 import AddToQueueButton from "./AddToQueueButton";
+import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 
 const ListenAgainCard = ({ song, index, SongData }) => {
   const { activeSong, youtubeVideo } = useSelector((state) => state.player);
@@ -61,10 +62,15 @@ const ListenAgainCard = ({ song, index, SongData }) => {
           <div className=" relative mb-2">
             <div className="group w-12 h-12 md:w-14 md:h-14 relative">
               <img
-                src={coverSrc}
+                src={coverSrc || THUMB_FALLBACK}
                 alt={titleDisplay}
                 width={50}
                 height={50}
+                onError={(event) => {
+                  if (event.currentTarget.src !== THUMB_FALLBACK) {
+                    event.currentTarget.src = THUMB_FALLBACK;
+                  }
+                }}
                 className="rounded-lg object-cover w-12 h-12 md:w-14 md:h-14"
               />
             </div>

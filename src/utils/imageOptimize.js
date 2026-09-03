@@ -3,6 +3,10 @@ const MAX_INPUT_BYTES = 8 * 1024 * 1024;
 const OUTPUT_SIZE = 400;
 const JPEG_QUALITY = 0.78;
 
+// Shown when an artwork/thumbnail can't load (deleted video, offline host, blocked request).
+export const THUMB_FALLBACK =
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Crect%20width='160'%20height='160'%20fill='%230b1622'/%3E%3Cpath%20d='M96%2048v46a16%2016%200%201%201-8-13V60l-24%205v40a16%2016%200%201%201-8-13V54z'%20fill='%232b3a4a'/%3E%3C/svg%3E";
+
 export function youtubeThumb(url, size = "mq") {
   if (!url || typeof url !== "string") return url || "";
   const match = url.match(/\/vi\/([^/]+)\//);

@@ -7,6 +7,7 @@ import { useDispatch } from "react-redux";
 import { playPause, setAutoAdd, setYoutubeVideo } from "@/redux/features/playerSlice";
 import UserMessage from "@/components/UserMessage";
 import SyncedLyrics from "./SyncedLyrics";
+import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 
 const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
   const dispatch = useDispatch();
@@ -119,7 +120,16 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
                       }}
                       className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 ${item.id === youtubeVideo.id ? "bg-white/10" : ""}`}
                     >
-                      <img src={item.thumbnail} alt="" className="h-11 w-11 rounded object-cover" />
+                      <img
+                        src={item.thumbnail || THUMB_FALLBACK}
+                        alt=""
+                        onError={(event) => {
+                          if (event.currentTarget.src !== THUMB_FALLBACK) {
+                            event.currentTarget.src = THUMB_FALLBACK;
+                          }
+                        }}
+                        className="h-11 w-11 rounded object-cover"
+                      />
                       <span className="min-w-0 flex-1 truncate text-sm text-white">{item.title}</span>
                     </button>
                   ))}

@@ -21,6 +21,13 @@ import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { requestJson } from "@/services/http";
 import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
 import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
+import { THUMB_FALLBACK } from "@/utils/imageOptimize";
+
+const handleThumbError = (event) => {
+  if (event.currentTarget.src !== THUMB_FALLBACK) {
+    event.currentTarget.src = THUMB_FALLBACK;
+  }
+};
 
 const formatTime = (seconds) => {
   const value = Math.max(0, Math.floor(seconds || 0));
@@ -2054,10 +2061,10 @@ export default function YouTubePlayer() {
     >
       <div className={compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
       {pipFloat && videoVisible && !expanded && (
-        <img src={video.thumbnail} alt="" className="yt-dock-thumb h-14 w-[5.6rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-28" />
+        <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-14 w-[5.6rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-28" />
       )}
       {!fullscreen && !videoVisible && (
-        <img src={video.thumbnail} alt="" className="yt-dock-thumb h-14 w-14 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-16" />
+        <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-14 w-14 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-16" />
       )}
       <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-thumb relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px]"}>
         {["A", "B"].map((key) => (
@@ -2215,7 +2222,7 @@ export default function YouTubePlayer() {
             <div className="max-h-72 overflow-y-auto">
               {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
               {upcoming.slice(0, 12).map((item) => (
-                <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
+                <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
               ))}
             </div>
             <form onSubmit={handleAddSearch} className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
@@ -2234,7 +2241,7 @@ export default function YouTubePlayer() {
               <div className="mt-2 max-h-40 overflow-y-auto">
                 {addResults.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/10">
-                    <img src={item.thumbnail} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                    <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-8 w-8 shrink-0 rounded object-cover" />
                     <span className="min-w-0 flex-1 truncate text-xs text-white">{item.title}</span>
                     <button type="button" aria-label={`Add ${item.title} to queue`} onClick={() => handleAddTrack(item)} className="shrink-0 rounded-full bg-[#00e6e6]/20 p-1 text-[#00e6e6] hover:bg-[#00e6e6]/30">
                       <FiPlus className="h-3.5 w-3.5" />
@@ -2296,7 +2303,7 @@ export default function YouTubePlayer() {
                     onClick={() => playQueueItem(item)}
                     className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 ${item.id === video.id ? "bg-white/10" : ""}`}
                   >
-                    <img src={item.thumbnail} alt="" className="h-11 w-11 rounded object-cover" />
+                    <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-11 w-11 rounded object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-white">{item.title}</p>
                       <p className="truncate text-xs text-gray-400">{item.channel}</p>
@@ -2325,7 +2332,7 @@ export default function YouTubePlayer() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
             {upcoming.slice(0, 12).map((item) => (
-              <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail} alt="" className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
+              <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
             ))}
           </div>
         </div>

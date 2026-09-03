@@ -4,6 +4,13 @@ import { createPortal } from "react-dom";
 import { FiPause, FiPlay, FiRotateCcw, FiRotateCw, FiX } from "react-icons/fi";
 import { MdSkipNext } from "react-icons/md";
 import { activeLyricIndex } from "@/utils/lyricsLookup";
+import { THUMB_FALLBACK } from "@/utils/imageOptimize";
+
+const handleThumbError = (event) => {
+  if (event.currentTarget.src !== THUMB_FALLBACK) {
+    event.currentTarget.src = THUMB_FALLBACK;
+  }
+};
 
 function formatTime(seconds) {
   const value = Math.max(0, Math.floor(seconds || 0));
@@ -32,7 +39,7 @@ export default function PictureInPictureWindow({
 
   return createPortal(
     <div className="yt-pip-doc">
-      <img src={video.thumbnail} alt="" className="yt-pip-doc-art" />
+      <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-pip-doc-art" />
       <div className="yt-pip-doc-shade" />
       <div className="yt-pip-doc-body">
         <div className="yt-pip-doc-top">
@@ -67,7 +74,7 @@ export default function PictureInPictureWindow({
             <p className="yt-pip-kicker">Next up</p>
             {queue.slice(0, 5).map((item) => (
               <button key={item.id} type="button" className="yt-pip-queue-item" onClick={() => onSelect?.(item)}>
-                <img src={item.thumbnail} alt="" />
+                <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} />
                 <span>{item.title}</span>
               </button>
             ))}
