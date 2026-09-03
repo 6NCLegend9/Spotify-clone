@@ -9,6 +9,7 @@ import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "@/components/Homepage/OnlineStatus";
+import PullToRefresh from "@/components/PullToRefresh";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -100,6 +101,7 @@ export default function AppShell({ children }) {
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Navbar />
           <div className="app-content" id="main-content" tabIndex={-1}>
+            <PullToRefresh />
             <OnlineStatus />
             {children}
             <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-[#9aa8b5]">

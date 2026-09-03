@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { MdOutlineMenu } from "react-icons/md";
+import { MdOutlineMenu, MdRefresh } from "react-icons/md";
 import BrandMark from "./Layout/BrandMark";
 import { useNav } from "./Layout/AppShell";
 import Searchbar from "./Searchbar";
@@ -44,13 +44,22 @@ const Navbar = () => {
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="icon-btn h-10 w-10 shrink-0"
+          aria-label="Refresh"
+          title="Refresh"
+        >
+          <MdRefresh aria-hidden="true" className="text-xl" />
+        </button>
         <UpdatesBell />
         {status === "authenticated" ? (
           <Link
             href="/settings"
             aria-label={`Open settings for ${userName}`}
             title="Open settings"
-            className="grid h-8 w-8 place-items-center overflow-hidden rounded-full ring-1 ring-white/20 transition hover:ring-[#00e6e6] sm:h-10 sm:w-10"
+            className="grid h-10 w-10 place-items-center overflow-hidden rounded-full ring-1 ring-white/20 transition hover:ring-[#00e6e6]"
           >
             {imageUrl && !imageFailed ? (
               <img

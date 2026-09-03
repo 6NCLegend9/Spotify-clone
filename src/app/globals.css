@@ -1119,5 +1119,43 @@ details > summary {
   color: transparent;
 }
 
+/* Pull-to-refresh indicator (mobile touch gesture) */
+.ptr-indicator {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 4px);
+  left: 50%;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(7, 18, 29, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  transition: opacity var(--motion-fast) ease-out, transform var(--motion-fast) var(--motion-ease);
+}
 
+.ptr-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent);
+}
 
+.ptr-spinner.is-ready {
+  border-top-color: #fff;
+}
+
+.ptr-spinner.is-spinning {
+  animation: s3 0.7s linear infinite;
+}
+
+/* Coarse-pointer (touch) devices: guarantee comfortable touch targets. */
+@media (pointer: coarse) {
+  input[type="range"] {
+    min-height: 44px;
+  }
+}
