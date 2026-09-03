@@ -44,9 +44,9 @@ export default function PrivacyPage() {
             account actions. Authentication sessions are handled through signed session tokens.
           </p>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
-            Google Analytics and Simple Analytics run only after you explicitly select
+            Simple Analytics runs only after you explicitly select
             <strong> Accept</strong> in this browser. If you select <strong>Necessary only</strong>,
-            those analytics scripts are not loaded. We use this optional analytics data to
+            the analytics script is not loaded. We use this optional analytics data to
             understand aggregate usage and service performance, not to serve or personalize
             advertising. You can change your choice at any time in Settings.
           </p>

@@ -12,10 +12,7 @@ import {
   writeAnalyticsConsent,
 } from "@/utils/analyticsConsent";
 
-const GOOGLE_ANALYTICS_ID = "G-Z4FJ5T627Q";
 const SIMPLE_ANALYTICS_SRC = "https://scripts.simpleanalyticscdn.com/latest.js";
-const GOOGLE_ANALYTICS_SRC =
-  `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`;
 
 function loadScript({ id, src }) {
   const script = document.createElement("script");
@@ -66,39 +63,13 @@ export default function AnalyticsConsent() {
       hostname: window.location.hostname,
     })) return undefined;
 
-    window[`ga-disable-${GOOGLE_ANALYTICS_ID}`] = false;
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = window.gtag || function gtag() {
-      window.dataLayer.push(arguments);
-    };
-    window.gtag("consent", "default", {
-      analytics_storage: "granted",
-      ad_storage: "denied",
-      ad_user_data: "denied",
-      ad_personalization: "denied",
-    });
-    window.gtag("js", new Date());
-
     const simpleAnalyticsScript = loadScript({
       id: "simple-analytics",
       src: SIMPLE_ANALYTICS_SRC,
     });
-    const googleAnalyticsScript = loadScript({
-      id: "google-analytics-loader",
-      src: GOOGLE_ANALYTICS_SRC,
-    });
-    window.gtag("config", GOOGLE_ANALYTICS_ID, {
-      allow_google_signals: false,
-      allow_ad_personalization_signals: false,
-    });
 
     return () => {
-      window[`ga-disable-${GOOGLE_ANALYTICS_ID}`] = true;
-      if (typeof window.gtag === "function") {
-        window.gtag("consent", "update", { analytics_storage: "denied" });
-      }
       simpleAnalyticsScript.remove();
-      googleAnalyticsScript.remove();
     };
   }, [choice]);
 
@@ -119,9 +90,9 @@ export default function AnalyticsConsent() {
         id="analytics-consent-description"
         className="mt-2 text-sm leading-6 text-[#c9d4de]"
       >
-        With your permission, Google Analytics and Simple Analytics help us
-        understand aggregate usage and service performance. They are not used
-        for advertising. You can change this choice later in Settings.
+        With your permission, Simple Analytics helps us understand aggregate
+        usage and service performance. It is not used for advertising. You can
+        change this choice later in Settings.
       </p>
       <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button

@@ -6,7 +6,6 @@ const scriptSources = [
   "'self'",
   "'unsafe-inline'",
   "https://www.youtube.com",
-  "https://www.googletagmanager.com",
   "https://scripts.simpleanalyticscdn.com",
 ];
 
@@ -18,10 +17,10 @@ const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src ${scriptSources.join(" ")}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://i.ytimg.com https://yt3.ggpht.com https://lh3.googleusercontent.com https://api.dicebear.com https://avatars.githubusercontent.com https://queue.simpleanalyticscdn.com https://*.simpleanalyticscdn.com https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://*.googletagmanager.com",
+  "img-src 'self' data: blob: https://i.ytimg.com https://yt3.ggpht.com https://lh3.googleusercontent.com https://api.dicebear.com https://avatars.githubusercontent.com https://queue.simpleanalyticscdn.com https://*.simpleanalyticscdn.com",
   "font-src 'self' data:",
   "media-src 'self' blob: https://*.googlevideo.com",
-  "connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://scripts.simpleanalyticscdn.com https://queue.simpleanalyticscdn.com https://*.simpleanalyticscdn.com https://simpleanalytics.com",
+  "connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://scripts.simpleanalyticscdn.com https://queue.simpleanalyticscdn.com https://*.simpleanalyticscdn.com https://simpleanalytics.com",
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
