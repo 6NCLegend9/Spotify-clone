@@ -78,6 +78,7 @@ const ForgotPasswordPage = () => {
         </div>
         <form onSubmit={handelSubmit} className="mt-8 flex flex-col gap-6" noValidate>
           <AuthMessage
+            id="reset-request-message"
             tone={success ? "success" : "error"}
             title={(success || formError)?.title}
             message={(success || formError)?.message}
@@ -86,11 +87,12 @@ const ForgotPasswordPage = () => {
             busy={submitting}
           />
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+            <label htmlFor="reset-email" className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
               Email Address
             </label>
             <input
               ref={emailRef}
+              id="reset-email"
               onChange={(e) => {
                 setFormData({ ...formData, email: e.target.value });
                 if (formError) setFormError(null);
@@ -103,6 +105,7 @@ const ForgotPasswordPage = () => {
               autoComplete="email"
               maxLength={254}
               aria-invalid={Boolean(formError)}
+              aria-describedby={formError || success ? "reset-request-message" : undefined}
               className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
           </div>

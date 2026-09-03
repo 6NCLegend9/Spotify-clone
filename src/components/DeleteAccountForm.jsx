@@ -109,6 +109,7 @@ export default function DeleteAccountForm() {
           />
         ) : null}
         <input
+          id="delete-account-confirm"
           type="text"
           value={confirmText}
           onChange={(e) => {
@@ -116,11 +117,14 @@ export default function DeleteAccountForm() {
             if (!loading && statusMessage) setStatusMessage(null);
           }}
           placeholder="DELETE"
+          autoComplete="off"
+          aria-label="Type DELETE to confirm account deletion"
           className="rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-red-500"
           autoFocus
         />
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={cancelDelete}
             disabled={loading}
             className="rounded-md bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
@@ -128,6 +132,7 @@ export default function DeleteAccountForm() {
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleDelete}
             disabled={loading || confirmText !== "DELETE"}
             className={`rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 ${
@@ -143,6 +148,7 @@ export default function DeleteAccountForm() {
 
   return (
     <button
+      type="button"
       onClick={initiateDelete}
       disabled={loading}
       className={`rounded-md bg-red-600/10 border border-red-600/50 px-4 py-2 text-sm font-semibold text-red-500 transition hover:bg-red-600 hover:text-white ${

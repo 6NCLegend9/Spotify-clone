@@ -40,11 +40,15 @@ export default function AppShell({ children }) {
   }, [pathname]);
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 1023px)");
-    const update = () => setIsCompactNav(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    const focusSkipTarget = () => {
+      const id = window.location.hash.replace(/^#/, "");
+      if (id === "main-content" || id === "player") {
+        document.getElementById(id)?.focus();
+      }
+    };
+    focusSkipTarget();
+    window.addEventListener("hashchange", focusSkipTarget);
+    return () => window.removeEventListener("hashchange", focusSkipTarget);
   }, []);
 
   const navModal = showNav && isCompactNav;
@@ -66,17 +70,6 @@ export default function AppShell({ children }) {
   return (
     <NavContext.Provider value={value}>
       <div className="app-shell">
-        <a
-          href="#main-content"
-          className="skip-link"
-          onClick={() => {
-            window.requestAnimationFrame(() => {
-              document.getElementById("main-content")?.focus();
-            });
-          }}
-        >
-          Skip to main content
-        </a>
         <Sidebar />
         <button
           type="button"
@@ -109,7 +102,7 @@ export default function AppShell({ children }) {
           <div className="app-content" id="main-content" tabIndex={-1}>
             <OnlineStatus />
             {children}
-            <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-gray-500">
+            <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-[#9aa8b5]">
               <div className="flex justify-center gap-4">
                 <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>
                 <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
@@ -119,7 +112,7 @@ export default function AppShell({ children }) {
             </footer>
           </div>
         </div>
-        <div className="app-player">
+        <div className="app-player" id="player" tabIndex={-1}>
           <ErrorBoundary
             name="Music player"
             title="The music player stopped"

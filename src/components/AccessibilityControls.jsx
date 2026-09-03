@@ -17,7 +17,7 @@ const preferencesList = [
   {
     key: "reducedMotion",
     title: "Reduce motion",
-    description: "Stop non-essential animations and transitions in this browser.",
+    description: "Stop non-essential animations and transitions in this browser. Your operating system’s reduce-motion setting is also respected.",
   },
 ];
 

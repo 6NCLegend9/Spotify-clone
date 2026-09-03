@@ -189,7 +189,7 @@ const Home = () => {
       <header className="page-hero">
         <div>
           <p className="eyebrow">HeyKasa Music</p>
-          <h1 className="mt-2 flex items-center gap-2 text-3xl font-extrabold sm:text-4xl lg:text-5xl">
+          <h1 className="mt-3 flex items-center gap-2 overflow-visible text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
             <GradientText
               colors={["#00e6e6", "#ffffff", "#008080", "#00e6e6"]}
               animationSpeed={4}

@@ -33,7 +33,7 @@ const KEYBOARD_GROUPS = [
       {
         keys: ["Tab"],
         detail:
-          "The first focusable item is Skip to main content. Activate it to bypass navigation and land on the page content.",
+          "The first focusable items are Skip to main content and Skip to player. Activate either to bypass navigation.",
       },
     ],
   },
@@ -116,11 +116,22 @@ export default function AccessibilityPage() {
           <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Accessibility Statement</h1>
           <p className="mt-3 text-sm text-[#9aa8b5]">Last updated: September 3, 2026</p>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-[#c9d4de]">
-            {SITE_NAME} aims to make music discovery and listening usable for as many people as
-            possible. This page explains the accessibility features currently available and lets
-            you set display and motion preferences for this browser.
+            {SITE_NAME} aims to conform to the Web Content Accessibility Guidelines (WCAG) 2.1
+            Level AA. This page explains the accessibility features currently available, where
+            third-party media limits what we can guarantee, and lets you set display and motion
+            preferences for this browser.
           </p>
         </header>
+
+        <section className="border-b border-white/10 py-8" aria-labelledby="conformance-target">
+          <h2 id="conformance-target" className="text-2xl font-bold">Conformance target</h2>
+          <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
+            Our target is <strong>WCAG 2.1 Level AA</strong> (Level A plus Level AA). We do not
+            require Level AAA for the whole site. Music playback uses YouTube embeds, so captions
+            and audio description depend on what the uploader provided. We enable YouTube captions
+            when they exist, and you can turn that request on or off in Settings.
+          </p>
+        </section>
 
         <AccessibilityControls />
 
@@ -129,6 +140,8 @@ export default function AccessibilityPage() {
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             {SITE_NAME} is designed to be used with a keyboard. Shortcuts below work when you are
             not typing in a text field, except for search suggestions, which work inside the search box.
+            Letter playback shortcuts can be turned off in Settings under Playback &amp; data so they
+            do not conflict with assistive technology or another keyboard layout.
           </p>
           <div className="mt-6 space-y-6">
             {KEYBOARD_GROUPS.map((group) => (
@@ -173,18 +186,19 @@ export default function AccessibilityPage() {
             The controls above can increase text size, increase color contrast, and reduce
             non-essential motion across the app. Your choices take effect immediately and are
             saved locally when browser storage is available. HeyKasa also respects your operating system&apos;s
-            <strong> prefers-reduced-motion</strong> setting, including for decorative animated
-            backgrounds.
+            <strong> prefers-reduced-motion</strong> setting even when the in-app toggle is off,
+            including for decorative animated backgrounds.
           </p>
         </section>
 
         <section className="border-b border-white/10 py-8" aria-labelledby="ongoing-work">
           <h2 id="ongoing-work" className="text-2xl font-bold">Ongoing work</h2>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
-            We review interactive features as the service changes and work toward clear structure,
-            keyboard operability, readable contrast, and useful labels for controls and media.
-            Third-party media embeds and content returned by external sources may have accessibility
-            behavior outside our direct control.
+            We review interactive features as the service changes and work toward WCAG 2.1 Level AA:
+            clear structure, keyboard operability, readable contrast, and useful labels for controls
+            and media. Third-party media embeds and content returned by external sources may have
+            accessibility behavior outside our direct control, including missing captions or audio
+            description on some YouTube videos.
           </p>
         </section>
 

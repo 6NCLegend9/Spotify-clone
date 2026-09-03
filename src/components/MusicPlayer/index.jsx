@@ -194,9 +194,17 @@ const MusicPlayer = () => {
         target instanceof HTMLElement &&
         (target.isContentEditable ||
           ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+      const isActionControl =
+        target instanceof HTMLElement &&
+        Boolean(
+          target.closest(
+            "button, a, [role='button'], [role='link'], [role='menuitem'], [role='option'], [role='tab'], [role='switch'], summary",
+          ),
+        );
       if (
         !isTyping &&
         !isEditable &&
+        !isActionControl &&
         isActive &&
         (event.code === "Space" || event.key === " ")
       ) {

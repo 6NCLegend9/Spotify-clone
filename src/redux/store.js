@@ -26,9 +26,10 @@ const storage =
     ? createWebStorage("local")
     : createNoopStorage();
 
-const persistConfig = (key) => ({
+const persistConfig = (key, extra = {}) => ({
   key,
   storage,
+  ...extra,
 });
 
 // Each slice gets its own persistReducer wrapper so the state shape (state.languages,
@@ -39,7 +40,15 @@ const languagePersistedReducer = persistReducer(
 );
 
 const settingsPersistedReducer = persistReducer(
-  persistConfig("settings"),
+  persistConfig("settings", {
+    version: 2,
+    migrate: (state) =>
+      Promise.resolve({
+        ...(state && typeof state === "object" ? state : {}),
+        keyboardShortcuts: state?.keyboardShortcuts !== false,
+        captions: state?.captions !== false,
+      }),
+  }),
   settingsReducer
 );
 

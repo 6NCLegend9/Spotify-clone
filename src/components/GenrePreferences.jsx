@@ -292,7 +292,7 @@ function CustomGenreDialog({
               className="field"
               aria-describedby="custom-genre-name-help"
             />
-            <span id="custom-genre-name-help" className="mt-2 flex justify-between gap-3 text-[11px] text-[#748493]">
+            <span id="custom-genre-name-help" className="mt-2 flex justify-between gap-3 text-[11px] text-[#9aa8b5]">
               <span>Existing genres will be matched automatically.</span>
               <span>{name.length}/80</span>
             </span>

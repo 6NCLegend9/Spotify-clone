@@ -518,7 +518,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
             {showSearch && (
               <label className="relative mb-5 block max-w-md">
                 <span className="sr-only">Search tracks in {title}</span>
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <FiSearch aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} placeholder="Search by title or artist" className="h-11 w-full rounded-md border border-white/10 bg-white/[0.07] pl-10 pr-10 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#00e6e6]" />
                 {search && <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-gray-400 hover:bg-white/10 hover:text-white"><FiX /></button>}
               </label>
@@ -526,7 +526,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
 
             <section aria-label={`${title} tracks`}>
               <div className="grid grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px]">
-                <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><FiClock className="mx-auto" /><span />
+                <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><span className="mx-auto"><FiClock aria-hidden="true" className="inline" /><span className="sr-only">Duration</span></span><span />
               </div>
               {filteredTracks.map((track, index) => (
                 <div key={track.id} className={`group grid min-h-[66px] grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>

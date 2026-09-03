@@ -156,6 +156,7 @@ const SignupPage = () => {
         </p>
         <form onSubmit={handelSubmit} className="mt-6 flex flex-col gap-4" noValidate>
           <AuthMessage
+            id="signup-error"
             title={formError?.title}
             message={formError?.message}
             onRetry={retryRequest}
@@ -163,7 +164,7 @@ const SignupPage = () => {
             href="/login"
             hrefLabel="Log in instead"
           />
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]" htmlFor="userName">
             Username
             <input
               onChange={onchange}
@@ -171,32 +172,38 @@ const SignupPage = () => {
               type="text"
               placeholder="Your name"
               required
-              autoComplete="name"
+              autoComplete="username"
               maxLength={50}
               id="userName"
               name="userName"
+              aria-invalid={Boolean(formError)}
+              aria-describedby={formError ? "signup-error" : undefined}
               className="field mt-2"
             />
           </label>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]" htmlFor="signup-email">
             Email
             <input
               onChange={onchange}
               value={formData.email}
+              id="signup-email"
               name="email"
               type="email"
               placeholder="you@email.com"
               required
               autoComplete="email"
               maxLength={254}
+              aria-invalid={Boolean(formError)}
+              aria-describedby={formError ? "signup-error" : undefined}
               className="field mt-2"
             />
           </label>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
+          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]" htmlFor="signup-password">
             Password
             <input
               onChange={onchange}
               value={formData.password}
+              id="signup-password"
               name="password"
               type="password"
               placeholder="Password"
@@ -204,6 +211,8 @@ const SignupPage = () => {
               autoComplete="new-password"
               minLength={8}
               maxLength={72}
+              aria-invalid={Boolean(formError)}
+              aria-describedby={formError ? "signup-error" : undefined}
               className="field mt-2"
             />
           </label>

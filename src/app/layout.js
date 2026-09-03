@@ -119,6 +119,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  userScalable: true,
 };
 
 const jsonLd = {
@@ -246,6 +247,14 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className={poppins.className}>
+        <nav className="skip-links" aria-label="Skip links">
+          <a href="#main-content" className="skip-link">
+            Skip to main content
+          </a>
+          <a href="#player" className="skip-link">
+            Skip to player
+          </a>
+        </nav>
         <AccessibilityPreferencesProvider>
           <Providers>
             <AuthProvider>

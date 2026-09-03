@@ -76,6 +76,31 @@ function requestYouTubeQuality(player, preferredQuality) {
   if (preferredQuality !== "default") player?.setPlaybackQuality?.(preferredQuality);
 }
 
+function applyYouTubeCaptions(player, enabled) {
+  if (!player) return;
+  try {
+    if (enabled) player.loadModule?.("captions");
+    else player.unloadModule?.("captions");
+  } catch {
+    // Captions are only available when YouTube exposes them for the video.
+  }
+}
+
+function isEditableKeyboardTarget(target) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+}
+
+function isActionKeyboardTarget(target) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(
+    target.closest(
+      "button, a, [role='button'], [role='link'], [role='menuitem'], [role='option'], [role='tab'], [role='switch'], summary",
+    ),
+  );
+}
+
 // Best-effort signal for recommendations.js's skip exclusion filter; never blocks playback.
 const recordPlayEvent = (id, event) => {
   if (!id) return;
@@ -103,6 +128,8 @@ export default function YouTubePlayer() {
     syncedLyrics,
     pictureInPicture,
     masterVolume,
+    keyboardShortcuts,
+    captions,
   } = useSelector((state) => state.settings);
   const transitionMode = "off";
   const crossfadeSeconds = 0;
@@ -112,6 +139,8 @@ export default function YouTubePlayer() {
   const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
+  const captionsEnabled = captions !== false;
+  const letterShortcutsEnabled = keyboardShortcuts !== false;
   const requestedYouTubeQuality = resolveYouTubeQuality(
     videoQuality,
     streamingQuality,
@@ -728,7 +757,7 @@ export default function YouTubePlayer() {
   const mountDeck = (
     key,
     videoId,
-    { onFirstPlaying, onDeckReady, autoplay = true } = {},
+    { onFirstPlaying, onDeckReady, autoplay = true, title } = {},
   ) => {
     const host = deckHostRefs[key].current;
     if (!host) return null;
@@ -738,7 +767,7 @@ export default function YouTubePlayer() {
 
     const playerParams = new URLSearchParams({
       autoplay: autoplay ? "1" : "0",
-      cc_load_policy: "0",
+      cc_load_policy: captionsEnabled ? "1" : "0",
       controls: "0",
       disablekb: "1",
       enablejsapi: "1",
@@ -755,7 +784,7 @@ export default function YouTubePlayer() {
     });
     const iframe = document.createElement("iframe");
     iframe.src = `https://www.youtube.com/embed/${videoId}?${playerParams}`;
-    iframe.title = "YouTube video player";
+    iframe.title = title ? `${title} video` : "YouTube video player";
     iframe.allow = "autoplay; encrypted-media; picture-in-picture";
     iframe.allowFullscreen = true;
     iframe.referrerPolicy = "strict-origin-when-cross-origin";
@@ -783,6 +812,7 @@ export default function YouTubePlayer() {
             event.target.setPlaybackQuality?.("small");
           }
           event.target.mute();
+          applyYouTubeCaptions(event.target, captionsEnabled);
           onDeckReady?.(event.target);
           if (autoplay) event.target.playVideo();
         },
@@ -1236,6 +1266,7 @@ export default function YouTubePlayer() {
 
     const mounted = mountDeck(incomingKey, nextVideo.id, {
       onFirstPlaying: waitUntilPlaying,
+      title: nextVideo.title,
     });
     expectedIncomingGeneration = deckGenerationRef.current[incomingKey];
     if (mounted) waitUntilPlaying(mounted);
@@ -1314,6 +1345,7 @@ export default function YouTubePlayer() {
     const mounted = mountDeck(idleKey, nextVideo.id, {
       autoplay: false,
       onDeckReady: cueIdleDeck,
+      title: nextVideo.title,
     });
     expectedGeneration = deckGenerationRef.current[idleKey];
     if (!mounted) {
@@ -1488,7 +1520,7 @@ export default function YouTubePlayer() {
     destroyDeck("B");
     activeDeckRef.current = "A";
     setActiveDeck("A");
-    mountDeck("A", video.id);
+    mountDeck("A", video.id, { title: video.title });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video?.id, apiReady]);
 
@@ -1680,6 +1712,11 @@ export default function YouTubePlayer() {
   }, [requestedYouTubeQuality]);
 
   useEffect(() => {
+    applyYouTubeCaptions(getActivePlayer(), captionsEnabled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [captionsEnabled]);
+
+  useEffect(() => {
     if (!videoId || !apiReady || transitionMode === "off" || dataSaver) return;
     const timer = window.setTimeout(
       () => preloadNextRef.current(getNextVideo()),
@@ -1754,7 +1791,7 @@ export default function YouTubePlayer() {
     dispatch(playPause(true));
     const player = getActivePlayer();
     if (!player?.playVideo) {
-      if (apiReady) mountDeck(activeDeckRef.current, current.id);
+      if (apiReady) mountDeck(activeDeckRef.current, current.id, { title: current.title });
       return;
     }
     const resumeAt = Math.max(0, player.getCurrentTime?.() || currentTime || 0);
@@ -1897,20 +1934,30 @@ export default function YouTubePlayer() {
     const handleKeyDown = (event) => {
       if (!video) return;
       const target = event.target;
-      const isTypingTarget = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
-      if (isTypingTarget || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isEditableKeyboardTarget(target) || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
 
       if (event.code === "Space") {
+        if (isActionKeyboardTarget(target)) return;
         event.preventDefault();
         handlePlayPause();
-      } else if (event.key === "m" || event.key === "M") {
+        return;
+      }
+
+      if (event.key === "Escape" && expanded) {
+        event.preventDefault();
+        toggleExpanded();
+        return;
+      }
+
+      if (!letterShortcutsEnabled) return;
+
+      if (event.key === "m" || event.key === "M") {
         const player = getActivePlayer();
         if (!player) return;
         if (player.isMuted?.()) player.unMute?.();
         else player.mute?.();
-      } else if (event.key === "Escape" && expanded) {
-        event.preventDefault();
-        toggleExpanded();
       } else if (event.key === "f" || event.key === "F" || event.key === "v" || event.key === "V") {
         if (!dataSaver && !audioOnly) toggleExpanded();
       } else if (event.key === "j" || event.key === "J") {
@@ -2085,9 +2132,9 @@ export default function YouTubePlayer() {
         {fullscreen && !compactFullscreen && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
           <div className={fullscreen ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 backdrop-blur" : "contents"}>
           <AddToPlaylistButton track={video} />
-          <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCcw /></button>
-          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="rounded-full bg-[#00e6e6] p-2 text-black hover:scale-105">{isPlaying ? <FiPause /> : <FiPlay />}</button>
-          <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="rounded-full p-2 hover:bg-white/10"><FiRotateCw /></button>
+          <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10"><FiRotateCcw aria-hidden="true" /></button>
+          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-[#00e6e6] p-2 text-black hover:scale-105">{isPlaying ? <FiPause aria-hidden="true" /> : <FiPlay aria-hidden="true" />}</button>
+          <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10"><FiRotateCw aria-hidden="true" /></button>
           <FavouriteTrackButton track={video} />
           </div>
           {fullscreen && !compactFullscreen && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}

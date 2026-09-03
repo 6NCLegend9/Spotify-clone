@@ -19,10 +19,12 @@ const allowedKeys = [
   "eqPreset", "eqBands", "dataSaver", "audioOnly",
   "wifiOnlyDownloads", "streamingQuality", "videoQuality", "normalization", "monoAudio", "explicitContent",
   "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture", "masterVolume",
+  "keyboardShortcuts", "captions",
 ];
 const booleanKeys = new Set([
   "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "explicitContent",
   "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture",
+  "keyboardShortcuts", "captions",
 ]);
 const enumValues = {
   streamingQuality: new Set(["auto", "low", "normal", "high", "very-high"]),

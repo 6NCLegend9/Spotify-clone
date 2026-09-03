@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mesh, Program, Renderer, Triangle } from "ogl";
 import { useAccessibilityPreferences } from "@/components/AccessibilityPreferences";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const hexToRgb = (hex) => {
   const value = String(hex || "").trim().replace(/^#/, "");
@@ -184,7 +185,9 @@ export default function GhostFibers({
   const containerRef = useRef(null);
   const [supported, setSupported] = useState(true);
   const { preferences } = useAccessibilityPreferences();
-  const motionPaused = paused || preferences.reducedMotion || preferences.highContrast;
+  const systemReduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const motionPaused =
+    paused || preferences.reducedMotion || preferences.highContrast || systemReduceMotion;
 
   useEffect(() => {
     const probe = document.createElement("canvas");

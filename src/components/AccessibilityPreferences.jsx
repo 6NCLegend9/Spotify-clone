@@ -39,11 +39,16 @@ function getStoredPreferences() {
   }
 }
 
+function osPrefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 function applyPreferences(preferences) {
   const root = document.documentElement;
   root.dataset.a11yContrast = preferences.highContrast ? "high" : "default";
   root.dataset.a11yTextSize = preferences.largeText ? "large" : "default";
-  root.dataset.a11yReducedMotion = preferences.reducedMotion ? "true" : "false";
+  root.dataset.a11yReducedMotion =
+    preferences.reducedMotion || osPrefersReducedMotion() ? "true" : "false";
 }
 
 export function AccessibilityPreferencesProvider({ children }) {
@@ -69,6 +74,17 @@ export function AccessibilityPreferencesProvider({ children }) {
       setStorageStatus("unavailable");
     }
   }, [isReady, preferences]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotion = () => applyPreferences(preferences);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", syncMotion);
+      return () => media.removeEventListener("change", syncMotion);
+    }
+    media.addListener(syncMotion);
+    return () => media.removeListener(syncMotion);
+  }, [preferences]);
 
   useEffect(() => {
     const handleStorage = (event) => {

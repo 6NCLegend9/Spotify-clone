@@ -26,6 +26,8 @@ const initialState = {
   syncedLyrics: true,
   pictureInPicture: true,
   masterVolume: 0.85,
+  keyboardShortcuts: true,
+  captions: true,
 };
 
 const settingsSlice = createSlice({
@@ -34,7 +36,7 @@ const settingsSlice = createSlice({
   reducers: {
     updateSetting: (state, action) => {
       const { key, value } = action.payload;
-      if (key in state) state[key] = value;
+      if (key in initialState) state[key] = value;
       if (key === "eqPreset" && value !== "Custom" && EQ_PRESET_BANDS[value]) {
         state.eqBands = EQ_PRESET_BANDS[value];
       }
@@ -44,11 +46,21 @@ const settingsSlice = createSlice({
       state.eqPreset = "Custom";
     },
     hydrateSettings: (state, action) => {
+      const payload = action.payload || {};
       const next = {
+        ...initialState,
         ...state,
-        ...action.payload,
+        ...payload,
         transitionMode: "off",
         crossfadeSeconds: 0,
+        keyboardShortcuts:
+          payload.keyboardShortcuts !== undefined
+            ? payload.keyboardShortcuts !== false
+            : state.keyboardShortcuts !== false,
+        captions:
+          payload.captions !== undefined
+            ? payload.captions !== false
+            : state.captions !== false,
       };
       if (next.eqPreset && next.eqPreset !== "Custom" && EQ_PRESET_BANDS[next.eqPreset]) {
         const bands = Array.isArray(next.eqBands) ? next.eqBands : [];

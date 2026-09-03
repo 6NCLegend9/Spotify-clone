@@ -100,6 +100,7 @@ const ResetPasswordPage = () => {
         </div>
         <form onSubmit={handelSubmit} className="mt-8 flex flex-col gap-5" noValidate>
           <AuthMessage
+            id="reset-password-message"
             title={(formError || tokenError)?.title}
             message={(formError || tokenError)?.message}
             onRetry={tokenIsValid && formError?.retryable ? submitPassword : undefined}
@@ -109,10 +110,11 @@ const ResetPasswordPage = () => {
             hrefLabel="Request a new password link"
           />
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+            <label htmlFor="new-password" className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
               New password
             </label>
             <input
+              id="new-password"
               onChange={onchange}
               value={formData.password}
               name="password"
@@ -123,14 +125,17 @@ const ResetPasswordPage = () => {
               autoComplete="new-password"
               minLength={8}
               maxLength={72}
+              aria-invalid={Boolean(formError || tokenError)}
+              aria-describedby={formError || tokenError ? "reset-password-message" : undefined}
               className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+            <label htmlFor="confirm-password" className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
               Confirm password
             </label>
             <input
+              id="confirm-password"
               onChange={onchange}
               value={formData.confirmPassword}
               name="confirmPassword"
@@ -141,6 +146,8 @@ const ResetPasswordPage = () => {
               autoComplete="new-password"
               minLength={8}
               maxLength={72}
+              aria-invalid={Boolean(formError)}
+              aria-describedby={formError || tokenError ? "reset-password-message" : undefined}
               className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#00e6e6] focus:outline-none focus:ring-1 focus:ring-[#00e6e6] sm:text-sm"
             />
           </div>

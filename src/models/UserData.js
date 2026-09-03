@@ -101,6 +101,8 @@ const fileSchema = new mongoose.Schema(
             syncedLyrics: { type: Boolean, default: true },
             pictureInPicture: { type: Boolean, default: true },
             masterVolume: { type: Number, min: 0, max: 1, default: 0.85 },
+            keyboardShortcuts: { type: Boolean, default: true },
+            captions: { type: Boolean, default: true },
         },
     },
     { timestamps: true, toJSON: { flattenMaps: true } }
