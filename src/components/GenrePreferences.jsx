@@ -87,21 +87,21 @@ function GenreChoice({ item, selected, parentName, onToggle, disabled = false })
       aria-pressed={selected}
       onClick={() => onToggle(item)}
       disabled={disabled}
-      className={`group flex min-h-20 items-center justify-between gap-3 rounded-2xl border p-4 text-left transition duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`group flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${
         selected
-          ? "border-[#00e6e6]/70 bg-[#00e6e6]/10 text-white shadow-[0_0_24px_rgba(0,230,230,0.08)]"
+          ? "border-[#00e6e6]/70 bg-[#00e6e6]/10 text-white shadow-[0_0_16px_rgba(0,230,230,0.08)]"
           : "border-white/10 bg-white/[0.035] text-white hover:border-white/25 hover:bg-white/[0.06]"
       }`}
     >
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold">{name}</span>
-        <span className="mt-1 block truncate text-[11px] text-[#9aa8b5]">
+        <span className="block truncate text-[13px] font-semibold leading-5">{name}</span>
+        <span className="mt-0.5 block truncate text-[10px] leading-4 text-[#9aa8b5]">
           {isPersonal ? "Custom genre" : parentName || "Main genre"}
         </span>
       </span>
       <span
         aria-hidden="true"
-        className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border transition ${
+        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs transition ${
           selected
             ? "border-[#00e6e6] bg-[#00e6e6] text-[#001014]"
             : "border-white/15 text-white/70 group-hover:border-[#00e6e6]/60 group-hover:text-[#00e6e6]"
@@ -119,33 +119,37 @@ function CategoryCard({ item, index, selected, onBrowse, onToggle }) {
 
   return (
     <article
-      className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${toneForGenre(item, index)} bg-[#091522] shadow-lg transition duration-200 ease-out hover:-translate-y-0.5 hover:border-white/20`}
+      className={`relative overflow-hidden rounded-xl border bg-gradient-to-br ${toneForGenre(item, index)} bg-[#091522] transition duration-200 ease-out hover:border-white/25 ${
+        selected ? "border-[#00e6e6]/55" : "border-white/10"
+      }`}
     >
-      <button
-        type="button"
-        onClick={() => onBrowse(item.id)}
-        className="block min-h-32 w-full p-4 text-left sm:min-h-36 sm:p-5"
-        aria-label={`Browse ${name} and ${childCount} subgenres`}
-      >
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <span className="mt-7 block text-base font-bold text-white sm:text-lg">{name}</span>
-        <span className="mt-1 flex items-center gap-1 text-xs text-white/65">
-          {childCount} subgenres <FiChevronRight aria-hidden="true" />
-        </span>
-      </button>
-      <div className="flex items-center justify-between border-t border-white/10 bg-black/10 px-4 py-3 sm:px-5">
-        <span className="text-[11px] text-white/60">{selected ? "In your picks" : "Main genre"}</span>
+      <div className="flex items-start gap-2 px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() => onBrowse(item.id)}
+          className="min-w-0 flex-1 text-left"
+          aria-label={`Browse ${name} and ${childCount} subgenres`}
+        >
+          <span className="text-[10px] font-semibold tabular-nums tracking-[0.16em] text-white/45">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <span className="mt-1 block truncate text-[13px] font-semibold leading-5 text-white">
+            {name}
+          </span>
+          <span className="mt-0.5 flex items-center gap-0.5 text-[10px] leading-4 text-white/55">
+            {childCount} subgenres
+            <FiChevronRight className="h-3 w-3" aria-hidden="true" />
+          </span>
+        </button>
         <button
           type="button"
           aria-pressed={selected}
           aria-label={`${selected ? "Remove" : "Add"} ${name} ${selected ? "from" : "to"} your picks`}
           onClick={() => onToggle(item)}
-          className={`grid h-8 w-8 place-items-center rounded-full border transition ${
+          className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs transition ${
             selected
               ? "border-[#00e6e6] bg-[#00e6e6] text-[#001014]"
-              : "border-white/20 bg-black/10 text-white hover:border-[#00e6e6] hover:text-[#00e6e6]"
+              : "border-white/20 bg-black/20 text-white hover:border-[#00e6e6] hover:text-[#00e6e6]"
           }`}
         >
           {selected ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}
@@ -160,9 +164,9 @@ function GenreSkeleton() {
     <div aria-label="Loading music taste preferences" aria-busy="true" className="space-y-5">
       <div className="h-24 animate-pulse rounded-2xl bg-white/[0.05]" />
       <div className="h-11 max-w-2xl animate-pulse rounded-xl bg-white/[0.05]" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {Array.from({ length: 8 }, (_, index) => (
-          <div key={index} className="h-44 animate-pulse rounded-2xl bg-white/[0.05]" />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {Array.from({ length: 10 }, (_, index) => (
+          <div key={index} className="h-[4.5rem] animate-pulse rounded-xl bg-white/[0.05]" />
         ))}
       </div>
     </div>
@@ -762,7 +766,9 @@ export default function GenrePreferences({ status }) {
               </span>
               <div>
                 <h3 className="font-semibold text-white">Sign in to personalize discovery</h3>
-                <p className="mt-1 text-sm text-[#9aa8b5]">Your picks stay synced with your account.</p>
+                <p className="mt-1 text-sm text-[#9aa8b5]">
+                  Guests hear popular music. Sign in to save genres and get recommendations based on your taste.
+                </p>
               </div>
             </div>
             <Link href="/login" className="btn-primary shrink-0">
@@ -936,7 +942,7 @@ export default function GenrePreferences({ status }) {
                   <h3 className="text-lg font-semibold text-white">Find the sounds that feel like you</h3>
                   <p className="mt-1 text-xs text-[#9aa8b5]">Open a category to discover more specific styles.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                   {roots.map((item, index) => (
                     <CategoryCard
                       key={item.id}

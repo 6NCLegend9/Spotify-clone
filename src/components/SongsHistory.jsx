@@ -30,8 +30,8 @@ const pushHistoryEntry = (entry) => {
   }
 };
 
-// Best-effort sync to the server so history follows the account across devices/browsers.
-// Never blocks or breaks local history tracking if it fails (offline, logged out, etc.).
+// Best-effort sync to the server so history follows the signed-in account.
+// Guests never persist listening history locally or on the server.
 const syncHistoryEntry = (entry) => {
   void requestJson("/api/history", {
     method: "POST",
@@ -47,27 +47,24 @@ const SongsHistory = () => {
   const isAuthenticated = status === "authenticated";
 
   useEffect(() => {
-    if (isValidEntry(activeSong)) {
-      pushHistoryEntry(activeSong);
-      if (isAuthenticated) syncHistoryEntry(activeSong);
-    }
+    if (!isAuthenticated || !isValidEntry(activeSong)) return;
+    pushHistoryEntry(activeSong);
+    syncHistoryEntry(activeSong);
   }, [activeSong, isAuthenticated]);
 
   // YouTube is the primary playback path now; without this, "Listen Again" never records real usage.
   useEffect(() => {
-    if (youtubeVideo?.id) {
-      const entry = {
-        source: "youtube",
-        id: youtubeVideo.id,
-        title: youtubeVideo.title,
-        channel: youtubeVideo.channel,
-        thumbnail: youtubeVideo.thumbnail,
-      };
-      if (isValidEntry(entry)) {
-        pushHistoryEntry(entry);
-        if (isAuthenticated) syncHistoryEntry(entry);
-      }
-    }
+    if (!isAuthenticated || !youtubeVideo?.id) return;
+    const entry = {
+      source: "youtube",
+      id: youtubeVideo.id,
+      title: youtubeVideo.title,
+      channel: youtubeVideo.channel,
+      thumbnail: youtubeVideo.thumbnail,
+    };
+    if (!isValidEntry(entry)) return;
+    pushHistoryEntry(entry);
+    syncHistoryEntry(entry);
   }, [youtubeVideo, isAuthenticated]);
 
   return null;

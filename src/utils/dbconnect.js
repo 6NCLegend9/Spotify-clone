@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { resolveMongoConnectionUrl } from "./mongoSrvUrl.mjs";
 
 const getMongoUrl = () =>
   (process.env.MONGODB_URL || process.env.MONGODB_URI || "").trim();
@@ -23,12 +24,15 @@ const dbConnect = async () => {
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(mongoUrl, {
-      dbName: (process.env.DB_NAME || "").trim() || undefined,
-      maxPoolSize: 1,
-      maxIdleTimeMS: 10_000,
-      serverSelectionTimeoutMS: 10_000,
-    });
+    cached.promise = resolveMongoConnectionUrl(mongoUrl).then((connectionUrl) =>
+      mongoose.connect(connectionUrl, {
+        dbName: (process.env.DB_NAME || "").trim() || undefined,
+        family: 4,
+        maxPoolSize: 1,
+        maxIdleTimeMS: 10_000,
+        serverSelectionTimeoutMS: 10_000,
+      }),
+    );
   }
 
   try {

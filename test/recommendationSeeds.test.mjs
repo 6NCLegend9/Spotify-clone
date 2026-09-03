@@ -6,12 +6,36 @@ import {
   buildGenreSeeds,
   buildPersonalizedSeeds,
   resolveGenrePreferences,
+  resolveRecommendationPlan,
 } from "../src/utils/recommendationSeeds.mjs";
 import { normalizeGenreName } from "../src/utils/genreNormalization.mjs";
 
-test("guest recommendation seeds use the shared defaults", () => {
+test("guest recommendations use popular music instead of taste seeds", () => {
+  assert.deepEqual(resolveRecommendationPlan("guest", null), {
+    kind: "popular",
+    seeds: [],
+  });
+  assert.deepEqual(
+    resolveRecommendationPlan("guest", {
+      genres: ["Jazz"],
+      songHistory: [{ channel: "Guest history artist" }],
+    }),
+    {
+      kind: "popular",
+      seeds: [],
+    },
+  );
+});
+
+test("signed-in users without taste still fall back to default genre seeds", () => {
   assert.deepEqual(
     buildGenreSeeds(null).map((seed) => seed.genre),
+    DEFAULT_GENRES.slice(0, 3),
+  );
+  const plan = resolveRecommendationPlan("personalized", {});
+  assert.equal(plan.kind, "personalized");
+  assert.deepEqual(
+    plan.seeds.map((seed) => seed.genre),
     DEFAULT_GENRES.slice(0, 3),
   );
 });

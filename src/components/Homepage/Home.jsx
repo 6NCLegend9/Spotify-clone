@@ -15,7 +15,7 @@ import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 
-const HOME_CACHE_KEY = "HeyKasa-home-recommendations";
+const HOME_CACHE_KEY = "HeyKasa-home-recommendations-v2";
 
 const TAGLINES = [
   "Your Next Favorite Song",

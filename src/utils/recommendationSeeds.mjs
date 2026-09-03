@@ -24,6 +24,20 @@ function addSeed(seeds, seen, query, reason, extra = {}) {
   seeds.push({ query: normalized, reason, ...extra });
 }
 
+export function resolveRecommendationPlan(mode, profile) {
+  if (mode === "personalized") {
+    return {
+      kind: "personalized",
+      seeds: buildPersonalizedSeeds(profile),
+    };
+  }
+
+  return {
+    kind: "popular",
+    seeds: [],
+  };
+}
+
 export function buildPersonalizedSeeds(profile) {
   const seeds = [];
   const seen = new Set();

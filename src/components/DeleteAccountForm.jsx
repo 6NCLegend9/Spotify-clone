@@ -22,7 +22,7 @@ async function clearLocalAccountData() {
 
   for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
     const storageKey = window.sessionStorage.key(index);
-    if (storageKey?.startsWith("HeyKasa-home-recommendations:")) {
+    if (storageKey?.startsWith("HeyKasa-home-recommendations")) {
       window.sessionStorage.removeItem(storageKey);
     }
   }

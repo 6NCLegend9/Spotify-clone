@@ -10,9 +10,8 @@ import { tokenOptions } from "@/utils/authToken";
 import { ensureSystemGenres } from "@/services/genreCatalog";
 import { normalizeGenreName } from "@/utils/genreTaxonomy";
 import {
-  buildGenreSeeds,
-  buildPersonalizedSeeds,
   resolveGenrePreferences,
+  resolveRecommendationPlan,
 } from "@/utils/recommendationSeeds.mjs";
 import {
   ApiRouteError,
@@ -160,30 +159,7 @@ export async function GET(request) {
       }
     }
 
-    const seeds = mode === "personalized"
-      ? buildPersonalizedSeeds(profile)
-      : buildGenreSeeds(null);
-    const cacheKey = seeds.map((seed) => seed.query).join("|");
-    let groups;
-    let playlists;
-    const cached = getCachedSearches(cacheKey);
-    if (cached) {
-      groups = cached.groups;
-      playlists = cached.playlists;
-    } else {
-      const [searchGroups, featuredPlaylists] = await Promise.all([
-        Promise.all(
-          seeds.map(({ query, reason, genre }) =>
-            searchYouTube(query, reason, { seedQuery: query, genre }),
-          ),
-        ),
-        searchPlaylists(seeds[0].query),
-      ]);
-      groups = searchGroups;
-      playlists = featuredPlaylists;
-      cacheSearches(cacheKey, { groups, playlists });
-    }
-
+    const plan = resolveRecommendationPlan(mode, profile);
     const excluded = new Set(profile?.notInterested || []);
     const snoozed = new Set(profile?.snoozedTracks || []);
     const skipped = new Set(profile?.skippedTracks || []);
@@ -193,21 +169,73 @@ export async function GET(request) {
       .filter((video) => !excluded.has(video.id) && !snoozed.has(video.id) && !skipped.has(video.id) && !recent.has(video.id))
       .filter((video) => !explicitDisabled || !/explicit|uncensored|18\+/i.test(`${video.title} ${video.description}`))
       .filter((video, index, all) => all.findIndex((item) => item.id === video.id) === index);
-    let source = "search";
-    let recommendations = filterRecommendations(groups.flat());
 
-    if (recommendations.length === 0) {
+    let source = "search";
+    let recommendations = [];
+    let playlists = [];
+    let genreSections = [];
+
+    if (plan.kind === "popular") {
+      const cacheKey = "guest:popular";
+      const cached = getCachedSearches(cacheKey);
+      let popular;
+      if (cached?.popular) {
+        popular = cached.popular;
+        playlists = cached.playlists || [];
+      } else {
+        const [popularVideos, featuredPlaylists] = await Promise.all([
+          getPopularMusic(),
+          searchPlaylists("popular music"),
+        ]);
+        popular = popularVideos;
+        playlists = featuredPlaylists;
+        cacheSearches(cacheKey, { popular, playlists });
+      }
       source = "youtube-chart";
-      recommendations = filterRecommendations(await getPopularMusic());
+      recommendations = filterRecommendations(popular || []);
+      if (recommendations.length === 0) {
+        source = "search";
+        recommendations = filterRecommendations(
+          await searchYouTube("popular music", "Popular right now"),
+        );
+      }
+      recommendations = recommendations.slice(0, 24);
+    } else {
+      const seeds = plan.seeds;
+      const cacheKey = seeds.map((seed) => seed.query).join("|");
+      let groups;
+      const cached = getCachedSearches(cacheKey);
+      if (cached?.groups) {
+        groups = cached.groups;
+        playlists = cached.playlists;
+      } else {
+        const [searchGroups, featuredPlaylists] = await Promise.all([
+          Promise.all(
+            seeds.map(({ query, reason, genre }) =>
+              searchYouTube(query, reason, { seedQuery: query, genre }),
+            ),
+          ),
+          searchPlaylists(seeds[0].query),
+        ]);
+        groups = searchGroups;
+        playlists = featuredPlaylists;
+        cacheSearches(cacheKey, { groups, playlists });
+      }
+
+      recommendations = filterRecommendations(groups.flat());
+      if (recommendations.length === 0) {
+        source = "youtube-chart";
+        recommendations = filterRecommendations(await getPopularMusic());
+      }
+      recommendations = recommendations.slice(0, 24);
+      genreSections = seeds
+        .map((seed, index) => ({
+          id: seed.query.toLowerCase().replace(/\s+/g, "-"),
+          title: seed.query,
+          videos: filterRecommendations(groups[index] || []),
+        }))
+        .filter((section) => section.videos.length > 0);
     }
-    recommendations = recommendations.slice(0, 24);
-    const genreSections = seeds
-      .map((seed, index) => ({
-        id: seed.query.toLowerCase().replace(/\s+/g, "-"),
-        title: seed.query,
-        videos: filterRecommendations(groups[index] || []),
-      }))
-      .filter((section) => section.videos.length > 0);
 
     return NextResponse.json({
       mode,

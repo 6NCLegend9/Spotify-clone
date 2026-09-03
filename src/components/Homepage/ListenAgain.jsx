@@ -29,24 +29,37 @@ const ListenAgain = () => {
 
   useEffect(() => {
     try {
-      const storedHistory = JSON.parse(localStorage.getItem("songHistory") || "[]");
-      setSongHistory(normalizeHistory(storedHistory));
-    } catch {
-      setSongHistory([]);
-    }
-    try {
       dispatch(setAutoAdd(localStorage.getItem("autoAdd") === "true"));
     } catch {
       dispatch(setAutoAdd(false));
     }
   }, [dispatch]);
 
+  useEffect(() => {
+    if (status === "loading") return;
+    if (status !== "authenticated") {
+      setSongHistory([]);
+      setSyncError(null);
+      setSyncing(false);
+      try {
+        localStorage.removeItem("songHistory");
+      } catch {
+        // Listening history is best-effort when browser storage is blocked.
+      }
+      return;
+    }
+    try {
+      const storedHistory = JSON.parse(localStorage.getItem("songHistory") || "[]");
+      setSongHistory(normalizeHistory(storedHistory));
+    } catch {
+      setSongHistory([]);
+    }
+  }, [status]);
+
   // Prefer the account's server-synced history when signed in, so "Listen Again" follows
   // the user across devices/browsers instead of only reflecting this browser's localStorage.
   useEffect(() => {
     if (status !== "authenticated") {
-      setSyncError(null);
-      setSyncing(false);
       return;
     }
     const controller = new AbortController();

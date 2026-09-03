@@ -7,6 +7,106 @@ export const metadata = {
   alternates: { canonical: `${SITE_URL}/accessibility` },
 };
 
+function Key({ children }) {
+  return (
+    <kbd className="mx-0.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-md border border-white/15 bg-white/[0.07] px-1.5 font-mono text-[11px] font-semibold text-white">
+      {children}
+    </kbd>
+  );
+}
+
+const KEYBOARD_GROUPS = [
+  {
+    title: "Move around the app",
+    items: [
+      {
+        keys: ["Tab"],
+        extra: (
+          <>
+            {" "}
+            or <Key>Shift</Key> + <Key>Tab</Key>
+          </>
+        ),
+        detail:
+          "Move forward or backward through links, controls, form fields, and available playback actions.",
+      },
+      {
+        keys: ["Tab"],
+        detail:
+          "The first focusable item is Skip to main content. Activate it to bypass navigation and land on the page content.",
+      },
+    ],
+  },
+  {
+    title: "Search suggestions",
+    items: [
+      {
+        keys: ["↑", "↓"],
+        detail: "Move through matching genre suggestions.",
+      },
+      {
+        keys: ["Home", "End"],
+        detail: "Jump to the first or last genre suggestion.",
+      },
+      {
+        keys: ["Enter"],
+        detail: "Open the highlighted genre search.",
+      },
+      {
+        keys: ["Esc"],
+        detail: "Close search suggestions without leaving the search field.",
+      },
+    ],
+  },
+  {
+    title: "Close overlays",
+    items: [
+      {
+        keys: ["Esc"],
+        detail: "Close the mobile navigation menu or search suggestions.",
+      },
+    ],
+  },
+  {
+    title: "Playback",
+    items: [
+      {
+        keys: ["Space"],
+        detail: "Play or pause the current track.",
+      },
+      {
+        keys: ["J", "L"],
+        detail: "Seek backward or forward by 10 seconds.",
+      },
+      {
+        keys: ["Shift", "N"],
+        joined: true,
+        detail: "Skip to the next track.",
+      },
+      {
+        keys: ["M"],
+        detail: "Mute or unmute.",
+      },
+      {
+        keys: ["T"],
+        detail: "Show or hide lyrics.",
+      },
+      {
+        keys: ["F"],
+        detail: "Open or close the expanded player.",
+      },
+      {
+        keys: ["P"],
+        detail: "Toggle picture-in-picture when available.",
+      },
+      {
+        keys: ["Esc"],
+        detail: "Leave the expanded player.",
+      },
+    ],
+  },
+];
+
 export default function AccessibilityPage() {
   return (
     <main className="page max-w-4xl text-white">
@@ -14,7 +114,7 @@ export default function AccessibilityPage() {
         <header className="border-b border-white/10 pb-6">
           <p className="eyebrow">Accessibility</p>
           <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Accessibility Statement</h1>
-          <p className="mt-3 text-sm text-[#9aa8b5]">Last updated: September 1, 2026</p>
+          <p className="mt-3 text-sm text-[#9aa8b5]">Last updated: September 3, 2026</p>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-[#c9d4de]">
             {SITE_NAME} aims to make music discovery and listening usable for as many people as
             possible. This page explains the accessibility features currently available and lets
@@ -27,12 +127,35 @@ export default function AccessibilityPage() {
         <section className="border-b border-white/10 py-8" aria-labelledby="keyboard-navigation">
           <h2 id="keyboard-navigation" className="text-2xl font-bold">Keyboard navigation</h2>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
-            Use the <strong>Tab</strong> key to move through links, controls, form fields, and
-            available playback actions. The first keyboard focusable item is a Skip to main content
-            link, allowing you to bypass navigation and move directly to the page content. Genre
-            suggestions in search support the arrow, Home, End, Enter, and Escape keys. The mobile
-            navigation and search suggestions can be closed with Escape.
+            {SITE_NAME} is designed to be used with a keyboard. Shortcuts below work when you are
+            not typing in a text field, except for search suggestions, which work inside the search box.
           </p>
+          <div className="mt-6 space-y-6">
+            {KEYBOARD_GROUPS.map((group) => (
+              <div key={group.title}>
+                <h3 className="text-sm font-semibold text-white">{group.title}</h3>
+                <ul className="mt-3 divide-y divide-white/10 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                  {group.items.map((item) => (
+                    <li
+                      key={`${group.title}-${item.detail}`}
+                      className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+                    >
+                      <p className="text-sm leading-6 text-[#c9d4de]">{item.detail}</p>
+                      <p className="shrink-0 text-left sm:text-right">
+                        {item.keys.map((key, index) => (
+                          <span key={`${key}-${index}`}>
+                            {index > 0 ? (item.joined ? " + " : " ") : null}
+                            <Key>{key}</Key>
+                          </span>
+                        ))}
+                        {item.extra}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="border-b border-white/10 py-8" aria-labelledby="readable-errors">

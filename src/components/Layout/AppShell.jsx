@@ -86,7 +86,7 @@ export default function AppShell({ children }) {
           className={`app-overlay lg:hidden ${showNav ? "is-open" : ""}`}
           onClick={() => setShowNav(false)}
         />
-        <div className="app-stage" {...(navModal ? { inert: "" } : {})}>
+        <div className="app-stage" inert={navModal}>
           <GhostFibers
             className="app-ghost-fibers"
             lineColor="#0a5c66"
