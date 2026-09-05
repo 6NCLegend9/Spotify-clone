@@ -13,6 +13,7 @@ import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
+import { cleanTitle } from "@/utils/text";
 
 export default function YouTubeMusicResults({ query }) {
   const [results, setResults] = useState([]);
@@ -358,14 +359,16 @@ export default function YouTubeMusicResults({ query }) {
             dispatch(setYoutubeQueue(results));
             dispatch(setYoutubeVideo(video));
           };
+          const title = cleanTitle(video.title);
+          const channel = cleanTitle(video.channel);
           return (
           <article key={video.id} className="card group text-left">
-            <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
+            <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
               <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
             </button>
             <div className="p-4">
               <button type="button" onClick={playVideo} className="block w-full text-left">
-                <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
+                <p className="line-clamp-2 text-sm font-semibold text-white">{title}</p>
               </button>
               {video.channelId ? (
                 <Link
@@ -373,10 +376,10 @@ export default function YouTubeMusicResults({ query }) {
                   prefetch={false}
                   className="mt-2 block truncate text-xs text-gray-400 hover:text-[#00e6e6]"
                 >
-                  {video.channel}
+                  {channel}
                 </Link>
               ) : (
-                <p className="mt-2 truncate text-xs text-gray-400">{video.channel}</p>
+                <p className="mt-2 truncate text-xs text-gray-400">{channel}</p>
               )}
             </div>
           </article>
@@ -446,7 +449,7 @@ export default function YouTubeMusicResults({ query }) {
               <div key={artist.id} className="group text-center">
                 <Link href={`/artist/${encodeURIComponent(artist.id)}?name=${encodeURIComponent(artist.title || "")}`} prefetch={false}>
                   <MediaImage src={artist.thumbnail} size="mq" alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
-                  <p className="mt-2 truncate text-sm font-semibold text-white">{artist.title}</p>
+                  <p className="mt-2 truncate text-sm font-semibold text-white">{cleanTitle(artist.title)}</p>
                 </Link>
                 {status === "authenticated" && (
                   <button
@@ -479,7 +482,7 @@ export default function YouTubeMusicResults({ query }) {
                 className="group overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] text-left disabled:opacity-60"
               >
                 <MediaImage src={album.thumbnail} size="hq" alt="" className="aspect-video w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
-                <p className="truncate p-4 text-sm font-semibold text-white">{loadingPlaylistId === album.id ? "Loading..." : album.title}</p>
+                <p className="truncate p-4 text-sm font-semibold text-white">{loadingPlaylistId === album.id ? "Loading..." : cleanTitle(album.title)}</p>
               </button>
             ))}
           </div>

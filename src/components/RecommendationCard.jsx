@@ -13,6 +13,7 @@ import { useJam } from "@/components/Jam/JamProvider";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import BottomSheet from "@/components/BottomSheet";
 import MediaImage from "@/components/MediaImage";
+import { cleanTitle } from "@/utils/text";
 
 export default function RecommendationCard({ video, queue }) {
   const dispatch = useDispatch();
@@ -105,9 +106,12 @@ export default function RecommendationCard({ video, queue }) {
       }
     : undefined;
 
+  const title = cleanTitle(video.title);
+  const channel = cleanTitle(video.channel);
+
   return (
     <article className="card group relative w-full text-left" onContextMenu={handleContextMenu}>
-      <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
+      <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
         <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03] group-active:scale-[0.98]" />
       </button>
       {showMenu ? (
@@ -150,7 +154,7 @@ export default function RecommendationCard({ video, queue }) {
       ) : null}
       {isMobile ? (
         <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} label="Track options">
-          <p className="mb-2 line-clamp-1 px-1 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">{video.title}</p>
+          <p className="mb-2 line-clamp-1 px-1 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">{title}</p>
           <div className="flex flex-col">
             {actions.map(({ key, Icon, label, accent, onClick }) => (
               <button
@@ -166,8 +170,8 @@ export default function RecommendationCard({ video, queue }) {
         </BottomSheet>
       ) : null}
       <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
-        <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
-        <p className="mt-2 truncate text-xs text-gray-400">{video.channel}</p>
+        <p className="line-clamp-2 text-sm font-semibold text-white">{title}</p>
+        <p className="mt-2 truncate text-xs text-gray-400">{channel}</p>
         <p className="mt-2 text-[11px] text-[#00e6e6]">{video.reason}</p>
       </button>
     </article>
