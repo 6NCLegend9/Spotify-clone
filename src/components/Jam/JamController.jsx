@@ -34,7 +34,7 @@ export default function JamController() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open HayKasa Jam"
-        className="fixed bottom-24 right-4 z-[70] inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#00e6e6]/40 bg-[#07121d]/90 px-4 py-2 text-sm font-semibold text-[#00e6e6] shadow-glow backdrop-blur transition hover:border-[#00e6e6] lg:bottom-28"
+        className="absolute bottom-4 right-4 z-[70] inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#00e6e6]/40 bg-[#07121d]/90 px-4 py-2 text-sm font-semibold text-[#00e6e6] shadow-glow backdrop-blur transition hover:border-[#00e6e6]"
       >
         <FiRadio aria-hidden="true" />
         {inRoom ? `Jam · ${jam.code}` : "Jam"}

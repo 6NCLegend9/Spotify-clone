@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
+import MobileTabBar from "@/components/Layout/MobileTabBar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "@/components/Homepage/OnlineStatus";
 import PullToRefresh from "@/components/PullToRefresh";
@@ -129,6 +130,7 @@ export default function AppShell({ children }) {
               <p className="mt-4">&copy; {new Date().getFullYear()} HeyKasa Music. All rights reserved.</p>
             </footer>
           </div>
+          <JamController />
         </div>
         <div className="app-player" id="player" tabIndex={-1}>
           <ErrorBoundary
@@ -139,7 +141,7 @@ export default function AppShell({ children }) {
             <MusicPlayer />
           </ErrorBoundary>
         </div>
-        <JamController />
+        <MobileTabBar />
       </div>
       </JamProvider>
       <Toaster

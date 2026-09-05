@@ -331,6 +331,44 @@ select:-webkit-autofill {
     max-height: 11.5rem;
   }
 
+  .app-tabbar {
+    grid-row: 3;
+    z-index: 35;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 0.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(2, 8, 19, 0.96);
+    backdrop-filter: blur(20px);
+    padding: 0.2rem 0.5rem;
+  }
+
+  .app-tab {
+    display: flex;
+    flex: 1 1 0;
+    min-height: 44px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.12rem;
+    border-radius: 0.75rem;
+    padding: 0.3rem 0.25rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #9aa8b5;
+    transition: color var(--motion-ui) ease, background var(--motion-ui) ease;
+  }
+
+  .app-tab:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .app-tab.is-active {
+    color: #00e6e6;
+  }
+
   .app-sidebar {
     position: fixed;
     inset: 0 auto 0 0;

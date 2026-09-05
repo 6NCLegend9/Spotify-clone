@@ -44,6 +44,16 @@ const Searchbar = () => {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // Let other UI (e.g. the mobile tab bar) focus the search input.
+  useEffect(() => {
+    const onOpenSearch = () => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    };
+    window.addEventListener("heykasa:open-search", onOpenSearch);
+    return () => window.removeEventListener("heykasa:open-search", onOpenSearch);
+  }, []);
+
   const genreMatches = useMemo(
     () => (searchTerm.trim().length >= 2 ? searchGenres(searchTerm, { limit: 4 }) : []),
     [searchTerm],
