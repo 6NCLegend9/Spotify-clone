@@ -1860,7 +1860,7 @@ export default function YouTubePlayer() {
   useEffect(() => {
     if (!video?.id) return;
     if (remainingAfterCurrent() > 2) return;
-    void extendQueue();
+    void extendQueueRef.current();
   }, [video?.id, safeQueue.length]);
 
   const searchForQueueTracks = async () => {

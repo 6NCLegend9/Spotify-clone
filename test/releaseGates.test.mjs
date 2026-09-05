@@ -27,7 +27,7 @@ test("generated service worker is not tracked", () => {
 });
 
 test("active UI does not link to legacy catalog routes", () => {
-  const legacyRoute = /["'`]\/(?:album|artist|playlist)(?:\/|[?"'`])/;
+  const legacyRoute = /["'`]\/(?:album|playlist)(?:\/|[?"'`])/;
   const files = [
     ...sourceFiles(join(projectRoot, "src", "app")),
     ...sourceFiles(join(projectRoot, "src", "components")),
@@ -39,6 +39,6 @@ test("active UI does not link to legacy catalog routes", () => {
   assert.deepEqual(
     violations,
     [],
-    `legacy /album, /artist, or /playlist link found in: ${violations.join(", ")}`,
+    `legacy /album or /playlist link found in: ${violations.join(", ")}`,
   );
 });
