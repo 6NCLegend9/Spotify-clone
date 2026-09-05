@@ -163,7 +163,7 @@ export default function SettingsPage() {
 
       <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
         <h2 className="mb-2 text-xl font-semibold">Fade transitions</h2>
-        <p className="mb-4 text-xs text-gray-400">Gently fade audio in when playback starts and out when you pause, instead of an abrupt cut.</p>
+        <p className="mb-4 text-xs text-gray-400">Fade the end of each song out and the next one in for a smooth transition. Pausing still stops instantly.</p>
         <Toggle label="Fade in and out" checked={settings.fadeEnabled !== false} onChange={(value) => set("fadeEnabled", value)} />
         <label className="mt-4 block text-sm text-gray-300">
           Fade length · {Number(settings.fadeSeconds ?? 0.8).toFixed(1)}s

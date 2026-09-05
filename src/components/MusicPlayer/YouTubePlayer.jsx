@@ -198,6 +198,7 @@ export default function YouTubePlayer() {
   const seekGuardRef = useRef({ seeking: false, until: 0, target: null, videoId: null });
   const skipCrossfadeVideoRef = useRef(null);
   const nearEndStreakRef = useRef(0);
+  const endFadeVideoRef = useRef(null);
   const preloadedIdRef = useRef(null);
   const preloadingRef = useRef(null);
   const preloadNextRef = useRef(() => {});
@@ -335,9 +336,12 @@ export default function YouTubePlayer() {
     }
   };
 
-  const rampVolume = (player, fromRatio, toRatio, onDone) => {
+  const rampVolume = (player, fromRatio, toRatio, options = {}) => {
     cancelFade();
-    const durationMs = Math.max(0, (Number(fadeSeconds) || 0) * 1000);
+    const { durationMs: overrideMs, onDone } = options;
+    const durationMs = Number.isFinite(overrideMs)
+      ? overrideMs
+      : Math.max(0, (Number(fadeSeconds) || 0) * 1000);
     if (fadeEnabled === false || durationMs < 50 || !player) {
       applyPlaybackVolume(player, toRatio);
       onDone?.();
@@ -1630,27 +1634,42 @@ export default function YouTubePlayer() {
         return;
       }
       const remaining = dur - time;
+      // Fade the last seconds of the track down so it blends into the next one.
+      const fadeWindow = Math.min(Number(fadeSeconds) || 0, dur / 3);
+      if (
+        fadeEnabled !== false
+        && dur > 8
+        && fadeWindow >= 0.5
+        && want
+        && endFadeVideoRef.current !== want
+        && remaining <= fadeWindow
+        && remaining > 0.4
+      ) {
+        endFadeVideoRef.current = want;
+        rampVolume(activePlayer, 1, 0, { durationMs: remaining * 1000 });
+      }
+
       const requestedFadeSeconds = 0;
       // YouTube's first iframe media segment is typically about five seconds.
       // Releasing the outgoing stream sooner leaves headroom for segment two.
-      const fadeSeconds = Math.min(
+      const crossfadeWindow = Math.min(
         requestedFadeSeconds,
         MAX_SAFE_YOUTUBE_CROSSFADE_SECONDS,
       );
-      if (fadeSeconds <= 0) {
+      if (crossfadeWindow <= 0) {
         nearEndStreakRef.current = 0;
         return;
       }
       const transitionLeadSeconds = Math.min(
         requestedFadeSeconds,
-        fadeSeconds + 3,
+        crossfadeWindow + 3,
       );
       if (remaining <= transitionLeadSeconds && remaining > 0.25) nearEndStreakRef.current += 1;
       else nearEndStreakRef.current = 0;
       if (!nextVideo) return;
       const ready = isPreloadedFor(nextVideo.id);
       if (ready && nearEndStreakRef.current >= 1) {
-        startCrossfade(nextVideo, Math.min(fadeSeconds, Math.max(remaining - 0.2, 0.8)));
+        startCrossfade(nextVideo, Math.min(crossfadeWindow, Math.max(remaining - 0.2, 0.8)));
       }
     };
   });
@@ -1775,7 +1794,35 @@ export default function YouTubePlayer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying]);
 
+  // Fade a newly-started track in from silence (song B after song A ends, or a manual pick).
+  useEffect(() => {
+    endFadeVideoRef.current = null;
+    if (fadeEnabled === false || !video?.id) return undefined;
+    applyPlaybackVolume(getActivePlayer(), 0);
+    let cancelled = false;
+    let attempts = 0;
+    const tryFadeIn = () => {
+      if (cancelled) return;
+      const player = getActivePlayer();
+      const ready = player?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING
+        && playerVideoId(player) === video.id;
+      if (ready) {
+        rampVolume(player, 0, 1);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 50) window.setTimeout(tryFadeIn, 150);
+    };
+    tryFadeIn();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [video?.id]);
+
   const seekOnCurrentTrack = (nextTime, { dragging = false } = {}) => {
+    cancelFade();
+    endFadeVideoRef.current = null;
     const player = getActivePlayer();
     const dur = player?.getDuration?.() || 0;
     const raw = Math.max(0, Number(nextTime) || 0);
@@ -1811,17 +1858,17 @@ export default function YouTubePlayer() {
 
   const handlePlayPause = () => {
     abortCrossfade();
+    cancelFade();
     const player = getActivePlayer();
     if (!player?.playVideo) return;
 
     if (isPlaying) {
-      rampVolume(player, 1, 0, () => player.pauseVideo());
+      player.pauseVideo();
       return;
     }
 
-    cancelFade();
     player.unMute?.();
-    rampVolume(player, 0, 1);
+    applyPlaybackVolume(player);
     player.playVideo();
   };
 
