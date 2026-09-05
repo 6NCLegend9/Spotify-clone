@@ -62,7 +62,7 @@ const Sidebar = () => {
         <button
           type="button"
           onClick={close}
-          className="icon-btn lg:hidden"
+          className="icon-btn md:hidden"
           aria-label="Close menu"
         >
           <IoClose aria-hidden="true" className="text-xl" />

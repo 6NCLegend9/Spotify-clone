@@ -47,6 +47,15 @@ export default function AppShell({ children }) {
   }, [pathname]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+    const query = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsCompactNav(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
     const focusSkipTarget = () => {
       const id = window.location.hash.replace(/^#/, "");
       if (id === "main-content" || id === "player") {
@@ -84,7 +93,7 @@ export default function AppShell({ children }) {
           aria-label="Close navigation"
           aria-hidden={!showNav}
           tabIndex={-1}
-          className={`app-overlay lg:hidden ${showNav ? "is-open" : ""}`}
+          className={`app-overlay md:hidden ${showNav ? "is-open" : ""}`}
           onClick={() => setShowNav(false)}
         />
         <div className="app-stage" inert={navModal}>

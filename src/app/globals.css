@@ -674,7 +674,7 @@ select:-webkit-autofill {
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .app-shell {
     grid-template-columns: var(--sidebar-w) 1fr;
   }

@@ -25,7 +25,7 @@ export default function HomeClient() {
   return (
     <div className="relative">
       {showtip && !tutorialComplete && (
-        <div className="fixed bottom-32 left-4 z-40 max-w-xs sm:left-8 lg:left-[284px]">
+        <div className="fixed bottom-32 left-4 z-40 max-w-xs sm:left-8 md:left-[284px]">
           <div className="rounded-2xl border border-white/10 bg-[#07121d] p-4 shadow-dock">
             <p className="text-sm text-gray-300">
               Create your own <span className="text-[#00e6e6]">Playlists</span>{" "}

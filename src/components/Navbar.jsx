@@ -29,7 +29,7 @@ const Navbar = () => {
       <button
         type="button"
         onClick={() => setShowNav(true)}
-        className="icon-btn h-9 w-9 shrink-0 lg:hidden"
+        className="icon-btn h-9 w-9 shrink-0 md:hidden"
         aria-label="Open menu"
         aria-expanded={navModal}
         aria-controls="app-sidebar"
@@ -37,7 +37,7 @@ const Navbar = () => {
         <MdOutlineMenu aria-hidden="true" className="text-xl" />
       </button>
 
-      <BrandMark className="hidden shrink-0 sm:flex lg:hidden" />
+      <BrandMark className="hidden shrink-0 sm:flex md:hidden" />
 
       <div className="min-w-0 flex-1">
         <Searchbar />
