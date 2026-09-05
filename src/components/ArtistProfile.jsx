@@ -134,7 +134,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
     try {
       const data = await requestJson("/api/followedArtists", {
         method: "POST",
-        body: { name: artist.title },
+        body: { name: artist.title, channelId: artist.id, thumbnail: artist.thumbnail },
         fallbackTitle: "Follow couldn’t be updated",
         fallbackMessage: "Your follow change wasn’t saved. Please try again.",
       });

@@ -78,7 +78,7 @@ export default function YouTubeMusicResults({ query }) {
 
   const genreHits = useMemo(() => searchGenres(query, { limit: 8 }), [query]);
 
-  const toggleFollow = async (name) => {
+  const toggleFollow = async (name, channelId = "", thumbnail = "") => {
     if (status !== "authenticated") return;
     const isFollowing = followedArtists.some((value) => value.toLowerCase() === name.toLowerCase());
     const normalizedName = name.toLowerCase();
@@ -90,7 +90,7 @@ export default function YouTubeMusicResults({ query }) {
     try {
       const data = await requestJson("/api/followedArtists", {
         method: "POST",
-        body: { name },
+        body: { name, channelId, thumbnail },
         fallbackTitle: "Follow couldn’t be updated",
         fallbackMessage: "Your follow change wasn’t saved. Please try again.",
       });
@@ -148,7 +148,7 @@ export default function YouTubeMusicResults({ query }) {
           {
             signal: controller.signal,
             fallbackTitle: "Search is temporarily unavailable",
-            fallbackMessage: "We couldn’t search YouTube Music. Please try again.",
+            fallbackMessage: "We couldn’t search HayKasa Music. Please try again.",
           },
         );
         if (cancelled) return;
@@ -167,7 +167,7 @@ export default function YouTubeMusicResults({ query }) {
           setSongError(
             toUserError(error, {
               title: "Search is temporarily unavailable",
-              message: "We couldn’t search YouTube Music. Please try again.",
+              message: "We couldn’t search HayKasa Music. Please try again.",
             }),
           );
         }
@@ -307,10 +307,10 @@ export default function YouTubeMusicResults({ query }) {
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00e6e6]">
-            YouTube Music
+            HayKasa Music
           </p>
           <h2 id="youtube-results-title" className="mt-2 text-2xl font-bold text-white lg:text-3xl">
-            Play from YouTube
+            Play On HayKasa
           </h2>
         </div>
         <span className="hidden text-xs text-gray-400 sm:block">Official videos and audio</span>
@@ -346,7 +346,7 @@ export default function YouTubeMusicResults({ query }) {
         <EmptyState
           eyebrow="Search"
           title="No music found"
-          message={`We couldn’t find playable YouTube Music results for “${query}”. Try another search.`}
+          message={`We couldn’t find playable HayKasa Music results for “${query}”. Try another search.`}
           href="/"
           actionLabel="Start another search"
         />
@@ -450,7 +450,7 @@ export default function YouTubeMusicResults({ query }) {
                 {status === "authenticated" && (
                   <button
                     type="button"
-                    onClick={() => void toggleFollow(artist.title)}
+                    onClick={() => void toggleFollow(artist.title, artist.id, artist.thumbnail)}
                     disabled={isUpdating}
                     aria-pressed={isFollowing}
                     className={`mt-1 rounded-full border px-2 py-0.5 text-[11px] transition ${isFollowing ? "border-[#00e6e6] text-[#00e6e6]" : "border-white/15 text-gray-400 hover:border-white/30"}`}

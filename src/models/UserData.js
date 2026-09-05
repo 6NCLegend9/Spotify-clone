@@ -67,6 +67,20 @@ const fileSchema = new mongoose.Schema(
             type: [String],
             default: []
         },
+        // Channel metadata for followed artists so the UI can link to profiles and
+        // surface new releases; the names array above stays the recommendation seed.
+        followedArtistsMeta: {
+            type: [
+                {
+                    _id: false,
+                    name: { type: String, default: "" },
+                    channelId: { type: String, default: "" },
+                    thumbnail: { type: String, default: "" },
+                    followedAt: { type: Date, default: Date.now },
+                },
+            ],
+            default: [],
+        },
         notInterested: {
             type: [String],
             default: []

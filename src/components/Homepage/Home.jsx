@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react";
 import RecommendationCard from "../RecommendationCard";
 import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
 import ListenAgain from "./ListenAgain";
+import FollowedReleases from "./FollowedReleases";
 import GradientText from "@/components/ReactBits/GradientText";
 import { HomeSectionSkeleton } from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
@@ -205,6 +206,8 @@ const Home = () => {
       </header>
 
       <ListenAgain />
+
+      <FollowedReleases />
 
       {!loading && error && data && (
         <div className="mb-8">

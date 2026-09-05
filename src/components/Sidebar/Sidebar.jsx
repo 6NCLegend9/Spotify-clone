@@ -15,6 +15,7 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import Profile from "./Profile";
 import Languages from "./Languages";
 import Playlists from "./Playlists";
+import Following from "./Following";
 
 const Sidebar = () => {
   const { showNav, setShowNav, navModal } = useNav();
@@ -97,6 +98,9 @@ const Sidebar = () => {
         </div>
         <div className="border-t border-white/10 pt-2">
           <Playlists />
+        </div>
+        <div className="border-t border-white/10 pt-2">
+          <Following />
         </div>
       </nav>
 
