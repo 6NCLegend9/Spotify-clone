@@ -96,7 +96,10 @@ const Playlists = () => {
   return (
     <>
       <div className="flex items-center justify-between px-2 py-2">
-        <p className="text-sm font-semibold text-white">Playlists</p>
+        <p className="flex items-center gap-2 text-sm font-semibold text-white">
+          <MdPlaylistPlay aria-hidden="true" className="text-lg" />
+          Playlists
+        </p>
         <button
           type="button"
           onClick={() => setShow(true)}

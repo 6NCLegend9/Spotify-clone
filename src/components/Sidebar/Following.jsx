@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { FiUsers } from "react-icons/fi";
 import { useSession } from "next-auth/react";
 import MediaImage from "@/components/MediaImage";
 import { requestJson } from "@/services/http";
@@ -68,7 +69,10 @@ const Following = () => {
 
   return (
     <div>
-      <p className="px-2 py-2 text-sm font-semibold text-white">Following</p>
+      <p className="flex items-center gap-2 px-2 py-2 text-sm font-semibold text-white">
+        <FiUsers aria-hidden="true" className="text-base" />
+        Following
+      </p>
       <div className="flex max-h-52 flex-col overflow-y-auto">
         {loading ? (
           <p className="px-2 py-3 text-xs text-[#9aa8b5]">Loading artists…</p>
