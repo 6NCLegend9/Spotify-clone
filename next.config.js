@@ -19,7 +19,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https://i.ytimg.com https://yt3.ggpht.com https://lh3.googleusercontent.com https://api.dicebear.com https://avatars.githubusercontent.com",
   "font-src 'self' data:",
   "media-src 'self' blob: https://*.googlevideo.com",
-  "connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com",
+  "connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.supabase.co wss://*.supabase.co",
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
