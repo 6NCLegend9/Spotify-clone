@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/settingsSlice";
+import { updateSetting } from "@/redux/features/settingsSlice";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { FiCheck, FiSave, FiSettings } from "react-icons/fi";
@@ -16,7 +16,6 @@ import { userErrorDetails } from "@/utils/userError";
 const qualityOptions = [["auto", "Automatic"], ["low", "Data saver"], ["normal", "Balanced"], ["high", "High quality"], ["very-high", "Best available"]];
 const normalizationOptions = [["quiet", "Quiet · -23 LUFS"], ["normal", "Normal · -14 LUFS"], ["loud", "Loud · -11 LUFS"]];
 const videoQualityOptions = [["auto", "Automatic"], ["720p", "Prefer 720p"], ["1080p", "Prefer 1080p"], ["audio-only", "Audio only"]];
-const bandLabels = ["60Hz", "230Hz", "910Hz", "3.6kHz", "14kHz"];
 
 function settingsErrorDetails(error) {
   const details = userErrorDetails(error);
@@ -161,14 +160,6 @@ export default function SettingsPage() {
       </section>
 
       <GenrePreferences status={status} />
-
-      <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
-        <div className="mb-5 flex items-end justify-between gap-4"><div><h2 className="text-xl font-semibold">Equalizer presets</h2><p className="mt-1 text-xs text-gray-400">Shapes bass, mids, and treble for direct-audio tracks. YouTube tracks adjust overall loudness only.</p></div><span className="text-sm text-[#00e6e6]">{settings.eqPreset}</span></div>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-          {EQ_PRESETS.map((preset, index) => <button key={preset} type="button" aria-pressed={settings.eqPreset === preset} onClick={() => set("eqPreset", preset)} className={`min-h-14 rounded-md border px-3 py-2 text-left text-[13px] leading-snug transition ${settings.eqPreset === preset ? "border-[#00e6e6] bg-[#00e6e6]/10 text-[#00e6e6]" : "border-white/10 text-gray-300 hover:border-white/30"}`}><span className="mr-1.5 text-gray-400">{String(index + 1).padStart(2, "0")}</span>{preset}</button>)}
-        </div>
-        <div className="mt-7 grid gap-5 sm:grid-cols-5">{settings.eqBands.map((value, index) => <label key={bandLabels[index]} className="text-sm text-gray-400">{bandLabels[index]}<input type="range" min="-12" max="12" value={value} aria-valuetext={`${value > 0 ? "+" : ""}${value} dB`} onChange={(event) => dispatch(updateEqBands(settings.eqBands.map((band, bandIndex) => bandIndex === index ? Number(event.target.value) : band)))} className="mt-3 h-8 w-full accent-[#00e6e6]" /><span className="mt-1.5 block text-sm text-white">{value > 0 ? "+" : ""}{value} dB</span></label>)}</div>
-      </section>
 
       <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
         <h2 className="mb-2 text-xl font-semibold">Fade transitions</h2>
