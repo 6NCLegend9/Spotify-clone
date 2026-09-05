@@ -9,7 +9,7 @@ import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import CoverUploader from "@/components/CoverUploader";
 import UserMessage from "@/components/UserMessage";
 import AccessibleDialog from "@/components/AccessibleDialog";
-import { PLAYLIST_CATEGORIES, inferPlaylistCategory } from "@/utils/playlistThemes";
+import { PLAYLIST_CATEGORIES, matchPlaylistCategory } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
 import { useSession } from "next-auth/react";
 
@@ -17,8 +17,9 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
   const dispatch = useDispatch();
   const { status } = useSession();
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("Pop");
+  const [category, setCategory] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [autoFill, setAutoFill] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState(null);
 
@@ -34,11 +35,13 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
     }
     setLoading(true);
     setFormError(null);
-    const res = await createPlaylist(name.trim(), { category, coverImage });
+    const res = await createPlaylist(name.trim(), { category, coverImage, autoFill });
     if (res?.success === true) {
-      toast.success("Playlist created");
+      const songCount = res.data?.playlist?.songs?.length || 0;
+      toast.success(autoFill && songCount ? `Playlist created with ${songCount} songs` : "Playlist created");
       setName("");
-      setCategory("Pop");
+      setCategory("");
+      setAutoFill(true);
       setCoverImage("");
       setShow(false);
       onCreated?.(res.data?.playlist);
@@ -96,7 +99,7 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
           onChange={(e) => {
             const next = e.target.value;
             setName(next);
-            setCategory(inferPlaylistCategory(next, category));
+            setCategory((current) => matchPlaylistCategory(next) || current);
           }}
           value={name}
           name="name"
@@ -125,6 +128,19 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
         <div className="mt-5">
           <CoverUploader value={coverImage} onChange={setCoverImage} disabled={loading} />
         </div>
+        <label className="mt-4 flex items-start gap-3 text-sm text-gray-300">
+          <input
+            type="checkbox"
+            checked={autoFill}
+            onChange={(e) => setAutoFill(e.target.checked)}
+            disabled={loading}
+            className="mt-0.5 h-4 w-4 accent-[#00e6e6]"
+          />
+          <span>
+            Fill with songs for this genre
+            <span className="mt-0.5 block text-xs text-[#9aa8b5]">We&apos;ll add a mix of {category || "popular"} tracks you can tweak anytime.</span>
+          </span>
+        </label>
         <button
           type="button"
           onClick={handelCreate}

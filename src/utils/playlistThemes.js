@@ -112,24 +112,49 @@ export function getPlaylistTheme(category) {
   return PLAYLIST_THEMES[normalizePlaylistCategory(category)] || PLAYLIST_THEMES.Pop;
 }
 
-export function inferPlaylistCategory(name = "", fallback = "Pop") {
-  const text = String(name).toLowerCase();
-  const rules = [
-    ["Sports", /sport|nfl|nba|soccer|football|stadium|game day|hype mix/],
-    ["Workout", /workout|gym|fitness|cardio|running|hiit|pump/],
-    ["Gaming", /gaming|gamer|esport|game ost|pixel/],
-    ["Party", /party|club|banger|festival|dance floor/],
-    ["Romance", /romance|love|romantic|date night|slow jam/],
-    ["Chill", /chill|focus|lofi|lo-fi|study|sleep|calm|ambient/],
-    ["Hip-Hop", /hip.?hop|rap|trap|drill/],
-    ["Rock", /rock|metal|punk|guitar/],
-    ["Pop", /pop|top 40|hits/],
-  ];
-  for (const [category, pattern] of rules) {
-    if (pattern.test(text)) return category;
+const CATEGORY_RULES = [
+  ["Sports", /sport|nfl|nba|soccer|football|stadium|game day|hype mix/],
+  ["Workout", /workout|gym|fitness|cardio|running|hiit|pump/],
+  ["Gaming", /gaming|gamer|esport|game ost|pixel/],
+  ["Party", /party|club|banger|festival|dance floor|electronic|edm|techno|house|dance/],
+  ["Romance", /romance|love|romantic|date night|slow jam/],
+  ["Chill", /chill|focus|lofi|lo-fi|study|sleep|calm|ambient/],
+  ["Hip-Hop", /hip.?hop|rap|trap|drill/],
+  ["Rock", /rock|metal|punk|guitar/],
+  ["Pop", /pop|top 40|hits/],
+];
+
+// Returns the best-matching category for free text, or null when nothing matches.
+export function matchPlaylistCategory(text = "") {
+  const value = String(text).toLowerCase();
+  for (const [category, pattern] of CATEGORY_RULES) {
+    if (pattern.test(value)) return category;
   }
-  return normalizePlaylistCategory(fallback);
+  return null;
 }
+
+export function inferPlaylistCategory(name = "", fallback = "Pop") {
+  return matchPlaylistCategory(name) || normalizePlaylistCategory(fallback);
+}
+
+// Derives a playlist category from a listener's saved genres, or null when none map cleanly.
+export function categoryFromGenres(genres = []) {
+  const list = Array.isArray(genres) ? genres : [];
+  return matchPlaylistCategory(list.join(" "));
+}
+
+// Search seeds used to auto-fill a freshly created playlist with on-genre tracks.
+export const PLAYLIST_SEED_QUERIES = {
+  Sports: ["stadium hype anthems", "game day pump up songs", "sports motivation mix"],
+  Workout: ["workout motivation songs", "gym pump up mix", "cardio hiit music"],
+  Chill: ["lofi chill beats", "calm focus music", "chillout ambient mix"],
+  Party: ["party dance hits", "club bangers", "festival edm anthems"],
+  Romance: ["romantic love songs", "slow jams playlist", "r&b date night"],
+  Gaming: ["gaming music mix", "electronic gaming beats", "esports hype songs"],
+  "Hip-Hop": ["hip hop hits", "rap bangers", "trap mix"],
+  Pop: ["top pop hits", "pop songs playlist", "top 40 hits"],
+  Rock: ["rock anthems", "classic rock hits", "alternative rock mix"],
+};
 
 export function isCoverDataUrl(value) {
   return typeof value === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(value) && value.length <= 320_000;

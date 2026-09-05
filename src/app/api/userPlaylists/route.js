@@ -10,18 +10,76 @@ import {
     handleApiError,
     readRequestJson,
 } from "@/utils/apiResponse";
-import { inferPlaylistCategory, normalizePlaylistCategory, serializePlaylist, isCoverDataUrl } from "@/utils/playlistThemes";
+import {
+    matchPlaylistCategory,
+    categoryFromGenres,
+    normalizePlaylistCategory,
+    serializePlaylist,
+    isCoverDataUrl,
+    PLAYLIST_SEED_QUERIES,
+} from "@/utils/playlistThemes";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import { youtubeFetch } from "@/utils/youtubeApi";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const MAX_USER_PLAYLISTS = 200;
 const MAX_COLLABORATORS = 50;
+const AUTO_FILL_SONG_COUNT = 12;
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 async function getAuthenticatedUser(req) {
     const { user } = await getAuthenticatedAccount(req);
     return user;
+}
+
+function shuffle(items) {
+    const arr = [...items];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+// Prefer the playlist name, then an explicit client choice, then the listener's
+// saved taste, before finally defaulting to Pop.
+function resolvePlaylistCategory(name, requested, genres) {
+    const byName = matchPlaylistCategory(name);
+    if (byName) return byName;
+    const requestedNorm = typeof requested === "string" && requested.trim()
+        ? normalizePlaylistCategory(requested)
+        : null;
+    if (requestedNorm && requestedNorm !== "Pop") return requestedNorm;
+    return categoryFromGenres(genres) || requestedNorm || "Pop";
+}
+
+// Pull a shuffled set of on-genre YouTube track ids to seed a new playlist.
+async function fetchGenreSongIds(category, limit) {
+    const queries = PLAYLIST_SEED_QUERIES[category] || PLAYLIST_SEED_QUERIES.Pop;
+    const results = await Promise.allSettled(
+        queries.map((query) =>
+            youtubeFetch("search", {
+                part: "snippet",
+                type: "video",
+                videoCategoryId: "10",
+                videoEmbeddable: "true",
+                maxResults: "10",
+                q: `${query} official audio`,
+            }),
+        ),
+    );
+    const ids = new Set();
+    for (const result of results) {
+        if (result.status !== "fulfilled" || !result.value?.ok) continue;
+        const items = Array.isArray(result.value.data?.items) ? result.value.data.items : [];
+        for (const item of items) {
+            const id = item?.id?.videoId;
+            if (id && YOUTUBE_ID_PATTERN.test(id)) ids.add(id);
+        }
+    }
+    return shuffle([...ids]).slice(0, limit);
 }
 
 function requirePlaylistId(value) {
@@ -47,9 +105,10 @@ export async function POST(req){
         }
         const body = await readRequestJson(req);
         const name = typeof body.name === "string" ? body.name.trim() : "";
-        const category = inferPlaylistCategory(name, body.category);
+        const category = resolvePlaylistCategory(name, body.category, userData?.genres);
         const subgenre = typeof body.subgenre === "string" ? body.subgenre.trim().slice(0, 48) : "";
         const coverImage = isCoverDataUrl(body.coverImage) ? body.coverImage : "";
+        const autoFill = body.autoFill === true;
         if (!name || name.length > 80) {
             return apiError("VALIDATION_ERROR", {
                 message: "A playlist name between 1 and 80 characters is required",
@@ -62,12 +121,24 @@ export async function POST(req){
             });
         }
 
+        let songs = [];
+        const songAddedAt = {};
+        if (autoFill) {
+            songs = await fetchGenreSongIds(category, AUTO_FILL_SONG_COUNT).catch(() => []);
+            const now = new Date();
+            songs.forEach((id) => {
+                songAddedAt[id] = now;
+            });
+        }
+
         const playlist = await Playlist.create({
             name,
             user: user._id,
             category,
             subgenre,
             coverImage,
+            songs,
+            songAddedAt,
         });
         if (!Array.isArray(userData.playlists)) {
             userData.playlists = [];
