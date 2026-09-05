@@ -27,6 +27,16 @@ export function useFocusTrap({
   restoreFocus = true,
 }) {
   const previousFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  const restoreFocusRef = useRef(restoreFocus);
+
+  // Keep latest callbacks/flags without re-running the trap effect, otherwise a
+  // new inline onClose on every parent render would steal focus back to the first
+  // element (e.g. the ✕ button) after each keystroke.
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    restoreFocusRef.current = restoreFocus;
+  }, [onClose, restoreFocus]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -43,9 +53,10 @@ export function useFocusTrap({
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
-        if (!onClose) return;
+        const onCloseNow = onCloseRef.current;
+        if (!onCloseNow) return;
         event.preventDefault();
-        onClose();
+        onCloseNow();
         return;
       }
 
@@ -72,7 +83,7 @@ export function useFocusTrap({
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
-      if (restoreFocus) previousFocusRef.current?.focus?.();
+      if (restoreFocusRef.current) previousFocusRef.current?.focus?.();
     };
-  }, [containerRef, enabled, onClose, restoreFocus]);
+  }, [containerRef, enabled]);
 }

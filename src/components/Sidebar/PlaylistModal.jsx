@@ -19,7 +19,7 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [coverImage, setCoverImage] = useState("");
-  const [autoFill, setAutoFill] = useState(true);
+  const [autoFill, setAutoFill] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState(null);
 
@@ -41,7 +41,7 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
       toast.success(autoFill && songCount ? `Playlist created with ${songCount} songs` : "Playlist created");
       setName("");
       setCategory("");
-      setAutoFill(true);
+      setAutoFill(false);
       setCoverImage("");
       setShow(false);
       onCreated?.(res.data?.playlist);
