@@ -137,6 +137,8 @@ export default function YouTubePlayer() {
     masterVolume,
     keyboardShortcuts,
     captions,
+    fadeEnabled,
+    fadeSeconds,
   } = useSelector((state) => state.settings);
   const transitionMode = "off";
   const crossfadeSeconds = 0;
@@ -202,6 +204,7 @@ export default function YouTubePlayer() {
   const preloadRetryAtRef = useRef(0);
   const preloadPollTimerRef = useRef(null);
   const activeBufferTimerRef = useRef(null);
+  const fadeTimerRef = useRef(null);
   const healthyPlaybackTimerRef = useRef(null);
   const activeRecoveryRef = useRef({
     videoId: null,
@@ -322,6 +325,36 @@ export default function YouTubePlayer() {
   const applyPlaybackVolume = (player, ratio = 1) => {
     const master = Number.isFinite(masterVolume) ? masterVolume : 0.85;
     player?.setVolume?.(Math.round(playbackVolume * master * ratio));
+  };
+
+  // Fade-in/out is a simple volume ramp on the active player; it never touches deck/crossfade logic.
+  const cancelFade = () => {
+    if (fadeTimerRef.current) {
+      window.clearInterval(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
+  };
+
+  const rampVolume = (player, fromRatio, toRatio, onDone) => {
+    cancelFade();
+    const durationMs = Math.max(0, (Number(fadeSeconds) || 0) * 1000);
+    if (fadeEnabled === false || durationMs < 50 || !player) {
+      applyPlaybackVolume(player, toRatio);
+      onDone?.();
+      return;
+    }
+    const steps = Math.max(1, Math.round(durationMs / 40));
+    let step = 0;
+    applyPlaybackVolume(player, fromRatio);
+    fadeTimerRef.current = window.setInterval(() => {
+      step += 1;
+      const progress = Math.min(1, step / steps);
+      applyPlaybackVolume(player, fromRatio + (toRatio - fromRatio) * progress);
+      if (progress >= 1) {
+        cancelFade();
+        onDone?.();
+      }
+    }, 40);
   };
 
   const emptyRecovery = (videoId = null) => ({
@@ -1532,6 +1565,7 @@ export default function YouTubePlayer() {
   }, [video?.id, apiReady]);
 
   useEffect(() => () => {
+    cancelFade();
     cancelCrossfade();
     clearActiveBufferTimers();
     destroyDeck("A");
@@ -1781,12 +1815,13 @@ export default function YouTubePlayer() {
     if (!player?.playVideo) return;
 
     if (isPlaying) {
-      player.pauseVideo();
+      rampVolume(player, 1, 0, () => player.pauseVideo());
       return;
     }
 
+    cancelFade();
     player.unMute?.();
-    applyPlaybackVolume(player);
+    rampVolume(player, 0, 1);
     player.playVideo();
   };
 

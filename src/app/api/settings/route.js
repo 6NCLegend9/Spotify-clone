@@ -19,12 +19,12 @@ const allowedKeys = [
   "eqPreset", "eqBands", "dataSaver", "audioOnly",
   "wifiOnlyDownloads", "streamingQuality", "videoQuality", "normalization", "monoAudio", "explicitContent",
   "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture", "masterVolume",
-  "keyboardShortcuts", "captions",
+  "keyboardShortcuts", "captions", "fadeEnabled", "fadeSeconds",
 ];
 const booleanKeys = new Set([
   "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "explicitContent",
   "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture",
-  "keyboardShortcuts", "captions",
+  "keyboardShortcuts", "captions", "fadeEnabled",
 ]);
 const enumValues = {
   streamingQuality: new Set(["auto", "low", "normal", "high", "very-high"]),
@@ -70,6 +70,11 @@ function validatedSettings(value) {
       && (!Number.isFinite(setting) || setting < 0 || setting > 1)
     ) {
       invalidSetting("masterVolume must be a number between 0 and 1.");
+    } else if (
+      key === "fadeSeconds"
+      && (!Number.isFinite(setting) || setting < 0 || setting > 5)
+    ) {
+      invalidSetting("fadeSeconds must be a number between 0 and 5.");
     }
 
     settings[key] = setting;

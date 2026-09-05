@@ -28,6 +28,8 @@ const initialState = {
   masterVolume: 0.85,
   keyboardShortcuts: true,
   captions: true,
+  fadeEnabled: true,
+  fadeSeconds: 0.8,
 };
 
 const settingsSlice = createSlice({

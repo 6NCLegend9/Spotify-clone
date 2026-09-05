@@ -170,6 +170,26 @@ export default function SettingsPage() {
         <div className="mt-7 grid gap-5 sm:grid-cols-5">{settings.eqBands.map((value, index) => <label key={bandLabels[index]} className="text-sm text-gray-400">{bandLabels[index]}<input type="range" min="-12" max="12" value={value} aria-valuetext={`${value > 0 ? "+" : ""}${value} dB`} onChange={(event) => dispatch(updateEqBands(settings.eqBands.map((band, bandIndex) => bandIndex === index ? Number(event.target.value) : band)))} className="mt-3 h-8 w-full accent-[#00e6e6]" /><span className="mt-1.5 block text-sm text-white">{value > 0 ? "+" : ""}{value} dB</span></label>)}</div>
       </section>
 
+      <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+        <h2 className="mb-2 text-xl font-semibold">Fade transitions</h2>
+        <p className="mb-4 text-xs text-gray-400">Gently fade audio in when playback starts and out when you pause, instead of an abrupt cut.</p>
+        <Toggle label="Fade in and out" checked={settings.fadeEnabled !== false} onChange={(value) => set("fadeEnabled", value)} />
+        <label className="mt-4 block text-sm text-gray-300">
+          Fade length · {Number(settings.fadeSeconds ?? 0.8).toFixed(1)}s
+          <input
+            type="range"
+            min="0.2"
+            max="5"
+            step="0.1"
+            value={settings.fadeSeconds ?? 0.8}
+            disabled={settings.fadeEnabled === false}
+            aria-valuetext={`${Number(settings.fadeSeconds ?? 0.8).toFixed(1)} seconds`}
+            onChange={(event) => set("fadeSeconds", Number(event.target.value))}
+            className="mt-3 h-8 w-full accent-[#00e6e6] disabled:opacity-40"
+          />
+        </label>
+      </section>
+
       <section className="grid gap-8 lg:grid-cols-2 mb-8">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Playback & data</h2><Toggle label="Data Saver mode" checked={settings.dataSaver} onChange={(value) => set("dataSaver", value)} /><Toggle label="Audio-only mode" checked={settings.audioOnly} onChange={(value) => set("audioOnly", value)} /><Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them." checked={settings.captions !== false} onChange={(value) => set("captions", value)} /><Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} /><Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} /><Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} /><Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} /></div>
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><p className="mt-4 text-xs text-[#9aa8b5]">Private session prevents new listening activity from being used for recommendations.</p></div>
