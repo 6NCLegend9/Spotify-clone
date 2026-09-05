@@ -110,6 +110,9 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-poppins",
   display: "swap",
+  // Skip <link rel=preload> for the 5 weights: most aren't used above the fold,
+  // which spams Chrome's "preloaded but not used" warning. swap keeps text visible.
+  preload: false,
 });
 
 export const viewport = {
