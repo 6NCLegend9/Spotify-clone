@@ -34,6 +34,21 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Stop mobile long-press from raising the native text-selection/callout popup on
+   interactive surfaces (tracks, cards, buttons); content text stays selectable. */
+button,
+a,
+[role="button"],
+.icon-btn,
+.btn-primary,
+.btn-ghost,
+.nav-link,
+.card {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 :focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
