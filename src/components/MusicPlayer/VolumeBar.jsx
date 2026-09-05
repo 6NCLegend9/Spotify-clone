@@ -108,7 +108,7 @@ const VolumeBar = ({
             </div>
           )}
         </div>
-        {/* Volume lives in PlayerVolume on the dock, like YouTube Music. */}
+        {/* Volume lives in PlayerVolume on the dock, like HayKasa Music. */}
       </div>
       {/* overlay */}
       {showMenu && (

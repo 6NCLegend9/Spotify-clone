@@ -41,7 +41,7 @@ export async function generateMetadata({ params }) {
     ],
     openGraph: {
       title: `${display} - Songs, MP3 & Playlists | ${SITE_NAME}`,
-      description: `Listen to ${display} songs online for free. Download mp3 songs and stream high quality music.`,
+      description: `Listen to ${display} songs online for free. Stream ${display} songs and stream high quality music.`,
       url: canonicalUrl,
       siteName: SITE_NAME,
       type: "website",
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }) {
     twitter: {
       card: "summary",
       title: `${display} - Songs, MP3 & Playlists | ${SITE_NAME}`,
-      description: `Listen to ${display} songs online for free. Download mp3 songs and stream high quality music.`,
+      description: `Listen to ${display} songs online for free. Stream ${display} songs and stream high quality music.`,
     },
     alternates: {
       canonical: canonicalUrl,

@@ -20,7 +20,7 @@ export default async function Home({ searchParams }) {
         <h1>HeyKasa Music - Free Music Streaming and MP3 Download</h1>
         <p>
           HeyKasa is a free music streaming app for English songs.
-          Listen online, download MP3 tracks, create
+          Listen online, tracks, create
           playlists, save favourites, explore albums, and discover artists in a
           fast web music player.
         </p>

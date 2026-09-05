@@ -234,14 +234,6 @@ const jsonLd = {
             text: "HeyKasa offers English music, including popular and indie tracks.",
           },
         },
-        {
-          "@type": "Question",
-          name: "Can I download MP3 songs from HeyKasa?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "Yes. Each track on HeyKasa offers a download option so you can save songs in MP3 format for offline listening.",
-          },
-        },
       ],
     },
   ],

@@ -35,11 +35,11 @@ export const SITE_URL =
   PRODUCTION_SITE_URL;
 export const SITE_NAME = "HeyKasa";
 export const SITE_BRAND = "HeyKasa Music";
-export const SITE_TAGLINE = "Free Music Streaming, MP3 Download & Playlists";
+export const SITE_TAGLINE = "Free Music Streaming";
 
 export const DEFAULT_TITLE = `${SITE_NAME} - ${SITE_TAGLINE}`;
 export const DEFAULT_DESCRIPTION =
-  "HeyKasa is a free music streaming platform. Listen songs in high quality. Download MP3, build playlists, follow artists, and discover new releases - all without paywalls.";
+  "HeyKasa is a free music streaming platform. Listen songs in high quality. Stream music, build playlists, follow artists, and discover new releases - all without paywalls.";
 
 export const DEFAULT_KEYWORDS = [
   "HeyKasa",
@@ -48,7 +48,6 @@ export const DEFAULT_KEYWORDS = [
   "music streaming",
   "free music streaming",
   "free music download",
-  "mp3 download",
   "online music player",
   "listen songs online",
   "latest songs",
