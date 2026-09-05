@@ -60,6 +60,8 @@ export const DEFAULT_KEYWORDS = [
 ];
 
 export const OG_IMAGE = "/icon-512x512.png";
+// Wide branded banner used for social share cards (Open Graph / Twitter).
+export const SOCIAL_IMAGE = "/haykasa-og.png";
 export const TWITTER_HANDLE = "@NCLegend44";
 
 export const ORG_CONTACT_EMAIL = "NCLegend404@gmail.com";

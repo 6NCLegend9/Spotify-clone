@@ -5,7 +5,6 @@ import SettingsSync from "@/components/SettingsSync";
 import LanguageSync from "@/components/LanguageSync";
 import Providers from "@/redux/Providers";
 import TopProgressBar from "@/components/topProgressBar/TopProgressBar";
-import Favicon from "./favicon.ico";
 import AuthProvider from "./AuthProvider";
 import AppShell from "@/components/Layout/AppShell";
 import { AccessibilityPreferencesProvider } from "@/components/AccessibilityPreferences";
@@ -18,6 +17,7 @@ import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
   OG_IMAGE,
+  SOCIAL_IMAGE,
   TWITTER_HANDLE,
   absoluteUrl,
 } from "@/utils/siteConfig";
@@ -42,7 +42,6 @@ export const metadata = {
   //   // google: "xKWFwcLg7uqtQGOTNIKraZ8uxuWF9Jxa_By43QL3678",
   // },
   icons: [
-    { rel: "icon", url: Favicon.src },
     { rel: "apple-touch-icon", url: "/icon-192x192.png" },
   ],
   manifest: "/manifest.json",
@@ -55,9 +54,9 @@ export const metadata = {
     description: DEFAULT_DESCRIPTION,
     images: [
       {
-        url: OG_IMAGE,
-        width: 512,
-        height: 512,
+        url: SOCIAL_IMAGE,
+        width: 2016,
+        height: 528,
         alt: `${SITE_NAME} - ${SITE_TAGLINE}`,
         type: "image/png",
       },
@@ -69,7 +68,7 @@ export const metadata = {
     creator: TWITTER_HANDLE,
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
-    images: [OG_IMAGE],
+    images: [SOCIAL_IMAGE],
   },
   robots: {
     index: true,
