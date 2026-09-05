@@ -71,7 +71,7 @@ export default function PictureInPictureWindow({
         </div>
         {queue.length > 0 && (
           <div className="yt-pip-queue">
-            <p className="yt-pip-kicker">Next up</p>
+            <p className="yt-pip-kicker">Queue</p>
             {queue.slice(0, 5).map((item) => (
               <button key={item.id} type="button" className="yt-pip-queue-item" onClick={() => onSelect?.(item)}>
                 <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} />
@@ -95,7 +95,7 @@ export const PIP_DOCUMENT_STYLES = `
   .yt-pip-doc-body { position: relative; z-index: 1; display: flex; height: 100%; flex-direction: column; padding: 12px 14px 10px; }
   .yt-pip-doc-top { display: flex; align-items: center; justify-content: space-between; }
   .yt-pip-kicker { margin: 0; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #00e6e6; }
-  .yt-pip-doc-top button, .yt-pip-controls button { appearance: none; border: 0; background: rgba(255,255,255,.08); color: #fff; border-radius: 999px; width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; }
+  .yt-pip-doc-top button, .yt-pip-controls button { appearance: none; border: 0; background: rgba(255,255,255,.08); color: #fff; border-radius: 999px; width: 40px; height: 40px; font-size: 20px; display: grid; place-items: center; cursor: pointer; }
   .yt-pip-title { margin: 10px 0 2px; font-size: 15px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .yt-pip-artist { margin: 0; font-size: 12px; color: #9aa8b5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .yt-pip-lyric { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }
@@ -105,7 +105,7 @@ export const PIP_DOCUMENT_STYLES = `
   .yt-pip-progress span { display: block; height: 100%; background: #00e6e6; }
   .yt-pip-times { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: #9aa8b5; }
   .yt-pip-controls { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
-  .yt-pip-play { width: 40px !important; height: 40px !important; background: #00e6e6 !important; color: #000 !important; }
+  .yt-pip-play { width: 50px !important; height: 50px !important; font-size: 24px !important; background: #00e6e6 !important; color: #000 !important; }
   .yt-pip-queue { margin-top: 10px; min-height: 0; flex: 1; overflow: auto; }
   .yt-pip-queue-item { display: flex; width: 100%; align-items: center; gap: 8px; margin-top: 6px; padding: 4px; border: 0; background: rgba(255,255,255,.06); color: #fff; border-radius: 8px; cursor: pointer; text-align: left; }
   .yt-pip-queue-item img { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }

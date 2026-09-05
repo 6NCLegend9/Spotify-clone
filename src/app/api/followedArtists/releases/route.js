@@ -25,6 +25,8 @@ function mapVideo(item, artist) {
       || item?.snippet?.thumbnails?.medium?.url
       || item?.snippet?.thumbnails?.default?.url
       || "",
+    // Avatar of the followed channel, saved when the user followed (no extra API call).
+    artistThumbnail: artist.thumbnail || "",
     seedQuery: artist.name || "",
     genre: artist.name || "",
   };

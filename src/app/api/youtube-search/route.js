@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { hasYouTubeApiKey, youtubeFetch, searchChannelsViaInnertube } from "@/utils/youtubeApi";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import {
-  ApiRouteError,
   apiError,
   handleApiError,
 } from "@/utils/apiResponse";
@@ -42,33 +41,30 @@ function rankVideoResults(results, query) {
 
 async function searchChannels(query) {
   const key = (process.env.YOUTUBE_API_KEY || "").trim();
-  if (!key) {
-    return { ok: true, status: 200, data: { items: [] } };
-  }
-
-  const params = new URLSearchParams({
-    part: "snippet",
-    type: "channel",
-    maxResults: "12",
-    q: query,
-    key,
-  });
-  try {
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`, {
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(6_000),
+  if (key) {
+    const params = new URLSearchParams({
+      part: "snippet",
+      type: "channel",
+      maxResults: "12",
+      q: query,
+      key,
     });
-    const data = await response.json().catch(() => null);
-    return {
-      ok: response.ok && Boolean(data),
-      status: response.status,
-      data,
-    };
-  } catch {
-    throw new ApiRouteError("BAD_GATEWAY", {
-      message: "Unable to reach YouTube.",
-    });
+    try {
+      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`, {
+        next: { revalidate: 3600 },
+        signal: AbortSignal.timeout(6_000),
+      });
+      const data = await response.json().catch(() => null);
+      const items = Array.isArray(data?.items) ? data.items : [];
+      if (response.ok && items.length > 0) {
+        return { ok: true, status: response.status, data };
+      }
+    } catch {
+      // Fall through to the no-key Innertube lookup below.
+    }
   }
+  // No key, quota exhausted, or empty result -> resolve channels without the Data API.
+  return searchChannelsViaInnertube(query, 12);
 }
 
 export async function GET(request) {

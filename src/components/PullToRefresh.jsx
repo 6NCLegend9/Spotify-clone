@@ -10,6 +10,7 @@ export default function PullToRefresh() {
   const [distance, setDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startYRef = useRef(0);
+  const startXRef = useRef(0);
   const pullingRef = useRef(false);
   const refreshingRef = useRef(false);
 
@@ -31,6 +32,7 @@ export default function PullToRefresh() {
       if (refreshingRef.current || event.touches.length !== 1) return;
       if (container.scrollTop > 0) return;
       startYRef.current = event.touches[0].clientY;
+      startXRef.current = event.touches[0].clientX;
       pullingRef.current = true;
     };
 
@@ -42,6 +44,13 @@ export default function PullToRefresh() {
         return;
       }
       const delta = event.touches[0].clientY - startYRef.current;
+      const deltaX = event.touches[0].clientX - startXRef.current;
+      // Horizontal intent (mood-radio pills, carousels): release so native scroll works.
+      if (Math.abs(deltaX) > Math.abs(delta)) {
+        pullingRef.current = false;
+        setDistance(0);
+        return;
+      }
       if (delta <= 0) {
         setDistance(0);
         return;

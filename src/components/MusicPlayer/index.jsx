@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   nextSong,
@@ -25,6 +25,9 @@ import UserMessage from "@/components/UserMessage";
 import YouTubePlayer from "./YouTubePlayer";
 import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "./PictureInPictureWindow";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
+import usePlayerTransport from "@/hooks/usePlayerTransport";
+import useMediaSession from "@/hooks/useMediaSession";
+import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import { MdPictureInPictureAlt } from "react-icons/md";
 import { toUserError } from "@/utils/userError";
 
@@ -105,6 +108,7 @@ const MusicPlayer = () => {
   const [bgColor, setBgColor] = useState();
   const pipWindowRef = useRef(null);
   const pipMountRef = useRef(null);
+  const lastVolumeRef = useRef(0.8);
   const [pipWindow, setPipWindow] = useState(null);
   const nativeTitle = activeSong?.name || activeSong?.title || "";
   const nativeArtist = Array.isArray(activeSong?.artists?.primary)
@@ -187,38 +191,6 @@ const MusicPlayer = () => {
       document.documentElement.style.overflow = "";
     };
   }, [fullScreen]);
-
-  useEffect(() => {
-    const handleKeyPress = (event) => {
-      const target = event.target;
-      const isEditable =
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-      const isActionControl =
-        target instanceof HTMLElement &&
-        Boolean(
-          target.closest(
-            "button, a, [role='button'], [role='link'], [role='menuitem'], [role='option'], [role='tab'], [role='switch'], summary",
-          ),
-        );
-      if (
-        !isTyping &&
-        !isEditable &&
-        !isActionControl &&
-        isActive &&
-        (event.code === "Space" || event.key === " ")
-      ) {
-        event.preventDefault();
-        dispatch(playPause(!isPlaying));
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyPress);
-    return () => {
-      document.removeEventListener("keydown", handleKeyPress);
-    };
-  }, [dispatch, isActive, isPlaying, isTyping]);
 
   const closeNativePip = () => {
     try {
@@ -308,6 +280,72 @@ const MusicPlayer = () => {
       dispatch(prevSong(safeIndex - 1));
     }
   };
+
+  const toggleMute = useCallback(() => {
+    setVolume((current) => {
+      const value = Number(current) || 0;
+      if (value > 0) {
+        lastVolumeRef.current = value;
+        return 0;
+      }
+      return lastVolumeRef.current > 0 ? lastVolumeRef.current : 0.8;
+    });
+  }, []);
+
+  const { handlePrevious, handleNext, seekRelative } = usePlayerTransport({
+    currentTime: appTime,
+    duration,
+    hasPrevious: songCount > 0,
+    hasNext: songCount > 0,
+    playPrevious: () => handlePrevSong(),
+    playNext: () => handleNextSong(),
+    seekTo: (value) => setSeekTime(value),
+  });
+
+  const canControl = isActive || Boolean(youtubeVideo);
+
+  useKeyboardShortcuts({
+    enabled: canControl && !isTyping,
+    onTogglePlay: () => dispatch(playPause(!isPlaying)),
+    onPrevious: handlePrevious,
+    onNext: handleNext,
+    onSeekRelative: seekRelative,
+    onToggleMute: toggleMute,
+    seekStep: 5,
+  });
+
+  useMediaSession({
+    enabled: canControl,
+    isPlaying,
+    seekOffset: 10,
+    metadata: youtubeVideo
+      ? {
+          title: youtubeVideo.title || "",
+          artist: youtubeVideo.channel || youtubeVideo.author || youtubeVideo.author_name || "",
+          artwork: youtubeVideo.thumbnail
+            ? [{ src: youtubeVideo.thumbnail, sizes: "480x360", type: "image/jpeg" }]
+            : [],
+        }
+      : {
+          title: nativeTitle,
+          artist: nativeArtist,
+          artwork: Array.isArray(activeSong?.image)
+            ? activeSong.image
+                .filter((image) => image?.url)
+                .map((image) => ({
+                  src: image.url,
+                  sizes: image.quality || "500x500",
+                  type: "image/jpeg",
+                }))
+            : [],
+        },
+    onPlay: () => dispatch(playPause(true)),
+    onPause: () => dispatch(playPause(false)),
+    onPreviousTrack: handlePrevious,
+    onNextTrack: handleNext,
+    onSeekBackward: (seconds) => seekRelative(-(seconds || 10)),
+    onSeekForward: (seconds) => seekRelative(seconds || 10),
+  });
 
   const handleAddToFavourite = async (favsong) => {
     if (!favsong?.id || loading) return;
@@ -423,7 +461,7 @@ const MusicPlayer = () => {
           }}
           disabled={compactPlayback}
           className={`absolute z-10 grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10 ${
-            fullScreen ? "top-16 right-7 hidden md:grid md:top-10" : "right-2 top-2"
+            fullScreen ? "top-16 right-7 md:top-10" : "right-2 top-2"
           }`}
         >
           <HiOutlineChevronDown
@@ -483,7 +521,7 @@ const MusicPlayer = () => {
               activeSong={activeSong}
               fullScreen={fullScreen}
               handlePlayPause={handlePlayPause}
-              handlePrevSong={handlePrevSong}
+              handlePrevSong={handlePrevious}
               handleNextSong={handleNextSong}
               handleAddToFavourite={handleAddToFavourite}
               favouriteSongs={favouriteSongs}

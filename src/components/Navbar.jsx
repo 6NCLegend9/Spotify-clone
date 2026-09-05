@@ -59,7 +59,7 @@ const Navbar = () => {
             href="/settings"
             aria-label={`Open settings for ${userName}`}
             title="Open settings"
-            className="grid h-10 w-10 place-items-center overflow-hidden rounded-full ring-1 ring-white/20 transition hover:ring-[#00e6e6]"
+            className="grid h-11 w-11 place-items-center overflow-hidden rounded-full ring-1 ring-white/20 transition hover:ring-[#00e6e6]"
           >
             {imageUrl && !imageFailed ? (
               <img

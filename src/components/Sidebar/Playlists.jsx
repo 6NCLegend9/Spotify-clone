@@ -109,7 +109,11 @@ const Playlists = () => {
           <FaPlus className="text-xs" />
         </button>
       </div>
-      <div className="flex max-h-52 flex-col overflow-y-auto">
+      <div
+        className={`flex flex-col ${
+          !loading && !error && playlists.length > 0 ? "max-h-52 overflow-y-auto" : ""
+        }`}
+      >
         {loading ? <p className="px-2 py-3 text-xs text-[#9aa8b5]">Loading playlists…</p> : null}
         {!loading && error ? (
           <div className="px-2 py-2">

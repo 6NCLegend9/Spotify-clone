@@ -59,10 +59,12 @@ export default function AddToPlaylistButton({ track, className = "" }) {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
     const openUp = window.innerHeight - rect.bottom < 280;
+    const MENU_WIDTH = 224; // matches w-56
+    const maxRight = Math.max(8, window.innerWidth - MENU_WIDTH - 8);
     setMenuPosition({
       top: openUp ? undefined : rect.bottom + 6,
       bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
-      right: Math.max(8, window.innerWidth - rect.right),
+      right: Math.min(Math.max(8, window.innerWidth - rect.right), maxRight),
     });
     setShowMenu(true);
     if (playlists === null) {
@@ -123,7 +125,7 @@ export default function AddToPlaylistButton({ track, className = "" }) {
                 bottom: menuPosition.bottom,
                 right: menuPosition.right,
               }}
-              className="z-[9999] w-56 max-h-72 overflow-y-auto rounded-lg border border-white/10 bg-[#1a1a2e] p-2 shadow-xl"
+              className="z-[9999] w-56 max-w-[calc(100vw-16px)] max-h-72 overflow-y-auto rounded-lg border border-white/10 bg-[#1a1a2e] p-2 shadow-xl"
             >
               <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-white/50">Add to playlist</p>
               {loading && <p className="px-2 py-2 text-xs text-gray-400">Loading playlists…</p>}

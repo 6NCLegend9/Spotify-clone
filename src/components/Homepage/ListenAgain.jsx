@@ -117,7 +117,7 @@ const ListenAgain = () => {
           <h2 className=" text-white mt-4 text-2xl lg:text-3xl font-semibold mb-4 ">
             Listen Again
           </h2>
-          <div className=" grid grid-cols-2 lg:grid-cols-3 gap-x-10">
+          <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8">
             {songHistory.map((song, index) => (
               <ListenAgainCard
                 key={`${song.source || "catalog"}-${song.id}`}

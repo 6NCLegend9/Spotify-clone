@@ -8,6 +8,7 @@ import { PiDotsThreeVerticalBold } from "react-icons/pi";
 import { FiThumbsDown, FiClock, FiRadio } from "react-icons/fi";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
+import { buildRadioQueue } from "@/utils/radioEngine.mjs";
 import { toUserError } from "@/utils/userError";
 import { useJam } from "@/components/Jam/JamProvider";
 import { useIsMobile } from "@/hooks/useMediaQuery";
@@ -35,7 +36,16 @@ export default function RecommendationCard({ video, queue }) {
 
   const playVideo = () => {
     const seedQuery = video.seedQuery || video.genre;
-    const seededQueue = (queue || []).map((item) => ({
+    // Parametric radio: re-rank the pool (variety + selection depth) around the
+    // clicked track, keep it playing first, and never drop tracks.
+    const tuned = buildRadioQueue({
+      seedTrack: video,
+      candidates: queue || [],
+      varietyLevel: "med",
+      selectionDepth: "discover",
+      limit: (queue || []).length || 50,
+    });
+    const seededQueue = [video, ...tuned].map((item) => ({
       ...item,
       seedQuery: item.seedQuery || item.genre || seedQuery,
       genre: item.genre || video.genre,
@@ -171,7 +181,17 @@ export default function RecommendationCard({ video, queue }) {
       ) : null}
       <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
         <p className="line-clamp-2 text-sm font-semibold text-white">{title}</p>
-        <p className="mt-2 truncate text-xs text-gray-400">{channel}</p>
+        <div className="mt-2 flex items-center gap-2">
+          {video.artistThumbnail ? (
+            <MediaImage
+              src={video.artistThumbnail}
+              size="mq"
+              alt=""
+              className="h-5 w-5 shrink-0 rounded-full object-cover"
+            />
+          ) : null}
+          <p className="truncate text-xs text-gray-400">{channel}</p>
+        </div>
         <p className="mt-2 text-[11px] text-[#00e6e6]">{video.reason}</p>
       </button>
     </article>

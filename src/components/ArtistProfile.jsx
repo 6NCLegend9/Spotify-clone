@@ -226,7 +226,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
             Songs
             <span className="ml-2 text-sm font-normal text-[#9aa8b5]">{tracks.length}</span>
           </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tracks.map((video) => (
               <article key={video.id} className="card group text-left">
                 <button

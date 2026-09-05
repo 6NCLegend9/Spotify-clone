@@ -50,6 +50,7 @@ const SongsList = ({
 
   function formatDuration(durationInSeconds) {
     const duration = Math.max(0, Number(durationInSeconds) || 0);
+    if (duration === 0) return "—";
     const minutes = Math.floor(duration / 60);
     const seconds = Math.round(duration % 60);
 

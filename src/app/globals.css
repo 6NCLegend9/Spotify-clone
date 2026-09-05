@@ -432,8 +432,10 @@ select:-webkit-autofill {
 
   .section-title {
     margin-bottom: 1rem;
-    font-size: 1.35rem;
+    font-family: var(--font-righteous), var(--font-poppins), sans-serif;
+    font-size: clamp(1.2rem, 1.05rem + 0.8vw, 1.5rem);
     font-weight: 700;
+    letter-spacing: 0.01em;
     color: #fff;
   }
 
@@ -469,11 +471,13 @@ select:-webkit-autofill {
     background: var(--accent);
     color: #001014;
     font-weight: 700;
-    transition: transform var(--motion-fast) ease-out, filter var(--motion-fast) ease-out;
+    box-shadow: 0 0 24px rgba(0, 230, 230, 0.22);
+    transition: transform var(--motion-fast) ease-out, filter var(--motion-fast) ease-out, box-shadow var(--motion-fast) ease-out;
   }
 
   .btn-primary:hover {
     filter: brightness(1.08);
+    box-shadow: 0 0 32px rgba(0, 230, 230, 0.32);
   }
 
   .btn-primary:active {
@@ -577,10 +581,10 @@ select:-webkit-autofill {
   }
 
   .player-dock {
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(0, 230, 230, 0.14);
     background: rgba(7, 18, 29, 0.96);
     backdrop-filter: blur(20px);
-    box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(0, 230, 230, 0.12);
     overflow: visible;
   }
 
@@ -627,7 +631,7 @@ select:-webkit-autofill {
     align-items: center;
     column-gap: 0.75rem;
     row-gap: 0.35rem;
-    padding: 0.55rem 0.85rem 0.7rem;
+    padding: 0.7rem 1rem 0.85rem;
     grid-template-columns: auto minmax(0, 1.15fr) minmax(16rem, 1.7fr) minmax(0, 1.15fr);
     grid-template-areas: "thumb track center tools";
   }
@@ -692,7 +696,7 @@ select:-webkit-autofill {
 
   @media (max-width: 639px) {
     .yt-dock {
-      padding: 0.5rem 0.65rem 0.65rem;
+      padding: 0.6rem 0.75rem 0.75rem;
       column-gap: 0.45rem;
     }
 

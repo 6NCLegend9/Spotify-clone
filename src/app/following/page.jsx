@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import MediaImage from "@/components/MediaImage";
@@ -67,6 +67,69 @@ export default function FollowingPage() {
       controller.abort();
     };
   }, [status]);
+
+  // Repair legacy follows saved with only a name: resolve the channel (id + avatar) so
+  // the card shows a real image and links to the artist channel, then persist the fix.
+  const backfilledRef = useRef(new Set());
+  useEffect(() => {
+    if (status !== "authenticated") return undefined;
+    const pending = artists
+      .filter(
+        (artist) =>
+          artist.name &&
+          (!artist.channelId || !artist.thumbnail) &&
+          !backfilledRef.current.has(artist.name.toLowerCase()),
+      )
+      .slice(0, 12);
+    if (pending.length === 0) return undefined;
+    pending.forEach((artist) => backfilledRef.current.add(artist.name.toLowerCase()));
+    let cancelled = false;
+    const resolveMissing = async () => {
+      const results = await Promise.all(
+        pending.map(async (artist) => {
+          try {
+            const search = await requestJson(
+              `/api/youtube-search?type=channel&q=${encodeURIComponent(artist.name)}`,
+              { fallbackTitle: "", fallbackMessage: "" },
+            );
+            const match = Array.isArray(search?.results)
+              ? search.results.find((result) => result?.id)
+              : null;
+            if (!match) return null;
+            const channelId = typeof match.id === "string" ? match.id : "";
+            const thumbnail = typeof match.thumbnail === "string" ? match.thumbnail : "";
+            if (!channelId && !thumbnail) return null;
+            void requestJson("/api/followedArtists", {
+              method: "PATCH",
+              body: { name: artist.name, channelId, thumbnail },
+            }).catch(() => {});
+            return { key: artist.name.toLowerCase(), channelId, thumbnail };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const updates = new Map(results.filter(Boolean).map((entry) => [entry.key, entry]));
+      if (updates.size === 0) return;
+      setArtists((current) =>
+        current.map((item) => {
+          const update = updates.get(item.name.toLowerCase());
+          return update
+            ? {
+                ...item,
+                channelId: item.channelId || update.channelId,
+                thumbnail: item.thumbnail || update.thumbnail,
+              }
+            : item;
+        }),
+      );
+    };
+    void resolveMissing();
+    return () => {
+      cancelled = true;
+    };
+  }, [artists, status]);
 
   const hrefFor = (artist) =>
     artist.channelId

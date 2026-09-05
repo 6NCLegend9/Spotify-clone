@@ -71,3 +71,56 @@ export async function POST(request) {
     return handleApiError(e, "update followed artist");
   }
 }
+
+// Backfills channel metadata (channelId/thumbnail) for an artist the user already
+// follows, without toggling the follow. Used to repair legacy follows that were saved
+// with only a name so the Following page can show avatars and link to the channel.
+export async function PATCH(request) {
+  try {
+    const { userData, email } = await getAuthenticatedAccount(request);
+    const rateLimit = await isRateLimited(`followed-artists-meta:${email}`, {
+      windowMs: 15 * 60_000,
+      max: 80,
+    });
+    if (rateLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: rateLimit.retryAfter,
+        message: "Too many updates. Please wait before trying again.",
+      });
+    }
+    const body = await readRequestJson(request);
+    const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
+    const channelId = typeof body.channelId === "string" ? body.channelId.trim().slice(0, 48) : "";
+    const thumbnail = typeof body.thumbnail === "string" ? body.thumbnail.trim().slice(0, 500) : "";
+    if (!name) {
+      return apiError("VALIDATION_ERROR", { message: "An artist name is required" });
+    }
+
+    const existing = Array.isArray(userData.followedArtists) ? userData.followedArtists : [];
+    const isFollowed = existing.some((value) => value.toLowerCase() === name.toLowerCase());
+    if (!isFollowed) {
+      return apiError("VALIDATION_ERROR", { message: "You are not following this artist." });
+    }
+
+    const existingMeta = Array.isArray(userData.followedArtistsMeta) ? userData.followedArtistsMeta : [];
+    const current = existingMeta.find((item) => (item?.name || "").toLowerCase() === name.toLowerCase());
+    userData.followedArtistsMeta = [
+      ...existingMeta.filter((item) => (item?.name || "").toLowerCase() !== name.toLowerCase()),
+      {
+        name,
+        channelId: channelId || current?.channelId || "",
+        thumbnail: thumbnail || current?.thumbnail || "",
+        followedAt: current?.followedAt || new Date(),
+      },
+    ].slice(-MAX_FOLLOWED_ARTISTS);
+    await userData.save();
+    return NextResponse.json({
+      success: true,
+      message: "Updated",
+      data: userData.followedArtists,
+      artists: userData.followedArtistsMeta,
+    });
+  } catch (e) {
+    return handleApiError(e, "backfill followed artist");
+  }
+}

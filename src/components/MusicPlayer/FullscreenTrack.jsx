@@ -46,17 +46,17 @@ const FullscreenTrack = ({
       <div className="flex flex-col h-full min-[1180px]:ml-[185px] w-fit items-center">
         <div
           {...handlers}
-          className=" h-80 w-80 min-[1180px]:h-full min-[1180px]:w-[400px] sm:mt-5 "
+          className=" h-72 w-72 sm:h-80 sm:w-80 min-[1180px]:h-full min-[1180px]:w-[400px] sm:mt-5 "
         >
           <img
             src={activeSong?.image?.[2]?.url || activeSong?.image?.[1]?.url || activeSong?.image?.[0]?.url || ""}
             alt="cover art"
-            className="rounded-2xl"
+            className="h-full w-full rounded-2xl object-cover"
           />
         </div>
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-fit select-none cursor-pointer text-center my-5 ml"
+          className="w-full select-none cursor-pointer text-center my-5"
         >
           <p className="truncate text-white font-bold text-2xl mx-3 mb-1">
             {cleanTitle(activeSong?.name, "Song")}

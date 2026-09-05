@@ -9,8 +9,11 @@ export const THUMB_FALLBACK =
 
 export function youtubeThumb(url, size = "mq") {
   if (!url || typeof url !== "string") return url || "";
-  const match = url.match(/\/vi\/([^/]+)\//);
-  if (!match) return url;
+  // yt3.googleusercontent.com serves the same avatars as yt3.ggpht.com (the host allowed by
+  // our image CSP); normalize so channel/artist avatars aren't blocked.
+  const normalized = url.replace("//yt3.googleusercontent.com/", "//yt3.ggpht.com/");
+  const match = normalized.match(/\/vi\/([^/]+)\//);
+  if (!match) return normalized;
   const file = size === "hq" ? "hqdefault.jpg" : "mqdefault.jpg";
   return `https://i.ytimg.com/vi/${match[1]}/${file}`;
 }

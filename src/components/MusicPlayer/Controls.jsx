@@ -6,7 +6,7 @@ import { TbRepeat, TbRepeatOnce, TbArrowsShuffle } from "react-icons/tb";
 import Downloader from "./Downloader";
 import FavouriteButton from "./FavouriteButton";
 
-const iconButtonClass = "grid place-items-center rounded-full text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e6e6]";
+const iconButtonClass = "grid min-h-[44px] min-w-[44px] place-items-center rounded-full text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e6e6]";
 
 const Controls = ({
   isPlaying,

@@ -153,7 +153,7 @@ const Searchbar = () => {
       <label htmlFor={inputId} className="sr-only">
         Search songs, artists, playlists, and genres
       </label>
-      <div className="flex h-9 min-h-9 items-center gap-2 overflow-hidden rounded-full border border-white/10 bg-white/[0.06] px-3 transition duration-200 ease-out focus-within:border-[#00e6e6] focus-within:bg-[#07121d]/80 focus-within:shadow-glow sm:h-11 sm:min-h-11 sm:px-4">
+      <div className="flex h-11 min-h-11 items-center gap-2 overflow-hidden rounded-full border border-white/10 bg-white/[0.06] px-3 transition duration-200 ease-out focus-within:border-[#00e6e6] focus-within:bg-[#07121d]/80 focus-within:shadow-glow sm:px-4">
         <FiSearch aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9aa8b5]" />
         <input
           id={inputId}

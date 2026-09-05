@@ -28,7 +28,7 @@ const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
             "https://avatars.githubusercontent.com/u/143804558?v=4"
           }
           alt="cover art"
-          className="rounded-full"
+          className="h-full w-full rounded-full object-cover"
         />
       </div>
       <div className={`w-[190px] select-none cursor-pointer`}>
@@ -36,17 +36,14 @@ const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
           {cleanTitle(activeSong?.name, "Song")}
         </p>
         <p className="truncate text-gray-300">
-          {primaryArtists.length > 0 ? (
-            primaryArtists.map((artist, index) => (
-              <React.Fragment key={artist?.id || index}>
-                {artist?.name?.trim()}
-              </React.Fragment>
-            ))
-          ) : typeof activeSong?.artists === "string" ? (
-            activeSong.artists
-          ) : (
-            "Artist"
-          )}
+          {primaryArtists.length > 0
+            ? primaryArtists
+                .map((artist) => artist?.name?.trim())
+                .filter(Boolean)
+                .join(", ")
+            : typeof activeSong?.artists === "string"
+            ? activeSong.artists
+            : "Artist"}
         </p>
       </div>
     </div>

@@ -353,7 +353,7 @@ export default function YouTubeMusicResults({ query }) {
         />
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {results.map((video) => {
           const playVideo = () => {
             dispatch(setYoutubeQueue(results));
@@ -472,7 +472,7 @@ export default function YouTubeMusicResults({ query }) {
       {albums.length > 0 && (
         <div className="mt-10">
           <h3 className="mb-4 text-xl font-semibold text-white">Albums & Playlists</h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {albums.map((album) => (
               <button
                 key={album.id}

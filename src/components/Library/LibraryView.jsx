@@ -198,7 +198,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
           />
         )}
         {!loading && !error && playlists.length > 0 && (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
             {playlists.map((playlist) => (
             <button
               key={playlist.id}
@@ -400,8 +400,8 @@ export default function LibraryView() {
                 <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
               </label>
               <div className="flex rounded-md bg-white/[0.07] p-1" aria-label="Library view">
-                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-8 w-8 place-items-center rounded ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
-                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-8 w-8 place-items-center rounded ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
+                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
+                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
               </div>
               <label className="relative flex items-center">
                 <span className="sr-only">Sort library</span>
@@ -436,7 +436,7 @@ export default function LibraryView() {
             </div>
           )}
           {!loading && !error && view === "grid" && (
-            <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5" aria-label="Library collections">
+            <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" aria-label="Library collections">
               {items.map((item) => <GridItem key={item.id} item={item} />)}
             </section>
           )}

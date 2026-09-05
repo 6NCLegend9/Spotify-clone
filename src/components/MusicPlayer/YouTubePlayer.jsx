@@ -10,7 +10,7 @@ import {
   addToQueue,
   appendToQueue,
 } from "@/redux/features/playerSlice";
-import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiSkipBack, FiSkipForward, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import { MdOutlineLyrics, MdPictureInPictureAlt } from "react-icons/md";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
@@ -2321,12 +2321,12 @@ export default function YouTubePlayer() {
     >
       <div className={compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
       {pipFloat && videoVisible && !expanded && (
-        <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-14 w-[5.6rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-28" />
+        <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-16 w-[6.4rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-20 sm:w-32" />
       )}
       {!fullscreen && !videoVisible && (
-        <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-14 w-14 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-16" />
+        <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-16 w-16 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-20 sm:w-20" />
       )}
-      <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-thumb relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop yt-audio-stage"}>
+      <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-thumb relative h-16 w-[6.4rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-20 sm:w-32" : "yt-crop yt-audio-stage"}>
         {["A", "B"].map((key) => (
           <div
             key={key}
@@ -2398,11 +2398,13 @@ export default function YouTubePlayer() {
         <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "yt-dock-transport"}>
         {fullscreen && !compactFullscreen && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
           <div className={fullscreen ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 backdrop-blur" : "contents"}>
-          <AddToPlaylistButton track={video} />
-          <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10"><FiRotateCcw aria-hidden="true" /></button>
-          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="grid min-h-11 min-w-11 place-items-center rounded-full bg-[#00e6e6] p-2 text-black hover:scale-105">{isPlaying ? <FiPause aria-hidden="true" /> : <FiPlay aria-hidden="true" />}</button>
-          <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10"><FiRotateCw aria-hidden="true" /></button>
-          <FavouriteTrackButton track={video} />
+          <AddToPlaylistButton track={video} className="!h-14 !w-14 text-xl" />
+          <button type="button" aria-label="Previous song" title="Previous" onClick={() => handlePrev()} className="grid h-14 w-14 place-items-center rounded-full p-2 text-xl text-white hover:bg-white/10"><FiSkipBack aria-hidden="true" /></button>
+          <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 sm:grid"><FiRotateCcw aria-hidden="true" /></button>
+          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="grid h-14 w-14 place-items-center rounded-full bg-[#00e6e6] p-2 text-2xl text-black hover:scale-105">{isPlaying ? <FiPause aria-hidden="true" /> : <FiPlay aria-hidden="true" />}</button>
+          <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 sm:grid"><FiRotateCw aria-hidden="true" /></button>
+          <button type="button" aria-label="Next song" title="Next" onClick={() => handleNext()} className="grid h-14 w-14 place-items-center rounded-full p-2 text-xl text-white hover:bg-white/10"><FiSkipForward aria-hidden="true" /></button>
+          <FavouriteTrackButton track={video} className="!h-14 !w-14 text-xl" />
           </div>
           {fullscreen && !compactFullscreen && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
         </div>
@@ -2431,7 +2433,7 @@ export default function YouTubePlayer() {
       <div ref={queueMenuRef} className={compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : fullscreen ? "absolute right-5 top-5 z-20 flex items-center justify-end gap-1 sm:gap-2" : "yt-dock-tools"}>
         <button
           type="button"
-          aria-label="Next up"
+          aria-label="Queue"
           aria-expanded={compactFullscreen ? mobileSheet && sheetTab === "queue" : showQueue}
           onClick={() => {
             if (compactFullscreen) {
@@ -2442,7 +2444,7 @@ export default function YouTubePlayer() {
           }}
           className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}
         >
-          <span className="hidden lg:inline">Next up</span> {compactFullscreen ? (mobileSheet && sheetTab === "queue" ? <FiChevronDown /> : <FiChevronUp />) : (showQueue ? <FiChevronDown /> : <FiChevronUp />)}
+          <span className="hidden lg:inline">Queue</span> {compactFullscreen ? (mobileSheet && sheetTab === "queue" ? <FiChevronDown /> : <FiChevronUp />) : (showQueue ? <FiChevronDown /> : <FiChevronUp />)}
         </button>
         <button
           type="button"
@@ -2478,7 +2480,7 @@ export default function YouTubePlayer() {
         <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         {showDesktopQueue && !fullscreen && (
           <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Next up</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>
             <div className="max-h-72 overflow-y-auto">
               {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
               {upcoming.slice(0, 12).map((item) => (
@@ -2588,7 +2590,7 @@ export default function YouTubePlayer() {
       )}
       {showDesktopQueue && fullscreen && (
         <div className="yt-queue-panel">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Next up</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
             {upcoming.slice(0, 12).map((item) => (

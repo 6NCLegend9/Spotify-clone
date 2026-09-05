@@ -6,7 +6,7 @@ export function ShimmerBlock({ className = "" }) {
 
 export function CardGridSkeleton({ count = 8, aspect = "aspect-square" }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} className="min-w-0 overflow-hidden rounded-lg bg-white/[0.04] p-3">
           <ShimmerBlock className={`${aspect} w-full`} />
@@ -52,8 +52,8 @@ export function HomeSectionSkeleton() {
   return (
     <div className="mb-10">
       <ShimmerBlock className="mb-4 h-7 w-40" />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
           <div key={index} className="overflow-hidden rounded-xl border border-white/8 bg-white/[0.04]">
             <ShimmerBlock className="aspect-video w-full" />
             <div className="p-4">

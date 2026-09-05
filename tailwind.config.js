@@ -33,6 +33,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ["var(--font-poppins)", "Poppins", "system-ui", "sans-serif"],
+        display: ["var(--font-righteous)", "var(--font-poppins)", "Poppins", "sans-serif"],
       },
       boxShadow: {
         glow: "0 0 28px rgba(0, 230, 230, 0.16)",

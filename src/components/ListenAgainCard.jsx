@@ -53,11 +53,11 @@ const ListenAgainCard = ({ song, index, SongData }) => {
     <div>
       <div
         onClick={handlePlayClick}
-        className={`flex w-40 md:w-80 items-center mt-5 cursor-pointer group border-b-[1px] border-gray-400 justify-between ${
+        className={`flex w-full items-center mt-5 cursor-pointer group border-b border-gray-400 justify-between gap-3 ${
           isActive && " text-[#00e6e6]"
         }`}
       >
-        <div className="flex items-center gap-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className=" relative mb-2">
             <div className="group w-12 h-12 md:w-14 md:h-14 relative">
               <img
@@ -85,7 +85,7 @@ const ListenAgainCard = ({ song, index, SongData }) => {
               />
             )}
           </div>
-          <div className=" w-24 md:w-64">
+          <div className="min-w-0 flex-1">
             <p className="text-sm lg:text-lg font-semibold truncate">
               {titleDisplay}
             </p>

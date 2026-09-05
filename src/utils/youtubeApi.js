@@ -209,6 +209,35 @@ function syntheticVideo(id, extra = {}) {
   };
 }
 
+// Converts a duration in seconds into an ISO-8601 string (e.g. 225 -> "PT3M45S").
+function secondsToIso(totalSeconds) {
+  const total = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  if (total === 0) return "PT0S";
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return `PT${hours ? `${hours}H` : ""}${minutes ? `${minutes}M` : ""}${seconds ? `${seconds}S` : ""}`;
+}
+
+// No-API-key duration lookup via Innertube. oEmbed does not expose duration,
+// so when the official Data API is throttled we ask YouTube's own player
+// endpoint for it. Bounded and defensive: returns 0 (unknown) on any failure.
+async function fetchVideoDurationSeconds(id) {
+  try {
+    const innertube = await getInnertube();
+    const info = await Promise.race([
+      innertube.getBasicInfo(id),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("duration lookup timed out")), 3500),
+      ),
+    ]);
+    const seconds = Number(info?.basic_info?.duration);
+    return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
 async function fetchOEmbedVideo(id) {
   const cached = getCachedVideo(id);
   if (cached) return cached;
@@ -223,10 +252,12 @@ async function fetchOEmbedVideo(id) {
       return fallback;
     }
     const data = await response.json();
+    const durationSeconds = await fetchVideoDurationSeconds(id);
     const value = syntheticVideo(id, {
       title: data.title || "",
       channelTitle: data.author_name || "YouTube",
       thumbnail: data.thumbnail_url,
+      duration: durationSeconds > 0 ? secondsToIso(durationSeconds) : "PT0S",
     });
     cacheVideo(id, value);
     return value;
@@ -310,6 +341,26 @@ function mapPlaylistRenderer(renderer) {
   };
 }
 
+function mapChannelRenderer(renderer) {
+  const channelId =
+    renderer?.channelId || renderer?.navigationEndpoint?.browseEndpoint?.browseId || "";
+  if (!/^UC[A-Za-z0-9_-]{20,24}$/.test(channelId)) return null;
+  let thumbnail = thumbnailUrl(renderer.thumbnail || renderer);
+  if (thumbnail.startsWith("//")) thumbnail = `https:${thumbnail}`;
+  const title = runsText(renderer.title);
+  return {
+    id: { channelId },
+    snippet: {
+      title,
+      channelTitle: title,
+      channelId,
+      description: runsText(renderer.descriptionSnippet),
+      publishedAt: "",
+      thumbnails: { high: { url: thumbnail } },
+    },
+  };
+}
+
 function mapLockupView(view, type) {
   const id = view?.contentId;
   if (!id) return null;
@@ -353,7 +404,7 @@ function collectSearchItems(node, type, items, seen) {
   const video = mapVideoRenderer(
     node.videoRenderer || node.compactVideoRenderer || node.videoWithContextRenderer,
   );
-  if (type !== "playlist" && video && !seen.has(video.id.videoId)) {
+  if (type === "video" && video && !seen.has(video.id.videoId)) {
     seen.add(video.id.videoId);
     items.push(video);
   }
@@ -362,6 +413,14 @@ function collectSearchItems(node, type, items, seen) {
   if (type === "playlist" && playlist && !seen.has(playlist.id.playlistId)) {
     seen.add(playlist.id.playlistId);
     items.push(playlist);
+  }
+
+  if (type === "channel") {
+    const channel = mapChannelRenderer(node.channelRenderer || node.gridChannelRenderer);
+    if (channel && !seen.has(channel.id.channelId)) {
+      seen.add(channel.id.channelId);
+      items.push(channel);
+    }
   }
 
   if (node.lockupViewModel) {
@@ -398,7 +457,7 @@ async function searchViaInnerTubeHttp(query, type, maxResults) {
       body: JSON.stringify({
         context: { client: INNERTUBE_CLIENT },
         query,
-        params: type === "playlist" ? "EgIQAw==" : "EgIQAQ==",
+        params: type === "channel" ? "EgIQAg==" : type === "playlist" ? "EgIQAw==" : "EgIQAQ==",
       }),
     },
   );
@@ -411,6 +470,20 @@ async function searchViaInnerTubeHttp(query, type, maxResults) {
   const result = { ok: true, status: 200, data: { items } };
   cacheSearch(cacheKey, result);
   return result;
+}
+
+// No-key channel lookup (name -> channel id + avatar) so followed-artist backfill and
+// the search "Artists" row keep working when the Data API key is missing or quota-limited.
+export async function searchChannelsViaInnertube(query, maxResults = 12) {
+  if (!query || typeof query !== "string") {
+    return { ok: true, status: 200, data: { items: [] } };
+  }
+  try {
+    const result = await searchViaInnerTubeHttp(query, "channel", maxResults);
+    return result || { ok: true, status: 200, data: { items: [] } };
+  } catch {
+    return { ok: false, status: 502, data: null };
+  }
 }
 
 async function fetchFromOfficialApi(endpoint, params, fetchOptions) {

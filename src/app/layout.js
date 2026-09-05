@@ -1,4 +1,4 @@
-import { Poppins } from "next/font/google";
+import { Poppins, Righteous } from "next/font/google";
 import "./globals.css";
 import SongsHistory from "@/components/SongsHistory";
 import SettingsSync from "@/components/SettingsSync";
@@ -112,6 +112,14 @@ const poppins = Poppins({
   display: "swap",
   // Skip <link rel=preload> for the 5 weights: most aren't used above the fold,
   // which spams Chrome's "preloaded but not used" warning. swap keeps text visible.
+  preload: false,
+});
+
+const righteous = Righteous({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-righteous",
+  display: "swap",
   preload: false,
 });
 
@@ -241,7 +249,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={poppins.variable} suppressHydrationWarning>
+    <html lang="en" className={`${poppins.variable} ${righteous.variable}`} suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"

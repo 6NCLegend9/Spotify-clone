@@ -63,6 +63,7 @@ function cleanText(value = "") {
 
 function formatDuration(seconds) {
   const value = Math.max(0, Number(seconds) || 0);
+  if (value === 0) return "—";
   return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`;
 }
 
@@ -525,11 +526,11 @@ export default function PlaylistDetail({ kind, playlistId }) {
             )}
 
             <section aria-label={`${title} tracks`}>
-              <div className="grid grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px]">
+              <div className="grid grid-cols-[44px_minmax(0,1fr)_56px_96px] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px]">
                 <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><span className="mx-auto"><FiClock aria-hidden="true" className="inline" /><span className="sr-only">Duration</span></span><span />
               </div>
               {filteredTracks.map((track, index) => (
-                <div key={track.id} className={`group grid min-h-[66px] grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
+                <div key={track.id} className={`group grid min-h-[66px] grid-cols-[44px_minmax(0,1fr)_56px_96px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
                   <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-11 w-11 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
                   <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
                     <MediaImage src={track.thumbnail} size="mq" alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-11 w-11 shrink-0 rounded object-cover" />
