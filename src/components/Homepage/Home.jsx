@@ -9,6 +9,7 @@ import RecommendationCard from "../RecommendationCard";
 import RecommendationPlaylistCard from "../RecommendationPlaylistCard";
 import ListenAgain from "./ListenAgain";
 import FollowedReleases from "./FollowedReleases";
+import MoodBar from "./MoodBar";
 import GradientText from "@/components/ReactBits/GradientText";
 import { HomeSectionSkeleton } from "@/components/Skeleton";
 import EmptyState from "@/components/EmptyState";
@@ -204,6 +205,8 @@ const Home = () => {
           </p>
         </div>
       </header>
+
+      <MoodBar />
 
       <ListenAgain />
 
