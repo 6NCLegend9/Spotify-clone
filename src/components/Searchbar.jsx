@@ -1,10 +1,13 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { FiSearch } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
+import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import MediaImage from "@/components/MediaImage";
+import { requestJson } from "@/services/http";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 
 const Searchbar = () => {
@@ -13,11 +16,58 @@ const Searchbar = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [songs, setSongs] = useState([]);
   const inputId = useId();
   const listboxId = useId();
+  const abortRef = useRef(null);
+
   const genreMatches = useMemo(
-    () => (searchTerm.trim().length >= 2 ? searchGenres(searchTerm, { limit: 6 }) : []),
+    () => (searchTerm.trim().length >= 2 ? searchGenres(searchTerm, { limit: 4 }) : []),
     [searchTerm],
+  );
+
+  // Live song suggestions so the box actually surfaces songs (not just genres).
+  useEffect(() => {
+    const term = searchTerm.trim();
+    if (!open || term.length < 2) {
+      setSongs([]);
+      return undefined;
+    }
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await requestJson(
+          `/api/youtube-search?type=video&q=${encodeURIComponent(term)}`,
+          {
+            signal: controller.signal,
+            fallbackTitle: "Search unavailable",
+            fallbackMessage: "We couldn\u2019t load suggestions.",
+          },
+        );
+        const list = Array.isArray(data?.results) ? data.results.slice(0, 5) : [];
+        if (!controller.signal.aborted) setSongs(list);
+      } catch {
+        // Ignore aborted/failed suggestion loads; genre matches still show.
+      }
+    }, 300);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchTerm, open]);
+
+  const items = useMemo(
+    () => [
+      ...songs.map((song) => ({ type: "song", key: `song-${song.id}`, song })),
+      ...genreMatches.map((match) => ({
+        type: "genre",
+        key: `genre-${match.id}-${match.matchLabel}`,
+        match,
+      })),
+    ],
+    [songs, genreMatches],
   );
 
   const go = (query) => {
@@ -40,9 +90,24 @@ const Searchbar = () => {
     go(query);
   };
 
-  const suggestionsVisible = open && genreMatches.length > 0;
+  const playSong = (song) => {
+    if (!song?.id) return;
+    dispatch(setYoutubeQueue(songs));
+    dispatch(setYoutubeVideo(song));
+    setOpen(false);
+    setActiveIndex(-1);
+    dispatch(setIsTyping(false));
+  };
+
+  const selectItem = (item) => {
+    if (!item) return;
+    if (item.type === "song") playSong(item.song);
+    else chooseGenre(item.match);
+  };
+
+  const suggestionsVisible = open && items.length > 0;
   const selectedIndex =
-    activeIndex >= 0 && activeIndex < genreMatches.length ? activeIndex : -1;
+    activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
 
   return (
     <form
@@ -90,19 +155,19 @@ const Searchbar = () => {
               setActiveIndex(-1);
               return;
             }
-            if (event.key === "ArrowDown" && genreMatches.length > 0) {
+            if (event.key === "ArrowDown" && items.length > 0) {
               event.preventDefault();
               setOpen(true);
               setActiveIndex((index) =>
-                index < 0 || index >= genreMatches.length - 1 ? 0 : index + 1,
+                index < 0 || index >= items.length - 1 ? 0 : index + 1,
               );
               return;
             }
-            if (event.key === "ArrowUp" && genreMatches.length > 0) {
+            if (event.key === "ArrowUp" && items.length > 0) {
               event.preventDefault();
               setOpen(true);
               setActiveIndex(
-                (index) => (index <= 0 ? genreMatches.length - 1 : index - 1),
+                (index) => (index <= 0 ? items.length - 1 : index - 1),
               );
               return;
             }
@@ -113,12 +178,12 @@ const Searchbar = () => {
             }
             if (event.key === "End" && suggestionsVisible) {
               event.preventDefault();
-              setActiveIndex(genreMatches.length - 1);
+              setActiveIndex(items.length - 1);
               return;
             }
             if (event.key === "Enter" && suggestionsVisible && selectedIndex >= 0) {
               event.preventDefault();
-              chooseGenre(genreMatches[selectedIndex]);
+              selectItem(items[selectedIndex]);
             }
           }}
           onBlur={() => {
@@ -132,35 +197,64 @@ const Searchbar = () => {
         <ul
           id={listboxId}
           role="listbox"
-          aria-label="Matching genres"
-          className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-[#07121d] py-1 shadow-2xl"
+          aria-label="Search suggestions"
+          className="absolute z-30 mt-2 max-h-[70vh] w-full overflow-y-auto rounded-xl border border-white/10 bg-[#07121d] py-1 shadow-2xl"
         >
-          {genreMatches.map((match, index) => (
-            <li
-              id={`${listboxId}-option-${index}`}
-              key={`${match.id}-${match.matchLabel}`}
-              role="option"
-              aria-selected={selectedIndex === index}
-              onMouseDown={(event) => event.preventDefault()}
-              onMouseMove={() => setActiveIndex(index)}
-              onClick={() => chooseGenre(match)}
-              className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm text-white ${
-                selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"
-              }`}
-            >
-                <span>{match.matchLabel}</span>
-                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">
-                  {match.matchType === "subgenre" ? `${match.name} sub-genre` : "Genre"}
+          {items.map((item, index) =>
+            item.type === "song" ? (
+              <li
+                id={`${listboxId}-option-${index}`}
+                key={item.key}
+                role="option"
+                aria-selected={selectedIndex === index}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseMove={() => setActiveIndex(index)}
+                onClick={() => selectItem(item)}
+                className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm text-white ${
+                  selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"
+                }`}
+              >
+                <MediaImage
+                  src={item.song.thumbnail}
+                  size="mq"
+                  alt=""
+                  className="h-9 w-9 shrink-0 rounded object-cover"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{item.song.title}</span>
+                  <span className="block truncate text-[11px] text-[#9aa8b5]">
+                    {item.song.channel}
+                  </span>
                 </span>
-            </li>
-          ))}
+                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">Song</span>
+              </li>
+            ) : (
+              <li
+                id={`${listboxId}-option-${index}`}
+                key={item.key}
+                role="option"
+                aria-selected={selectedIndex === index}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseMove={() => setActiveIndex(index)}
+                onClick={() => selectItem(item)}
+                className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm text-white ${
+                  selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"
+                }`}
+              >
+                <span>{item.match.matchLabel}</span>
+                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">
+                  {item.match.matchType === "subgenre" ? `${item.match.name} sub-genre` : "Genre"}
+                </span>
+              </li>
+            ),
+          )}
         </ul>
       ) : null}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {open && searchTerm.trim().length >= 2
-          ? genreMatches.length > 0
-            ? `${genreMatches.length} genre suggestions available. Use the up and down arrow keys to review them.`
-            : "No matching genre suggestions."
+          ? items.length > 0
+            ? `${items.length} suggestions available. Use the up and down arrow keys to review them.`
+            : "No suggestions yet. Press Enter to see full results."
           : ""}
       </p>
     </form>

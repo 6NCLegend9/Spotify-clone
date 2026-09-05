@@ -79,7 +79,9 @@ export function searchGenres(query, { limit = 24 } = {}) {
   const results = [];
   for (const genre of GENRE_CATALOG) {
     const genreBlob = normalize([genre.name, genre.id, ...(genre.aliases || [])].join(" "));
-    if (genreBlob.includes(needle) || needle.includes(normalize(genre.name))) {
+    // Only match when the query leads toward a genre name (e.g. "roc" -> Rock),
+    // not when a genre word merely appears inside an artist query ("pop smoke").
+    if (genreBlob.includes(needle)) {
       results.push({
         ...genre,
         matchType: "genre",
@@ -88,7 +90,7 @@ export function searchGenres(query, { limit = 24 } = {}) {
     }
     for (const sub of genre.subgenres) {
       const subNorm = normalize(sub);
-      if (subNorm.includes(needle) || needle.includes(subNorm)) {
+      if (subNorm.includes(needle)) {
         results.push({
           ...genre,
           matchType: "subgenre",
