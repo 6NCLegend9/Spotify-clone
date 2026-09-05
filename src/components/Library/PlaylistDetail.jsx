@@ -481,7 +481,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
               <button type="button" disabled={!isOwner || isLiked} onClick={() => setShowCollaborator(true)} title={isLiked ? "Dynamic collections cannot have collaborators" : isOwner ? "Add collaborator" : "Only the owner can invite collaborators"} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiUserPlus /> <span className="hidden sm:inline">Add collaborator</span></button>
               <button type="button" aria-label="Search in playlist" title="Search in playlist" aria-expanded={showSearch} onClick={() => setShowSearch((value) => !value)} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"><FiSearch /> <span className="hidden sm:inline">Search in playlist</span></button>
               <div className="relative ml-auto">
-                <button type="button" aria-label="Playlist options" title="Playlist options" aria-expanded={showOptions} disabled={!isOwner || isLiked} onClick={() => setShowOptions((value) => !value)} className="grid h-10 w-10 place-items-center rounded-full text-xl text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiMoreHorizontal /></button>
+                <button type="button" aria-label="Playlist options" title="Playlist options" aria-expanded={showOptions} disabled={!isOwner || isLiked} onClick={() => setShowOptions((value) => !value)} className="grid h-11 w-11 place-items-center rounded-full text-xl text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiMoreHorizontal /></button>
                 {showOptions && collection && (
                   <div className="absolute right-0 top-12 z-20 w-80 rounded-md border border-white/10 bg-[#111d28] p-1.5 text-sm shadow-2xl">
                     <button type="button" disabled={saving} onClick={() => updateSetting("pinned", !collection.pinned)} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10"><BsPinAngleFill /> {collection.pinned ? "Unpin from Library" : "Pin to Library"}</button>
@@ -530,7 +530,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
               </div>
               {filteredTracks.map((track, index) => (
                 <div key={track.id} className={`group grid min-h-[66px] grid-cols-[32px_minmax(0,1fr)_50px_76px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[36px_minmax(180px,2fr)_minmax(100px,1fr)_60px_76px] lg:grid-cols-[42px_minmax(220px,2fr)_minmax(120px,1fr)_120px_70px_80px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
-                  <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-9 w-9 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
+                  <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-11 w-11 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
                   <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
                     <MediaImage src={track.thumbnail} size="mq" alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-11 w-11 shrink-0 rounded object-cover" />
                     <span className="min-w-0"><span className={`block truncate text-sm font-semibold ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-white"}`}>{cleanText(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{track.channel}</span></span>
@@ -540,7 +540,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
                   <span className="text-right text-xs tabular-nums text-gray-400">{formatDuration(track.duration)}</span>
                   <div className="flex items-center justify-end gap-1">
                     <AddToQueueButton track={track} className="text-gray-500 opacity-100 hover:text-white sm:opacity-0 sm:group-hover:opacity-100" />
-                    {(isLiked || canEditTracks) ? <button type="button" aria-label={isLiked ? `Remove ${cleanText(track.title)} from Liked Songs` : `Remove ${cleanText(track.title)} from playlist`} title={isLiked ? "Remove from Liked Songs" : "Remove from playlist"} onClick={() => removeTrack(track)} className="grid h-8 w-8 place-items-center rounded-full text-gray-500 opacity-100 hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100">{isLiked ? <FiHeart className="fill-current text-[#00e6e6]" /> : <FiTrash2 />}</button> : null}
+                    {(isLiked || canEditTracks) ? <button type="button" aria-label={isLiked ? `Remove ${cleanText(track.title)} from Liked Songs` : `Remove ${cleanText(track.title)} from playlist`} title={isLiked ? "Remove from Liked Songs" : "Remove from playlist"} onClick={() => removeTrack(track)} className="grid h-11 w-11 place-items-center rounded-full text-gray-500 opacity-100 hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100">{isLiked ? <FiHeart className="fill-current text-[#00e6e6]" /> : <FiTrash2 />}</button> : null}
                   </div>
                 </div>
               ))}
@@ -582,7 +582,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
                 <h2 id="collaborator-title" className="text-xl font-bold">Add a collaborator</h2>
                 <p id="collaborator-description" className="mt-2 text-sm text-gray-400">They can add and remove tracks from this playlist.</p>
               </div>
-              <button type="button" aria-label="Close" onClick={() => setShowCollaborator(false)} className="grid h-9 w-9 place-items-center rounded-full text-gray-400 hover:bg-white/10 hover:text-white">
+              <button type="button" aria-label="Close" onClick={() => setShowCollaborator(false)} className="grid h-11 w-11 place-items-center rounded-full text-gray-400 hover:bg-white/10 hover:text-white">
                 <FiX aria-hidden="true" />
               </button>
             </div>

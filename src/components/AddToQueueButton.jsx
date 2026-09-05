@@ -28,7 +28,7 @@ export default function AddToQueueButton({ track, className = "" }) {
       aria-label="Add to queue"
       title="Add to queue"
       onClick={handleClick}
-      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-gray-300 transition hover:bg-white/10 ${className}`}
+      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-gray-300 transition hover:bg-white/10 ${className}`}
     >
       <BiAddToQueue aria-hidden="true" />
     </button>

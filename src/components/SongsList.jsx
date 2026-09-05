@@ -242,7 +242,7 @@ const SongsList = ({
                       e.stopPropagation();
                       setShowMenu(song?.id);
                     }}
-                    className="grid h-9 w-9 place-items-center rounded-full text-gray-300 hover:bg-white/10"
+                    className="grid h-11 w-11 place-items-center rounded-full text-gray-300 hover:bg-white/10"
                   >
                     <PiDotsThreeVerticalBold size={25} aria-hidden="true" />
                   </button>

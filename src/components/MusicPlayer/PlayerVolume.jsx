@@ -43,7 +43,7 @@ export default function PlayerVolume({ className = "" }) {
           }
           setVolume(volume === 0 ? 0.85 : 0);
         }}
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-gray-200 hover:bg-white/10"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-gray-200 hover:bg-white/10"
       >
         <Icon size={18} />
       </button>

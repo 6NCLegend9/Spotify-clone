@@ -422,7 +422,7 @@ const MusicPlayer = () => {
             dispatch(setFullScreen(!fullScreen));
           }}
           disabled={compactPlayback}
-          className={`absolute z-10 grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10 ${
+          className={`absolute z-10 grid h-11 w-11 place-items-center rounded-full text-white hover:bg-white/10 ${
             fullScreen ? "top-16 right-7 hidden md:grid md:top-10" : "right-2 top-2"
           }`}
         >
