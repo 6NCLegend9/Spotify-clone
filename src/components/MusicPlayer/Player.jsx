@@ -210,6 +210,11 @@ const Player = ({
         onLoadedData={(event) => {
           setPlaybackError(null);
           onLoadedData?.(event);
+          if (mediaActionsRef.current.isPlaying) {
+            event.currentTarget.play().catch((error) => {
+              if (error.name === "AbortError") return;
+            });
+          }
         }}
         onError={handleAudioError}
       />

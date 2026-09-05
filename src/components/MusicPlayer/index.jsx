@@ -89,6 +89,7 @@ const MusicPlayer = () => {
     videoQuality,
   } = useSelector((state) => state.settings);
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
+  const compactPlayback = audioOnly || dataSaver;
   const [duration, setDuration] = useState(0);
   const [seekTime, setSeekTime] = useState(0);
   const [appTime, setAppTime] = useState(0);
@@ -282,7 +283,6 @@ const MusicPlayer = () => {
   const handleNextSong = (e) => {
     e?.stopPropagation();
     if (!songCount) return;
-    dispatch(playPause(false));
     const safeIndex = Number.isInteger(currentIndex) && currentIndex >= 0
       ? currentIndex
       : 0;
@@ -384,19 +384,23 @@ const MusicPlayer = () => {
     }
   };
 
+  useEffect(() => {
+    if (compactPlayback) dispatch(setFullScreen(false));
+  }, [compactPlayback, dispatch]);
+
   if (!activeSong?.id && !youtubeVideo?.id) return null;
 
     return (
     <div
       className={`player-dock hideScrollBar flex flex-col ${
-        fullScreen
+        fullScreen && !compactPlayback
           ? `player-dock--full items-stretch ${youtubeVideo ? "p-0 overflow-hidden" : "items-center min-[1180px]:items-stretch"}`
           : `items-center min-[1180px]:items-stretch ${youtubeVideo ? "w-full" : "h-20 w-full px-4 sm:px-8"}`
       }`}
       role="region"
       aria-label="Now playing"
       onClick={() => {
-        if (!youtubeVideo && activeSong?.id && !audioOnly && !dataSaver) {
+        if (!youtubeVideo && activeSong?.id && !compactPlayback) {
           dispatch(setFullScreen(!fullScreen));
         }
       }}
@@ -414,8 +418,10 @@ const MusicPlayer = () => {
           title={fullScreen ? "Minimize player" : "Expand player"}
           onClick={(e) => {
             e.stopPropagation();
+            if (compactPlayback) return;
             dispatch(setFullScreen(!fullScreen));
           }}
+          disabled={compactPlayback}
           className={`absolute z-10 grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10 ${
             fullScreen ? "top-16 right-7 hidden md:grid md:top-10" : "right-2 top-2"
           }`}
@@ -428,7 +434,7 @@ const MusicPlayer = () => {
         )}
       {!youtubeVideo && <div
         className={`flex flex-col max-md:justify-center max-md:items-center ${
-          fullScreen ? "max-md:min-h-screen pb-5" : ""
+          fullScreen && !compactPlayback ? "max-md:min-h-screen pb-5" : ""
         }`}
       >
         <FullscreenTrack
@@ -557,7 +563,7 @@ const MusicPlayer = () => {
         </div>
       </div>}
 
-      {fullScreen && !youtubeVideo && (
+      {fullScreen && !compactPlayback && !youtubeVideo && (
         <div className=" min-[1180px]:hidden">
           <Lyrics
             activeSong={activeSong}

@@ -302,6 +302,10 @@ select:-webkit-autofill {
     overflow: visible;
   }
 
+  .app-player:has(.player-dock:not(.player-dock--full)) {
+    max-height: 11.5rem;
+  }
+
   .app-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -515,6 +519,10 @@ select:-webkit-autofill {
     backdrop-filter: blur(20px);
     box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.4);
     overflow: visible;
+  }
+
+  .player-dock:not(.player-dock--full) {
+    max-height: 11.5rem;
   }
 
   .player-volume {
@@ -763,6 +771,27 @@ select:-webkit-autofill {
 .yt-crop {
   position: relative;
   overflow: hidden;
+}
+
+.yt-audio-stage {
+  position: fixed !important;
+  left: -10000px !important;
+  top: 0 !important;
+  width: 2px !important;
+  height: 2px !important;
+  overflow: hidden !important;
+  opacity: 0;
+  pointer-events: none;
+  contain: strict;
+}
+
+.yt-audio-stage .yt-crop-frame,
+.yt-audio-stage .yt-crop-frame iframe {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  width: 2px !important;
+  height: 2px !important;
+  transform: none !important;
 }
 
 .yt-crop-frame {

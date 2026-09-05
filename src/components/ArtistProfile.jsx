@@ -1,0 +1,266 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import { useSession } from "next-auth/react";
+import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import toast from "react-hot-toast";
+import MediaImage from "@/components/MediaImage";
+import EmptyState from "@/components/EmptyState";
+import UserMessage from "@/components/UserMessage";
+import { CardGridSkeleton } from "@/components/Skeleton";
+import { requestJson } from "@/services/http";
+import { toUserError } from "@/utils/userError";
+
+export default function ArtistProfile({ artistId, initialName = "" }) {
+  const dispatch = useDispatch();
+  const { status } = useSession();
+  const [artist, setArtist] = useState({
+    id: artistId,
+    title: initialName,
+    description: "",
+    thumbnail: "",
+  });
+  const [tracks, setTracks] = useState([]);
+  const [nextPageToken, setNextPageToken] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
+  const [retryKey, setRetryKey] = useState(0);
+  const [followed, setFollowed] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({ id: artistId });
+        if (initialName) params.set("name", initialName);
+        const data = await requestJson(`/api/youtube-channel?${params}`, {
+          signal: controller.signal,
+          fallbackTitle: "Artist unavailable",
+          fallbackMessage: "We couldn’t load this artist. Please try again.",
+        });
+        if (cancelled) return;
+        if (data?.artist) setArtist(data.artist);
+        setTracks(Array.isArray(data?.tracks) ? data.tracks : []);
+        setNextPageToken(typeof data?.nextPageToken === "string" ? data.nextPageToken : "");
+      } catch (loadError) {
+        if (!cancelled && !controller.signal.aborted) {
+          setTracks([]);
+          setError(
+            toUserError(loadError, {
+              title: "Artist unavailable",
+              message: "We couldn’t load this artist. Please try again.",
+            }),
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [artistId, initialName, retryKey]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !artist.title) return undefined;
+    const controller = new AbortController();
+    requestJson("/api/followedArtists", {
+      signal: controller.signal,
+      fallbackTitle: "Follow status unavailable",
+      fallbackMessage: "You can still play this artist.",
+    })
+      .then((json) => {
+        if (json?.success === true && Array.isArray(json.data)) {
+          setFollowed(json.data.some((value) => value.toLowerCase() === artist.title.toLowerCase()));
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [artist.title, status]);
+
+  const playTrack = (video) => {
+    const queue = tracks.map((item) => ({
+      ...item,
+      seedQuery: item.seedQuery || artist.title,
+      genre: item.genre || artist.title,
+    }));
+    dispatch(setYoutubeQueue(queue));
+    dispatch(setYoutubeVideo({ ...video, seedQuery: artist.title, genre: artist.title }));
+  };
+
+  const playAll = () => {
+    if (tracks[0]) playTrack(tracks[0]);
+  };
+
+  const loadMore = async () => {
+    if (!nextPageToken || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ id: artistId, pageToken: nextPageToken });
+      if (initialName || artist.title) params.set("name", initialName || artist.title);
+      const data = await requestJson(`/api/youtube-channel?${params}`, {
+        fallbackTitle: "More songs unavailable",
+        fallbackMessage: "We couldn’t load more songs. Please try again.",
+      });
+      const extra = Array.isArray(data?.tracks) ? data.tracks : [];
+      setTracks((current) => {
+        const seen = new Set(current.map((track) => track.id));
+        return [...current, ...extra.filter((track) => track?.id && !seen.has(track.id))];
+      });
+      setNextPageToken(typeof data?.nextPageToken === "string" ? data.nextPageToken : "");
+    } catch (loadError) {
+      toast.error(toUserError(loadError, {
+        title: "More songs unavailable",
+        message: "We couldn’t load more songs. Please try again.",
+      }).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const toggleFollow = async () => {
+    if (status !== "authenticated" || !artist.title || followBusy) return;
+    const next = !followed;
+    setFollowBusy(true);
+    setFollowed(next);
+    try {
+      const data = await requestJson("/api/followedArtists", {
+        method: "POST",
+        body: { name: artist.title },
+        fallbackTitle: "Follow couldn’t be updated",
+        fallbackMessage: "Your follow change wasn’t saved. Please try again.",
+      });
+      if (data?.success === true && Array.isArray(data.data)) {
+        setFollowed(data.data.some((value) => value.toLowerCase() === artist.title.toLowerCase()));
+      }
+      toast.success(next ? "Followed" : "Unfollowed");
+    } catch (followError) {
+      setFollowed(!next);
+      toast.error(toUserError(followError).message);
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
+  const title = artist.title || initialName || "Artist";
+
+  return (
+    <div className="page text-gray-200">
+      <header className="page-hero border-b border-white/10 pb-6">
+        <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-end">
+          <MediaImage
+            src={artist.thumbnail}
+            size="hq"
+            alt=""
+            className="h-36 w-36 shrink-0 rounded-full object-cover ring-1 ring-white/10 sm:h-44 sm:w-44"
+          />
+          <div className="min-w-0">
+            <p className="eyebrow">Artist</p>
+            <h1 className="mt-2 text-3xl font-bold text-white sm:text-5xl">{title}</h1>
+            {artist.description ? (
+              <p className="mt-3 line-clamp-3 max-w-2xl text-sm leading-6 text-[#9aa8b5]">
+                {artist.description}
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-[#9aa8b5]">Songs and videos from this artist.</p>
+            )}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={playAll}
+                disabled={tracks.length === 0}
+                className="btn-primary disabled:opacity-50"
+              >
+                Play
+              </button>
+              {status === "authenticated" ? (
+                <button
+                  type="button"
+                  onClick={() => void toggleFollow()}
+                  disabled={followBusy}
+                  aria-pressed={followed}
+                  className="btn-ghost"
+                >
+                  {followBusy ? "Saving…" : followed ? "Following" : "Follow"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {loading ? <div className="mt-8"><CardGridSkeleton count={6} aspect="aspect-video" /></div> : null}
+      {!loading && error ? (
+        <div className="mt-8">
+          <UserMessage
+            title={error.title}
+            message={error.message}
+            onRetry={() => setRetryKey((value) => value + 1)}
+            busy={loading}
+          />
+        </div>
+      ) : null}
+      {!loading && !error && tracks.length === 0 ? (
+        <div className="mt-8">
+          <EmptyState
+            eyebrow="Artist"
+            title={`No songs found for ${title}`}
+            message="Try another search to find playable tracks."
+            href="/"
+            actionLabel="Back to Home"
+          />
+        </div>
+      ) : null}
+
+      {tracks.length > 0 ? (
+        <section className="mt-8" aria-labelledby="artist-songs-title">
+          <h2 id="artist-songs-title" className="mb-4 text-xl font-semibold text-white">
+            Songs
+            <span className="ml-2 text-sm font-normal text-[#9aa8b5]">{tracks.length}</span>
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {tracks.map((video) => (
+              <article key={video.id} className="card group text-left">
+                <button
+                  type="button"
+                  aria-label={`Play ${video.title}`}
+                  onClick={() => playTrack(video)}
+                  className="relative aspect-video w-full overflow-hidden bg-black"
+                >
+                  <MediaImage
+                    src={video.thumbnail}
+                    size="hq"
+                    alt=""
+                    className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]"
+                  />
+                </button>
+                <button type="button" onClick={() => playTrack(video)} className="block w-full p-4 text-left">
+                  <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
+                  <p className="mt-2 truncate text-xs text-gray-400">{video.channel || title}</p>
+                </button>
+              </article>
+            ))}
+          </div>
+          {nextPageToken ? (
+            <button
+              type="button"
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="mt-6 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-gray-300 transition hover:border-[#00e6e6] hover:text-[#00e6e6] disabled:opacity-60"
+            >
+              {loadingMore ? "Loading more…" : "Load more songs"}
+            </button>
+          ) : null}
+        </section>
+      ) : null}
+    </div>
+  );
+}

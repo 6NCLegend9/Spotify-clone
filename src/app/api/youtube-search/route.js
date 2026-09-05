@@ -103,6 +103,7 @@ export async function GET(request) {
         type,
         title: item.snippet?.title || "",
         channel: item.snippet?.channelTitle || "",
+        channelId: item.snippet?.channelId || item.id?.channelId || "",
         description: item.snippet?.description || "",
         publishedAt: item.snippet?.publishedAt || "",
         thumbnail:

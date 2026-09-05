@@ -1,25 +1,30 @@
 "use client";
 
+import { useParams, useSearchParams } from "next/navigation";
+import ArtistProfile from "@/components/ArtistProfile";
 import EmptyState from "@/components/EmptyState";
 
-export default function ArtistPage() {
-  const focusSearch = () => {
-    const searchInput = document.querySelector('input[name="search-field"]');
-    searchInput?.focus();
-    searchInput?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{20,24}$/;
 
-  return (
-    <div className="page text-gray-200">
-      <EmptyState
-        eyebrow="Legacy artist link"
-        title="This artist page is unavailable"
-        message="This older catalog link is no longer supported. Search for the artist to find their playable songs."
-        actionLabel="Search music"
-        onAction={focusSearch}
-        secondaryHref="/"
-        secondaryLabel="Back to Home"
-      />
-    </div>
-  );
+export default function ArtistPage() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const artistId = typeof params?.artistId === "string" ? params.artistId : "";
+  const initialName = searchParams.get("name")?.trim() || "";
+
+  if (!CHANNEL_ID_PATTERN.test(artistId)) {
+    return (
+      <div className="page text-gray-200">
+        <EmptyState
+          eyebrow="Artist"
+          title="This artist page is unavailable"
+          message="Search for the artist to open their songs in HeyKasa."
+          href="/"
+          actionLabel="Back to Home"
+        />
+      </div>
+    );
+  }
+
+  return <ArtistProfile artistId={artistId} initialName={initialName} />;
 }

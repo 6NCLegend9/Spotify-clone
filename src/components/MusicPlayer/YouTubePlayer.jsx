@@ -29,8 +29,13 @@ const handleThumbError = (event) => {
   }
 };
 
+const safeMediaTime = (value) => {
+  const next = Number(value);
+  return Number.isFinite(next) && next >= 0 ? next : 0;
+};
+
 const formatTime = (seconds) => {
-  const value = Math.max(0, Math.floor(seconds || 0));
+  const value = Math.floor(safeMediaTime(seconds));
   return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
 };
 
@@ -45,6 +50,7 @@ const playerErrorMessage = (code) => {
 
 const otherDeck = (key) => (key === "A" ? "B" : "A");
 const SEEK_GUARD_MS = 5000;
+const TRACK_CHANGE_GUARD_MS = 8000;
 const ACTIVE_BUFFER_RECOVERY_MS = 4500;
 const HEALTHY_PLAYBACK_RESET_MS = 12000;
 const PRELOAD_START_DELAY_MS = 10000;
@@ -177,13 +183,18 @@ export default function YouTubePlayer() {
   const queueMenuRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
   const expandLockRef = useRef(false);
+  const userPausedRef = useRef(false);
+  const trackChangeUntilRef = useRef(0);
   const [playerError, setPlayerError] = useState(null);
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState([]);
   const [addSearching, setAddSearching] = useState(false);
   const [addSearchError, setAddSearchError] = useState("");
-  const autoExtendedForRef = useRef(null);
   const autoExtendingRef = useRef(false);
+  const lastExtendEmptyRef = useRef(false);
+  const lastExtendAtRef = useRef(0);
+  const extendQueueRef = useRef(async () => []);
+  const playNextOrContinueRef = useRef(() => {});
   const pipWindowRef = useRef(null);
   const pipMountRef = useRef(null);
   const [showLyrics, setShowLyrics] = useState(false);
@@ -261,6 +272,26 @@ export default function YouTubePlayer() {
   const isSeekGuarded = () => {
     const guard = seekGuardRef.current;
     return guard.seeking || performance.now() < guard.until;
+  };
+
+  const markExpectPlaying = () => {
+    userPausedRef.current = false;
+    trackChangeUntilRef.current = performance.now() + TRACK_CHANGE_GUARD_MS;
+  };
+
+  const wantsPlayback = () =>
+    !userPausedRef.current &&
+    (isPlayingRef.current || performance.now() < trackChangeUntilRef.current);
+
+  const resumePlayer = (player) => {
+    if (!player?.playVideo) return;
+    try {
+      player.unMute?.();
+      applyPlaybackVolume(player);
+      player.playVideo();
+    } catch (error) {
+      // Player may still be mounting the next video.
+    }
   };
 
   const markSeek = (time, dragging = false) => {
@@ -789,11 +820,12 @@ export default function YouTubePlayer() {
     setCurrentTime(0);
     setDuration(0);
     setDeliveredVideoQuality("");
+    markExpectPlaying();
     player.unMute?.();
     applyPlaybackVolume(player);
     requestYouTubeQuality(player, requestedYouTubeQuality);
     player.loadVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
-    player.playVideo?.();
+    resumePlayer(player);
     dispatch(playPause(true));
     dispatch(setYoutubeVideo(nextVideo));
   };
@@ -849,7 +881,7 @@ export default function YouTubePlayer() {
           frame.style.pointerEvents = "none";
           frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
           if (key === activeDeckRef.current) {
-            setDuration(event.target.getDuration());
+            setDuration(safeMediaTime(event.target.getDuration()));
             requestYouTubeQuality(event.target, requestedYouTubeQuality);
             reportPlaybackQuality(event.target, key);
           } else {
@@ -905,7 +937,16 @@ export default function YouTubePlayer() {
             }
           }
           if (key !== activeDeckRef.current) return;
-          if (event.data === window.YT.PlayerState.PLAYING) dispatch(playPause(true));
+          if (event.data === window.YT.PlayerState.PLAYING) {
+            userPausedRef.current = false;
+            dispatch(playPause(true));
+          }
+          if (
+            event.data === window.YT.PlayerState.CUED ||
+            event.data === window.YT.PlayerState.UNSTARTED
+          ) {
+            if (wantsPlayback()) resumePlayer(event.target);
+          }
           if (event.data === window.YT.PlayerState.BUFFERING) {
             scheduleActiveBufferRecovery(key, event.target, generation);
           }
@@ -916,7 +957,15 @@ export default function YouTubePlayer() {
             !isSeekGuarded()
           ) {
             clearActiveBufferTimers();
-            dispatch(playPause(false));
+            if (userPausedRef.current) {
+              dispatch(playPause(false));
+              return;
+            }
+            if (wantsPlayback()) {
+              resumePlayer(event.target);
+              dispatch(playPause(true));
+              return;
+            }
           }
           if (event.data === window.YT.PlayerState.ENDED) {
             clearActiveBufferTimers();
@@ -1000,6 +1049,10 @@ export default function YouTubePlayer() {
             }
             if (!crossfadeInProgressRef.current && nextVideo) {
               hardSwitchOnDeck(key, nextVideo);
+              return;
+            }
+            if (!nextVideo) {
+              void playNextOrContinueRef.current?.(true);
             }
           }
         },
@@ -1014,6 +1067,8 @@ export default function YouTubePlayer() {
           if (!isCurrent()) return;
           if (key === activeDeckRef.current) {
             clearActiveBufferTimers();
+            userPausedRef.current = true;
+            trackChangeUntilRef.current = 0;
             setPlayerError({
               kind: "autoplay",
               message: "Your browser blocked autoplay. Select Retry to start playback.",
@@ -1027,6 +1082,8 @@ export default function YouTubePlayer() {
           if (!isCurrent()) return;
           if (key === activeDeckRef.current) {
             clearActiveBufferTimers();
+            userPausedRef.current = true;
+            trackChangeUntilRef.current = 0;
             setPlayerError({
               kind: "playback",
               message: playerErrorMessage(event.data),
@@ -1083,7 +1140,7 @@ export default function YouTubePlayer() {
     preloadingRef.current = null;
     preloadRetryAtRef.current = 0;
     setCurrentTime(0);
-    setDuration(incomingPlayer?.getDuration?.() || 0);
+    setDuration(safeMediaTime(incomingPlayer?.getDuration?.()));
     dispatch(playPause(true));
     dispatch(setYoutubeVideo(nextVideo));
     return true;
@@ -1429,6 +1486,7 @@ export default function YouTubePlayer() {
       return;
     }
     if (!apiReady) return;
+    markExpectPlaying();
     endedTransitionRef.current = null;
     preloadRetryAtRef.current = 0;
     resetActiveRecovery(video.id);
@@ -1509,8 +1567,8 @@ export default function YouTubePlayer() {
         idle.playVideo?.();
         destroyDeck(outgoingKey);
         setPlayerError(null);
-        setCurrentTime(idle.getCurrentTime?.() || 0);
-        setDuration(idle.getDuration?.() || 0);
+        setCurrentTime(safeMediaTime(idle.getCurrentTime?.()));
+        setDuration(safeMediaTime(idle.getDuration?.()));
         dispatch(playPause(true));
         return true;
       };
@@ -1619,8 +1677,8 @@ export default function YouTubePlayer() {
           // Player is still buffering the seek.
         }
       }
-      setCurrentTime(seekPending ? guard.target : time);
-      if (dur > 0) setDuration(dur);
+      setCurrentTime(safeMediaTime(seekPending ? guard.target : time));
+      if (safeMediaTime(dur) > 0) setDuration(safeMediaTime(dur));
       if (!guard.seeking && guard.target != null && Math.abs(time - guard.target) <= 1.25 && (!want || !id || id === want)) {
         guard.target = null;
       }
@@ -1674,43 +1732,136 @@ export default function YouTubePlayer() {
     };
   });
 
-  // Keeps the queue from running dry: pulls in more songs by the same channel once only one track is left.
-  useEffect(() => {
-    if (!video?.id || autoExtendingRef.current || autoExtendedForRef.current === video.id) return;
-    const index = safeQueue.findIndex((item) => item.id === video.id);
-    if (index === -1 || index < safeQueue.length - 1) return;
+  const remainingAfterCurrent = () => {
+    const currentId = videoRef.current?.id;
+    const list = Array.isArray(queueRef.current) ? queueRef.current : [];
+    const index = list.findIndex((item) => item?.id === currentId);
+    if (index < 0) return 0;
+    return Math.max(0, list.length - index - 1);
+  };
 
-    autoExtendedForRef.current = video.id;
+  const extendQueue = async () => {
+    if (autoExtendingRef.current) return [];
+    if (lastExtendEmptyRef.current && Date.now() - lastExtendAtRef.current < 15000) return [];
     autoExtendingRef.current = true;
-    (async () => {
-      try {
-        const seed = video.seedQuery || video.genre || video.channel || video.title;
-        if (!seed) return;
-        const data = await requestJson(
-          `/api/youtube-search?type=video&q=${encodeURIComponent(seed)}`,
-          {
+    lastExtendAtRef.current = Date.now();
+    try {
+      const current = videoRef.current;
+      const list = Array.isArray(queueRef.current) ? queueRef.current : [];
+      const existingIds = new Set(list.map((item) => item.id));
+      const titleSeed = String(current?.title || "")
+        .replace(/\s*[\(\[][^)\]]*[\)\]]/g, "")
+        .replace(/\s*(official|audio|video|lyrics|hd|4k)\s*/gi, " ")
+        .trim();
+      const seeds = [...new Set([
+        current?.seedQuery,
+        current?.genre,
+        current?.channel ? `${current.channel} songs` : "",
+        current?.channel ? `${current.channel} mix` : "",
+        titleSeed ? `${titleSeed} radio` : "",
+        "popular music mix",
+      ].filter(Boolean))].slice(0, 3);
+
+      const searches = await Promise.all(
+        seeds.map((seed) =>
+          requestJson(`/api/youtube-search?type=video&q=${encodeURIComponent(seed)}`, {
             fallbackTitle: "Queue search is temporarily unavailable",
             fallbackMessage: "We couldn’t find more tracks right now.",
-          },
-        );
-        const existingIds = new Set(safeQueue.map((item) => item.id));
-        const results = Array.isArray(data?.results) ? data.results : [];
-        const extras = results
-          .filter((item) => item?.id && !existingIds.has(item.id))
-          .slice(0, 5)
-          .map((item) => ({
-            ...item,
-            seedQuery: video.seedQuery || video.genre || seed,
-            genre: video.genre,
-          }));
-        if (extras.length > 0) dispatch(appendToQueue(extras));
-      } catch (error) {
-        // Silent: running out of extra tracks isn't worth surfacing to the user.
-      } finally {
-        autoExtendingRef.current = false;
+          }).catch(() => null),
+        ),
+      );
+
+      const extras = [];
+      const remember = (item) => {
+        if (!item?.id || existingIds.has(item.id)) return;
+        existingIds.add(item.id);
+        extras.push({
+          ...item,
+          seedQuery: current?.seedQuery || current?.genre || current?.channel || item.channel,
+          genre: current?.genre || item.genre,
+        });
+      };
+
+      for (const data of searches) {
+        for (const item of Array.isArray(data?.results) ? data.results : []) remember(item);
       }
-    })();
-  }, [video, safeQueue, dispatch]);
+
+      if (extras.length < 6) {
+        try {
+          const rec = await requestJson("/api/recommendations", {
+            fallbackTitle: "Queue search is temporarily unavailable",
+            fallbackMessage: "We couldn’t find more tracks right now.",
+          });
+          const sections = rec?.sections || {};
+          const recVideos = [
+            ...(sections.trending || []),
+            ...(sections.charts || []),
+            ...(sections.newReleases || []),
+            ...((sections.genres || []).flatMap((group) => group.videos || [])),
+          ];
+          recVideos.forEach(remember);
+        } catch {
+          // Radio fallback below still keeps playback going.
+        }
+      }
+
+      const nextTracks = extras.slice(0, 16);
+      if (nextTracks.length > 0) {
+        dispatch(appendToQueue(nextTracks));
+        lastExtendEmptyRef.current = false;
+      } else {
+        lastExtendEmptyRef.current = true;
+      }
+      return nextTracks;
+    } catch {
+      lastExtendEmptyRef.current = true;
+      return [];
+    } finally {
+      autoExtendingRef.current = false;
+    }
+  };
+  extendQueueRef.current = extendQueue;
+
+  const replayCurrent = () => {
+    markExpectPlaying();
+    seekOnCurrentTrack(0);
+    resumePlayer(getActivePlayer());
+    dispatch(playPause(true));
+  };
+
+  const playNextOrContinue = async (completed = false) => {
+    const current = videoRef.current;
+    if (status === "authenticated" && current?.id) {
+      recordPlayEvent(current.id, completed ? "completed" : "skipped");
+    }
+    markExpectPlaying();
+    dispatch(playPause(true));
+    const immediate = getNextVideo();
+    if (immediate) {
+      dispatch(setYoutubeVideo(immediate));
+      return;
+    }
+    const extras = await extendQueueRef.current();
+    const next = getNextVideo() || extras[0];
+    if (next) {
+      dispatch(setYoutubeVideo(next));
+      return;
+    }
+    const list = Array.isArray(queueRef.current) ? queueRef.current : [];
+    const fallback = list.find((item) => item?.id && item.id !== current?.id) || list[0];
+    if (fallback && fallback.id !== current?.id) {
+      dispatch(setYoutubeVideo(fallback));
+      return;
+    }
+    replayCurrent();
+  };
+  playNextOrContinueRef.current = playNextOrContinue;
+
+  useEffect(() => {
+    if (!video?.id) return;
+    if (remainingAfterCurrent() > 2) return;
+    void extendQueue();
+  }, [video?.id, safeQueue.length]);
 
   const searchForQueueTracks = async () => {
     const query = addQuery.trim();
@@ -1777,6 +1928,14 @@ export default function YouTubePlayer() {
   }, [captionsEnabled]);
 
   useEffect(() => {
+    if (!dataSaver && !audioOnly) return undefined;
+    setExpanded(false);
+    setMobileSheet(false);
+    dispatch(setFullScreen(false));
+    return undefined;
+  }, [dataSaver, audioOnly, dispatch]);
+
+  useEffect(() => {
     if (!videoId || !apiReady || transitionMode === "off" || dataSaver) return;
     const timer = window.setTimeout(
       () => preloadNextRef.current(getNextVideo()),
@@ -1789,8 +1948,14 @@ export default function YouTubePlayer() {
     if (crossfadeInProgressRef.current || isSeekGuarded()) return;
     const player = getActivePlayer();
     if (!player?.getPlayerState) return;
-    if (isPlaying) player.playVideo();
-    else player.pauseVideo();
+    if (isPlaying) {
+      userPausedRef.current = false;
+      resumePlayer(player);
+      return;
+    }
+    if (userPausedRef.current && !fadeTimerRef.current) {
+      player.pauseVideo();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying]);
 
@@ -1860,13 +2025,17 @@ export default function YouTubePlayer() {
     abortCrossfade();
     cancelFade();
     const player = getActivePlayer();
-    if (!player?.playVideo) return;
 
     if (isPlaying) {
-      player.pauseVideo();
+      userPausedRef.current = true;
+      dispatch(playPause(false));
+      player?.pauseVideo?.();
       return;
     }
 
+    userPausedRef.current = false;
+    dispatch(playPause(true));
+    if (!player?.playVideo) return;
     player.unMute?.();
     applyPlaybackVolume(player);
     player.playVideo();
@@ -1877,6 +2046,7 @@ export default function YouTubePlayer() {
     if (!current?.id) return;
     abortCrossfade();
     setPlayerError(null);
+    markExpectPlaying();
     dispatch(playPause(true));
     const player = getActivePlayer();
     if (!player?.playVideo) {
@@ -1893,22 +2063,20 @@ export default function YouTubePlayer() {
   };
 
   const handleNext = ({ completed = false } = {}) => {
-    const current = videoRef.current;
-    if (status === "authenticated" && current?.id) recordPlayEvent(current.id, completed ? "completed" : "skipped");
-    const nextVideo = getNextVideo();
-    if (nextVideo) dispatch(setYoutubeVideo(nextVideo));
+    void playNextOrContinue(completed);
   };
 
   const handleSkipPlaybackFailure = () => {
-    if (!getNextVideo()) return;
     setPlayerError(null);
-    handleNext();
+    void playNextOrContinue();
   };
 
   const handlePrev = () => {
     const previous = getPreviousVideo();
     if (previous) {
       if (status === "authenticated" && videoRef.current?.id) recordPlayEvent(videoRef.current.id, "skipped");
+      markExpectPlaying();
+      dispatch(playPause(true));
       dispatch(setYoutubeVideo(previous));
       return;
     }
@@ -1967,6 +2135,7 @@ export default function YouTubePlayer() {
     if (!item?.id) return;
     if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "skipped");
     abortCrossfade();
+    markExpectPlaying();
     dispatch(playPause(true));
     dispatch(setYoutubeVideo(item));
     setShowQueue(false);
@@ -2077,8 +2246,16 @@ export default function YouTubePlayer() {
     });
     navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
     try {
-      navigator.mediaSession.setActionHandler("play", handlePlayPause);
-      navigator.mediaSession.setActionHandler("pause", handlePlayPause);
+      navigator.mediaSession.setActionHandler("play", () => {
+        userPausedRef.current = false;
+        dispatch(playPause(true));
+        resumePlayer(getActivePlayer());
+      });
+      navigator.mediaSession.setActionHandler("pause", () => {
+        userPausedRef.current = true;
+        dispatch(playPause(false));
+        getActivePlayer()?.pauseVideo?.();
+      });
       navigator.mediaSession.setActionHandler("previoustrack", handlePrev);
       navigator.mediaSession.setActionHandler("nexttrack", handleNext);
       navigator.mediaSession.setActionHandler("seekbackward", () => seekBy(-10));
@@ -2148,7 +2325,7 @@ export default function YouTubePlayer() {
       {!fullscreen && !videoVisible && (
         <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-14 w-14 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-16 sm:w-16" />
       )}
-      <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-thumb relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop pointer-events-none absolute -left-[10000px] top-0 h-[200px] w-[356px]"}>
+      <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-thumb relative h-14 w-[5.6rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-16 sm:w-28" : "yt-crop yt-audio-stage"}>
         {["A", "B"].map((key) => (
           <div
             key={key}
@@ -2186,7 +2363,7 @@ export default function YouTubePlayer() {
             )}
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               <button type="button" onClick={handleRetryPlayback} className="rounded-md bg-[#00e6e6] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>
-              <button type="button" onClick={handleSkipPlaybackFailure} disabled={!getNextVideo()} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50">Skip</button>
+              <button type="button" onClick={handleSkipPlaybackFailure} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">Skip</button>
               <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#00e6e6] hover:bg-white/20">Open YouTube</a>
             </div>
           </div>
@@ -2233,8 +2410,8 @@ export default function YouTubePlayer() {
             aria-label="YouTube song progress"
             type="range"
             min="0"
-            max={duration || 0}
-            value={Math.min(currentTime, duration || 0)}
+            max={safeMediaTime(duration)}
+            value={Math.min(safeMediaTime(currentTime), safeMediaTime(duration))}
             onPointerDown={(event) => {
               event.currentTarget.setPointerCapture?.(event.pointerId);
               seekGuardRef.current.seeking = true;

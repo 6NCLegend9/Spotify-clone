@@ -363,10 +363,21 @@ export default function YouTubeMusicResults({ query }) {
             <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
               <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
             </button>
-            <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
-              <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
-              <p className="mt-2 truncate text-xs text-gray-400">{video.channel}</p>
-            </button>
+            <div className="p-4">
+              <button type="button" onClick={playVideo} className="block w-full text-left">
+                <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
+              </button>
+              {video.channelId ? (
+                <Link
+                  href={`/artist/${encodeURIComponent(video.channelId)}?name=${encodeURIComponent(video.channel || "")}`}
+                  className="mt-2 block truncate text-xs text-gray-400 hover:text-[#00e6e6]"
+                >
+                  {video.channel}
+                </Link>
+              ) : (
+                <p className="mt-2 truncate text-xs text-gray-400">{video.channel}</p>
+              )}
+            </div>
           </article>
           );
         })}
@@ -432,14 +443,10 @@ export default function YouTubeMusicResults({ query }) {
               const isUpdating = updatingArtists.includes(artist.title.toLowerCase());
               return (
               <div key={artist.id} className="group text-center">
-                <a
-                  href={`https://www.youtube.com/channel/${artist.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <Link href={`/artist/${encodeURIComponent(artist.id)}?name=${encodeURIComponent(artist.title || "")}`}>
                   <MediaImage src={artist.thumbnail} size="mq" alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
                   <p className="mt-2 truncate text-sm font-semibold text-white">{artist.title}</p>
-                </a>
+                </Link>
                 {status === "authenticated" && (
                   <button
                     type="button"

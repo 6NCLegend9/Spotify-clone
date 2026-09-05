@@ -501,6 +501,228 @@ async function fetchFromInnertube(endpoint, params = {}) {
   return { ok: false, status: 400, data: null };
 }
 
+function mapChannelSnippet(item, fallbackId = "") {
+  const id = item?.id || fallbackId;
+  if (!id) return null;
+  return {
+    id,
+    title: item?.snippet?.title || "",
+    description: item?.snippet?.description || "",
+    thumbnail:
+      item?.snippet?.thumbnails?.high?.url
+      || item?.snippet?.thumbnails?.medium?.url
+      || item?.snippet?.thumbnails?.default?.url
+      || "",
+  };
+}
+
+function mapSearchItemsToTracks(items, extras = {}) {
+  return (Array.isArray(items) ? items : [])
+    .filter((item) => item?.id?.videoId || (typeof item?.id === "string" && /^[A-Za-z0-9_-]{11}$/.test(item.id)))
+    .map((item) => {
+      const id = item.id?.videoId || item.id;
+      return {
+        id,
+        title: item.snippet?.title || "",
+        channel: item.snippet?.channelTitle || extras.channel || "",
+        channelId: item.snippet?.channelId || extras.channelId || "",
+        description: item.snippet?.description || "",
+        publishedAt: item.snippet?.publishedAt || "",
+        thumbnail:
+          item.snippet?.thumbnails?.high?.url
+          || item.snippet?.thumbnails?.medium?.url
+          || item.snippet?.thumbnails?.default?.url
+          || "",
+        seedQuery: extras.seedQuery || extras.channel || "",
+        genre: extras.genre || extras.channel || "",
+      };
+    });
+}
+
+function uploadsPlaylistId(channelId) {
+  return String(channelId || "").startsWith("UC") ? `UU${channelId.slice(2)}` : "";
+}
+
+function mergeTracks(lists) {
+  const seen = new Set();
+  const merged = [];
+  for (const list of lists) {
+    for (const track of list || []) {
+      if (!track?.id || seen.has(track.id)) continue;
+      if (track.title === "Private video" || track.title === "Deleted video") continue;
+      seen.add(track.id);
+      merged.push(track);
+    }
+  }
+  return merged;
+}
+
+function mapPlaylistItemsToTracks(items, extras = {}) {
+  return (Array.isArray(items) ? items : [])
+    .filter((item) => item?.snippet?.resourceId?.videoId && item?.status?.privacyStatus !== "private")
+    .map((item) => ({
+      id: item.snippet.resourceId.videoId,
+      title: item.snippet.title || "",
+      channel: item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle || extras.channel || "",
+      channelId: extras.channelId || "",
+      description: item.snippet.description || "",
+      publishedAt: item.snippet.publishedAt || "",
+      thumbnail:
+        item.snippet.thumbnails?.high?.url
+        || item.snippet.thumbnails?.medium?.url
+        || item.snippet.thumbnails?.default?.url
+        || "",
+      seedQuery: extras.seedQuery || extras.channel || "",
+      genre: extras.genre || extras.channel || "",
+    }));
+}
+
+async function fetchPlaylistPages(playlistId, extras, maxResults, pageToken = "") {
+  const tracks = [];
+  let token = pageToken || "";
+  let nextPageToken = "";
+  const pageSize = Math.min(50, Math.max(1, maxResults));
+  const maxPages = Math.max(1, Math.ceil(maxResults / pageSize));
+
+  for (let page = 0; page < maxPages && tracks.length < maxResults; page += 1) {
+    const params = {
+      part: "snippet,status",
+      playlistId,
+      maxResults: String(Math.min(50, maxResults - tracks.length)),
+    };
+    if (token) params.pageToken = token;
+    const result = await youtubeFetch("playlistItems", params);
+    if (!result?.ok) break;
+    tracks.push(...mapPlaylistItemsToTracks(result.data?.items, extras));
+    token = result.data?.nextPageToken || "";
+    nextPageToken = token;
+    if (!token) break;
+  }
+
+  return { tracks: mergeTracks([tracks]), nextPageToken };
+}
+
+async function channelFromInnertube(id, maxResults = 50) {
+  try {
+    const innertube = await getInnertube();
+    const channel = await innertube.getChannel(id);
+    const title =
+      textValue(channel?.metadata?.title)
+      || textValue(channel?.header?.author?.name)
+      || textValue(channel?.header?.title)
+      || "";
+    const description = textValue(channel?.metadata?.description) || "";
+    const thumbnail = bestThumbnail(channel?.metadata) || bestThumbnail(channel?.header) || "";
+    let feed = typeof channel.getVideos === "function" ? await channel.getVideos() : channel;
+    let videoItems = [...(feed?.videos || feed?.items || channel?.videos || [])];
+    let pages = 0;
+    while (feed?.has_continuation && videoItems.length < maxResults && pages < 3) {
+      feed = await feed.getContinuation();
+      videoItems.push(...(feed?.videos || feed?.items || []));
+      pages += 1;
+    }
+    return {
+      artist: title || thumbnail ? { id, title, description, thumbnail } : null,
+      tracks: videoItems.map((item) => mapSearchResult(item, "video")).filter(Boolean),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchYouTubeChannel(id, { name = "", maxResults = 50, pageToken = "" } = {}) {
+  const extras = {
+    channelId: id,
+    channel: name,
+    seedQuery: name,
+    genre: name,
+  };
+
+  const officialChannel = await fetchFromOfficialApi("channels", {
+    part: "snippet,contentDetails",
+    id,
+  });
+  let artist = mapChannelSnippet(officialChannel?.data?.items?.[0], id);
+  const uploadsId =
+    officialChannel?.data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+    || uploadsPlaylistId(id);
+
+  if (pageToken && uploadsId) {
+    const page = await fetchPlaylistPages(uploadsId, {
+      ...extras,
+      channel: artist?.title || name,
+      seedQuery: artist?.title || name,
+    }, maxResults, pageToken);
+    return {
+      artist: artist || { id, title: name || "Artist", description: "", thumbnail: "" },
+      tracks: page.tracks,
+      nextPageToken: page.nextPageToken,
+    };
+  }
+
+  const [popular, uploads, audioSearch, songsSearch, innertubeChannel] = await Promise.all([
+    fetchFromOfficialApi("search", {
+      part: "snippet",
+      channelId: id,
+      type: "video",
+      order: "viewCount",
+      maxResults: "50",
+    }),
+    uploadsId
+      ? fetchPlaylistPages(uploadsId, {
+        ...extras,
+        channel: artist?.title || name,
+        seedQuery: artist?.title || name,
+      }, maxResults)
+      : Promise.resolve({ tracks: [], nextPageToken: "" }),
+    name
+      ? youtubeFetch("search", {
+        part: "snippet",
+        type: "video",
+        q: `${name} official audio`,
+        maxResults: "25",
+      })
+      : Promise.resolve(null),
+    name
+      ? youtubeFetch("search", {
+        part: "snippet",
+        type: "video",
+        q: `${name} songs`,
+        maxResults: "25",
+      })
+      : Promise.resolve(null),
+    channelFromInnertube(id, maxResults),
+  ]);
+
+  if (!artist && innertubeChannel?.artist) artist = innertubeChannel.artist;
+  extras.channel = artist?.title || name;
+  extras.seedQuery = artist?.title || name;
+  extras.genre = artist?.title || name;
+
+  const tracks = mergeTracks([
+    mapSearchItemsToTracks(popular?.data?.items, extras),
+    uploads.tracks,
+    mapSearchItemsToTracks(audioSearch?.data?.items, extras),
+    mapSearchItemsToTracks(songsSearch?.data?.items, extras),
+    mapSearchItemsToTracks(innertubeChannel?.tracks, extras),
+  ]);
+
+  if (!artist) {
+    artist = {
+      id,
+      title: name || "Artist",
+      description: "",
+      thumbnail: tracks[0]?.thumbnail || "",
+    };
+  }
+
+  return {
+    artist,
+    tracks,
+    nextPageToken: uploads.nextPageToken || "",
+  };
+}
+
 export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
   try {
     const officialResult = await fetchFromOfficialApi(endpoint, params, fetchOptions);
