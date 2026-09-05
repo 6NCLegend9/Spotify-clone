@@ -10,12 +10,15 @@ import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { useJam } from "@/components/Jam/JamProvider";
+import { useIsMobile } from "@/hooks/useMediaQuery";
+import BottomSheet from "@/components/BottomSheet";
 import MediaImage from "@/components/MediaImage";
 
 export default function RecommendationCard({ video, queue }) {
   const dispatch = useDispatch();
   const { status } = useSession();
   const jam = useJam();
+  const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -68,7 +71,28 @@ export default function RecommendationCard({ video, queue }) {
 
   const canModerate = status === "authenticated" && Boolean(video?.id);
   const canJam = Boolean(jam?.enqueue) && jam?.status === "connected" && Boolean(video?.id);
-  const showMenu = canModerate || canJam;
+  const actions = [
+    canJam && {
+      key: "jam",
+      Icon: FiRadio,
+      label: "Add to Jam queue",
+      accent: true,
+      onClick: addToJam,
+    },
+    canModerate && {
+      key: "not-interested",
+      Icon: FiThumbsDown,
+      label: "Not interested",
+      onClick: () => savePreference("/api/notInterested", "We’ll show less like this"),
+    },
+    canModerate && {
+      key: "snooze",
+      Icon: FiClock,
+      label: "Snooze",
+      onClick: () => savePreference("/api/snoozedTracks", "Snoozed for now"),
+    },
+  ].filter(Boolean);
+  const showMenu = actions.length > 0;
 
   if (dismissed) return null;
 
@@ -86,11 +110,11 @@ export default function RecommendationCard({ video, queue }) {
             aria-expanded={menuOpen}
             disabled={busy}
             onClick={() => setMenuOpen((open) => !open)}
-            className="grid min-h-9 min-w-9 place-items-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-black/80 disabled:opacity-50"
+            className="grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-black/80 disabled:opacity-50"
           >
             <PiDotsThreeVerticalBold aria-hidden="true" />
           </button>
-          {menuOpen ? (
+          {!isMobile && menuOpen ? (
             <>
               <button
                 type="button"
@@ -99,25 +123,38 @@ export default function RecommendationCard({ video, queue }) {
                 onClick={() => setMenuOpen(false)}
               />
               <div role="menu" className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-white/10 bg-[#07121d] py-1 text-sm shadow-2xl">
-                {canJam ? (
-                  <button type="button" role="menuitem" onClick={addToJam} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[#00e6e6] hover:bg-white/5">
-                    <FiRadio aria-hidden="true" /> Add to Jam queue
+                {actions.map(({ key, Icon, label, accent, onClick }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="menuitem"
+                    onClick={onClick}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/5 ${accent ? "text-[#00e6e6]" : "text-gray-200"}`}
+                  >
+                    <Icon aria-hidden="true" /> {label}
                   </button>
-                ) : null}
-                {canModerate ? (
-                  <>
-                    <button type="button" role="menuitem" onClick={() => savePreference("/api/notInterested", "We’ll show less like this")} className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-200 hover:bg-white/5">
-                      <FiThumbsDown aria-hidden="true" /> Not interested
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => savePreference("/api/snoozedTracks", "Snoozed for now")} className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-200 hover:bg-white/5">
-                      <FiClock aria-hidden="true" /> Snooze
-                    </button>
-                  </>
-                ) : null}
+                ))}
               </div>
             </>
           ) : null}
         </div>
+      ) : null}
+      {isMobile ? (
+        <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} label="Track options">
+          <p className="mb-2 line-clamp-1 px-1 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">{video.title}</p>
+          <div className="flex flex-col">
+            {actions.map(({ key, Icon, label, accent, onClick }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={onClick}
+                className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] hover:bg-white/5 active:bg-white/10 ${accent ? "text-[#00e6e6]" : "text-gray-100"}`}
+              >
+                <Icon aria-hidden="true" className="shrink-0 text-lg" /> {label}
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
       ) : null}
       <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
         <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
