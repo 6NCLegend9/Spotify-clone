@@ -94,8 +94,6 @@ const fileSchema = new mongoose.Schema(
             default: false
         },
         settings: {
-            transitionMode: { type: String, enum: ["off", "manual", "automix"], default: "off" },
-            crossfadeSeconds: { type: Number, min: 0, max: 12, default: 0 },
             eqPreset: { type: String, default: "Flat / Neutral" },
             eqBands: { type: [Number], default: [0, 0, 0, 0, 0] },
             dataSaver: { type: Boolean, default: false },
@@ -107,7 +105,6 @@ const fileSchema = new mongoose.Schema(
             monoAudio: { type: Boolean, default: false },
             explicitContent: { type: Boolean, default: false },
             privateSession: { type: Boolean, default: false },
-            tailoredAds: { type: Boolean, default: false },
             syncedLyrics: { type: Boolean, default: true },
             pictureInPicture: { type: Boolean, default: true },
             masterVolume: { type: Number, min: 0, max: 1, default: 0.85 },

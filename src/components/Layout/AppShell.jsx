@@ -10,6 +10,7 @@ import Sidebar from "@/components/Sidebar/Sidebar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "@/components/Homepage/OnlineStatus";
 import PullToRefresh from "@/components/PullToRefresh";
+import { JamProvider } from "@/components/Jam/JamProvider";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -75,6 +76,7 @@ export default function AppShell({ children }) {
 
   return (
     <NavContext.Provider value={value}>
+      <JamProvider>
       <div className="app-shell">
         <Sidebar />
         <button
@@ -130,6 +132,7 @@ export default function AppShell({ children }) {
         </div>
         <JamController />
       </div>
+      </JamProvider>
       <Toaster
         position="top-center"
         toastOptions={{

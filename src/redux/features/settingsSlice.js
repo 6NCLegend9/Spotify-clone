@@ -9,8 +9,6 @@ export const EQ_PRESETS = [
 ];
 
 const initialState = {
-  transitionMode: "off",
-  crossfadeSeconds: 0,
   eqPreset: "Flat / Neutral",
   eqBands: [0, 0, 0, 0, 0],
   dataSaver: false,
@@ -22,7 +20,6 @@ const initialState = {
   monoAudio: false,
   explicitContent: false,
   privateSession: false,
-  tailoredAds: false,
   syncedLyrics: true,
   pictureInPicture: true,
   masterVolume: 0.85,

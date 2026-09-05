@@ -33,6 +33,7 @@ export default function useJamSession() {
   const [status, setStatus] = useState("idle"); // idle | connecting | connected | error
 
   const channelRef = useRef(null);
+  const supabaseRef = useRef(null);
   const applyingRemoteRef = useRef(false);
   const playerStateRef = useRef({ youtubeVideo, youtubeQueue, isPlaying });
 
@@ -66,17 +67,22 @@ export default function useJamSession() {
   );
 
   const connect = useCallback(
-    (roomCode, asRole) => {
-      const supabase = getSupabase();
-      if (!supabase || !roomCode) {
+    async (roomCode, asRole) => {
+      if (!roomCode) {
         setStatus("error");
         return;
       }
+      setStatus("connecting");
+      const supabase = await getSupabase();
+      if (!supabase) {
+        setStatus("error");
+        return;
+      }
+      supabaseRef.current = supabase;
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
-      setStatus("connecting");
 
       const channel = supabase.channel(`jam:${roomCode}`, {
         config: { broadcast: { self: false }, presence: { key: displayName } },
@@ -131,7 +137,7 @@ export default function useJamSession() {
   );
 
   const leave = useCallback(() => {
-    const supabase = getSupabase();
+    const supabase = supabaseRef.current;
     if (channelRef.current && supabase) supabase.removeChannel(channelRef.current);
     channelRef.current = null;
     setRole(null);

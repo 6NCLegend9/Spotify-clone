@@ -4,10 +4,10 @@ import { useRef, useState } from "react";
 import { FiRadio, FiX, FiCopy, FiUsers } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
-import useJamSession from "@/hooks/useJamSession";
+import { useJam } from "@/components/Jam/JamProvider";
 
 export default function JamController() {
-  const jam = useJamSession();
+  const jam = useJam();
   const [open, setOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const panelRef = useRef(null);
@@ -15,7 +15,7 @@ export default function JamController() {
   useFocusTrap({ enabled: open, onClose: () => setOpen(false), containerRef: panelRef });
 
   // Feature stays fully dark until Supabase env is configured.
-  if (!jam.available) return null;
+  if (!jam?.available) return null;
 
   const inRoom = jam.status === "connected" || jam.status === "connecting";
 

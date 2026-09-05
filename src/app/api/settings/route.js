@@ -18,12 +18,12 @@ export const maxDuration = 15;
 const allowedKeys = [
   "eqPreset", "eqBands", "dataSaver", "audioOnly",
   "wifiOnlyDownloads", "streamingQuality", "videoQuality", "normalization", "monoAudio", "explicitContent",
-  "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture", "masterVolume",
+  "privateSession", "syncedLyrics", "pictureInPicture", "masterVolume",
   "keyboardShortcuts", "captions", "fadeEnabled", "fadeSeconds",
 ];
 const booleanKeys = new Set([
   "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "explicitContent",
-  "privateSession", "tailoredAds", "syncedLyrics", "pictureInPicture",
+  "privateSession", "syncedLyrics", "pictureInPicture",
   "keyboardShortcuts", "captions", "fadeEnabled",
 ]);
 const enumValues = {
