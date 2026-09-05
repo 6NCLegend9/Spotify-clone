@@ -859,7 +859,8 @@ export default function YouTubePlayer() {
       widget_referrer: window.location.href,
     });
     const iframe = document.createElement("iframe");
-    iframe.src = `https://www.youtube.com/embed/${videoId}?${playerParams}`;
+    // Privacy-enhanced host avoids most YouTube/doubleclick ad-conversion beacons (and their CORS console noise).
+    iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?${playerParams}`;
     iframe.title = title ? `${title} video` : "YouTube video player";
     iframe.allow = "autoplay; encrypted-media; picture-in-picture";
     iframe.allowFullscreen = true;
