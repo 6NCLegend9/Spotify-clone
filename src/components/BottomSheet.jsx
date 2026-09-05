@@ -27,6 +27,7 @@ export default function BottomSheet({
   label = "Options",
   children,
   className = "",
+  overlayClassName = "",
   showHandle = true,
 }) {
   const panelRef = useRef(null);
@@ -76,7 +77,7 @@ export default function BottomSheet({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[95] flex items-end justify-center sm:items-center sm:p-4">
+    <div className={`fixed inset-0 z-[95] flex items-end justify-center sm:items-center sm:p-4 ${overlayClassName}`}>
       <button
         type="button"
         aria-label={`Close ${label}`}

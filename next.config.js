@@ -34,7 +34,9 @@ const contentSecurityPolicy = [
 const nextConfig = {
   poweredByHeader: false,
   experimental: {
-    webpackMemoryOptimizations: true,
+    // Enabled only for production compiles. In `next dev` this flag
+    // corrupts HMR module IDs and throws `__webpack_modules__[moduleId] is not a function`.
+    webpackMemoryOptimizations: isProduction,
   },
   serverExternalPackages: ["youtubei.js"],
   images: {

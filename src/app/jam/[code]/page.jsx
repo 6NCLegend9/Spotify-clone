@@ -1,0 +1,16 @@
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import JamJoinClient from "@/components/Jam/JamJoinClient";
+import { isJamCode, normalizeJamCode } from "@/utils/jam.mjs";
+
+export default async function JamJoinPage({ params }) {
+  const { code: rawCode } = await params;
+  const code = normalizeJamCode(rawCode);
+  if (!isJamCode(code)) redirect("/");
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user) redirect("/");
+
+  return <JamJoinClient code={code} />;
+}

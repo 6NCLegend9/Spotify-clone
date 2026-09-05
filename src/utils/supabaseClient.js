@@ -20,7 +20,7 @@ export async function getSupabase() {
       client = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        { auth: { persistSession: false }, realtime: { params: { eventsPerSecond: 5 } } },
+        { auth: { persistSession: false }, realtime: { params: { eventsPerSecond: 10 } } },
       );
       return client;
     });

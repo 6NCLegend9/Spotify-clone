@@ -76,8 +76,9 @@ export default function RecommendationCard({ video, queue }) {
 
   const addToJam = () => {
     setMenuOpen(false);
-    jam?.enqueue?.(video);
-    toast.success("Added to Jam queue");
+    const added = jam?.enqueue?.(video);
+    if (added) toast.success("Added to Jam queue");
+    else toast("Already in the Jam queue");
   };
 
   const canModerate = status === "authenticated" && Boolean(video?.id);

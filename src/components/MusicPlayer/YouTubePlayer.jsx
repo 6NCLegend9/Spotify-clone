@@ -17,11 +17,17 @@ import AddToPlaylistButton from "@/components/AddToPlaylistButton";
 import SyncedLyrics from "@/components/MusicPlayer/SyncedLyrics";
 import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "@/components/MusicPlayer/PictureInPictureWindow";
 import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
+import { useJam } from "@/components/Jam/JamProvider";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { requestJson } from "@/services/http";
 import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
 import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
+import {
+  JAM_PLAYBACK_STATE_EVENT,
+  JAM_REMOTE_PLAYBACK_EVENT,
+  JAM_REMOTE_SEEK_EVENT,
+} from "@/utils/jam.mjs";
 
 const handleThumbError = (event) => {
   if (event.currentTarget.src !== THUMB_FALLBACK) {
@@ -127,6 +133,7 @@ const recordPlayEvent = (id, event) => {
 export default function YouTubePlayer() {
   const dispatch = useDispatch();
   const { status } = useSession();
+  const jam = useJam();
   const { youtubeVideo: video, youtubeQueue: queue, isPlaying } = useSelector(
     (state) => state.player,
   );
@@ -161,6 +168,7 @@ export default function YouTubePlayer() {
     streamingQuality,
     dataSaver,
   );
+  const isJamGuest = jam?.role === "guest" && Boolean(jam.code);
   // Dual decks let one track fade out while the next fades in at the same time.
   const deckHostRefs = { A: useRef(null), B: useRef(null) };
   const deckPlayerRefs = { A: useRef(null), B: useRef(null) };
@@ -175,6 +183,9 @@ export default function YouTubePlayer() {
   const pendingNextRef = useRef(null);
   const handledVideoIdRef = useRef(null);
   const tickRef = useRef(() => {});
+  const pendingJamSeekRef = useRef(null);
+  const pendingJamPlaybackRef = useRef(null);
+  const lastJamPlaybackReportRef = useRef(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [apiReady, setApiReady] = useState(false);
@@ -206,6 +217,7 @@ export default function YouTubePlayer() {
   const videoRef = useRef(video);
   const queueRef = useRef(queue);
   const isPlayingRef = useRef(isPlaying);
+  const isJamGuestRef = useRef(isJamGuest);
   const seekGuardRef = useRef({ seeking: false, until: 0, target: null, videoId: null });
   const skipCrossfadeVideoRef = useRef(null);
   const nearEndStreakRef = useRef(0);
@@ -244,6 +256,7 @@ export default function YouTubePlayer() {
   );
   queueRef.current = safeQueue;
   isPlayingRef.current = isPlaying;
+  isJamGuestRef.current = isJamGuest;
   const lyricsQuery = useSyncedLyrics({
     title: video?.title || "",
     artist: video?.channel || "",
@@ -985,6 +998,10 @@ export default function YouTubePlayer() {
               }
               return;
             }
+            if (isJamGuestRef.current) {
+              dispatch(playPause(false));
+              return;
+            }
 
             const endedToken = `${key}:${generation}:${videoRef.current?.id || ""}`;
             if (endedTransitionRef.current === endedToken) return;
@@ -1650,6 +1667,57 @@ export default function YouTubePlayer() {
       const guard = seekGuardRef.current;
       const id = playerVideoId(activePlayer);
       const want = videoRef.current?.id;
+      const pendingJamPlayback = pendingJamPlaybackRef.current;
+      if (
+        pendingJamPlayback?.videoId === want
+        && id === want
+      ) {
+        pendingJamPlaybackRef.current = null;
+        userPausedRef.current = !pendingJamPlayback.isPlaying;
+        if (pendingJamPlayback.isPlaying) {
+          resumePlayer(activePlayer);
+        } else {
+          cancelFade();
+          activePlayer.pauseVideo?.();
+        }
+      }
+
+      const pendingJamSeek = pendingJamSeekRef.current;
+      if (
+        pendingJamSeek?.videoId === want
+        && (!id || id === want)
+        && safeMediaTime(dur) > 0
+      ) {
+        const target = Math.min(
+          safeMediaTime(pendingJamSeek.currentTime),
+          Math.max(0, safeMediaTime(dur) - 0.25),
+        );
+        pendingJamSeekRef.current = null;
+        if (Math.abs(safeMediaTime(time) - target) > 2.5) {
+          try {
+            activePlayer.seekTo?.(target, true);
+            markSeek(target);
+          } catch {
+            pendingJamSeekRef.current = pendingJamSeek;
+          }
+        }
+      }
+
+      if (
+        want
+        && (!id || id === want)
+        && performance.now() - lastJamPlaybackReportRef.current >= 900
+      ) {
+        lastJamPlaybackReportRef.current = performance.now();
+        window.dispatchEvent(new CustomEvent(JAM_PLAYBACK_STATE_EVENT, {
+          detail: {
+            videoId: want,
+            currentTime: safeMediaTime(time),
+            duration: safeMediaTime(dur),
+            isPlaying: isPlayingRef.current,
+          },
+        }));
+      }
       watchActiveProgress(
         activeDeckRef.current,
         activePlayer,
@@ -1682,6 +1750,11 @@ export default function YouTubePlayer() {
       if (safeMediaTime(dur) > 0) setDuration(safeMediaTime(dur));
       if (!guard.seeking && guard.target != null && Math.abs(time - guard.target) <= 1.25 && (!want || !id || id === want)) {
         guard.target = null;
+      }
+
+      if (isJamGuestRef.current) {
+        nearEndStreakRef.current = 0;
+        return;
       }
 
       const nextVideo = getNextVideo();
@@ -1831,6 +1904,10 @@ export default function YouTubePlayer() {
   };
 
   const playNextOrContinue = async (completed = false) => {
+    if (isJamGuestRef.current) {
+      dispatch(playPause(false));
+      return;
+    }
     const current = videoRef.current;
     if (status === "authenticated" && current?.id) {
       recordPlayEvent(current.id, completed ? "completed" : "skipped");
@@ -1859,10 +1936,10 @@ export default function YouTubePlayer() {
   playNextOrContinueRef.current = playNextOrContinue;
 
   useEffect(() => {
-    if (!video?.id) return;
+    if (!video?.id || isJamGuest) return;
     if (remainingAfterCurrent() > 2) return;
     void extendQueueRef.current();
-  }, [video?.id, safeQueue.length]);
+  }, [isJamGuest, video?.id, safeQueue.length]);
 
   const searchForQueueTracks = async () => {
     const query = addQuery.trim();
@@ -1893,7 +1970,8 @@ export default function YouTubePlayer() {
   };
 
   const handleAddTrack = (track) => {
-    dispatch(addToQueue(track));
+    if (jam?.status === "connected") jam.enqueue(track);
+    else dispatch(addToQueue(track));
     setAddResults((current) => current.filter((item) => item.id !== track.id));
   };
 
@@ -1911,6 +1989,34 @@ export default function YouTubePlayer() {
     const interval = window.setInterval(() => tickRef.current(), ms);
     return () => window.clearInterval(interval);
   }, [showLyrics, pipWindow, pipFloat]);
+
+  useEffect(() => {
+    const queueRemotePlayback = (event) => {
+      const detail = event.detail;
+      if (!detail?.videoId || typeof detail.isPlaying !== "boolean") return;
+      pendingJamPlaybackRef.current = {
+        videoId: detail.videoId,
+        isPlaying: detail.isPlaying,
+      };
+      tickRef.current();
+    };
+    const queueRemoteSeek = (event) => {
+      const detail = event.detail;
+      const time = Number(detail?.currentTime);
+      if (!detail?.videoId || !Number.isFinite(time) || time < 0) return;
+      pendingJamSeekRef.current = {
+        videoId: detail.videoId,
+        currentTime: time,
+      };
+      tickRef.current();
+    };
+    window.addEventListener(JAM_REMOTE_PLAYBACK_EVENT, queueRemotePlayback);
+    window.addEventListener(JAM_REMOTE_SEEK_EVENT, queueRemoteSeek);
+    return () => {
+      window.removeEventListener(JAM_REMOTE_PLAYBACK_EVENT, queueRemotePlayback);
+      window.removeEventListener(JAM_REMOTE_SEEK_EVENT, queueRemoteSeek);
+    };
+  }, []);
 
   useEffect(() => {
     applyPlaybackVolume(getActivePlayer());
@@ -1987,6 +2093,7 @@ export default function YouTubePlayer() {
   }, [video?.id]);
 
   const seekOnCurrentTrack = (nextTime, { dragging = false } = {}) => {
+    if (isJamGuestRef.current) return;
     cancelFade();
     endFadeVideoRef.current = null;
     const player = getActivePlayer();
@@ -2023,6 +2130,7 @@ export default function YouTubePlayer() {
   };
 
   const handlePlayPause = () => {
+    if (isJamGuestRef.current) return;
     abortCrossfade();
     cancelFade();
     const player = getActivePlayer();
@@ -2064,15 +2172,18 @@ export default function YouTubePlayer() {
   };
 
   const handleNext = ({ completed = false } = {}) => {
+    if (isJamGuestRef.current) return;
     void playNextOrContinue(completed);
   };
 
   const handleSkipPlaybackFailure = () => {
+    if (isJamGuestRef.current) return;
     setPlayerError(null);
     void playNextOrContinue();
   };
 
   const handlePrev = () => {
+    if (isJamGuestRef.current) return;
     const previous = getPreviousVideo();
     if (previous) {
       if (status === "authenticated" && videoRef.current?.id) recordPlayEvent(videoRef.current.id, "skipped");
@@ -2133,7 +2244,7 @@ export default function YouTubePlayer() {
   };
 
   const playQueueItem = (item) => {
-    if (!item?.id) return;
+    if (!item?.id || isJamGuestRef.current) return;
     if (status === "authenticated" && video?.id) recordPlayEvent(video.id, "skipped");
     abortCrossfade();
     markExpectPlaying();
@@ -2364,7 +2475,7 @@ export default function YouTubePlayer() {
             )}
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               <button type="button" onClick={handleRetryPlayback} className="rounded-md bg-[#00e6e6] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>
-              <button type="button" onClick={handleSkipPlaybackFailure} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">Skip</button>
+              <button type="button" onClick={handleSkipPlaybackFailure} disabled={isJamGuest} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
               <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#00e6e6] hover:bg-white/20">Open YouTube</a>
             </div>
           </div>
@@ -2399,11 +2510,11 @@ export default function YouTubePlayer() {
         {fullscreen && !compactFullscreen && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
           <div className={fullscreen ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 backdrop-blur" : "contents"}>
           <AddToPlaylistButton track={video} className="!h-14 !w-14 text-xl" />
-          <button type="button" aria-label="Previous song" title="Previous" onClick={() => handlePrev()} className="grid h-14 w-14 place-items-center rounded-full p-2 text-xl text-white hover:bg-white/10"><FiSkipBack aria-hidden="true" /></button>
-          <button type="button" aria-label="Seek back 10 seconds" title="Back 10 seconds" onClick={() => seekBy(-10)} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 sm:grid"><FiRotateCcw aria-hidden="true" /></button>
-          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} className="grid h-14 w-14 place-items-center rounded-full bg-[#00e6e6] p-2 text-2xl text-black hover:scale-105">{isPlaying ? <FiPause aria-hidden="true" /> : <FiPlay aria-hidden="true" />}</button>
-          <button type="button" aria-label="Seek forward 10 seconds" title="Forward 10 seconds" onClick={() => seekBy(10)} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 sm:grid"><FiRotateCw aria-hidden="true" /></button>
-          <button type="button" aria-label="Next song" title="Next" onClick={() => handleNext()} className="grid h-14 w-14 place-items-center rounded-full p-2 text-xl text-white hover:bg-white/10"><FiSkipForward aria-hidden="true" /></button>
+          <button type="button" aria-label="Previous song" title={isJamGuest ? "The host controls playback" : "Previous"} onClick={() => handlePrev()} disabled={isJamGuest} className="grid h-14 w-14 place-items-center rounded-full p-2 text-xl text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><FiSkipBack aria-hidden="true" /></button>
+          <button type="button" aria-label="Seek back 10 seconds" title={isJamGuest ? "The host controls playback" : "Back 10 seconds"} onClick={() => seekBy(-10)} disabled={isJamGuest} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:grid"><FiRotateCcw aria-hidden="true" /></button>
+          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isJamGuest ? "The host controls playback" : isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} disabled={isJamGuest} className="grid h-14 w-14 place-items-center rounded-full bg-[#00e6e6] p-2 text-2xl text-black hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100">{isPlaying ? <FiPause aria-hidden="true" /> : <FiPlay aria-hidden="true" />}</button>
+          <button type="button" aria-label="Seek forward 10 seconds" title={isJamGuest ? "The host controls playback" : "Forward 10 seconds"} onClick={() => seekBy(10)} disabled={isJamGuest} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:grid"><FiRotateCw aria-hidden="true" /></button>
+          <button type="button" aria-label="Next song" title={isJamGuest ? "The host controls playback" : "Next"} onClick={() => handleNext()} disabled={isJamGuest} className="grid h-14 w-14 place-items-center rounded-full p-2 text-xl text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><FiSkipForward aria-hidden="true" /></button>
           <FavouriteTrackButton track={video} className="!h-14 !w-14 text-xl" />
           </div>
           {fullscreen && !compactFullscreen && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
@@ -2415,6 +2526,7 @@ export default function YouTubePlayer() {
             min="0"
             max={safeMediaTime(duration)}
             value={Math.min(safeMediaTime(currentTime), safeMediaTime(duration))}
+            disabled={isJamGuest}
             onPointerDown={(event) => {
               event.currentTarget.setPointerCapture?.(event.pointerId);
               seekGuardRef.current.seeking = true;
@@ -2484,7 +2596,7 @@ export default function YouTubePlayer() {
             <div className="max-h-72 overflow-y-auto">
               {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
               {upcoming.slice(0, 12).map((item) => (
-                <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
+                <button key={item.id} type="button" onClick={() => playQueueItem(item)} disabled={isJamGuest} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"><img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
               ))}
             </div>
             <form onSubmit={handleAddSearch} className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
@@ -2563,7 +2675,8 @@ export default function YouTubePlayer() {
                     key={item.id}
                     type="button"
                     onClick={() => playQueueItem(item)}
-                    className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 ${item.id === video.id ? "bg-white/10" : ""}`}
+                    disabled={isJamGuest}
+                    className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 ${item.id === video.id ? "bg-white/10" : ""}`}
                   >
                     <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-11 w-11 rounded object-cover" />
                     <div className="min-w-0 flex-1">
@@ -2594,7 +2707,7 @@ export default function YouTubePlayer() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
             {upcoming.slice(0, 12).map((item) => (
-              <button key={item.id} type="button" onClick={() => playQueueItem(item)} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10"><img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
+              <button key={item.id} type="button" onClick={() => playQueueItem(item)} disabled={isJamGuest} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"><img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
             ))}
           </div>
         </div>

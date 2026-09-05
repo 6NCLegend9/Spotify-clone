@@ -13,6 +13,11 @@
   --navy-panel: #101c28;
   --sidebar-w: 260px;
   --topbar-h: 64px;
+  --mobile-tabbar-h: max(
+    3.75rem,
+    calc(3rem + env(safe-area-inset-bottom, 0px))
+  );
+  --mobile-player-h: 11.5rem;
   --text: #f4f7fb;
   --muted: #9aa8b5;
   --motion-fast: 180ms;
@@ -202,10 +207,10 @@ select:-webkit-autofill {
     height: 100%;
     max-height: 100%;
     min-height: 0;
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto auto;
     grid-template-columns: 1fr;
     background: var(--navy);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: 0;
   }
 
   .app-stage {
@@ -333,15 +338,18 @@ select:-webkit-autofill {
 
   .app-tabbar {
     grid-row: 3;
-    z-index: 35;
+    z-index: 40;
     display: flex;
+    min-height: var(--mobile-tabbar-h);
+    flex-shrink: 0;
     align-items: stretch;
     justify-content: space-around;
     gap: 0.25rem;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(2, 8, 19, 0.96);
+    background: rgba(2, 8, 19, 0.98);
     backdrop-filter: blur(20px);
-    padding: 0.2rem 0.5rem;
+    padding: 0.25rem 0.5rem;
+    padding-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
   }
 
   .app-tab {
@@ -696,12 +704,38 @@ select:-webkit-autofill {
 
   @media (max-width: 639px) {
     .yt-dock {
-      padding: 0.6rem 0.75rem 0.75rem;
+      padding: 0.45rem 0.7rem 0.4rem;
       column-gap: 0.45rem;
+      row-gap: 0.2rem;
     }
 
     .yt-dock-transport {
       gap: 0;
+    }
+  }
+
+  .jam-sheet {
+    padding-bottom: 1rem;
+  }
+
+  @media (max-width: 767px) {
+    .jam-sheet-overlay {
+      bottom: var(--mobile-tabbar-h) !important;
+      padding: 0 !important;
+      align-items: flex-end !important;
+    }
+
+    body:has(.player-dock:not(.player-dock--full)) .jam-sheet-overlay {
+      bottom: calc(var(--mobile-player-h) + var(--mobile-tabbar-h)) !important;
+    }
+
+    body:has(.player-dock--full) .jam-sheet-overlay {
+      bottom: 0 !important;
+    }
+
+    .jam-sheet {
+      max-height: 100% !important;
+      padding-bottom: 1rem !important;
     }
   }
 
@@ -719,6 +753,8 @@ select:-webkit-autofill {
 @media (min-width: 768px) {
   .app-shell {
     grid-template-columns: var(--sidebar-w) 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .app-sidebar {
