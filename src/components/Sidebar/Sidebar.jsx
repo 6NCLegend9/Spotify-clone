@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
 import { FaGithub } from "react-icons/fa";
-import { FiDisc, FiFileText, FiHeart, FiHome, FiInfo, FiSettings, FiShield } from "react-icons/fi";
+import { FiDisc, FiFileText, FiHeart, FiHome, FiInfo, FiSettings, FiShield, FiUsers } from "react-icons/fi";
 import { IoClose } from "react-icons/io5";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import BrandMark from "../Layout/BrandMark";
@@ -15,7 +15,6 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import Profile from "./Profile";
 import Languages from "./Languages";
 import Playlists from "./Playlists";
-import Following from "./Following";
 
 const Sidebar = () => {
   const { showNav, setShowNav, navModal } = useNav();
@@ -43,6 +42,7 @@ const Sidebar = () => {
     ["Home", "/", FiHome],
     ["Your Library", "/library", FiDisc],
     ["Liked Songs", "/library/liked", FiHeart],
+    ["Following", "/following", FiUsers],
     ["Settings", "/settings", FiSettings],
     ["Terms of Service", "/terms", FiFileText],
     ["Privacy Policy", "/privacy", FiShield],
@@ -98,9 +98,6 @@ const Sidebar = () => {
         </div>
         <div className="border-t border-white/10 pt-2">
           <Playlists />
-        </div>
-        <div className="border-t border-white/10 pt-2">
-          <Following />
         </div>
       </nav>
 
