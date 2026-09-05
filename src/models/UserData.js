@@ -89,10 +89,6 @@ const fileSchema = new mongoose.Schema(
             type: [String],
             default: []
         },
-        excludedPlaylists: {
-            type: [String],
-            default: []
-        },
         explicitContent: {
             type: Boolean,
             default: false
