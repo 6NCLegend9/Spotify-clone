@@ -3,14 +3,12 @@ import { useEffect, useState } from "react";
 import getPixels from "get-pixels";
 import { extractColors } from "extract-colors";
 import MediaImage from "@/components/MediaImage";
+import { cleanTitle } from "@/utils/text";
 
 const SongBar = ({ playlist, i }) => {
   const [cardColor, setCardColor] = useState([]);
   const rawTitle = playlist?.title || playlist?.name;
-  const title =
-    typeof rawTitle === "string" && rawTitle.trim()
-      ? rawTitle.trim()
-      : "Untitled playlist";
+  const title = cleanTitle(rawTitle, "Untitled playlist");
   const rawCoverSrc =
     playlist?.image?.[1]?.url ||
     playlist?.image?.[1]?.link ||

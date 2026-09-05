@@ -16,6 +16,7 @@ import {
   deleteSongFromPlaylist,
   getUserPlaylists,
 } from "@/services/playlistApi";
+import { cleanTitle } from "@/utils/text";
 import { toast } from "react-hot-toast";
 import { MdOutlineDeleteOutline } from "react-icons/md";
 import EmptyState from "./EmptyState";
@@ -170,9 +171,7 @@ const SongsList = ({
         ) : null}
         {!songLoading && Array.isArray(SongData) && SongData.length > 0 ? (
           SongData?.map((song, index) => {
-            const trackName = song?.name
-                      ?.replace("&#039;", "'")
-                      ?.replaceAll("&amp;", "&") || "Untitled track";
+            const trackName = cleanTitle(song?.name, "Untitled track");
             return (
             <div
               key={song?.id || index}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import React from "react";
+import { cleanTitle } from "@/utils/text";
 
 const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
   const primaryArtists = Array.isArray(activeSong?.artists?.primary)
@@ -32,9 +33,7 @@ const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
       </div>
       <div className={`w-[190px] select-none cursor-pointer`}>
         <p className="truncate text-white font-bold text-lg">
-          {activeSong?.name
-            ? activeSong?.name.replace("&#039;", "'").replace("&amp;", "&")
-            : "Song"}
+          {cleanTitle(activeSong?.name, "Song")}
         </p>
         <p className="truncate text-gray-300">
           {primaryArtists.length > 0 ? (

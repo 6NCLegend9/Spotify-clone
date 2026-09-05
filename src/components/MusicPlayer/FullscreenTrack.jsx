@@ -2,6 +2,7 @@ import Lyrics from "./Lyrics";
 import { useDispatch } from "react-redux";
 import { setFullScreen } from "@/redux/features/playerSlice";
 import { useSwipeable } from "react-swipeable";
+import { cleanTitle } from "@/utils/text";
 
 const FullscreenTrack = ({
   fullScreen,
@@ -58,9 +59,7 @@ const FullscreenTrack = ({
           className="w-fit select-none cursor-pointer text-center my-5 ml"
         >
           <p className="truncate text-white font-bold text-2xl mx-3 mb-1">
-            {activeSong?.name
-              ? activeSong?.name.replace("&#039;", "'").replace("&amp;", "&")
-              : "Song"}
+            {cleanTitle(activeSong?.name, "Song")}
           </p>
           <p className="truncate text-gray-300">
             {artistDisplay}

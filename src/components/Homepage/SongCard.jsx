@@ -12,6 +12,7 @@ import { useSelector } from "react-redux";
 import MediaImage from "@/components/MediaImage";
 import UserMessage from "@/components/UserMessage";
 import { toUserError } from "@/utils/userError";
+import { cleanTitle } from "@/utils/text";
 
 const hasValidId = (value) =>
   (typeof value === "string" && value.trim().length > 0) ||
@@ -115,12 +116,8 @@ const SongCard = ({ song, isPlaying, activeSong }) => {
         .filter(Boolean)
         .join(", ")) ||
     (typeof song?.subtitle === "string" ? song.subtitle : "");
-  const rawTitle =
-    typeof song?.name === "string"
-      ? song.name.replaceAll("&#039;", "'").replaceAll("&amp;", "&")
-      : song?.title;
-  const titleDisplay =
-    typeof rawTitle === "string" && rawTitle.trim() ? rawTitle.trim() : "Untitled track";
+  const rawTitle = typeof song?.name === "string" ? song.name : song?.title;
+  const titleDisplay = cleanTitle(rawTitle, "Untitled track");
   const isActiveSong =
     hasValidId(activeSong?.id) &&
     hasValidId(song?.id) &&

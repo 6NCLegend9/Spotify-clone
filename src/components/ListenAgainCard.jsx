@@ -12,6 +12,7 @@ import { BiHeadphone } from "react-icons/bi";
 import { useSelector } from "react-redux";
 import AddToQueueButton from "./AddToQueueButton";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
+import { cleanTitle } from "@/utils/text";
 
 const ListenAgainCard = ({ song, index, SongData }) => {
   const { activeSong, youtubeVideo } = useSelector((state) => state.player);
@@ -46,9 +47,7 @@ const ListenAgainCard = ({ song, index, SongData }) => {
   const coverSrc = isYoutube
     ? song?.thumbnail || ""
     : song?.image?.[2]?.url || song?.image?.[1]?.url || song?.image?.[2]?.link || "";
-  const titleDisplay = isYoutube
-    ? song?.title || ""
-    : song?.name?.replace("&#039;", "'")?.replace("&amp;", "&") || "";
+  const titleDisplay = isYoutube ? cleanTitle(song?.title) : cleanTitle(song?.name);
 
   return (
     <div>
