@@ -21,6 +21,11 @@ const GhostFibers = dynamic(
   { ssr: false },
 );
 
+const JamController = dynamic(
+  () => import("@/components/Jam/JamController"),
+  { ssr: false },
+);
+
 const NavContext = createContext(null);
 
 export function useNav() {
@@ -123,6 +128,7 @@ export default function AppShell({ children }) {
             <MusicPlayer />
           </ErrorBoundary>
         </div>
+        <JamController />
       </div>
       <Toaster
         position="top-center"
