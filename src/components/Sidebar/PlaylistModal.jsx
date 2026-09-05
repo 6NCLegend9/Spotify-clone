@@ -115,7 +115,7 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
               type="button"
               aria-pressed={category === item}
               onClick={() => setCategory(item)}
-              className={`rounded-full border px-3 py-1.5 text-xs transition duration-200 ease-out active:scale-[0.98] ${
+              className={`inline-flex min-h-[44px] items-center rounded-full border px-3 py-1.5 text-xs transition duration-200 ease-out active:scale-[0.98] ${
                 category === item
                   ? "border-[#00e6e6] bg-[#00e6e6]/10 text-[#00e6e6]"
                   : "border-white/15 text-gray-300 hover:border-white/30"

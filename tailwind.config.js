@@ -17,6 +17,8 @@ module.exports = {
     extend: {
       colors: {
         accent: "#00e6e6",
+        muted: "#9aa8b5",
+        surface: "#07121d",
         teal: {
           DEFAULT: "#64c9d7",
           mid: "#22a6b3",

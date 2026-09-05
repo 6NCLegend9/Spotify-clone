@@ -81,6 +81,7 @@ const Following = () => {
             <Link
               key={`${artist.name}-${artist.channelId}`}
               href={hrefFor(artist)}
+              prefetch={false}
               onClick={() => setShowNav(false)}
               className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm text-gray-200 transition hover:bg-white/5"
             >

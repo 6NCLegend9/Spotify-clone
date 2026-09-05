@@ -370,6 +370,7 @@ export default function YouTubeMusicResults({ query }) {
               {video.channelId ? (
                 <Link
                   href={`/artist/${encodeURIComponent(video.channelId)}?name=${encodeURIComponent(video.channel || "")}`}
+                  prefetch={false}
                   className="mt-2 block truncate text-xs text-gray-400 hover:text-[#00e6e6]"
                 >
                   {video.channel}
@@ -388,7 +389,7 @@ export default function YouTubeMusicResults({ query }) {
           type="button"
           onClick={() => void loadExtras()}
           disabled={loadingExtras}
-          className="mt-8 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-gray-300 transition hover:border-[#00e6e6] hover:text-[#00e6e6] disabled:opacity-60"
+          className="mt-8 inline-flex min-h-[44px] items-center rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-gray-300 transition hover:border-[#00e6e6] hover:text-[#00e6e6] disabled:opacity-60"
         >
           {loadingExtras ? "Loading artists & playlists..." : "Show artists & playlists"}
         </button>
@@ -443,7 +444,7 @@ export default function YouTubeMusicResults({ query }) {
               const isUpdating = updatingArtists.includes(artist.title.toLowerCase());
               return (
               <div key={artist.id} className="group text-center">
-                <Link href={`/artist/${encodeURIComponent(artist.id)}?name=${encodeURIComponent(artist.title || "")}`}>
+                <Link href={`/artist/${encodeURIComponent(artist.id)}?name=${encodeURIComponent(artist.title || "")}`} prefetch={false}>
                   <MediaImage src={artist.thumbnail} size="mq" alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
                   <p className="mt-2 truncate text-sm font-semibold text-white">{artist.title}</p>
                 </Link>
@@ -453,7 +454,7 @@ export default function YouTubeMusicResults({ query }) {
                     onClick={() => void toggleFollow(artist.title, artist.id, artist.thumbnail)}
                     disabled={isUpdating}
                     aria-pressed={isFollowing}
-                    className={`mt-1 rounded-full border px-2 py-0.5 text-[11px] transition ${isFollowing ? "border-[#00e6e6] text-[#00e6e6]" : "border-white/15 text-gray-400 hover:border-white/30"}`}
+                    className={`mt-1 inline-flex min-h-[44px] items-center justify-center rounded-full border px-2 py-0.5 text-[11px] transition ${isFollowing ? "border-[#00e6e6] text-[#00e6e6]" : "border-white/15 text-gray-400 hover:border-white/30"}`}
                   >
                     {isUpdating ? "Saving…" : isFollowing ? "Following" : "Follow"}
                   </button>

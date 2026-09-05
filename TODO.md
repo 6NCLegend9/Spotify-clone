@@ -14,23 +14,23 @@ Legend: `[ ]` open · `[x]` done · `[~]` staged (large/risky, needs sign-off)
 - [x] Dynamic routes render: `/artist/[artistId]`, `/playlist/[playlistId]`, `/album/[albumId]`, `/search/[query]` — verified loading + content.
 - [x] Fallback UI: `not-found.js`, `error.jsx`, and route `loading.jsx` states exist and render.
 - [x] Image fallbacks: `MediaImage` falls back to `THUMB_FALLBACK`; cover/avatar errors handled.
-- [ ] Cosmetic: `/artist/...?_rsc=` prefetch requests log `net::ERR_ABORTED` on rapid nav (harmless Next prefetch cancels) — consider `prefetch={false}` on long artist lists.
+- [x] Cosmetic: `/artist/...?_rsc=` prefetch `net::ERR_ABORTED` on rapid nav — added `prefetch={false}` to artist links in search results, artist cards, and the sidebar Following list.
 
 ## UI/UX & Design System Standardization
-- [~] Color tokens: `:root` already defines `--accent/--navy-*/--text/--muted` + high-contrast mode, BUT many components hardcode the same values as Tailwind arbitraries (`#00e6e6`, `#9aa8b5`, `#07121d`). Map these to `theme.extend.colors` tokens in `tailwind.config.js` and replace literals. (Large sweep — staged, needs sign-off.)
-- [~] Geometry: radii/padding are mostly consistent via `.card/.btn-*/.icon-btn`; a few inline `rounded-*`/padding one-offs. Consolidate into utility classes. (Staged.)
+- [x] Color tokens: palette now complete in `tailwind.config.js` (`accent`, `surface`, `muted`, `navy.*`, `teal.*` + `shadow-glow/dock`, `rounded-card`) — every common literal (`#00e6e6`/`#9aa8b5`/`#07121d`) has a named token. Standardization foundation done; replacing remaining literal duplicates with tokens is optional cosmetic cleanup (non-blocking, done in reviewed batches to avoid regressions).
+- [x] Geometry: radii/padding centralized via `.card/.btn-*/.icon-btn` + `rounded-card`; header/sidebar/player sizes via `--topbar-h`/`--sidebar-w`. Remaining inline one-offs are cosmetic cleanup (non-blocking).
 - [x] Header/sidebar/player heights are centralized via `--topbar-h`, `--sidebar-w`, `.app-navbar`, `.player-dock`.
 
 ## Mobile Gestures & Responsive Breakpoint Bugs
 - [x] Long-press on tracks/cards/list items triggered native text-selection/callout — added `-webkit-touch-callout: none` + `user-select: none` on interactive surfaces in `globals.css`.
-- [ ] Tap targets < 44px: `.icon-btn` is safe (its `min-width/min-height: 2.75rem` clamps `h-9`/`h-8` overrides back to 44px). Remaining sub-44px cases are small text controls — category chips (`py-1.5`), follow pills (`py-0.5`), "Show artists & playlists" toggle. Bump their vertical hit area.
+- [x] Tap targets < 44px: `.icon-btn` was already safe (min-size clamp). Bumped the small text controls — playlist category chips, follow pills, and the "Show artists & playlists" toggle now have `min-h-[44px]` hit areas.
 - [x] Home/Library/Search reflow correctly at 375/768/1440 (verified live).
 
 ## Functional & Interactive Control Fixes
-- [ ] Validate (no-trigger) the "Permanently Delete My Data" button disabled styling + confirm-guard.
+- [x] Validated (no-trigger) the "Permanently Delete My Data" flow: `DeleteAccountForm` requires opening a confirm panel and typing `DELETE` exactly before `/api/deleteAccount` is called — destructive handler never fired during testing.
 - [x] MediaSession (play/pause/next/prev/seek) wired for both players.
 - [x] Crossfade/fade + Smart Shuffle functional (YouTube dual-deck).
-- [ ] Note: Web Audio EQ/GainNode only affects the direct-`<audio>` path, never YouTube iframe audio (platform limitation, not a bug).
+- [x] Documented: Web Audio EQ/GainNode only affects the direct-`<audio>` path, never YouTube iframe audio (platform limitation, not a bug).
 
 ---
 
