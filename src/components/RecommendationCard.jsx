@@ -96,8 +96,17 @@ export default function RecommendationCard({ video, queue }) {
 
   if (dismissed) return null;
 
+  const handleContextMenu = showMenu
+    ? (event) => {
+        // Desktop right-click (and Android long-press, which fires contextmenu)
+        // open the same options menu instead of the native browser menu.
+        event.preventDefault();
+        setMenuOpen(true);
+      }
+    : undefined;
+
   return (
-    <article className="card group relative w-full text-left">
+    <article className="card group relative w-full text-left" onContextMenu={handleContextMenu}>
       <button type="button" aria-label={`Play ${video.title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
         <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03] group-active:scale-[0.98]" />
       </button>

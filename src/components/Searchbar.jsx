@@ -20,6 +20,29 @@ const Searchbar = () => {
   const inputId = useId();
   const listboxId = useId();
   const abortRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Global shortcuts: "/" (when not already typing) and Cmd/Ctrl+K focus search.
+  useEffect(() => {
+    const onKey = (event) => {
+      const target = event.target;
+      const isEditable =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+      const isModK =
+        (event.metaKey || event.ctrlKey) && (event.key === "k" || event.key === "K");
+      const isSlash =
+        event.key === "/" && !isEditable && !event.metaKey && !event.ctrlKey && !event.altKey;
+      if (isModK || isSlash) {
+        event.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const genreMatches = useMemo(
     () => (searchTerm.trim().length >= 2 ? searchGenres(searchTerm, { limit: 4 }) : []),
@@ -124,6 +147,7 @@ const Searchbar = () => {
         <FiSearch aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9aa8b5]" />
         <input
           id={inputId}
+          ref={inputRef}
           name="search-field"
           type="search"
           autoComplete="off"
