@@ -1,33 +1,54 @@
-// Shared metadata for the arcade: selection cards, instructions, and the stage
-// all read from here so a game's copy never drifts between screens.
-
 export const ARCADE_GAMES = [
   {
     id: "tiles",
     title: "Magic Tiles",
     tagline: "4-lane rhythm",
-    blurb: "Hit each tile as it crosses the glowing line.",
+    blurb: "Tiles fall so they hit the glow line on the beat. Tap the lane at that moment.",
     ready: true,
-    desktop: ["D · F · J · K hit lanes 1 to 4", "Perfect timing on the line scores double"],
-    mobile: ["Tap a tile in its column as it reaches the line", "Four touch columns, left to right"],
+    desktop: [
+      "D · F · J · K hit lanes 1 to 4",
+      "Perfect timing on the line scores more",
+      "The chart is built from the song you pick",
+    ],
+    mobile: [
+      "Tap a column as its tile reaches the line",
+      "Four touch columns, left to right",
+      "Tiles are locked to the song, not a random timer",
+    ],
   },
   {
     id: "runner",
     title: "Beat Runner",
-    tagline: "3-lane endless runner",
-    blurb: "Dodge obstacles on a neon grid that speeds up with the music.",
+    tagline: "Music highway",
+    blurb: "Ride the song. Catch orbs and gold rings in your lane on the beat. Step aside for barriers.",
     ready: true,
-    desktop: ["A / D or Left / Right arrows change lane"],
-    mobile: ["Swipe left or right to change lane"],
+    desktop: [
+      "A / D or Left / Right change lane",
+      "Stay in a lane to catch the pulse as it reaches you",
+      "Gold rings are downbeats. Pink gates are dodge-only",
+    ],
+    mobile: [
+      "Swipe left or right to change lane",
+      "Drive through teal orbs and gold rings on the beat",
+      "Pink gates hurt — be in another lane when they arrive",
+    ],
   },
   {
     id: "invaders",
     title: "Wave Invaders",
-    tagline: "Retro shooter",
-    blurb: "Enemy waves spawn on treble and mid spikes.",
+    tagline: "Pulse shooter",
+    blurb: "Snap to a lane and fire as the beat crosses the ring. Hits are timed to the song, not sprayed.",
     ready: true,
-    desktop: ["Left / Right arrows steer", "Spacebar shoots"],
-    mobile: ["Drag left and right to steer", "Tap to shoot"],
+    desktop: [
+      "A / D or Left / Right switch lanes",
+      "Space fires a pulse in your lane",
+      "Fire when the orb sits on the glow ring",
+    ],
+    mobile: [
+      "Tap a column to move there and fire",
+      "Time the tap for when the orb hits the ring",
+      "Missed beats break your combo",
+    ],
   },
 ];
 

@@ -121,14 +121,16 @@ export default function AppShell({ children }) {
             <PullToRefresh />
             <OnlineStatus />
             {children}
-            <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-[#9aa8b5]">
-              <div className="flex justify-center gap-4">
-                <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>
-                <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
-                <Link href="/accessibility" className="transition hover:text-white">Accessibility</Link>
-              </div>
-              <p className="mt-4">&copy; {new Date().getFullYear()} HeyKasa Music. All rights reserved.</p>
-            </footer>
+            {pathname?.startsWith("/arcade") ? null : (
+              <footer className="mt-12 mb-6 border-t border-white/10 pt-6 text-center text-xs text-[#9aa8b5]">
+                <div className="flex justify-center gap-4">
+                  <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>
+                  <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
+                  <Link href="/accessibility" className="transition hover:text-white">Accessibility</Link>
+                </div>
+                <p className="mt-4">&copy; {new Date().getFullYear()} HeyKasa Music. All rights reserved.</p>
+              </footer>
+            )}
           </div>
           <JamController />
         </div>

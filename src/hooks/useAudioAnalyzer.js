@@ -34,9 +34,9 @@ function bandAverage(bins, sampleRate, fftSize, fromHz, toHz) {
  * React state, so nothing here re-renders at frame rate.
  *
  * A YouTube IFrame exposes no audio samples to the page, so `attach` only works
- * for same-origin or CORS-enabled media (a local file, a blob, or a hosted
- * game track). Without one, the analyser reports `procedural` mode and drives
- * gameplay from a fixed tempo instead of pretending to hear anything.
+ * for same-origin media (a local file or blob). YouTube rounds still stay in
+ * time: the arcade chart is locked to the player's currentTime. This hook is
+ * the live FFT path for uploaded files.
  */
 export default function useAudioAnalyzer() {
   const graphRef = useRef(null);
@@ -135,5 +135,14 @@ export default function useAudioAnalyzer() {
 
   useEffect(() => release, [release]);
 
-  return { attach, read, resume, release, mode };
+  const apiRef = useRef(null);
+  if (!apiRef.current) {
+    apiRef.current = { attach, read, resume, release, mode };
+  }
+  apiRef.current.attach = attach;
+  apiRef.current.read = read;
+  apiRef.current.resume = resume;
+  apiRef.current.release = release;
+  apiRef.current.mode = mode;
+  return apiRef.current;
 }

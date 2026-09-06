@@ -1,42 +1,85 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import useArcadeCanvas from "@/hooks/useArcadeCanvas";
+import { approachSeconds, chartEnergy, notesInWindow } from "@/utils/arcadeChart.mjs";
 
-const PLAYER_W_RATIO = 0.09;
-const PLAYER_SPEED = 620;
-const BULLET_SPEED = 720;
-const ENEMY_BASE_SPEED = 90;
-const ENEMY_SIZE_RATIO = 0.062;
-const FIRE_COOLDOWN_MS = 180;
-const SPAWN_COOLDOWN_MS = 260;
-const MAX_ENEMIES = 18;
+const LANES = 4;
+const LANE_COLORS = ["#00e6e6", "#7c5cff", "#ff4ecd", "#ffb648"];
+const LOCK_RATIO = 0.72;
+const PERFECT_WINDOW = 0.09;
+const GOOD_WINDOW = 0.18;
+const HIT_WINDOW = 0.28;
 const START_LIVES = 3;
+const MISS_LIMIT = 10;
+
+function audioFrame(analyzer, time, chart) {
+  if (analyzer?.mode === "fft") return analyzer.read(performance.now());
+  return chartEnergy(time, chart?.bpm || 120, chart?.offset || 0);
+}
+
+function laneLayout(width) {
+  const pad = Math.max(16, width * 0.06);
+  const inner = Math.max(1, width - pad * 2);
+  return { pad, laneWidth: inner / LANES };
+}
+
+function laneCenter(width, lane) {
+  const { pad, laneWidth } = laneLayout(width);
+  return pad + lane * laneWidth + laneWidth / 2;
+}
+
+function laneFromX(width, x) {
+  const { pad, laneWidth } = laneLayout(width);
+  return Math.max(0, Math.min(LANES - 1, Math.floor((x - pad) / laneWidth)));
+}
+
+function noteKey(note) {
+  return `${note.t}:${note.lane}`;
+}
 
 /**
- * Retro vertical shooter. Enemy waves spawn on mid/treble onsets, so the wave
- * pattern follows the track rather than a fixed timer.
+ * Lane-locked pulse shooter. Each chart note is an orb that meets the ring
+ * on the beat. A shot only counts if it is in that lane and in time.
  */
-export default function WaveInvaders2D({ analyzer, running, reducedMotion, onGameOver }) {
+export default function WaveInvaders2D({
+  analyzer,
+  clock,
+  chart,
+  running,
+  reducedMotion,
+  onGameOver,
+}) {
   const canvasRef = useRef(null);
+  const sizeRef = useArcadeCanvas(canvasRef);
+  const clockRef = useRef(clock);
+  const analyzerRef = useRef(analyzer);
+  const chartRef = useRef(chart);
+  const reducedRef = useRef(reducedMotion);
+  clockRef.current = clock;
+  analyzerRef.current = analyzer;
+  chartRef.current = chart;
+  reducedRef.current = reducedMotion;
   const runningRef = useRef(running);
-  const keysRef = useRef({ left: false, right: false });
-  const pointerRef = useRef({ active: false, x: 0 });
-  const fireRef = useRef({ requested: false, lastAt: 0 });
   const overRef = useRef(false);
   const gameOverRef = useRef(onGameOver);
   const stateRef = useRef({
-    playerX: 0.5,
-    bullets: [],
-    enemies: [],
-    lastSpawn: 0,
+    lane: 1,
+    judged: new Set(),
+    particles: [],
+    beamUntil: 0,
     lastFrame: 0,
-    nextId: 1,
-    shake: 0,
     points: 0,
+    combo: 0,
+    best: 0,
+    hits: 0,
+    misses: 0,
     lives: START_LIVES,
-    wave: 0,
+    popup: "",
+    popupAt: 0,
+    finished: false,
   });
-  const [score, setScore] = useState({ points: 0, lives: START_LIVES, wave: 0 });
+  const [hud, setHud] = useState({ points: 0, combo: 0, lives: START_LIVES, hits: 0 });
 
   useEffect(() => {
     runningRef.current = running;
@@ -46,35 +89,91 @@ export default function WaveInvaders2D({ analyzer, running, reducedMotion, onGam
     gameOverRef.current = onGameOver;
   }, [onGameOver]);
 
-  const fire = useCallback(() => {
-    fireRef.current.requested = true;
+  const finish = useCallback((detail) => {
+    if (overRef.current) return;
+    overRef.current = true;
+    runningRef.current = false;
+    const state = stateRef.current;
+    gameOverRef.current?.({
+      score: state.points,
+      detail: detail || `${state.hits} pulses · ${state.best}x combo`,
+    });
+  }, []);
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+
+  const moveLane = useCallback((direction) => {
+    const state = stateRef.current;
+    state.lane = Math.max(0, Math.min(LANES - 1, state.lane + direction));
   }, []);
 
-  // Capture phase keeps arrows and Space away from the global player shortcuts.
+  const fire = useCallback(() => {
+    if (!runningRef.current) return;
+    const notes = chartRef.current?.notes;
+    if (!notes) return;
+    const state = stateRef.current;
+    const time = clockRef.current.getTime();
+    const now = performance.now();
+    state.beamUntil = now + 90;
+
+    let best = null;
+    let bestAbs = HIT_WINDOW;
+    for (const note of notes) {
+      if (note.lane !== state.lane || state.judged.has(noteKey(note))) continue;
+      const delta = Math.abs(note.t - time);
+      if (delta <= bestAbs) {
+        best = note;
+        bestAbs = delta;
+      }
+    }
+
+    if (!best) {
+      const upcoming = notes.find((note) => (
+        note.lane === state.lane
+        && !state.judged.has(noteKey(note))
+        && note.t - time > 0
+        && note.t - time < 0.55
+      ));
+      state.combo = 0;
+      state.popup = upcoming ? "EARLY" : "";
+      state.popupAt = now;
+      setHud({ points: state.points, combo: 0, lives: state.lives, hits: state.hits });
+      return;
+    }
+
+    state.judged.add(noteKey(best));
+    const perfect = bestAbs <= PERFECT_WINDOW;
+    const good = bestAbs <= GOOD_WINDOW;
+    state.combo += 1;
+    state.best = Math.max(state.best, state.combo);
+    state.hits += 1;
+    const base = best.kind === "accent" ? 180 : 100;
+    state.points += (perfect ? base + 80 : good ? base + 30 : base) + Math.min(state.combo, 32) * 8;
+    state.popup = perfect ? "PERFECT" : good ? "GOOD" : "OK";
+    state.popupAt = now;
+    state.particles.push({
+      x: best.lane,
+      y: 0.72,
+      life: 1,
+      color: LANE_COLORS[best.lane],
+    });
+    setHud({ points: state.points, combo: state.combo, lives: state.lives, hits: state.hits });
+  }, []);
+
   useEffect(() => {
-    if (!running) return undefined;
-    const setKey = (event, value) => {
+    const onDown = (event) => {
+      if (!runningRef.current || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
       const key = event.key;
-      if (key === "ArrowLeft" || key === "a" || key === "A") keysRef.current.left = value;
-      else if (key === "ArrowRight" || key === "d" || key === "D") keysRef.current.right = value;
-      else if (event.code === "Space") {
-        if (value) fire();
-      } else return;
+      if (key === "ArrowLeft" || key === "a" || key === "A") moveLane(-1);
+      else if (key === "ArrowRight" || key === "d" || key === "D") moveLane(1);
+      else if (event.code === "Space") fire();
+      else return;
       event.preventDefault();
       event.stopPropagation();
     };
-    const onDown = (event) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      setKey(event, true);
-    };
-    const onUp = (event) => setKey(event, false);
     document.addEventListener("keydown", onDown, true);
-    document.addEventListener("keyup", onUp, true);
-    return () => {
-      document.removeEventListener("keydown", onDown, true);
-      document.removeEventListener("keyup", onUp, true);
-    };
-  }, [fire, running]);
+    return () => document.removeEventListener("keydown", onDown, true);
+  }, [fire, moveLane]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -83,191 +182,200 @@ export default function WaveInvaders2D({ analyzer, running, reducedMotion, onGam
     let frame = 0;
     let disposed = false;
 
-    const resize = () => {
-      const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = canvas.clientWidth * ratio;
-      canvas.height = canvas.clientHeight * ratio;
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
     const render = (now) => {
       if (disposed) return;
       frame = window.requestAnimationFrame(render);
       const state = stateRef.current;
+      const chartNow = chartRef.current;
+      const clockNow = clockRef.current;
       const delta = state.lastFrame ? Math.min((now - state.lastFrame) / 1000, 0.05) : 0;
       state.lastFrame = now;
 
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      const playerW = width * PLAYER_W_RATIO;
-      const playerY = height - Math.max(28, height * 0.08);
-      const enemySize = Math.max(18, width * ENEMY_SIZE_RATIO);
-      const audio = analyzer.read(now);
+      const width = sizeRef.current.w || canvas.clientWidth;
+      const height = sizeRef.current.h || canvas.clientHeight;
+      if (width < 8 || height < 8) return;
 
-      if (runningRef.current) {
-        // Steering: keyboard, or drag position when a pointer is down.
-        if (pointerRef.current.active) {
-          state.playerX += (pointerRef.current.x - state.playerX) * Math.min(1, delta * 14);
-        } else {
-          const dir = (keysRef.current.right ? 1 : 0) - (keysRef.current.left ? 1 : 0);
-          state.playerX += (dir * PLAYER_SPEED * delta) / Math.max(width, 1);
+      const { pad, laneWidth } = laneLayout(width);
+      const lockY = height * LOCK_RATIO;
+      const time = clockNow?.getTime?.() || 0;
+      const duration = chartNow?.duration || clockNow?.getDuration?.() || 0;
+      const grace = Math.max(1.6, Number(chartNow?.offset) || 0);
+      const approach = approachSeconds(chartNow?.bpm || 120, 4, reducedRef.current);
+      const audio = audioFrame(analyzerRef.current, time, chartNow);
+      const visible = notesInWindow(chartNow?.notes || [], time - HIT_WINDOW - 0.05, time + approach + 0.05);
+      const orbR = Math.max(11, Math.min(laneWidth * 0.22, 22));
+
+      if (runningRef.current && time >= grace) {
+        let missed = 0;
+        for (const note of chartNow?.notes || []) {
+          const key = noteKey(note);
+          if (state.judged.has(key) || note.t > time - HIT_WINDOW) continue;
+          state.judged.add(key);
+          missed += 1;
         }
-        const half = playerW / 2 / width;
-        state.playerX = Math.max(half, Math.min(1 - half, state.playerX));
-
-        if (fireRef.current.requested && now - fireRef.current.lastAt >= FIRE_COOLDOWN_MS) {
-          fireRef.current.lastAt = now;
-          state.bullets.push({ id: (state.nextId += 1), x: state.playerX * width, y: playerY - 14 });
-        }
-        fireRef.current.requested = false;
-
-        for (const bullet of state.bullets) bullet.y -= BULLET_SPEED * delta;
-        state.bullets = state.bullets.filter((bullet) => bullet.y > -20);
-
-        // Treble/mid spikes decide when a new attacker joins.
-        if (audio.onset && now - state.lastSpawn >= SPAWN_COOLDOWN_MS && state.enemies.length < MAX_ENEMIES) {
-          state.lastSpawn = now;
-          const drift = (Math.random() - 0.5) * 0.5;
-          state.enemies.push({
-            id: (state.nextId += 1),
-            x: 0.12 + Math.random() * 0.76,
-            y: -enemySize,
-            drift,
-            hue: audio.treble > 0.35 ? "#ff4ecd" : "#7c5cff",
-          });
-          state.wave += 1;
-          setScore({ points: state.points, lives: state.lives, wave: state.wave });
-        }
-
-        const fallSpeed = (reducedMotion ? ENEMY_BASE_SPEED * 0.7 : ENEMY_BASE_SPEED) * (1 + audio.energy * 1.6);
-        let lost = 0;
-        const survivors = [];
-        for (const enemy of state.enemies) {
-          enemy.y += fallSpeed * delta;
-          enemy.x += enemy.drift * delta * 0.12;
-          if (enemy.x < 0.08 || enemy.x > 0.92) enemy.drift *= -1;
-          if (enemy.y > height) {
-            lost += 1;
-            continue;
-          }
-          survivors.push(enemy);
-        }
-        state.enemies = survivors;
-        if (lost > 0) {
-          state.shake = 1;
-          state.lives = Math.max(0, state.lives - lost);
-          setScore({ points: state.points, lives: state.lives, wave: state.wave });
-          if (state.lives === 0 && !overRef.current) {
-            overRef.current = true;
-            runningRef.current = false;
-            gameOverRef.current?.({ score: state.points, detail: `Wave ${state.wave}` });
+        if (missed > 0) {
+          state.misses += missed;
+          state.combo = 0;
+          state.lives = Math.max(0, state.lives - missed);
+          state.popup = "MISS";
+          state.popupAt = now;
+          setHud({ points: state.points, combo: 0, lives: state.lives, hits: state.hits });
+          if (state.lives === 0 || state.misses >= MISS_LIMIT) {
+            finishRef.current(`${state.hits} pulses · ${state.best}x combo`);
           }
         }
-
-        // Bullet / enemy collisions.
-        const hitBullets = new Set();
-        const hitEnemies = new Set();
-        for (const bullet of state.bullets) {
-          for (const enemy of state.enemies) {
-            if (hitEnemies.has(enemy.id)) continue;
-            if (
-              Math.abs(bullet.x - enemy.x * width) < enemySize * 0.6
-              && Math.abs(bullet.y - enemy.y) < enemySize * 0.6
-            ) {
-              hitBullets.add(bullet.id);
-              hitEnemies.add(enemy.id);
-              break;
-            }
-          }
-        }
-        if (hitEnemies.size > 0) {
-          state.bullets = state.bullets.filter((bullet) => !hitBullets.has(bullet.id));
-          state.enemies = state.enemies.filter((enemy) => !hitEnemies.has(enemy.id));
-          state.points += hitEnemies.size * 120;
-          setScore({ points: state.points, lives: state.lives, wave: state.wave });
+        const lastNote = chartNow?.notes?.[chartNow.notes.length - 1];
+        if (lastNote && time > lastNote.t + 0.9 && !state.finished) {
+          state.finished = true;
+          finishRef.current(`Cleared · ${state.best}x combo`);
+        } else if (duration > 0 && time >= duration - 0.05 && !state.finished) {
+          state.finished = true;
+          finishRef.current("Track ended");
         }
       }
 
-      state.shake = Math.max(0, state.shake - delta * 3);
+      for (const particle of state.particles) particle.life -= delta * 2.4;
+      state.particles = state.particles.filter((particle) => particle.life > 0);
+
       context.clearRect(0, 0, width, height);
-      context.fillStyle = "#04070d";
+      const sky = context.createLinearGradient(0, 0, 0, height);
+      sky.addColorStop(0, "#04070d");
+      sky.addColorStop(0.55, "#071018");
+      sky.addColorStop(1, "#0a1a24");
+      context.fillStyle = sky;
       context.fillRect(0, 0, width, height);
 
-      context.save();
-      if (state.shake > 0 && !reducedMotion) {
-        context.translate((Math.random() - 0.5) * 6 * state.shake, (Math.random() - 0.5) * 6 * state.shake);
-      }
-
-      // Starfield rows pulse with the bass.
-      const rows = 6;
-      for (let row = 0; row < rows; row += 1) {
-        const y = ((now / 18 + row * (height / rows)) % height);
-        context.fillStyle = `rgba(0,230,230,${0.05 + audio.bass * 0.08})`;
-        context.fillRect(0, y, width, 1);
-      }
-
-      for (const enemy of state.enemies) {
-        const x = enemy.x * width;
-        context.fillStyle = enemy.hue;
+      for (let lane = 0; lane < LANES; lane += 1) {
+        const x = pad + lane * laneWidth;
+        const active = lane === state.lane;
+        context.fillStyle = active
+          ? `rgba(0,230,230,${0.06 + audio.bass * 0.08})`
+          : lane % 2 === 0 ? "rgba(255,255,255,0.025)" : "rgba(255,255,255,0.045)";
+        context.fillRect(x, 0, laneWidth, height);
+        context.strokeStyle = "rgba(255,255,255,0.06)";
         context.beginPath();
-        context.moveTo(x, enemy.y + enemySize * 0.5);
-        context.lineTo(x - enemySize * 0.5, enemy.y - enemySize * 0.35);
-        context.lineTo(x + enemySize * 0.5, enemy.y - enemySize * 0.35);
-        context.closePath();
-        context.fill();
+        context.moveTo(x, 0);
+        context.lineTo(x, height);
+        context.stroke();
       }
 
-      context.fillStyle = "#ffb648";
-      for (const bullet of state.bullets) context.fillRect(bullet.x - 2, bullet.y - 12, 4, 12);
+      const ringGlow = reducedRef.current ? 0.4 : 0.35 + audio.bass * 0.65;
+      context.fillStyle = `rgba(0,230,230,${0.08 + audio.bass * 0.1})`;
+      context.fillRect(pad, lockY - 18, width - pad * 2, 36);
+      context.shadowColor = "#00e6e6";
+      context.shadowBlur = reducedRef.current ? 0 : 16 * ringGlow;
+      context.strokeStyle = `rgba(0,230,230,${Math.min(1, ringGlow)})`;
+      context.lineWidth = 3;
+      context.beginPath();
+      context.moveTo(pad, lockY);
+      context.lineTo(width - pad, lockY);
+      context.stroke();
+      context.shadowBlur = 0;
 
-      const px = state.playerX * width;
+      for (const note of visible) {
+        if (state.judged.has(noteKey(note)) && time >= note.t) continue;
+        const y = lockY - ((note.t - time) / approach) * lockY;
+        const x = laneCenter(width, note.lane);
+        const accent = note.kind === "accent";
+        const radius = orbR * (accent ? 1.25 : 1);
+        const gradient = context.createRadialGradient(x, y, 2, x, y, radius * 1.8);
+        gradient.addColorStop(0, "#fff");
+        gradient.addColorStop(0.35, LANE_COLORS[note.lane]);
+        gradient.addColorStop(1, "rgba(0,0,0,0)");
+        context.fillStyle = gradient;
+        context.beginPath();
+        context.arc(x, y, radius * 1.6, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = LANE_COLORS[note.lane];
+        context.beginPath();
+        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.fill();
+        if (accent) {
+          context.strokeStyle = "rgba(255,255,255,0.7)";
+          context.lineWidth = 2;
+          context.stroke();
+        }
+      }
+
+      for (const particle of state.particles) {
+        const x = laneCenter(width, particle.x);
+        context.globalAlpha = particle.life;
+        context.fillStyle = particle.color;
+        context.beginPath();
+        context.arc(x, lockY, 22 * (1.2 - particle.life), 0, Math.PI * 2);
+        context.fill();
+        context.globalAlpha = 1;
+      }
+
+      const shipX = laneCenter(width, state.lane);
+      const shipY = height - Math.max(36, height * 0.09);
+      if (now < state.beamUntil) {
+        context.strokeStyle = "rgba(0,230,230,0.75)";
+        context.lineWidth = 4;
+        context.beginPath();
+        context.moveTo(shipX, shipY - 18);
+        context.lineTo(shipX, lockY);
+        context.stroke();
+      }
+
       context.fillStyle = "#00e6e6";
       context.beginPath();
-      context.moveTo(px, playerY - playerW * 0.45);
-      context.lineTo(px - playerW * 0.5, playerY + playerW * 0.3);
-      context.lineTo(px + playerW * 0.5, playerY + playerW * 0.3);
+      context.moveTo(shipX, shipY - 22);
+      context.lineTo(shipX - 16, shipY + 14);
+      context.lineTo(shipX, shipY + 6);
+      context.lineTo(shipX + 16, shipY + 14);
       context.closePath();
       context.fill();
-      context.restore();
+      context.fillStyle = "#ffb648";
+      context.fillRect(shipX - 2, shipY - 8, 4, 10);
+
+      context.font = "700 12px system-ui, sans-serif";
+      context.fillStyle = "rgba(255,255,255,0.45)";
+      context.textAlign = "center";
+      context.fillText("FIRE", shipX, height - 10);
+
+      if (state.popup && now - state.popupAt < 380) {
+        context.globalAlpha = 1 - (now - state.popupAt) / 380;
+        context.fillStyle = state.popup === "MISS" || state.popup === "EARLY" ? "#ff4ecd" : "#ffb648";
+        context.font = "800 28px system-ui, sans-serif";
+        context.fillText(state.popup, width / 2, lockY - 40);
+        context.globalAlpha = 1;
+      }
     };
 
     frame = window.requestAnimationFrame(render);
     return () => {
       disposed = true;
       window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", resize);
     };
-  }, [analyzer, reducedMotion]);
+  }, [sizeRef]);
 
-  const pointerPosition = (event) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    return ((event.touches?.[0]?.clientX ?? event.clientX) - rect.left) / rect.width;
+  const handlePointer = (event) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !runningRef.current) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.touches?.[0]?.clientX ?? event.clientX) - rect.left;
+    stateRef.current.lane = laneFromX(rect.width, x);
+    fire();
   };
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full min-h-0">
       <canvas
         ref={canvasRef}
-        onPointerDown={(event) => {
-          pointerRef.current = { active: true, x: pointerPosition(event) };
-          fire();
-        }}
-        onPointerMove={(event) => {
-          if (pointerRef.current.active) pointerRef.current.x = pointerPosition(event);
-        }}
-        onPointerUp={() => { pointerRef.current.active = false; }}
-        onPointerLeave={() => { pointerRef.current.active = false; }}
-        className="h-full w-full touch-none"
+        onPointerDown={handlePointer}
+        className="block h-full w-full touch-none"
         aria-label="Wave Invaders game board"
       />
       <div className="pointer-events-none absolute left-3 top-3 text-xs font-semibold text-white">
-        <p className="tabular-nums">{score.points.toLocaleString()}</p>
-        <p className="text-[11px] text-[#ffb648]">Wave {score.wave}</p>
+        <p className="text-lg tabular-nums">{hud.points.toLocaleString()}</p>
+        <p className="text-[11px] text-[#00e6e6]">{hud.combo > 1 ? `${hud.combo}x combo` : `${hud.hits} pulses`}</p>
       </div>
-      <p className="pointer-events-none absolute right-3 top-3 text-[11px] font-semibold text-white">
-        <span className="text-[#ff4ecd]">{"♥".repeat(score.lives) || "—"}</span>
+      <p className="pointer-events-none absolute right-3 top-3 text-[11px] font-semibold text-[#ff4ecd]">
+        {"♥".repeat(hud.lives) || "—"}
+      </p>
+      <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-[#9aa8b5]">
+        Fire on the glow ring · {chart?.bpm || 120} BPM
       </p>
     </div>
   );

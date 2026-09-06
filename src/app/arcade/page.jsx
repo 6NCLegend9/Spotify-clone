@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 const ArcadeStage = dynamic(() => import("@/components/Arcade/ArcadeStage"), {
   ssr: false,
   loading: () => (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-[#04070d] text-sm text-[#9aa8b5]">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-[#04070d] text-sm text-[#9aa8b5]">
       Loading the arcade…
     </div>
   ),
