@@ -53,12 +53,10 @@ import MediaImage from "@/components/MediaImage";
 import { requestJson } from "@/services/http";
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
+import { cleanTitle } from "@/utils/text";
 
 function cleanText(value = "") {
-  return value
-    .replaceAll("&amp;", "&")
-    .replaceAll("&#39;", "'")
-    .replaceAll("&quot;", '"');
+  return cleanTitle(value);
 }
 
 function formatDuration(seconds) {

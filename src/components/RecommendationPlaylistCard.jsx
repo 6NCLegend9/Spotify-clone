@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
+import { cleanTitle } from "@/utils/text";
 
 export default function RecommendationPlaylistCard({ playlist }) {
   const dispatch = useDispatch();
@@ -63,8 +64,8 @@ export default function RecommendationPlaylistCard({ playlist }) {
         />
       </div>
       <div className="p-4">
-        <p className="line-clamp-2 text-sm font-semibold text-white">{playlist.title}</p>
-        <p className="mt-2 truncate text-xs text-gray-400">{playlist.channel}</p>
+        <p className="line-clamp-2 text-sm font-semibold text-white">{cleanTitle(playlist.title, "Untitled playlist")}</p>
+        <p className="mt-2 truncate text-xs text-gray-400">{cleanTitle(playlist.channel)}</p>
       </div>
     </button>
   );

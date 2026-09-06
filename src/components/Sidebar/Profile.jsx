@@ -106,7 +106,7 @@ const Profile = () => {
       </Link>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="truncate text-sm font-semibold text-white">{userName}</h1>
+          <p className="truncate text-sm font-semibold text-white">{userName}</p>
           <button
             type="button"
             aria-label="Log out"
@@ -114,7 +114,7 @@ const Profile = () => {
               close();
               void signOut();
             }}
-            className="text-white/80 transition hover:text-[#00e6e6]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-[#00e6e6]"
           >
             <MdLogout size={18} />
           </button>

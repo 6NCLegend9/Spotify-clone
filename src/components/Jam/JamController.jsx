@@ -7,6 +7,7 @@ import { FiRadio, FiCopy, FiUsers, FiLink, FiShare2, FiX } from "react-icons/fi"
 import { toast } from "react-hot-toast";
 import BottomSheet from "@/components/BottomSheet";
 import JamQr from "@/components/Jam/JamQr";
+import KasaCrowd from "@/components/Jam/KasaCrowd";
 import { useJam } from "@/components/Jam/JamProvider";
 import {
   JAM_OPEN_EVENT,
@@ -206,8 +207,8 @@ export default function JamController() {
       className={`${
         fullScreen
           ? `fixed z-[80] touch-none select-none ${fabPos ? "" : "left-4 top-20"} ${dragging ? "cursor-grabbing" : "cursor-grab"}`
-          : "absolute bottom-3 right-3 z-[25] md:bottom-4 md:right-4"
-      } inline-flex min-h-11 items-center gap-2 rounded-full border border-[#00e6e6]/40 bg-[#07121d]/95 px-3.5 py-2 text-sm font-semibold text-[#00e6e6] shadow-glow backdrop-blur ${dragging ? "" : "transition hover:border-[#00e6e6]"}`}
+          : "fixed right-3 z-[25] bottom-[calc(9rem+env(safe-area-inset-bottom))] md:absolute md:bottom-4 md:right-4"
+      } ${fullScreen ? "hidden md:inline-flex" : "inline-flex"} min-h-11 items-center gap-2 rounded-full border border-[#00e6e6]/40 bg-[#07121d]/95 px-3.5 py-2 text-sm font-semibold text-[#00e6e6] shadow-glow backdrop-blur ${dragging ? "" : "transition hover:border-[#00e6e6]"}`}
     >
       <FiRadio aria-hidden="true" />
       {inRoom && jam.code ? `Jam · ${jam.code}` : "Jam"}
@@ -376,6 +377,8 @@ export default function JamController() {
                 ))}
               </ul>
             </div>
+
+            <KasaCrowd jam={jam} />
 
             <button
               type="button"

@@ -5,11 +5,14 @@ import {
   MOOD_PROFILES,
   RADIO_MOODS,
   applyMoodFilter,
+  blendProfiles,
   buildRadioQueue,
   parseDurationSeconds,
   parseViews,
   spreadByArtist,
+  spreadByOwner,
   trackId,
+  trackOwner,
 } from "../src/utils/radioEngine.mjs";
 
 const track = (id, title, channel, genre = "") => ({ id, title, channel, genre });
@@ -128,4 +131,80 @@ test("parseViews handles compact strings and raw numbers", () => {
   assert.equal(parseViews({ viewCount: 5000 }), 5000);
   assert.equal(parseViews({ views: "abc" }), 0);
   assert.equal(parseViews({}), 0);
+});
+
+// --- Kasa Crowd -----------------------------------------------------------
+
+const member = (id, name, artists = [], genres = []) => ({ id, name, artists, genres });
+
+test("blendProfiles represents every member even when tastes are lopsided", () => {
+  const { seeds, owners } = blendProfiles([
+    member("a", "Ana", ["2Pac", "Nas", "Jay-Z", "Biggie", "Rakim"], ["hip hop", "boom bap"]),
+    member("b", "Ben", ["Radiohead"], ["indie"]),
+  ], { maxSeeds: 6, maxPerMember: 4 });
+
+  assert.equal(seeds.length, 6);
+  assert.ok(seeds.some((seed) => seed.owners.includes("a")));
+  assert.ok(seeds.some((seed) => seed.owners.includes("b")), "quieter member still gets a seed");
+  assert.deepEqual(owners.map((owner) => owner.id), ["a", "b"]);
+  assert.ok(owners.every((owner) => owner.seedCount > 0));
+});
+
+test("blendProfiles merges a shared term into one seed and ranks it first", () => {
+  const { seeds } = blendProfiles([
+    member("a", "Ana", ["Drake"], ["rap"]),
+    member("b", "Ben", ["Drake"], ["jazz"]),
+  ]);
+
+  const drake = seeds.filter((seed) => seed.term === "Drake");
+  assert.equal(drake.length, 1, "shared term is not duplicated");
+  assert.equal(drake[0].weight, 2);
+  assert.deepEqual(drake[0].owners, ["a", "b"]);
+  assert.deepEqual(drake[0].ownerNames, ["Ana", "Ben"]);
+  assert.equal(seeds[0].term, "Drake", "shared taste ranks ahead of solo taste");
+});
+
+test("blendProfiles normalizes terms and survives junk members", () => {
+  const { seeds, owners } = blendProfiles([
+    member("a", "  Ana  ", ["  lo   fi  ", "", null], []),
+    member("a", "Duplicate", ["Ignored"], []),
+    { id: "", name: "No id" },
+    null,
+  ]);
+
+  assert.equal(owners.length, 1);
+  assert.equal(owners[0].name, "Ana");
+  assert.equal(seeds.length, 1);
+  assert.equal(seeds[0].term, "lo fi");
+  assert.equal(seeds[0].kind, "artist");
+
+  assert.deepEqual(blendProfiles(null).seeds, []);
+  assert.deepEqual(blendProfiles([member("a", "Ana", ["x"])], { maxSeeds: 0 }).seeds, []);
+  assert.equal(blendProfiles([{ id: "z" }]).owners[0].name, "Listener");
+});
+
+test("spreadByOwner gives each member alternating airtime", () => {
+  const owned = (id, owner) => ({ id, title: id, channel: owner, owner });
+  const result = spreadByOwner([
+    owned("a1", "a"), owned("a2", "a"), owned("a3", "a"),
+    owned("b1", "b"), owned("b2", "b"),
+    owned("c1", "c"),
+  ]);
+
+  assert.deepEqual(result.map((item) => item.id), ["a1", "b1", "c1", "a2", "b2", "a3"]);
+});
+
+test("spreadByOwner dedupes ids, honours limit, and tolerates junk", () => {
+  const owned = (id, owner) => ({ id, owner });
+  const deduped = spreadByOwner([owned("dup", "a"), owned("dup", "b"), owned("x", "b")]);
+  assert.deepEqual(deduped.map((item) => item.id), ["dup", "x"]);
+
+  const limited = spreadByOwner([owned("a1", "a"), owned("b1", "b"), owned("a2", "a")], { limit: 2 });
+  assert.deepEqual(limited.map((item) => item.id), ["a1", "b1"]);
+
+  assert.deepEqual(spreadByOwner(null), []);
+  assert.deepEqual(spreadByOwner([{ id: null }, {}]), []);
+  assert.equal(trackOwner({ owner: "a" }), "a");
+  assert.equal(trackOwner({ ownerId: 7 }), "7");
+  assert.equal(trackOwner({}), "");
 });

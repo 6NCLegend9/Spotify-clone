@@ -52,17 +52,21 @@ const ListenAgainCard = ({ song, index, SongData }) => {
   return (
     <div>
       <div
-        onClick={handlePlayClick}
-        className={`flex w-full items-center mt-5 cursor-pointer group border-b border-gray-400 justify-between gap-3 ${
-          isActive && " text-[#00e6e6]"
+        className={`flex w-full items-center mt-5 border-b border-gray-400 justify-between gap-3 ${
+          isActive ? " text-[#00e6e6]" : ""
         }`}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <button
+          type="button"
+          onClick={handlePlayClick}
+          aria-label={`Play ${titleDisplay}`}
+          className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+        >
           <div className=" relative mb-2">
-            <div className="group w-12 h-12 md:w-14 md:h-14 relative">
+            <div className="w-12 h-12 md:w-14 md:h-14 relative">
               <img
                 src={coverSrc || THUMB_FALLBACK}
-                alt={titleDisplay}
+                alt=""
                 width={50}
                 height={50}
                 onError={(event) => {
@@ -76,12 +80,14 @@ const ListenAgainCard = ({ song, index, SongData }) => {
             {isActive ? (
               <BiHeadphone
                 size={27}
+                aria-hidden="true"
                 className=" absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[#00e6e6]"
               />
             ) : (
               <BsPlayFill
                 size={25}
-                className=" group-hover:block hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200"
+                aria-hidden="true"
+                className=" opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200"
               />
             )}
           </div>
@@ -93,7 +99,7 @@ const ListenAgainCard = ({ song, index, SongData }) => {
               {artistDisplay}
             </p>
           </div>
-        </div>
+        </button>
         {isYoutube && <AddToQueueButton track={song} />}
       </div>
     </div>

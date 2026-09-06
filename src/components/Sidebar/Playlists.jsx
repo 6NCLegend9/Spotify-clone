@@ -14,13 +14,18 @@ import { toUserError } from "@/utils/userError";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
 
+// Cached across client-side navigations and remounts within the session so the
+// sidebar shows the last-known list (or empty state) instantly instead of
+// flashing "Loading playlists…" on every route transition.
+let cachedPlaylists = null;
+
 const Playlists = () => {
   const { setShowNav } = useNav();
   const { status } = useSession();
   const [show, setShow] = useState(false);
-  const [playlists, setPlaylists] = useState([]);
+  const [playlists, setPlaylists] = useState(() => cachedPlaylists ?? []);
   const [showMenu, setShowMenu] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => cachedPlaylists === null);
   const [error, setError] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -28,10 +33,11 @@ const Playlists = () => {
 
   useEffect(() => {
     if (status === "loading") {
-      setLoading(true);
+      if (cachedPlaylists === null) setLoading(true);
       return;
     }
     if (status !== "authenticated") {
+      cachedPlaylists = null;
       setPlaylists([]);
       setError(toUserError({ code: "UNAUTHORIZED" }));
       setLoading(false);
@@ -40,18 +46,18 @@ const Playlists = () => {
 
     let active = true;
     const getPlaylists = async () => {
-      setLoading(true);
+      if (cachedPlaylists === null) setLoading(true);
       setError(null);
       const res = await getUserPlaylists();
       if (!active) return;
       if (res?.success === true) {
-        setPlaylists(
-          Array.isArray(res.data?.playlists)
-            ? res.data.playlists.filter(
-              (playlist) => playlist && typeof playlist === "object" && playlist._id,
-            )
-            : [],
-        );
+        const list = Array.isArray(res.data?.playlists)
+          ? res.data.playlists.filter(
+            (playlist) => playlist && typeof playlist === "object" && playlist._id,
+          )
+          : [];
+        cachedPlaylists = list;
+        setPlaylists(list);
       } else {
         const normalized = toUserError(res);
         setError(normalized.code === "UNAUTHORIZED"
@@ -74,12 +80,15 @@ const Playlists = () => {
     const previousPlaylists = playlists;
     setDeleteError(null);
     setDeletingId(id);
-    setPlaylists((current) => current.filter((playlist) => playlist._id !== id));
+    const nextPlaylists = previousPlaylists.filter((playlist) => playlist._id !== id);
+    cachedPlaylists = nextPlaylists;
+    setPlaylists(nextPlaylists);
     const res = await deletePlaylist(id);
     setDeletingId(null);
     if (res?.success === true) {
       toast.success("Playlist deleted");
     } else {
+      cachedPlaylists = previousPlaylists;
       setPlaylists(previousPlaylists);
       const normalized = toUserError(res);
       const userError = normalized.code === "UNAUTHORIZED"

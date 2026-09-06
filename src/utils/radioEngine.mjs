@@ -299,3 +299,155 @@ export function applyMoodFilter(queue, mood, { seedTrack = null, varietyLevel = 
   const reordered = spreadByArtist(scored.map((entry) => entry.track), varietyLevel);
   return head ? [head, ...reordered] : reordered;
 }
+
+// ---------------------------------------------------------------------------
+// Kasa Crowd — blending several listeners into one shared station.
+// ---------------------------------------------------------------------------
+
+/**
+ * @typedef {Object} CrowdMember
+ * @property {string} id            Stable participant id (Jam presence key).
+ * @property {string} [name]        Display name, used for on-screen attribution.
+ * @property {string[]} [genres]
+ * @property {string[]} [artists]
+ */
+
+/**
+ * @typedef {Object} CrowdSeed
+ * @property {string} term
+ * @property {"artist"|"genre"} kind
+ * @property {string[]} owners      Member ids that contributed the term.
+ * @property {string[]} ownerNames  Matching display names, same order as owners.
+ * @property {number} weight        How many members share the term.
+ */
+
+const CROWD_TERM_MAX_CHARS = 60;
+
+function crowdTerm(value) {
+  return String(value == null ? "" : value).trim().replace(/\s+/g, " ").slice(0, CROWD_TERM_MAX_CHARS);
+}
+
+/** Which member a candidate track is attributed to. */
+export function trackOwner(track) {
+  const owner = track?.owner ?? track?.ownerId;
+  return owner == null ? "" : String(owner);
+}
+
+/**
+ * Merge each member's taste into one seed list for a shared room.
+ *
+ * Seeds are picked round-robin so every member is represented even when the
+ * room is lopsided, then sorted so terms more people share rank first. Owners
+ * are tracked per seed so the UI can say *why* a track is playing.
+ *
+ * @param {CrowdMember[]} members
+ * @param {Object} [options]
+ * @param {number} [options.maxSeeds]      Total seeds to emit (default 12).
+ * @param {number} [options.maxPerMember]  Terms taken from each member (default 4).
+ * @returns {{ seeds: CrowdSeed[], owners: Array<{id: string, name: string, seedCount: number}> }}
+ */
+export function blendProfiles(members, { maxSeeds = 12, maxPerMember = 4 } = {}) {
+  const list = Array.isArray(members) ? members : [];
+  const owners = [];
+  const perMember = [];
+
+  for (const member of list) {
+    const id = member?.id == null ? "" : String(member.id);
+    if (!id || owners.some((owner) => owner.id === id)) continue;
+    const name = crowdTerm(member?.name) || "Listener";
+    owners.push({ id, name, seedCount: 0 });
+
+    // Alternate artist/genre so one long list can't crowd out the other.
+    const artists = (Array.isArray(member?.artists) ? member.artists : []).map((raw) => ({ raw, kind: "artist" }));
+    const genres = (Array.isArray(member?.genres) ? member.genres : []).map((raw) => ({ raw, kind: "genre" }));
+    const picks = [];
+    for (let index = 0; index < Math.max(artists.length, genres.length); index += 1) {
+      for (const entry of [artists[index], genres[index]]) {
+        if (!entry) continue;
+        const term = crowdTerm(entry.raw);
+        if (!term) continue;
+        const key = `${entry.kind}:${term.toLowerCase()}`;
+        if (picks.some((pick) => pick.key === key)) continue;
+        picks.push({ key, term, kind: entry.kind });
+      }
+    }
+    perMember.push({ id, name, picks: picks.slice(0, Math.max(0, maxPerMember)) });
+  }
+
+  const seeds = [];
+  if (maxSeeds > 0) {
+    const byKey = new Map();
+    for (let round = 0; seeds.length < maxSeeds; round += 1) {
+      let advanced = false;
+      for (const member of perMember) {
+        const pick = member.picks[round];
+        if (!pick) continue;
+        advanced = true;
+        const existing = byKey.get(pick.key);
+        if (existing) {
+          if (!existing.owners.includes(member.id)) {
+            existing.owners.push(member.id);
+            existing.ownerNames.push(member.name);
+            existing.weight += 1;
+          }
+          continue;
+        }
+        const seed = { term: pick.term, kind: pick.kind, owners: [member.id], ownerNames: [member.name], weight: 1 };
+        byKey.set(pick.key, seed);
+        seeds.push(seed);
+        if (seeds.length >= maxSeeds) break;
+      }
+      if (!advanced) break;
+    }
+    seeds.sort((a, b) => b.weight - a.weight);
+  }
+
+  for (const owner of owners) {
+    owner.seedCount = seeds.filter((seed) => seed.owners.includes(owner.id)).length;
+  }
+  return { seeds, owners };
+}
+
+/**
+ * Round-robin an attributed pool so every member gets comparable airtime,
+ * preserving each member's own ranking order. Duplicate track ids are dropped,
+ * keeping the first (best-ranked) occurrence.
+ *
+ * @param {RadioTrack[]} tracks   Tracks carrying an `owner` (see trackOwner).
+ * @param {Object} [options]
+ * @param {number} [options.limit]  Max tracks to return (0 = all).
+ * @returns {RadioTrack[]}
+ */
+export function spreadByOwner(tracks, { limit = 0 } = {}) {
+  const list = Array.isArray(tracks) ? tracks : [];
+  const buckets = new Map();
+  const order = [];
+  const seen = new Set();
+
+  for (const track of list) {
+    const id = trackId(track);
+    if (id == null) continue;
+    const idStr = String(id);
+    if (seen.has(idStr)) continue;
+    seen.add(idStr);
+    const owner = trackOwner(track);
+    if (!buckets.has(owner)) {
+      buckets.set(owner, []);
+      order.push(owner);
+    }
+    buckets.get(owner).push(track);
+  }
+
+  const result = [];
+  for (let round = 0; ; round += 1) {
+    let advanced = false;
+    for (const owner of order) {
+      const bucket = buckets.get(owner);
+      if (round >= bucket.length) continue;
+      result.push(bucket[round]);
+      advanced = true;
+      if (limit > 0 && result.length >= limit) return result;
+    }
+    if (!advanced) return result;
+  }
+}

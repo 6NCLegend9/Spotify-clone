@@ -42,6 +42,10 @@ module.exports = {
       borderRadius: {
         card: "14px",
       },
+      // Tailwind <3.4 has no numeric min-h/min-w scale; wire it to spacing so
+      // min-h-11 / min-w-11 (used for 44px touch targets) actually emit CSS.
+      minHeight: ({ theme }) => ({ ...theme("spacing") }),
+      minWidth: ({ theme }) => ({ ...theme("spacing") }),
     },
   },
   plugins: [],

@@ -111,7 +111,7 @@ const fileSchema = new mongoose.Schema(
             keyboardShortcuts: { type: Boolean, default: true },
             captions: { type: Boolean, default: true },
             fadeEnabled: { type: Boolean, default: true },
-            fadeSeconds: { type: Number, min: 0, max: 5, default: 0.8 },
+            fadeSeconds: { type: Number, min: 0, max: 12, default: 0.8 },
         },
     },
     { timestamps: true, toJSON: { flattenMaps: true } }

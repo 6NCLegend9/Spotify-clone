@@ -72,9 +72,9 @@ function validatedSettings(value) {
       invalidSetting("masterVolume must be a number between 0 and 1.");
     } else if (
       key === "fadeSeconds"
-      && (!Number.isFinite(setting) || setting < 0 || setting > 5)
+      && (!Number.isFinite(setting) || setting < 0 || setting > 12)
     ) {
-      invalidSetting("fadeSeconds must be a number between 0 and 5.");
+      invalidSetting("fadeSeconds must be a number between 0 and 12.");
     }
 
     settings[key] = setting;

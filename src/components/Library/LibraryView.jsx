@@ -23,6 +23,7 @@ import MediaImage from "@/components/MediaImage";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { CardGridSkeleton } from "@/components/Skeleton";
+import { cleanTitle } from "@/utils/text";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { requestJson } from "@/services/http";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
@@ -209,7 +210,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
             >
               <MediaImage src={playlist.thumbnail} size="hq" alt="" className="aspect-square w-full rounded-md object-cover" />
               <div className="mt-4 min-w-0">
-                <h3 className="line-clamp-2 text-sm font-bold text-white">{playlist.title}</h3>
+                <h3 className="line-clamp-2 text-sm font-bold text-white">{cleanTitle(playlist.title, "Untitled playlist")}</h3>
                 <p className="mt-2 truncate text-xs text-gray-400">{loadingId === playlist.id ? "Loading..." : playlist.channel}</p>
               </div>
             </button>

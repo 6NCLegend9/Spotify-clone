@@ -66,6 +66,8 @@ const INCOMING_STALL_MS = 1000;
 const VERIFIED_ADVANCE_SECONDS = 0.2;
 const STARTUP_GRACE_MS = 12000;
 const MAX_SAFE_YOUTUBE_CROSSFADE_SECONDS = 6;
+// Skips should still feel instant, so cap the outgoing ramp well below the configured fade length.
+const MAX_SKIP_FADE_SECONDS = 1;
 const STREAMING_QUALITY_PREFERENCES = {
   auto: "default",
   low: "medium",
@@ -2171,9 +2173,38 @@ export default function YouTubePlayer() {
     player.playVideo();
   };
 
+  // Ramp the outgoing track down before a manual skip, then restore the level if the queue had nowhere to go.
+  const fadeOutThenSkip = (run) => {
+    const player = getActivePlayer();
+    const seconds = Math.min(Number(fadeSeconds) || 0, MAX_SKIP_FADE_SECONDS);
+    if (fadeEnabled === false || !player || !isPlaying || seconds < 0.05) {
+      run();
+      return;
+    }
+    const fromId = videoRef.current?.id;
+    rampVolume(player, 1, 0, {
+      durationMs: seconds * 1000,
+      onDone: () => {
+        run();
+        window.setTimeout(() => {
+          if (videoRef.current?.id === fromId && !fadeTimerRef.current) {
+            applyPlaybackVolume(getActivePlayer(), 1);
+          }
+        }, 250);
+      },
+    });
+  };
+
   const handleNext = ({ completed = false } = {}) => {
     if (isJamGuestRef.current) return;
-    void playNextOrContinue(completed);
+    // A finished track has already faded out via the near-end ramp.
+    if (completed) {
+      void playNextOrContinue(completed);
+      return;
+    }
+    fadeOutThenSkip(() => {
+      void playNextOrContinue(completed);
+    });
   };
 
   const handleSkipPlaybackFailure = () => {
@@ -2184,15 +2215,17 @@ export default function YouTubePlayer() {
 
   const handlePrev = () => {
     if (isJamGuestRef.current) return;
-    const previous = getPreviousVideo();
-    if (previous) {
-      if (status === "authenticated" && videoRef.current?.id) recordPlayEvent(videoRef.current.id, "skipped");
-      markExpectPlaying();
-      dispatch(playPause(true));
-      dispatch(setYoutubeVideo(previous));
-      return;
-    }
-    seekOnCurrentTrack(0);
+    fadeOutThenSkip(() => {
+      const previous = getPreviousVideo();
+      if (previous) {
+        if (status === "authenticated" && videoRef.current?.id) recordPlayEvent(videoRef.current.id, "skipped");
+        markExpectPlaying();
+        dispatch(playPause(true));
+        dispatch(setYoutubeVideo(previous));
+        return;
+      }
+      seekOnCurrentTrack(0);
+    });
   };
 
   const closePictureInPicture = () => {
@@ -2554,7 +2587,7 @@ export default function YouTubePlayer() {
             }
             setShowQueue((value) => !value);
           }}
-          className={expanded && !dataSaver && !audioOnly ? "flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}
+          className={expanded && !dataSaver && !audioOnly ? "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}
         >
           <span className="hidden lg:inline">Queue</span> {compactFullscreen ? (mobileSheet && sheetTab === "queue" ? <FiChevronDown /> : <FiChevronUp />) : (showQueue ? <FiChevronDown /> : <FiChevronUp />)}
         </button>
@@ -2571,7 +2604,7 @@ export default function YouTubePlayer() {
             }
             toggleLyrics();
           }}
-          className={expanded && !dataSaver && !audioOnly ? `rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${(compactFullscreen ? mobileSheet && sheetTab === "lyrics" : showLyrics) ? "text-[#00e6e6]" : "text-white"}` : `rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-gray-300"}`}
+          className={expanded && !dataSaver && !audioOnly ? `grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${(compactFullscreen ? mobileSheet && sheetTab === "lyrics" : showLyrics) ? "text-[#00e6e6]" : "text-white"}` : `grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-gray-300"}`}
         >
           <MdOutlineLyrics size={18} />
         </button>
@@ -2589,7 +2622,7 @@ export default function YouTubePlayer() {
         </button>
         )}
         {!fullscreen && <PlayerVolume />}
-        <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
+        <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "grid min-h-11 min-w-11 place-items-center rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         {showDesktopQueue && !fullscreen && (
           <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl">
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>

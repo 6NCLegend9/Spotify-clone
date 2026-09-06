@@ -11,6 +11,7 @@ import UserMessage from "@/components/UserMessage";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
+import { cleanTitle } from "@/utils/text";
 
 export default function ArtistProfile({ artistId, initialName = "" }) {
   const dispatch = useDispatch();
@@ -231,7 +232,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
               <article key={video.id} className="card group text-left">
                 <button
                   type="button"
-                  aria-label={`Play ${video.title}`}
+                  aria-label={`Play ${cleanTitle(video.title)}`}
                   onClick={() => playTrack(video)}
                   className="relative aspect-video w-full overflow-hidden bg-black"
                 >
@@ -243,7 +244,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
                   />
                 </button>
                 <button type="button" onClick={() => playTrack(video)} className="block w-full p-4 text-left">
-                  <p className="line-clamp-2 text-sm font-semibold text-white">{video.title}</p>
+                  <p className="line-clamp-2 text-sm font-semibold text-white">{cleanTitle(video.title, "Untitled track")}</p>
                   <p className="mt-2 truncate text-xs text-gray-400">{video.channel || title}</p>
                 </button>
               </article>

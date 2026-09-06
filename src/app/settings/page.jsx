@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { updateSetting } from "@/redux/features/settingsSlice";
+import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/settingsSlice";
+import { EQ_BAND_FREQS, bandsForPreset } from "@/utils/eqPresets";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { FiCheck, FiSave, FiSettings } from "react-icons/fi";
@@ -16,6 +17,12 @@ import { userErrorDetails } from "@/utils/userError";
 const qualityOptions = [["auto", "Automatic"], ["low", "Data saver"], ["normal", "Balanced"], ["high", "High quality"], ["very-high", "Best available"]];
 const normalizationOptions = [["quiet", "Quiet · -23 LUFS"], ["normal", "Normal · -14 LUFS"], ["loud", "Loud · -11 LUFS"]];
 const videoQualityOptions = [["auto", "Automatic"], ["720p", "Prefer 720p"], ["1080p", "Prefer 1080p"], ["audio-only", "Audio only"]];
+const eqPresetOptions = EQ_PRESETS.map((preset) => [preset, preset]);
+const EQ_GAIN_LIMIT = 12;
+
+function formatBandFrequency(frequency) {
+  return frequency >= 1000 ? `${(frequency / 1000).toFixed(frequency % 1000 === 0 ? 0 : 1)} kHz` : `${frequency} Hz`;
+}
 
 function settingsErrorDetails(error) {
   const details = userErrorDetails(error);
@@ -73,6 +80,10 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState(null);
   const savedTimerRef = useRef(null);
   const set = (key, value) => dispatch(updateSetting({ key, value }));
+  const eqBands = bandsForPreset(settings.eqPreset, settings.eqBands);
+  const setBand = (index, value) => {
+    dispatch(updateEqBands(eqBands.map((band, position) => (position === index ? value : Number(band) || 0))));
+  };
 
   useEffect(() => () => {
     if (savedTimerRef.current) window.clearTimeout(savedTimerRef.current);
@@ -159,18 +170,60 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {status === "authenticated" && (
+        <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold">Equalizer</h2>
+            <button
+              type="button"
+              onClick={() => set("eqPreset", "Flat / Neutral")}
+              className="min-h-11 rounded-full border border-white/15 px-4 text-sm font-semibold text-gray-200 transition hover:border-[#00e6e6] hover:text-[#00e6e6]"
+            >
+              Reset to flat
+            </button>
+          </div>
+          <p className="mb-4 text-xs text-gray-400">Shape the tone of your music. Pick a preset or drag a band to fine-tune it.</p>
+          <SelectControl label="Preset" value={settings.eqPreset} options={eqPresetOptions} onChange={(value) => set("eqPreset", value)} />
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {EQ_BAND_FREQS.map((frequency, index) => {
+              const gain = Number(eqBands[index] || 0);
+              return (
+                <label key={frequency} className="block text-sm text-gray-300">
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span>{formatBandFrequency(frequency)}</span>
+                    <span className="text-xs tabular-nums text-[#00e6e6]">{gain > 0 ? `+${gain}` : gain} dB</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={-EQ_GAIN_LIMIT}
+                    max={EQ_GAIN_LIMIT}
+                    step="1"
+                    value={gain}
+                    aria-label={`${formatBandFrequency(frequency)} gain`}
+                    aria-valuetext={`${gain > 0 ? "plus " : ""}${gain} decibels`}
+                    onChange={(event) => setBand(index, Number(event.target.value))}
+                    className="mt-3 h-8 w-full accent-[#00e6e6]"
+                  />
+                </label>
+              );
+            })}
+          </div>
+          <p className="mt-4 text-xs text-[#9aa8b5]">Full band-by-band tone shaping applies to tracks played through HeyKasa&apos;s own audio player. YouTube-sourced tracks play inside YouTube&apos;s protected player, so there your preset is applied as an overall loudness adjustment rather than per-band tone.</p>
+        </section>
+      )}
+
       <GenrePreferences status={status} />
 
       <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
         <h2 className="mb-2 text-xl font-semibold">Fade transitions</h2>
-        <p className="mb-4 text-xs text-gray-400">Fade the end of each song out and the next one in for a smooth transition. Pausing still stops instantly.</p>
+        <p className="mb-4 text-xs text-gray-400">Fade the end of each song out and the next one in for a smooth transition. Skipping fades out too, just faster so the controls stay responsive. Pausing still stops instantly.</p>
         <Toggle label="Fade in and out" checked={settings.fadeEnabled !== false} onChange={(value) => set("fadeEnabled", value)} />
         <label className="mt-4 block text-sm text-gray-300">
           Fade length · {Number(settings.fadeSeconds ?? 0.8).toFixed(1)}s
           <input
             type="range"
             min="0.2"
-            max="5"
+            max="12"
             step="0.1"
             value={settings.fadeSeconds ?? 0.8}
             disabled={settings.fadeEnabled === false}
