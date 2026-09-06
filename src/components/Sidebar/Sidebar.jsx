@@ -7,6 +7,8 @@ import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
 import { FaGithub } from "react-icons/fa";
 import { FiDisc, FiFileText, FiHeart, FiHome, FiInfo, FiSettings, FiShield, FiUsers } from "react-icons/fi";
+import { MdSportsEsports } from "react-icons/md";
+import { canUseArcade } from "@/utils/arcadeAccess";
 import { IoClose } from "react-icons/io5";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import BrandMark from "../Layout/BrandMark";
@@ -20,7 +22,7 @@ const Sidebar = () => {
   const { showNav, setShowNav, navModal } = useNav();
   const pathname = usePathname();
   const dispatch = useDispatch();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const sidebarRef = useRef(null);
 
   useFocusTrap({
@@ -43,6 +45,7 @@ const Sidebar = () => {
     ["Your Library", "/library", FiDisc],
     ["Liked Songs", "/library/liked", FiHeart],
     ["Following", "/following", FiUsers],
+    ...(canUseArcade(session?.user?.email) ? [["Beat Arcade", "/arcade", MdSportsEsports]] : []),
     ["Settings", "/settings", FiSettings],
     ["Terms of Service", "/terms", FiFileText],
     ["Privacy Policy", "/privacy", FiShield],

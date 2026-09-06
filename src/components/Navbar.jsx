@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { MdOutlineMenu, MdRefresh } from "react-icons/md";
+import { MdOutlineMenu, MdRefresh, MdSportsEsports } from "react-icons/md";
 import BrandMark from "./Layout/BrandMark";
 import { useNav } from "./Layout/AppShell";
 import Searchbar from "./Searchbar";
 import UpdatesBell from "./UpdatesBell";
+import { canUseArcade } from "@/utils/arcadeAccess";
 
 const Navbar = () => {
   const { setShowNav, navModal } = useNav();
@@ -53,6 +54,14 @@ const Navbar = () => {
         >
           <MdRefresh aria-hidden="true" className="text-xl" />
         </button>
+        <Link
+          href="/arcade"
+          className={`icon-btn h-10 w-10 shrink-0 ${canUseArcade(session?.user?.email) ? "" : "hidden"}`}
+          aria-label="Open Beat Arcade"
+          title="Beat Arcade"
+        >
+          <MdSportsEsports aria-hidden="true" className="text-xl" />
+        </Link>
         <UpdatesBell />
         {status === "authenticated" ? (
           <Link
