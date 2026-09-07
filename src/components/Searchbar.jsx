@@ -9,6 +9,7 @@ import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import { requestJson } from "@/services/http";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
+import { cleanTitle } from "@/utils/text";
 
 const Searchbar = () => {
   const dispatch = useDispatch();
@@ -255,9 +256,9 @@ const Searchbar = () => {
                   className="h-9 w-9 shrink-0 rounded object-cover"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate">{item.song.title}</span>
+                  <span className="block truncate">{cleanTitle(item.song.title, "Song")}</span>
                   <span className="block truncate text-[11px] text-[#9aa8b5]">
-                    {item.song.channel}
+                    {cleanTitle(item.song.channel)}
                   </span>
                 </span>
                 <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">Song</span>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaPlus } from "react-icons/fa";
+import { IoClose } from "react-icons/io5";
 import { toast } from "react-hot-toast";
 import { createPlaylist } from "@/services/playlistApi";
 import { useDispatch } from "react-redux";
@@ -74,10 +75,10 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
             type="button"
             onClick={() => setShow(false)}
             disabled={loading}
-            className="icon-btn h-9 w-9"
+            className="icon-btn h-11 w-11"
             aria-label="Close"
           >
-            ×
+            <IoClose aria-hidden="true" className="text-xl" />
           </button>
         </div>
         <UserMessage

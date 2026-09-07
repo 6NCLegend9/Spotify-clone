@@ -140,7 +140,7 @@ const recordPlayEvent = (id, event) => {
   }).catch(() => {});
 };
 
-export default function YouTubePlayer() {
+function YouTubePlayer() {
   const dispatch = useDispatch();
   const { status } = useSession();
   const jam = useJam();
@@ -2799,4 +2799,6 @@ export default function YouTubePlayer() {
     </div>
   );
 }
+
+export default React.memo(YouTubePlayer);
 

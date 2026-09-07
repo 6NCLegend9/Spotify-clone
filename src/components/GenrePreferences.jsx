@@ -107,7 +107,7 @@ function GenreChoice({ item, selected, parentName, onToggle, disabled = false })
             : "border-white/15 text-white/70 group-hover:border-[#00e6e6]/60 group-hover:text-[#00e6e6]"
         }`}
       >
-        {selected ? <FiCheck /> : <FiPlus />}
+        {selected ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}
       </span>
     </button>
   );
@@ -263,7 +263,7 @@ function CustomGenreDialog({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="icon-btn h-9 w-9 shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+            className="icon-btn h-11 w-11 shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Close custom genre dialog"
           >
             <FiX aria-hidden="true" />

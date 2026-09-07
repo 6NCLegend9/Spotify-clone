@@ -30,7 +30,7 @@ const Navbar = () => {
       <button
         type="button"
         onClick={() => setShowNav(true)}
-        className="icon-btn h-9 w-9 shrink-0 md:hidden"
+        className="icon-btn h-11 w-11 shrink-0 md:hidden"
         aria-label="Open menu"
         aria-expanded={navModal}
         aria-controls="app-sidebar"
@@ -48,7 +48,7 @@ const Navbar = () => {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="icon-btn h-10 w-10 shrink-0"
+          className="icon-btn h-11 w-11 shrink-0"
           aria-label="Refresh"
           title="Refresh"
         >
@@ -56,7 +56,7 @@ const Navbar = () => {
         </button>
         <Link
           href="/arcade"
-          className={`icon-btn h-10 w-10 shrink-0 ${canUseArcade(session?.user?.email) ? "" : "hidden"}`}
+          className={`icon-btn h-11 w-11 shrink-0 ${canUseArcade(session?.user?.email) ? "" : "hidden"}`}
           aria-label="Open Beat Arcade"
           title="Beat Arcade"
         >

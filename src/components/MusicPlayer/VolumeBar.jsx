@@ -126,4 +126,4 @@ const VolumeBar = ({
   );
 };
 
-export default VolumeBar;
+export default React.memo(VolumeBar);

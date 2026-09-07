@@ -51,7 +51,7 @@ export default function CoverUploader({ value, onChange, disabled }) {
               type="button"
               disabled={disabled}
               onClick={() => onChange?.("")}
-              className="icon-btn h-9 w-9"
+              className="icon-btn h-11 w-11"
               aria-label="Remove cover image"
             >
               <FiX aria-hidden="true" />

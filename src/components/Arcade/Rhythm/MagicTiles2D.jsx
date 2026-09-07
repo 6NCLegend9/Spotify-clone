@@ -167,6 +167,7 @@ export default function MagicTiles2D({
     const render = (now) => {
       if (disposed) return;
       frame = window.requestAnimationFrame(render);
+      if (document.hidden) return;
       const state = stateRef.current;
       const chartNow = chartRef.current;
       const clockNow = clockRef.current;

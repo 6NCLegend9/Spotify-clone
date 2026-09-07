@@ -112,10 +112,10 @@ const Playlists = () => {
         <button
           type="button"
           onClick={() => setShow(true)}
-          className="icon-btn h-8 w-8"
+          className="icon-btn h-11 w-11"
           aria-label="Create playlist"
         >
-          <FaPlus className="text-xs" />
+          <FaPlus aria-hidden="true" className="text-xs" />
         </button>
       </div>
       <div

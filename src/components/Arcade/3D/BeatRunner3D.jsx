@@ -213,6 +213,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
       const render = (now) => {
         if (disposed) return;
         frame = window.requestAnimationFrame(render);
+        if (document.hidden) return;
         if (!mount.clientWidth || !mount.clientHeight) return;
         const chartNow = chartRef.current;
         const clockNow = clockRef.current;

@@ -104,10 +104,10 @@ const UpdatesBell = () => {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="icon-btn h-9 w-9"
+                className="icon-btn h-11 w-11"
                 aria-label="Close updates"
               >
-                <IoClose className="h-5 w-5" />
+                <IoClose aria-hidden="true" className="h-5 w-5" />
               </button>
             </div>
             <div className="max-h-[70vh] space-y-3 overflow-y-auto px-4 py-4">
