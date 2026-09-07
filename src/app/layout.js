@@ -244,6 +244,12 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${poppins.variable} ${righteous.variable}`} suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://i.ytimg.com" />
+        <link rel="dns-prefetch" href="https://i.ytimg.com" />
+        <link rel="preconnect" href="https://yt3.ggpht.com" />
+        <link rel="dns-prefetch" href="https://yt3.ggpht.com" />
+        <link rel="preconnect" href="https://www.youtube-nocookie.com" />
+        <link rel="dns-prefetch" href="https://www.youtube-nocookie.com" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

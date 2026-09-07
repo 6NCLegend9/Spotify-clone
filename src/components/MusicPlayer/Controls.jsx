@@ -54,7 +54,7 @@ const Controls = ({
       </button>
       <button
         type="button"
-        title="Previous"
+        title="Previous (Alt + ←)"
         aria-label="Previous song"
         disabled={!hasQueue}
         onClick={handlePrevSong}
@@ -64,7 +64,7 @@ const Controls = ({
       </button>
       <button
         type="button"
-        title={isPlaying ? "Pause" : "Play"}
+        title={isPlaying ? "Pause (Space)" : "Play (Space)"}
         aria-label={isPlaying ? "Pause" : "Play"}
         onClick={handlePlayPause}
         className={iconButtonClass}
@@ -77,7 +77,7 @@ const Controls = ({
       </button>
       <button
         type="button"
-        title="Next"
+        title="Next (Alt + →)"
         aria-label="Next song"
         disabled={!hasQueue}
         onClick={handleNextSong}

@@ -89,6 +89,14 @@ function resolveYouTubeQuality(videoQuality, streamingQuality, dataSaver) {
   if (videoQuality === "1080p") return "hd1080";
   if (videoQuality === "720p") return "hd720";
   if (dataSaver) return "medium";
+  if (streamingQuality === "very-high") return "hd1080";
+  if (streamingQuality === "high") return "hd720";
+  // On desktop or fast connections with automatic quality settings, escalate to maximum fidelity.
+  if (typeof window !== "undefined" && !dataSaver) {
+    const isDesktop = window.innerWidth >= 1024;
+    const isFast = typeof navigator !== "undefined" && navigator.connection?.effectiveType === "4g";
+    if (isDesktop || isFast) return "hd1080";
+  }
   return STREAMING_QUALITY_PREFERENCES[streamingQuality]
     || STREAMING_QUALITY_PREFERENCES.auto;
 }
@@ -1396,6 +1404,14 @@ export default function YouTubePlayer() {
 
   const preloadNext = (nextVideo) => {
     if (!nextVideo?.id || !apiReady || transitionMode === "off" || dataSaver) return;
+    if (nextVideo.thumbnail && typeof window !== "undefined") {
+      try {
+        const image = new Image();
+        image.src = youtubeThumb(nextVideo.thumbnail, "maxres");
+      } catch {
+        // Image preload is best-effort.
+      }
+    }
     if (crossfadeInProgressRef.current) return;
     if (performance.now() < preloadRetryAtRef.current) return;
     if (!isActivePlaybackHealthy()) {

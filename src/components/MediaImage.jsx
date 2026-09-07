@@ -34,7 +34,13 @@ export default function MediaImage({
       alt={alt}
       className={className}
       onError={(event) => {
-        if (currentSrc !== FALLBACK_IMAGE) setCurrentSrc(FALLBACK_IMAGE);
+        if (typeof currentSrc === "string" && currentSrc.includes("maxresdefault.jpg")) {
+          setCurrentSrc(currentSrc.replace("maxresdefault.jpg", "hqdefault.jpg"));
+        } else if (typeof currentSrc === "string" && currentSrc.includes("sddefault.jpg")) {
+          setCurrentSrc(currentSrc.replace("sddefault.jpg", "hqdefault.jpg"));
+        } else if (currentSrc !== FALLBACK_IMAGE) {
+          setCurrentSrc(FALLBACK_IMAGE);
+        }
         onError?.(event);
       }}
     />

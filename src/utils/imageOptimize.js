@@ -14,7 +14,14 @@ export function youtubeThumb(url, size = "mq") {
   const normalized = url.replace("//yt3.googleusercontent.com/", "//yt3.ggpht.com/");
   const match = normalized.match(/\/vi\/([^/]+)\//);
   if (!match) return normalized;
-  const file = size === "hq" ? "hqdefault.jpg" : "mqdefault.jpg";
+  const file =
+    size === "maxres"
+      ? "maxresdefault.jpg"
+      : size === "sd"
+      ? "sddefault.jpg"
+      : size === "hq"
+      ? "hqdefault.jpg"
+      : "mqdefault.jpg";
   return `https://i.ytimg.com/vi/${match[1]}/${file}`;
 }
 

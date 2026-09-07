@@ -29,6 +29,20 @@ async function parseResponseBody(response) {
   }
 }
 
+const clientCache = new Map();
+const CACHEABLE_GET_ROUTES = ["/api/recommendations", "/api/followedArtists", "/api/genres"];
+const CACHE_TTL_MS = 3 * 60 * 1000;
+
+export function invalidateClientCache(urlPattern) {
+  if (!urlPattern) {
+    clientCache.clear();
+    return;
+  }
+  for (const key of clientCache.keys()) {
+    if (key.includes(urlPattern)) clientCache.delete(key);
+  }
+}
+
 export async function requestJson(url, options = {}) {
   const {
     body,
@@ -38,8 +52,22 @@ export async function requestJson(url, options = {}) {
     fallbackMessage,
     headers,
     signal,
+    useCache = true,
     ...fetchOptions
   } = options;
+
+  const method = (fetchOptions.method || "GET").toUpperCase();
+  const isGet = method === "GET" && body === undefined;
+  const isCacheable = useCache && isGet && CACHEABLE_GET_ROUTES.some((route) => String(url).startsWith(route));
+
+  if (isCacheable && clientCache.has(url)) {
+    const cached = clientCache.get(url);
+    if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+    clientCache.delete(url);
+  }
+
   const controller = new AbortController();
   const timeoutId = timeout > 0
     ? setTimeout(() => controller.abort("timeout"), timeout)
@@ -76,6 +104,12 @@ export async function requestJson(url, options = {}) {
         title: data?.title || fallbackTitle,
         message: data?.message || fallbackMessage,
       });
+    }
+
+    if (isCacheable && data) {
+      clientCache.set(url, { timestamp: Date.now(), data });
+    } else if (!isGet) {
+      invalidateClientCache();
     }
 
     return data;
