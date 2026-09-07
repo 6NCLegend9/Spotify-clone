@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import { FiRadio, FiCopy, FiUsers, FiLink, FiShare2, FiX } from "react-icons/fi";
 import { toast } from "react-hot-toast";
@@ -52,6 +53,7 @@ function clampFabPosition(x, y, width, height) {
 
 export default function JamController() {
   const jam = useJam();
+  const pathname = usePathname();
   const fullScreen = useSelector((state) => state.player.fullScreen);
   const [open, setOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
@@ -103,7 +105,7 @@ export default function JamController() {
     return () => window.removeEventListener("resize", apply);
   }, [fullScreen]);
 
-  if (!jam?.available) return null;
+  if (!jam?.available || pathname?.startsWith("/arcade")) return null;
 
   const inRoom = Boolean(jam.role && jam.code);
 

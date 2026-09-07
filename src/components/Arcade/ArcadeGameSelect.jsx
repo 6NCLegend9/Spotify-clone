@@ -9,7 +9,9 @@ export default function ArcadeGameSelect({ onSelect }) {
       <div className="mx-auto max-w-3xl">
         <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#00e6e6]">Choose your game</p>
         <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">What do you want to play?</h2>
-        <p className="mt-2 text-sm text-[#9aa8b5]">Every mode reacts to the music you pick next.</p>
+        <p className="mt-2 text-sm text-[#9aa8b5]">
+          All three modes share one song chart. Catch, dodge, or fire on the beat — not on a random timer.
+        </p>
 
         <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ARCADE_GAMES.map((game) => (

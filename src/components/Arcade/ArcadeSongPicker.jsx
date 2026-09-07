@@ -7,11 +7,18 @@ import { requestJson } from "@/services/http";
 import { cleanTitle } from "@/utils/text";
 
 /**
- * Picking a file gives real frequency analysis; picking a track from the app
- * plays it through the normal player, which is a protected YouTube frame the
- * page cannot read samples from, so those rounds run on a steady tempo instead.
+ * Files are decoded in the browser so the chart can use real onsets.
+ * App tracks still play through YouTube, so they get a song-locked grid
+ * synced to the player's currentTime instead of raw samples.
  */
-export default function ArcadeSongPicker({ onPickFile, onPickTrack, selectedLabel, analyzerMode }) {
+export default function ArcadeSongPicker({
+  onPickFile,
+  onPickTrack,
+  selectedLabel,
+  analyzerMode,
+  chart,
+  chartStatus,
+}) {
   const { youtubeQueue, youtubeVideo } = useSelector((state) => state.player);
   const [tab, setTab] = useState("file");
   const [query, setQuery] = useState("");
@@ -56,11 +63,19 @@ export default function ArcadeSongPicker({ onPickFile, onPickTrack, selectedLabe
         {selectedLabel ? (
           <span
             className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
-              analyzerMode === "fft" ? "bg-[#00e6e6]/15 text-[#00e6e6]" : "bg-[#ffb648]/15 text-[#ffb648]"
+              chartStatus === "analyzing"
+                ? "bg-white/10 text-[#9aa8b5]"
+                : analyzerMode === "fft" || chart?.source === "onsets"
+                  ? "bg-[#00e6e6]/15 text-[#00e6e6]"
+                  : "bg-[#ffb648]/15 text-[#ffb648]"
             }`}
           >
-            {analyzerMode === "fft" ? <FiActivity aria-hidden="true" /> : <FiClock aria-hidden="true" />}
-            {analyzerMode === "fft" ? "Live beat detection" : "Steady tempo"}
+            {chartStatus === "analyzing" ? <FiClock aria-hidden="true" /> : <FiActivity aria-hidden="true" />}
+            {chartStatus === "analyzing"
+              ? "Reading the beat"
+              : chart?.bpm
+                ? `${chart.bpm} BPM · ${chart.source === "onsets" ? "live chart" : "song chart"}`
+                : "Chart ready"}
           </span>
         ) : null}
       </div>
@@ -84,8 +99,9 @@ export default function ArcadeSongPicker({ onPickFile, onPickTrack, selectedLabe
         ))}
       </div>
 
+      <div key={tab} className="mt-3">
       {tab === "file" ? (
-        <div className="mt-3">
+        <>
           <label className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs font-semibold text-gray-200 transition hover:border-[#00e6e6] hover:text-[#00e6e6]">
             <FiUpload aria-hidden="true" />
             {selectedLabel && analyzerMode === "fft" ? "Choose a different file" : "Choose an audio file"}
@@ -95,16 +111,17 @@ export default function ArcadeSongPicker({ onPickFile, onPickTrack, selectedLabe
               className="sr-only"
               onChange={(event) => {
                 const file = event.target.files?.[0];
+                event.target.value = "";
                 if (file) onPickFile(file);
               }}
             />
           </label>
           <p className="mt-2 text-[11px] leading-5 text-[#9aa8b5]">
-            A file plays straight from your device, so the game can read its actual frequencies and spawn in time with the beat.
+            Files are decoded on your device. The game reads the actual onsets and builds a Piano Tiles-style chart.
           </p>
-        </div>
+        </>
       ) : tab === "queue" ? (
-        <div className="mt-3">
+        <>
           {current || queue.length ? (
             <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto pr-1">
               {(current ? [current, ...queue.filter((item) => item.id !== current.id)] : queue).map((track) => (
@@ -129,11 +146,11 @@ export default function ArcadeSongPicker({ onPickFile, onPickTrack, selectedLabe
             <p className="text-[11px] text-[#9aa8b5]">Nothing queued yet. Play something in HeyKasa first, or load an audio file.</p>
           )}
           <p className="mt-2 text-[11px] leading-5 text-[#9aa8b5]">
-            Your track plays through the normal player. It streams from a protected frame, so the game keeps a steady tempo instead of reading the beat.
+            The track loads into HeyKasa. Playback starts with the 3-2-1 countdown so tiles hit the line on the beat.
           </p>
-        </div>
+        </>
       ) : (
-        <div className="mt-3">
+        <>
           <label className="flex min-h-11 items-center gap-2 rounded-full border border-white/15 px-3 focus-within:border-[#00e6e6]">
             <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
             <span className="sr-only">Search for a song</span>
@@ -142,6 +159,7 @@ export default function ArcadeSongPicker({ onPickFile, onPickTrack, selectedLabe
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search songs and artists"
+              autoComplete="off"
               className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[#9aa8b5]"
             />
           </label>
@@ -176,10 +194,11 @@ export default function ArcadeSongPicker({ onPickFile, onPickTrack, selectedLabe
             </p>
           )}
           <p className="mt-2 text-[11px] leading-5 text-[#9aa8b5]">
-            Search results play through the normal player, so the round keeps a steady tempo.
+            Search results load a chart locked to that track. The song starts after the countdown.
           </p>
-        </div>
+        </>
       )}
+      </div>
     </div>
   );
 }

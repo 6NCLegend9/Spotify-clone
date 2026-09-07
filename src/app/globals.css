@@ -213,6 +213,11 @@ select:-webkit-autofill {
     padding-bottom: 0;
   }
 
+  body.arcade-open .app-player,
+  body.arcade-open .app-tabbar {
+    pointer-events: none;
+  }
+
   .app-stage {
     grid-row: 1;
     position: relative;

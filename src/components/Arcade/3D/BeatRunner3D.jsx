@@ -1,29 +1,47 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { approachSeconds, beatInterval, chartEnergy, notesInWindow, remapLanes } from "@/utils/arcadeChart.mjs";
 
-const LANES = [-1.7, 0, 1.7];
-const BASE_SPEED = 14;
-const SPAWN_COOLDOWN_MS = 420;
-const OBSTACLE_START_Z = -70;
-const DESPAWN_Z = 9;
-const LANE_LERP = 12;
+const LANE_X = [-2.15, 0, 2.15];
+const PLAYER_Z = 3.4;
+const START_Z = -62;
+const LANE_LERP = 14;
+const HIT_WINDOW = 0.14;
+const START_LIVES = 3;
+
+function audioFrame(analyzer, time, chart) {
+  if (analyzer?.mode === "fft") return analyzer.read(performance.now());
+  return chartEnergy(time, chart?.bpm || 120, chart?.offset || 0);
+}
+
+function roleForNote(note, bpm) {
+  if (note.kind === "accent") return "ring";
+  const beat = Math.round(note.t / beatInterval(bpm));
+  if (beat % 8 === 5 || beat % 8 === 6) return "barrier";
+  return "orb";
+}
 
 /**
- * 3-lane runner on a neon grid. Speed and obstacle density follow the track's
- * energy, so a busier section of the song genuinely gets harder.
- *
- * Three.js is imported on demand and every geometry/material is shared and
- * disposed on teardown - the renderer never frees GPU memory on its own.
+ * Music highway. Notes become orbs, gold rings, or barriers and reach the
+ * player on the beat. Stay in the lane to catch pulses; step aside for gates.
  */
-export default function BeatRunner3D({ analyzer, running, reducedMotion, onGameOver }) {
+export default function BeatRunner3D({ analyzer, clock, chart, running, reducedMotion, onGameOver }) {
   const mountRef = useRef(null);
+  const clockRef = useRef(clock);
+  const analyzerRef = useRef(analyzer);
+  const chartRef = useRef(chart);
+  const reducedRef = useRef(reducedMotion);
+  clockRef.current = clock;
+  analyzerRef.current = analyzer;
+  chartRef.current = chart;
+  reducedRef.current = reducedMotion;
   const runningRef = useRef(running);
   const laneRef = useRef(1);
   const swipeRef = useRef({ x: 0, active: false });
   const overRef = useRef(false);
   const gameOverRef = useRef(onGameOver);
-  const [score, setScore] = useState({ distance: 0, hits: 0 });
+  const [hud, setHud] = useState({ points: 0, combo: 0, lives: START_LIVES, caught: 0 });
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -35,7 +53,7 @@ export default function BeatRunner3D({ analyzer, running, reducedMotion, onGameO
   }, [running]);
 
   const moveLane = (direction) => {
-    laneRef.current = Math.max(0, Math.min(LANES.length - 1, laneRef.current + direction));
+    laneRef.current = Math.max(0, Math.min(LANE_X.length - 1, laneRef.current + direction));
   };
 
   useEffect(() => {
@@ -62,6 +80,9 @@ export default function BeatRunner3D({ analyzer, running, reducedMotion, onGameO
     let disposed = false;
     let frame = 0;
     let cleanup = () => {};
+    const mapped = remapLanes(chart || { notes: [] }, 3);
+    const bpm = mapped.bpm || 120;
+    const notes = mapped.notes.map((note) => ({ ...note, role: roleForNote(note, bpm) }));
 
     (async () => {
       const THREE = await import("three");
@@ -69,47 +90,102 @@ export default function BeatRunner3D({ analyzer, running, reducedMotion, onGameO
 
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#04070d");
-      scene.fog = new THREE.Fog("#04070d", 18, 62);
+      scene.fog = new THREE.Fog("#04070d", 14, 54);
 
-      const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 120);
-      camera.position.set(0, 2.6, 6.4);
-      camera.lookAt(0, 0.7, -6);
+      const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 120);
+      camera.position.set(0, 3.15, 7.1);
+      camera.lookAt(0, 0.35, -10);
 
       let renderer;
       try {
         renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
       } catch {
-        return; // No WebGL: the caller still shows the HUD and score.
+        return;
       }
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      if (disposed) {
+        renderer.dispose();
+        return;
+      }
       mount.appendChild(renderer.domElement);
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
       renderer.domElement.setAttribute("aria-label", "Beat Runner game board");
 
-      // Shared resources: created once, disposed once.
-      const grid = new THREE.GridHelper(80, 80, "#00e6e6", "#123");
-      grid.position.y = 0;
-      scene.add(grid);
+      const disposables = [];
+      const track = new THREE.Mesh(
+        new THREE.BoxGeometry(8.4, 0.08, 90),
+        new THREE.MeshBasicMaterial({ color: "#07131c" }),
+      );
+      track.position.set(0, -0.08, -20);
+      scene.add(track);
+      disposables.push(track.geometry, track.material);
 
-      const playerGeometry = new THREE.CapsuleGeometry(0.42, 0.7, 4, 12);
-      const playerMaterial = new THREE.MeshBasicMaterial({ color: "#00e6e6" });
-      const player = new THREE.Mesh(playerGeometry, playerMaterial);
-      player.position.set(LANES[1], 0.85, 3.2);
+      const laneMats = [];
+      LANE_X.forEach((x, index) => {
+        const mat = new THREE.MeshBasicMaterial({
+          color: index === 1 ? "#0a2a30" : "#0b1822",
+          transparent: true,
+          opacity: 0.95,
+        });
+        const lane = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.05, 90), mat);
+        lane.position.set(x, 0.02, -20);
+        scene.add(lane);
+        laneMats.push(mat);
+        disposables.push(lane.geometry, mat);
+      });
+
+      const railGeo = new THREE.BoxGeometry(0.14, 0.42, 90);
+      const railMat = new THREE.MeshBasicMaterial({ color: "#00e6e6" });
+      [-3.55, 3.55].forEach((x) => {
+        const rail = new THREE.Mesh(railGeo, railMat);
+        rail.position.set(x, 0.22, -20);
+        scene.add(rail);
+      });
+      disposables.push(railGeo, railMat);
+
+      const beatGeo = new THREE.BoxGeometry(7.6, 0.03, 0.08);
+      const beatMat = new THREE.MeshBasicMaterial({ color: "#00e6e6", transparent: true, opacity: 0.28 });
+      const beatBars = Array.from({ length: 10 }, (_, index) => {
+        const bar = new THREE.Mesh(beatGeo, beatMat);
+        bar.position.set(0, 0.06, -index * 6);
+        scene.add(bar);
+        return bar;
+      });
+      disposables.push(beatGeo, beatMat);
+
+      const shipMat = new THREE.MeshBasicMaterial({ color: "#00e6e6" });
+      const canopyMat = new THREE.MeshBasicMaterial({ color: "#ffb648" });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.2, 1.25), shipMat);
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.08, 0.42), shipMat);
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.55, 8), canopyMat);
+      nose.rotation.x = Math.PI / 2;
+      const player = new THREE.Group();
+      body.position.y = 0.12;
+      wing.position.set(0, 0.04, 0.1);
+      nose.position.set(0, 0.12, -0.72);
+      player.add(body, wing, nose);
+      player.position.set(LANE_X[1], 0.55, PLAYER_Z);
       scene.add(player);
+      disposables.push(body.geometry, wing.geometry, nose.geometry, shipMat, canopyMat);
 
-      const obstacleGeometry = new THREE.BoxGeometry(1.15, 1.15, 1.15);
-      const obstacleMaterial = new THREE.MeshBasicMaterial({ color: "#ff4ecd" });
-      const bonusMaterial = new THREE.MeshBasicMaterial({ color: "#ffb648" });
+      const orbGeo = new THREE.SphereGeometry(0.42, 10, 8);
+      const ringGeo = new THREE.TorusGeometry(0.72, 0.1, 8, 18);
+      const barrierGeo = new THREE.BoxGeometry(1.7, 1.35, 0.28);
+      const orbMat = new THREE.MeshBasicMaterial({ color: "#00e6e6" });
+      const ringMat = new THREE.MeshBasicMaterial({ color: "#ffb648" });
+      const barrierMat = new THREE.MeshBasicMaterial({ color: "#ff4ecd" });
+      disposables.push(orbGeo, ringGeo, barrierGeo, orbMat, ringMat, barrierMat);
 
-      const obstacles = [];
-      const spawn = (lane, bonus) => {
-        const mesh = new THREE.Mesh(obstacleGeometry, bonus ? bonusMaterial : obstacleMaterial);
-        mesh.position.set(LANES[lane], 0.75, OBSTACLE_START_Z);
-        mesh.userData = { lane, bonus, scored: false };
-        scene.add(mesh);
-        obstacles.push(mesh);
-      };
+      const meshes = new Map();
+      const resolved = new Set();
+      let points = 0;
+      let combo = 0;
+      let best = 0;
+      let caught = 0;
+      let lives = START_LIVES;
+      let invulnUntil = 0;
+      let lastHud = 0;
 
       const resize = () => {
         const { clientWidth, clientHeight } = mount;
@@ -119,77 +195,123 @@ export default function BeatRunner3D({ analyzer, running, reducedMotion, onGameO
         camera.updateProjectionMatrix();
       };
       resize();
+      const observer = new ResizeObserver(resize);
+      observer.observe(mount);
       window.addEventListener("resize", resize);
 
-      let lastFrame = 0;
-      let lastSpawn = 0;
-      let travelled = 0;
+      const finish = (detail) => {
+        if (overRef.current) return;
+        overRef.current = true;
+        runningRef.current = false;
+        setFailed(true);
+        gameOverRef.current?.({
+          score: points,
+          detail: detail || `${caught} beats · ${best}x combo`,
+        });
+      };
 
       const render = (now) => {
         if (disposed) return;
         frame = window.requestAnimationFrame(render);
-        const delta = lastFrame ? Math.min((now - lastFrame) / 1000, 0.05) : 0;
-        lastFrame = now;
-        const audio = analyzer.read(now);
+        if (!mount.clientWidth || !mount.clientHeight) return;
+        const chartNow = chartRef.current;
+        const clockNow = clockRef.current;
+        const time = clockNow?.getTime?.() || 0;
+        const duration = chartNow?.duration || clockNow?.getDuration?.() || 0;
+        const grace = Math.max(1.6, Number(chartNow?.offset) || 0);
+        const approach = approachSeconds(chartNow?.bpm || bpm, 5, reducedRef.current);
+        const audio = audioFrame(analyzerRef.current, time, chartNow);
+        const travel = PLAYER_Z - START_Z;
+        const visible = notesInWindow(notes, time - 0.22, time + approach);
 
-        const speed = (reducedMotion ? BASE_SPEED * 0.65 : BASE_SPEED) * (1 + audio.energy * 1.1);
-
-        if (runningRef.current) {
-          travelled += speed * delta;
-          if (Math.floor(travelled) % 5 === 0) setScore((s) => ({ ...s, distance: Math.floor(travelled) }));
-
-          if (audio.onset && now - lastSpawn >= SPAWN_COOLDOWN_MS) {
-            lastSpawn = now;
-            const lane = Math.floor(Math.random() * LANES.length);
-            // Bright tracks make bonuses a little likelier, but hazards must stay
-            // the norm or a treble-heavy song would never spawn anything harmful.
-            const bonusChance = audio.treble > 0.42 ? 0.24 : 0.12;
-            spawn(lane, Math.random() < bonusChance);
+        const live = new Set();
+        for (const note of visible) {
+          const key = `${note.t}:${note.lane}`;
+          live.add(key);
+          let mesh = meshes.get(key);
+          if (!mesh) {
+            if (note.role === "ring") mesh = new THREE.Mesh(ringGeo, ringMat);
+            else if (note.role === "barrier") mesh = new THREE.Mesh(barrierGeo, barrierMat);
+            else mesh = new THREE.Mesh(orbGeo, orbMat);
+            mesh.userData = note;
+            scene.add(mesh);
+            meshes.set(key, mesh);
           }
-
-          for (let index = obstacles.length - 1; index >= 0; index -= 1) {
-            const mesh = obstacles[index];
-            mesh.position.z += speed * delta;
-            mesh.rotation.x += delta * 1.2;
-
-            if (!mesh.userData.scored && Math.abs(mesh.position.z - player.position.z) < 0.9) {
-              mesh.userData.scored = true;
-              if (mesh.userData.lane === laneRef.current) {
-                if (mesh.userData.bonus) {
-                  travelled += 50;
-                  setScore((s) => ({ ...s, distance: Math.floor(travelled) }));
-                } else if (!overRef.current) {
-                  // One clean hit ends the run, as the genre expects.
-                  overRef.current = true;
-                  runningRef.current = false;
-                  setScore((s) => ({ ...s, hits: s.hits + 1 }));
-                  setFailed(true);
-                  gameOverRef.current?.({
-                    score: Math.floor(travelled),
-                    unit: "m",
-                    detail: "Clipped an obstacle",
-                  });
-                }
-              }
-            }
-
-            if (mesh.position.z > DESPAWN_Z) {
-              scene.remove(mesh);
-              obstacles.splice(index, 1);
-            }
+          mesh.position.x = LANE_X[note.lane];
+          mesh.position.y = note.role === "barrier" ? 0.75 : 0.7;
+          mesh.position.z = PLAYER_Z - ((note.t - time) / approach) * travel;
+          if (note.role === "ring") mesh.rotation.y += 0.04;
+          else if (note.role === "orb") mesh.rotation.y += 0.03;
+        }
+        for (const [key, mesh] of meshes) {
+          if (!live.has(key)) {
+            scene.remove(mesh);
+            meshes.delete(key);
           }
         }
 
-        // Lane easing + a bass-driven hop keep the avatar readable at speed.
-        const targetX = LANES[laneRef.current];
-        player.position.x += (targetX - player.position.x) * Math.min(1, delta * LANE_LERP);
-        player.position.y = 0.85 + (reducedMotion ? 0 : audio.bass * 0.4);
+        if (runningRef.current) {
+          if (now - lastHud > 140) {
+            lastHud = now;
+            setHud({ points, combo, lives, caught });
+          }
 
-        grid.position.z = (now / 1000 * speed) % 2;
-        const glow = 0.35 + audio.bass * 0.65;
-        grid.material.opacity = Math.min(1, glow);
-        grid.material.transparent = true;
+          for (const note of notes) {
+            const key = `${note.t}:${note.lane}`;
+            if (time < grace || resolved.has(key) || note.t > time + HIT_WINDOW) continue;
+            if (time - note.t > HIT_WINDOW) {
+              resolved.add(key);
+              if (note.role !== "barrier") {
+                combo = 0;
+                setHud({ points, combo, lives, caught });
+              }
+              continue;
+            }
+            if (Math.abs(note.t - time) > HIT_WINDOW) continue;
+            resolved.add(key);
+            const same = note.lane === laneRef.current;
+            if (note.role === "barrier") {
+              if (!same || now < invulnUntil) continue;
+              lives -= 1;
+              combo = 0;
+              invulnUntil = now + 1100;
+              setHud({ points, combo, lives, caught });
+              if (lives <= 0) finish("Hit a barrier");
+              continue;
+            }
+            if (!same) {
+              combo = 0;
+              setHud({ points, combo, lives, caught });
+              continue;
+            }
+            combo += 1;
+            best = Math.max(best, combo);
+            caught += 1;
+            points += (note.role === "ring" ? 220 : 110) + Math.min(combo, 28) * 8;
+            setHud({ points, combo, lives, caught });
+          }
 
+          const lastNote = notes[notes.length - 1];
+          if (lastNote && time > lastNote.t + 1) finish(`Finished · ${best}x combo`);
+          else if (duration > 0 && time >= duration - 0.05) finish("Track ended");
+        }
+
+        const targetX = LANE_X[laneRef.current];
+        player.position.x += (targetX - player.position.x) * Math.min(1, 0.18 * LANE_LERP);
+        const pulse = reducedRef.current ? 0 : audio.bass;
+        player.position.y = 0.55 + pulse * 0.22;
+        player.scale.setScalar(now < invulnUntil && Math.floor(now / 80) % 2 === 0 ? 0.72 : 1 + pulse * 0.08);
+        shipMat.color.set(now < invulnUntil ? "#ff4ecd" : "#00e6e6");
+        laneMats.forEach((mat, index) => {
+          mat.opacity = index === laneRef.current ? 0.95 : 0.55;
+        });
+        beatMat.opacity = 0.16 + pulse * 0.45;
+        const interval = beatInterval(chartNow?.bpm || bpm);
+        beatBars.forEach((bar, index) => {
+          const cycle = 10 * 6;
+          const offset = ((time / interval) * 2.2 + index * 6) % cycle;
+          bar.position.z = PLAYER_Z - offset * 1.15;
+        });
         renderer.render(scene, camera);
       };
 
@@ -197,17 +319,11 @@ export default function BeatRunner3D({ analyzer, running, reducedMotion, onGameO
 
       cleanup = () => {
         window.cancelAnimationFrame(frame);
+        observer.disconnect();
         window.removeEventListener("resize", resize);
-        for (const mesh of obstacles) scene.remove(mesh);
-        obstacles.length = 0;
-        // Three.js keeps GPU resources until they are explicitly released.
-        playerGeometry.dispose();
-        playerMaterial.dispose();
-        obstacleGeometry.dispose();
-        obstacleMaterial.dispose();
-        bonusMaterial.dispose();
-        grid.geometry.dispose();
-        grid.material.dispose();
+        for (const mesh of meshes.values()) scene.remove(mesh);
+        meshes.clear();
+        for (const item of disposables) item.dispose?.();
         renderer.dispose();
         if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
       };
@@ -217,10 +333,10 @@ export default function BeatRunner3D({ analyzer, running, reducedMotion, onGameO
       disposed = true;
       cleanup();
     };
-  }, [analyzer, reducedMotion]);
+  }, [chart]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full min-h-0">
       <div
         ref={mountRef}
         className="h-full w-full touch-none"
@@ -233,15 +349,18 @@ export default function BeatRunner3D({ analyzer, running, reducedMotion, onGameO
         }}
       />
       <div className="pointer-events-none absolute left-3 top-3 text-xs font-semibold text-white">
-        <p className="tabular-nums">{score.distance.toLocaleString()} m</p>
-        <p className="text-[11px] text-[#ff4ecd]">{score.hits} hits</p>
+        <p className="text-lg tabular-nums">{hud.points.toLocaleString()}</p>
+        <p className="text-[11px] text-[#00e6e6]">{hud.combo > 1 ? `${hud.combo}x combo` : `${hud.caught} beats caught`}</p>
       </div>
+      <p className="pointer-events-none absolute right-3 top-3 text-[11px] font-semibold text-[#ff4ecd]">
+        {"♥".repeat(hud.lives) || "—"}
+      </p>
       {failed ? (
         <div className="pointer-events-none absolute inset-0 bg-[#ff4ecd]/15" aria-hidden="true" />
       ) : null}
-      <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-[#9aa8b5]">
-        Dodge pink · grab gold
-      </div>
+      <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-[#9aa8b5]">
+        Catch teal & gold · dodge pink gates · {chart?.bpm || 120} BPM
+      </p>
     </div>
   );
 }
