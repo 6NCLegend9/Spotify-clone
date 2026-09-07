@@ -82,6 +82,15 @@ export async function requestJson(url, options = {}) {
   } catch (error) {
     if (error instanceof Error && error.name === "UserFacingError") throw error;
     const timedOut = controller.signal.aborted && !signal?.aborted;
+    // Only network-level failures (offline/timeout) trigger self-healing; a
+    // clean 4xx/5xx is a legitimate state the calling UI already handles.
+    if (timedOut || error?.name === "TypeError") {
+      try {
+        window.dispatchEvent(new CustomEvent("heykasa:network-fail", { detail: { url: String(url) } }));
+      } catch {
+        // Event dispatch is best-effort; never let it mask the real error.
+      }
+    }
     throw toUserError(error, {
       status: error?.status,
       title: fallbackTitle,

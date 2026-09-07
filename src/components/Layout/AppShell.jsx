@@ -12,6 +12,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "@/components/Homepage/OnlineStatus";
 import PullToRefresh from "@/components/PullToRefresh";
 import { JamProvider } from "@/components/Jam/JamProvider";
+import useNetworkRecovery from "@/hooks/useNetworkRecovery";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -42,6 +43,8 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const [showNav, setShowNav] = useState(false);
   const [isCompactNav, setIsCompactNav] = useState(false);
+
+  useNetworkRecovery();
 
   useEffect(() => {
     setShowNav(false);

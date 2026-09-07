@@ -28,6 +28,7 @@ import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import usePlayerTransport from "@/hooks/usePlayerTransport";
 import useMediaSession from "@/hooks/useMediaSession";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
+import useWakeLock from "@/hooks/useWakeLock";
 import { MdPictureInPictureAlt } from "react-icons/md";
 import { toUserError } from "@/utils/userError";
 
@@ -97,6 +98,11 @@ const MusicPlayer = () => {
   const [seekTime, setSeekTime] = useState(0);
   const [appTime, setAppTime] = useState(0);
   const [volume, setVolume] = useState(0.8);
+
+  // Hold a screen wake lock while anything is playing so a listener's display
+  // doesn't sleep mid-track. Releases on its own when playback stops.
+  useWakeLock(isPlaying && (isActive || Boolean(youtubeVideo)));
+
   const [repeat, setRepeat] = useState(false);
   const [shuffle, setShuffle] = useState(false);
   const [favouriteSongs, setFavouriteSongs] = useState([]);
@@ -345,6 +351,11 @@ const MusicPlayer = () => {
     onNextTrack: handleNext,
     onSeekBackward: (seconds) => seekRelative(-(seconds || 10)),
     onSeekForward: (seconds) => seekRelative(seconds || 10),
+    onSeekTo: (seconds) => setSeekTime(seconds),
+    position: {
+      duration: Number.isFinite(duration) ? duration : 0,
+      position: Number.isFinite(appTime) ? appTime : 0,
+    },
   });
 
   const handleAddToFavourite = async (favsong) => {

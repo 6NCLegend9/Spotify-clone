@@ -877,7 +877,7 @@ export default function YouTubePlayer() {
     // Privacy-enhanced host avoids most YouTube/doubleclick ad-conversion beacons (and their CORS console noise).
     iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?${playerParams}`;
     iframe.title = title ? `${title} video` : "YouTube video player";
-    iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+    iframe.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
     iframe.allowFullscreen = true;
     iframe.referrerPolicy = "strict-origin-when-cross-origin";
     iframe.style.width = "100%";

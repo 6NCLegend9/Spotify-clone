@@ -28,6 +28,8 @@ import { useEffect, useRef } from "react";
  * @property {() => void} [onNextTrack]                  Hardware next key.
  * @property {(seconds: number) => void} [onSeekBackward] Hardware seek-back key.
  * @property {(seconds: number) => void} [onSeekForward]  Hardware seek-forward key.
+ * @property {(seconds: number) => void} [onSeekTo]       Lock-screen scrub bar (absolute seconds).
+ * @property {{ duration: number, position: number, playbackRate?: number }} [position]  Progress mirrored to the OS.
  * @property {number} [seekOffset]                       Default seek step for hardware seek keys (default 10s).
  */
 
@@ -38,6 +40,7 @@ const MEDIA_ACTIONS = [
   "nexttrack",
   "seekbackward",
   "seekforward",
+  "seekto",
 ];
 
 function hasMediaSession() {
@@ -113,9 +116,30 @@ export default function useMediaSession(options = {}) {
     setHandler("seekforward", (details) =>
       optionsRef.current.onSeekForward?.(details?.seekOffset || optionsRef.current.seekOffset || seekOffset),
     );
+    setHandler("seekto", (details) => {
+      if (Number.isFinite(details?.seekTime)) optionsRef.current.onSeekTo?.(details.seekTime);
+    });
 
     return () => {
       MEDIA_ACTIONS.forEach((action) => setHandler(action, null));
     };
   }, [enabled, seekOffset]);
+
+  // Mirror progress so the lock screen shows an accurate scrub bar and the OS
+  // can keep the audio session alive while the page is backgrounded.
+  const position = options.position;
+  const duration = Number.isFinite(position?.duration) ? position.duration : 0;
+  const positionSec = Number.isFinite(position?.position) ? position.position : 0;
+  useEffect(() => {
+    if (!enabled || !hasMediaSession() || !duration) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        position: Math.min(positionSec, duration),
+        playbackRate: 1,
+      });
+    } catch (error) {
+      // setPositionState is unsupported here; ignore.
+    }
+  }, [enabled, duration, positionSec]);
 }
