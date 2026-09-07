@@ -5,8 +5,8 @@ import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import { PiDotsThreeVerticalBold } from "react-icons/pi";
-import { FiThumbsDown, FiClock, FiRadio } from "react-icons/fi";
-import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { FiThumbsDown, FiClock, FiRadio, FiCornerDownRight, FiPlus } from "react-icons/fi";
+import { addToQueue, playNextToQueue, setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
 import { buildRadioQueue } from "@/utils/radioEngine.mjs";
 import { toUserError } from "@/utils/userError";
@@ -81,6 +81,18 @@ export default function RecommendationCard({ video, queue }) {
     else toast("Already in the Jam queue");
   };
 
+  const handlePlayNext = () => {
+    setMenuOpen(false);
+    dispatch(playNextToQueue(video));
+    toast.success("Playing next");
+  };
+
+  const handleAddToQueue = () => {
+    setMenuOpen(false);
+    dispatch(addToQueue(video));
+    toast.success("Added to queue");
+  };
+
   const canModerate = status === "authenticated" && Boolean(video?.id);
   const canJam = Boolean(jam?.enqueue) && jam?.status === "connected" && Boolean(video?.id);
   const actions = [
@@ -90,6 +102,18 @@ export default function RecommendationCard({ video, queue }) {
       label: "Add to Jam queue",
       accent: true,
       onClick: addToJam,
+    },
+    video?.id && {
+      key: "play-next",
+      Icon: FiCornerDownRight,
+      label: "Play next",
+      onClick: handlePlayNext,
+    },
+    video?.id && {
+      key: "add-queue",
+      Icon: FiPlus,
+      label: "Add to queue",
+      onClick: handleAddToQueue,
     },
     canModerate && {
       key: "not-interested",

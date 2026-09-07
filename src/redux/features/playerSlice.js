@@ -94,6 +94,18 @@ const playerSlice = createSlice({
       });
     },
 
+    playNextToQueue: (state, action) => {
+      const track = action.payload;
+      if (!track?.id) return;
+      const queue = state.youtubeQueue || [];
+      const currentId = state.youtubeVideo?.id;
+      const index = currentId ? queue.findIndex((item) => item.id === currentId) : -1;
+      const filtered = queue.filter((item) => item.id !== track.id);
+      const insertIndex = index >= 0 ? index + 1 : 0;
+      filtered.splice(insertIndex, 0, track);
+      state.youtubeQueue = filtered;
+    },
+
     setFullScreen: (state, action) => {
       state.fullScreen = action.payload;
     },
@@ -114,6 +126,7 @@ export const {
   setYoutubeQueue,
   addToQueue,
   appendToQueue,
+  playNextToQueue,
   setFullScreen,
   setAutoAdd,
 } = playerSlice.actions;

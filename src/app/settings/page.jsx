@@ -166,6 +166,7 @@ export default function SettingsPage() {
           <SelectControl label="Video quality preference" value={settings.videoQuality} options={videoQualityOptions} onChange={(value) => set("videoQuality", value)} />
           <SelectControl label="Volume normalization" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
           <Toggle label="Mono audio" checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
+          <Toggle label="Spatial audio / Stereo expansion" description="Subtly widens the stereo field for immersive headphone listening." checked={settings.spatialAudio} onChange={(value) => set("spatialAudio", value)} />
           <p className="mt-4 text-xs text-[#9aa8b5]">HeyKasa asks YouTube for the selected quality. The final audio and video quality depends on the uploaded source, browser, viewport, and connection. The player shows the video quality currently delivered.</p>
         </div>
       </section>

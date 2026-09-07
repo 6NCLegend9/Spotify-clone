@@ -27,6 +27,7 @@ const initialState = {
   captions: true,
   fadeEnabled: true,
   fadeSeconds: 0.8,
+  spatialAudio: false,
 };
 
 const settingsSlice = createSlice({

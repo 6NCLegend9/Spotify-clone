@@ -1,6 +1,7 @@
 import Lyrics from "./Lyrics";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setFullScreen } from "@/redux/features/playerSlice";
+import { updateSetting, EQ_PRESETS } from "@/redux/features/settingsSlice";
 import { useSwipeable } from "react-swipeable";
 import { cleanTitle } from "@/utils/text";
 
@@ -14,6 +15,7 @@ const FullscreenTrack = ({
   onSeek,
 }) => {
   const dispatch = useDispatch();
+  const settings = useSelector((state) => state.settings);
   const handlers = useSwipeable({
     onSwipedLeft: () => handleNextSong(),
     onSwipedRight: () => handlePrevSong(),
@@ -64,6 +66,20 @@ const FullscreenTrack = ({
           <p className="truncate text-gray-300">
             {artistDisplay}
           </p>
+          <div className="mt-3 flex items-center justify-center gap-2 text-xs">
+            <span className="font-semibold text-[#9aa8b5]">EQ Preset:</span>
+            <select
+              value={settings?.eqPreset || "Flat / Neutral"}
+              onChange={(e) => dispatch(updateSetting({ key: "eqPreset", value: e.target.value }))}
+              className="rounded-full border border-white/15 bg-[#07121d] px-3 py-1 text-xs font-semibold text-[#00e6e6] outline-none transition hover:border-[#00e6e6]"
+            >
+              {EQ_PRESETS.map((preset) => (
+                <option key={preset} value={preset} className="bg-[#07121d] text-white">
+                  {preset}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
       <div

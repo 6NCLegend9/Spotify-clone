@@ -26,11 +26,12 @@ const Player = ({
   const handlePlayPauseRef = useRef(handlePlayPause);
   const mediaActionsRef = useRef({});
   const [playbackError, setPlaybackError] = useState(null);
-  const { eqPreset, eqBands, normalization, monoAudio, masterVolume } = useSelector((state) => state.settings);
+  const { eqPreset, eqBands, normalization, monoAudio, spatialAudio, masterVolume } = useSelector((state) => state.settings);
   useAudioEq(ref, {
     bands: bandsForPreset(eqPreset, eqBands),
     normalization,
     monoAudio,
+    spatialAudio,
   });
   const audioSource =
     activeSong?.downloadUrl?.[4]?.url ||

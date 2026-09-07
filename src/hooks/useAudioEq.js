@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { EQ_BAND_FREQS, normalizationGain } from "@/utils/eqPresets";
 
-export default function useAudioEq(audioRef, { bands, normalization, monoAudio }) {
+export default function useAudioEq(audioRef, { bands, normalization, monoAudio, spatialAudio }) {
   const graphRef = useRef(null);
 
   useEffect(() => {
@@ -36,6 +36,15 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio }
       const gain = context.createGain();
       const splitter = context.createChannelSplitter(2);
       const merger = context.createChannelMerger(2);
+      let panner = null;
+      if (typeof context.createStereoPanner === "function") {
+        try {
+          panner = context.createStereoPanner();
+          panner.pan.value = 0;
+        } catch {
+          panner = null;
+        }
+      }
       source.connect(filters[0]);
       filters.reduce((previous, next) => {
         previous.connect(next);
@@ -46,8 +55,13 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio }
       gain.connect(splitter);
       splitter.connect(merger, 0, 0);
       splitter.connect(merger, 1, 1);
-      merger.connect(context.destination);
-      graph = { audio, context, filters, gain, splitter, merger, mono: false };
+      if (panner) {
+        merger.connect(panner);
+        panner.connect(context.destination);
+      } else {
+        merger.connect(context.destination);
+      }
+      graph = { audio, context, filters, gain, splitter, merger, panner, mono: false };
       graphRef.current = graph;
     }
 
@@ -69,6 +83,11 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio }
       filter.gain.value = Number(bands?.[index] || 0);
     });
     graph.gain.gain.value = normalizationGain(normalization);
+
+    if (graph.panner) {
+      graph.panner.pan.value = spatialAudio ? 0.05 : 0;
+    }
+
     if (monoAudio === graph.mono) return;
     graph.gain.disconnect();
     graph.splitter.disconnect();
@@ -77,12 +96,20 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio }
       graph.gain.connect(graph.splitter);
       graph.splitter.connect(graph.merger, 0, 0);
       graph.splitter.connect(graph.merger, 0, 1);
-      graph.merger.connect(graph.context.destination);
+      if (graph.panner) {
+        graph.merger.connect(graph.panner);
+        graph.panner.connect(graph.context.destination);
+      } else {
+        graph.merger.connect(graph.context.destination);
+      }
+    } else if (graph.panner) {
+      graph.gain.connect(graph.panner);
+      graph.panner.connect(graph.context.destination);
     } else {
       graph.gain.connect(graph.context.destination);
     }
     graph.mono = Boolean(monoAudio);
-  }, [bands, normalization, monoAudio]);
+  }, [bands, normalization, monoAudio, spatialAudio]);
 
   useEffect(() => () => {
     graphRef.current?.context.close?.().catch(() => {});

@@ -272,7 +272,7 @@ const Home = () => {
             videos?.length > 0 && (
               <section key={title} className="mb-10 animate-fade-in">
                 <h2 className="section-title">{title}</h2>
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {videos.map((video) =>
                     title === "Featured Playlists" ? (
                       <RecommendationPlaylistCard key={video.id} playlist={video} />
