@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import {
@@ -1407,7 +1407,7 @@ function YouTubePlayer() {
     if (nextVideo.thumbnail && typeof window !== "undefined") {
       try {
         const image = new Image();
-        image.src = youtubeThumb(nextVideo.thumbnail, "maxres");
+        image.src = youtubeThumb(nextVideo.thumbnail, "hq");
       } catch {
         // Image preload is best-effort.
       }
