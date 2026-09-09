@@ -67,7 +67,7 @@ const Navbar = () => {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="icon-btn h-11 w-11 shrink-0"
+          className="icon-btn navbar-refresh h-11 w-11 shrink-0"
           aria-label="Refresh"
           title="Refresh"
         >

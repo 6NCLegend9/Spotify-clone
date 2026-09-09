@@ -10,7 +10,6 @@ import Sidebar from "@/components/Sidebar/Sidebar";
 import MobileTabBar from "@/components/Layout/MobileTabBar";
 import CreateHub from "@/components/Layout/CreateHub";
 import Atmosphere from "@/components/Layout/Atmosphere";
-import ParticleField from "@/components/Layout/ParticleField";
 import PageTransit from "@/components/Layout/PageTransit";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "@/components/Homepage/OnlineStatus";
@@ -152,7 +151,6 @@ export default function AppShell({ children }) {
           />
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Atmosphere />
-          <ParticleField />
           <Navbar />
           <div className="app-content" id="main-content" tabIndex={-1}>
             <PullToRefresh />

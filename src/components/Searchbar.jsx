@@ -52,7 +52,6 @@ const Searchbar = () => {
   // Let other UI (e.g. the mobile tab bar) focus the search input.
   useEffect(() => {
     const onOpenSearch = () => {
-      document.documentElement.classList.add("home-search-open");
       inputRef.current?.focus();
       inputRef.current?.select();
     };
@@ -156,17 +155,22 @@ const Searchbar = () => {
       autoComplete="off"
       className="search-cluster-form"
     >
-      <label htmlFor={inputId} className="sr-only">
-        Search songs, artists, playlists, and genres
-      </label>
       <div className={`search-field ${browseActive ? "is-browse" : ""}`}>
-        <FiSearch aria-hidden="true" className="search-field-icon" />
+        <label htmlFor={inputId} className="search-field-icon-hit">
+          <FiSearch aria-hidden="true" className="search-field-icon" />
+          <span className="sr-only">Search songs, artists, playlists, and genres</span>
+        </label>
         <input
           id={inputId}
           ref={inputRef}
           name="search-field"
-          type="search"
+          type="text"
+          inputMode="search"
+          enterKeyHint="search"
           autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck="false"
           placeholder="What do you want to play?"
           value={searchTerm}
           role="combobox"
@@ -228,10 +232,9 @@ const Searchbar = () => {
           }}
           onBlur={() => {
             dispatch(setIsTyping(false));
-            document.documentElement.classList.remove("home-search-open");
             window.setTimeout(() => setOpen(false), 150);
           }}
-          className="h-full min-h-0 min-w-0 flex-1 bg-transparent text-sm leading-normal text-white outline-none placeholder:text-[#9aa8b5]"
+          className="search-field-input"
         />
         <span className="search-split" aria-hidden="true" />
         <Link

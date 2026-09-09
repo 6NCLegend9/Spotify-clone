@@ -24,6 +24,7 @@ export default function MobileTabBar() {
       <Link
         href="/search"
         aria-current={searchActive ? "page" : undefined}
+        onClick={() => window.dispatchEvent(new Event("heykasa:open-search"))}
         className={`app-tab ${searchActive ? "is-active" : ""}`}
       >
         <FiSearch aria-hidden="true" className="text-xl" />
