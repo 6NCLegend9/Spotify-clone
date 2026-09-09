@@ -239,7 +239,7 @@ export default function useHomeFeed() {
         (feed.charts?.length || 0) +
         (feed.newReleases?.length || 0) +
         (feed.featuredPlaylists?.length || 0) +
-        genreSections.reduce((sum, section) => sum + (section.videos?.length || 0), 0) +
+        (feed.genreSections || []).reduce((sum, section) => sum + (section.videos?.length || 0), 0) +
         history.length +
         playlists.length +
         releases.length >
