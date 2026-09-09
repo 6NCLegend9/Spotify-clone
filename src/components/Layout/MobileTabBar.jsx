@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FiDisc, FiHome, FiSearch } from "react-icons/fi";
+import { FiDisc, FiHome, FiPlus, FiSearch } from "react-icons/fi";
 
 export default function MobileTabBar() {
   const pathname = usePathname();
@@ -10,10 +10,6 @@ export default function MobileTabBar() {
   const homeActive = pathname === "/";
   const searchActive = pathname.startsWith("/search");
   const libraryActive = pathname.startsWith("/library");
-
-  const openSearch = () => {
-    window.dispatchEvent(new Event("heykasa:open-search"));
-  };
 
   return (
     <nav className="app-tabbar md:hidden" aria-label="Primary">
@@ -25,23 +21,31 @@ export default function MobileTabBar() {
         <FiHome aria-hidden="true" className="text-xl" />
         <span>Home</span>
       </Link>
-      <button
-        type="button"
-        onClick={openSearch}
+      <Link
+        href="/search"
         aria-current={searchActive ? "page" : undefined}
         className={`app-tab ${searchActive ? "is-active" : ""}`}
       >
         <FiSearch aria-hidden="true" className="text-xl" />
         <span>Search</span>
-      </button>
+      </Link>
       <Link
         href="/library"
         aria-current={libraryActive ? "page" : undefined}
         className={`app-tab ${libraryActive ? "is-active" : ""}`}
       >
         <FiDisc aria-hidden="true" className="text-xl" />
-        <span>Library</span>
+        <span>Your Library</span>
       </Link>
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event("heykasa:open-create"))}
+        className="app-tab"
+        aria-label="Create playlist"
+      >
+        <FiPlus aria-hidden="true" className="text-xl" />
+        <span>Create</span>
+      </button>
     </nav>
   );
 }

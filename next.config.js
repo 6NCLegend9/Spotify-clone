@@ -37,6 +37,11 @@ const nextConfig = {
     // Enabled only for production compiles. In `next dev` this flag
     // corrupts HMR module IDs and throws `__webpack_modules__[moduleId] is not a function`.
     webpackMemoryOptimizations: isProduction,
+    optimizePackageImports: ["react-icons", "lucide-react"],
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
   serverExternalPackages: ["youtubei.js"],
   images: {

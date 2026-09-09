@@ -310,7 +310,7 @@ export default function JamController() {
               </div>
             ) : null}
 
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="glass-panel rounded-xl p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">1. Code</p>
               <div className="mt-1 flex items-center justify-between gap-2">
                 <span data-testid="jam-code" className="text-2xl font-bold tracking-[0.28em] text-white">{jam.code || "······"}</span>
@@ -338,13 +338,13 @@ export default function JamController() {
 
             {jam.role === "host" && shareUrl && jam.status === "connected" ? (
               <>
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center">
+                <div className="glass-panel rounded-xl p-4 text-center">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">2. QR</p>
                   <JamQr url={shareUrl} label={`QR code for Jam ${jam.code}`} />
                   <p className="mt-2 text-[11px] text-[#9aa8b5]">Friends scan this to open the Jam link.</p>
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="glass-panel rounded-xl p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">3. Link</p>
                   <p className="mt-2 break-all text-xs text-gray-200">{shareUrl}</p>
                   <div className="mt-3 flex gap-2">

@@ -28,6 +28,7 @@ import {
   JAM_REMOTE_PLAYBACK_EVENT,
   JAM_REMOTE_SEEK_EVENT,
 } from "@/utils/jam.mjs";
+import { decodeTrackFields } from "@/utils/text";
 
 const handleThumbError = (event) => {
   if (event.currentTarget.src !== THUMB_FALLBACK) {
@@ -144,8 +145,13 @@ function YouTubePlayer() {
   const dispatch = useDispatch();
   const { status } = useSession();
   const jam = useJam();
-  const { youtubeVideo: video, youtubeQueue: queue, isPlaying } = useSelector(
+  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying } = useSelector(
     (state) => state.player,
+  );
+  const video = useMemo(() => decodeTrackFields(rawVideo), [rawVideo]);
+  const queue = useMemo(
+    () => (Array.isArray(rawQueue) ? rawQueue.map((item) => decodeTrackFields(item)) : []),
+    [rawQueue],
   );
   const {
     dataSaver,
@@ -1973,7 +1979,7 @@ function YouTubePlayer() {
         },
       );
       const results = Array.isArray(data?.results) ? data.results : [];
-      setAddResults(results.filter((item) => item?.id).slice(0, 6));
+      setAddResults(results.filter((item) => item?.id).slice(0, 6).map((item) => decodeTrackFields(item)));
     } catch (error) {
       setAddResults([]);
       setAddSearchError("We couldn’t search for tracks. Please try again.");

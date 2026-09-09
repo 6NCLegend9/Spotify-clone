@@ -1,15 +1,21 @@
 import Image from "next/image";
 import Link from "next/link";
-import logo from "../../assets/HayKasa-banner-removebg.png";
+import banner from "@/assets/HayKasa-banner-removebg.png";
+import logo from "@/assets/HayKasa-logo-removebg.png";
+import { SITE_NAME } from "@/utils/siteConfig";
 
-export default function BrandMark({ onClick, className = "" }) {
+export default function BrandMark({ onClick, className = "", compact = false }) {
   return (
-    <Link href="/" onClick={onClick} className={`flex items-center ${className}`}>
+    <Link
+      href="/"
+      onClick={onClick}
+      className={`brand-mark ${compact ? "is-compact" : ""} ${className}`.trim()}
+    >
       <Image
-        src={logo}
-        alt="HayKasa"
+        src={compact ? logo : banner}
+        alt={SITE_NAME}
         priority
-        className="h-8 w-auto object-contain sm:h-9 lg:h-10"
+        className="brand-mark-lockup"
       />
     </Link>
   );

@@ -1,7 +1,10 @@
-const loading = () => (
-  <div className="page-loading">
-    <span className="loader" />
-  </div>
-);
+import { PlaylistHeroSkeleton, SongRowsSkeleton } from "@/components/Skeleton";
 
-export default loading;
+export default function loading() {
+  return (
+    <div className="page">
+      <PlaylistHeroSkeleton />
+      <SongRowsSkeleton />
+    </div>
+  );
+}

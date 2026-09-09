@@ -57,7 +57,7 @@ export default function ArcadeSongPicker({
   const current = youtubeVideo?.id ? youtubeVideo : null;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="glass-panel rounded-xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-white">Pick your music</h3>
         {selectedLabel ? (

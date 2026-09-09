@@ -6,6 +6,7 @@ import UserMessage from "@/components/UserMessage";
 import useAudioEq from "@/hooks/useAudioEq";
 import { bandsForPreset } from "@/utils/eqPresets";
 import { toUserError } from "@/utils/userError";
+import { cleanTitle } from "@/utils/text";
 
 const Player = ({
   activeSong,
@@ -123,24 +124,27 @@ const Player = ({
     }
   };
 
-  const artistName = Array.isArray(activeSong?.artists?.primary)
-    ? activeSong.artists.primary.map((a) => a?.name).join(", ")
-    : typeof activeSong?.artists === "string"
-    ? activeSong.artists
-    : activeSong?.primaryArtists || "Artist";
+  const artistName = cleanTitle(
+    Array.isArray(activeSong?.artists?.primary)
+      ? activeSong.artists.primary.map((a) => a?.name).join(", ")
+      : typeof activeSong?.artists === "string"
+      ? activeSong.artists
+      : activeSong?.primaryArtists || "",
+    "Artist",
+  );
 
   const artwork =
     activeSong?.image?.[2]?.url ||
     activeSong?.image?.[1]?.url ||
     activeSong?.image?.[0]?.url ||
     "";
-  const albumName = activeSong?.album?.name || "";
+  const albumName = cleanTitle(activeSong?.album?.name || "");
 
   useEffect(() => {
-    if (!("mediaSession" in navigator) || !activeSong?.name) return undefined;
+    if (!("mediaSession" in navigator) || !(activeSong?.name || activeSong?.title)) return undefined;
 
     navigator.mediaSession.metadata = new window.MediaMetadata({
-      title: activeSong.name,
+      title: cleanTitle(activeSong.name || activeSong.title, "HeyKasa"),
       artist: artistName,
       album: albumName,
       artwork: artwork
@@ -179,7 +183,7 @@ const Player = ({
       ["play", "pause", "previoustrack", "nexttrack", "seekbackward", "seekforward"]
         .forEach((action) => setAction(action, null));
     };
-  }, [activeSong?.name, albumName, artistName, artwork]);
+  }, [activeSong?.name, activeSong?.title, albumName, artistName, artwork]);
 
   useEffect(() => {
     if ("mediaSession" in navigator) {

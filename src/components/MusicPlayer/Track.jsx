@@ -33,16 +33,16 @@ const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
       </div>
       <div className={`w-[190px] select-none cursor-pointer`}>
         <p className="truncate text-white font-bold text-lg">
-          {cleanTitle(activeSong?.name, "Song")}
+          {cleanTitle(activeSong?.name || activeSong?.title, "Song")}
         </p>
         <p className="truncate text-gray-300">
           {primaryArtists.length > 0
             ? primaryArtists
-                .map((artist) => artist?.name?.trim())
+                .map((artist) => cleanTitle(artist?.name))
                 .filter(Boolean)
                 .join(", ")
             : typeof activeSong?.artists === "string"
-            ? activeSong.artists
+            ? cleanTitle(activeSong.artists, "Artist")
             : "Artist"}
         </p>
       </div>

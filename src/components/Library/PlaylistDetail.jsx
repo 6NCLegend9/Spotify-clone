@@ -54,6 +54,7 @@ import { requestJson } from "@/services/http";
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
+import { readNavCache, writeNavCache } from "@/utils/navCache";
 
 function cleanText(value = "") {
   return cleanTitle(value);
@@ -128,10 +129,12 @@ export default function PlaylistDetail({ kind, playlistId }) {
   const dispatch = useDispatch();
   const { data: session, status } = useSession();
   const { youtubeVideo, autoAdd } = useSelector((state) => state.player);
-  const [collection, setCollection] = useState(null);
-  const [tracks, setTracks] = useState([]);
+  const cacheKey = isLiked ? "liked" : `playlist:${playlistId || ""}`;
+  const cached = readNavCache(cacheKey);
+  const [collection, setCollection] = useState(() => cached?.collection ?? null);
+  const [tracks, setTracks] = useState(() => cached?.tracks ?? []);
   const [recommendations, setRecommendations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cached);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -153,7 +156,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
 
     let active = true;
     const loadCollection = async () => {
-      setLoading(true);
+      if (!readNavCache(cacheKey)) setLoading(true);
       setError(null);
       try {
         const source = isLiked ? await getFavouriteLibrary() : await getSinglePlaylist(playlistId);
@@ -177,6 +180,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
           setCollection(nextCollection);
           setTracks(datedTracks);
           if (!isLiked) setSmartShuffle(Boolean(nextCollection.smartShuffle));
+          writeNavCache(cacheKey, { collection: nextCollection, tracks: datedTracks });
         }
       } catch (loadError) {
         if (active) {
@@ -198,7 +202,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
     return () => {
       active = false;
     };
-  }, [isLiked, playlistId, refreshKey, status]);
+  }, [cacheKey, isLiked, playlistId, refreshKey, status]);
 
   useEffect(() => {
     if (isLiked) setSmartShuffle(autoAdd);
@@ -412,7 +416,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
 
   return (
     <main className="text-white">
-      {!loading && !error && collection ? (
+      {!error && collection ? (
         <section className="bg-[linear-gradient(180deg,rgba(100,201,215,0.28),rgba(7,18,29,0.92))] px-[3vw] pb-8 pt-8">
           <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 sm:flex-row sm:items-end">
             {isLiked ? (
@@ -443,7 +447,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
       ) : null}
 
       <div className="mx-auto w-[min(94%,1440px)]">
-        {loading && (
+        {loading && !collection && (
           <div className="mt-8">
             <PlaylistHeroSkeleton />
             <SongRowsSkeleton />
@@ -532,7 +536,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
                   <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-11 w-11 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
                   <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
                     <MediaImage src={track.thumbnail} size="mq" alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-11 w-11 shrink-0 rounded object-cover" />
-                    <span className="min-w-0"><span className={`block truncate text-sm font-semibold ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-white"}`}>{cleanText(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{track.channel}</span></span>
+                    <span className="min-w-0"><span className={`block truncate text-sm font-semibold ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-white"}`}>{cleanText(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{cleanText(track.channel)}</span></span>
                   </button>
                   <span className="hidden truncate text-xs text-gray-400 md:block">-</span>
                   <span className="hidden text-xs text-gray-400 lg:block">{formatAddedDate(track.addedAt)}</span>

@@ -30,8 +30,15 @@ async function parseResponseBody(response) {
 }
 
 const clientCache = new Map();
-const CACHEABLE_GET_ROUTES = ["/api/recommendations", "/api/followedArtists", "/api/genres"];
-const CACHE_TTL_MS = 3 * 60 * 1000;
+const CACHEABLE_GET_ROUTES = [
+  "/api/recommendations",
+  "/api/followedArtists",
+  "/api/genres",
+  "/api/userPlaylists",
+  "/api/favourite",
+  "/api/settings",
+];
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export function invalidateClientCache(urlPattern) {
   if (!urlPattern) {

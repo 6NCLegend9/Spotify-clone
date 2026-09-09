@@ -8,16 +8,20 @@ import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
+import { readNavCache, writeNavCache } from "@/utils/navCache";
+
+const FOLLOWING_CACHE_KEY = "following";
 
 export default function FollowingPage() {
   const { status } = useSession();
-  const [artists, setArtists] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cached = readNavCache(FOLLOWING_CACHE_KEY);
+  const [artists, setArtists] = useState(() => cached ?? []);
+  const [loading, setLoading] = useState(() => !cached);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (status === "loading") {
-      setLoading(true);
+      if (!readNavCache(FOLLOWING_CACHE_KEY)) setLoading(true);
       return undefined;
     }
     if (status !== "authenticated") {
@@ -28,7 +32,7 @@ export default function FollowingPage() {
     const controller = new AbortController();
     let active = true;
     const load = async () => {
-      setLoading(true);
+      if (!readNavCache(FOLLOWING_CACHE_KEY)) setLoading(true);
       setError(null);
       try {
         const json = await requestJson("/api/followedArtists", {
@@ -48,14 +52,17 @@ export default function FollowingPage() {
           };
         });
         setArtists(merged);
+        writeNavCache(FOLLOWING_CACHE_KEY, merged);
       } catch (loadError) {
         if (active && !controller.signal.aborted) {
-          setError(
-            toUserError(loadError, {
-              title: "Following unavailable",
-              message: "We couldn’t load the artists you follow.",
-            }),
-          );
+          if (!readNavCache(FOLLOWING_CACHE_KEY)) {
+            setError(
+              toUserError(loadError, {
+                title: "Following unavailable",
+                message: "We couldn’t load the artists you follow.",
+              }),
+            );
+          }
         }
       } finally {
         if (active) setLoading(false);
@@ -146,14 +153,14 @@ export default function FollowingPage() {
         </div>
       </header>
 
-      {status === "unauthenticated" ? (
+        {status === "unauthenticated" ? (
         <UserMessage
           title="Please log in"
           message="Log in to see the artists you follow."
           href="/login"
           hrefLabel="Log in"
         />
-      ) : loading ? (
+      ) : loading && artists.length === 0 ? (
         <p className="mt-8 text-sm text-[#9aa8b5]">Loading artists…</p>
       ) : error ? (
         <div className="mt-8">
@@ -173,7 +180,6 @@ export default function FollowingPage() {
             <Link
               key={`${artist.name}-${artist.channelId}`}
               href={hrefFor(artist)}
-              prefetch={false}
               className="group text-center"
             >
               <MediaImage

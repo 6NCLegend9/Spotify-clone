@@ -147,7 +147,7 @@ export default function AccessibilityPage() {
             {KEYBOARD_GROUPS.map((group) => (
               <div key={group.title}>
                 <h3 className="text-sm font-semibold text-white">{group.title}</h3>
-                <ul className="mt-3 divide-y divide-white/10 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                <ul className="glass-panel mt-3 divide-y divide-white/10 overflow-hidden rounded-xl">
                   {group.items.map((item) => (
                     <li
                       key={`${group.title}-${item.detail}`}

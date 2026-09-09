@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch, searchChannelsViaInnertube } from "@/utils/youtubeApi";
+import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import {
   apiError,
@@ -121,10 +122,10 @@ export async function GET(request) {
       .map((item) => ({
         id: item.id.videoId || item.id.channelId || item.id.playlistId,
         type,
-        title: item.snippet?.title || "",
-        channel: item.snippet?.channelTitle || "",
+        title: cleanTitle(item.snippet?.title || ""),
+        channel: cleanTitle(item.snippet?.channelTitle || ""),
         channelId: item.snippet?.channelId || item.id?.channelId || "",
-        description: item.snippet?.description || "",
+        description: cleanTitle(item.snippet?.description || ""),
         publishedAt: item.snippet?.publishedAt || "",
         thumbnail:
           item.snippet?.thumbnails?.high?.url

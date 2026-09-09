@@ -15,8 +15,9 @@ export default function JamJoinClient({ code }) {
   useEffect(() => {
     if (joiningRef.current) return;
     const current = jamRef.current;
-    if (!current?.available) {
-      router.replace("/");
+    if (!current?.ready) return;
+    if (!current.available) {
+      router.replace(`/login?callbackUrl=${encodeURIComponent(`/jam/${code}`)}`);
       return;
     }
 
@@ -36,7 +37,7 @@ export default function JamJoinClient({ code }) {
       router.replace("/");
     };
     void joinRequestedRoom();
-  }, [code, router]);
+  }, [code, jam?.available, jam?.ready, router]);
 
   return (
     <div className="page grid min-h-[40vh] place-items-center text-sm text-[#9aa8b5]">

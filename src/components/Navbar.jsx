@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { GoHome, GoHomeFill } from "react-icons/go";
 import { MdOutlineMenu, MdRefresh, MdSportsEsports } from "react-icons/md";
 import BrandMark from "./Layout/BrandMark";
 import { useNav } from "./Layout/AppShell";
@@ -12,8 +14,10 @@ import { canUseArcade } from "@/utils/arcadeAccess";
 
 const Navbar = () => {
   const { setShowNav, navModal } = useNav();
+  const pathname = usePathname();
   const { data: session, status } = useSession();
   const [imageFailed, setImageFailed] = useState(false);
+  const homeActive = pathname === "/";
   const userName =
     typeof session?.user?.name === "string" && session.user.name.trim()
       ? session.user.name.trim()
@@ -27,24 +31,39 @@ const Navbar = () => {
 
   return (
     <header className="app-navbar">
-      <button
-        type="button"
-        onClick={() => setShowNav(true)}
-        className="icon-btn h-11 w-11 shrink-0 md:hidden"
-        aria-label="Open menu"
-        aria-expanded={navModal}
-        aria-controls="app-sidebar"
-      >
-        <MdOutlineMenu aria-hidden="true" className="text-xl" />
-      </button>
+      <div className="navbar-slot navbar-slot-start">
+        <button
+          type="button"
+          onClick={() => setShowNav(true)}
+          className="icon-btn h-11 w-11 shrink-0 md:hidden"
+          aria-label="Open menu"
+          aria-expanded={navModal}
+          aria-controls="app-sidebar"
+        >
+          <MdOutlineMenu aria-hidden="true" className="text-xl" />
+        </button>
 
-      <BrandMark className="hidden shrink-0 sm:flex md:hidden" />
+        <BrandMark compact className="hidden shrink-0 sm:flex md:hidden" />
+      </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="navbar-search-cluster">
+        <Link
+          href="/"
+          aria-label="Home"
+          title="Home"
+          aria-current={homeActive ? "page" : undefined}
+          className={`nav-home-btn ${homeActive ? "is-active" : ""}`}
+        >
+          {homeActive ? (
+            <GoHomeFill aria-hidden="true" />
+          ) : (
+            <GoHome aria-hidden="true" />
+          )}
+        </Link>
         <Searchbar />
       </div>
 
-      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+      <div className="navbar-slot navbar-slot-end">
         <button
           type="button"
           onClick={() => window.location.reload()}
@@ -68,7 +87,7 @@ const Navbar = () => {
             href="/settings"
             aria-label={`Open settings for ${userName}`}
             title="Open settings"
-            className="grid h-11 w-11 place-items-center overflow-hidden rounded-full ring-1 ring-white/20 transition hover:ring-[#00e6e6]"
+            className="grid h-11 w-11 place-items-center overflow-hidden rounded-full ring-1 ring-white/20 shadow-glow transition hover:ring-[#00e6e6]"
           >
             {imageUrl && !imageFailed ? (
               <img

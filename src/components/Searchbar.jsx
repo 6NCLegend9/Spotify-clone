@@ -2,7 +2,9 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { FiSearch } from "react-icons/fi";
-import { useRouter } from "next/navigation";
+import { HiOutlineViewGrid, HiViewGrid } from "react-icons/hi";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
@@ -14,6 +16,8 @@ import { cleanTitle } from "@/utils/text";
 const Searchbar = () => {
   const dispatch = useDispatch();
   const router = useRouter();
+  const pathname = usePathname();
+  const browseActive = pathname === "/search";
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -48,6 +52,7 @@ const Searchbar = () => {
   // Let other UI (e.g. the mobile tab bar) focus the search input.
   useEffect(() => {
     const onOpenSearch = () => {
+      document.documentElement.classList.add("home-search-open");
       inputRef.current?.focus();
       inputRef.current?.select();
     };
@@ -149,20 +154,20 @@ const Searchbar = () => {
       aria-label="Search music"
       onSubmit={handleSubmit}
       autoComplete="off"
-      className="relative w-full max-w-xl"
+      className="search-cluster-form"
     >
       <label htmlFor={inputId} className="sr-only">
         Search songs, artists, playlists, and genres
       </label>
-      <div className="flex h-11 min-h-11 items-center gap-2 overflow-hidden rounded-full border border-white/10 bg-white/[0.06] px-3 transition duration-200 ease-out focus-within:border-[#00e6e6] focus-within:bg-[#07121d]/80 focus-within:shadow-glow sm:px-4">
-        <FiSearch aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9aa8b5]" />
+      <div className={`search-field ${browseActive ? "is-browse" : ""}`}>
+        <FiSearch aria-hidden="true" className="search-field-icon" />
         <input
           id={inputId}
           ref={inputRef}
           name="search-field"
           type="search"
           autoComplete="off"
-          placeholder="Search music or genres"
+          placeholder="What do you want to play?"
           value={searchTerm}
           role="combobox"
           aria-autocomplete="list"
@@ -223,17 +228,32 @@ const Searchbar = () => {
           }}
           onBlur={() => {
             dispatch(setIsTyping(false));
+            document.documentElement.classList.remove("home-search-open");
             window.setTimeout(() => setOpen(false), 150);
           }}
           className="h-full min-h-0 min-w-0 flex-1 bg-transparent text-sm leading-normal text-white outline-none placeholder:text-[#9aa8b5]"
         />
+        <span className="search-split" aria-hidden="true" />
+        <Link
+          href="/search"
+          aria-label="Browse all"
+          title="Browse all"
+          aria-current={browseActive ? "page" : undefined}
+          className={`search-browse ${browseActive ? "is-active" : ""}`}
+        >
+          {browseActive ? (
+            <HiViewGrid aria-hidden="true" />
+          ) : (
+            <HiOutlineViewGrid aria-hidden="true" />
+          )}
+        </Link>
       </div>
       {suggestionsVisible ? (
         <ul
           id={listboxId}
           role="listbox"
           aria-label="Search suggestions"
-          className="absolute z-30 mt-2 max-h-[70vh] w-full overflow-y-auto rounded-xl border border-white/10 bg-[#07121d] py-1 shadow-2xl"
+          className="search-suggest"
         >
           {items.map((item, index) =>
             item.type === "song" ? (

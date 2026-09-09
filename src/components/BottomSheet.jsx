@@ -96,7 +96,7 @@ export default function BottomSheet({
           transform: drag ? `translateY(${drag}px)` : undefined,
           transition: dragging ? "none" : undefined,
         }}
-        className={`relative z-10 max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl border border-white/10 bg-[#07121d] p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-2xl outline-none transition-transform duration-200 ease-out animate-slideup sm:max-w-sm sm:rounded-2xl sm:pb-4 ${className}`}
+        className={`glass-panel relative z-10 max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] outline-none transition-transform duration-200 ease-out animate-slideup sm:max-w-sm sm:rounded-2xl sm:pb-4 ${className}`}
       >
         {showHandle ? (
           <div

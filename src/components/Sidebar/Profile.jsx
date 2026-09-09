@@ -83,7 +83,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white/[0.04] p-2.5">
+    <div className="glass-panel flex items-center gap-3 rounded-xl p-2.5">
       <Link
         href="/settings"
         onClick={close}

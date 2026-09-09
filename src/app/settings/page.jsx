@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/settingsSlice";
@@ -9,7 +10,6 @@ import Link from "next/link";
 import { FiCheck, FiSave, FiSettings } from "react-icons/fi";
 import DeleteAccountForm from "@/components/DeleteAccountForm";
 import ExportDataButton from "@/components/ExportDataButton";
-import GenrePreferences from "@/components/GenrePreferences";
 import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
@@ -19,6 +19,10 @@ const normalizationOptions = [["quiet", "Quiet · -23 LUFS"], ["normal", "Normal
 const videoQualityOptions = [["auto", "Automatic"], ["720p", "Prefer 720p"], ["1080p", "Prefer 1080p"], ["audio-only", "Audio only"]];
 const eqPresetOptions = EQ_PRESETS.map((preset) => [preset, preset]);
 const EQ_GAIN_LIMIT = 12;
+
+const GenrePreferences = dynamic(() => import("@/components/GenrePreferences"), {
+  loading: () => <div className="mb-8 h-72 animate-shimmer rounded-xl bg-white/[0.04]" />,
+});
 
 function formatBandFrequency(frequency) {
   return frequency >= 1000 ? `${(frequency / 1000).toFixed(frequency % 1000 === 0 ? 0 : 1)} kHz` : `${frequency} Hz`;
@@ -125,7 +129,7 @@ export default function SettingsPage() {
       <header className="page-hero border-b border-white/10 pb-6">
         <div>
           <p className="eyebrow mb-3 flex items-center gap-2"><FiSettings /> Settings</p>
-          <h1 className="text-3xl font-bold sm:text-5xl">Tune your listening.</h1>
+          <h1 className="font-display text-3xl sm:text-5xl">Tune your listening.</h1>
           <p className="mt-3 max-w-2xl text-sm text-[#9aa8b5]">Playback, discovery, privacy, and audio preferences in one place.</p>
         </div>
         {status === "unauthenticated" ? (
@@ -160,7 +164,7 @@ export default function SettingsPage() {
       ) : null}
 
       <section className="mb-8 grid gap-8 lg:grid-cols-2">
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7 lg:col-span-2">
+        <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">
           <h2 className="mb-2 text-xl font-semibold">Audio quality</h2>
           <SelectControl label="Audio quality preference" value={settings.streamingQuality} options={qualityOptions} onChange={(value) => set("streamingQuality", value)} />
           <SelectControl label="Video quality preference" value={settings.videoQuality} options={videoQualityOptions} onChange={(value) => set("videoQuality", value)} />
@@ -172,7 +176,7 @@ export default function SettingsPage() {
       </section>
 
       {status === "authenticated" && (
-        <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+        <section className="mb-8 glass-panel rounded-xl p-5 sm:p-7">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">Equalizer</h2>
             <button
@@ -215,7 +219,7 @@ export default function SettingsPage() {
 
       <GenrePreferences status={status} />
 
-      <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+      <section className="mb-8 glass-panel rounded-xl p-5 sm:p-7">
         <h2 className="mb-2 text-xl font-semibold">Fade transitions</h2>
         <p className="mb-4 text-xs text-gray-400">Fade the end of each song out and the next one in for a smooth transition. Skipping fades out too, just faster so the controls stay responsive. Pausing still stops instantly.</p>
         <Toggle label="Fade in and out" checked={settings.fadeEnabled !== false} onChange={(value) => set("fadeEnabled", value)} />
@@ -236,12 +240,12 @@ export default function SettingsPage() {
       </section>
 
       <section className="grid gap-8 lg:grid-cols-2 mb-8">
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Playback & data</h2><Toggle label="Data Saver mode" checked={settings.dataSaver} onChange={(value) => set("dataSaver", value)} /><Toggle label="Audio-only mode" checked={settings.audioOnly} onChange={(value) => set("audioOnly", value)} /><Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them." checked={settings.captions !== false} onChange={(value) => set("captions", value)} /><Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} /><Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} /><Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} /><Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} /></div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><p className="mt-4 text-xs text-[#9aa8b5]">Private session prevents new listening activity from being used for recommendations.</p></div>
+        <div className="glass-panel rounded-xl p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Playback & data</h2><Toggle label="Data Saver mode" checked={settings.dataSaver} onChange={(value) => set("dataSaver", value)} /><Toggle label="Audio-only mode" checked={settings.audioOnly} onChange={(value) => set("audioOnly", value)} /><Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them." checked={settings.captions !== false} onChange={(value) => set("captions", value)} /><Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} /><Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} /><Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} /><Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} /></div>
+        <div className="glass-panel rounded-xl p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><p className="mt-4 text-xs text-[#9aa8b5]">Private session prevents new listening activity from being used for recommendations.</p></div>
       </section>
 
       {status === "authenticated" && (
-        <section className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-7">
+        <section className="mb-8 glass-panel rounded-xl p-5 sm:p-7">
           <h2 className="mb-2 text-xl font-semibold">Your data</h2>
           <p className="mb-4 text-xs text-gray-400">Download a copy of your account, library, history, and playlists as a JSON file.</p>
           <ExportDataButton />

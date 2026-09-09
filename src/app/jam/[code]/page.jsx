@@ -10,7 +10,9 @@ export default async function JamJoinPage({ params }) {
   if (!isJamCode(code)) redirect("/");
 
   const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/");
+  if (!session?.user) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/jam/${code}`)}`);
+  }
 
   return <JamJoinClient code={code} />;
 }

@@ -12,6 +12,7 @@ export default function PullToRefresh() {
   const startYRef = useRef(0);
   const startXRef = useRef(0);
   const pullingRef = useRef(false);
+  const claimedRef = useRef(false);
   const refreshingRef = useRef(false);
 
   const triggerRefresh = useCallback(() => {
@@ -19,7 +20,6 @@ export default function PullToRefresh() {
     refreshingRef.current = true;
     setRefreshing(true);
     setDistance(THRESHOLD);
-    // Full reload gives the most reliable "fresh content" behavior.
     window.setTimeout(() => window.location.reload(), 320);
   }, []);
 
@@ -27,42 +27,42 @@ export default function PullToRefresh() {
     const container = document.getElementById("main-content");
     if (!container) return undefined;
 
-    // Touch-only: pointers that are not touch (mouse/trackpad) never start a pull.
-    const onTouchStart = (event) => {
-      if (refreshingRef.current || event.touches.length !== 1) return;
-      if (container.scrollTop > 0) return;
-      startYRef.current = event.touches[0].clientY;
-      startXRef.current = event.touches[0].clientX;
-      pullingRef.current = true;
+    const release = () => {
+      pullingRef.current = false;
+      claimedRef.current = false;
     };
 
     const onTouchMove = (event) => {
       if (!pullingRef.current || refreshingRef.current) return;
       if (container.scrollTop > 0) {
-        pullingRef.current = false;
+        release();
         setDistance(0);
         return;
       }
       const delta = event.touches[0].clientY - startYRef.current;
       const deltaX = event.touches[0].clientX - startXRef.current;
-      // Horizontal intent (mood-radio pills, carousels): release so native scroll works.
       if (Math.abs(deltaX) > Math.abs(delta)) {
-        pullingRef.current = false;
+        release();
         setDistance(0);
         return;
       }
-      if (delta <= 0) {
+      if (delta <= 8) {
         setDistance(0);
         return;
       }
-      // Only claim the gesture (blocking native scroll) once it's clearly a downward pull.
+      claimedRef.current = true;
       if (event.cancelable) event.preventDefault();
       setDistance(Math.min(MAX_PULL, delta * DAMPING));
     };
 
     const onTouchEnd = () => {
       if (!pullingRef.current) return;
-      pullingRef.current = false;
+      const claimed = claimedRef.current;
+      release();
+      if (!claimed) {
+        setDistance(0);
+        return;
+      }
       setDistance((current) => {
         if (current >= THRESHOLD) {
           triggerRefresh();
@@ -72,16 +72,35 @@ export default function PullToRefresh() {
       });
     };
 
+    const onTouchStart = (event) => {
+      if (refreshingRef.current || event.touches.length !== 1) return;
+      if (container.scrollTop > 0) return;
+      startYRef.current = event.touches[0].clientY;
+      startXRef.current = event.touches[0].clientX;
+      pullingRef.current = true;
+      claimedRef.current = false;
+      container.removeEventListener("touchmove", onTouchMove);
+      container.addEventListener("touchmove", onTouchMove, { passive: false });
+    };
+
+    const dropMove = () => {
+      container.removeEventListener("touchmove", onTouchMove);
+    };
+
+    const endAndDrop = () => {
+      onTouchEnd();
+      dropMove();
+    };
+
     container.addEventListener("touchstart", onTouchStart, { passive: true });
-    container.addEventListener("touchmove", onTouchMove, { passive: false });
-    container.addEventListener("touchend", onTouchEnd, { passive: true });
-    container.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    container.addEventListener("touchend", endAndDrop, { passive: true });
+    container.addEventListener("touchcancel", endAndDrop, { passive: true });
 
     return () => {
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
-      container.removeEventListener("touchend", onTouchEnd);
-      container.removeEventListener("touchcancel", onTouchEnd);
+      container.removeEventListener("touchend", endAndDrop);
+      container.removeEventListener("touchcancel", endAndDrop);
     };
   }, [triggerRefresh]);
 

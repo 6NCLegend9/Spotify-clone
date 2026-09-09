@@ -5,6 +5,7 @@ import { FiPause, FiPlay, FiRotateCcw, FiRotateCw, FiX } from "react-icons/fi";
 import { MdSkipNext } from "react-icons/md";
 import { activeLyricIndex } from "@/utils/lyricsLookup";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
+import { cleanTitle } from "@/utils/text";
 
 const handleThumbError = (event) => {
   if (event.currentTarget.src !== THUMB_FALLBACK) {
@@ -48,8 +49,8 @@ export default function PictureInPictureWindow({
             <FiX />
           </button>
         </div>
-        <p className="yt-pip-title">{video.title}</p>
-        <p className="yt-pip-artist">{video.channel}</p>
+        <p className="yt-pip-title">{cleanTitle(video.title)}</p>
+        <p className="yt-pip-artist">{cleanTitle(video.channel)}</p>
         <div className="yt-pip-lyric">
           <p className="yt-pip-lyric-now">{currentLine || "Live lyrics will appear here"}</p>
           {nextLine && <p className="yt-pip-lyric-next">{nextLine}</p>}
@@ -75,7 +76,7 @@ export default function PictureInPictureWindow({
             {queue.slice(0, 5).map((item) => (
               <button key={item.id} type="button" className="yt-pip-queue-item" onClick={() => onSelect?.(item)}>
                 <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} />
-                <span>{item.title}</span>
+                <span>{cleanTitle(item.title)}</span>
               </button>
             ))}
           </div>

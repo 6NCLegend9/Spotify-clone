@@ -345,14 +345,16 @@ function CustomGenreDialog({
   );
 }
 
+let genrePrefsCache = null;
+
 export default function GenrePreferences({ status }) {
-  const [selectedGenres, setSelectedGenres] = useState([]);
-  const [catalog, setCatalog] = useState([]);
-  const [genreTree, setGenreTree] = useState([]);
-  const [personalGenres, setPersonalGenres] = useState([]);
+  const [selectedGenres, setSelectedGenres] = useState(() => genrePrefsCache?.selected ?? []);
+  const [catalog, setCatalog] = useState(() => genrePrefsCache?.catalog ?? []);
+  const [genreTree, setGenreTree] = useState(() => genrePrefsCache?.tree ?? []);
+  const [personalGenres, setPersonalGenres] = useState(() => genrePrefsCache?.personal ?? []);
   const [query, setQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState(null);
-  const [initialLoading, setInitialLoading] = useState(status === "authenticated");
+  const [initialLoading, setInitialLoading] = useState(status === "authenticated" && !genrePrefsCache);
   const [loadError, setLoadError] = useState("");
   const [interactionError, setInteractionError] = useState("");
   const [saveState, setSaveState] = useState("idle");
@@ -445,12 +447,13 @@ export default function GenrePreferences({ status }) {
 
   useEffect(() => {
     if (status !== "authenticated") {
+      genrePrefsCache = null;
       setInitialLoading(false);
       return undefined;
     }
 
     let cancelled = false;
-    setInitialLoading(true);
+    if (!genrePrefsCache) setInitialLoading(true);
     setLoadError("");
     setInteractionError("");
 
@@ -479,6 +482,12 @@ export default function GenrePreferences({ status }) {
         setGenreTree(Array.isArray(catalogData?.tree) ? catalogData.tree : []);
         setPersonalGenres(Array.isArray(catalogData?.personalGenres) ? catalogData.personalGenres : []);
         setSaveState("idle");
+        genrePrefsCache = {
+          selected: loadedSelection,
+          catalog: loadedCatalog,
+          tree: Array.isArray(catalogData?.tree) ? catalogData.tree : [],
+          personal: Array.isArray(catalogData?.personalGenres) ? catalogData.personalGenres : [],
+        };
       } catch (error) {
         if (!cancelled) {
           setLoadError(safeErrorMessage(error, "Genre options are unavailable right now."));

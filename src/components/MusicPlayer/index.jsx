@@ -31,6 +31,7 @@ import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import useWakeLock from "@/hooks/useWakeLock";
 import { MdPictureInPictureAlt } from "react-icons/md";
 import { toUserError } from "@/utils/userError";
+import { cleanTitle } from "@/utils/text";
 
 function getAverageImageColor(src) {
   return new Promise((resolve, reject) => {
@@ -116,12 +117,14 @@ const MusicPlayer = () => {
   const pipMountRef = useRef(null);
   const lastVolumeRef = useRef(0.8);
   const [pipWindow, setPipWindow] = useState(null);
-  const nativeTitle = activeSong?.name || activeSong?.title || "";
-  const nativeArtist = Array.isArray(activeSong?.artists?.primary)
-    ? activeSong.artists.primary.map((item) => item?.name).filter(Boolean).join(", ")
-    : typeof activeSong?.artists === "string"
-    ? activeSong.artists
-    : activeSong?.primaryArtists || "";
+  const nativeTitle = cleanTitle(activeSong?.name || activeSong?.title || "");
+  const nativeArtist = cleanTitle(
+    Array.isArray(activeSong?.artists?.primary)
+      ? activeSong.artists.primary.map((item) => item?.name).filter(Boolean).join(", ")
+      : typeof activeSong?.artists === "string"
+      ? activeSong.artists
+      : activeSong?.primaryArtists || "",
+  );
   const nativeLyrics = useSyncedLyrics({
     title: nativeTitle,
     artist: nativeArtist,
@@ -180,8 +183,8 @@ const MusicPlayer = () => {
       setBgColor(undefined);
     }
 
-    if (activeSong?.name) {
-      document.title = activeSong?.name;
+    if (activeSong?.name || activeSong?.title) {
+      document.title = cleanTitle(activeSong?.name || activeSong?.title);
     }
 
     return () => {
@@ -326,8 +329,8 @@ const MusicPlayer = () => {
     seekOffset: 10,
     metadata: youtubeVideo
       ? {
-          title: youtubeVideo.title || "",
-          artist: youtubeVideo.channel || youtubeVideo.author || youtubeVideo.author_name || "",
+          title: cleanTitle(youtubeVideo.title || ""),
+          artist: cleanTitle(youtubeVideo.channel || youtubeVideo.author || youtubeVideo.author_name || ""),
           artwork: youtubeVideo.thumbnail
             ? [{ src: youtubeVideo.thumbnail, sizes: "480x360", type: "image/jpeg" }]
             : [],

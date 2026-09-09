@@ -11,7 +11,7 @@ export default function EmptyState({
   secondaryLabel = "Back to Home",
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-5 py-10 text-center text-white sm:px-8">
+    <div className="glass-panel rounded-2xl px-5 py-10 text-center text-white sm:px-8">
       {eyebrow ? <p className="eyebrow mb-3">{eyebrow}</p> : null}
       <h2 className="text-xl font-bold sm:text-2xl">{title}</h2>
       {message ? <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#9aa8b5]">{message}</p> : null}

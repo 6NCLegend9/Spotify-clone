@@ -1,16 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useDispatch } from "react-redux";
 import { FaGithub } from "react-icons/fa";
 import { FiChevronLeft, FiChevronRight, FiDisc, FiFileText, FiHeart, FiHome, FiInfo, FiSettings, FiShield, FiUsers } from "react-icons/fi";
 import { MdSportsEsports } from "react-icons/md";
 import { canUseArcade } from "@/utils/arcadeAccess";
 import { IoClose } from "react-icons/io5";
-import { setProgress } from "@/redux/features/loadingBarSlice";
 import BrandMark from "../Layout/BrandMark";
 import { useNav } from "../Layout/AppShell";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -19,31 +17,10 @@ import Languages from "./Languages";
 import Playlists from "./Playlists";
 
 const Sidebar = () => {
-  const { showNav, setShowNav, navModal } = useNav();
+  const { showNav, setShowNav, navModal, collapsed, toggleCollapsed } = useNav();
   const pathname = usePathname();
-  const dispatch = useDispatch();
   const { data: session, status } = useSession();
   const sidebarRef = useRef(null);
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem("heykasa.sidebar.collapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem("heykasa.sidebar.collapsed", String(next));
-      } catch {
-        // storage disabled or unavailable
-      }
-      return next;
-    });
-  };
 
   useFocusTrap({
     enabled: Boolean(navModal),
@@ -53,7 +30,6 @@ const Sidebar = () => {
 
   const close = () => setShowNav(false);
   const go = () => {
-    dispatch(setProgress(100));
     close();
   };
 
@@ -76,36 +52,43 @@ const Sidebar = () => {
     <aside
       ref={sidebarRef}
       id="app-sidebar"
-      className={`app-sidebar ${showNav ? "is-open" : ""} ${collapsed ? "md:w-16" : ""}`}
+      className={`app-sidebar ${showNav ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`}
       aria-label="Main menu"
       {...(navModal ? { role: "dialog", "aria-modal": true } : {})}
     >
-      <div className="flex h-16 items-center justify-between px-4">
-        <BrandMark variant="white" onClick={go} className={collapsed ? "md:hidden" : ""} />
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className="icon-btn hidden md:inline-flex"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <FiChevronRight aria-hidden="true" /> : <FiChevronLeft aria-hidden="true" />}
-        </button>
-        <button
-          type="button"
-          onClick={close}
-          className="icon-btn md:hidden"
-          aria-label="Close menu"
-        >
-          <IoClose aria-hidden="true" className="text-xl" />
-        </button>
+      <div className="sidebar-head">
+        <div className="sidebar-brand">
+          <BrandMark onClick={go} compact={collapsed} />
+          <div className="sidebar-head-actions">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className="sidebar-toggle icon-btn hidden md:inline-flex items-center justify-center"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? <FiChevronRight aria-hidden="true" /> : <FiChevronLeft aria-hidden="true" />}
+            </button>
+            <button
+              type="button"
+              onClick={close}
+              className="sidebar-toggle icon-btn md:hidden"
+              aria-label="Close menu"
+            >
+              <IoClose aria-hidden="true" className="text-xl" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className={`px-3 pb-3 ${collapsed ? "md:hidden" : ""}`}>
         <Profile />
       </div>
 
-      <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
+      <nav
+        aria-label="Primary"
+        className={`flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pb-4 ${collapsed ? "px-1.5" : "px-3"}`}
+      >
         {links.map(([label, href, Icon]) => (
           <Link
             key={href}
@@ -113,7 +96,7 @@ const Sidebar = () => {
             onClick={go}
             title={collapsed ? label : undefined}
             aria-current={isActive(href) ? "page" : undefined}
-            className={`nav-link ${isActive(href) ? "is-active" : ""} ${collapsed ? "md:justify-center md:px-0" : ""}`}
+            className={`nav-link ${isActive(href) ? "is-active" : ""}`}
           >
             <Icon aria-hidden="true" className="text-lg shrink-0" />
             <span className={collapsed ? "md:hidden" : ""}>{label}</span>

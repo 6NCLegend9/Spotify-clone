@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { youtubeFetch } from "@/utils/youtubeApi";
+import { cleanTitle } from "@/utils/text";
 import { isJamCode, normalizeJamCode } from "@/utils/jam.mjs";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
@@ -85,8 +86,8 @@ function seedReason({ term, ownerNames }) {
 function normalizeVideo(item, seed) {
   return {
     id: item?.id?.videoId,
-    title: item?.snippet?.title || "",
-    channel: item?.snippet?.channelTitle || "",
+    title: cleanTitle(item?.snippet?.title || ""),
+    channel: cleanTitle(item?.snippet?.channelTitle || ""),
     thumbnail:
       item?.snippet?.thumbnails?.high?.url
       || item?.snippet?.thumbnails?.medium?.url

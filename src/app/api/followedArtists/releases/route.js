@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { youtubeFetch } from "@/utils/youtubeApi";
+import { cleanTitle } from "@/utils/text";
 import { handleApiError } from "@/utils/apiResponse";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 
@@ -16,8 +17,8 @@ function mapVideo(item, artist) {
   if (!id || !YOUTUBE_ID_PATTERN.test(id)) return null;
   return {
     id,
-    title: item?.snippet?.title || "",
-    channel: item?.snippet?.channelTitle || artist.name || "",
+    title: cleanTitle(item?.snippet?.title || ""),
+    channel: cleanTitle(item?.snippet?.channelTitle || artist.name || ""),
     channelId: item?.snippet?.channelId || artist.channelId || "",
     publishedAt: item?.snippet?.publishedAt || "",
     thumbnail:

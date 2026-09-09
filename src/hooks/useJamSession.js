@@ -274,6 +274,10 @@ export default function useJamSession() {
 
   const connect = useCallback(
     async (roomCode, asRole, { startedAt, guestJoined } = {}) => {
+      if (authStatus !== "authenticated") {
+        setStatus("idle");
+        return;
+      }
       const nextCode = normalizeJamCode(roomCode);
       if (!isJamCode(nextCode) || (asRole !== "host" && asRole !== "guest")) {
         setStatus("error");
@@ -527,6 +531,7 @@ export default function useJamSession() {
     },
     [
       applySync,
+      authStatus,
       disconnectChannel,
       dispatch,
       displayName,
@@ -648,7 +653,17 @@ export default function useJamSession() {
   }, [role, sendSnapshot, status]);
 
   useEffect(() => {
-    if (authStatus === "loading" || restoredRef.current) return;
+    if (authStatus === "loading") return;
+    if (authStatus !== "authenticated") {
+      restoredRef.current = false;
+      if (roleRef.current) {
+        void leave();
+      } else {
+        clearJamSession();
+      }
+      return;
+    }
+    if (restoredRef.current) return;
     restoredRef.current = true;
     const saved = readJamSession();
     const linkCode = jamCodeFromPath(window.location.pathname);
@@ -669,7 +684,7 @@ export default function useJamSession() {
       startedAt: saved.startedAt,
       guestJoined: saved.guestJoined,
     });
-  }, [authStatus, connect]);
+  }, [authStatus, connect, leave]);
 
   useEffect(() => {
     if (role !== "host") return undefined;
@@ -691,7 +706,8 @@ export default function useJamSession() {
   useEffect(() => () => disconnectChannel(), [disconnectChannel]);
 
   return {
-    available: isSupabaseConfigured(),
+    available: isSupabaseConfigured() && authStatus === "authenticated",
+    ready: authStatus !== "loading",
     role,
     code,
     listeners,

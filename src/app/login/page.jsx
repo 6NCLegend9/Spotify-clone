@@ -20,10 +20,17 @@ import {
 } from "@/utils/authErrors";
 import { userErrorDetails } from "@/utils/userError";
 
+function safeCallbackPath(value) {
+  const raw = String(value || "").trim();
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("://")) return "/";
+  return raw;
+}
+
 const LoginPage = () => {
   const { status } = useSession();
   const dispatch = useDispatch();
   const searchParams = useSearchParams();
+  const afterLogin = safeCallbackPath(searchParams.get("callbackUrl"));
   const emailRef = useRef(null);
   const [formData, setFormData] = useState({
     email: "",
@@ -102,7 +109,7 @@ const LoginPage = () => {
     setRetryAction(null);
     try {
       const result = await signIn("google", {
-        callbackUrl: "/",
+        callbackUrl: afterLogin,
         redirect: false,
       });
       if (result?.error) {
@@ -135,7 +142,7 @@ const LoginPage = () => {
     );
   }
   if (status === "authenticated") {
-    redirect("/");
+    redirect(afterLogin);
   }
 
   return (

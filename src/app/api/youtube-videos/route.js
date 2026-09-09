@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { apiError, handleApiError } from "@/utils/apiResponse";
 
@@ -66,9 +67,9 @@ export async function GET(request) {
       .filter((item) => typeof item?.id === "string" && item.snippet)
       .map((item) => ({
         id: item.id,
-        title: item.snippet.title || "",
-        channel: item.snippet.channelTitle || "",
-        description: item.snippet.description || "",
+        title: cleanTitle(item.snippet.title || ""),
+        channel: cleanTitle(item.snippet.channelTitle || ""),
+        description: cleanTitle(item.snippet.description || ""),
         publishedAt: item.snippet.publishedAt || "",
         thumbnail:
           item.snippet.thumbnails?.high?.url ||

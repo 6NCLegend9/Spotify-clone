@@ -1,4 +1,5 @@
 import { Innertube, Log, UniversalCache } from "youtubei.js";
+import { cleanTitle } from "./text.js";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 const REQUEST_TIMEOUT_MS = 6_000;
@@ -61,13 +62,14 @@ async function getInnertube() {
 
 function textValue(value) {
   if (!value) return "";
-  if (typeof value === "string") return value;
-  if (typeof value.text === "string") return value.text;
-  if (typeof value.toString === "function") {
-    const text = value.toString();
-    return text === "[object Object]" ? "" : text;
+  let text = "";
+  if (typeof value === "string") text = value;
+  else if (typeof value.text === "string") text = value.text;
+  else if (typeof value.toString === "function") {
+    const raw = value.toString();
+    text = raw === "[object Object]" ? "" : raw;
   }
-  return "";
+  return cleanTitle(text);
 }
 
 function thumbnailList(item) {
@@ -105,7 +107,7 @@ function itemTitle(item) {
 }
 
 function itemChannel(item) {
-  return item?.author?.name || metadataParts(item)[0] || "YouTube";
+  return cleanTitle(item?.author?.name || metadataParts(item)[0] || "", "YouTube");
 }
 
 function itemDescription(item) {
@@ -191,9 +193,9 @@ function syntheticVideo(id, extra = {}) {
   return {
     id,
     snippet: {
-      title: extra.title || "",
-      channelTitle: extra.channelTitle || "YouTube",
-      description: extra.description || "",
+      title: cleanTitle(extra.title || ""),
+      channelTitle: cleanTitle(extra.channelTitle, "YouTube"),
+      description: cleanTitle(extra.description || ""),
       publishedAt: extra.publishedAt || "",
       thumbnails: {
         high: { url: extra.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg` },
@@ -293,11 +295,11 @@ function officialApiAvailable() {
 
 function runsText(value) {
   if (!value) return "";
-  if (typeof value === "string") return value;
-  if (typeof value.content === "string") return value.content;
-  if (typeof value.simpleText === "string") return value.simpleText;
+  if (typeof value === "string") return cleanTitle(value);
+  if (typeof value.content === "string") return cleanTitle(value.content);
+  if (typeof value.simpleText === "string") return cleanTitle(value.simpleText);
   if (Array.isArray(value.runs)) {
-    return value.runs.map((run) => run?.text).filter(Boolean).join("");
+    return cleanTitle(value.runs.map((run) => run?.text).filter(Boolean).join(""));
   }
   return "";
 }
@@ -364,13 +366,14 @@ function mapChannelRenderer(renderer) {
 function mapLockupView(view, type) {
   const id = view?.contentId;
   if (!id) return null;
-  const title =
-    view?.metadata?.lockupMetadataViewModel?.title?.content ||
-    view?.metadata?.title?.content ||
-    "";
+  const title = cleanTitle(
+    view?.metadata?.lockupMetadataViewModel?.title?.content
+      || view?.metadata?.title?.content
+      || "",
+  );
   const rows =
     view?.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows;
-  const channel = rows?.[0]?.metadataParts?.[0]?.text?.content || "YouTube";
+  const channel = cleanTitle(rows?.[0]?.metadataParts?.[0]?.text?.content || "", "YouTube");
   const image =
     view?.contentImage?.thumbnailViewModel?.image?.sources ||
     view?.contentImage?.image?.sources;
@@ -579,8 +582,8 @@ function mapChannelSnippet(item, fallbackId = "") {
   if (!id) return null;
   return {
     id,
-    title: item?.snippet?.title || "",
-    description: item?.snippet?.description || "",
+    title: cleanTitle(item?.snippet?.title || ""),
+    description: cleanTitle(item?.snippet?.description || ""),
     thumbnail:
       item?.snippet?.thumbnails?.high?.url
       || item?.snippet?.thumbnails?.medium?.url
@@ -596,10 +599,10 @@ function mapSearchItemsToTracks(items, extras = {}) {
       const id = item.id?.videoId || item.id;
       return {
         id,
-        title: item.snippet?.title || "",
-        channel: item.snippet?.channelTitle || extras.channel || "",
+        title: cleanTitle(item.snippet?.title || ""),
+        channel: cleanTitle(item.snippet?.channelTitle || extras.channel || ""),
         channelId: item.snippet?.channelId || extras.channelId || "",
-        description: item.snippet?.description || "",
+        description: cleanTitle(item.snippet?.description || ""),
         publishedAt: item.snippet?.publishedAt || "",
         thumbnail:
           item.snippet?.thumbnails?.high?.url
@@ -635,10 +638,10 @@ function mapPlaylistItemsToTracks(items, extras = {}) {
     .filter((item) => item?.snippet?.resourceId?.videoId && item?.status?.privacyStatus !== "private")
     .map((item) => ({
       id: item.snippet.resourceId.videoId,
-      title: item.snippet.title || "",
-      channel: item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle || extras.channel || "",
+      title: cleanTitle(item.snippet.title || ""),
+      channel: cleanTitle(item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle || extras.channel || ""),
       channelId: extras.channelId || "",
-      description: item.snippet.description || "",
+      description: cleanTitle(item.snippet.description || ""),
       publishedAt: item.snippet.publishedAt || "",
       thumbnail:
         item.snippet.thumbnails?.high?.url

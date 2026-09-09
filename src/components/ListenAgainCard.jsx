@@ -35,14 +35,16 @@ const ListenAgainCard = ({ song, index, SongData }) => {
   };
 
   const artistDisplay = isYoutube
-    ? song?.channel || ""
-    : (Array.isArray(song?.artists?.primary) &&
-        song.artists.primary.map((artist) => artist?.name).join(", ")) ||
-      (Array.isArray(song?.artists) &&
-        song.artists.map((artist) => artist?.name).join(", ")) ||
-      (Array.isArray(song?.artists?.all) &&
-        song.artists.all.map((artist) => artist?.name).join(", ")) ||
-      "";
+    ? cleanTitle(song?.channel || "")
+    : cleanTitle(
+        (Array.isArray(song?.artists?.primary) &&
+          song.artists.primary.map((artist) => artist?.name).join(", ")) ||
+          (Array.isArray(song?.artists) &&
+            song.artists.map((artist) => artist?.name).join(", ")) ||
+          (Array.isArray(song?.artists?.all) &&
+            song.artists.all.map((artist) => artist?.name).join(", ")) ||
+          "",
+      );
 
   const coverSrc = isYoutube
     ? song?.thumbnail || ""

@@ -8,7 +8,6 @@ export const metadata = {
   title: "Beat Arcade",
   description: `Play music-synced arcade games in time with your audio on ${SITE_NAME}.`,
   alternates: { canonical: `${SITE_URL}/arcade` },
-  // Preview feature limited to specific accounts; nothing to index.
   robots: { index: false, follow: true },
 };
 

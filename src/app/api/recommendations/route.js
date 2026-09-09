@@ -5,6 +5,7 @@ import UserData from "@/models/UserData";
 import Genre from "@/models/Genre";
 import dbConnect from "@/utils/dbconnect";
 import { youtubeFetch } from "@/utils/youtubeApi";
+import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { tokenOptions } from "@/utils/authToken";
 import { ensureSystemGenres } from "@/services/genreCatalog";
@@ -54,9 +55,9 @@ function cacheSearches(key, value) {
 function normalizeVideo(item, reason, extra = {}) {
   return {
     id: typeof item?.id === "string" ? item.id : item?.id?.videoId,
-    title: item?.snippet?.title || "",
-    channel: item?.snippet?.channelTitle || "",
-    description: item?.snippet?.description || "",
+    title: cleanTitle(item?.snippet?.title || ""),
+    channel: cleanTitle(item?.snippet?.channelTitle || ""),
+    description: cleanTitle(item?.snippet?.description || ""),
     thumbnail:
       item?.snippet?.thumbnails?.high?.url ||
       item?.snippet?.thumbnails?.medium?.url ||
@@ -126,8 +127,8 @@ async function searchPlaylists(query) {
     .filter((item) => item?.id?.playlistId)
     .map((item) => ({
       id: item.id.playlistId,
-      title: item.snippet?.title || "",
-      channel: item.snippet?.channelTitle || "",
+      title: cleanTitle(item.snippet?.title || ""),
+      channel: cleanTitle(item.snippet?.channelTitle || ""),
       thumbnail:
         item.snippet?.thumbnails?.high?.url ||
         item.snippet?.thumbnails?.medium?.url ||

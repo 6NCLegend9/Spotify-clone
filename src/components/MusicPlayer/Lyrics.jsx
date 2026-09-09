@@ -8,6 +8,7 @@ import { playPause, setAutoAdd, setYoutubeVideo } from "@/redux/features/playerS
 import UserMessage from "@/components/UserMessage";
 import SyncedLyrics from "./SyncedLyrics";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
+import { cleanTitle } from "@/utils/text";
 
 const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
   const dispatch = useDispatch();
@@ -18,13 +19,15 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
     : [];
   const nativeQueue = Array.isArray(currentSongs) ? currentSongs : [];
 
-  const title = youtubeVideo?.title || activeSong?.name || activeSong?.title || "";
-  const artist = youtubeVideo?.channel
+  const title = cleanTitle(youtubeVideo?.title || activeSong?.name || activeSong?.title || "");
+  const artist = cleanTitle(
+    youtubeVideo?.channel
     || (Array.isArray(activeSong?.artists?.primary)
       ? activeSong.artists.primary.map((item) => item?.name).filter(Boolean).join(", ")
       : typeof activeSong?.artists === "string"
         ? activeSong.artists
-        : activeSong?.primaryArtists || activeSong?.channel || "");
+        : activeSong?.primaryArtists || activeSong?.channel || ""),
+  );
   const lyricDuration = Number(youtubeVideo?.duration || activeSong?.duration) || duration;
 
   const handleAutoAdd = (checked) => {
@@ -130,7 +133,7 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
                         }}
                         className="h-11 w-11 rounded object-cover"
                       />
-                      <span className="min-w-0 flex-1 truncate text-sm text-white">{item.title}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm text-white">{cleanTitle(item.title)}</span>
                     </button>
                   ))}
                 </div>

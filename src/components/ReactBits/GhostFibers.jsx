@@ -60,7 +60,7 @@ uniform vec3 uBackdrop;
 
 out vec4 fragColor;
 
-#define MAX_LAYERS 10
+#define MAX_LAYERS 4
 
 mat2 rotate2d(float angle) {
   float sine = sin(angle);
@@ -75,15 +75,8 @@ float grainHash(vec2 point) {
 }
 
 float layeredGrain(vec2 fragmentPixel) {
-  vec2 point = mod(fragmentPixel + vec2(uTime * 30.0, -uTime * 21.0), 1024.0);
-  vec2 rotated = mat2(0.8, -0.5, 0.5, 0.8) * point;
-  float grain = 0.0;
-  grain += 0.40 * grainHash(rotated);
-  grain += 0.25 * grainHash(rotated * 2.0 + 17.0);
-  grain += 0.20 * grainHash(rotated * 4.0 + 47.0);
-  grain += 0.10 * grainHash(rotated * 8.0 + 113.0);
-  grain += 0.05 * grainHash(rotated * 16.0 + 191.0);
-  return grain;
+  vec2 point = mod(fragmentPixel + vec2(uTime * 18.0, -uTime * 12.0), 1024.0);
+  return 0.7 * grainHash(point) + 0.3 * grainHash(point * 2.0 + 17.0);
 }
 
 void main() {
@@ -204,9 +197,9 @@ export default function GhostFibers({
     const requestedDpr = Number.isFinite(dpr) ? dpr : 1;
     const requestedFps = Number.isFinite(fps) ? fps : 45;
     const requestedLayers = Number.isFinite(layers) ? layers : 4;
-    const effectiveDpr = isMobile ? 0.55 : isLowEnd ? 0.75 : Math.min(Math.max(requestedDpr, 0.5), 1.25);
-    const effectiveFps = isMobile ? 30 : isLowEnd ? 40 : Math.min(Math.max(requestedFps, 1), 120);
-    const effectiveLayers = isMobile ? Math.min(requestedLayers, 3) : requestedLayers;
+    const effectiveDpr = isMobile ? 0.5 : isLowEnd ? 0.6 : Math.min(Math.max(requestedDpr, 0.5), 0.85);
+    const effectiveFps = isMobile ? 24 : isLowEnd ? 28 : Math.min(Math.max(requestedFps, 1), 30);
+    const effectiveLayers = isMobile ? Math.min(requestedLayers, 2) : Math.min(requestedLayers, 3);
 
     let renderer;
     try {
@@ -280,6 +273,7 @@ export default function GhostFibers({
     let lastRenderTime = 0;
     let frameRate = effectiveFps;
     let isPaused = motionPaused;
+    let isScrolling = false;
     let isVisible = true;
     let isPageVisible = !document.hidden;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -289,7 +283,8 @@ export default function GhostFibers({
       if (frameId !== 0) cancelAnimationFrame(frameId);
       frameId = 0;
     };
-    const canAnimate = () => isVisible && isPageVisible && !isPaused && !reducedMotion.matches;
+    const canAnimate = () =>
+      isVisible && isPageVisible && !isPaused && !isScrolling && !reducedMotion.matches;
 
     const loop = (now) => {
       frameId = 0;
@@ -331,6 +326,14 @@ export default function GhostFibers({
         render();
       }
     };
+    const handleScrollBusy = () => {
+      isScrolling = true;
+      stop();
+    };
+    const handleScrollIdle = () => {
+      isScrolling = false;
+      if (canAnimate()) start();
+    };
 
     const resizeObserver =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(setSize);
@@ -349,6 +352,8 @@ export default function GhostFibers({
           );
     intersectionObserver?.observe(container);
     document.addEventListener("visibilitychange", handleVisibility);
+    document.addEventListener("heykasa:scroll-busy", handleScrollBusy);
+    document.addEventListener("heykasa:scroll-idle", handleScrollIdle);
     if (typeof reducedMotion.addEventListener === "function") {
       reducedMotion.addEventListener("change", handleReducedMotion);
     } else {
@@ -381,6 +386,8 @@ export default function GhostFibers({
       if (!resizeObserver) window.removeEventListener("resize", setSize);
       intersectionObserver?.disconnect();
       document.removeEventListener("visibilitychange", handleVisibility);
+      document.removeEventListener("heykasa:scroll-busy", handleScrollBusy);
+      document.removeEventListener("heykasa:scroll-idle", handleScrollIdle);
       if (typeof reducedMotion.removeEventListener === "function") {
         reducedMotion.removeEventListener("change", handleReducedMotion);
       } else {

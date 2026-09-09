@@ -35,6 +35,7 @@ import {
 } from "@/services/libraryApi";
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
+import { readNavCache, writeNavCache } from "@/utils/navCache";
 
 const SORT_OPTIONS = [
   ["recents", "Recents"],
@@ -42,6 +43,8 @@ const SORT_OPTIONS = [
   ["alphabetical", "Alphabetical"],
   ["creator", "Creator"],
 ];
+
+const LIBRARY_CACHE_KEY = "library";
 
 function relativeDate(value) {
   if (!value) return "Not updated yet";
@@ -91,12 +94,12 @@ function CollectionCover({ item }) {
 
 function GridItem({ item }) {
   return (
-    <div className="group relative min-w-0 overflow-hidden rounded-lg bg-white/[0.055] p-3 transition duration-200 ease-out hover:bg-white/[0.1] hover:-translate-y-0.5 active:scale-[0.98] focus-within:ring-2 focus-within:ring-[#00e6e6]">
+    <div className="library-tile group relative min-w-0">
       <Link href={item.href} className="block focus-visible:outline-none">
         <div className="overflow-hidden rounded-md shadow-xl">
           <CollectionCover item={item} />
         </div>
-        <h2 className="mt-4 truncate text-base font-bold text-white">{item.title}</h2>
+        <h2 className="mt-4 truncate text-base font-bold text-white">{cleanTitle(item.title)}</h2>
         <p className="mt-1 truncate text-xs text-gray-400">{item.meta}</p>
         <p className="mt-1 truncate text-xs text-gray-500">{item.updatedLabel}</p>
         {item.category && item.type === "playlist" ? (
@@ -119,7 +122,7 @@ function ListItem({ item }) {
       <Link href={item.href} className="contents">
         <div className="overflow-hidden rounded-md"><CollectionCover item={item} /></div>
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-white sm:text-base">{item.title}</h2>
+          <h2 className="truncate text-sm font-semibold text-white sm:text-base">{cleanTitle(item.title)}</h2>
           <p className="mt-1 truncate text-xs text-gray-400">{item.meta}{item.category ? ` · ${item.category}` : ""}</p>
         </div>
         <p className="hidden truncate text-xs text-gray-400 sm:block">{item.updatedLabel}</p>
@@ -165,7 +168,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
 
   return (
     <>
-      <section className="mt-2 flex flex-col gap-5 rounded-2xl border border-white/10 bg-[#101c28]/80 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <section className="glass-panel mt-2 flex flex-col gap-5 rounded-2xl px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <div className="flex min-w-0 items-start gap-4">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-[#00e6e6]"><FiLock /></span>
           <div>
@@ -206,7 +209,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
               type="button"
               onClick={() => playPlaylist(playlist)}
               disabled={loadingId === playlist.id}
-              className="group min-w-0 rounded-lg bg-white/[0.055] p-3 text-left transition hover:bg-white/[0.1] disabled:opacity-60"
+              className="library-tile group min-w-0 text-left disabled:opacity-60"
             >
               <MediaImage src={playlist.thumbnail} size="hq" alt="" className="aspect-square w-full rounded-md object-cover" />
               <div className="mt-4 min-w-0">
@@ -224,36 +227,48 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
 
 export default function LibraryView() {
   const { data: session, status } = useSession();
+  const cached = readNavCache(LIBRARY_CACHE_KEY);
   const [filter, setFilter] = useState("all");
   const [view, setView] = useState("grid");
   const [sort, setSort] = useState("recents");
-  const [favourites, setFavourites] = useState(null);
-  const [playlists, setPlaylists] = useState([]);
-  const [publicPlaylists, setPublicPlaylists] = useState([]);
-  const [covers, setCovers] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [favourites, setFavourites] = useState(() => cached?.favourites ?? null);
+  const [playlists, setPlaylists] = useState(() => cached?.playlists ?? []);
+  const [publicPlaylists, setPublicPlaylists] = useState(() => cached?.publicPlaylists ?? []);
+  const [covers, setCovers] = useState(() => cached?.covers ?? {});
+  const [loading, setLoading] = useState(() => !cached);
   const [error, setError] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const onPlaylistsChanged = () => setRefreshKey((value) => value + 1);
+    window.addEventListener("heykasa:playlists-changed", onPlaylistsChanged);
+    return () => window.removeEventListener("heykasa:playlists-changed", onPlaylistsChanged);
+  }, []);
 
   useEffect(() => {
     if (status === "loading") return;
     let active = true;
 
     const loadLibrary = async () => {
-      setLoading(true);
+      if (!readNavCache(LIBRARY_CACHE_KEY)) setLoading(true);
       setError(null);
       try {
         if (status === "unauthenticated") {
           const publicData = await getPublicLibrary();
           if (active) {
-            setPublicPlaylists(
-              Array.isArray(publicData?.sections?.featuredPlaylists)
-                ? publicData.sections.featuredPlaylists.filter(
-                  (playlist) => playlist && typeof playlist === "object" && playlist.id,
-                )
-                : [],
-            );
+            const nextPublic = Array.isArray(publicData?.sections?.featuredPlaylists)
+              ? publicData.sections.featuredPlaylists.filter(
+                (playlist) => playlist && typeof playlist === "object" && playlist.id,
+              )
+              : [];
+            setPublicPlaylists(nextPublic);
+            writeNavCache(LIBRARY_CACHE_KEY, {
+              favourites: null,
+              playlists: [],
+              publicPlaylists: nextPublic,
+              covers: {},
+            });
           }
           return;
         }
@@ -276,9 +291,16 @@ export default function LibraryView() {
           // Covers are optional; keep the loaded collections usable.
         }
         if (active) {
+          const nextCovers = Object.fromEntries(coverTracks.map((track) => [track.id, track.thumbnail]));
           setFavourites(favouriteData);
           setPlaylists(nextPlaylists);
-          setCovers(Object.fromEntries(coverTracks.map((track) => [track.id, track.thumbnail])));
+          setCovers(nextCovers);
+          writeNavCache(LIBRARY_CACHE_KEY, {
+            favourites: favouriteData,
+            playlists: nextPlaylists,
+            publicPlaylists: [],
+            covers: nextCovers,
+          });
         }
       } catch (loadError) {
         if (active) {
@@ -380,7 +402,7 @@ export default function LibraryView() {
           <section className="mt-8 flex flex-col gap-4 border-y border-white/10 py-4 lg:flex-row lg:items-center lg:justify-between" aria-label="Library controls">
             <div className="flex flex-wrap gap-2" aria-label="Library filters">
               {[["all", "All"], ["playlists", "Playlists"], ["by-you", "By You"], ["liked", "Liked"]].map(([value, label]) => (
-                <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`rounded-full px-4 py-2 text-xs font-semibold transition ${filter === value ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/15"}`}>
+                <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`home-chip ${filter === value ? "is-active" : ""}`}>
                   {label}
                 </button>
               ))}
@@ -401,8 +423,8 @@ export default function LibraryView() {
                 <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
               </label>
               <div className="flex rounded-md bg-white/[0.07] p-1" aria-label="Library view">
-                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
-                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
+                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "grid" ? "bg-[#00e6e6] text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
+                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "list" ? "bg-[#00e6e6] text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
               </div>
               <label className="relative flex items-center">
                 <span className="sr-only">Sort library</span>
@@ -414,7 +436,7 @@ export default function LibraryView() {
             </div>
           </section>
 
-          {loading && <div className="mt-6"><CardGridSkeleton /></div>}
+          {loading && items.length === 0 && <div className="mt-6"><CardGridSkeleton /></div>}
           {!loading && error && (
             <div className="mt-8">
               <UserMessage

@@ -5,6 +5,7 @@ import SettingsSync from "@/components/SettingsSync";
 import LanguageSync from "@/components/LanguageSync";
 import Providers from "@/redux/Providers";
 import TopProgressBar from "@/components/topProgressBar/TopProgressBar";
+import NavigationProgress from "@/components/NavigationProgress";
 import AuthProvider from "./AuthProvider";
 import AppShell from "@/components/Layout/AppShell";
 import { AccessibilityPreferencesProvider } from "@/components/AccessibilityPreferences";
@@ -269,6 +270,7 @@ export default function RootLayout({ children }) {
             <AuthProvider>
               <AnalyticsCleanup />
               <TopProgressBar />
+              <NavigationProgress />
               <SongsHistory />
               <SettingsSync />
               <LanguageSync />

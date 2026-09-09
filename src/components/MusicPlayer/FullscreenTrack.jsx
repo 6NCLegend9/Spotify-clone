@@ -31,13 +31,14 @@ const FullscreenTrack = ({
     ? activeSong.artists
     : [];
   const artistDisplay =
-    primaryArtists
-      .map((artist) => artist?.name?.trim())
-      .filter(Boolean)
-      .join(", ") ||
-    (typeof activeSong?.artists === "string" && activeSong.artists.trim()
-      ? activeSong.artists
-      : "Artist");
+    cleanTitle(
+      primaryArtists
+        .map((artist) => artist?.name?.trim())
+        .filter(Boolean)
+        .join(", ") ||
+      (typeof activeSong?.artists === "string" ? activeSong.artists : ""),
+      "Artist",
+    );
 
   return (
     <div
@@ -61,7 +62,7 @@ const FullscreenTrack = ({
           className="w-full select-none cursor-pointer text-center my-5"
         >
           <p className="truncate text-white font-bold text-2xl mx-3 mb-1">
-            {cleanTitle(activeSong?.name, "Song")}
+            {cleanTitle(activeSong?.name || activeSong?.title, "Song")}
           </p>
           <p className="truncate text-gray-300">
             {artistDisplay}

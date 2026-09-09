@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import { hydrateSettings } from "@/redux/features/settingsSlice";
 import { requestJson } from "@/services/http";
+import { clearNavCache } from "@/utils/navCache";
 
 const SYNC_ERROR_TOAST_ID = "account-preferences-sync-error";
 
@@ -22,6 +23,10 @@ const SettingsSync = () => {
   const { status } = useSession();
 
   useEffect(() => {
+    if (status === "unauthenticated") {
+      clearNavCache();
+      return;
+    }
     if (status !== "authenticated") return;
     let cancelled = false;
     const controller = new AbortController();
