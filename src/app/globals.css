@@ -736,6 +736,8 @@ select:-webkit-autofill {
     width: min(100%, 1600px);
     margin: 0 auto;
     padding: 0.75rem 1rem 2.5rem;
+    min-width: 0;
+    overflow: visible;
   }
 
   .home-wash {
@@ -986,8 +988,7 @@ select:-webkit-autofill {
     position: relative;
     z-index: 1;
     margin-bottom: 1.75rem;
-    content-visibility: auto;
-    contain-intrinsic-size: 0 280px;
+    min-width: 0;
   }
 
   .home-rail-title {
@@ -1002,11 +1003,33 @@ select:-webkit-autofill {
   .home-rail {
     display: flex;
     gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
     overflow-x: auto;
+    overflow-y: hidden;
     overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    cursor: grab;
     padding-bottom: 0.35rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .home-rail::-webkit-scrollbar {
+    display: none;
+    height: 0;
+  }
+
+  .home-rail.is-unlocked {
+    touch-action: pan-x pan-y;
+  }
+
+  .home-rail.is-dragging {
+    cursor: grabbing;
+    scroll-snap-type: none;
+    scroll-behavior: auto;
   }
 
   .home-rail-card {

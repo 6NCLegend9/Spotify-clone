@@ -1,18 +1,30 @@
 "use client";
 
+import { useRef } from "react";
 import { useDispatch } from "react-redux";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
 import MixCard from "./MixCard";
 import { playHomeTracks } from "@/utils/playHome";
 import { cleanTitle } from "@/utils/text";
+import useHorizontalRail from "@/hooks/useHorizontalRail";
 
 export function HomeRail({ title, children }) {
+  const railRef = useRef(null);
+  useHorizontalRail(railRef);
   if (!children) return null;
   return (
     <section className="home-rail-wrap">
       {title ? <h2 className="home-rail-title">{title}</h2> : null}
-      <div className="home-rail no-scrollbar">{children}</div>
+      <div
+        ref={railRef}
+        className="home-rail"
+        tabIndex={0}
+        role="region"
+        aria-label={title ? `${title} carousel` : "Carousel"}
+      >
+        {children}
+      </div>
     </section>
   );
 }
