@@ -1,5 +1,6 @@
 import { Poppins, Righteous } from "next/font/google";
 import "./globals.css";
+import "./motion.css";
 import SongsHistory from "@/components/SongsHistory";
 import SettingsSync from "@/components/SettingsSync";
 import LanguageSync from "@/components/LanguageSync";

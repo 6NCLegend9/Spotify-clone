@@ -6,6 +6,7 @@ import { BsPlayFill } from "react-icons/bs";
 import { FiHeart } from "react-icons/fi";
 import MediaImage from "@/components/MediaImage";
 import PlaylistCover from "@/components/PlaylistCover";
+import FxEq from "@/components/FxEq";
 import { playHomeTracks } from "@/utils/playHome";
 import { cleanTitle } from "@/utils/text";
 
@@ -18,9 +19,11 @@ function QuickCard({ children, className = "", playing, ...props }) {
       {...props}
     >
       {children}
-      <span className="mr-2 hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-black opacity-0 shadow-[0_0_18px_rgba(0,230,230,0.35)] transition md:grid md:group-hover:opacity-100 md:group-focus-visible:opacity-100">
-        <BsPlayFill aria-hidden="true" className="text-lg" />
-      </span>
+      {playing ? <FxEq /> : (
+        <span className="mr-2 hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-black opacity-0 shadow-[0_0_18px_rgba(0,230,230,0.35)] transition md:grid md:group-hover:opacity-100 md:group-focus-visible:opacity-100">
+          <BsPlayFill aria-hidden="true" className="text-lg" />
+        </span>
+      )}
     </Tag>
   );
 }

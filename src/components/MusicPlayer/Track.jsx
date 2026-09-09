@@ -1,6 +1,6 @@
-import Link from "next/link";
 import React from "react";
 import { cleanTitle } from "@/utils/text";
+import FxEq from "@/components/FxEq";
 
 const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
   const primaryArtists = Array.isArray(activeSong?.artists?.primary)
@@ -16,8 +16,8 @@ const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
       }`}
     >
       <div
-        className={`${
-          isPlaying && isActive ? "animate-[spin_15s_linear_infinite]" : ""
+        className={`fx-vinyl ${
+          isPlaying && isActive ? "is-spinning" : ""
         } hidden sm:block h-16 w-16 mr-4`}
       >
         <img
@@ -32,7 +32,8 @@ const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
         />
       </div>
       <div className={`w-[190px] select-none cursor-pointer`}>
-        <p className="truncate text-white font-bold text-lg">
+        <p className="flex items-center truncate text-white font-bold text-lg">
+          {isPlaying && isActive ? <FxEq className="mr-2" /> : null}
           {cleanTitle(activeSong?.name || activeSong?.title, "Song")}
         </p>
         <p className="truncate text-gray-300">

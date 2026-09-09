@@ -94,7 +94,7 @@ const Home = () => {
   }));
 
   return (
-    <div className="page-home animate-fade-in">
+    <div className="page-home">
       <div className="home-wash" aria-hidden="true" />
       <HomeHeader filter={filter} onFilter={setFilter} />
 
@@ -107,7 +107,7 @@ const Home = () => {
           onAction={() => setFilter("all")}
         />
       ) : (
-        <>
+        <div key={filter} className="fx-stack">
           {loading && <HomeFeedSkeleton />}
 
           {!loading && error && !hasAny && (
@@ -198,7 +198,7 @@ const Home = () => {
               onAction={retry}
             />
           )}
-        </>
+        </div>
       )}
     </div>
   );
