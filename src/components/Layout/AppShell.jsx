@@ -10,12 +10,15 @@ import Sidebar from "@/components/Sidebar/Sidebar";
 import MobileTabBar from "@/components/Layout/MobileTabBar";
 import CreateHub from "@/components/Layout/CreateHub";
 import Atmosphere from "@/components/Layout/Atmosphere";
+import ParticleField from "@/components/Layout/ParticleField";
+import PageTransit from "@/components/Layout/PageTransit";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import OnlineStatus from "@/components/Homepage/OnlineStatus";
 import PullToRefresh from "@/components/PullToRefresh";
 import { JamProvider } from "@/components/Jam/JamProvider";
 import useNetworkRecovery from "@/hooks/useNetworkRecovery";
 import useScrollPerformance from "@/hooks/useScrollPerformance";
+import usePointerTilt from "@/hooks/usePointerTilt";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -57,6 +60,7 @@ export default function AppShell({ children }) {
 
   useNetworkRecovery();
   useScrollPerformance();
+  usePointerTilt();
 
   useEffect(() => {
     setShowNav(false);
@@ -128,33 +132,32 @@ export default function AppShell({ children }) {
           onClick={() => setShowNav(false)}
         />
         <div className="app-stage" inert={navModal}>
-          {pathname === "/" ? (
           <GhostFibers
             className="app-ghost-fibers"
             lineColor="#0a5c66"
             glowColor="#00e6e6"
             backdropColor="#000814"
-            speed={0.12}
-            scale={2.1}
+            speed={0.22}
+            scale={2.05}
             rotation={-12}
-            rotationSpeed={0.1}
-            layers={3}
-            glowIntensity={1.25}
-            brightness={1.4}
-            blueBoost={1.05}
-            vignette={0.8}
-            grain={0.03}
-            fps={30}
-            dpr={0.7}
+            rotationSpeed={0.18}
+            layers={4}
+            glowIntensity={1.75}
+            brightness={1.62}
+            blueBoost={1.1}
+            vignette={0.76}
+            grain={0.04}
+            fps={42}
+            dpr={0.85}
           />
-          ) : null}
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Atmosphere />
+          <ParticleField />
           <Navbar />
           <div className="app-content" id="main-content" tabIndex={-1}>
             <PullToRefresh />
             <OnlineStatus />
-            {children}
+            <PageTransit pathname={pathname}>{children}</PageTransit>
             {pathname?.startsWith("/arcade") ? null : (
               <footer className="app-footer">
                 <div className="flex justify-center gap-4">

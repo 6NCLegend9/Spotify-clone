@@ -74,6 +74,9 @@ export default function Atmosphere() {
   return (
     <div className="app-atmosphere" aria-hidden="true">
       <div className="app-atmosphere-wash" />
+      <div className="app-atmosphere-orb app-atmosphere-orb--a" />
+      <div className="app-atmosphere-orb app-atmosphere-orb--b" />
+      <div className="app-atmosphere-orb app-atmosphere-orb--c" />
       <div className="app-atmosphere-glow" ref={glowRef} />
       <div className="app-atmosphere-grain" ref={grainRef} />
     </div>

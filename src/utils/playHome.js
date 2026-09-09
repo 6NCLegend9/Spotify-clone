@@ -18,6 +18,10 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0) {
   const list = (Array.isArray(tracks) ? tracks : []).filter((track) => track?.id);
   if (!list.length) return;
 
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("heykasa:play-burst"));
+  }
+
   const start = list[Math.max(0, Math.min(startIndex, list.length - 1))];
   if (isYoutubeTrack(start)) {
     const youtubeList = list.filter(isYoutubeTrack);

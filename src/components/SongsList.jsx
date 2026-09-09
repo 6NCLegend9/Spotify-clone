@@ -176,7 +176,7 @@ const SongsList = ({
             return (
             <div
               key={song?.id || index}
-              className={`group mt-1 flex items-center justify-between rounded-lg border-b border-white/10 px-2 py-2.5 transition hover:bg-white/5 ${
+              className={`song-row group mt-1 flex items-center justify-between rounded-lg border-b border-white/10 px-2 py-2.5 transition hover:bg-white/5 ${
                 activeSong?.id === song?.id && " text-[#00e6e6]"
               }`}
             >

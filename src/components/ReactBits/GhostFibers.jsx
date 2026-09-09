@@ -197,9 +197,9 @@ export default function GhostFibers({
     const requestedDpr = Number.isFinite(dpr) ? dpr : 1;
     const requestedFps = Number.isFinite(fps) ? fps : 45;
     const requestedLayers = Number.isFinite(layers) ? layers : 4;
-    const effectiveDpr = isMobile ? 0.5 : isLowEnd ? 0.6 : Math.min(Math.max(requestedDpr, 0.5), 0.85);
-    const effectiveFps = isMobile ? 24 : isLowEnd ? 28 : Math.min(Math.max(requestedFps, 1), 30);
-    const effectiveLayers = isMobile ? Math.min(requestedLayers, 2) : Math.min(requestedLayers, 3);
+    const effectiveDpr = isMobile ? 0.5 : isLowEnd ? 0.6 : Math.min(Math.max(requestedDpr, 0.5), 0.9);
+    const effectiveFps = isMobile ? 24 : isLowEnd ? 28 : Math.min(Math.max(requestedFps, 1), 42);
+    const effectiveLayers = isMobile ? Math.min(requestedLayers, 2) : Math.min(requestedLayers, 4);
 
     let renderer;
     try {

@@ -52,7 +52,9 @@ body {
 }
 
 html.is-scrolling .app-atmosphere-grain,
-html.is-scrolling .app-atmosphere-glow {
+html.is-scrolling .app-atmosphere-glow,
+html.is-scrolling .app-atmosphere-orb,
+html.is-scrolling .app-particle-field {
   opacity: 0;
   transition: none;
 }
@@ -72,6 +74,7 @@ html.is-scrolling .search-field {
 html.is-scrolling .fx-loop,
 html.is-scrolling .fx-eq i,
 html.is-scrolling .fx-vinyl.is-spinning,
+html.is-scrolling .app-atmosphere-orb,
 html.is-scrolling .home-wash::before,
 html.is-scrolling .home-wash::after,
 html.is-scrolling .home-avatar::after,
@@ -79,11 +82,21 @@ html.is-scrolling .home-display,
 html.is-scrolling .home-quick-card.is-playing,
 html.is-scrolling .home-mix-pattern,
 html.is-scrolling .home-mix-stamp,
+html.is-scrolling .home-mix::after,
 html.is-scrolling .home-feature-card::after,
 html.is-scrolling .home-feature-play::before,
 html.is-scrolling .home-feature-play::after,
 html.is-scrolling .player-dock::after,
 html.is-scrolling .browse-tile-art,
+html.is-scrolling .browse-tile::after,
+html.is-scrolling .library-tile::after,
+html.is-scrolling .card::after,
+html.is-scrolling .btn-primary::after,
+html.is-scrolling .brand-mark,
+html.is-scrolling .nav-link.is-active,
+html.is-scrolling .search-field-icon,
+html.is-scrolling .eyebrow,
+html.is-scrolling [data-testid="jam-button"],
 html.is-scrolling .app-tab.is-active svg {
   animation-play-state: paused !important;
 }
@@ -179,7 +192,7 @@ html[data-a11y-contrast="high"] :is(.app-shell, .app-stage, .app-content) {
   background-image: none;
 }
 
-html[data-a11y-contrast="high"] :is(.app-ghost-fibers, .app-ghost-fibers-shade, .app-atmosphere, .home-wash) {
+html[data-a11y-contrast="high"] :is(.app-ghost-fibers, .app-ghost-fibers-shade, .app-atmosphere, .app-particle-field, .home-wash) {
   display: none;
 }
 
@@ -328,15 +341,61 @@ select:-webkit-autofill {
     position: absolute;
     left: 0;
     top: 0;
-    width: 36rem;
-    height: 36rem;
-    margin: -18rem 0 0 -18rem;
+    width: 42rem;
+    height: 42rem;
+    margin: -21rem 0 0 -21rem;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(0, 230, 230, 0.16), transparent 58%);
+    background: radial-gradient(circle, rgba(0, 230, 230, 0.22), transparent 58%);
     transform: translate3d(58vw, 18vh, 0);
     will-change: transform;
     contain: strict;
     transition: opacity 160ms linear;
+  }
+
+  .app-atmosphere-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(28px);
+    pointer-events: none;
+    will-change: transform;
+    mix-blend-mode: screen;
+  }
+
+  .app-atmosphere-orb--a {
+    width: 22rem;
+    height: 22rem;
+    left: -6%;
+    top: 8%;
+    background: radial-gradient(circle, rgba(0, 230, 230, 0.28), transparent 70%);
+    animation: fx-drift 16s ease-in-out infinite alternate;
+  }
+
+  .app-atmosphere-orb--b {
+    width: 18rem;
+    height: 18rem;
+    right: -4%;
+    top: 28%;
+    background: radial-gradient(circle, rgba(123, 92, 255, 0.22), transparent 72%);
+    animation: fx-drift 22s ease-in-out infinite alternate-reverse;
+  }
+
+  .app-atmosphere-orb--c {
+    width: 16rem;
+    height: 16rem;
+    left: 38%;
+    bottom: 6%;
+    background: radial-gradient(circle, rgba(255, 77, 141, 0.16), transparent 74%);
+    animation: fx-drift 19s ease-in-out infinite alternate;
+  }
+
+  .app-particle-field {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    contain: strict;
   }
 
   .app-atmosphere-grain {
