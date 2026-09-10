@@ -1,0 +1,219 @@
+const { test, expect } = require("@playwright/test");
+
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus || page.isClosed()) return;
+  await testInfo.attach("playback-state", {
+    body: JSON.stringify(await page.evaluate(async () => ({
+      session: await fetch("/api/auth/session").then((response) => response.json()),
+      snapshot: localStorage.getItem("heykasa:playback:v1:account%3Atest-a"),
+      player: document.querySelector("#player")?.innerText,
+    }))),
+    contentType: "application/json",
+  });
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.route(/https:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\//, (route) => route.abort());
+  await page.route("**/api/**", (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/api/auth/session") {
+      return route.fulfill({ json: { user: { id: "test-a", name: "Test" }, expires: "2099-01-01T00:00:00.000Z" } });
+    }
+    if (pathname === "/api/auth/providers") return route.fulfill({ json: {} });
+    if (pathname === "/api/favourite") return route.fulfill({ json: { success: true, data: { favourites: [] } } });
+    return route.fulfill({ json: { authenticated: false, data: [], genres: [], tree: [], personalGenres: [], results: [] } });
+  });
+});
+
+test("refresh restores the owner's queue paused and isolates another account", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("playback-test-seeded")) return;
+    const track = { id: "abcdefghijk", title: "Restore Verification Track", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1, owner: "account:test-a", savedAt: Date.now(),
+      youtubeVideo: track, youtubeQueue: [track], position: 42,
+    }));
+    sessionStorage.setItem("playback-test-seeded", "true");
+  });
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#player")).toContainText("Restore Verification Track");
+  await expect(page.locator('#player button[aria-label="Play"]:visible')).toBeVisible();
+  await expect(page.locator('#player button[aria-label="Pause"]')).toHaveCount(0);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("#player")).toContainText("Restore Verification Track");
+  await expect(page.locator('#player button[aria-label="Play"]:visible')).toBeVisible();
+  await page.route("**/api/auth/session", (route) => route.fulfill({
+    json: { user: { id: "test-b", name: "Other Account" }, expires: "2099-01-01T00:00:00.000Z" },
+  }));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Browse all" })).toBeVisible();
+  await expect(page.locator("#player")).not.toContainText("Restore Verification Track");
+  const snapshot = await page.evaluate(() => JSON.parse(localStorage.getItem("heykasa:playback:v1:account%3Atest-a")));
+  expect(snapshot.youtubeVideo.id).toBe("abcdefghijk");
+  expect(snapshot.position).toBe(42);
+});
+
+test("chunk errors show a dismissible notice without reloading", async ({ page }) => {
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Browse all" })).toBeVisible();
+  await expect(page.getByTestId("jam-button")).toBeVisible();
+  await page.evaluate(() => {
+    window.__recoveryMarker = "unchanged";
+    window.dispatchEvent(new ErrorEvent("error", { message: "ChunkLoadError: Loading chunk test failed" }));
+  });
+  await expect(page.getByRole("button", { name: "Dismiss reload notice" })).toBeVisible();
+  expect(await page.evaluate(() => window.__recoveryMarker)).toBe("unchanged");
+  await page.getByRole("button", { name: "Dismiss reload notice" }).click();
+  await expect(page.getByRole("button", { name: "Dismiss reload notice" })).toHaveCount(0);
+});
+
+test("empty search does not mount the player or request the YouTube API", async ({ page }) => {
+  const providerRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("youtube.com/iframe_api")) providerRequests.push(request.url());
+  });
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Browse all" })).toBeVisible();
+  await expect(page.getByTestId("player-dock")).toHaveCount(0);
+  expect(providerRequests).toEqual([]);
+});
+
+test("responsive player expands, exposes queue modes and preserves deck hosts", async ({ page }, testInfo) => {
+  const favouriteRequests = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/favourite" && request.method() === "GET") favouriteRequests.push(request.url());
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem("persist:settings", JSON.stringify({ audioOnly: "true" }));
+    const tracks = [
+      { id: "abcdefghijk", title: "A Very Long Track Title That Must Stay Inside The Player", channel: "Test Artist" },
+      { id: "lmnopqrstuv", title: "Second track", channel: "Another Artist" },
+      { id: "12345678901", title: "Third track", channel: "Another Artist" },
+    ];
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1, owner: "account:test-a", savedAt: Date.now(),
+      youtubeVideo: tracks[0], youtubeQueue: tracks, position: 42,
+    }));
+  });
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const dock = page.getByTestId("player-dock");
+  await expect(dock).toBeVisible();
+  expect(await dock.evaluate((element) => element.parentElement.getBoundingClientRect().height - element.getBoundingClientRect().height)).toBeLessThan(2);
+  await expect.poll(() => dock.locator("button:visible").evaluateAll((buttons) => buttons.filter((button) => {
+    const rect = button.getBoundingClientRect();
+    return rect.width < 48 || rect.height < 48;
+  }).map((button) => button.getAttribute("aria-label")))).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByTestId("youtube-decks").evaluate((element) => { window.__deckHost = element; });
+  await page.screenshot({ path: testInfo.outputPath("player-dock.png") });
+  const expand = dock.getByRole("button", { name: /^Expand player:/ });
+  await expand.click();
+  const dialog = page.getByRole("dialog", { name: "Now playing" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Shuffle", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Shuffle", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await dialog.getByRole("button", { name: "Repeat queue" }).click();
+  await expect(dialog.getByRole("button", { name: "Repeat queue" })).toHaveAttribute("aria-pressed", "true");
+  expect(favouriteRequests).toHaveLength(1);
+  await page.screenshot({ path: testInfo.outputPath("player-expanded.png") });
+  await dialog.getByRole("button", { name: "Queue", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: /Second track/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(expand).toBeFocused();
+  await page.setViewportSize({ width: 768, height: 1024 });
+  expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__deckHost)).toBe(true);
+  await page.evaluate(() => {
+    Object.defineProperty(window, "documentPictureInPicture", { configurable: true, value: undefined });
+  });
+  await expand.click();
+  await dialog.getByRole("button", { name: /picture in picture controls|floating player/i }).click();
+  const floating = page.getByRole("region", { name: "Floating player", exact: true });
+  await expect(floating).toBeVisible();
+  await floating.getByRole("button", { name: "Close floating player" }).click();
+  await expect(floating).toHaveCount(0);
+  await page.evaluate(() => {
+    Object.defineProperty(window, "documentPictureInPicture", {
+      configurable: true,
+      value: { requestWindow: () => Promise.reject(new DOMException("Blocked", "NotAllowedError")) },
+    });
+  });
+  await expand.click();
+  await dialog.getByRole("button", { name: /picture in picture controls|floating player/i }).click();
+  await expect(floating).toBeVisible();
+  await floating.getByRole("button", { name: "Close floating player" }).click();
+  await page.locator('a[href="/terms"]:visible').first().click();
+  await expect(page).toHaveURL(/\/terms$/);
+  expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__deckHost)).toBe(true);
+});
+
+test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    localStorage.setItem("persist:settings", JSON.stringify({ audioOnly: "false", dataSaver: "false" }));
+    const track = { id: "abcdefghijk", title: "Video expansion verification", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1, owner: "account:test-a", savedAt: Date.now(),
+      youtubeVideo: track, youtubeQueue: [track], position: 42,
+    }));
+  });
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const dock = page.getByTestId("player-dock");
+  await expect(dock).toBeVisible();
+  await page.getByTestId("youtube-decks").evaluate((host) => {
+    window.__videoHost = host;
+    const frame = document.createElement("iframe");
+    frame.title = "Layout verification video";
+    frame.srcdoc = '<body style="margin:0;background:#168477;color:white;display:grid;place-items:center;height:100vh;font:24px sans-serif">Video frame</body>';
+    host.querySelector(".yt-crop-frame").appendChild(frame);
+    window.__videoFrame = frame;
+  });
+  await dock.getByRole("button", { name: /^Expand player:/ }).click();
+  await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
+  const geometry = await page.getByTestId("youtube-decks").evaluate((host) => {
+    const rect = host.getBoundingClientRect();
+    const frame = window.__videoFrame.getBoundingClientRect();
+    return { width: rect.width, height: rect.height, top: rect.top, bottom: rect.bottom,
+      viewportHeight: window.innerHeight, frameWidth: frame.width, frameHeight: frame.height,
+      sameHost: host === window.__videoHost, sameFrame: host.contains(window.__videoFrame) };
+  });
+  expect(geometry.width).toBeGreaterThan(300);
+  expect(geometry.height).toBeGreaterThan(250);
+  expect(geometry.top).toBeGreaterThanOrEqual(0);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+  expect(Math.abs(geometry.frameWidth - geometry.width)).toBeLessThan(2);
+  expect(Math.abs(geometry.frameHeight - geometry.height)).toBeLessThan(2);
+  expect(geometry.sameHost && geometry.sameFrame).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
+  await page.getByRole("button", { name: "Minimize video", exact: true }).click();
+  await expect(dock).toBeVisible();
+  expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost)).toBe(true);
+  await expect(dock.getByRole("button", { name: "Picture in picture unavailable", exact: true, includeHidden: true })).toBeDisabled();
+  await expect(dock.getByRole("button", { name: "Floating video", exact: true })).toHaveCount(0);
+  await dock.getByRole("button", { name: /^Expand player:/ }).click();
+  await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Expand floating video", exact: true })).toHaveCount(0);
+  expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
+  for (const width of [320, 360, 390, 768]) {
+    await page.getByRole("button", { name: "Minimize video", exact: true }).click();
+    await page.setViewportSize({ width, height: 844 });
+    await expect(dock).toBeVisible();
+    await expect.poll(() => dock.locator("button:visible").evaluateAll((buttons) => buttons.filter((button) => {
+      const rect = button.getBoundingClientRect();
+      return rect.left < 0 || rect.right > window.innerWidth || rect.width < 48 || rect.height < 48;
+    }).map((button) => ({ label: button.getAttribute("aria-label"), rect: button.getBoundingClientRect().toJSON() }))), { message: `Dock controls at ${width}px` }).toEqual([]);
+    expect(await dock.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    expect(await dock.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(7, 18, 29)");
+    await page.screenshot({ path: testInfo.outputPath(`dock-${width}.png`) });
+    await dock.getByRole("button", { name: "Expand player", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
+    const outside = await page.getByTestId("youtube-player").locator("button:visible").evaluateAll((buttons) => buttons.filter((button) => {
+      const rect = button.getBoundingClientRect();
+      return rect.left < 0 || rect.right > window.innerWidth;
+    }).map((button) => button.getAttribute("aria-label")));
+    expect(outside, `Expanded controls at ${width}px`).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath(`expanded-${width}.png`) });
+  }
+  expect(errors).toEqual([]);
+});

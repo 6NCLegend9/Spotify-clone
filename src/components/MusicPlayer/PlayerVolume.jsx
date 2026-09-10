@@ -34,7 +34,8 @@ export default function PlayerVolume({ className = "" }) {
     >
       <button
         type="button"
-        aria-label={volume === 0 ? "Unmute" : "Mute"}
+        aria-label="Volume controls"
+        aria-expanded={open}
         title="Volume"
         onClick={() => {
           if (window.matchMedia("(max-width: 1023px)").matches) {
@@ -43,7 +44,7 @@ export default function PlayerVolume({ className = "" }) {
           }
           setVolume(volume === 0 ? 0.85 : 0);
         }}
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-gray-200 hover:bg-white/10"
+        className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-gray-200 hover:bg-white/10"
       >
         <Icon size={18} />
       </button>
@@ -55,7 +56,7 @@ export default function PlayerVolume({ className = "" }) {
         step="0.01"
         value={volume}
         onChange={(event) => setVolume(Number(event.target.value))}
-        className="player-volume-slider hidden lg:block"
+        className="player-volume-slider hidden !h-12 lg:block"
       />
       {open && (
         <div className="player-volume-popover">
@@ -67,7 +68,7 @@ export default function PlayerVolume({ className = "" }) {
             step="0.01"
             value={volume}
             onChange={(event) => setVolume(Number(event.target.value))}
-            className="w-28 accent-[#00e6e6]"
+            className="h-12 w-28 accent-[#00e6e6]"
           />
         </div>
       )}

@@ -142,7 +142,7 @@ export default function useHomeFeed() {
     const controller = new AbortController();
     let cancelled = false;
 
-    const loadAccount = async () => {
+    const loadHistory = async () => {
       try {
         const json = await requestJson("/api/history", {
           signal: controller.signal,
@@ -156,7 +156,9 @@ export default function useHomeFeed() {
       } catch {
         // Local history still fills Jump back in.
       }
+    };
 
+    const loadPlaylists = async () => {
       try {
         const res = await getUserPlaylists();
         if (!cancelled && res?.success === true) {
@@ -171,7 +173,9 @@ export default function useHomeFeed() {
       } catch {
         if (!cancelled) setPlaylists([]);
       }
+    };
 
+    const loadReleases = async () => {
       try {
         const json = await requestJson("/api/followedArtists/releases", {
           signal: controller.signal,
@@ -186,7 +190,9 @@ export default function useHomeFeed() {
       }
     };
 
-    void loadAccount();
+    void loadHistory();
+    void loadPlaylists();
+    void loadReleases();
 
     const onPlaylistsChanged = () => {
       void getUserPlaylists().then((res) => {

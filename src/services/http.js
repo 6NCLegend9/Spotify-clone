@@ -1,6 +1,36 @@
-import { createUserError, toUserError } from "@/utils/userError";
+import { createUserError, toUserError } from "../utils/userError.js";
 
 const DEFAULT_TIMEOUT = 15000;
+
+function waitForRetry(delay, signal) {
+  signal.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, delay);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+async function fetchWithRecovery(url, options, retry) {
+  for (let attempt = 0; ; attempt += 1) {
+    options.signal.throwIfAborted();
+    try {
+      const response = await fetch(url, options);
+      if (!retry || attempt >= 2 || ![502, 503, 504].includes(response.status)
+        || response.headers.has("retry-after")) return response;
+      await response.body?.cancel();
+    } catch (error) {
+      if (!retry || attempt >= 2 || options.signal.aborted || !(error instanceof TypeError)) throw error;
+    }
+    await waitForRetry(250 * (2 ** attempt), options.signal);
+  }
+}
 
 function codeForStatus(status) {
   if (status === 400 || status === 422) return "VALIDATION_ERROR";
@@ -30,17 +60,14 @@ async function parseResponseBody(response) {
 }
 
 const clientCache = new Map();
+let cacheGeneration = 0;
 const CACHEABLE_GET_ROUTES = [
-  "/api/recommendations",
-  "/api/followedArtists",
   "/api/genres",
-  "/api/userPlaylists",
-  "/api/favourite",
-  "/api/settings",
 ];
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export function invalidateClientCache(urlPattern) {
+  cacheGeneration += 1;
   if (!urlPattern) {
     clientCache.clear();
     return;
@@ -60,12 +87,17 @@ export async function requestJson(url, options = {}) {
     headers,
     signal,
     useCache = true,
+    retry = true,
     ...fetchOptions
   } = options;
 
   const method = (fetchOptions.method || "GET").toUpperCase();
+  const requestGeneration = cacheGeneration;
   const isGet = method === "GET" && body === undefined;
-  const isCacheable = useCache && isGet && CACHEABLE_GET_ROUTES.some((route) => String(url).startsWith(route));
+  const pathname = String(url).split(/[?#]/, 1)[0];
+  const isCacheable = useCache && isGet && CACHEABLE_GET_ROUTES.includes(pathname);
+
+  if (signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
 
   if (isCacheable && clientCache.has(url)) {
     const cached = clientCache.get(url);
@@ -87,7 +119,7 @@ export async function requestJson(url, options = {}) {
   }
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithRecovery(url, {
       ...fetchOptions,
       headers: {
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
@@ -99,7 +131,7 @@ export async function requestJson(url, options = {}) {
           ? body
           : JSON.stringify(body),
       signal: controller.signal,
-    });
+    }, isGet && retry);
     const data = await parseResponseBody(response);
 
     if (!response.ok) {
@@ -113,7 +145,11 @@ export async function requestJson(url, options = {}) {
       });
     }
 
-    if (isCacheable && data) {
+    const cacheDirectives = (response.headers.get("cache-control") || "")
+      .toLowerCase().split(",").map((value) => value.trim().split("=")[0]);
+    const isPublicResponse = cacheDirectives.includes("public")
+      && !cacheDirectives.some((value) => ["private", "no-store", "no-cache"].includes(value));
+    if (isCacheable && isPublicResponse && data && requestGeneration === cacheGeneration) {
       clientCache.set(url, { timestamp: Date.now(), data });
     } else if (!isGet) {
       invalidateClientCache();
@@ -121,17 +157,9 @@ export async function requestJson(url, options = {}) {
 
     return data;
   } catch (error) {
+    if (signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
     if (error instanceof Error && error.name === "UserFacingError") throw error;
     const timedOut = controller.signal.aborted && !signal?.aborted;
-    // Only network-level failures (offline/timeout) trigger self-healing; a
-    // clean 4xx/5xx is a legitimate state the calling UI already handles.
-    if (timedOut || error?.name === "TypeError") {
-      try {
-        window.dispatchEvent(new CustomEvent("heykasa:network-fail", { detail: { url: String(url) } }));
-      } catch {
-        // Event dispatch is best-effort; never let it mask the real error.
-      }
-    }
     throw toUserError(error, {
       status: error?.status,
       title: fallbackTitle,

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSelector } from "react-redux";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
@@ -18,10 +19,11 @@ import { JamProvider } from "@/components/Jam/JamProvider";
 import useNetworkRecovery from "@/hooks/useNetworkRecovery";
 import useScrollPerformance from "@/hooks/useScrollPerformance";
 import usePointerTilt from "@/hooks/usePointerTilt";
+import PlaybackPersistence from "@/components/PlaybackPersistence";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
-  { ssr: false },
+  { ssr: false, loading: () => <div role="status" aria-label="Loading player" className="h-20 w-full animate-pulse bg-white/5 motion-reduce:animate-none" /> },
 );
 
 const GhostFibers = dynamic(
@@ -45,6 +47,7 @@ export function useNav() {
 }
 
 export default function AppShell({ children }) {
+  const hasTrack = useSelector((state) => Boolean(state.player.youtubeVideo?.id || state.player.activeSong?.id));
   const pathname = usePathname();
   const [showNav, setShowNav] = useState(false);
   const [isCompactNav, setIsCompactNav] = useState(false);
@@ -117,6 +120,7 @@ export default function AppShell({ children }) {
   return (
     <NavContext.Provider value={value}>
       <JamProvider>
+      <PlaybackPersistence />
       <div
         className={`app-shell${collapsed ? " is-sidebar-collapsed" : ""}`}
         data-route={pathname === "/" ? "home" : "app"}
@@ -175,7 +179,7 @@ export default function AppShell({ children }) {
             title="The music player stopped"
             message="Reload the player to keep listening. Your queue and library are safe."
           >
-            <MusicPlayer />
+            {hasTrack && <MusicPlayer />}
           </ErrorBoundary>
         </div>
         <MobileTabBar />

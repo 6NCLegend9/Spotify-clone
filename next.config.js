@@ -32,7 +32,17 @@ const contentSecurityPolicy = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: process.env.NEXT_BUILD_DIR || ".next",
   poweredByHeader: false,
+  turbopack: {
+    resolveAlias: {
+      module: { browser: "./src/utils/browserNodeStub.js" },
+      fs: { browser: "./src/utils/browserNodeStub.js" },
+      path: { browser: "./src/utils/browserNodeStub.js" },
+      events: { browser: "events/" },
+      "./taglib-web.wasm": "./node_modules/taglib-wasm/dist/taglib-web.wasm",
+    },
+  },
   experimental: {
     // Enabled only for production compiles. In `next dev` this flag
     // corrupts HMR module IDs and throws `__webpack_modules__[moduleId] is not a function`.
@@ -135,7 +145,7 @@ const nextConfig = {
   },
 };
 
-const withPWA = require("@ducanh2912/next-pwa").default({
+const withPWA = disablePwa ? (config) => config : require("@ducanh2912/next-pwa").default({
   dest: "public",
   disable: disablePwa,
   cacheStartUrl: false,
@@ -189,4 +199,9 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   },
 });
 
-module.exports = withPWA(nextConfig);
+const withBundleAnalyzer = process.env.ANALYZE === "true" ? require("@next/bundle-analyzer")({
+  enabled: true,
+  openAnalyzer: false,
+}) : (config) => config;
+
+module.exports = withBundleAnalyzer(withPWA(nextConfig));

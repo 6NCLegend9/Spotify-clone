@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { resolveMongoConnectionUrl } from "./mongoSrvUrl.mjs";
+import { mongoPoolSize } from "./mongoPoolSize.mjs";
 
 const getMongoUrl = () =>
   (process.env.MONGODB_URL || process.env.MONGODB_URI || "").trim();
@@ -28,7 +29,7 @@ const dbConnect = async () => {
       mongoose.connect(connectionUrl, {
         dbName: (process.env.DB_NAME || "").trim() || undefined,
         family: 4,
-        maxPoolSize: 1,
+        maxPoolSize: mongoPoolSize(process.env.MONGODB_MAX_POOL_SIZE),
         maxIdleTimeMS: 10_000,
         serverSelectionTimeoutMS: 10_000,
       }),

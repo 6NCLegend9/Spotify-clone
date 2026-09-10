@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useSelector, useDispatch } from "react-redux";
 import {
   nextSong,
@@ -8,14 +9,14 @@ import {
   setFullScreen,
 } from "../../redux/features/playerSlice";
 import Controls from "./Controls";
-import Player from "./Player";
+const Player = dynamic(() => import("./Player"), { ssr: false });
 import Seekbar from "./Seekbar";
 import Track from "./Track";
 import VolumeBar from "./VolumeBar";
 import PlayerVolume from "./PlayerVolume";
-import FullscreenTrack from "./FullscreenTrack";
-import Lyrics from "./Lyrics";
-import Downloader from "./Downloader";
+const FullscreenTrack = dynamic(() => import("./FullscreenTrack"), { ssr: false });
+const Lyrics = dynamic(() => import("./Lyrics"), { ssr: false });
+const Downloader = dynamic(() => import("./Downloader"), { ssr: false });
 import { HiOutlineChevronDown } from "react-icons/hi";
 import { addFavourite, getFavourite } from "@/services/dataAPI";
 import { useSession } from "next-auth/react";
@@ -23,7 +24,7 @@ import { useRouter } from "next/navigation";
 import FavouriteButton from "./FavouriteButton";
 import UserMessage from "@/components/UserMessage";
 import YouTubePlayer from "./YouTubePlayer";
-import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "./PictureInPictureWindow";
+const PictureInPictureWindow = dynamic(() => import("./PictureInPictureWindow"), { ssr: false });
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import usePlayerTransport from "@/hooks/usePlayerTransport";
 import useMediaSession from "@/hooks/useMediaSession";
@@ -140,7 +141,7 @@ const MusicPlayer = () => {
   useEffect(() => {
     let cancelled = false;
     const fetchFavourites = async () => {
-      if (status !== "authenticated") {
+      if (status !== "authenticated" || youtubeVideo?.id || !activeSong?.id) {
         setFavouriteSongs([]);
         return;
       }
@@ -161,7 +162,7 @@ const MusicPlayer = () => {
     return () => {
       cancelled = true;
     };
-  }, [status]);
+  }, [status, youtubeVideo?.id, activeSong?.id]);
 
   useEffect(() => {
     setFavouriteFeedback(null);
@@ -222,6 +223,7 @@ const MusicPlayer = () => {
     if (!window.documentPictureInPicture?.requestWindow) return;
     try {
       const pip = await window.documentPictureInPicture.requestWindow({ width: 390, height: 280 });
+      const { PIP_DOCUMENT_STYLES } = await import("./PictureInPictureWindow");
       const style = pip.document.createElement("style");
       style.textContent = PIP_DOCUMENT_STYLES;
       pip.document.head.appendChild(style);
@@ -462,7 +464,7 @@ const MusicPlayer = () => {
           : undefined,
       }}
     >
-        <YouTubePlayer />
+        {youtubeVideo && <YouTubePlayer />}
         {!youtubeVideo && (
         <button
           type="button"

@@ -1,4 +1,4 @@
-import { AUTH_CODES } from "./authErrors";
+import { AUTH_CODES } from "./authErrors.js";
 import {
   USER_ERROR_CATALOG,
   USER_ERROR_CODES,

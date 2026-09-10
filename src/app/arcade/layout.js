@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/utils/authOptions";
 import { canUseArcade } from "@/utils/arcadeAccess";
 import { SITE_URL, SITE_NAME } from "@/utils/siteConfig";
 

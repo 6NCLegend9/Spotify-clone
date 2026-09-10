@@ -108,6 +108,7 @@ const Home = () => {
         />
       ) : (
         <div key={filter} className="fx-stack">
+          <QuickAccessGrid items={quickItems} />
           {loading && <HomeFeedSkeleton />}
 
           {!loading && error && !hasAny && (
@@ -131,8 +132,6 @@ const Home = () => {
               />
             </div>
           )}
-
-          {!loading && <QuickAccessGrid items={quickItems} />}
 
           {!loading && featured && (
             <FeaturedRelease video={featured} queue={featuredQueue} />

@@ -7,9 +7,14 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
+/.next-check/
+/.next-turbo-bench/
+/.next-perf-*/
 /out/
 
 # production

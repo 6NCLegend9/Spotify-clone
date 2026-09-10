@@ -1,21 +1,27 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import PlayerDock from "./PlayerDock";
+import { nextQueueTrack, shuffleUpcoming } from "@/utils/playerQueue.mjs";
 import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import {
   playPause,
   setYoutubeVideo,
+  setYoutubeQueue,
   setFullScreen,
   addToQueue,
   appendToQueue,
+  setPlaybackPosition,
 } from "@/redux/features/playerSlice";
 import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiSkipBack, FiSkipForward, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import { MdOutlineLyrics, MdPictureInPictureAlt } from "react-icons/md";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
-import SyncedLyrics from "@/components/MusicPlayer/SyncedLyrics";
-import PictureInPictureWindow, { PIP_DOCUMENT_STYLES } from "@/components/MusicPlayer/PictureInPictureWindow";
+const SyncedLyrics = dynamic(() => import("@/components/MusicPlayer/SyncedLyrics"), { ssr: false });
+const PictureInPictureWindow = dynamic(() => import("@/components/MusicPlayer/PictureInPictureWindow"), { ssr: false });
+const FloatingPlayer = dynamic(() => import("./FloatingPlayer"), { ssr: false });
 import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
 import { useJam } from "@/components/Jam/JamProvider";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
@@ -143,9 +149,14 @@ const recordPlayEvent = (id, event) => {
 
 function YouTubePlayer() {
   const dispatch = useDispatch();
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+  const repeatRef = useRef(false);
+  const unshuffledRef = useRef([]);
+  repeatRef.current = repeat;
   const { status } = useSession();
   const jam = useJam();
-  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying } = useSelector(
+  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner } = useSelector(
     (state) => state.player,
   );
   const video = useMemo(() => decodeTrackFields(rawVideo), [rawVideo]);
@@ -343,9 +354,7 @@ function YouTubePlayer() {
     const currentId = videoRef.current?.id;
     if (!currentId) return null;
     const list = Array.isArray(queueRef.current) ? queueRef.current : [];
-    const index = list.findIndex((item) => item?.id === currentId);
-    if (index < 0) return null;
-    return list.slice(index + 1).find((item) => item?.id) || null;
+    return nextQueueTrack(list, currentId, repeatRef.current);
   };
 
   const getPreviousVideo = () => {
@@ -1528,6 +1537,27 @@ function YouTubePlayer() {
       return;
     }
     if (!apiReady) return;
+    if (restorePosition !== null && restorePosition !== undefined) {
+      cancelCrossfade();
+      clearActiveBufferTimers();
+      destroyDeck("A");
+      destroyDeck("B");
+      activeDeckRef.current = "A";
+      setActiveDeck("A");
+      userPausedRef.current = true;
+      setCurrentTime(restorePosition);
+      setDuration(0);
+      setPlayerError(null);
+      mountDeck("A", video.id, {
+        title: video.title,
+        autoplay: false,
+        onDeckReady: (player) => {
+          player.cueVideoById?.({ videoId: video.id, startSeconds: restorePosition });
+          if (isPlayingRef.current) resumePlayer(player);
+        },
+      });
+      return;
+    }
     markExpectPlaying();
     endedTransitionRef.current = null;
     preloadRetryAtRef.current = 0;
@@ -1666,7 +1696,7 @@ function YouTubePlayer() {
     setActiveDeck("A");
     mountDeck("A", video.id, { title: video.title });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video?.id, apiReady]);
+  }, [video?.id, apiReady, playbackOwner]);
 
   useEffect(() => () => {
     cancelFade();
@@ -1683,6 +1713,8 @@ function YouTubePlayer() {
   }, []);
 
   useEffect(() => {
+    let savedTrackId = null;
+    let savedPosition = 0;
     tickRef.current = () => {
       const activePlayer = getActivePlayer();
       if (!activePlayer?.getCurrentTime) return;
@@ -1691,6 +1723,13 @@ function YouTubePlayer() {
       const guard = seekGuardRef.current;
       const id = playerVideoId(activePlayer);
       const want = videoRef.current?.id;
+      if (id === want && Number.isFinite(time) && time >= 0
+        && (id !== savedTrackId || Math.abs(time - savedPosition) >= 5)
+        && activePlayer.getPlayerState?.() !== window.YT?.PlayerState?.CUED) {
+        savedTrackId = id;
+        savedPosition = time;
+        dispatch(setPlaybackPosition({ id, position: time }));
+      }
       const pendingJamPlayback = pendingJamPlaybackRef.current;
       if (
         pendingJamPlayback?.videoId === want
@@ -1839,7 +1878,7 @@ function YouTubePlayer() {
   };
 
   const extendQueue = async () => {
-    if (autoExtendingRef.current) return [];
+    if (autoExtendingRef.current || repeatRef.current) return [];
     if (lastExtendEmptyRef.current && Date.now() - lastExtendAtRef.current < 15000) return [];
     autoExtendingRef.current = true;
     lastExtendAtRef.current = Date.now();
@@ -1940,6 +1979,10 @@ function YouTubePlayer() {
     dispatch(playPause(true));
     const immediate = getNextVideo();
     if (immediate) {
+      if (immediate.id === current?.id) {
+        replayCurrent();
+        return;
+      }
       dispatch(setYoutubeVideo(immediate));
       return;
     }
@@ -1960,10 +2003,10 @@ function YouTubePlayer() {
   playNextOrContinueRef.current = playNextOrContinue;
 
   useEffect(() => {
-    if (!video?.id || isJamGuest) return;
+    if (!video?.id || isJamGuest || repeat) return;
     if (remainingAfterCurrent() > 2) return;
     void extendQueueRef.current();
-  }, [isJamGuest, video?.id, safeQueue.length]);
+  }, [isJamGuest, video?.id, safeQueue.length, repeat]);
 
   const searchForQueueTracks = async () => {
     const query = addQuery.trim();
@@ -2266,6 +2309,7 @@ function YouTubePlayer() {
     if (!window.documentPictureInPicture?.requestWindow) return false;
     try {
       const pip = await window.documentPictureInPicture.requestWindow({ width: 420, height: 520 });
+      const { PIP_DOCUMENT_STYLES } = await import("@/components/MusicPlayer/PictureInPictureWindow");
       const style = pip.document.createElement("style");
       style.textContent = PIP_DOCUMENT_STYLES;
       pip.document.head.appendChild(style);
@@ -2288,7 +2332,7 @@ function YouTubePlayer() {
   };
 
   const togglePictureInPicture = async () => {
-    if (isMobile || pictureInPicture === false) return;
+    if (pictureInPicture === false || (!dataSaver && !audioOnly)) return;
     if (pipWindowRef.current || pipFloat) {
       closePictureInPicture();
       return;
@@ -2334,11 +2378,6 @@ function YouTubePlayer() {
     if (syncedLyrics === false) return;
     setShowLyrics((value) => !value);
   };
-
-  useEffect(() => {
-    if (isMobile) closePictureInPicture();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile]);
 
   const seekBy = (amount) => {
     const base = seekGuardRef.current.target ?? currentTime;
@@ -2465,6 +2504,18 @@ function YouTubePlayer() {
 
   const fullscreen = expanded && videoVisible;
   const compactFullscreen = fullscreen && isNarrow;
+  const toggleShuffle = () => {
+    if (isJamGuest) return;
+    if (!shuffle) {
+      unshuffledRef.current = safeQueue.map((track) => track.id);
+      dispatch(setYoutubeQueue(shuffleUpcoming(safeQueue, video.id)));
+    } else {
+      const originalOrder = new Map(unshuffledRef.current.map((id, index) => [id, index]));
+      dispatch(setYoutubeQueue([...safeQueue].sort((first, second) =>
+        (originalOrder.get(first.id) ?? Infinity) - (originalOrder.get(second.id) ?? Infinity))));
+    }
+    setShuffle(!shuffle);
+  };
   const currentQueueIndex = safeQueue.findIndex((item) => item.id === video.id);
   const upcoming = currentQueueIndex === -1 ? safeQueue : safeQueue.slice(currentQueueIndex + 1);
   const showDesktopQueue = showQueue && !compactFullscreen;
@@ -2480,19 +2531,14 @@ function YouTubePlayer() {
 
   return (
     <div
-      className={compactFullscreen ? "relative flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-black" : fullscreen ? "relative flex h-full min-h-0 w-full flex-1 flex-col bg-black" : "yt-dock"}
+      data-testid="youtube-player"
+      className={fullscreen ? "yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black" : "relative w-full"}
       onClick={(event) => event.stopPropagation()}
       onTouchStart={fullscreen && !compactFullscreen ? onFullscreenSwipeStart : undefined}
       onTouchEnd={fullscreen && !compactFullscreen ? onFullscreenSwipeEnd : undefined}
     >
       <div className={compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
-      {pipFloat && videoVisible && !expanded && (
-        <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-16 w-[6.4rem] shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-20 sm:w-32" />
-      )}
-      {!fullscreen && !videoVisible && (
-        <img src={video.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="yt-dock-thumb h-16 w-16 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-20 sm:w-20" />
-      )}
-      <div className={pipFloat && !fullscreen ? "yt-crop yt-pip-float bg-black ring-1 ring-white/15" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-thumb relative h-16 w-[6.4rem] shrink-0 rounded-md bg-black ring-1 ring-white/10 sm:h-20 sm:w-32" : "yt-crop yt-audio-stage"}>
+      <div data-testid="youtube-decks" className={pipFloat && videoVisible ? "yt-crop yt-pip-float yt-video-floating bg-black" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop !absolute left-3 top-2 z-10 h-12 w-12 rounded bg-black lg:left-5 lg:top-8" : "yt-crop yt-audio-stage"}>
         {["A", "B"].map((key) => (
           <div
             key={key}
@@ -2506,17 +2552,10 @@ function YouTubePlayer() {
           </div>
         ))}
         <div className="yt-chrome-mask" aria-hidden="true" />
-        {pipFloat && !expanded && (
-          <button
-            type="button"
-            aria-label="Close picture in picture"
-            title="Close picture in picture"
-            onClick={closePictureInPicture}
-            className="absolute right-2 top-2 z-20 rounded-full bg-black/70 p-1.5 text-white hover:bg-black/90"
-          >
-            <FiX size={14} />
-          </button>
-        )}
+        {pipFloat && videoVisible && <div className="absolute inset-x-0 top-0 z-30 flex justify-end bg-gradient-to-b from-black/80 to-transparent">
+          <button type="button" aria-label="Expand floating video" title="Expand video" onClick={toggleExpanded} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiMaximize2 /></button>
+          <button type="button" aria-label="Close floating video" title="Close floating video" onClick={closePictureInPicture} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiX /></button>
+        </div>}
         {playerError && (
           <div
             className="absolute inset-0 z-10 grid place-content-center bg-black/90 p-3 text-center"
@@ -2536,7 +2575,32 @@ function YouTubePlayer() {
           </div>
         )}
       </div>
-      <div className={compactFullscreen ? "px-4 pt-4" : fullscreen ? "pointer-events-none absolute left-5 top-5 z-20 min-w-0" : "yt-dock-track"}>
+      {!fullscreen && <PlayerDock
+        track={video} playing={isPlaying} position={currentTime} duration={duration}
+        disabled={isJamGuest} shuffle={shuffle} repeat={repeat}
+        onShuffle={toggleShuffle} onRepeat={() => setRepeat((value) => !value)}
+        onPlayPause={handlePlayPause} onPrevious={handlePrev} onNext={() => handleNext()}
+        onSeek={seekOnCurrentTrack} favourite={<FavouriteTrackButton track={video} className="!h-12 !w-12" />}
+        volume={<PlayerVolume />} queue={safeQueue} onSelect={playQueueItem}
+        trackActions={<AddToPlaylistButton track={video} className="!h-12 !w-12" />}
+        queueSearch={<div className="mb-4 border-b border-white/10 pb-4">
+          <form onSubmit={handleAddSearch} className="flex gap-2">
+            <input aria-label="Find songs to add" value={addQuery} onChange={(event) => setAddQuery(event.target.value)} placeholder="Find a song" className="h-12 min-w-0 flex-1 rounded border border-white/20 bg-transparent px-3 text-sm" />
+            <button type="submit" aria-label="Search queue additions" disabled={addSearching || isJamGuest} className="grid h-12 w-12 place-items-center rounded bg-white/10 disabled:opacity-40"><FiSearch /></button>
+          </form>
+          {addSearchError && <p role="alert" className="mt-2 text-sm text-red-300">{addSearchError}</p>}
+          {addResults.map((item) => <div key={item.id} className="mt-2 flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-sm">{item.title}</span>
+            <button type="button" aria-label={`Add ${item.title} to queue`} onClick={() => handleAddTrack(item)} disabled={isJamGuest} className="grid h-12 w-12 place-items-center rounded hover:bg-white/10"><FiPlus /></button>
+          </div>)}
+        </div>}
+        onPip={togglePictureInPicture} pipActive={Boolean(pipWindow || pipFloat)}
+        pipLabel={videoVisible ? "Picture in picture unavailable" : typeof window !== "undefined" && window.documentPictureInPicture?.requestWindow ? "Picture in picture controls" : "Floating player"}
+        pipDisabled={pictureInPicture === false || videoVisible}
+        onVideo={videoVisible ? toggleExpanded : undefined}
+        onLyrics={syncedLyrics !== false ? toggleLyrics : undefined}
+      />}
+      {fullscreen && <div className={compactFullscreen ? "px-4 pt-4" : fullscreen ? "pointer-events-none absolute left-5 top-5 z-20 min-w-0" : "yt-dock-track"}>
         {fullscreen ? (
           <div>
             <p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p>
@@ -2559,18 +2623,18 @@ function YouTubePlayer() {
             )}
           </div>
         )}
-      </div>
-      <div className={compactFullscreen ? "px-4 pb-6 pt-2" : fullscreen ? "absolute inset-x-0 bottom-4 z-20 mx-auto flex w-[min(92vw,880px)] flex-col items-center gap-2" : "yt-dock-center"}>
+      </div>}
+      {fullscreen && <div className={compactFullscreen ? "px-4 pb-6 pt-2" : fullscreen ? "absolute inset-x-0 bottom-4 z-20 mx-auto flex w-[min(92vw,880px)] flex-col items-center gap-2" : "yt-dock-center"}>
         <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "yt-dock-transport"}>
         {fullscreen && !compactFullscreen && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
-          <div className={fullscreen ? "flex items-center gap-1 rounded-full bg-black/70 px-3 py-2 backdrop-blur" : "contents"}>
-          <AddToPlaylistButton track={video} className="!h-14 !w-14 text-xl" />
-          <button type="button" aria-label="Previous song" title={isJamGuest ? "The host controls playback" : "Previous"} onClick={() => handlePrev()} disabled={isJamGuest} className="grid h-14 w-14 place-items-center rounded-full p-2 text-xl text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><FiSkipBack aria-hidden="true" /></button>
+          <div className={fullscreen ? "flex max-w-full flex-wrap items-center justify-center gap-1 rounded-lg bg-[var(--glass-strong)] px-1 py-2 backdrop-blur sm:px-3" : "contents"}>
+          <AddToPlaylistButton track={video} className="!h-12 !w-12 shrink-0 text-xl sm:!h-14 sm:!w-14" />
+          <button type="button" aria-label="Previous song" title={isJamGuest ? "The host controls playback" : "Previous"} onClick={() => handlePrev()} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-2 text-xl text-[var(--text)] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14"><FiSkipBack aria-hidden="true" /></button>
           <button type="button" aria-label="Seek back 10 seconds" title={isJamGuest ? "The host controls playback" : "Back 10 seconds"} onClick={() => seekBy(-10)} disabled={isJamGuest} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:grid"><FiRotateCcw aria-hidden="true" /></button>
-          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isJamGuest ? "The host controls playback" : isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} disabled={isJamGuest} className="grid h-14 w-14 place-items-center rounded-full bg-[#00e6e6] p-2 text-2xl text-black hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100">{isPlaying ? <FiPause aria-hidden="true" /> : <FiPlay aria-hidden="true" />}</button>
+          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isJamGuest ? "The host controls playback" : isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--accent)] p-2 text-2xl text-[var(--navy)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:h-14 sm:w-14">{isPlaying ? <FiPause aria-hidden="true" /> : <FiPlay aria-hidden="true" />}</button>
           <button type="button" aria-label="Seek forward 10 seconds" title={isJamGuest ? "The host controls playback" : "Forward 10 seconds"} onClick={() => seekBy(10)} disabled={isJamGuest} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:grid"><FiRotateCw aria-hidden="true" /></button>
-          <button type="button" aria-label="Next song" title={isJamGuest ? "The host controls playback" : "Next"} onClick={() => handleNext()} disabled={isJamGuest} className="grid h-14 w-14 place-items-center rounded-full p-2 text-xl text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><FiSkipForward aria-hidden="true" /></button>
-          <FavouriteTrackButton track={video} className="!h-14 !w-14 text-xl" />
+          <button type="button" aria-label="Next song" title={isJamGuest ? "The host controls playback" : "Next"} onClick={() => handleNext()} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-2 text-xl text-[var(--text)] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14"><FiSkipForward aria-hidden="true" /></button>
+          <FavouriteTrackButton track={video} className="!h-12 !w-12 shrink-0 text-xl sm:!h-14 sm:!w-14" />
           </div>
           {fullscreen && !compactFullscreen && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
         </div>
@@ -2596,8 +2660,8 @@ function YouTubePlayer() {
           />
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
-      </div>
-      <div ref={queueMenuRef} className={compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : fullscreen ? "absolute right-5 top-5 z-20 flex items-center justify-end gap-1 sm:gap-2" : "yt-dock-tools"}>
+      </div>}
+      {fullscreen && <div ref={queueMenuRef} className={compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : fullscreen ? "absolute right-5 top-5 z-20 flex items-center justify-end gap-1 sm:gap-2" : "yt-dock-tools"}>
         <button
           type="button"
           aria-label="Queue"
@@ -2635,8 +2699,8 @@ function YouTubePlayer() {
           type="button"
           aria-pressed={Boolean(pipWindow || pipFloat)}
           aria-label={pipWindow || pipFloat ? "Exit picture in picture" : "Picture in picture"}
-          title={pictureInPicture === false ? "Picture-in-picture is turned off in Settings" : "Picture in picture"}
-          disabled={pictureInPicture === false}
+          title={videoVisible ? "Picture in picture unavailable for this video" : pictureInPicture === false ? "Picture-in-picture is turned off in Settings" : "Picture in picture"}
+          disabled={pictureInPicture === false || videoVisible}
           onClick={togglePictureInPicture}
           className={expanded && !dataSaver && !audioOnly ? `rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${pipWindow || pipFloat ? "text-[#00e6e6]" : "text-white"}` : `rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${pipWindow || pipFloat ? "text-[#00e6e6]" : "text-gray-300"}`}
         >
@@ -2687,7 +2751,7 @@ function YouTubePlayer() {
             )}
           </div>
         )}
-      </div>
+      </div>}
       </div>
       {compactFullscreen && mobileSheet && (
         <div className="yt-mobile-sheet">
@@ -2786,7 +2850,8 @@ function YouTubePlayer() {
           />
         </div>
       )}
-      {pipWindow && pipMountRef.current && !isMobile && (
+      {pipFloat && !videoVisible && <FloatingPlayer track={video} playing={isPlaying} disabled={isJamGuest} onPlayPause={handlePlayPause} onNext={() => handleNext()} onClose={closePictureInPicture} />}
+      {pipWindow && pipMountRef.current && (
         <PictureInPictureWindow
           container={pipMountRef.current}
           video={video}

@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { decodeTrackFields } from '@/utils/text';
+import { decodeTrackFields } from '../../utils/text.js';
+import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
 
 const initialState = {
   currentSongs: [],
@@ -11,13 +12,33 @@ const initialState = {
   youtubeQueue: [],
   fullScreen: false,
   autoAdd: false,
+  position: 0,
+  restorePosition: null,
+  playbackOwner: null,
 };
 
 const playerSlice = createSlice({
   name: 'player',
   initialState,
   reducers: {
+    restorePlayback: (_state, action) => {
+      const snapshot = normalizePlaybackSnapshot(action.payload?.snapshot);
+      return {
+        ...initialState,
+        ...snapshot,
+        playbackOwner: action.payload?.owner || null,
+        restorePosition: snapshot.youtubeVideo ? snapshot.position : null,
+      };
+    },
+    setPlaybackPosition: (state, action) => {
+      if (action.payload?.id !== state.youtubeVideo?.id) return;
+      if (Number.isFinite(action.payload.position)) {
+        state.position = Math.max(0, action.payload.position);
+      }
+    },
     setActiveSong: (state, action) => {
+      state.position = 0;
+      state.restorePosition = null;
       state.youtubeVideo = null;
       if(action.payload.song){
       state.activeSong = decodeTrackFields(action.payload.song);
@@ -60,6 +81,8 @@ const playerSlice = createSlice({
     },
 
     setYoutubeVideo: (state, action) => {
+      state.position = 0;
+      state.restorePosition = null;
       state.youtubeVideo = decodeTrackFields(action.payload);
       if (action.payload) {
         state.activeSong = {};
@@ -120,6 +143,8 @@ const playerSlice = createSlice({
 });
 
 export const {
+  restorePlayback,
+  setPlaybackPosition,
   setActiveSong,
   nextSong,
   prevSong,

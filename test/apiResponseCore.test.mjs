@@ -44,3 +44,22 @@ test("readRequestJson rejects malformed JSON with a public validation error", as
     ),
   );
 });
+
+test("allowPrimitive accepts valid JSON values but still rejects malformed JSON", async () => {
+  const requestFor = (body) => new Request("https://example.test/api", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+  });
+  for (const value of [null, false, 0, "track", ["track"]]) {
+    assert.deepEqual(
+      await readRequestJson(requestFor(JSON.stringify(value)), { allowPrimitive: true }),
+      value,
+    );
+    await assert.rejects(readRequestJson(requestFor(JSON.stringify(value))), { status: 400 });
+  }
+  await assert.rejects(
+    readRequestJson(requestFor("{broken"), { allowPrimitive: true }),
+    { name: "ApiRouteError", code: "VALIDATION_ERROR", status: 400 },
+  );
+});

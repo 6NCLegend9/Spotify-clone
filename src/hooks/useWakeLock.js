@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { createScreenWakeLock } from "../utils/screenWakeLock.mjs";
 
 function hasWakeLock() {
   return typeof navigator !== "undefined" && "wakeLock" in navigator;
@@ -15,52 +16,23 @@ function hasWakeLock() {
  * @param {boolean} [enabled]  Master switch (default true).
  */
 export default function useWakeLock(active, enabled = true) {
-  const sentinelRef = useRef(null);
-  const activeRef = useRef(active);
-
   useEffect(() => {
-    activeRef.current = active;
-  }, [active]);
-
-  useEffect(() => {
-    if (!enabled || !hasWakeLock()) return undefined;
-    let disposed = false;
-
-    const acquire = async () => {
-      if (disposed || !activeRef.current) return;
-      try {
-        sentinelRef.current = await navigator.wakeLock.request("screen");
-        sentinelRef.current.addEventListener("release", () => {
-          sentinelRef.current = null;
-        });
-      } catch {
-        // Denied or unsupported; playback continues without a wake lock.
-      }
-    };
-
-    const release = async () => {
-      const sentinel = sentinelRef.current;
-      sentinelRef.current = null;
-      if (sentinel) {
-        try {
-          await sentinel.release();
-        } catch {
-          // Already released.
-        }
-      }
-    };
+    if (!active || !enabled || !hasWakeLock()) return undefined;
+    const lock = createScreenWakeLock(
+      navigator.wakeLock,
+      () => document.visibilityState === "visible",
+    );
 
     const onVisibility = () => {
-      if (document.visibilityState === "visible" && activeRef.current) void acquire();
+      void lock.acquire();
     };
 
-    if (activeRef.current) void acquire();
+    void lock.acquire();
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      disposed = true;
       document.removeEventListener("visibilitychange", onVisibility);
-      void release();
+      lock.dispose();
     };
   }, [enabled, active]);
 }

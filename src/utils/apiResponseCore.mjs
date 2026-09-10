@@ -97,7 +97,11 @@ export function apiErrorStatus(code = "INTERNAL_ERROR", options = {}) {
 }
 
 export async function readRequestJson(request, options = {}) {
-  const body = await request.json().catch(() => null);
+  const body = await request.json().catch(() => {
+    throw new ApiRouteError("VALIDATION_ERROR", {
+      message: options.message || "The request body must be valid JSON.",
+    });
+  });
   const validObject = body && typeof body === "object" && !Array.isArray(body);
   if (!validObject && options.allowPrimitive !== true) {
     throw new ApiRouteError("VALIDATION_ERROR", {

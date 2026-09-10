@@ -52,7 +52,7 @@ export default function PictureInPictureWindow({
         <p className="yt-pip-title">{cleanTitle(video.title)}</p>
         <p className="yt-pip-artist">{cleanTitle(video.channel)}</p>
         <div className="yt-pip-lyric">
-          <p className="yt-pip-lyric-now">{currentLine || "Live lyrics will appear here"}</p>
+          <p className="yt-pip-lyric-now">{currentLine || ""}</p>
           {nextLine && <p className="yt-pip-lyric-next">{nextLine}</p>}
         </div>
         <div className="yt-pip-progress" aria-hidden="true">
@@ -96,7 +96,7 @@ export const PIP_DOCUMENT_STYLES = `
   .yt-pip-doc-body { position: relative; z-index: 1; display: flex; height: 100%; flex-direction: column; padding: 12px 14px 10px; }
   .yt-pip-doc-top { display: flex; align-items: center; justify-content: space-between; }
   .yt-pip-kicker { margin: 0; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #00e6e6; }
-  .yt-pip-doc-top button, .yt-pip-controls button { appearance: none; border: 0; background: rgba(255,255,255,.08); color: #fff; border-radius: 999px; width: 40px; height: 40px; font-size: 20px; display: grid; place-items: center; cursor: pointer; }
+  .yt-pip-doc-top button, .yt-pip-controls button { appearance: none; border: 0; background: rgba(255,255,255,.08); color: #fff; border-radius: 8px; width: 48px; height: 48px; flex-shrink: 0; font-size: 20px; display: grid; place-items: center; cursor: pointer; }
   .yt-pip-title { margin: 10px 0 2px; font-size: 15px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .yt-pip-artist { margin: 0; font-size: 12px; color: #9aa8b5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .yt-pip-lyric { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }

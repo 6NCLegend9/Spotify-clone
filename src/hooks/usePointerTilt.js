@@ -7,11 +7,13 @@ const TILT =
 
 export default function usePointerTilt() {
   useEffect(() => {
-    const reduced =
-      document.documentElement.dataset.a11yReducedMotion === "true"
-      || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const coarse = window.matchMedia("(pointer: coarse)").matches;
-    if (reduced || coarse) return undefined;
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const pointerQuery = window.matchMedia("(pointer: coarse)");
+    const isDisabled = () =>
+      document.hidden
+      || document.documentElement.dataset.a11yReducedMotion === "true"
+      || motionQuery.matches
+      || pointerQuery.matches;
 
     let last = null;
     let frame = 0;
@@ -38,11 +40,12 @@ export default function usePointerTilt() {
     };
 
     const onMove = (event) => {
-      if (document.documentElement.classList.contains("is-scrolling")) return;
+      if (isDisabled() || document.documentElement.classList.contains("is-scrolling")) return;
       pending = event;
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
+        if (isDisabled()) return;
         const next = pending?.target instanceof Element
           ? pending.target.closest(TILT)
           : null;
@@ -53,24 +56,37 @@ export default function usePointerTilt() {
     };
 
     const onLeave = () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = 0;
+      pending = null;
       clear(last);
       last = null;
     };
 
-    const onScrollBusy = () => {
-      clear(last);
-      last = null;
+    const onPreferenceChange = () => {
+      if (isDisabled()) onLeave();
     };
 
+    const observer = new MutationObserver(onPreferenceChange);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-a11y-reduced-motion"],
+    });
+    motionQuery.addEventListener("change", onPreferenceChange);
+    pointerQuery.addEventListener("change", onPreferenceChange);
+    document.addEventListener("visibilitychange", onPreferenceChange);
     document.addEventListener("pointermove", onMove, { passive: true });
     document.addEventListener("pointerleave", onLeave);
-    document.addEventListener("heykasa:scroll-busy", onScrollBusy);
+    document.addEventListener("heykasa:scroll-busy", onLeave);
     return () => {
+      observer.disconnect();
+      motionQuery.removeEventListener("change", onPreferenceChange);
+      pointerQuery.removeEventListener("change", onPreferenceChange);
+      document.removeEventListener("visibilitychange", onPreferenceChange);
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerleave", onLeave);
-      document.removeEventListener("heykasa:scroll-busy", onScrollBusy);
-      if (frame) window.cancelAnimationFrame(frame);
-      clear(last);
+      document.removeEventListener("heykasa:scroll-busy", onLeave);
+      onLeave();
     };
   }, []);
 }
