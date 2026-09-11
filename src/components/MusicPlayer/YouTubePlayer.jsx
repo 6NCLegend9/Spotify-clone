@@ -71,6 +71,7 @@ const playerErrorMessage = (code) => {
 };
 
 const otherDeck = (key) => (key === "A" ? "B" : "A");
+const CHROME_IDLE_MS = 2800;
 const SEEK_GUARD_MS = 5000;
 const TRACK_CHANGE_GUARD_MS = 8000;
 const ACTIVE_BUFFER_RECOVERY_MS = 4500;
@@ -261,8 +262,16 @@ function YouTubePlayer() {
   const [showQueue, setShowQueue] = useState(false);
   const queueMenuRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
+  const [chromeVisible, setChromeVisible] = useState(true);
   const expandLockRef = useRef(false);
+  const chromeVisibleRef = useRef(true);
+  const chromePinnedRef = useRef(false);
+  const chromeLockedRef = useRef(false);
+  const chromeIdleTimerRef = useRef(0);
+  const chromeHideGenRef = useRef(0);
+  const bumpExpandedChromeRef = useRef(() => {});
   const userPausedRef = useRef(false);
+  const pageHiddenWhilePlayingRef = useRef(false);
   const trackChangeUntilRef = useRef(0);
   const [playerError, setPlayerError] = useState(null);
   const [addQuery, setAddQuery] = useState("");
@@ -326,6 +335,7 @@ function YouTubePlayer() {
   queueRef.current = safeQueue;
   isPlayingRef.current = isPlaying;
   isJamGuestRef.current = isJamGuest;
+  chromeLockedRef.current = Boolean(playerError || mobileSheet);
   const lyricsQuery = useSyncedLyrics({
     title: video?.title || "",
     artist: video?.channel || "",
@@ -365,8 +375,19 @@ function YouTubePlayer() {
     !userPausedRef.current &&
     (isPlayingRef.current || performance.now() < trackChangeUntilRef.current);
 
+  const isPageHidden = () =>
+    typeof document !== "undefined" && document.visibilityState === "hidden";
+
+  const markBackgroundPlayback = () => {
+    if (!userPausedRef.current) pageHiddenWhilePlayingRef.current = true;
+  };
+
   const resumePlayer = (player) => {
     if (sleep.check()) return;
+    if (isPageHidden()) {
+      markBackgroundPlayback();
+      return;
+    }
     if (!player?.playVideo) return;
     try {
       player.unMute?.();
@@ -644,6 +665,10 @@ function YouTubePlayer() {
   };
 
   const scheduleActiveBufferRecovery = (key, player, generation) => {
+    if (isPageHidden()) {
+      markBackgroundPlayback();
+      return;
+    }
     if (
       crossfadeInProgressRef.current ||
       isSeekGuarded() ||
@@ -757,6 +782,10 @@ function YouTubePlayer() {
   };
 
   const watchActiveProgress = (key, player, generation) => {
+    if (isPageHidden()) {
+      markBackgroundPlayback();
+      return;
+    }
     if (
       crossfadeInProgressRef.current ||
       isSeekGuarded() ||
@@ -1044,6 +1073,10 @@ function YouTubePlayer() {
             !expandLockRef.current &&
             !isSeekGuarded()
           ) {
+            if (isPageHidden()) {
+              markBackgroundPlayback();
+              return;
+            }
             clearActiveBufferTimers();
             if (userPausedRef.current) {
               dispatch(playPause(false));
@@ -1159,6 +1192,10 @@ function YouTubePlayer() {
         },
         onAutoplayBlocked: () => {
           if (!isCurrent()) return;
+          if (isPageHidden() && !userPausedRef.current) {
+            markBackgroundPlayback();
+            return;
+          }
           if (key === activeDeckRef.current) {
             clearActiveBufferTimers();
             userPausedRef.current = true;
@@ -2181,7 +2218,7 @@ function YouTubePlayer() {
     if (!player?.getPlayerState) return;
     if (isPlaying) {
       userPausedRef.current = false;
-      resumePlayer(player);
+      if (!isPageHidden()) resumePlayer(player);
       return;
     }
     if (userPausedRef.current && !fadeTimerRef.current) {
@@ -2189,6 +2226,42 @@ function YouTubePlayer() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying]);
+
+  useEffect(() => {
+    const resumeAfterBackground = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        if (!userPausedRef.current && (isPlayingRef.current || pageHiddenWhilePlayingRef.current)) {
+          pageHiddenWhilePlayingRef.current = true;
+        }
+        return;
+      }
+      if (!pageHiddenWhilePlayingRef.current) return;
+      pageHiddenWhilePlayingRef.current = false;
+      if (userPausedRef.current) return;
+      resumePlayer(getActivePlayer());
+      dispatch(playPause(true));
+    };
+    const markHidden = () => {
+      if (!userPausedRef.current && isPlayingRef.current) {
+        pageHiddenWhilePlayingRef.current = true;
+      }
+    };
+    document.addEventListener("visibilitychange", resumeAfterBackground);
+    window.addEventListener("focus", resumeAfterBackground);
+    window.addEventListener("pageshow", resumeAfterBackground);
+    window.addEventListener("pagehide", markHidden);
+    document.addEventListener("freeze", markHidden);
+    document.addEventListener("resume", resumeAfterBackground);
+    return () => {
+      document.removeEventListener("visibilitychange", resumeAfterBackground);
+      window.removeEventListener("focus", resumeAfterBackground);
+      window.removeEventListener("pageshow", resumeAfterBackground);
+      window.removeEventListener("pagehide", markHidden);
+      document.removeEventListener("freeze", markHidden);
+      document.removeEventListener("resume", resumeAfterBackground);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch]);
 
   // Fade a newly-started track in from silence (song B after song A ends, or a manual pick).
   useEffect(() => {
@@ -2262,6 +2335,7 @@ function YouTubePlayer() {
 
     if (isPlaying) {
       userPausedRef.current = true;
+      pageHiddenWhilePlayingRef.current = false;
       dispatch(playPause(false));
       player?.pauseVideo?.();
       return;
@@ -2459,6 +2533,7 @@ function YouTubePlayer() {
       if (isEditableKeyboardTarget(target) || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
+      if (expanded) bumpExpandedChromeRef.current();
 
       if (event.code === "Space") {
         if (isActionKeyboardTarget(target)) return;
@@ -2522,7 +2597,12 @@ function YouTubePlayer() {
     });
     setAction("pause", () => {
       if (isJamGuestRef.current) return;
+      if (isPageHidden()) {
+        markBackgroundPlayback();
+        return;
+      }
       userPausedRef.current = true;
+      pageHiddenWhilePlayingRef.current = false;
       dispatch(playPause(false));
       getActivePlayer()?.pauseVideo?.();
     });
@@ -2540,6 +2620,58 @@ function YouTubePlayer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video, isPlaying]);
 
+  const bumpExpandedChrome = (options = {}) => {
+    const isFullscreen = expanded && !dataSaver && !audioOnly;
+    if (!isFullscreen) return;
+    if (options.pin) chromePinnedRef.current = true;
+    window.clearTimeout(chromeIdleTimerRef.current);
+    chromeHideGenRef.current += 1;
+    const hideGeneration = chromeHideGenRef.current;
+    chromeVisibleRef.current = true;
+    setChromeVisible(true);
+    if (chromePinnedRef.current || chromeLockedRef.current) return;
+    chromeIdleTimerRef.current = window.setTimeout(() => {
+      if (hideGeneration !== chromeHideGenRef.current) return;
+      if (chromePinnedRef.current || chromeLockedRef.current) return;
+      chromeVisibleRef.current = false;
+      setChromeVisible(false);
+    }, CHROME_IDLE_MS);
+  };
+  bumpExpandedChromeRef.current = bumpExpandedChrome;
+
+  const pinExpandedChrome = () => {
+    chromePinnedRef.current = true;
+    bumpExpandedChrome({ pin: true });
+  };
+  const unpinExpandedChrome = () => {
+    chromePinnedRef.current = false;
+    bumpExpandedChrome();
+  };
+
+  useEffect(() => () => window.clearTimeout(chromeIdleTimerRef.current), []);
+
+  useEffect(() => {
+    if (!expanded || dataSaver || audioOnly) {
+      chromePinnedRef.current = false;
+      chromeVisibleRef.current = true;
+      setChromeVisible(true);
+      window.clearTimeout(chromeIdleTimerRef.current);
+      return;
+    }
+    bumpExpandedChromeRef.current();
+  }, [expanded, dataSaver, audioOnly, video?.id]);
+
+  useEffect(() => {
+    if (chromeLockedRef.current) {
+      chromePinnedRef.current = true;
+      chromeVisibleRef.current = true;
+      setChromeVisible(true);
+      window.clearTimeout(chromeIdleTimerRef.current);
+      return;
+    }
+    chromePinnedRef.current = false;
+    if (expanded && !dataSaver && !audioOnly) bumpExpandedChromeRef.current();
+  }, [playerError, mobileSheet, expanded, dataSaver, audioOnly]);
 
   if (!video?.id) return null;
 
@@ -2603,6 +2735,18 @@ function YouTubePlayer() {
     } : undefined,
   };
   const sleepControl = <SleepTimerControl timer={sleep.timer} onChange={sleep.change} disabled={Boolean(jam?.code)} />;
+  const expandedChromePointer = {
+    onPointerEnter: (event) => {
+      if (event.pointerType !== "touch") pinExpandedChrome();
+    },
+    onPointerLeave: (event) => {
+      if (event.pointerType !== "touch") unpinExpandedChrome();
+    },
+    onPointerDown: () => pinExpandedChrome(),
+    onPointerUp: (event) => {
+      if (event.pointerType === "touch") unpinExpandedChrome();
+    },
+  };
 
   const toggleSheetTab = (tab) => {
     if (mobileSheet && sheetTab === tab) {
@@ -2616,12 +2760,34 @@ function YouTubePlayer() {
   return (
     <div
       data-testid="youtube-player"
-      className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${compactFullscreen ? "" : "yt-video-expanded--theater"}` : "relative w-full"}
+      data-chrome={fullscreen ? (chromeVisible ? "visible" : "hidden") : undefined}
+      className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${compactFullscreen ? "yt-video-expanded--compact" : "yt-video-expanded--theater"}${chromeVisible ? "" : " yt-video-expanded--idle"}` : "relative w-full"}
       onClick={(event) => event.stopPropagation()}
-      onTouchStart={fullscreen && !compactFullscreen ? onFullscreenSwipeStart : undefined}
+      onPointerMove={fullscreen ? () => bumpExpandedChrome() : undefined}
+      onPointerDown={fullscreen ? () => bumpExpandedChrome() : undefined}
+      onTouchStart={fullscreen ? (event) => {
+        bumpExpandedChrome();
+        if (!compactFullscreen) onFullscreenSwipeStart(event);
+      } : undefined}
       onTouchEnd={fullscreen && !compactFullscreen ? onFullscreenSwipeEnd : undefined}
     >
       <div className={compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
+      {fullscreen && !chromeVisible && (
+        <button
+          type="button"
+          aria-label="Show player controls"
+          className="absolute inset-0 z-[15] cursor-none border-0 bg-transparent"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            bumpExpandedChrome();
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            bumpExpandedChrome();
+          }}
+          onPointerMove={() => bumpExpandedChrome()}
+        />
+      )}
       <div data-testid="youtube-decks" className={pipFloat && videoVisible ? "yt-crop yt-pip-float yt-video-floating bg-black" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop !absolute left-3 top-2 z-10 h-12 w-12 rounded bg-black lg:left-5 lg:top-8" : "yt-crop yt-audio-stage"}>
         {["A", "B"].map((key) => (
           <div
@@ -2687,7 +2853,7 @@ function YouTubePlayer() {
         onVideo={videoVisible ? toggleExpanded : undefined}
         onLyrics={syncedLyrics !== false ? toggleLyrics : undefined}
       />}
-      {fullscreen && <div className={compactFullscreen ? "px-4 pt-4" : "pointer-events-none absolute inset-x-0 top-0 z-20 min-w-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-4 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-28"}>
+      {fullscreen && <div className={`yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pt-4" : "pointer-events-none absolute inset-x-0 top-0 z-20 min-w-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-4 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-28"}`} {...(!chromeVisible ? { inert: true } : {})} aria-hidden={!chromeVisible}>
         {fullscreen ? (
           <div>
             <p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p>
@@ -2711,7 +2877,7 @@ function YouTubePlayer() {
           </div>
         )}
       </div>}
-      {fullscreen && <div className={compactFullscreen ? "px-4 pb-6 pt-2" : "absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[min(96vw,880px)] flex-col items-center gap-1 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-10"}>
+      {fullscreen && <div className={`yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pb-6 pt-2" : "absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[min(96vw,880px)] flex-col items-center gap-1 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-10"}`} {...(!chromeVisible ? { inert: true } : {})} aria-hidden={!chromeVisible} {...expandedChromePointer}>
         <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "yt-dock-transport"}>
         {fullscreen && !compactFullscreen && !isShortViewport && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
           <div className={fullscreen ? "flex max-w-full flex-wrap items-center justify-center gap-1 rounded-lg bg-[var(--glass-strong)] px-1 py-2 backdrop-blur sm:px-3" : "contents"}>
@@ -2748,7 +2914,7 @@ function YouTubePlayer() {
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>}
-      {fullscreen && <div ref={queueMenuRef} className={compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : "absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex items-center justify-end gap-1 sm:gap-2"}>
+      {fullscreen && <div ref={queueMenuRef} className={`yt-expand-chrome ${compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : "absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex items-center justify-end gap-1 sm:gap-2"}`} {...(!chromeVisible ? { inert: true } : {})} aria-hidden={!chromeVisible} {...expandedChromePointer}>
         <button
           type="button"
           aria-label="Queue"

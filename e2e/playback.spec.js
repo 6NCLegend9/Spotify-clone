@@ -309,7 +309,12 @@ test("video expansion fits desktop and mobile without replacing the media host",
   expect(Math.abs(geometry.frameWidth - geometry.width)).toBeLessThan(2);
   expect(Math.abs(geometry.frameHeight - geometry.height)).toBeLessThan(2);
   expect(geometry.sameHost && geometry.sameFrame).toBe(true);
+  await expect.poll(() => page.getByTestId("youtube-player").getAttribute("data-chrome"), { timeout: 5000 }).toBe("hidden");
+  await page.mouse.move(48, 48);
+  await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
+  await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
+  await page.mouse.move(64, 64);
   await page.getByRole("button", { name: "Minimize video", exact: true }).click();
   await expect(dock).toBeVisible();
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost)).toBe(true);
@@ -320,6 +325,7 @@ test("video expansion fits desktop and mobile without replacing the media host",
   await expect(page.getByRole("button", { name: "Expand floating video", exact: true })).toHaveCount(0);
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
   for (const width of [320, 360, 390, 768]) {
+    await page.mouse.move(72, 72);
     await page.getByRole("button", { name: "Minimize video", exact: true }).click();
     await page.setViewportSize({ width, height: 844 });
     await expect(dock).toBeVisible();
