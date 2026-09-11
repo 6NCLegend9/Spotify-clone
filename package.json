@@ -13,11 +13,13 @@
     "start": "next start",
     "check:deployment": "node scripts/check-deployment.mjs",
     "benchmark:dev": "node scripts/benchmark-dev.mjs",
+    "benchmark:production": "node scripts/benchmark-dev.mjs --production",
+    "audit:production": "npm audit --omit=dev --audit-level=high",
     "test": "node --test",
     "test:e2e": "playwright test",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit --incremental false",
     "lint": "eslint src test e2e scripts playwright.config.js --ext .js,.jsx,.mjs,.ts,.tsx --no-cache --max-warnings=0",
-    "check": "npm test && npm run lint && npm run build"
+    "check": "npm test && npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
@@ -32,9 +34,9 @@
     "jszip": "^3.10.1",
     "lucide-react": "^1.41.0",
     "mongoose": "^8.24.4",
-    "next": "^15.5.21",
+    "next": "^15.5.25",
     "next-auth": "^4.24.15",
-    "nodemailer": "^9.0.6",
+    "nodemailer": "^9.1.1",
     "ogl": "^1.0.11",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",
@@ -55,16 +57,28 @@
     "youtubei.js": "^18.0.0"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "^15.5.21",
+    "@next/bundle-analyzer": "^15.5.25",
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.2",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.14",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^15.5.21",
+    "eslint-config-next": "^15.5.25",
     "postcss": "^8.5.26",
     "tailwindcss": "^3.3.3",
     "typescript": "5.8.2"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "$postcss",
+      "sharp": "$sharp"
+    },
+    "next-auth": {
+      "nodemailer": "$nodemailer"
+    },
+    "@rollup/plugin-terser": {
+      "serialize-javascript": "7.0.5"
+    }
   }
 }

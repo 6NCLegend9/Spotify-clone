@@ -1,9 +1,7 @@
-import { getToken } from "next-auth/jwt";
 import User from "@/models/User";
 import UserData from "@/models/UserData";
-import dbConnect from "@/utils/dbconnect";
-import { tokenOptions } from "@/utils/authToken";
 import { ApiRouteError } from "@/utils/apiResponse";
+import { getSessionUser } from "@/utils/sessionAuth";
 
 export function normalizeAccountEmail(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -58,23 +56,14 @@ export async function ensureUserData(user) {
   }
 }
 
-export async function getAuthenticatedAccount(req) {
-  const token = await getToken(tokenOptions(req));
-  const email = normalizeAccountEmail(token?.email);
-  if (!email) {
+export async function getAuthenticatedAccount(req, { optional = false } = {}) {
+  const user = await getSessionUser(req);
+  if (!user) {
+    if (optional) return null;
     throw new ApiRouteError("UNAUTHORIZED", {
       message: "Log in to continue.",
     });
   }
-
-  await dbConnect();
-  const user = await User.findOne({ email });
-  if (!user) {
-    throw new ApiRouteError("NOT_FOUND", {
-      message: "Your profile is no longer available.",
-    });
-  }
-
   const userData = await ensureUserData(user);
-  return { user, userData, email };
+  return { user, userData, email: normalizeAccountEmail(user.email) };
 }

@@ -9,6 +9,7 @@ import MediaImage from "@/components/MediaImage";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
@@ -16,7 +17,24 @@ import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 
 export default function YouTubeMusicResults({ query }) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const resultType = ["video", "channel", "playlist"].includes(searchParams.get("type")) ? searchParams.get("type") : "video";
+  const order = searchParams.get("order") === "date" ? "date" : "relevance";
+  const length = resultType === "video" && ["short", "medium", "long"].includes(searchParams.get("duration")) ? searchParams.get("duration") : "any";
+  const searchUrl = `/api/youtube-search?${new URLSearchParams({ q: query, type: resultType, order, duration: length })}`;
+  const changeSearch = (key, value) => {
+    const parameters = new URLSearchParams(searchParams.toString());
+    parameters.set(key, value);
+    if (key === "type") parameters.delete("duration");
+    router.push(`${pathname}?${parameters}`, { scroll: false });
+  };
   const [results, setResults] = useState([]);
+  const [nextPageToken, setNextPageToken] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState(null);
+  const pageController = useRef(null);
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
   const dispatch = useDispatch();
@@ -134,6 +152,10 @@ export default function YouTubeMusicResults({ query }) {
     let cancelled = false;
     const search = async () => {
       setLoading(true);
+      setResults([]);
+      setNextPageToken("");
+      setPageError(null);
+      setLoadingMore(false);
       setSongError(null);
       setArtists([]);
       setAlbums([]);
@@ -145,7 +167,7 @@ export default function YouTubeMusicResults({ query }) {
       // and are fetched on demand via "Show artists & playlists" instead.
       try {
         const data = await requestJson(
-          `/api/youtube-search?q=${encodeURIComponent(query)}&type=video`,
+          searchUrl,
           {
             signal: controller.signal,
             fallbackTitle: "Search is temporarily unavailable",
@@ -153,7 +175,11 @@ export default function YouTubeMusicResults({ query }) {
           },
         );
         if (cancelled) return;
-        setResults(Array.isArray(data?.results) ? data.results : []);
+        const list = Array.isArray(data?.results) ? data.results : [];
+        if (resultType === "video") setResults(list);
+        else if (resultType === "channel") setArtists(list);
+        else setAlbums(list);
+        setNextPageToken(data?.nextPageToken || "");
         if (status === "authenticated") {
           void requestJson("/api/searches", {
             method: "POST",
@@ -187,8 +213,26 @@ export default function YouTubeMusicResults({ query }) {
     return () => {
       cancelled = true;
       controller.abort();
+      pageController.current?.abort();
     };
-  }, [query, searchRetryKey, status]);
+  }, [query, searchRetryKey, status, searchUrl, resultType]);
+
+  const loadMore = async () => {
+    if (!nextPageToken || loadingMore) return;
+    const controller = new AbortController();
+    pageController.current = controller;
+    setLoadingMore(true); setPageError(null);
+    try {
+      const response = await requestJson(`${searchUrl}&pageToken=${encodeURIComponent(nextPageToken)}`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      const append = (current) => [...current, ...(response.results || [])].filter((item, index, all) => all.findIndex((entry) => entry.id === item.id) === index);
+      if (resultType === "video") setResults(append);
+      else if (resultType === "channel") setArtists(append);
+      else setAlbums(append);
+      setNextPageToken(response.nextPageToken || "");
+    } catch (error) { if (!controller.signal.aborted) setPageError(toUserError(error)); }
+    finally { if (!controller.signal.aborted) setLoadingMore(false); }
+  };
 
   const loadExtras = async ({ retry = false } = {}) => {
     if ((!retry && extrasLoaded) || loadingExtras) return;
@@ -317,6 +361,26 @@ export default function YouTubeMusicResults({ query }) {
         <span className="hidden text-xs text-gray-400 sm:block">Official videos and audio</span>
       </div>
 
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-[var(--hairline)] pb-4">
+        <div role="tablist" aria-label="Search result type" className="flex flex-wrap gap-1">
+          {[["video", "Songs"], ["channel", "Artists"], ["playlist", "Playlists"]].map(([value, label]) =>
+            <button type="button" role="tab" key={value} aria-selected={resultType === value} onClick={() => changeSearch("type", value)}
+              className={`min-h-12 border-b-2 px-3 text-sm ${resultType === value ? "border-[var(--accent)] text-[var(--text)]" : "border-transparent text-[var(--muted)]"}`}>{label}</button>)}
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <label className="grid gap-1 text-xs text-[var(--muted)]">Sort
+            <select aria-label="Sort search results" value={order} onChange={(event) => changeSearch("order", event.target.value)} className="min-h-12 rounded border border-[var(--hairline)] bg-[var(--navy-surface)] px-3 text-sm text-[var(--text)]">
+              <option value="relevance">Relevance</option><option value="date">Newest</option>
+            </select>
+          </label>
+          {resultType === "video" && <label className="grid gap-1 text-xs text-[var(--muted)]">Duration
+            <select aria-label="Filter song duration" value={length} onChange={(event) => changeSearch("duration", event.target.value)} className="min-h-12 rounded border border-[var(--hairline)] bg-[var(--navy-surface)] px-3 text-sm text-[var(--text)]">
+              <option value="any">Any length</option><option value="short">Under 4 min</option><option value="medium">4 to 20 min</option><option value="long">Over 20 min</option>
+            </select>
+          </label>}
+        </div>
+      </div>
+
       {genreHits.length > 0 && (
         <div className="mb-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">Matching genres</p>
@@ -343,7 +407,7 @@ export default function YouTubeMusicResults({ query }) {
           busy={loading}
         />
       )}
-      {!loading && !songError && results.length === 0 && (
+      {!loading && !songError && (resultType === "video" ? results : resultType === "channel" ? artists : albums).length === 0 && (
         <EmptyState
           eyebrow="Search"
           title="No music found"
@@ -387,7 +451,7 @@ export default function YouTubeMusicResults({ query }) {
         })}
       </div>
 
-      {!loading && results.length > 0 && !extrasLoaded && (
+      {!loading && resultType === "video" && results.length > 0 && !extrasLoaded && (
         <button
           type="button"
           onClick={() => void loadExtras()}
@@ -488,6 +552,8 @@ export default function YouTubeMusicResults({ query }) {
           </div>
         </div>
       )}
+      {pageError && <div className="mt-4"><UserMessage title={pageError.title} message={pageError.message} onRetry={loadMore} /></div>}
+      {!loading && nextPageToken && <button type="button" className="btn-ghost mt-6 min-h-12 px-5" disabled={loadingMore} onClick={loadMore}>{loadingMore ? "Loading..." : "Load more results"}</button>}
     </section>
   );
 }

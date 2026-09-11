@@ -1,12 +1,18 @@
 "use client";
 /* eslint-disable jsx-a11y/media-has-caption */
 import React, { useRef, useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import UserMessage from "@/components/UserMessage";
 import useAudioEq from "@/hooks/useAudioEq";
 import { bandsForPreset } from "@/utils/eqPresets";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
+import useSleepTimer from "@/hooks/useSleepTimer";
+import SleepTimerControl from "./SleepTimerControl";
+import { playPause } from "@/redux/features/playerSlice";
+import useListeningInsights from "@/hooks/useListeningInsights";
+import { recordDiagnostic } from "@/utils/diagnostics.mjs";
+import { playNativeAudio } from "@/utils/nativeAudio.mjs";
 
 const Player = ({
   activeSong,
@@ -22,13 +28,25 @@ const Player = ({
   handleNextSong,
   setSeekTime,
   appTime,
+  showTimer,
 }) => {
   const ref = useRef(null);
+  const dispatch = useDispatch();
+  const owner = useSelector((state) => state.player.playbackOwner);
+  const sleep = useSleepTimer({ owner, trackId: activeSong?.id, onExpire: () => {
+    ref.current?.pause();
+    dispatch(playPause(false));
+  } });
+  const checkSleep = sleep.check;
   const handlePlayPauseRef = useRef(handlePlayPause);
   const mediaActionsRef = useRef({});
   const [playbackError, setPlaybackError] = useState(null);
-  const { eqPreset, eqBands, normalization, monoAudio, spatialAudio, masterVolume } = useSelector((state) => state.settings);
-  useAudioEq(ref, {
+  const { eqPreset, eqBands, normalization, monoAudio, spatialAudio, masterVolume, privateSession, listeningInsights, owner: settingsOwner } = useSelector((state) => state.settings);
+  const insights = useListeningInsights({ owner, trackId: activeSong?.id,
+    enabled: settingsOwner === owner && listeningInsights === true && !privateSession,
+    getSample: () => ({ position: ref.current?.currentTime, playing: ref.current && !ref.current.paused && !ref.current.ended }),
+  });
+  const resumeContext = useAudioEq(ref, {
     bands: bandsForPreset(eqPreset, eqBands),
     normalization,
     monoAudio,
@@ -66,6 +84,7 @@ const Player = ({
       audio.pause();
       return;
     }
+    if (checkSleep()) return;
 
     if (!audioSource) {
       setPlaybackError(toUserError(
@@ -76,7 +95,7 @@ const Player = ({
       return;
     }
 
-    audio.play().catch((error) => {
+    playNativeAudio(audio, resumeContext).catch((error) => {
       if (error.name === "AbortError") return;
       setPlaybackError(toUserError(
         { code: "PLAYBACK_ERROR", cause: error },
@@ -84,7 +103,7 @@ const Player = ({
       ));
       handlePlayPauseRef.current?.();
     });
-  }, [audioSource, isPlaying]);
+  }, [audioSource, isPlaying, checkSleep, resumeContext]);
 
   const handleAudioError = (event) => {
     const mediaError = event.currentTarget.error;
@@ -98,6 +117,7 @@ const Player = ({
   };
 
   const retryPlayback = () => {
+    if (checkSleep()) return;
     if (!audioSource || !ref.current) {
       setPlaybackError(toUserError(
         { code: "PLAYBACK_ERROR" },
@@ -111,7 +131,7 @@ const Player = ({
     if (!mediaActionsRef.current.isPlaying) {
       handlePlayPauseRef.current?.();
     } else {
-      ref.current.play().catch((error) => {
+      playNativeAudio(ref.current, resumeContext).catch((error) => {
         if (error.name === "AbortError") return;
         setPlaybackError(toUserError(
           { code: "PLAYBACK_ERROR", cause: error },
@@ -165,11 +185,20 @@ const Player = ({
     };
 
     setAction("play", () => {
+      if (checkSleep()) return;
+      playNativeAudio(ref.current, resumeContext).catch((error) => {
+        if (error.name === "AbortError") return;
+        setPlaybackError(toUserError({ code: "PLAYBACK_ERROR", cause: error }));
+        if (mediaActionsRef.current.isPlaying) {
+          mediaActionsRef.current.handlePlayPause?.();
+        }
+      });
       if (!mediaActionsRef.current.isPlaying) {
         mediaActionsRef.current.handlePlayPause?.();
       }
     });
     setAction("pause", () => {
+      ref.current?.pause();
       if (mediaActionsRef.current.isPlaying) {
         mediaActionsRef.current.handlePlayPause?.();
       }
@@ -178,12 +207,17 @@ const Player = ({
     setAction("nexttrack", () => mediaActionsRef.current.handleNextSong?.());
     setAction("seekbackward", (details) => seekBy(-(details.seekOffset || 5)));
     setAction("seekforward", (details) => seekBy(details.seekOffset || 5));
+    setAction("seekto", (details) => {
+      if (!Number.isFinite(details?.seekTime)) return;
+      if (ref.current) ref.current.currentTime = Math.max(0, details.seekTime);
+      mediaActionsRef.current.setSeekTime?.(Math.max(0, details.seekTime));
+    });
 
     return () => {
-      ["play", "pause", "previoustrack", "nexttrack", "seekbackward", "seekforward"]
+      ["play", "pause", "previoustrack", "nexttrack", "seekbackward", "seekforward", "seekto"]
         .forEach((action) => setAction(action, null));
     };
-  }, [activeSong?.name, activeSong?.title, albumName, artistName, artwork]);
+  }, [activeSong?.name, activeSong?.title, albumName, artistName, artwork, checkSleep, resumeContext]);
 
   useEffect(() => {
     if ("mediaSession" in navigator) {
@@ -209,20 +243,24 @@ const Player = ({
         src={audioSource}
         ref={ref}
         crossOrigin="anonymous"
-        loop={repeat}
-        onEnded={onEnded}
+        loop={repeat && sleep.timer?.mode !== "track"}
+        onEnded={(event) => { insights.finish("completed"); if (!sleep.check(activeSong?.id)) onEnded?.(event); }}
+        onPlaying={() => recordDiagnostic("playback_state", { code: "playing" })}
+        onPause={() => recordDiagnostic("playback_state", { code: "paused" })}
+        onWaiting={() => recordDiagnostic("playback_state", { code: "buffering" })}
         onTimeUpdate={onTimeUpdate}
         onLoadedData={(event) => {
           setPlaybackError(null);
           onLoadedData?.(event);
-          if (mediaActionsRef.current.isPlaying) {
-            event.currentTarget.play().catch((error) => {
+          if (mediaActionsRef.current.isPlaying && !checkSleep()) {
+            playNativeAudio(event.currentTarget, resumeContext).catch((error) => {
               if (error.name === "AbortError") return;
             });
           }
         }}
         onError={handleAudioError}
       />
+      {showTimer && <div className="w-full max-w-sm py-3" onClick={(event) => event.stopPropagation()}><SleepTimerControl timer={sleep.timer} onChange={sleep.change} /></div>}
       {playbackError ? (
         <div className="mt-2 w-full max-w-md" onClick={(event) => event.stopPropagation()}>
           <UserMessage

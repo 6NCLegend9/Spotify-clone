@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaPlus } from "react-icons/fa";
 import { MdPlaylistPlay, MdOutlineDeleteOutline } from "react-icons/md";
 import { PiDotsThreeVerticalBold } from "react-icons/pi";
@@ -13,30 +13,38 @@ import UserMessage from "@/components/UserMessage";
 import { toUserError } from "@/utils/userError";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
+import { accountOwner } from "@/utils/accountCache.mjs";
 
 // Cached across client-side navigations and remounts within the session so the
 // sidebar shows the last-known list (or empty state) instantly instead of
 // flashing "Loading playlists…" on every route transition.
 let cachedPlaylists = null;
 
-const Playlists = () => {
+const AccountPlaylists = ({ owner, status }) => {
   const { setShowNav } = useNav();
-  const { status } = useSession();
+  const cached = cachedPlaylists?.owner === owner && Date.now() - cachedPlaylists.savedAt < 300_000
+    ? cachedPlaylists.data : null;
+  const live = useRef(true);
   const [show, setShow] = useState(false);
-  const [playlists, setPlaylists] = useState(() => cachedPlaylists ?? []);
+  const [playlists, setPlaylists] = useState(() => cached ?? []);
   const [showMenu, setShowMenu] = useState(false);
-  const [loading, setLoading] = useState(() => cachedPlaylists === null);
+  const [loading, setLoading] = useState(() => cached === null);
   const [error, setError] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; };
+  }, []);
+
+  useEffect(() => {
     if (status === "loading") {
-      if (cachedPlaylists === null) setLoading(true);
+      setLoading(true);
       return;
     }
-    if (status !== "authenticated") {
+    if (status !== "authenticated" || !owner) {
       cachedPlaylists = null;
       setPlaylists([]);
       setError(toUserError({ code: "UNAUTHORIZED" }));
@@ -46,7 +54,7 @@ const Playlists = () => {
 
     let active = true;
     const getPlaylists = async () => {
-      if (cachedPlaylists === null) setLoading(true);
+      if (cachedPlaylists?.owner !== owner) setLoading(true);
       setError(null);
       const res = await getUserPlaylists();
       if (!active) return;
@@ -56,7 +64,7 @@ const Playlists = () => {
             (playlist) => playlist && typeof playlist === "object" && playlist._id,
           )
           : [];
-        cachedPlaylists = list;
+        cachedPlaylists = { owner, data: list, savedAt: Date.now() };
         setPlaylists(list);
       } else {
         const normalized = toUserError(res);
@@ -70,10 +78,13 @@ const Playlists = () => {
       setLoading(false);
     };
     getPlaylists();
+    const onChanged = () => { cachedPlaylists = null; setRefreshKey((value) => value + 1); };
+    window.addEventListener("heykasa:playlists-changed", onChanged);
     return () => {
       active = false;
+      window.removeEventListener("heykasa:playlists-changed", onChanged);
     };
-  }, [refreshKey, status]);
+  }, [refreshKey, status, owner]);
 
   const handleDelete = async (id) => {
     if (deletingId) return;
@@ -81,14 +92,15 @@ const Playlists = () => {
     setDeleteError(null);
     setDeletingId(id);
     const nextPlaylists = previousPlaylists.filter((playlist) => playlist._id !== id);
-    cachedPlaylists = nextPlaylists;
+    cachedPlaylists = { owner, data: nextPlaylists, savedAt: Date.now() };
     setPlaylists(nextPlaylists);
     const res = await deletePlaylist(id);
+    if (!live.current) return;
     setDeletingId(null);
     if (res?.success === true) {
       toast.success("Playlist deleted");
     } else {
-      cachedPlaylists = previousPlaylists;
+      cachedPlaylists = { owner, data: previousPlaylists, savedAt: Date.now() };
       setPlaylists(previousPlaylists);
       const normalized = toUserError(res);
       const userError = normalized.code === "UNAUTHORIZED"
@@ -211,6 +223,12 @@ const Playlists = () => {
       )}
     </>
   );
+};
+
+const Playlists = () => {
+  const { data: session, status } = useSession();
+  const owner = accountOwner(session, status);
+  return <AccountPlaylists key={owner || status} owner={owner} status={status} />;
 };
 
 export default Playlists;

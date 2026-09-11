@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import User from "@/models/User";
 import UserData from "@/models/UserData";
 import Genre from "@/models/Genre";
-import dbConnect from "@/utils/dbconnect";
 import { youtubeFetch } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
-import { tokenOptions } from "@/utils/authToken";
 import { ensureSystemGenres } from "@/services/genreCatalog";
 import { normalizeGenreName } from "@/utils/genreTaxonomy";
 import {
@@ -20,11 +16,8 @@ import {
   handleApiError,
   readRequestJson,
 } from "@/utils/apiResponse";
-import {
-  ensureUserData,
-  getAuthenticatedAccount,
-  normalizeAccountEmail,
-} from "@/utils/userAccount";
+import { getAuthenticatedAccount } from "@/utils/userAccount";
+import { activeSnoozedTracks } from "@/utils/recommendationFeedback.mjs";
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_SEARCH_CACHE_ENTRIES = 40;
@@ -147,22 +140,13 @@ export async function GET(request) {
       });
     }
 
-    const token = await getToken(tokenOptions(request));
-    let mode = "guest";
-    let profile = null;
-
-    if (token?.email) {
-      await dbConnect();
-      const user = await User.findOne({ email: normalizeAccountEmail(token.email) });
-      if (user) {
-        profile = await ensureUserData(user);
-        mode = "personalized";
-      }
-    }
+    const account = await getAuthenticatedAccount(request, { optional: true });
+    const mode = account ? "personalized" : "guest";
+    const profile = account?.userData || null;
 
     const plan = resolveRecommendationPlan(mode, profile);
     const excluded = new Set(profile?.notInterested || []);
-    const snoozed = new Set(profile?.snoozedTracks || []);
+    const snoozed = new Set(activeSnoozedTracks(profile));
     const skipped = new Set(profile?.skippedTracks || []);
     const recent = new Set((profile?.songHistory || []).map((song) => song?.id || song));
     const explicitDisabled = mode === "guest" || profile?.settings?.explicitContent === false;

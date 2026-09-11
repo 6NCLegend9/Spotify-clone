@@ -165,10 +165,26 @@ export function serializePlaylist(playlist, userId) {
   const obj = typeof playlist.toObject === "function" ? playlist.toObject({ flattenMaps: true }) : { ...playlist };
   const likedBy = Array.isArray(obj.likedBy) ? obj.likedBy.map(String) : [];
   const category = normalizePlaylistCategory(obj.category);
+  const publicUser = (user) => {
+    if (!user) return null;
+    if (typeof user !== "object" || !("userName" in user || "imageUrl" in user)) return user._id ?? user;
+    return { _id: user._id, userName: user.userName, imageUrl: user.imageUrl };
+  };
   return {
-    ...obj,
+    _id: obj._id,
+    name: obj.name,
+    songs: Array.isArray(obj.songs) ? obj.songs : [],
+    songAddedAt: obj.songAddedAt || {},
+    user: publicUser(obj.user),
+    collaborators: (obj.collaborators || []).map(publicUser),
+    visibility: obj.visibility || "private",
+    pinned: Boolean(obj.pinned),
+    smartShuffle: Boolean(obj.smartShuffle),
+    subgenre: obj.subgenre || "",
+    coverImage: obj.coverImage || "",
+    createdAt: obj.createdAt,
+    updatedAt: obj.updatedAt,
     category,
-    likedBy: undefined,
     liked: userId ? likedBy.includes(String(userId)) : false,
     likesCount: likedBy.length,
   };

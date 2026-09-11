@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { EQ_BAND_FREQS, normalizationGain } from "@/utils/eqPresets";
+import { resumeAudioContext } from "@/utils/nativeAudio.mjs";
 
 export default function useAudioEq(audioRef, { bands, normalization, monoAudio, spatialAudio }) {
   const graphRef = useRef(null);
@@ -66,7 +67,7 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio, 
     }
 
     const resume = () => {
-      if (graph.context.state === "suspended") graph.context.resume().catch(() => {});
+      if (!audio.paused) void resumeAudioContext(graph.context).catch(() => {});
     };
     audio.addEventListener("play", resume);
     resume();
@@ -115,4 +116,6 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio, 
     graphRef.current?.context.close?.().catch(() => {});
     graphRef.current = null;
   }, []);
+
+  return useCallback(() => resumeAudioContext(graphRef.current?.context), []);
 }

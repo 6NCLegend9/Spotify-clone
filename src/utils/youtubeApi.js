@@ -1,5 +1,6 @@
 import { Innertube, Log, UniversalCache } from "youtubei.js";
 import { cleanTitle } from "./text.js";
+import { logServerDiagnostic } from "./diagnostics.mjs";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 const REQUEST_TIMEOUT_MS = 6_000;
@@ -800,9 +801,12 @@ export async function fetchYouTubeChannel(id, { name = "", maxResults = 50, page
 }
 
 export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
+  const started = performance.now();
   try {
-    const officialResult = await fetchFromOfficialApi(endpoint, params, fetchOptions);
-    if (officialResult) return officialResult;
+    const { requireOfficial = false, ...requestOptions } = fetchOptions;
+    const officialResult = await fetchFromOfficialApi(endpoint, params, requestOptions);
+    if (officialResult) return { ...officialResult, source: "official" };
+    if (requireOfficial) return { ok: false, status: 503, source: "fallback", data: null };
 
     const maxResults = Math.min(
       50,
@@ -831,7 +835,9 @@ export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
 
     return await fetchFromInnertube(endpoint, params);
   } catch (error) {
-    console.error(`YouTube ${endpoint} fallback failed:`, error);
+    logServerDiagnostic("provider", { code: "INTERNAL_ERROR" });
     return { ok: false, status: 502, data: null };
+  } finally {
+    logServerDiagnostic("provider", { durationMs: performance.now() - started });
   }
 }

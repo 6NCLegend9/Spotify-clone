@@ -36,6 +36,7 @@ import {
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
+import { accountOwner } from "@/utils/accountCache.mjs";
 
 const SORT_OPTIONS = [
   ["recents", "Recents"],
@@ -227,7 +228,13 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
 
 export default function LibraryView() {
   const { data: session, status } = useSession();
-  const cached = readNavCache(LIBRARY_CACHE_KEY);
+  const owner = accountOwner(session, status);
+  return <AccountLibraryView key={owner || status} session={session} status={status} owner={owner} />;
+}
+
+function AccountLibraryView({ session, status, owner }) {
+  const cacheKey = `${LIBRARY_CACHE_KEY}:${owner}`;
+  const cached = owner ? readNavCache(cacheKey) : null;
   const [filter, setFilter] = useState("all");
   const [view, setView] = useState("grid");
   const [sort, setSort] = useState("recents");
@@ -247,11 +254,11 @@ export default function LibraryView() {
   }, []);
 
   useEffect(() => {
-    if (status === "loading") return;
+    if (!owner) return;
     let active = true;
 
     const loadLibrary = async () => {
-      if (!readNavCache(LIBRARY_CACHE_KEY)) setLoading(true);
+      if (!readNavCache(cacheKey)) setLoading(true);
       setError(null);
       try {
         if (status === "unauthenticated") {
@@ -263,7 +270,7 @@ export default function LibraryView() {
               )
               : [];
             setPublicPlaylists(nextPublic);
-            writeNavCache(LIBRARY_CACHE_KEY, {
+            writeNavCache(cacheKey, {
               favourites: null,
               playlists: [],
               publicPlaylists: nextPublic,
@@ -295,7 +302,7 @@ export default function LibraryView() {
           setFavourites(favouriteData);
           setPlaylists(nextPlaylists);
           setCovers(nextCovers);
-          writeNavCache(LIBRARY_CACHE_KEY, {
+          writeNavCache(cacheKey, {
             favourites: favouriteData,
             playlists: nextPlaylists,
             publicPlaylists: [],
@@ -321,7 +328,7 @@ export default function LibraryView() {
     return () => {
       active = false;
     };
-  }, [status, refreshKey]);
+  }, [status, refreshKey, owner, cacheKey]);
 
   const items = useMemo(() => {
     if (status !== "authenticated" || !favourites) return [];

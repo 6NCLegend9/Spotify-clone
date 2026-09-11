@@ -1,6 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { decodeTrackFields } from '../../utils/text.js';
 import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
+import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
 
 const initialState = {
   currentSongs: [],
@@ -15,6 +16,8 @@ const initialState = {
   position: 0,
   restorePosition: null,
   playbackOwner: null,
+  queueUndo: null,
+  queueManualEnd: false,
 };
 
 const playerSlice = createSlice({
@@ -37,6 +40,7 @@ const playerSlice = createSlice({
       }
     },
     setActiveSong: (state, action) => {
+      state.queueUndo = null;
       state.position = 0;
       state.restorePosition = null;
       state.youtubeVideo = null;
@@ -81,6 +85,7 @@ const playerSlice = createSlice({
     },
 
     setYoutubeVideo: (state, action) => {
+      state.queueUndo = null;
       state.position = 0;
       state.restorePosition = null;
       state.youtubeVideo = decodeTrackFields(action.payload);
@@ -97,12 +102,41 @@ const playerSlice = createSlice({
     },
 
     setYoutubeQueue: (state, action) => {
+      state.queueUndo = null;
+      state.queueManualEnd = false;
       state.youtubeQueue = (action.payload || []).map((track) => decodeTrackFields(track));
     },
+
+    editQueue: (state, action) => {
+      const currentId = state.youtubeVideo?.id;
+      const next = editUpcomingQueue(state.youtubeQueue, currentId, action.payload);
+      if (next === state.youtubeQueue || !Number.isFinite(action.payload.now)) return;
+      state.queueUndo = {
+        queue: state.youtubeQueue,
+        manualEnd: state.queueManualEnd,
+        currentId,
+        expiresAt: action.payload.now + 10_000,
+      };
+      state.youtubeQueue = next;
+      if (action.payload.kind === "clear") state.queueManualEnd = true;
+    },
+
+    undoQueueEdit: (state, action) => {
+      const undo = state.queueUndo;
+      state.queueUndo = null;
+      if (!undo || !Number.isFinite(action.payload?.now) || action.payload.now >= undo.expiresAt
+        || undo.currentId !== state.youtubeVideo?.id) return;
+      state.youtubeQueue = undo.queue;
+      state.queueManualEnd = undo.manualEnd;
+    },
+
+    expireQueueUndo: (state) => { state.queueUndo = null; },
 
     addToQueue: (state, action) => {
       const track = decodeTrackFields(action.payload);
       if (track?.id && !state.youtubeQueue.some((item) => item.id === track.id)) {
+        state.queueUndo = null;
+        state.queueManualEnd = false;
         state.youtubeQueue.push(track);
       }
     },
@@ -113,6 +147,7 @@ const playerSlice = createSlice({
       tracks.forEach((track) => {
         const decoded = decodeTrackFields(track);
         if (decoded?.id && !existingIds.has(decoded.id)) {
+          state.queueUndo = null;
           state.youtubeQueue.push(decoded);
           existingIds.add(decoded.id);
         }
@@ -122,6 +157,9 @@ const playerSlice = createSlice({
     playNextToQueue: (state, action) => {
       const track = decodeTrackFields(action.payload);
       if (!track?.id) return;
+      if (track.id === state.youtubeVideo?.id) return;
+      state.queueUndo = null;
+      state.queueManualEnd = false;
       const queue = state.youtubeQueue || [];
       const currentId = state.youtubeVideo?.id;
       const index = currentId ? queue.findIndex((item) => item.id === currentId) : -1;
@@ -151,6 +189,9 @@ export const {
   playPause,
   setYoutubeVideo,
   setYoutubeQueue,
+  editQueue,
+  undoQueueEdit,
+  expireQueueUndo,
   addToQueue,
   appendToQueue,
   playNextToQueue,

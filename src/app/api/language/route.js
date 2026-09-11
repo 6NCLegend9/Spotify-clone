@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import UserData from "@/models/UserData";
-import { tokenOptions } from "@/utils/authToken";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
   ApiRouteError,
@@ -46,11 +44,10 @@ function validateLanguages(value) {
 
 export async function GET(request) {
   try {
-    const token = await getToken(tokenOptions(request));
-    if (!token?.email) return NextResponse.json({ authenticated: false, language: null });
-
-    const { userData } = await getAuthenticatedAccount(request);
-    return NextResponse.json({ authenticated: true, language: userData?.language || null });
+    const account = await getAuthenticatedAccount(request, { optional: true });
+    const headers = { "Cache-Control": "private, no-store" };
+    if (!account) return NextResponse.json({ authenticated: false, language: null }, { headers });
+    return NextResponse.json({ authenticated: true, language: account.userData?.language || null }, { headers });
   } catch (error) {
     return handleApiError(error, "Load language preferences");
   }

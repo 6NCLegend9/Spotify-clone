@@ -1,4 +1,5 @@
 import { createUserError, toUserError } from "../utils/userError.js";
+import { recordDiagnostic } from "../utils/diagnostics.mjs";
 
 const DEFAULT_TIMEOUT = 15000;
 
@@ -78,6 +79,7 @@ export function invalidateClientCache(urlPattern) {
 }
 
 export async function requestJson(url, options = {}) {
+  const startedAt = performance.now();
   const {
     body,
     timeout = DEFAULT_TIMEOUT,
@@ -133,6 +135,8 @@ export async function requestJson(url, options = {}) {
       signal: controller.signal,
     }, isGet && retry);
     const data = await parseResponseBody(response);
+    recordDiagnostic("request", { route: url, durationMs: performance.now() - startedAt, status: response.status,
+      requestId: response.headers.get("x-request-id") });
 
     if (!response.ok) {
       const retryAfterHeader = response.headers.get("retry-after");
@@ -157,6 +161,8 @@ export async function requestJson(url, options = {}) {
 
     return data;
   } catch (error) {
+    if (!signal?.aborted) recordDiagnostic("request", { route: url, durationMs: performance.now() - startedAt,
+      code: controller.signal.aborted ? "TIMEOUT" : "NETWORK_ERROR" });
     if (signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
     if (error instanceof Error && error.name === "UserFacingError") throw error;
     const timedOut = controller.signal.aborted && !signal?.aborted;

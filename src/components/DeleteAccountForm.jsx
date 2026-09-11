@@ -56,6 +56,7 @@ export default function DeleteAccountForm() {
     try {
       const data = await requestJson("/api/deleteAccount", {
         method: "POST",
+        body: { confirm: confirmText },
         fallbackTitle: "Couldn't delete account",
         fallbackMessage: "We couldn't delete your account. Please try again.",
       });

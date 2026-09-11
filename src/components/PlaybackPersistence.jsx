@@ -6,14 +6,13 @@ import { useSession } from "next-auth/react";
 import { useJam } from "@/components/Jam/JamProvider";
 import { restorePlayback } from "@/redux/features/playerSlice";
 import { readPlaybackSnapshot, writePlaybackSnapshot } from "@/utils/playbackSnapshot.mjs";
+import { accountOwner } from "@/utils/accountCache.mjs";
 
 export default function PlaybackPersistence() {
   const store = useStore();
   const { data: session, status } = useSession();
   const jam = useJam();
-  const accountId = session?.user?.id || session?.user?.email;
-  const owner = status === "authenticated" && accountId
-    ? `account:${accountId}` : status === "unauthenticated" ? "guest" : null;
+  const owner = accountOwner(session, status);
   const inJam = Boolean(jam?.code);
 
   useEffect(() => {

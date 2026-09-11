@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import { setAutoAdd } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { toUserError } from "@/utils/userError";
+import { accountOwner, readAccountCache, writeAccountCache } from "@/utils/accountCache.mjs";
 
-const HOME_CACHE_KEY = "HeyKasa-home-recommendations-v2";
+const HOME_CACHE_KEY = "HeyKasa-home-recommendations-v3";
+const HOME_CACHE_TTL = 5 * 60_000;
 
 const normalizeHistory = (value) =>
   (Array.isArray(value) ? value : []).filter(
@@ -22,18 +24,17 @@ const normalizeHistory = (value) =>
         (typeof song.title === "string" && song.title.trim())),
   );
 
-const readHomeCache = (status) => {
+const readHomeCache = (owner) => {
   try {
-    const raw = sessionStorage.getItem(`${HOME_CACHE_KEY}:${status}`);
-    return raw ? JSON.parse(raw) : null;
+    return readAccountCache(sessionStorage, HOME_CACHE_KEY, owner, HOME_CACHE_TTL);
   } catch {
     return null;
   }
 };
 
-const writeHomeCache = (status, value) => {
+const writeHomeCache = (owner, value) => {
   try {
-    sessionStorage.setItem(`${HOME_CACHE_KEY}:${status}`, JSON.stringify(value));
+    writeAccountCache(sessionStorage, HOME_CACHE_KEY, owner, value);
   } catch {
     // Storage may be unavailable.
   }
@@ -41,8 +42,12 @@ const writeHomeCache = (status, value) => {
 
 export default function useHomeFeed() {
   const dispatch = useDispatch();
-  const { status } = useSession();
-  const [data, setData] = useState(null);
+  const { data: session, status } = useSession();
+  const privateSession = useSelector((state) => state.settings.privateSession);
+  const owner = accountOwner(session, status);
+  const [home, setHome] = useState({ owner: null, data: null });
+  const data = owner && home.owner === owner && home.privateSession === privateSession ? home.data : null;
+  const [libraryOwner, setLibraryOwner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -60,12 +65,15 @@ export default function useHomeFeed() {
   }, [dispatch]);
 
   useEffect(() => {
-    if (status === "loading") return;
+    setHome({ owner, privateSession, data: null });
+    setError(null);
+    setLoading(true);
+    if (!owner) return;
     const controller = new AbortController();
     let cancelled = false;
-    const cached = readHomeCache(status);
+    const cached = privateSession ? null : readHomeCache(owner);
     if (cached) {
-      setData(cached);
+      setHome({ owner, privateSession, data: cached });
       setLoading(false);
     }
     const fetchData = async () => {
@@ -83,8 +91,8 @@ export default function useHomeFeed() {
         });
         if (cancelled) return;
         if (res?.sections) {
-          setData(res);
-          writeHomeCache(status, res);
+          setHome({ owner, privateSession, data: res });
+          if (!privateSession) writeHomeCache(owner, res);
         } else {
           throw toUserError(
             { code: "INTERNAL_ERROR" },
@@ -102,7 +110,7 @@ export default function useHomeFeed() {
               message: "We couldn’t load your recommendations. Please try again.",
             }),
           );
-          if (!cached) setData(null);
+          if (!cached) setHome({ owner, privateSession, data: null });
         }
       } finally {
         if (!cancelled) {
@@ -113,31 +121,33 @@ export default function useHomeFeed() {
       }
     };
     void fetchData();
+    const onPreferencesChanged = () => {
+      try { sessionStorage.removeItem(`${HOME_CACHE_KEY}:${encodeURIComponent(owner)}`); } catch {}
+      setRetryKey((value) => value + 1);
+    };
+    window.addEventListener("favourites-changed", onPreferencesChanged);
+    window.addEventListener("heykasa:preferences-changed", onPreferencesChanged);
     return () => {
       cancelled = true;
       controller.abort();
+      window.removeEventListener("favourites-changed", onPreferencesChanged);
+      window.removeEventListener("heykasa:preferences-changed", onPreferencesChanged);
     };
-  }, [dispatch, retryKey, status]);
+  }, [dispatch, retryKey, owner, privateSession]);
 
   useEffect(() => {
-    if (status === "loading") return;
-    if (status !== "authenticated") {
-      setHistory([]);
-      setPlaylists([]);
-      setReleases([]);
-      try {
-        localStorage.removeItem("songHistory");
-      } catch {
-        // Listening history is best-effort when browser storage is blocked.
-      }
-      return undefined;
-    }
-
+    setLibraryOwner(owner);
+    setHistory([]);
+    setPlaylists([]);
+    setReleases([]);
     try {
-      setHistory(normalizeHistory(JSON.parse(localStorage.getItem("songHistory") || "[]")));
-    } catch {
-      setHistory([]);
-    }
+      localStorage.removeItem("songHistory");
+      sessionStorage.removeItem("HeyKasa-home-recommendations-v2:authenticated");
+    } catch {}
+    if (!owner || owner === "guest") return undefined;
+    try {
+      setHistory(normalizeHistory(readAccountCache(localStorage, "heykasa:history:v1", owner, 30 * 86400_000)));
+    } catch {}
 
     const controller = new AbortController();
     let cancelled = false;
@@ -150,8 +160,11 @@ export default function useHomeFeed() {
           fallbackMessage: "Your saved listening history is still available on this device.",
         });
         const syncedHistory = normalizeHistory(json?.data);
-        if (!cancelled && json?.success && syncedHistory.length > 0) {
+        if (!cancelled && json?.success) {
           setHistory(syncedHistory);
+          if (!privateSession) {
+            try { writeAccountCache(localStorage, "heykasa:history:v1", owner, syncedHistory); } catch {}
+          }
         }
       } catch {
         // Local history still fills Jump back in.
@@ -196,7 +209,7 @@ export default function useHomeFeed() {
 
     const onPlaylistsChanged = () => {
       void getUserPlaylists().then((res) => {
-        if (res?.success === true) {
+        if (!cancelled && res?.success === true) {
           setPlaylists(
             Array.isArray(res.data?.playlists)
               ? res.data.playlists.filter(
@@ -205,7 +218,7 @@ export default function useHomeFeed() {
               : [],
           );
         }
-      });
+      }).catch(() => {});
     };
     window.addEventListener("heykasa:playlists-changed", onPlaylistsChanged);
 
@@ -214,7 +227,7 @@ export default function useHomeFeed() {
       controller.abort();
       window.removeEventListener("heykasa:playlists-changed", onPlaylistsChanged);
     };
-  }, [retryKey, status]);
+  }, [retryKey, owner, privateSession]);
 
   const isPersonalized = data?.mode === "personalized";
 
@@ -231,14 +244,14 @@ export default function useHomeFeed() {
 
   return {
     status,
-    loading,
+    loading: !owner || home.owner !== owner || loading,
     refreshing,
-    error,
+    error: home.owner === owner ? error : null,
     retry: () => setRetryKey((value) => value + 1),
     isPersonalized,
-    history,
-    playlists,
-    releases,
+    history: libraryOwner === owner ? history : [],
+    playlists: libraryOwner === owner ? playlists : [],
+    releases: libraryOwner === owner ? releases : [],
     ...feed,
     hasAny:
       (feed.trending?.length || 0) +
@@ -246,9 +259,7 @@ export default function useHomeFeed() {
         (feed.newReleases?.length || 0) +
         (feed.featuredPlaylists?.length || 0) +
         (feed.genreSections || []).reduce((sum, section) => sum + (section.videos?.length || 0), 0) +
-        history.length +
-        playlists.length +
-        releases.length >
+        (libraryOwner === owner ? history.length + playlists.length + releases.length : 0) >
       0,
   };
 }

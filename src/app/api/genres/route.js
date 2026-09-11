@@ -1,12 +1,10 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import Genre from "@/models/Genre";
-import User from "@/models/User";
 import UserData from "@/models/UserData";
 import { ensureSystemGenres, toCatalogItem } from "@/services/genreCatalog";
 import { MAX_GENRE_DEPTH, normalizeGenreName, slugifyGenre } from "@/utils/genreTaxonomy";
-import { tokenOptions } from "@/utils/authToken";
+import { getSessionUser as authenticatedUser } from "@/utils/sessionAuth";
 import dbConnect from "@/utils/dbconnect";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
@@ -39,13 +37,6 @@ function buildGenreTree(genres, locale) {
   }
 
   return roots;
-}
-
-async function authenticatedUser(request) {
-  const token = await getToken(tokenOptions(request));
-  if (!token?.email) return null;
-  await dbConnect();
-  return User.findOne({ email: token.email }).select("_id userData").lean();
 }
 
 export const runtime = "nodejs";
@@ -81,7 +72,7 @@ export async function GET(request) {
       genres: matches.map((genre) => toCatalogItem(genre, locale)),
       tree: normalizedQuery ? [] : buildGenreTree(systemGenres, locale),
       personalGenres: personalGenres.map((genre) => toCatalogItem(genre, locale)),
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return handleApiError(error, "Load genres");
   }

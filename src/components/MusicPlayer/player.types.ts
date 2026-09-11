@@ -26,6 +26,11 @@ export interface PlayerDockProps {
   volume?: ReactNode;
   queue: PlayerTrack[];
   queueSearch?: ReactNode;
+  onQueueEdit?: (edit: { kind: "move" | "remove" | "clear"; id?: string; direction?: number }) => void;
+  onQueueUndo?: () => void;
+  canUndoQueue?: boolean;
+  onSaveQueue?: (name: string) => Promise<void>;
+  sleepControl?: ReactNode;
   onSelect: (track: PlayerTrack) => void;
   onPip: () => void;
   pipActive: boolean;

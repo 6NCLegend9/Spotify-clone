@@ -146,6 +146,7 @@ export async function PUT(request) {
           resetPasswordToken: null,
           resetPasswordExpires: null,
         },
+        $inc: { sessionVersion: 1 },
       },
       { new: true },
     ).select("_id");

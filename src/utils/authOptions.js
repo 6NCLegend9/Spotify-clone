@@ -12,6 +12,8 @@ import {
 } from "@/utils/authErrors";
 import { ensureUserData } from "@/utils/userAccount";
 import { GOOGLE_SIGN_IN_ENABLED } from "@/utils/siteConfig";
+import { resolveSessionUser } from "@/utils/sessionAuth";
+import { sessionIdentity } from "@/utils/sessionIdentity.mjs";
 
 const googleProvider =
   GOOGLE_SIGN_IN_ENABLED
@@ -116,54 +118,43 @@ export const authOptions = {
   secret: process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET,
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
-        token.email =
+        const email =
           typeof user.email === "string"
             ? user.email.trim().toLowerCase()
-            : token.email;
-        token.name = user.userName || user.name;
-        token.picture = user.imageUrl || user.image;
-        token.id = user._id?.toString?.();
-        token.userName = user.userName || user.name;
-        token.imageUrl = user.imageUrl || user.image;
-        token.isVerified = user.isVerified ?? true;
-        token.hydrated = Boolean(token.id);
-      }
-
-      if (token.email && !token.hydrated) {
-        try {
+            : "";
+        let sessionUser = user;
+        if (account?.provider !== "credentials") {
+          if (!email) throw new Error("Session identity is unavailable");
           await dbConnect();
-          const email =
-            typeof token.email === "string"
-              ? token.email.trim().toLowerCase()
-              : "";
-          token.email = email;
-          const sessionUser = await User.findOne({ email }).lean();
-          if (sessionUser) {
-            token.id = sessionUser._id.toString();
-            token.name = sessionUser.userName;
-            token.picture = sessionUser.imageUrl;
-            token.userName = sessionUser.userName;
-            token.imageUrl = sessionUser.imageUrl;
-            token.isVerified = sessionUser.isVerified;
-          }
-        } catch (error) {
-          console.error("Unable to hydrate auth token", error);
+          sessionUser = await User.findOne({ email });
         }
-        token.hydrated = true;
+        const identity = sessionIdentity(sessionUser);
+        if (!identity) throw new Error("Session identity is unavailable");
+        return {
+          ...token,
+          ...identity,
+          email: sessionUser.email,
+          name: sessionUser.userName,
+          picture: sessionUser.imageUrl,
+          userName: sessionUser.userName,
+          imageUrl: sessionUser.imageUrl,
+          isVerified: sessionUser.isVerified,
+        };
       }
-
+      if (!await resolveSessionUser(token)) throw new Error("Session is no longer valid");
       return token;
     },
 
     async session({ session, token }) {
-      if (!token) return session;
+      if (!token) return null;
       session.user = session.user || {};
       session.user.id = token.id;
       session.user.email = token.email;
       session.user.name = token.userName || token.name;
       session.user.image = token.imageUrl || token.picture;
+      session.user.sessionVersion = token.sessionVersion;
       session.userName = token.userName || token.name;
       session.imageUrl = token.imageUrl || token.picture;
       session.isVerified = token.isVerified;

@@ -20,6 +20,12 @@ const fileSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    sessionVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+      validate: Number.isSafeInteger,
+    },
     imageUrl: {
       type: String,
       default: "/icon-192x192.png",

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import UserData from "@/models/UserData";
+import { mutateDocument } from "@/utils/documentMutation.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -62,12 +64,12 @@ export async function POST(request) {
         data: userData.songHistory || [],
       });
     }
-    const existing = Array.isArray(userData.songHistory) ? userData.songHistory : [];
-    const deduped = existing.filter((song) => song?.id !== entry.id);
-    userData.songHistory = [entry, ...deduped].slice(0, MAX_HISTORY_ENTRIES);
-    userData.markModified("songHistory");
-    await userData.save();
-    return NextResponse.json({ success: true, message: "History updated", data: userData.songHistory });
+    const updated = await mutateDocument(UserData, userData._id, (current) => {
+      if (current.settings?.privateSession) return null;
+      const existing = Array.isArray(current.songHistory) ? current.songHistory : [];
+      return { songHistory: [entry, ...existing.filter((song) => song?.id !== entry.id)].slice(0, MAX_HISTORY_ENTRIES) };
+    }, { "settings.privateSession": { $ne: true } });
+    return NextResponse.json({ success: true, message: "History updated", data: updated.songHistory }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     return handleApiError(e, "update history");
   }

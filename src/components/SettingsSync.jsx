@@ -3,9 +3,11 @@ import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
-import { hydrateSettings } from "@/redux/features/settingsSlice";
-import { requestJson } from "@/services/http";
+import { hydrateSettings, setSettingsOwner } from "@/redux/features/settingsSlice";
+import { invalidateClientCache, requestJson } from "@/services/http";
 import { clearNavCache } from "@/utils/navCache";
+import { accountOwner } from "@/utils/accountCache.mjs";
+import { clearDiagnostics } from "@/utils/diagnostics.mjs";
 
 const SYNC_ERROR_TOAST_ID = "account-preferences-sync-error";
 
@@ -20,14 +22,16 @@ function notifySyncFailure() {
 // whatever was last saved locally via redux-persist on this particular browser.
 const SettingsSync = () => {
   const dispatch = useDispatch();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const owner = accountOwner(session, status);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      clearNavCache();
-      return;
-    }
-    if (status !== "authenticated") return;
+    clearNavCache();
+    clearDiagnostics();
+    invalidateClientCache();
+    if (!owner) return;
+    dispatch(setSettingsOwner(owner));
+    if (owner === "guest") return;
     let cancelled = false;
     const controller = new AbortController();
     requestJson("/api/settings", {
@@ -50,7 +54,7 @@ const SettingsSync = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [status, dispatch]);
+  }, [owner, dispatch]);
 
   return null;
 };

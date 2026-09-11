@@ -14,7 +14,16 @@ import {
   addToQueue,
   appendToQueue,
   setPlaybackPosition,
+  editQueue,
+  undoQueueEdit,
+  expireQueueUndo,
 } from "@/redux/features/playerSlice";
+import { createPlaylist } from "@/services/playlistApi";
+import useSleepTimer from "@/hooks/useSleepTimer";
+import SleepTimerControl from "./SleepTimerControl";
+import useListeningInsights from "@/hooks/useListeningInsights";
+import { recordDiagnostic } from "@/utils/diagnostics.mjs";
+const QueueEditor = dynamic(() => import("./QueueEditor"), { ssr: false });
 import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiSkipBack, FiSkipForward, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import { MdOutlineLyrics, MdPictureInPictureAlt } from "react-icons/md";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
@@ -156,7 +165,7 @@ function YouTubePlayer() {
   repeatRef.current = repeat;
   const { status } = useSession();
   const jam = useJam();
-  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner } = useSelector(
+  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner, queueUndo, queueManualEnd } = useSelector(
     (state) => state.player,
   );
   const video = useMemo(() => decodeTrackFields(rawVideo), [rawVideo]);
@@ -179,6 +188,9 @@ function YouTubePlayer() {
     captions,
     fadeEnabled,
     fadeSeconds,
+    privateSession,
+    listeningInsights,
+    owner: settingsOwner,
   } = useSelector((state) => state.settings);
   const transitionMode = "off";
   const crossfadeSeconds = 0;
@@ -196,6 +208,33 @@ function YouTubePlayer() {
     dataSaver,
   );
   const isJamGuest = jam?.role === "guest" && Boolean(jam.code);
+  const sleep = useSleepTimer({
+    owner: playbackOwner, trackId: videoId, enabled: !jam?.code,
+    onExpire: () => {
+      userPausedRef.current = true;
+      isPlayingRef.current = false;
+      trackChangeUntilRef.current = 0;
+      abortCrossfade();
+      cancelFade();
+      for (const deck of Object.values(deckPlayerRefs)) deck.current?.pauseVideo?.();
+      dispatch(playPause(false));
+    },
+  });
+  const insights = useListeningInsights({
+    owner: playbackOwner, trackId: videoId,
+    enabled: status === "authenticated" && settingsOwner === playbackOwner && listeningInsights === true && !privateSession && !jam?.code,
+    getSample: () => {
+      const player = getActivePlayer();
+      return { position: player?.getCurrentTime?.(), playing: player?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING && isPlayingRef.current };
+    },
+  });
+  const manualEndRef = useRef(queueManualEnd);
+  manualEndRef.current = queueManualEnd;
+  useEffect(() => {
+    if (!queueUndo) return;
+    const timer = setTimeout(() => dispatch(expireQueueUndo()), Math.max(0, queueUndo.expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [dispatch, queueUndo]);
   // Dual decks let one track fade out while the next fades in at the same time.
   const deckHostRefs = { A: useRef(null), B: useRef(null) };
   const deckPlayerRefs = { A: useRef(null), B: useRef(null) };
@@ -244,6 +283,7 @@ function YouTubePlayer() {
   const videoRef = useRef(video);
   const queueRef = useRef(queue);
   const isPlayingRef = useRef(isPlaying);
+  const savedProgressRef = useRef({ id: null, position: 0 });
   const isJamGuestRef = useRef(isJamGuest);
   const seekGuardRef = useRef({ seeking: false, until: 0, target: null, videoId: null });
   const skipCrossfadeVideoRef = useRef(null);
@@ -324,6 +364,7 @@ function YouTubePlayer() {
     (isPlayingRef.current || performance.now() < trackChangeUntilRef.current);
 
   const resumePlayer = (player) => {
+    if (sleep.check()) return;
     if (!player?.playVideo) return;
     try {
       player.unMute?.();
@@ -976,7 +1017,13 @@ function YouTubePlayer() {
             }
           }
           if (key !== activeDeckRef.current) return;
+          const stateCode = ({ 0: "ended", 1: "playing", 2: "paused", 3: "buffering" })[event.data];
+          if (stateCode) recordDiagnostic("playback_state", { code: stateCode });
           if (event.data === window.YT.PlayerState.PLAYING) {
+            if (sleep.check() || (userPausedRef.current && !isPlayingRef.current)) {
+              event.target.pauseVideo?.();
+              return;
+            }
             userPausedRef.current = false;
             dispatch(playPause(true));
           }
@@ -1008,6 +1055,8 @@ function YouTubePlayer() {
           }
           if (event.data === window.YT.PlayerState.ENDED) {
             clearActiveBufferTimers();
+            if (isRealTrackEnd(event.target)) insights.finish("completed");
+            if (isRealTrackEnd(event.target) && sleep.check(videoRef.current?.id)) return;
             if (!isRealTrackEnd(event.target)) {
               const target = seekGuardRef.current.target ?? event.target.getCurrentTime?.() ?? 0;
               const want = videoRef.current?.id;
@@ -1713,8 +1762,6 @@ function YouTubePlayer() {
   }, []);
 
   useEffect(() => {
-    let savedTrackId = null;
-    let savedPosition = 0;
     tickRef.current = () => {
       const activePlayer = getActivePlayer();
       if (!activePlayer?.getCurrentTime) return;
@@ -1724,10 +1771,9 @@ function YouTubePlayer() {
       const id = playerVideoId(activePlayer);
       const want = videoRef.current?.id;
       if (id === want && Number.isFinite(time) && time >= 0
-        && (id !== savedTrackId || Math.abs(time - savedPosition) >= 5)
+        && (id !== savedProgressRef.current.id || Math.abs(time - savedProgressRef.current.position) >= 5)
         && activePlayer.getPlayerState?.() !== window.YT?.PlayerState?.CUED) {
-        savedTrackId = id;
-        savedPosition = time;
+        savedProgressRef.current = { id, position: time };
         dispatch(setPlaybackPosition({ id, position: time }));
       }
       const pendingJamPlayback = pendingJamPlaybackRef.current;
@@ -1878,7 +1924,7 @@ function YouTubePlayer() {
   };
 
   const extendQueue = async () => {
-    if (autoExtendingRef.current || repeatRef.current) return [];
+    if (manualEndRef.current || autoExtendingRef.current || repeatRef.current) return [];
     if (lastExtendEmptyRef.current && Date.now() - lastExtendAtRef.current < 15000) return [];
     autoExtendingRef.current = true;
     lastExtendAtRef.current = Date.now();
@@ -1943,6 +1989,7 @@ function YouTubePlayer() {
       }
 
       const nextTracks = extras.slice(0, 16);
+      if (manualEndRef.current || current?.id !== videoRef.current?.id) return [];
       if (nextTracks.length > 0) {
         dispatch(appendToQueue(nextTracks));
         lastExtendEmptyRef.current = false;
@@ -1967,6 +2014,7 @@ function YouTubePlayer() {
   };
 
   const playNextOrContinue = async (completed = false) => {
+    if (sleep.check(completed ? videoRef.current?.id : undefined)) return;
     if (isJamGuestRef.current) {
       dispatch(playPause(false));
       return;
@@ -1986,6 +2034,13 @@ function YouTubePlayer() {
       dispatch(setYoutubeVideo(immediate));
       return;
     }
+    if (manualEndRef.current) {
+      userPausedRef.current = true;
+      trackChangeUntilRef.current = 0;
+      getActivePlayer()?.pauseVideo?.();
+      dispatch(playPause(false));
+      return;
+    }
     const extras = await extendQueueRef.current();
     const next = getNextVideo() || extras[0];
     if (next) {
@@ -2003,10 +2058,10 @@ function YouTubePlayer() {
   playNextOrContinueRef.current = playNextOrContinue;
 
   useEffect(() => {
-    if (!video?.id || isJamGuest || repeat) return;
+    if (!video?.id || isJamGuest || repeat || queueManualEnd) return;
     if (remainingAfterCurrent() > 2) return;
     void extendQueueRef.current();
-  }, [isJamGuest, video?.id, safeQueue.length, repeat]);
+  }, [isJamGuest, video?.id, safeQueue.length, repeat, queueManualEnd]);
 
   const searchForQueueTracks = async () => {
     const query = addQuery.trim();
@@ -2198,6 +2253,7 @@ function YouTubePlayer() {
 
   const handlePlayPause = () => {
     if (isJamGuestRef.current) return;
+    if (sleep.check()) return;
     abortCrossfade();
     cancelFade();
     const player = getActivePlayer();
@@ -2451,25 +2507,34 @@ function YouTubePlayer() {
         : [],
     });
     navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
-    try {
-      navigator.mediaSession.setActionHandler("play", () => {
-        userPausedRef.current = false;
-        dispatch(playPause(true));
-        resumePlayer(getActivePlayer());
-      });
-      navigator.mediaSession.setActionHandler("pause", () => {
-        userPausedRef.current = true;
-        dispatch(playPause(false));
-        getActivePlayer()?.pauseVideo?.();
-      });
-      navigator.mediaSession.setActionHandler("previoustrack", handlePrev);
-      navigator.mediaSession.setActionHandler("nexttrack", handleNext);
-      navigator.mediaSession.setActionHandler("seekbackward", () => seekBy(-10));
-      navigator.mediaSession.setActionHandler("seekforward", () => seekBy(10));
-    } catch (error) {
-      // Some browsers reject individual handlers.
-    }
-    return undefined;
+    const setAction = (action, handler) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch {}
+    };
+    setAction("play", () => {
+      if (isJamGuestRef.current || sleep.check()) return;
+      userPausedRef.current = false;
+      dispatch(playPause(true));
+      resumePlayer(getActivePlayer());
+    });
+    setAction("pause", () => {
+      if (isJamGuestRef.current) return;
+      userPausedRef.current = true;
+      dispatch(playPause(false));
+      getActivePlayer()?.pauseVideo?.();
+    });
+    setAction("previoustrack", handlePrev);
+    setAction("nexttrack", handleNext);
+    setAction("seekbackward", (details) => seekBy(-(details?.seekOffset || 10)));
+    setAction("seekforward", (details) => seekBy(details?.seekOffset || 10));
+    setAction("seekto", (details) => {
+      if (Number.isFinite(details?.seekTime)) seekOnCurrentTrack(details.seekTime);
+    });
+    return () => {
+      ["play", "pause", "previoustrack", "nexttrack", "seekbackward", "seekforward", "seekto"]
+        .forEach((action) => setAction(action, null));
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video, isPlaying]);
 
@@ -2519,6 +2584,22 @@ function YouTubePlayer() {
   const currentQueueIndex = safeQueue.findIndex((item) => item.id === video.id);
   const upcoming = currentQueueIndex === -1 ? safeQueue : safeQueue.slice(currentQueueIndex + 1);
   const showDesktopQueue = showQueue && !compactFullscreen;
+  const queueControls = {
+    track: video, queue: safeQueue, disabled: isJamGuest, onSelect: playQueueItem,
+    canUndoQueue: Boolean(queueUndo),
+    onQueueEdit: (edit) => {
+      if (isJamGuest) return;
+      if (edit.kind === "clear") { manualEndRef.current = true; setRepeat(false); }
+      dispatch(editQueue({ ...edit, now: Date.now() }));
+    },
+    onQueueUndo: () => { if (!isJamGuest) dispatch(undoQueueEdit({ now: Date.now() })); },
+    onSaveQueue: status === "authenticated" ? async (name) => {
+      const result = await createPlaylist(name, { songs: safeQueue.map((track) => track.id) });
+      if (!result?.success) throw new Error(result?.message || "Playlist could not be saved.");
+      window.dispatchEvent(new Event("heykasa:playlists-changed"));
+    } : undefined,
+  };
+  const sleepControl = <SleepTimerControl timer={sleep.timer} onChange={sleep.change} disabled={Boolean(jam?.code)} />;
 
   const toggleSheetTab = (tab) => {
     if (mobileSheet && sheetTab === tab) {
@@ -2582,6 +2663,9 @@ function YouTubePlayer() {
         onPlayPause={handlePlayPause} onPrevious={handlePrev} onNext={() => handleNext()}
         onSeek={seekOnCurrentTrack} favourite={<FavouriteTrackButton track={video} className="!h-12 !w-12" />}
         volume={<PlayerVolume />} queue={safeQueue} onSelect={playQueueItem}
+        onQueueEdit={queueControls.onQueueEdit} onQueueUndo={queueControls.onQueueUndo}
+        canUndoQueue={queueControls.canUndoQueue} onSaveQueue={queueControls.onSaveQueue}
+        sleepControl={sleepControl}
         trackActions={<AddToPlaylistButton track={video} className="!h-12 !w-12" />}
         queueSearch={<div className="mb-4 border-b border-white/10 pb-4">
           <form onSubmit={handleAddSearch} className="flex gap-2">
@@ -2787,24 +2871,7 @@ function YouTubePlayer() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {sheetTab === "queue" ? (
-              <div>
-                {safeQueue.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Queue is empty.</p>}
-                {safeQueue.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => playQueueItem(item)}
-                    disabled={isJamGuest}
-                    className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 ${item.id === video.id ? "bg-white/10" : ""}`}
-                  >
-                    <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-11 w-11 rounded object-cover" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-white">{item.title}</p>
-                      <p className="truncate text-xs text-gray-400">{item.channel}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <div className="px-4 pb-6"><QueueEditor {...queueControls} />{sleepControl}</div>
             ) : syncedLyrics === false ? (
               <p className="px-4 py-6 text-center text-sm text-gray-400">Live lyrics are turned off in Settings.</p>
             ) : (
@@ -2824,10 +2891,7 @@ function YouTubePlayer() {
         <div className="yt-queue-panel">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
-            {upcoming.slice(0, 12).map((item) => (
-              <button key={item.id} type="button" onClick={() => playQueueItem(item)} disabled={isJamGuest} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"><img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
-            ))}
+            <QueueEditor {...queueControls} />{sleepControl}
           </div>
         </div>
       )}

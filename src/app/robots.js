@@ -12,17 +12,13 @@ export default function robots() {
           "/reset-password/",
           "/login",
           "/signup",
+          "/verify-email/",
+          "/settings",
+          "/following",
+          "/library/",
+          "/jam/",
+          "/arcade",
         ],
-      },
-      {
-        userAgent: "Googlebot",
-        allow: "/",
-        disallow: ["/api/", "/myPlaylists/", "/reset-password/"],
-      },
-      {
-        userAgent: "Bingbot",
-        allow: "/",
-        disallow: ["/api/", "/myPlaylists/", "/reset-password/"],
       },
       {
         // Block AI scrapers that don't drive any indexing benefit

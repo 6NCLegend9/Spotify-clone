@@ -35,7 +35,7 @@ export default function LikePlaylistButton({ playlist, onChange, className = "" 
     setLiked(nextLiked);
     setCount((value) => Math.max(0, value + (nextLiked ? 1 : -1)));
     setPending(true);
-    const response = await togglePlaylistLike(playlist._id);
+    const response = await togglePlaylistLike(playlist._id, nextLiked);
     setPending(false);
     if (!response?.success) {
       setLiked(previousLiked);

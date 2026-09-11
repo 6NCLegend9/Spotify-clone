@@ -9,19 +9,26 @@ import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
+import { accountOwner } from "@/utils/accountCache.mjs";
 
 const FOLLOWING_CACHE_KEY = "following";
 
 export default function FollowingPage() {
-  const { status } = useSession();
-  const cached = readNavCache(FOLLOWING_CACHE_KEY);
+  const { data: session, status } = useSession();
+  const owner = accountOwner(session, status);
+  return <AccountFollowing key={owner || status} status={status} owner={owner} />;
+}
+
+function AccountFollowing({ status, owner }) {
+  const cacheKey = `${FOLLOWING_CACHE_KEY}:${owner}`;
+  const cached = owner ? readNavCache(cacheKey) : null;
   const [artists, setArtists] = useState(() => cached ?? []);
   const [loading, setLoading] = useState(() => !cached);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (status === "loading") {
-      if (!readNavCache(FOLLOWING_CACHE_KEY)) setLoading(true);
+    if (!owner) {
+      setLoading(true);
       return undefined;
     }
     if (status !== "authenticated") {
@@ -32,7 +39,7 @@ export default function FollowingPage() {
     const controller = new AbortController();
     let active = true;
     const load = async () => {
-      if (!readNavCache(FOLLOWING_CACHE_KEY)) setLoading(true);
+      if (!readNavCache(cacheKey)) setLoading(true);
       setError(null);
       try {
         const json = await requestJson("/api/followedArtists", {
@@ -52,10 +59,10 @@ export default function FollowingPage() {
           };
         });
         setArtists(merged);
-        writeNavCache(FOLLOWING_CACHE_KEY, merged);
+        writeNavCache(cacheKey, merged);
       } catch (loadError) {
         if (active && !controller.signal.aborted) {
-          if (!readNavCache(FOLLOWING_CACHE_KEY)) {
+          if (!readNavCache(cacheKey)) {
             setError(
               toUserError(loadError, {
                 title: "Following unavailable",
@@ -73,13 +80,13 @@ export default function FollowingPage() {
       active = false;
       controller.abort();
     };
-  }, [status]);
+  }, [status, owner, cacheKey]);
 
   // Repair legacy follows saved with only a name: resolve the channel (id + avatar) so
   // the card shows a real image and links to the artist channel, then persist the fix.
   const backfilledRef = useRef(new Set());
   useEffect(() => {
-    if (status !== "authenticated") return undefined;
+    if (status !== "authenticated" || !owner) return undefined;
     const pending = artists
       .filter(
         (artist) =>
@@ -102,7 +109,7 @@ export default function FollowingPage() {
             const match = Array.isArray(search?.results)
               ? search.results.find((result) => result?.id)
               : null;
-            if (!match) return null;
+            if (!match || cancelled) return null;
             const channelId = typeof match.id === "string" ? match.id : "";
             const thumbnail = typeof match.thumbnail === "string" ? match.thumbnail : "";
             if (!channelId && !thumbnail) return null;
@@ -136,7 +143,7 @@ export default function FollowingPage() {
     return () => {
       cancelled = true;
     };
-  }, [artists, status]);
+  }, [artists, status, owner]);
 
   const hrefFor = (artist) =>
     artist.channelId

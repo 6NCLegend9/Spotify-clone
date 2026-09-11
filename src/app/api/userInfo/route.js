@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import User from "@/models/User";
-import dbConnect from "@/utils/dbconnect";
-import { tokenOptions } from "@/utils/authToken";
+import { getSessionUser } from "@/utils/sessionAuth";
 import { apiError, handleApiError } from "@/utils/apiResponse";
 
 export const runtime = "nodejs";
@@ -11,16 +8,9 @@ export const maxDuration = 15;
 // Get user info
 export async function GET(req){
     try {
-        const token = await getToken(tokenOptions(req));
-        if (!token?.email) {
-            return apiError("UNAUTHORIZED", { message: "Log in to view your profile." });
-        }
-        await dbConnect();
-        const user = await User.findOne({ email: token.email })
-            .select("userName email imageUrl isVerified")
-            .lean();
+        const user = await getSessionUser(req);
         if (!user) {
-            return apiError("NOT_FOUND", { message: "Your profile is no longer available." });
+            return apiError("UNAUTHORIZED", { message: "Log in to view your profile." });
         }
         return NextResponse.json(
             {
@@ -32,7 +22,8 @@ export async function GET(req){
                     imageUrl: user.imageUrl,
                     isVerified: user.isVerified
                 }
-            }
+            },
+            { headers: { "Cache-Control": "private, no-store" } },
         );
     } catch (e) {
         return handleApiError(e, "Load user profile");

@@ -6,6 +6,8 @@ import {
     readRequestJson,
 } from "@/utils/apiResponse";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import UserData from "@/models/UserData";
+import { boundedMembership, dateMapForMembers, mutateDocument } from "@/utils/documentMutation.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -55,35 +57,23 @@ export async function POST(request) {
                 message: "Too many favourite updates. Please slow down.",
             });
         }
-        const { id } = await readRequestJson(request);
+        const { id, liked } = await readRequestJson(request);
+        if (liked !== undefined && typeof liked !== "boolean") return apiError("VALIDATION_ERROR");
         if (typeof id !== "string" || !YOUTUBE_ID_PATTERN.test(id)) {
             return apiError("VALIDATION_ERROR", {
                 message: "A valid YouTube track is required",
             });
         }
-        const favourites = Array.isArray(userData.favourites) ? userData.favourites : [];
-        if (favourites.includes(id)) {
-            userData.favourites = favourites.filter((songId) => songId !== id);
-            userData.favouriteAddedAt?.delete(id);
-        } else {
-            userData.favourites = [
-                ...favourites,
-                id,
-            ].slice(-MAX_FAVOURITES);
-            userData.favouriteAddedAt?.set(id, new Date());
-            const retained = new Set(userData.favourites);
-            for (const favouriteId of userData.favouriteAddedAt?.keys() || []) {
-                if (!retained.has(favouriteId)) {
-                    userData.favouriteAddedAt.delete(favouriteId);
-                }
-            }
-        }
-        await userData.save();
+        const updated = await mutateDocument(UserData, userData._id, (current) => {
+            const enabled = liked ?? !(current.favourites || []).includes(id);
+            const favourites = boundedMembership(current.favourites, id, enabled, MAX_FAVOURITES);
+            return { favourites, favouriteAddedAt: dateMapForMembers(favourites, current.favouriteAddedAt, enabled ? id : null) };
+        });
         return NextResponse.json(
             {
                 success: true,
                 message: "Favourites updated",
-                data: favouritePayload(userData),
+                data: favouritePayload(updated),
             }
         );
 

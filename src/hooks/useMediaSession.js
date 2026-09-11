@@ -54,7 +54,7 @@ function hasMediaSession() {
  * @param {MediaSessionOptions} [options]
  */
 export default function useMediaSession(options = {}) {
-  const { metadata, isPlaying, enabled = true, seekOffset = 10 } = options;
+  const { metadata, isPlaying, enabled = true, bindActions = true, seekOffset = 10 } = options;
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -95,7 +95,7 @@ export default function useMediaSession(options = {}) {
   // Action handlers read the latest callbacks from a ref, so they only need to
   // be (re)bound when the feature is toggled on/off.
   useEffect(() => {
-    if (!enabled || !hasMediaSession()) return undefined;
+    if (!enabled || !bindActions || !hasMediaSession()) return undefined;
     const session = navigator.mediaSession;
 
     const setHandler = (action, handler) => {
@@ -123,10 +123,8 @@ export default function useMediaSession(options = {}) {
     return () => {
       MEDIA_ACTIONS.forEach((action) => setHandler(action, null));
     };
-  }, [enabled, seekOffset]);
+  }, [enabled, bindActions, seekOffset]);
 
-  // Mirror progress so the lock screen shows an accurate scrub bar and the OS
-  // can keep the audio session alive while the page is backgrounded.
   const position = options.position;
   const duration = Number.isFinite(position?.duration) ? position.duration : 0;
   const positionSec = Number.isFinite(position?.position) ? position.position : 0;

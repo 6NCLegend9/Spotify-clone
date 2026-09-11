@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible playback, account, or interface problem.
+body:
+  - type: markdown
+    attributes:
+      value: Do not include passwords, tokens, email addresses, listening history, or private playlist links. Review diagnostic reports before attaching them.
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include expected and actual behavior, and whether it repeats after a reload.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Device, OS, browser and version
+      placeholder: Android / Chrome, browser tab or installed app
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Playback source
+      options:
+        - YouTube
+        - Native audio
+        - Not related to playback
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics and release version
+      description: Optional report from Settings > Support diagnostics. For lock-screen issues, include lock duration and whether OS Play resumed the track.

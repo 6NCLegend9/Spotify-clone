@@ -1,12 +1,10 @@
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import Tag, { TAG_CATEGORIES } from "@/models/Tag";
-import User from "@/models/User";
 import UserData from "@/models/UserData";
 import { ensureSystemTags, toCatalogItem } from "@/services/genreCatalog";
 import { normalizeGenreName, slugifyGenre } from "@/utils/genreTaxonomy";
-import { tokenOptions } from "@/utils/authToken";
+import { getSessionUser as authenticatedUser } from "@/utils/sessionAuth";
 import dbConnect from "@/utils/dbconnect";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
@@ -25,13 +23,6 @@ function matchesQuery(tag, normalizedQuery) {
   if (!normalizedQuery) return true;
   return [tag.normalizedName, ...(tag.aliasKeys || [])]
     .some((value) => value.includes(normalizedQuery));
-}
-
-async function authenticatedUser(request) {
-  const token = await getToken(tokenOptions(request));
-  if (!token?.email) return null;
-  await dbConnect();
-  return User.findOne({ email: token.email }).select("_id userData").lean();
 }
 
 export const runtime = "nodejs";
@@ -62,7 +53,7 @@ export async function GET(request) {
       .slice(0, MAX_SEARCH_RESULTS)
       .map((tag) => ({ ...toCatalogItem(tag, locale), category: tag.category }));
 
-    return NextResponse.json({ tags });
+    return NextResponse.json({ tags }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return handleApiError(error, "Load tags");
   }

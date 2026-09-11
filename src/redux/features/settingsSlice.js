@@ -20,6 +20,7 @@ const initialState = {
   monoAudio: false,
   explicitContent: false,
   privateSession: false,
+  listeningInsights: false,
   syncedLyrics: true,
   pictureInPicture: true,
   masterVolume: 0.85,
@@ -28,6 +29,7 @@ const initialState = {
   fadeEnabled: true,
   fadeSeconds: 0.8,
   spatialAudio: false,
+  owner: null,
 };
 
 const settingsSlice = createSlice({
@@ -36,7 +38,7 @@ const settingsSlice = createSlice({
   reducers: {
     updateSetting: (state, action) => {
       const { key, value } = action.payload;
-      if (key in initialState) state[key] = value;
+      if (key in initialState && key !== "owner") state[key] = value;
       if (key === "eqPreset" && value !== "Custom" && EQ_PRESET_BANDS[value]) {
         state.eqBands = EQ_PRESET_BANDS[value];
       }
@@ -45,12 +47,23 @@ const settingsSlice = createSlice({
       state.eqBands = action.payload;
       state.eqPreset = "Custom";
     },
+    setSettingsOwner: (state, action) => {
+      if (state.owner === action.payload) return;
+      return {
+        ...initialState,
+        owner: action.payload,
+        masterVolume: state.masterVolume,
+        keyboardShortcuts: state.keyboardShortcuts,
+        captions: state.captions,
+      };
+    },
     hydrateSettings: (state, action) => {
       const payload = action.payload || {};
       const next = {
         ...initialState,
         ...state,
         ...payload,
+        owner: state.owner,
         transitionMode: "off",
         crossfadeSeconds: 0,
         keyboardShortcuts:
@@ -71,5 +84,5 @@ const settingsSlice = createSlice({
   },
 });
 
-export const { updateSetting, updateEqBands, hydrateSettings } = settingsSlice.actions;
+export const { updateSetting, updateEqBands, hydrateSettings, setSettingsOwner } = settingsSlice.actions;
 export default settingsSlice.reducer;

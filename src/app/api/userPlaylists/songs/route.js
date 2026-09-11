@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { getToken } from "next-auth/jwt";
-import User from "@/models/User";
 import dbConnect from "@/utils/dbconnect";
 import Playlist from "@/models/Playlist";
-import { tokenOptions } from "@/utils/authToken";
+import { getSessionUser } from "@/utils/sessionAuth";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
     ApiRouteError,
@@ -13,19 +11,14 @@ import {
     readRequestJson,
 } from "@/utils/apiResponse";
 import { serializePlaylist } from "@/utils/playlistThemes";
+import { canEditPlaylist, canViewPlaylist } from "@/utils/playlistAccess.mjs";
+import { boundedMembership, dateMapForMembers, mutateDocument } from "@/utils/documentMutation.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const MAX_PLAYLIST_SONGS = 500;
-
-function canEditPlaylist(playlist, user) {
-    if (!user) return false;
-    const userId = user._id.toString();
-    return playlist.user.toString() === userId ||
-        playlist.collaborators?.some((id) => id.toString() === userId);
-}
 
 function requirePlaylistId(value) {
     if (typeof value !== "string" || !mongoose.isObjectIdOrHexString(value)) {
@@ -44,18 +37,9 @@ function requireYoutubeId(value) {
 }
 
 async function resolveUser(req, required = true) {
-    const token = await getToken(tokenOptions(req));
-    if (!token?.email) {
-        if (required) {
-            throw new ApiRouteError("UNAUTHORIZED", { message: "User not logged in" });
-        }
-        return null;
-    }
-
-    await dbConnect();
-    const user = await User.findOne({ email: token.email });
-    if (!user) {
-        throw new ApiRouteError("NOT_FOUND", { message: "User not found" });
+    const user = await getSessionUser(req);
+    if (!user && required) {
+        throw new ApiRouteError("UNAUTHORIZED", { message: "User not logged in" });
     }
     return user;
 }
@@ -78,30 +62,11 @@ export async function POST(req){
         const playlistID = requirePlaylistId(body.playlistID);
         const song = requireYoutubeId(body.song);
         await dbConnect();
-        const playlist = await Playlist.findById(playlistID);
-        if (!playlist) {
-            return apiError("NOT_FOUND", { message: "Playlist not found" });
-        }
-        if (!canEditPlaylist(playlist, user)) {
-            return apiError("FORBIDDEN", {
-                message: "You don't have permission to change this playlist.",
-            });
-        }
-        // check if song already exists in playlist
-        const songExists = playlist.songs.find((s) => s === song);
-        if (songExists) {
-            return apiError("CONFLICT", {
-                message: "Song already exists in playlist",
-            });
-        }
-        if (playlist.songs.length >= MAX_PLAYLIST_SONGS) {
-            return apiError("VALIDATION_ERROR", {
-                message: `A playlist can contain up to ${MAX_PLAYLIST_SONGS} songs`,
-            });
-        }
-        playlist.songs.push(song);
-        playlist.songAddedAt?.set(song, new Date());
-        await playlist.save();
+        await mutateDocument(Playlist, playlistID, (current) => {
+            if (!canEditPlaylist(current, user)) throw new ApiRouteError("FORBIDDEN");
+            const songs = boundedMembership(current.songs, song, true, MAX_PLAYLIST_SONGS);
+            return { songs, songAddedAt: dateMapForMembers(songs, current.songAddedAt, song) };
+        }, { $or: [{ user: user._id }, { collaborators: user._id }] });
         return NextResponse.json(
             {
                 success: true,
@@ -134,25 +99,11 @@ export async function DELETE(req){
         const playlistID = requirePlaylistId(body.playlistID);
         const song = requireYoutubeId(body.song);
         await dbConnect();
-        const playlist = await Playlist.findById(playlistID);
-        if (!playlist) {
-            return apiError("NOT_FOUND", { message: "Playlist not found" });
-        }
-        if (!canEditPlaylist(playlist, user)) {
-            return apiError("FORBIDDEN", {
-                message: "You don't have permission to change this playlist.",
-            });
-        }
-        // check if song exists in playlist
-        const songExists = playlist.songs.find((s) => s === song);
-        if (!songExists) {
-            return apiError("NOT_FOUND", {
-                message: "Song does not exist in playlist",
-            });
-        }
-        playlist.songs = playlist.songs.filter((songId) => songId !== song);
-        playlist.songAddedAt?.delete(song);
-        await playlist.save();
+        const playlist = await mutateDocument(Playlist, playlistID, (current) => {
+            if (!canEditPlaylist(current, user)) throw new ApiRouteError("FORBIDDEN");
+            const songs = boundedMembership(current.songs, song, false, MAX_PLAYLIST_SONGS);
+            return { songs, songAddedAt: dateMapForMembers(songs, current.songAddedAt) };
+        }, { $or: [{ user: user._id }, { collaborators: user._id }] });
         return NextResponse.json(
             {
                 success: true,
@@ -178,7 +129,7 @@ export async function GET(req){
         if (!playlist) {
             return apiError("NOT_FOUND", { message: "Playlist not found" });
         }
-        if (playlist.visibility !== "public" && !canEditPlaylist(playlist, user)) {
+        if (!canViewPlaylist(playlist, user)) {
             const code = user ? "FORBIDDEN" : "UNAUTHORIZED";
             return apiError(code, {
                 message: user

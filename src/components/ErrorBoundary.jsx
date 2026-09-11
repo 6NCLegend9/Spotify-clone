@@ -2,6 +2,7 @@
 
 import { Component } from "react";
 import Link from "next/link";
+import { recordDiagnostic } from "@/utils/diagnostics.mjs";
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -14,7 +15,7 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error) {
-    console.error(`${this.props.name || "UI"} boundary:`, error?.message || "Unknown render error");
+    recordDiagnostic("render_error", { code: "INTERNAL_ERROR" });
   }
 
   reset = () => {

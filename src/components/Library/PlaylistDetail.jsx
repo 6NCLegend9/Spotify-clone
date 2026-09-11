@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -55,6 +55,7 @@ import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
+import { accountOwner } from "@/utils/accountCache.mjs";
 
 function cleanText(value = "") {
   return cleanTitle(value);
@@ -124,13 +125,18 @@ function AccessGate() {
 }
 
 export default function PlaylistDetail({ kind, playlistId }) {
+  const { data: session, status } = useSession();
+  const owner = accountOwner(session, status);
+  return <AccountPlaylistDetail key={`${owner || status}:${kind}:${playlistId || ""}`} kind={kind} playlistId={playlistId} session={session} status={status} owner={owner} />;
+}
+
+function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const isLiked = kind === "liked";
   const router = useRouter();
   const dispatch = useDispatch();
-  const { data: session, status } = useSession();
   const { youtubeVideo, autoAdd } = useSelector((state) => state.player);
-  const cacheKey = isLiked ? "liked" : `playlist:${playlistId || ""}`;
-  const cached = readNavCache(cacheKey);
+  const cacheKey = `${isLiked ? "liked" : `playlist:${playlistId || ""}`}:${owner}`;
+  const cached = owner ? readNavCache(cacheKey) : null;
   const [collection, setCollection] = useState(() => cached?.collection ?? null);
   const [tracks, setTracks] = useState(() => cached?.tracks ?? []);
   const [recommendations, setRecommendations] = useState([]);
@@ -146,9 +152,15 @@ export default function PlaylistDetail({ kind, playlistId }) {
   const [smartShuffle, setSmartShuffle] = useState(isLiked && autoAdd);
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState(null);
+  const live = useRef(true);
 
   useEffect(() => {
-    if (status === "loading") return;
+    live.current = true;
+    return () => { live.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!owner) return;
     if (isLiked && status === "unauthenticated") {
       setLoading(false);
       return;
@@ -202,7 +214,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
     return () => {
       active = false;
     };
-  }, [cacheKey, isLiked, playlistId, refreshKey, status]);
+  }, [cacheKey, isLiked, playlistId, refreshKey, status, owner]);
 
   useEffect(() => {
     if (isLiked) setSmartShuffle(autoAdd);
@@ -267,6 +279,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
 
   const playTrack = async (track) => {
     const queue = seedTracks(await createQueue());
+    if (!live.current) return;
     dispatch(setYoutubeQueue(queue));
     dispatch(setYoutubeVideo({
       ...track,
@@ -278,6 +291,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
   const playCollection = async () => {
     if (tracks.length === 0) return;
     const queue = seedTracks(await createQueue());
+    if (!live.current) return;
     dispatch(setYoutubeQueue(queue));
     dispatch(setYoutubeVideo(queue[0]));
   };
@@ -298,6 +312,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
     if (nextValue) fetchSmartRecommendations();
     if (!isLiked && isOwner) {
       const response = await updatePlaylist(playlistId, "smartShuffle", nextValue);
+      if (!live.current) return;
       if (!response?.success) {
         setSmartShuffle(!nextValue);
         dispatch(setAutoAdd(!nextValue));
@@ -315,6 +330,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
   const updateSetting = async (action, value) => {
     setSaving(true);
     const response = await updatePlaylist(playlistId, action, value);
+    if (!live.current) return;
     if (response?.success) {
       setActionError(null);
       if (response.data?.playlist) setCollection(response.data.playlist);
@@ -334,6 +350,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
     if (!collaboratorEmail.trim()) return;
     setSaving(true);
     const response = await updatePlaylist(playlistId, "addCollaborator", collaboratorEmail);
+    if (!live.current) return;
     if (response?.success) {
       setActionError(null);
       if (response.data?.playlist) setCollection(response.data.playlist);
@@ -351,7 +368,22 @@ export default function PlaylistDetail({ kind, playlistId }) {
 
   const removeTrack = async (track) => {
     const previousTracks = tracks;
-    const previousCollection = collection;
+    const previousIndex = tracks.findIndex((item) => item.id === track.id);
+    const previousSongIndex = collection?.songs?.indexOf(track.id) ?? -1;
+    const restoreTrack = () => {
+      setTracks((current) => {
+        if (current.some((item) => item.id === track.id)) return current;
+        const next = [...current];
+        next.splice(Math.min(Math.max(0, previousIndex), next.length), 0, previousTracks[previousIndex] || track);
+        return next;
+      });
+      if (!isLiked) setCollection((current) => {
+        if (!current || (current.songs || []).includes(track.id)) return current;
+        const songs = [...(current.songs || [])];
+        songs.splice(Math.min(Math.max(0, previousSongIndex), songs.length), 0, track.id);
+        return { ...current, songs };
+      });
+    };
     setTracks((current) => current.filter((item) => item.id !== track.id));
     if (!isLiked) {
       setCollection((current) => current ? ({
@@ -363,9 +395,10 @@ export default function PlaylistDetail({ kind, playlistId }) {
     }
 
     if (isLiked) {
-      const response = await addFavourite({ id: track.id });
+      const response = await addFavourite({ id: track.id, liked: false });
+      if (!live.current) return;
       if (!response?.success) {
-        setTracks(previousTracks);
+        restoreTrack();
         reportMutationError(response, {
           title: "Liked Songs not updated",
           message: "We couldn’t update your Liked Songs. Please try again.",
@@ -376,13 +409,13 @@ export default function PlaylistDetail({ kind, playlistId }) {
       const nextFavourites = Array.isArray(response.data?.favourites)
         ? response.data.favourites
         : [];
-      window.dispatchEvent(new CustomEvent("favourites-changed", { detail: nextFavourites }));
+      window.dispatchEvent(Object.assign(new CustomEvent("favourites-changed", { detail: nextFavourites }), { accountOwner: owner }));
       return;
     }
     const response = await deleteSongFromPlaylist(playlistId, track.id);
+    if (!live.current) return;
     if (!response?.success) {
-      setTracks(previousTracks);
-      setCollection(previousCollection);
+      restoreTrack();
       reportMutationError(response, {
         title: "Song not removed",
         message: "We couldn’t remove that song. Please try again.",
@@ -396,6 +429,7 @@ export default function PlaylistDetail({ kind, playlistId }) {
   const removePlaylist = async () => {
     setSaving(true);
     const response = await deletePlaylist(playlistId);
+    if (!live.current) return;
     if (response?.success) {
       setActionError(null);
       toast.success("Playlist deleted");

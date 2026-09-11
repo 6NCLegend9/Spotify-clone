@@ -327,6 +327,7 @@ const MusicPlayer = () => {
 
   useMediaSession({
     enabled: canControl,
+    bindActions: false,
     isPlaying,
     seekOffset: 10,
     metadata: youtubeVideo
@@ -398,7 +399,7 @@ const MusicPlayer = () => {
     setFavouriteSongs(optimisticSongs);
 
     try {
-      const res = await addFavourite({ id: favsong.id });
+      const res = await addFavourite({ id: favsong.id, liked: !wasFavourite });
       if (!res?.success) {
         setFavouriteSongs(previousSongs);
         setFavouriteFeedback({
@@ -554,6 +555,7 @@ const MusicPlayer = () => {
             />
             <Player
               activeSong={activeSong}
+              showTimer={fullScreen}
               volume={volume}
               isPlaying={isPlaying}
               seekTime={seekTime}

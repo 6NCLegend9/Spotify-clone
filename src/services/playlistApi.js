@@ -92,10 +92,10 @@ export async function updatePlaylist(playlistId, action, value) {
   );
 }
 
-export async function togglePlaylistLike(playlistId) {
+export async function togglePlaylistLike(playlistId, liked) {
   return playlistRequest(
     "/api/userPlaylists/like",
-    { method: "POST", body: { playlistId } },
+    { method: "POST", body: { playlistId, ...(typeof liked === "boolean" ? { liked } : {}) } },
     {
       title: "Like not updated",
       message: "We couldn’t update that playlist like. Please try again.",

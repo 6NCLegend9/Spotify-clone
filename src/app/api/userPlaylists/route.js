@@ -20,6 +20,7 @@ import {
 } from "@/utils/playlistThemes";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 import { youtubeFetch } from "@/utils/youtubeApi";
+import { canViewPlaylist, libraryPlaylistFilter } from "@/utils/playlistAccess.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -121,35 +122,30 @@ export async function POST(req){
             });
         }
 
-        let songs = [];
+        if (body.songs !== undefined && (!Array.isArray(body.songs) || body.songs.length > 500
+            || body.songs.some((id) => typeof id !== "string" || !YOUTUBE_ID_PATTERN.test(id)))) {
+            return apiError("VALIDATION_ERROR", { message: "A queue can contain up to 500 valid tracks." });
+        }
+        let songs = [...new Set(body.songs || [])];
         const songAddedAt = {};
-        if (autoFill) {
+        if (autoFill && !songs.length) {
             songs = await fetchGenreSongIds(category, AUTO_FILL_SONG_COUNT).catch(() => []);
-            const now = new Date();
-            songs.forEach((id) => {
-                songAddedAt[id] = now;
-            });
         }
+        const now = new Date();
+        songs.forEach((id) => { songAddedAt[id] = now; });
 
-        const playlist = await Playlist.create({
-            name,
-            user: user._id,
-            category,
-            subgenre,
-            coverImage,
-            songs,
-            songAddedAt,
+        let playlist;
+        await User.db.transaction(async (session) => {
+            const profile = await UserData.findById(userData._id).session(session);
+            if (!profile) throw new ApiRouteError("NOT_FOUND");
+            if ((profile.playlists || []).length >= MAX_USER_PLAYLISTS) {
+                throw new ApiRouteError("VALIDATION_ERROR", { message: `You can create up to ${MAX_USER_PLAYLISTS} playlists` });
+            }
+            [playlist] = await Playlist.create([{ name, user: user._id, category, subgenre, coverImage, songs, songAddedAt }], { session });
+            await UserData.updateOne({ _id: profile._id }, {
+                $set: { playlists: [...(profile.playlists || []), playlist._id] }, $inc: { __v: 1 },
+            }, { session });
         });
-        if (!Array.isArray(userData.playlists)) {
-            userData.playlists = [];
-        }
-        userData.playlists.push(playlist._id);
-        try {
-            await userData.save();
-        } catch (error) {
-            await Playlist.deleteOne({ _id: playlist._id }).catch(() => {});
-            throw error;
-        }
         return NextResponse.json(
             {
                 success: true,
@@ -189,11 +185,17 @@ export async function DELETE(req){
                 message: "You are not authorized to delete this playlist",
             });
         }
-        await Playlist.deleteOne({ _id: playlistId });
-        await UserData.updateMany(
-            { $or: [{ playlists: playlistId }, { likedPlaylists: playlistId }] },
-            { $pull: { playlists: playlistId, likedPlaylists: playlistId } },
-        );
+        await User.db.transaction(async (session) => {
+            const current = await Playlist.findById(playlistId).session(session);
+            if (!current) throw new ApiRouteError("NOT_FOUND");
+            if (String(current.user) !== String(user._id)) throw new ApiRouteError("FORBIDDEN");
+            await Playlist.deleteOne({ _id: playlistId }, { session });
+            await UserData.updateMany(
+                { $or: [{ playlists: playlistId }, { likedPlaylists: playlistId }] },
+                { $pull: { playlists: { $in: [playlistId] }, likedPlaylists: { $in: [playlistId] } }, $inc: { __v: 1 } },
+                { session },
+            );
+        });
         return NextResponse.json(
             {
                 success: true,
@@ -316,13 +318,7 @@ export async function PATCH(req){
 export async function GET(req){
     try {
         const { user, userData } = await getAuthenticatedAccount(req);
-        const playlists = await Playlist.find({
-            $or: [
-                { _id: { $in: userData.playlists || [] } },
-                { _id: { $in: userData.likedPlaylists || [] } },
-                { collaborators: user._id }
-            ]
-        })
+        const playlists = await Playlist.find(libraryPlaylistFilter(user._id, userData.likedPlaylists))
             .populate("user", "userName imageUrl")
             .populate("collaborators", "userName imageUrl")
             .sort({ updatedAt: -1 });
@@ -331,9 +327,11 @@ export async function GET(req){
                 success: true,
                 message: "Playlists fetched",
                 data: {
-                    playlists: playlists.map((playlist) => serializePlaylist(playlist, user._id))
+                    playlists: playlists.filter((playlist) => canViewPlaylist(playlist, user._id))
+                        .map((playlist) => serializePlaylist(playlist, user._id))
                 }
-            }
+            },
+            { headers: { "Cache-Control": "private, no-store" } },
         );
 
     } catch (e) {

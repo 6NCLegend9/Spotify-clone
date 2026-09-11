@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch, searchChannelsViaInnertube } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
+import { readSearchOptions } from "@/utils/searchOptions.mjs";
 import {
   apiError,
   handleApiError,
@@ -70,16 +71,7 @@ async function searchChannels(query) {
 
 export async function GET(request) {
   try {
-    const query = request.nextUrl.searchParams.get("q")?.trim();
-    const type = request.nextUrl.searchParams.get("type") || "video";
-
-    if (!query) {
-      return apiError("VALIDATION_ERROR", { message: "A search query is required." });
-    }
-
-    if (query.length > 100 || !["video", "playlist", "channel"].includes(type)) {
-      return apiError("VALIDATION_ERROR", { message: "Invalid search parameters." });
-    }
+    const { query, type, order, duration, pageToken, requireOfficial } = readSearchOptions(new URL(request.url).searchParams);
 
     const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 30 });
     if (rateLimit.limited) {
@@ -100,20 +92,23 @@ export async function GET(request) {
       type,
       maxResults: type === "video" ? "20" : "12",
       q: type === "video" ? `${query} official audio` : query,
+      order,
+      ...(pageToken ? { pageToken } : {}),
     };
     if (type === "video") {
       params.videoCategoryId = "10";
       params.videoEmbeddable = "true";
       params.videoSyndicated = "true";
+      params.videoDuration = duration;
     }
 
-    const { ok, status, data } = type === "channel"
+    const { ok, status, data } = type === "channel" && !requireOfficial
       ? await searchChannels(query)
-      : await youtubeFetch("search", params, { next: { revalidate: 3600 } });
+      : await youtubeFetch("search", params, { next: { revalidate: 3600 }, requireOfficial });
 
     if (!ok) {
       return apiError(upstreamCode(status), {
-        message: "YouTube search failed.",
+        message: requireOfficial ? "These search filters or this page are temporarily unavailable. Try relevance without filters." : "YouTube search failed.",
       });
     }
 
@@ -136,12 +131,12 @@ export async function GET(request) {
         genre: query,
       }));
 
-    const rankedResults = type === "video"
-      ? rankVideoResults(results, query).slice(0, 12)
+    const rankedResults = type === "video" && order === "relevance"
+      ? rankVideoResults(results, query)
       : results;
 
     return NextResponse.json(
-      { results: rankedResults },
+      { results: rankedResults, nextPageToken: typeof data?.nextPageToken === "string" ? data.nextPageToken : "" },
       {
         headers: {
           "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",

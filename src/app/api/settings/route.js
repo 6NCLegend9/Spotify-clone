@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import UserData from "@/models/UserData";
-import { tokenOptions } from "@/utils/authToken";
 import { EQ_PRESET_BANDS } from "@/utils/eqPresets";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
@@ -18,12 +16,12 @@ export const maxDuration = 15;
 const allowedKeys = [
   "eqPreset", "eqBands", "dataSaver", "audioOnly",
   "wifiOnlyDownloads", "streamingQuality", "videoQuality", "normalization", "monoAudio", "explicitContent",
-  "privateSession", "syncedLyrics", "pictureInPicture", "masterVolume",
+  "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture", "masterVolume",
   "keyboardShortcuts", "captions", "fadeEnabled", "fadeSeconds", "spatialAudio",
 ];
 const booleanKeys = new Set([
   "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "explicitContent",
-  "privateSession", "syncedLyrics", "pictureInPicture",
+  "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture",
   "keyboardShortcuts", "captions", "fadeEnabled", "spatialAudio",
 ]);
 const enumValues = {
@@ -84,11 +82,11 @@ function validatedSettings(value) {
 
 export async function GET(request) {
   try {
-    const token = await getToken(tokenOptions(request));
-    if (!token?.email) return NextResponse.json({ authenticated: false, settings: null });
-
-    const { userData } = await getAuthenticatedAccount(request);
-    return NextResponse.json({ authenticated: true, settings: userData?.settings || null, genres: userData?.genres || [] });
+    const account = await getAuthenticatedAccount(request, { optional: true });
+    const headers = { "Cache-Control": "private, no-store" };
+    if (!account) return NextResponse.json({ authenticated: false, settings: null }, { headers });
+    const { userData } = account;
+    return NextResponse.json({ authenticated: true, settings: userData?.settings || null, genres: userData?.genres || [] }, { headers });
   } catch (error) {
     return handleApiError(error, "Load settings");
   }
@@ -112,7 +110,8 @@ export async function PUT(request) {
     const settings = validatedSettings(body.settings);
     const userData = await UserData.findByIdAndUpdate(
       accountData._id,
-      { $set: Object.fromEntries(Object.entries(settings).map(([key, value]) => [`settings.${key}`, value])) },
+      { $set: { ...Object.fromEntries(Object.entries(settings).map(([key, value]) => [`settings.${key}`, value])),
+        ...(settings.listeningInsights === false ? { listeningEvents: [] } : {}) }, $inc: { __v: 1 } },
       { new: true, runValidators: true },
     ).select("settings").lean();
     if (!userData) {

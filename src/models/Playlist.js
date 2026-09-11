@@ -7,8 +7,9 @@ const fileSchema = new mongoose.Schema(
         required: true
     },
     songs: {
-        type: Array,
-        default: []
+      type: [String],
+      default: [],
+      validate: (values) => values.length <= 500 && values.every((id) => /^[A-Za-z0-9_-]{11}$/.test(id)),
     },
     songAddedAt: {
         type: Map,
@@ -60,7 +61,7 @@ const fileSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true, toJSON: { flattenMaps: true } }
+  { timestamps: true, optimisticConcurrency: true, toJSON: { flattenMaps: true } }
 );
 
 export default mongoose.models.playlist || mongoose.model("playlist", fileSchema, "playlist");

@@ -3,8 +3,9 @@ import mongoose from "mongoose";
 const fileSchema = new mongoose.Schema(
     {
         favourites: {
-            type: Array,
-            default: []
+            type: [String],
+            default: [],
+            validate: (values) => values.length <= 500,
         },
         favouriteAddedAt: {
             type: Map,
@@ -18,6 +19,11 @@ const fileSchema = new mongoose.Schema(
         completedPlays: {
             type: [String],
             default: []
+        },
+        listeningEvents: {
+            type: [{ _id: false, eventId: String, id: String, event: String, startedAt: Number, endedAt: Number, listenedSeconds: Number }],
+            default: [],
+            validate: (values) => values.length <= 1000,
         },
         searches: {
             type: [String],
@@ -89,6 +95,7 @@ const fileSchema = new mongoose.Schema(
             type: [String],
             default: []
         },
+        snoozedUntil: { type: Map, of: Date, default: {} },
         explicitContent: {
             type: Boolean,
             default: false
@@ -105,6 +112,7 @@ const fileSchema = new mongoose.Schema(
             monoAudio: { type: Boolean, default: false },
             explicitContent: { type: Boolean, default: false },
             privateSession: { type: Boolean, default: false },
+            listeningInsights: { type: Boolean, default: false },
             syncedLyrics: { type: Boolean, default: true },
             pictureInPicture: { type: Boolean, default: true },
             masterVolume: { type: Number, min: 0, max: 1, default: 0.85 },

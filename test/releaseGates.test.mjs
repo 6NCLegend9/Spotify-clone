@@ -42,3 +42,14 @@ test("active UI does not link to legacy catalog routes", () => {
     `legacy /album or /playlist link found in: ${violations.join(", ")}`,
   );
 });
+
+test("public discovery does not advertise private libraries or fabricated freshness", () => {
+  const sitemap = readFileSync(join(projectRoot, "src/app/sitemap.js"), "utf8");
+  const searchMetadata = readFileSync(joinRoot("src/app/search/[query]/layout.js"), "utf8");
+  assert.equal(sitemap.includes("new Date()"), false);
+  assert.equal(sitemap.includes("/library"), false);
+  assert.equal(sitemap.includes("POPULAR_SEARCH_TERMS"), false);
+  assert.match(searchMetadata, /robots: \{ index: false, follow: true \}/);
+});
+
+function joinRoot(path) { return join(projectRoot, path); }

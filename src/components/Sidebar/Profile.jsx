@@ -7,11 +7,11 @@ import { MdLogout } from "react-icons/md";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useNav } from "../Layout/AppShell";
+import { accountOwner } from "@/utils/accountCache.mjs";
 
-const Profile = () => {
+const AccountProfile = ({ status, data }) => {
   const router = useRouter();
   const { setShowNav } = useNav();
-  const { status, data } = useSession();
   const [user, setUser] = useState(null);
   const [imageFailed, setImageFailed] = useState(false);
   const rawUserName = data?.user?.name || data?.userName || user?.userName;
@@ -125,6 +125,11 @@ const Profile = () => {
       </div>
     </div>
   );
+};
+
+const Profile = () => {
+  const { status, data } = useSession();
+  return <AccountProfile key={accountOwner(data, status) || status} status={status} data={data} />;
 };
 
 export default Profile;

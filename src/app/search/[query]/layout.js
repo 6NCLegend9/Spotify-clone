@@ -23,24 +23,18 @@ export async function generateMetadata({ params }) {
   const canonicalSlug = encodeURIComponent(normalized);
   const canonicalUrl = `${siteUrl}/search/${canonicalSlug}`;
 
-  // Empty / pathological queries shouldn't be indexed.
-  const indexable = normalized.length >= 2 && normalized.length <= 80;
-
   return {
-    title: `${display} - Songs, MP3 & Playlists`,
-    description: `Listen to ${display} songs online for free on ${SITE_NAME}. Download ${display} MP3 songs, albums, and playlists in high quality. Stream the latest and trending ${display} music.`,
+    title: `${display} - Music Search`,
+    description: `Search songs, artists and playlists matching ${display} on ${SITE_NAME}. Playback availability depends on the source.`,
     keywords: [
       normalized,
       `${normalized} songs`,
-      `${normalized} download`,
-      `${normalized} mp3`,
       `listen ${normalized} online`,
       `${normalized} music`,
-      "free music download",
       "stream songs",
     ],
     openGraph: {
-      title: `${display} - Songs, MP3 & Playlists | ${SITE_NAME}`,
+      title: `${display} - Music Search | ${SITE_NAME}`,
       description: `Listen to ${display} songs online for free. Stream ${display} songs and stream high quality music.`,
       url: canonicalUrl,
       siteName: SITE_NAME,
@@ -48,15 +42,13 @@ export async function generateMetadata({ params }) {
     },
     twitter: {
       card: "summary",
-      title: `${display} - Songs, MP3 & Playlists | ${SITE_NAME}`,
+      title: `${display} - Music Search | ${SITE_NAME}`,
       description: `Listen to ${display} songs online for free. Stream ${display} songs and stream high quality music.`,
     },
     alternates: {
       canonical: canonicalUrl,
     },
-    robots: indexable
-      ? { index: true, follow: true }
-      : { index: false, follow: true },
+    robots: { index: false, follow: true },
   };
 }
 

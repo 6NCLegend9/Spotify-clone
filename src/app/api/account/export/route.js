@@ -1,22 +1,21 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { tokenOptions } from "@/utils/authToken";
-import User from "@/models/User";
+import { getSessionUser } from "@/utils/sessionAuth";
 import UserData from "@/models/UserData";
 import Playlist from "@/models/Playlist";
-import dbConnect from "@/utils/dbconnect";
+import Genre from "@/models/Genre";
+import Tag from "@/models/Tag";
 import { apiError, handleApiError } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
+import { retainedListeningEvents } from "@/utils/listeningInsights.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function GET(request) {
   try {
-    const token = await getToken(tokenOptions(request));
-    const userEmail =
-      typeof token?.email === "string" ? token.email.trim().toLowerCase() : "";
-    if (!userEmail) return apiError("UNAUTHORIZED");
+    const user = await getSessionUser(request);
+    if (!user) return apiError("UNAUTHORIZED");
+    const userEmail = user.email;
 
     const rateLimit = await isRateLimited(`export-account:${userEmail}`, {
       windowMs: 60_000,
@@ -26,16 +25,15 @@ export async function GET(request) {
       return apiError("RATE_LIMITED", { retryAfter: rateLimit.retryAfter });
     }
 
-    await dbConnect();
-    const user = await User.findOne({ email: userEmail }).lean();
-    if (!user) return apiError("NOT_FOUND", { message: "Account not found." });
-
-    const [userData, playlists] = await Promise.all([
+    const [userData, playlists, personalGenres, personalTags] = await Promise.all([
       user.userData ? UserData.findById(user.userData).lean() : Promise.resolve(null),
       Playlist.find({ user: user._id }).lean(),
+      Genre.find({ scope: "personal", ownerId: user._id }).select("displayName parentId category createdAt updatedAt").lean(),
+      Tag.find({ scope: "personal", ownerId: user._id }).select("displayName category createdAt updatedAt").lean(),
     ]);
 
     const exportPayload = {
+      formatVersion: 2,
       exportedAt: new Date().toISOString(),
       account: {
         userName: user.userName,
@@ -50,28 +48,50 @@ export async function GET(request) {
             favourites: userData.favourites,
             favouriteAddedAt: userData.favouriteAddedAt,
             songHistory: userData.songHistory,
+            completedPlays: userData.completedPlays,
+            skippedTracks: userData.skippedTracks,
+            notInterested: userData.notInterested,
+            snoozedTracks: userData.snoozedTracks,
+            snoozedUntil: userData.snoozedUntil,
+            listeningEvents: retainedListeningEvents(userData.listeningEvents),
             searches: userData.searches,
             genres: userData.genres,
             tags: userData.tags,
             followedArtists: userData.followedArtists,
+            followedArtistsMeta: userData.followedArtistsMeta,
+            genreIds: userData.genreIds,
+            tagIds: userData.tagIds,
+            likedPlaylists: userData.likedPlaylists,
+            explicitContent: userData.explicitContent,
             language: userData.language,
             settings: userData.settings,
+            createdAt: userData.createdAt,
+            updatedAt: userData.updatedAt,
           }
         : null,
       playlists: (playlists || []).map((playlist) => ({
+        id: playlist._id,
         name: playlist.name,
         songs: playlist.songs,
+        songAddedAt: playlist.songAddedAt,
         visibility: playlist.visibility,
         category: playlist.category,
+        subgenre: playlist.subgenre,
+        pinned: playlist.pinned,
+        smartShuffle: playlist.smartShuffle,
+        coverImage: playlist.coverImage,
         createdAt: playlist.createdAt,
+        updatedAt: playlist.updatedAt,
       })),
+      personalGenres: personalGenres.map(({ _id, displayName, parentId, createdAt, updatedAt }) => ({ id: _id, displayName, parentId, createdAt, updatedAt })),
+      personalTags: personalTags.map(({ _id, displayName, category, createdAt, updatedAt }) => ({ id: _id, displayName, category, createdAt, updatedAt })),
     };
 
     return new NextResponse(JSON.stringify(exportPayload, null, 2), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="heykasa-data-${userEmail}.json"`,
+        "Content-Disposition": 'attachment; filename="heykasa-account-data.json"',
         "Cache-Control": "no-store",
       },
     });

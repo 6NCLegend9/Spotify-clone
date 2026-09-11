@@ -103,6 +103,76 @@ disposition; irrelevant specialties did not trigger speculative infrastructure.
 4. Use `npm run dev:webpack` if Turbopack or HMR misbehaves. Production remains
    `npm run build` followed by `npm start`.
 
+## Account-security implementation follow-up
+
+The first implementation phase now isolates home/history/sidebar/navigation data
+by account, handles empty authoritative history, and rejects stale async results
+after account changes. Library listing rechecks current playlist visibility;
+responses use an explicit public field contract. Versioned immutable sessions
+support password-reset revocation and a confirmed Sign out all devices action.
+
+The dependency security update resolves Next.js/tooling to 15.5.25, updates
+Nodemailer and vulnerable transitive packages, and adds a production audit gate.
+See `PRODUCTION.md` for the required one-time login and override rationale.
+These are the foundation for the remaining implementation described below.
+
+## Remaining roadmap implementation
+
+The subsequent pass implements the following local application work. The original
+role matrix remains a perspective checklist, not 167 independently executed audits.
+Environment-specific acceptance is listed separately from implemented code.
+
+| Work package | Implemented | Remaining verification or decision |
+| --- | --- | --- |
+| W05 Measurement | Bounded redacted browser diagnostics, correlated server errors, optional session/provider timing, production benchmark and commit-linked CI report. | Real authenticated/provider baselines, field INP and justified numeric regression budgets. |
+| W06 Playback/startup | Nonblank server-rendered persistence fallback, stable snapshot throttling, explicit native audio/context resume, engine-owned actions and interruption tests. | Physical phone/headset behavior, actual decoding, deeper measured engine decomposition. |
+| W07 Privacy | Versioned complete account export, confirmed transactional deletion/reference cleanup, accurate policy and opt-in retention controls. | Staging transaction/backup recovery and provider log-retention configuration. |
+| W08 Library writes | Bounded conditional writes for favourites/songs/history; desired-state client requests; transactional playlist creation/deletion/likes; account-safe favourite cache and per-item rollback. | Live concurrent writers, schema compatibility inventory, actual index plans and connection sizing. |
+| W09 Queue | Upcoming move/remove/clear, ten-second Undo, private playlist save, current-track preservation, shared expanded queue controls. | Two-device Jam synchronization under reconnect/conflict. |
+| W10 Timer | 15/30/60-minute and end-of-track modes, refresh persistence, account/Jam cancellation and actual engine pause commands. | Exact OS-suspended expiry cannot be guaranteed by a website. |
+| W11 Discovery | URL-backed result tabs/sort/duration, provider-backed continuation, duplicate removal/cancellation, seven-day snooze, feedback Undo and Settings restoration. | Live official-provider/fallback quota tests and wider multilingual relevance evaluation. |
+| W12 Accessibility | Existing root tokens retained; new controls have semantic names, touch-sized targets, keyboard actions and responsive layouts. | Full-site contrast/zoom/RTL and VoiceOver/TalkBack audit; light theme remains a separate design decision. |
+| W13 Insights | Explicit opt-in, bounded deduplicated playback observations, private-mode exclusion, retained 7/30-day summaries, clear/opt-out/export/delete controls. | Production retention operations and recommendation experiments; no model training or AI service introduced. |
+| W14 Operations | Reproducible bug template, reviewed diagnostic download, API/rollout runbook, PWA registration tests, accurate public sitemap/search metadata and CI performance artifact. | Old-to-new PWA update, live OAuth/SMTP, load tests, backup restoration and deployment rollback drills. |
+
+### Local verification
+
+The final application build used Next.js 15.5.25 with PWA enabled and generated
+all 50 routes. The current implementation passed 108 Node checks, including real
+route handlers with isolated model/token fixtures, plus 42 Chromium desktop/mobile
+browser tests. Lint and TypeScript checks passed. Browser cases cover queue edits,
+timer engine pauses, URL search filters, feedback restoration, insight opt-in,
+pending account-change responses and diagnostic downloads. The final review also
+fixed late playlist-detail mutations and Smart Shuffle callbacks after unmount:
+the previous account can no longer publish favourites or start queued playback
+from a completed request. A delayed-mutation account-switch regression covers it.
+These checks do not establish
+physical-device support or real MongoDB transaction behavior.
+
+`npm run benchmark:production` starts and cleans up its own server and writes
+`artifacts/performance.json`. One local baseline run recorded:
+
+| Surface | Observed time |
+| --- | ---: |
+| First home HTTP response in new process | 5296ms |
+| Second home HTTP response | 60ms |
+| Search HTTP response, first/repeat | 33ms / 9ms |
+| Guest auth-session HTTP response, first/repeat | 28ms / 12ms |
+| Desktop search visible shell, three samples | 419-649ms |
+| Desktop library visible shell, three samples | 381-419ms |
+| Mobile-width search visible shell, three samples | 347-450ms |
+| Mobile-width library visible shell, three samples | 297-369ms |
+
+HTTP measurements use real unauthenticated local requests. Browser measurements
+mock APIs and use desktop Chromium at 1440px and 390px without CPU/network throttling.
+Routing disables the HTTP cache; repeated loads are not warm HTTP-cache tests.
+LCP/CLS/long-task values are snapshots at visible-shell readiness, not page-lifetime
+field Web Vitals. Script bytes are encoded body sizes, not necessarily transferred
+bytes. There are only three samples per route/viewport; no percentile or universal
+speedup is claimed. The first home response still includes substantial startup
+cost. The build reports 172kB first-load home JS and 106kB shared JS; this is not a
+bundle-size reduction. See `PRODUCTION.md` for repeat commands and rollout gates.
+
 ## Remaining risks
 
 - Final managed Turbopack run passed all 12 desktop/mobile browser tests. Earlier
@@ -112,11 +182,12 @@ disposition; irrelevant specialties did not trigger speculative infrastructure.
   module initialization and upstream latency need further isolated profiling.
 - Root home recommendations still await their upstream result; quick access no
   longer waits, but personalized playlists and recommendations are not instant.
-- Home session cache uses auth status instead of a specific account key. It needs
-  a separate account-isolation correction, not an expanded private cache.
+- Home cache ownership is account-specific. Conditional library writes and
+  transaction-based relationship changes are implemented; live DB concurrency and
+  broader multi-tab request coordination remain unverified.
 - Home and sidebar still issue separate playlist reads. Account-scoped shared
   request ownership and mutation invalidation need tests before deduplication.
 - TagLib's browser bundle compiles under both compilers; actual tagged-file
   download execution was not exercised. Browser tests block YouTube decoding.
-- Production first-load home JS remains 167kB. No bundle-size reduction, full
+- Production first-load home JS is now 172kB. No bundle-size reduction, full
   vulnerability audit, load capacity certification or all-site optimization is claimed.

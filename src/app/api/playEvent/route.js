@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import UserData from "@/models/UserData";
+import { mutateDocument } from "@/utils/documentMutation.mjs";
+import { insightEvent, listeningSummary, retainedListeningEvents, MAX_INSIGHT_EVENTS } from "@/utils/listeningInsights.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -14,7 +17,7 @@ const MAX_ENTRIES = 200;
 // a "most played" view) but isn't consumed by anything yet.
 export async function POST(request) {
   try {
-    const { userData, email } = await getAuthenticatedAccount(request);
+    const { user, userData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`play-event:${email}`, {
       windowMs: 60_000,
       max: 120,
@@ -30,7 +33,7 @@ export async function POST(request) {
     if (typeof id !== "string" || !YOUTUBE_ID_PATTERN.test(id)) {
       return apiError("VALIDATION_ERROR", { message: "A valid track id is required" });
     }
-    if (event !== "completed" && event !== "skipped") {
+    if (!["completed", "skipped", "stopped"].includes(event)) {
       return apiError("VALIDATION_ERROR", { message: "A valid event type is required" });
     }
 
@@ -42,13 +45,46 @@ export async function POST(request) {
         data: userData[field] || [],
       });
     }
-    const existing = Array.isArray(userData[field]) ? userData[field] : [];
-    if (!existing.includes(id)) {
-      userData[field] = [...existing, id].slice(-MAX_ENTRIES);
-      await userData.save();
+    const observation = body.eventId ? insightEvent(body) : null;
+    if (observation && body.owner !== `account:${user._id}`) return apiError("UNAUTHORIZED");
+    if (observation && userData.settings?.listeningInsights !== true) {
+      return NextResponse.json({ success: true, message: "Listening insights are off", data: [] }, { headers: { "Cache-Control": "private, no-store" } });
     }
-    return NextResponse.json({ success: true, message: "Recorded", data: userData[field] });
+    const updated = await mutateDocument(UserData, userData._id, (current) => {
+      if (current.settings?.privateSession) return null;
+      const changes = {};
+      if (!observation && event !== "stopped") {
+        const existing = Array.isArray(current[field]) ? current[field] : [];
+        if (!existing.includes(id)) changes[field] = [...existing, id].slice(-MAX_ENTRIES);
+      }
+      if (observation && current.settings?.listeningInsights === true) {
+        const events = retainedListeningEvents(current.listeningEvents);
+        if (!events.some((entry) => entry.eventId === observation.eventId)) {
+          changes.listeningEvents = [...events, observation].slice(-MAX_INSIGHT_EVENTS);
+        }
+      }
+      return Object.keys(changes).length ? changes : null;
+    }, { "settings.privateSession": { $ne: true }, ...(observation ? { "settings.listeningInsights": true } : {}) });
+    return NextResponse.json({ success: true, message: "Recorded", data: updated[field] || [] }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     return handleApiError(e, "record play event");
   }
+}
+
+export async function GET(request) {
+  try {
+    const { userData } = await getAuthenticatedAccount(request);
+    const days = new URL(request.url).searchParams.get("days") === "30" ? 30 : 7;
+    const enabled = userData.settings?.listeningInsights === true;
+    return NextResponse.json({ success: true, enabled, data: listeningSummary(enabled ? userData.listeningEvents : [], days) },
+      { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) { return handleApiError(error, "Read listening insights"); }
+}
+
+export async function DELETE(request) {
+  try {
+    const { userData } = await getAuthenticatedAccount(request);
+    await UserData.updateOne({ _id: userData._id }, { $set: { listeningEvents: [] }, $inc: { __v: 1 } });
+    return NextResponse.json({ success: true }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) { return handleApiError(error, "Clear listening insights"); }
 }

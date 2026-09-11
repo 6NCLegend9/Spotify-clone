@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { useSession } from "next-auth/react";
+import { getSession, useSession } from "next-auth/react";
+import { Undo2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { PiDotsThreeVerticalBold } from "react-icons/pi";
 import { FiThumbsDown, FiClock, FiRadio, FiCornerDownRight, FiPlus } from "react-icons/fi";
@@ -18,7 +19,7 @@ import { cleanTitle } from "@/utils/text";
 
 export default function RecommendationCard({ video, queue }) {
   const dispatch = useDispatch();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const jam = useJam();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -66,7 +67,20 @@ export default function RecommendationCard({ video, queue }) {
         fallbackMessage: "Please try again in a moment.",
       });
       setDismissed(true);
-      toast.success(successMessage);
+      window.dispatchEvent(new Event("heykasa:preferences-changed"));
+      toast((notification) => <div className="flex items-center gap-3">
+        <span>{successMessage}</span>
+        <button type="button" aria-label="Undo recommendation preference" title="Undo recommendation preference"
+          className="grid h-12 w-12 shrink-0 place-items-center rounded hover:bg-black/10" onClick={async () => {
+            toast.dismiss(notification.id);
+            try {
+              const current = await getSession();
+              if (!session?.user?.id || current?.user?.id !== session.user.id) return;
+              await requestJson(url, { method: "DELETE", body: { id: video.id } });
+              window.dispatchEvent(new Event("heykasa:preferences-changed"));
+            } catch (error) { toast.error(toUserError(error).message); }
+          }}><Undo2 size={20} aria-hidden="true" /></button>
+      </div>, { duration: 10_000 });
     } catch (error) {
       toast.error(toUserError(error).message);
     } finally {
@@ -124,8 +138,8 @@ export default function RecommendationCard({ video, queue }) {
     canModerate && {
       key: "snooze",
       Icon: FiClock,
-      label: "Snooze",
-      onClick: () => savePreference("/api/snoozedTracks", "Snoozed for now"),
+      label: "Snooze for 7 days",
+      onClick: () => savePreference("/api/snoozedTracks", "Snoozed for 7 days"),
     },
   ].filter(Boolean);
   const showMenu = actions.length > 0;

@@ -14,7 +14,7 @@ export default function PrivacyPage() {
         <header className="border-b border-white/10 pb-6">
           <p className="eyebrow">Legal</p>
           <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Privacy Policy</h1>
-          <p className="mt-3 text-sm text-[#9aa8b5]">Last updated: September 2, 2026</p>
+          <p className="mt-3 text-sm text-[#9aa8b5]">Last updated: September 10, 2026</p>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-[#c9d4de]">
             This policy explains the information {SITE_NAME} stores when you use the service,
             why it is used, and how you can request deletion of your account data.
@@ -44,11 +44,24 @@ export default function PrivacyPage() {
             account actions. Authentication sessions are handled through signed session tokens.
           </p>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
-            Simple Analytics runs only after you explicitly select
-            <strong> Accept</strong> in this browser. If you select <strong>Necessary only</strong>,
-            the analytics script is not loaded. We use this optional analytics data to
-            understand aggregate usage and service performance, not to serve or personalize
-            advertising. You can change your choice at any time in Settings.
+            No third-party usage analytics script is loaded. Optional Listening insights in
+            Settings records track identifiers, event identifiers, timestamps, playback outcomes,
+            and observed playback seconds only after you enable it. Private sessions are excluded.
+            Turning it off deletes saved observations; you can also clear them without disabling it.
+            Summaries cover only observations collected after opt-in, not your entire listening history.
+          </p>
+          <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
+            Insights show up to 30 days and retain at most 1,000 observations. Older observations
+            are removed when new observations are saved; inactive accounts may retain older entries
+            until the next update, clearing, or account deletion. New snoozes expire after seven days.
+            Earlier snoozes without expiry dates remain hidden until you restore them in Settings.
+          </p>
+          <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
+            Support diagnostics holds up to 100 redacted technical events in this page&apos;s memory.
+            It does not include account identifiers, search terms, track titles, tokens, or request
+            bodies, and is not sent to a reporting service. You can preview, download, or clear it.
+            Reloading or changing accounts clears it. Server errors use correlation identifiers;
+            optional server timing logs contain durations rather than personal request content.
           </p>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             Our hosting and service providers may process standard technical request information,
@@ -78,7 +91,7 @@ export default function PrivacyPage() {
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             We share only the information needed for the service to function: with infrastructure,
             authentication, email-delivery, and third-party media providers that support the
-            features you use, and with analytics providers only when you consent to usage analytics.
+            features you use. Listening insights remain associated with your account in our database.
             Music searches and playback may send your request to a third-party source in order to
             return results or play media. Those providers operate under their own privacy terms.
           </p>
@@ -95,7 +108,8 @@ export default function PrivacyPage() {
             While signed in, use the control below and type <strong>DELETE</strong> to confirm a permanent
             deletion request. The request deletes your account profile and password record, account data,
             favorites, history, searches, preferences, and playlists you own. It also removes your account
-            from other playlists&apos; collaborator lists, and deletes personal genres and tags you created.
+            from other playlists&apos; collaborator and like lists, removes references to your deleted
+            playlists, and deletes personal genres and tags you created.
             Account-related data cached in this browser is cleared, and you will be signed out after the
             request succeeds. Signing in later with the same Google account creates a new empty account; it
             does not restore deleted data.

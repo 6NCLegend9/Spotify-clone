@@ -1,30 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { FiHeart } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { addFavourite, getFavourite } from "@/services/dataAPI";
 import { toUserError } from "@/utils/userError";
+import { accountOwner } from "@/utils/accountCache.mjs";
 
 let cachedFavouriteIds = null;
 let favouriteRequest = null;
 let cachedUserId = null;
+let cacheRevision = 0;
 
 function loadFavourites(userId) {
   if (cachedUserId !== userId) {
+    cacheRevision += 1;
     cachedUserId = userId;
     cachedFavouriteIds = null;
     favouriteRequest = null;
   }
   if (!favouriteRequest) {
+    const revision = cacheRevision;
     favouriteRequest = getFavourite()
       .then((ids) => {
+        if (revision !== cacheRevision || cachedUserId !== userId) return null;
         cachedFavouriteIds = Array.isArray(ids) ? ids : [];
         return cachedFavouriteIds;
       })
       .catch((error) => {
+        if (revision !== cacheRevision || cachedUserId !== userId) return null;
         cachedFavouriteIds = [];
         favouriteRequest = null;
         toast.error(toUserError(error, {
@@ -39,24 +45,35 @@ function loadFavourites(userId) {
 
 export default function FavouriteTrackButton({ track, className = "" }) {
   const { data: session, status } = useSession();
+  const owner = accountOwner(session, status);
+  return <AccountFavouriteButton key={owner || status} owner={owner} status={status} track={track} className={className} />;
+}
+
+function AccountFavouriteButton({ owner, status, track, className }) {
   const router = useRouter();
-  const [favouriteIds, setFavouriteIds] = useState(cachedFavouriteIds || []);
+  const [favouriteIds, setFavouriteIds] = useState(() => cachedUserId === owner ? cachedFavouriteIds || [] : []);
   const [saving, setSaving] = useState(false);
+  const live = useRef(true);
   const isSaved = favouriteIds.includes(track?.id);
+  useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; };
+  }, []);
 
   useEffect(() => {
-    if (status !== "authenticated") {
+    if (status !== "authenticated" || !owner) {
       setFavouriteIds([]);
       return;
     }
 
     let active = true;
-    const userId = session?.user?.id || session?.user?.email;
-    loadFavourites(userId).then((ids) => {
-      if (active) setFavouriteIds(ids);
+    loadFavourites(owner).then((ids) => {
+      if (active && ids) setFavouriteIds(ids);
     });
     const syncFavourites = (event) => {
-      cachedFavouriteIds = event.detail || [];
+      if (event.accountOwner && event.accountOwner !== owner || cachedUserId !== owner) return;
+      cacheRevision += 1;
+      cachedFavouriteIds = Array.isArray(event.detail) ? event.detail : [];
       favouriteRequest = Promise.resolve(cachedFavouriteIds);
       setFavouriteIds(cachedFavouriteIds);
     };
@@ -65,7 +82,7 @@ export default function FavouriteTrackButton({ track, className = "" }) {
       active = false;
       window.removeEventListener("favourites-changed", syncFavourites);
     };
-  }, [session?.user?.email, session?.user?.id, status]);
+  }, [owner, status]);
 
   const toggleFavourite = async (event) => {
     event.preventDefault();
@@ -87,40 +104,26 @@ export default function FavouriteTrackButton({ track, className = "" }) {
     const optimisticIds = isSaved
       ? favouriteIds.filter((id) => id !== track.id)
       : [...favouriteIds, track.id];
-    const previousIds = favouriteIds;
-    cachedFavouriteIds = optimisticIds;
-    favouriteRequest = Promise.resolve(optimisticIds);
     setFavouriteIds(optimisticIds);
-    window.dispatchEvent(new CustomEvent("favourites-changed", { detail: optimisticIds }));
 
     try {
-      const response = await addFavourite({ id: track.id });
+      const response = await addFavourite({ id: track.id, liked: !isSaved });
+      if (!live.current || cachedUserId !== owner) return;
       if (!response?.success) {
-        const userError = toUserError(response, {
+        throw toUserError(response, {
           title: "Liked Songs not updated",
           message: "We couldn’t update your Liked Songs. Please try again.",
         });
-        cachedFavouriteIds = previousIds;
-        favouriteRequest = Promise.resolve(previousIds);
-        setFavouriteIds(previousIds);
-        window.dispatchEvent(new CustomEvent("favourites-changed", { detail: previousIds }));
-        toast.error(userError.message);
-        if (userError.action === "login") router.push("/login");
-        return;
       }
-      const nextIds = Array.isArray(response.data?.favourites)
-        ? response.data.favourites
-        : optimisticIds;
-      cachedFavouriteIds = nextIds;
-      favouriteRequest = Promise.resolve(nextIds);
-      setFavouriteIds(nextIds);
-      window.dispatchEvent(new CustomEvent("favourites-changed", { detail: nextIds }));
+      cacheRevision += 1;
+      favouriteRequest = null;
+      const nextIds = await loadFavourites(owner);
+      if (!live.current || cachedUserId !== owner || !nextIds) return;
+      window.dispatchEvent(Object.assign(new CustomEvent("favourites-changed", { detail: nextIds }), { accountOwner: owner }));
       toast.success(isSaved ? "Removed from Liked Songs" : "Added to Liked Songs");
     } catch (error) {
-      cachedFavouriteIds = previousIds;
-      favouriteRequest = Promise.resolve(previousIds);
-      setFavouriteIds(previousIds);
-      window.dispatchEvent(new CustomEvent("favourites-changed", { detail: previousIds }));
+      if (!live.current || cachedUserId !== owner) return;
+      setFavouriteIds(cachedFavouriteIds || []);
       const userError = toUserError(error, {
         title: "Liked Songs not updated",
         message: "We couldn’t update your Liked Songs. Please try again.",
@@ -128,7 +131,7 @@ export default function FavouriteTrackButton({ track, className = "" }) {
       toast.error(userError.message);
       if (userError.action === "login") router.push("/login");
     } finally {
-      setSaving(false);
+      if (live.current) setSaving(false);
     }
   };
 
@@ -140,7 +143,7 @@ export default function FavouriteTrackButton({ track, className = "" }) {
       disabled={saving || !track?.id}
       aria-busy={saving}
       onClick={toggleFavourite}
-      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition hover:bg-white/10 disabled:opacity-50 ${
+      className={`grid h-12 w-12 shrink-0 place-items-center rounded-full transition hover:bg-white/10 disabled:opacity-50 ${
         isSaved ? "text-[#00e6e6]" : "text-gray-300"
       } ${className}`}
     >

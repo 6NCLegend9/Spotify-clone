@@ -7,6 +7,7 @@ import { setAutoAdd } from "@/redux/features/playerSlice";
 import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
+import { accountOwner, readAccountCache } from "@/utils/accountCache.mjs";
 
 const normalizeHistory = (value) =>
   (Array.isArray(value) ? value : []).filter(
@@ -21,11 +22,13 @@ const normalizeHistory = (value) =>
 
 const ListenAgain = () => {
   const [songHistory, setSongHistory] = useState([]);
+  const [historyOwner, setHistoryOwner] = useState(null);
   const [syncError, setSyncError] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const dispatch = useDispatch();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const owner = accountOwner(session, status);
 
   useEffect(() => {
     try {
@@ -36,8 +39,8 @@ const ListenAgain = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (status === "loading") return;
-    if (status !== "authenticated") {
+    setHistoryOwner(owner);
+    if (!owner || owner === "guest") {
       setSongHistory([]);
       setSyncError(null);
       setSyncing(false);
@@ -49,17 +52,17 @@ const ListenAgain = () => {
       return;
     }
     try {
-      const storedHistory = JSON.parse(localStorage.getItem("songHistory") || "[]");
+      const storedHistory = readAccountCache(localStorage, "heykasa:history:v1", owner, 30 * 86400_000);
       setSongHistory(normalizeHistory(storedHistory));
     } catch {
       setSongHistory([]);
     }
-  }, [status]);
+  }, [owner]);
 
   // Prefer the account's server-synced history when signed in, so "Listen Again" follows
   // the user across devices/browsers instead of only reflecting this browser's localStorage.
   useEffect(() => {
-    if (status !== "authenticated") {
+    if (!owner || owner === "guest") {
       return;
     }
     const controller = new AbortController();
@@ -74,7 +77,7 @@ const ListenAgain = () => {
           fallbackMessage: "Your saved listening history is still available on this device.",
         });
         const syncedHistory = normalizeHistory(json?.data);
-        if (!cancelled && json?.success && syncedHistory.length > 0) {
+        if (!cancelled && json?.success) {
           setSongHistory(syncedHistory);
         }
       } catch (error) {
@@ -95,7 +98,7 @@ const ListenAgain = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [retryKey, status]);
+  }, [retryKey, owner]);
 
   return (
     <div>
@@ -112,7 +115,7 @@ const ListenAgain = () => {
           />
         </div>
       )}
-      {songHistory.length > 0 && (
+      {owner && historyOwner === owner && songHistory.length > 0 && (
         <div>
           <h2 className=" text-white mt-4 text-2xl lg:text-3xl font-semibold mb-4 ">
             Listen Again
