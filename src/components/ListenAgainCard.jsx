@@ -76,7 +76,7 @@ const ListenAgainCard = ({ song, index, SongData }) => {
                     event.currentTarget.src = THUMB_FALLBACK;
                   }
                 }}
-                className="rounded-lg object-cover w-12 h-12 md:w-14 md:h-14"
+                className="rounded-[4px] object-cover w-12 h-12 md:w-14 md:h-14"
               />
             </div>
             {isActive ? (

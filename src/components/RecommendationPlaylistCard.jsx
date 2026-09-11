@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
+import PlayFab from "@/components/PlayFab";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
@@ -55,17 +56,18 @@ export default function RecommendationPlaylistCard({ playlist }) {
       disabled={loading}
       className="card group block w-full text-left disabled:opacity-60"
     >
-      <div className="relative aspect-video overflow-hidden bg-black">
+      <div className="relative aspect-video overflow-hidden rounded-[4px] bg-black">
         <MediaImage
           src={playlist.thumbnail}
           size="hq"
           alt=""
           className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03] group-active:scale-[0.98]"
         />
+        <PlayFab />
       </div>
-      <div className="p-4">
-        <p className="line-clamp-2 text-sm font-semibold text-white">{cleanTitle(playlist.title, "Untitled playlist")}</p>
-        <p className="mt-2 truncate text-xs text-gray-400">{cleanTitle(playlist.channel)}</p>
+      <div className="p-3">
+        <p className="home-shelf-title mt-0">{loading ? "Loading..." : cleanTitle(playlist.title, "Untitled playlist")}</p>
+        <p className="home-shelf-subtitle">{cleanTitle(playlist.channel)}</p>
       </div>
     </button>
   );

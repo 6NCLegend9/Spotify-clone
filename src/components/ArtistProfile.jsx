@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
+import PlayFab from "@/components/PlayFab";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { CardGridSkeleton } from "@/components/Skeleton";
@@ -234,7 +235,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
                   type="button"
                   aria-label={`Play ${cleanTitle(video.title)}`}
                   onClick={() => playTrack(video)}
-                  className="relative aspect-video w-full overflow-hidden bg-black"
+                  className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black"
                 >
                   <MediaImage
                     src={video.thumbnail}
@@ -242,10 +243,11 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
                     alt=""
                     className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]"
                   />
+                  <PlayFab />
                 </button>
-                <button type="button" onClick={() => playTrack(video)} className="block w-full p-4 text-left">
-                  <p className="line-clamp-2 text-sm font-semibold text-white">{cleanTitle(video.title, "Untitled track")}</p>
-                  <p className="mt-2 truncate text-xs text-gray-400">{video.channel || title}</p>
+                <button type="button" onClick={() => playTrack(video)} className="block w-full p-3 text-left">
+                  <p className="home-shelf-title mt-0">{cleanTitle(video.title, "Untitled track")}</p>
+                  <p className="home-shelf-subtitle">{video.channel || title}</p>
                 </button>
               </article>
             ))}
@@ -255,7 +257,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
               type="button"
               onClick={() => void loadMore()}
               disabled={loadingMore}
-              className="mt-6 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-gray-300 transition hover:border-[#00e6e6] hover:text-[#00e6e6] disabled:opacity-60"
+              className="btn-ghost mt-6 text-sm disabled:opacity-60"
             >
               {loadingMore ? "Loading more…" : "Load more songs"}
             </button>

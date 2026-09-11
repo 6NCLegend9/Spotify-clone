@@ -43,7 +43,7 @@ export default function CreateHub() {
   return (
     <>
       <BottomSheet open={pickerOpen} onClose={() => setPickerOpen(false)} label="Create">
-        <p className="mb-3 font-display text-2xl text-white">Create</p>
+        <p className="mb-3 text-2xl font-bold tracking-tight text-white">Create</p>
         <button
           type="button"
           onClick={openPlaylist}

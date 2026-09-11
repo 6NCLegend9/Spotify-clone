@@ -8,7 +8,7 @@
   padding: 8px 12px;
   background: var(--navy-surface);
   color: var(--text);
-  border-top: 1px solid var(--hairline-cyan);
+  border-top: 1px solid var(--hairline);
   letter-spacing: 0;
 }
 .center, .tools, .favourite { display: none; }
@@ -31,12 +31,51 @@
 .dialog::backdrop { background: rgb(0 0 0 / 70%); }
 .dock button, .dialog button { min-width: 48px; min-height: 48px; }
 .volume { display: none; }
+.stage {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+.nowPlaying, .queuePane {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem;
+}
+.dialog[data-panel="queue"] .nowPlaying { display: none; }
+.dialog[data-panel="player"] .queuePane { display: none; }
+.art {
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: var(--radius-art);
+  object-fit: cover;
+}
 @media (min-width: 1024px) {
   .dock { grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.4fr) auto; gap: 16px; padding: 8px 20px; }
   .center { display: flex; min-width: 0; flex-direction: column; align-items: center; }
   .tools { display: flex; align-items: center; }
   .favourite { display: block; }
   .mobile { display: none; }
+  .dialog {
+    width: min(calc(100vw - 48px), 1180px);
+    height: min(calc(100dvh - 48px), 820px);
+    max-height: calc(100dvh - 24px);
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  }
+  .dialog[data-panel] .nowPlaying,
+  .dialog[data-panel] .queuePane {
+    display: flex;
+    flex-direction: column;
+  }
+  .queuePane {
+    border-left: 1px solid var(--hairline);
+    background: rgba(0, 0, 0, 0.18);
+  }
 }
 @media (min-width: 1280px) { .volume { display: block; } }
 @media (max-width: 479px) { .dialog { height: 100dvh; border: 0; border-radius: 0; } }

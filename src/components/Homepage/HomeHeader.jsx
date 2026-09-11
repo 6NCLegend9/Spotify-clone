@@ -41,8 +41,25 @@ export default function HomeHeader({ filter, onFilter }) {
 
   return (
     <header className="home-header">
+      <div className="home-chips no-scrollbar" role="tablist" aria-label="Home filters">
+        {FILTERS.map((item) => {
+          const active = filter === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onFilter(item.id)}
+              className={`home-chip ${active ? "is-active" : ""}`}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
       <div className="home-header-row">
-        <Link href={href} aria-label={label} title={label} className="home-avatar ring-1 ring-white/20">
+        <Link href={href} aria-label={label} title={label} className="home-avatar ring-1 ring-white/20 md:hidden">
           {status === "authenticated" && imageUrl && !imageFailed ? (
             <img
               src={imageUrl}
@@ -56,25 +73,8 @@ export default function HomeHeader({ filter, onFilter }) {
             <span aria-hidden="true">H</span>
           )}
         </Link>
-        <div className="home-chips no-scrollbar" role="tablist" aria-label="Home filters">
-          {FILTERS.map((item) => {
-            const active = filter === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onFilter(item.id)}
-                className={`home-chip ${active ? "is-active" : ""}`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
+        <h1 className="home-display">{hello}</h1>
       </div>
-      <h1 className="home-display">{hello}</h1>
     </header>
   );
 }

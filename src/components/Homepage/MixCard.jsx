@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
+import { BsPlayFill } from "react-icons/bs";
 import logo from "@/assets/HayKasa-logo-removebg.png";
 import { requestJson } from "@/services/http";
 import { mixBackground } from "@/utils/homeMixes";
@@ -82,7 +83,7 @@ export default function MixCard({ mix }) {
       onClick={playMix}
       disabled={busy}
       aria-label={`Play ${mix.title}`}
-      className="home-mix w-full text-left disabled:opacity-70"
+      className="home-mix group w-full text-left disabled:opacity-70"
       style={{ background: mixBackground(palette) }}
     >
       <span className="home-mix-pattern" aria-hidden="true" />
@@ -99,6 +100,9 @@ export default function MixCard({ mix }) {
       <span className="home-mix-title">
         <span className="home-mix-bar" style={{ background: palette.bar || "#00e6e6" }} />
         <span className="line-clamp-2">{mix.title}</span>
+      </span>
+      <span className="home-square-play max-md:hidden">
+        <BsPlayFill aria-hidden="true" className="text-xl" />
       </span>
     </button>
   );

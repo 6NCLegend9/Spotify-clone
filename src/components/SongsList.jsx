@@ -193,7 +193,7 @@ const SongsList = ({
                     onError={(event) => { event.currentTarget.hidden = true; }}
                     width={50}
                     height={50}
-                    className=" rounded-lg w-12 h-12 md:w-14 md:h-14 object-cover"
+                    className=" rounded-[4px] w-12 h-12 md:w-14 md:h-14 object-cover"
                   />
                   {activeSong?.id === song?.id ? (
                     <BiHeadphone

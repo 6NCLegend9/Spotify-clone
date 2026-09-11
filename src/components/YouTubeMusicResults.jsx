@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
+import PlayFab from "@/components/PlayFab";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 import Link from "next/link";
@@ -354,7 +355,7 @@ export default function YouTubeMusicResults({ query }) {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00e6e6]">
             HayKasa Music
           </p>
-          <h2 id="youtube-results-title" className="mt-2 text-2xl font-bold text-white lg:text-3xl">
+          <h2 id="youtube-results-title" className="mt-2 text-2xl font-bold tracking-tight text-white lg:text-3xl">
             Play On HayKasa
           </h2>
         </div>
@@ -362,10 +363,10 @@ export default function YouTubeMusicResults({ query }) {
       </div>
 
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-[var(--hairline)] pb-4">
-        <div role="tablist" aria-label="Search result type" className="flex flex-wrap gap-1">
+        <div role="tablist" aria-label="Search result type" className="flex flex-wrap gap-2">
           {[["video", "Songs"], ["channel", "Artists"], ["playlist", "Playlists"]].map(([value, label]) =>
             <button type="button" role="tab" key={value} aria-selected={resultType === value} onClick={() => changeSearch("type", value)}
-              className={`min-h-12 border-b-2 px-3 text-sm ${resultType === value ? "border-[var(--accent)] text-[var(--text)]" : "border-transparent text-[var(--muted)]"}`}>{label}</button>)}
+              className={`home-chip ${resultType === value ? "is-active" : ""}`}>{label}</button>)}
         </div>
         <div className="flex flex-wrap gap-3">
           <label className="grid gap-1 text-xs text-[var(--muted)]">Sort
@@ -389,7 +390,7 @@ export default function YouTubeMusicResults({ query }) {
               <Link
                 key={`${match.id}-${match.matchLabel}`}
                 href={`/search/${encodeURIComponent(searchQueryForGenre(match))}`}
-                className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-gray-300 transition duration-200 ease-out hover:border-[#00e6e6] hover:text-[#00e6e6]"
+                className="home-chip"
               >
                 {match.matchLabel}
               </Link>
@@ -427,12 +428,13 @@ export default function YouTubeMusicResults({ query }) {
           const channel = cleanTitle(video.channel);
           return (
           <article key={video.id} className="card group text-left">
-            <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
+            <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black">
               <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
+              <PlayFab />
             </button>
-            <div className="p-4">
+            <div className="p-3">
               <button type="button" onClick={playVideo} className="block w-full text-left">
-                <p className="line-clamp-2 text-sm font-semibold text-white">{title}</p>
+                <p className="home-shelf-title mt-0">{title}</p>
               </button>
               {video.channelId ? (
                 <Link
@@ -456,7 +458,7 @@ export default function YouTubeMusicResults({ query }) {
           type="button"
           onClick={() => void loadExtras()}
           disabled={loadingExtras}
-          className="mt-8 inline-flex min-h-[44px] items-center rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-gray-300 transition hover:border-[#00e6e6] hover:text-[#00e6e6] disabled:opacity-60"
+          className="btn-ghost mt-8 text-xs"
         >
           {loadingExtras ? "Loading artists & playlists..." : "Show artists & playlists"}
         </button>
@@ -510,7 +512,7 @@ export default function YouTubeMusicResults({ query }) {
               const isFollowing = followedArtists.some((value) => value.toLowerCase() === artist.title.toLowerCase());
               const isUpdating = updatingArtists.includes(artist.title.toLowerCase());
               return (
-              <div key={artist.id} className="group text-center">
+              <div key={artist.id} className="home-shelf-card group text-center">
                 <Link href={`/artist/${encodeURIComponent(artist.id)}?name=${encodeURIComponent(artist.title || "")}`} prefetch={false}>
                   <MediaImage src={artist.thumbnail} size="mq" alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
                   <p className="mt-2 truncate text-sm font-semibold text-white">{cleanTitle(artist.title)}</p>
@@ -521,7 +523,7 @@ export default function YouTubeMusicResults({ query }) {
                     onClick={() => void toggleFollow(artist.title, artist.id, artist.thumbnail)}
                     disabled={isUpdating}
                     aria-pressed={isFollowing}
-                    className={`mt-1 inline-flex min-h-[44px] items-center justify-center rounded-full border px-2 py-0.5 text-[11px] transition ${isFollowing ? "border-[#00e6e6] text-[#00e6e6]" : "border-white/15 text-gray-400 hover:border-white/30"}`}
+                    className={`home-chip mt-1 ${isFollowing ? "is-active" : ""}`}
                   >
                     {isUpdating ? "Saving…" : isFollowing ? "Following" : "Follow"}
                   </button>
@@ -543,10 +545,13 @@ export default function YouTubeMusicResults({ query }) {
                 type="button"
                 onClick={() => playPlaylist(album)}
                 disabled={loadingPlaylistId === album.id}
-                className="group overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] text-left disabled:opacity-60"
+                className="card group w-full overflow-hidden text-left disabled:opacity-60"
               >
-                <MediaImage src={album.thumbnail} size="hq" alt="" className="aspect-video w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
-                <p className="truncate p-4 text-sm font-semibold text-white">{loadingPlaylistId === album.id ? "Loading..." : cleanTitle(album.title)}</p>
+                <span className="relative block aspect-video overflow-hidden rounded-[4px]">
+                  <MediaImage src={album.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
+                  <PlayFab />
+                </span>
+                <p className="home-shelf-title px-3 pb-3">{loadingPlaylistId === album.id ? "Loading..." : cleanTitle(album.title)}</p>
               </button>
             ))}
           </div>

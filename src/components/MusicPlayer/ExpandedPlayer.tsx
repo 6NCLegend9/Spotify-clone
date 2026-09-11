@@ -17,7 +17,7 @@ export default function ExpandedPlayer(props: PlayerDockProps & { initialPanel: 
     dialog?.showModal();
     return () => { dialog?.close(); previous?.focus(); };
   }, []);
-  return <dialog ref={dialogRef} aria-label="Now playing" onCancel={props.onClose} className={styles.dialog}>
+  return <dialog ref={dialogRef} aria-label="Now playing" data-panel={panel} onCancel={props.onClose} className={styles.dialog}>
     <header className="flex shrink-0 items-center justify-between border-b border-[var(--hairline)] px-4 py-2">
       <h2 className="text-base font-semibold">{panel === "queue" ? "Queue" : "Now playing"}</h2>
       <div className="flex">
@@ -25,15 +25,20 @@ export default function ExpandedPlayer(props: PlayerDockProps & { initialPanel: 
         <PlayerIconButton label="Close player" onClick={props.onClose}><ChevronDown /></PlayerIconButton>
       </div>
     </header>
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
-      {panel === "queue" ? <QueueEditor {...props} /> : <div className="mx-auto flex max-w-sm flex-col gap-5">
-        <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={384} height={384} className="aspect-square w-full rounded-lg object-cover" />
-        <div className="flex min-w-0 items-center justify-between gap-3"><div className="min-w-0"><h3 className="break-words text-xl font-semibold">{props.track.title}</h3><p className="mt-1 text-sm text-[var(--muted)]">{props.track.channel}</p></div>{props.favourite}</div>
-        <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
-        <Transport {...props} />
-        {props.sleepControl}
-        <div className="flex items-center justify-between">{props.volume}{props.trackActions}<PlayerIconButton label={props.pipLabel} active={props.pipActive} disabled={props.pipDisabled} onClick={() => { props.onPip(); props.onClose(); }}><PictureInPicture2 /></PlayerIconButton></div>
-      </div>}
+    <div className={styles.stage}>
+      <div className={styles.nowPlaying}>
+        <div className="mx-auto flex w-full max-w-md flex-col gap-5">
+          <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={384} height={384} className={styles.art} />
+          <div className="flex min-w-0 items-center justify-between gap-3"><div className="min-w-0"><h3 className="break-words text-xl font-semibold tracking-tight">{props.track.title}</h3><p className="mt-1 text-sm text-[var(--muted)]">{props.track.channel}</p></div>{props.favourite}</div>
+          <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
+          <Transport {...props} />
+          {props.sleepControl}
+          <div className="flex items-center justify-between">{props.volume}{props.trackActions}<PlayerIconButton label={props.pipLabel} active={props.pipActive} disabled={props.pipDisabled} onClick={() => { props.onPip(); props.onClose(); }}><PictureInPicture2 /></PlayerIconButton></div>
+        </div>
+      </div>
+      <aside className={styles.queuePane} aria-label="Queue">
+        <QueueEditor {...props} />
+      </aside>
     </div>
   </dialog>;
 }

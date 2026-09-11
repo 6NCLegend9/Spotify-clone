@@ -20,7 +20,7 @@ function QuickCard({ children, className = "", playing, ...props }) {
     >
       {children}
       {playing ? <FxEq /> : (
-        <span className="mr-2 hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-black opacity-0 shadow-[0_0_18px_rgba(0,230,230,0.35)] transition md:grid md:group-hover:opacity-100 md:group-focus-visible:opacity-100">
+        <span className="home-quick-play">
           <BsPlayFill aria-hidden="true" className="text-lg" />
         </span>
       )}
@@ -44,7 +44,7 @@ export default function QuickAccessGrid({ items }) {
               href="/library/liked"
               aria-label="Open Liked Songs"
             >
-              <span className="grid h-14 w-14 shrink-0 place-items-center bg-gradient-to-br from-[#00e6e6] via-[#128a9a] to-[#3b1d8f]">
+              <span className="grid h-16 w-16 shrink-0 place-items-center bg-gradient-to-br from-[#00e6e6] via-[#128a9a] to-[#3b1d8f]">
                 <FiHeart aria-hidden="true" className="text-xl text-white" />
               </span>
               <span className="home-quick-title line-clamp-2">Liked Songs</span>
@@ -59,8 +59,8 @@ export default function QuickAccessGrid({ items }) {
               href={`/library/playlist/${item.playlist._id}`}
               aria-label={`Open playlist ${item.playlist.name}`}
             >
-              <span className="h-14 w-14 shrink-0 overflow-hidden">
-                <PlaylistCover playlist={item.playlist} className="h-14 w-14" />
+              <span className="h-16 w-16 shrink-0 overflow-hidden">
+                <PlaylistCover playlist={item.playlist} className="h-16 w-16" />
               </span>
               <span className="home-quick-title line-clamp-2">{item.playlist.name}</span>
             </QuickCard>
@@ -90,7 +90,7 @@ export default function QuickAccessGrid({ items }) {
                 className="home-quick-art"
               />
             ) : (
-              <span className="grid h-14 w-14 shrink-0 place-items-center bg-[#101c28] text-[#00e6e6]">
+              <span className="grid h-16 w-16 shrink-0 place-items-center bg-[#101c28] text-[#00e6e6]">
                 <BsPlayFill aria-hidden="true" className="text-xl" />
               </span>
             )}

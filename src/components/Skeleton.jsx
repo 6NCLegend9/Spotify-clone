@@ -54,7 +54,7 @@ export function HomeFeedSkeleton() {
       <div className="home-quick mb-6">
         {Array.from({ length: 8 }).map((_, index) => (
           <div key={index} className="home-quick-card">
-            <ShimmerBlock className="h-14 w-14 shrink-0 rounded-none" />
+            <ShimmerBlock className="h-16 w-16 shrink-0 rounded-none" />
             <ShimmerBlock className="mx-3 h-3 w-2/3" />
           </div>
         ))}

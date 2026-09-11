@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import Link from "next/link";
 import { useDispatch } from "react-redux";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
@@ -9,13 +10,26 @@ import { playHomeTracks } from "@/utils/playHome";
 import { cleanTitle } from "@/utils/text";
 import useHorizontalRail from "@/hooks/useHorizontalRail";
 
-export function HomeRail({ title, children }) {
+export function HomeRail({ title, children, seeAllHref }) {
   const railRef = useRef(null);
   useHorizontalRail(railRef);
   if (!children) return null;
   return (
     <section className="home-rail-wrap">
-      {title ? <h2 className="home-rail-title">{title}</h2> : null}
+      {title ? (
+        <div className="home-rail-heading">
+          {seeAllHref ? (
+            <h2 className="home-rail-title">
+              <Link href={seeAllHref} className="home-rail-title-link">{title}</Link>
+            </h2>
+          ) : (
+            <h2 className="home-rail-title">{title}</h2>
+          )}
+          {seeAllHref ? (
+            <Link href={seeAllHref} className="home-rail-all">Show all</Link>
+          ) : null}
+        </div>
+      ) : null}
       <div
         ref={railRef}
         className="home-rail"
@@ -49,7 +63,7 @@ export function HomeSquareCard({ video, queue }) {
       type="button"
       onClick={() => playHomeTracks(dispatch, list, index >= 0 ? index : 0)}
       aria-label={`Play ${title}`}
-      className="group w-full text-left"
+      className="home-shelf-card group w-full text-left"
     >
       <span className="home-square">
         <MediaImage src={cover} size="hq" alt="" className="h-full w-full object-cover" />
@@ -57,31 +71,33 @@ export function HomeSquareCard({ video, queue }) {
           <BsPlayFill aria-hidden="true" className="text-xl" />
         </span>
       </span>
-      <span className="mt-2 block line-clamp-2 text-sm font-bold text-white">{title}</span>
+      <span className="home-shelf-title">{title}</span>
       {subtitle ? (
-        <span className="mt-0.5 block truncate text-xs text-[#9aa8b5]">{subtitle}</span>
+        <span className="home-shelf-subtitle">{subtitle}</span>
       ) : null}
     </button>
   );
 }
 
-export function MixRail({ title, mixes }) {
+export function MixRail({ title, mixes, seeAllHref }) {
   if (!mixes?.length) return null;
   return (
-    <HomeRail title={title}>
+    <HomeRail title={title} seeAllHref={seeAllHref}>
       {mixes.map((mix) => (
         <div key={mix.id} className="home-rail-card">
-          <MixCard mix={mix} />
+          <div className="home-shelf-card">
+            <MixCard mix={mix} />
+          </div>
         </div>
       ))}
     </HomeRail>
   );
 }
 
-export function TrackRail({ title, videos }) {
+export function TrackRail({ title, videos, seeAllHref }) {
   if (!videos?.length) return null;
   return (
-    <HomeRail title={title}>
+    <HomeRail title={title} seeAllHref={seeAllHref}>
       {videos.map((video) => (
         <div key={video.id} className="home-rail-card">
           <HomeSquareCard video={video} queue={videos} />

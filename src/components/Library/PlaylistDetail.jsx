@@ -454,7 +454,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
         <section className="bg-[linear-gradient(180deg,rgba(100,201,215,0.28),rgba(7,18,29,0.92))] px-[3vw] pb-8 pt-8">
           <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 sm:flex-row sm:items-end">
             {isLiked ? (
-              <LikedCover className="aspect-square w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60" />
+              <LikedCover className="aspect-square w-40 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60" />
             ) : (
               <PlaylistCover
                 playlist={{
@@ -462,7 +462,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                   cover: tracks[0]?.thumbnail,
                 }}
                 showLabel
-                className="w-40 shrink-0 rounded-md shadow-2xl sm:w-52 lg:w-60"
+                className="w-40 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60"
               />
             )}
             <div className="min-w-0 pb-1">
@@ -512,7 +512,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               </div>
             ) : null}
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
-              <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="mr-2 grid h-14 w-14 place-items-center rounded-full bg-[#00e6e6] text-xl text-black transition hover:scale-105 hover:bg-[#64c9d7] disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
+              <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="play-fab play-fab--static mr-2 h-14 w-14 min-h-14 min-w-14 disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
               <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${smartShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
               {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => current ? ({ ...current, ...next }) : current)} /> : null}
               <button type="button" disabled={!isOwner || isLiked} onClick={() => setShowCollaborator(true)} title={isLiked ? "Dynamic collections cannot have collaborators" : isOwner ? "Add collaborator" : "Only the owner can invite collaborators"} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiUserPlus /> <span className="hidden sm:inline">Add collaborator</span></button>
@@ -532,7 +532,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                             type="button"
                             disabled={saving}
                             onClick={() => updateSetting("category", item)}
-                            className={`rounded-full px-2 py-1 text-[10px] ${collection.category === item ? "bg-[#00e6e6] text-black" : "bg-white/10 text-gray-300"}`}
+                            className={`rounded-full px-2 py-1 text-[10px] ${collection.category === item ? "bg-white text-black" : "bg-white/10 text-gray-300"}`}
                           >
                             {item}
                           </button>

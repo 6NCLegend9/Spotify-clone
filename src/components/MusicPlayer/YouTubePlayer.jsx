@@ -196,6 +196,8 @@ function YouTubePlayer() {
   const crossfadeSeconds = 0;
   const isMobile = useIsMobile();
   const isNarrow = useMediaQuery("(max-width: 1179px)");
+  const isLandscape = useMediaQuery("(orientation: landscape)");
+  const isShortViewport = useMediaQuery("(max-height: 540px)");
   const videoId = video?.id || "";
   const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
@@ -2568,7 +2570,8 @@ function YouTubePlayer() {
   };
 
   const fullscreen = expanded && videoVisible;
-  const compactFullscreen = fullscreen && isNarrow;
+  const compactFullscreen = Boolean(fullscreen && isNarrow && !isLandscape);
+  const sheetChrome = Boolean(fullscreen && isNarrow);
   const toggleShuffle = () => {
     if (isJamGuest) return;
     if (!shuffle) {
@@ -2583,7 +2586,7 @@ function YouTubePlayer() {
   };
   const currentQueueIndex = safeQueue.findIndex((item) => item.id === video.id);
   const upcoming = currentQueueIndex === -1 ? safeQueue : safeQueue.slice(currentQueueIndex + 1);
-  const showDesktopQueue = showQueue && !compactFullscreen;
+  const showDesktopQueue = showQueue && !sheetChrome;
   const queueControls = {
     track: video, queue: safeQueue, disabled: isJamGuest, onSelect: playQueueItem,
     canUndoQueue: Boolean(queueUndo),
@@ -2613,7 +2616,7 @@ function YouTubePlayer() {
   return (
     <div
       data-testid="youtube-player"
-      className={fullscreen ? "yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black" : "relative w-full"}
+      className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${compactFullscreen ? "" : "yt-video-expanded--theater"}` : "relative w-full"}
       onClick={(event) => event.stopPropagation()}
       onTouchStart={fullscreen && !compactFullscreen ? onFullscreenSwipeStart : undefined}
       onTouchEnd={fullscreen && !compactFullscreen ? onFullscreenSwipeEnd : undefined}
@@ -2684,12 +2687,12 @@ function YouTubePlayer() {
         onVideo={videoVisible ? toggleExpanded : undefined}
         onLyrics={syncedLyrics !== false ? toggleLyrics : undefined}
       />}
-      {fullscreen && <div className={compactFullscreen ? "px-4 pt-4" : fullscreen ? "pointer-events-none absolute left-5 top-5 z-20 min-w-0" : "yt-dock-track"}>
+      {fullscreen && <div className={compactFullscreen ? "px-4 pt-4" : "pointer-events-none absolute inset-x-0 top-0 z-20 min-w-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-4 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-28"}>
         {fullscreen ? (
           <div>
             <p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p>
-            <p className="mt-2 max-w-[70vw] truncate text-lg font-semibold text-white">{video.title}</p>
-            <p className="text-sm text-gray-300">{video.channel}</p>
+            <p className={`mt-1 max-w-[70vw] truncate font-semibold text-white ${isShortViewport ? "text-sm" : "mt-2 text-lg"}`}>{video.title}</p>
+            <p className={`truncate text-gray-300 ${isShortViewport ? "text-xs" : "text-sm"}`}>{video.channel}</p>
             {deliveredQualityLabel && (
               <p className="mt-1 text-[10px] font-medium text-[#9aa8b5]" aria-live="polite">
                 Video: {deliveredQualityLabel}
@@ -2708,9 +2711,9 @@ function YouTubePlayer() {
           </div>
         )}
       </div>}
-      {fullscreen && <div className={compactFullscreen ? "px-4 pb-6 pt-2" : fullscreen ? "absolute inset-x-0 bottom-4 z-20 mx-auto flex w-[min(92vw,880px)] flex-col items-center gap-2" : "yt-dock-center"}>
+      {fullscreen && <div className={compactFullscreen ? "px-4 pb-6 pt-2" : "absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[min(96vw,880px)] flex-col items-center gap-1 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-10"}>
         <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "yt-dock-transport"}>
-        {fullscreen && !compactFullscreen && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
+        {fullscreen && !compactFullscreen && !isShortViewport && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
           <div className={fullscreen ? "flex max-w-full flex-wrap items-center justify-center gap-1 rounded-lg bg-[var(--glass-strong)] px-1 py-2 backdrop-blur sm:px-3" : "contents"}>
           <AddToPlaylistButton track={video} className="!h-12 !w-12 shrink-0 text-xl sm:!h-14 sm:!w-14" />
           <button type="button" aria-label="Previous song" title={isJamGuest ? "The host controls playback" : "Previous"} onClick={() => handlePrev()} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-2 text-xl text-[var(--text)] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14"><FiSkipBack aria-hidden="true" /></button>
@@ -2720,7 +2723,7 @@ function YouTubePlayer() {
           <button type="button" aria-label="Next song" title={isJamGuest ? "The host controls playback" : "Next"} onClick={() => handleNext()} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-2 text-xl text-[var(--text)] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14"><FiSkipForward aria-hidden="true" /></button>
           <FavouriteTrackButton track={video} className="!h-12 !w-12 shrink-0 text-xl sm:!h-14 sm:!w-14" />
           </div>
-          {fullscreen && !compactFullscreen && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
+          {fullscreen && !compactFullscreen && !isShortViewport && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
         </div>
         <div className={fullscreen ? "w-full" : "yt-dock-seek"}>
           <input
@@ -2745,13 +2748,13 @@ function YouTubePlayer() {
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>}
-      {fullscreen && <div ref={queueMenuRef} className={compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : fullscreen ? "absolute right-5 top-5 z-20 flex items-center justify-end gap-1 sm:gap-2" : "yt-dock-tools"}>
+      {fullscreen && <div ref={queueMenuRef} className={compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : "absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex items-center justify-end gap-1 sm:gap-2"}>
         <button
           type="button"
           aria-label="Queue"
-          aria-expanded={compactFullscreen ? mobileSheet && sheetTab === "queue" : showQueue}
+          aria-expanded={sheetChrome ? mobileSheet && sheetTab === "queue" : showQueue}
           onClick={() => {
-            if (compactFullscreen) {
+            if (sheetChrome) {
               toggleSheetTab("queue");
               return;
             }
@@ -2759,22 +2762,22 @@ function YouTubePlayer() {
           }}
           className={expanded && !dataSaver && !audioOnly ? "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}
         >
-          <span className="hidden lg:inline">Queue</span> {compactFullscreen ? (mobileSheet && sheetTab === "queue" ? <FiChevronDown /> : <FiChevronUp />) : (showQueue ? <FiChevronDown /> : <FiChevronUp />)}
+          <span className="hidden lg:inline">Queue</span> {sheetChrome ? (mobileSheet && sheetTab === "queue" ? <FiChevronDown /> : <FiChevronUp />) : (showQueue ? <FiChevronDown /> : <FiChevronUp />)}
         </button>
         <button
           type="button"
-          aria-pressed={compactFullscreen ? mobileSheet && sheetTab === "lyrics" : showLyrics}
-          aria-label={compactFullscreen ? (mobileSheet && sheetTab === "lyrics" ? "Hide lyrics" : "Show live lyrics") : (showLyrics ? "Hide lyrics" : "Show live lyrics")}
+          aria-pressed={sheetChrome ? mobileSheet && sheetTab === "lyrics" : showLyrics}
+          aria-label={sheetChrome ? (mobileSheet && sheetTab === "lyrics" ? "Hide lyrics" : "Show live lyrics") : (showLyrics ? "Hide lyrics" : "Show live lyrics")}
           title={syncedLyrics === false ? "Live lyrics are turned off in Settings" : "Live lyrics"}
           disabled={syncedLyrics === false}
           onClick={() => {
-            if (compactFullscreen) {
+            if (sheetChrome) {
               toggleSheetTab("lyrics");
               return;
             }
             toggleLyrics();
           }}
-          className={expanded && !dataSaver && !audioOnly ? `grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${(compactFullscreen ? mobileSheet && sheetTab === "lyrics" : showLyrics) ? "text-[#00e6e6]" : "text-white"}` : `grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-gray-300"}`}
+          className={expanded && !dataSaver && !audioOnly ? `grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${(sheetChrome ? mobileSheet && sheetTab === "lyrics" : showLyrics) ? "text-[#00e6e6]" : "text-white"}` : `grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-gray-300"}`}
         >
           <MdOutlineLyrics size={18} />
         </button>
@@ -2837,7 +2840,7 @@ function YouTubePlayer() {
         )}
       </div>}
       </div>
-      {compactFullscreen && mobileSheet && (
+      {sheetChrome && mobileSheet && (
         <div className="yt-mobile-sheet">
           <button
             type="button"
@@ -2895,7 +2898,7 @@ function YouTubePlayer() {
           </div>
         </div>
       )}
-      {showLyrics && syncedLyrics !== false && !compactFullscreen && (
+      {showLyrics && syncedLyrics !== false && !sheetChrome && (
         <div className={fullscreen ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
           <button
             type="button"

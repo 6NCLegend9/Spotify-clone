@@ -97,11 +97,11 @@ function GridItem({ item }) {
   return (
     <div className="library-tile group relative min-w-0">
       <Link href={item.href} className="block focus-visible:outline-none">
-        <div className="overflow-hidden rounded-md shadow-xl">
+        <div className="overflow-hidden rounded-[4px] shadow-xl">
           <CollectionCover item={item} />
         </div>
-        <h2 className="mt-4 truncate text-base font-bold text-white">{cleanTitle(item.title)}</h2>
-        <p className="mt-1 truncate text-xs text-gray-400">{item.meta}</p>
+        <h2 className="home-shelf-title mt-3">{cleanTitle(item.title)}</h2>
+        <p className="home-shelf-subtitle">{item.meta}</p>
         <p className="mt-1 truncate text-xs text-gray-500">{item.updatedLabel}</p>
         {item.category && item.type === "playlist" ? (
           <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#00e6e6]">{item.category}{item.subgenre ? ` · ${item.subgenre}` : ""}</p>
@@ -121,7 +121,7 @@ function ListItem({ item }) {
   return (
     <div className="group grid min-h-[76px] grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-2 transition duration-200 ease-out hover:bg-white/[0.07] sm:grid-cols-[64px_minmax(0,1fr)_minmax(150px,0.6fr)_auto]">
       <Link href={item.href} className="contents">
-        <div className="overflow-hidden rounded-md"><CollectionCover item={item} /></div>
+        <div className="overflow-hidden rounded-[4px]"><CollectionCover item={item} /></div>
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold text-white sm:text-base">{cleanTitle(item.title)}</h2>
           <p className="mt-1 truncate text-xs text-gray-400">{item.meta}{item.category ? ` · ${item.category}` : ""}</p>
@@ -212,7 +212,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
               disabled={loadingId === playlist.id}
               className="library-tile group min-w-0 text-left disabled:opacity-60"
             >
-              <MediaImage src={playlist.thumbnail} size="hq" alt="" className="aspect-square w-full rounded-md object-cover" />
+              <MediaImage src={playlist.thumbnail} size="hq" alt="" className="aspect-square w-full rounded-[4px] object-cover" />
               <div className="mt-4 min-w-0">
                 <h3 className="line-clamp-2 text-sm font-bold text-white">{cleanTitle(playlist.title, "Untitled playlist")}</h3>
                 <p className="mt-2 truncate text-xs text-gray-400">{loadingId === playlist.id ? "Loading..." : playlist.channel}</p>
@@ -430,8 +430,8 @@ function AccountLibraryView({ session, status, owner }) {
                 <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
               </label>
               <div className="flex rounded-md bg-white/[0.07] p-1" aria-label="Library view">
-                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "grid" ? "bg-[#00e6e6] text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
-                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "list" ? "bg-[#00e6e6] text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
+                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
+                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
               </div>
               <label className="relative flex items-center">
                 <span className="sr-only">Sort library</span>

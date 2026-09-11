@@ -187,7 +187,7 @@ function AccountFollowing({ status, owner }) {
             <Link
               key={`${artist.name}-${artist.channelId}`}
               href={hrefFor(artist)}
-              className="group text-center"
+              className="home-shelf-card group text-center"
             >
               <MediaImage
                 src={artist.thumbnail}

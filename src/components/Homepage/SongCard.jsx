@@ -1,7 +1,7 @@
 "use client";
 import React, { memo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { FaPauseCircle, FaPlayCircle } from "react-icons/fa";
+import { BsPauseFill, BsPlayFill } from "react-icons/bs";
 import {
   playPause,
   setActiveSong,
@@ -126,49 +126,51 @@ const SongCard = ({ song, isPlaying, activeSong }) => {
   return (
     <div
       key={song?.id}
-      className="card flex w-[150px] shrink-0 flex-col p-2 sm:w-[180px] lg:w-[205px]"
+      className="card group flex w-[150px] shrink-0 flex-col p-2 sm:w-[180px] lg:w-[205px]"
     >
       <div>
-        <div className="relative w-full lg:h-[178px] group">
-          {song?.type === "song" ? (
-            <div
-              className={`absolute inset-0 z-10 flex items-center justify-center bg-black/70 p-2 transition-opacity ${
-                isActiveSong
-                  ? "opacity-100"
-                  : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={isPlaying && isActiveSong ? handlePauseClick : handlePlayClick}
-                disabled={loading || !hasValidId(song?.id)}
-                aria-label={
-                  loading
-                    ? `Loading ${titleDisplay}`
-                    : isPlaying && isActiveSong
-                      ? `Pause ${titleDisplay}`
-                      : `Play ${titleDisplay}`
-                }
-                className="rounded-full text-gray-200 transition-transform hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00e6e6] disabled:cursor-wait disabled:opacity-70"
-              >
-                {loading ? (
-                  <span className="custom-loader block" aria-hidden="true" />
-                ) : isPlaying && isActiveSong ? (
-                  <FaPauseCircle aria-hidden="true" size={35} />
-                ) : (
-                  <FaPlayCircle aria-hidden="true" size={35} />
-                )}
-              </button>
-            </div>
-          ) : null}
-          <MediaImage
-            width={200}
-            height={200}
-            alt={`${titleDisplay} cover`}
-            src={song?.image?.[1]?.url || song?.image?.[1]?.link || song?.image?.[2]?.url || ""}
-            className="h-full w-full rounded-lg object-cover"
-          />
-        </div>
+        {song?.type === "song" ? (
+          <button
+            type="button"
+            onClick={isPlaying && isActiveSong ? handlePauseClick : handlePlayClick}
+            disabled={loading || !hasValidId(song?.id)}
+            aria-label={
+              loading
+                ? `Loading ${titleDisplay}`
+                : isPlaying && isActiveSong
+                  ? `Pause ${titleDisplay}`
+                  : `Play ${titleDisplay}`
+            }
+            className="group relative w-full overflow-hidden rounded-[4px] lg:h-[178px] disabled:cursor-wait"
+          >
+            <MediaImage
+              width={200}
+              height={200}
+              alt=""
+              src={song?.image?.[1]?.url || song?.image?.[1]?.link || song?.image?.[2]?.url || ""}
+              className="h-full w-full object-cover"
+            />
+            <span className={`play-fab ${isActiveSong ? "is-on" : ""}`}>
+              {loading ? (
+                <span className="custom-loader block" aria-hidden="true" />
+              ) : isPlaying && isActiveSong ? (
+                <BsPauseFill aria-hidden="true" className="text-xl" />
+              ) : (
+                <BsPlayFill aria-hidden="true" className="ml-0.5 text-xl" />
+              )}
+            </span>
+          </button>
+        ) : (
+          <div className="relative w-full overflow-hidden rounded-[4px] lg:h-[178px]">
+            <MediaImage
+              width={200}
+              height={200}
+              alt={`${titleDisplay} cover`}
+              src={song?.image?.[1]?.url || song?.image?.[1]?.link || song?.image?.[2]?.url || ""}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        )}
 
         <div className=" mt-2 lg:mt-4 flex flex-col">
           <p

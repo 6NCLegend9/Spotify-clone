@@ -31,7 +31,7 @@ export default function PlayerDock(props: PlayerDockProps) {
   return <>
     <div className={styles.dock} data-testid="player-dock">
       <div className="flex min-w-0 items-center gap-3">
-        <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded object-cover" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/icon-192x192.png"; }} />
+        <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-[4px] object-cover" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/icon-192x192.png"; }} />
         <button type="button" aria-label={`Expand player: ${props.track.title}`} onClick={expandPlayer} className="min-h-12 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-[var(--accent)]">
           <span className="block truncate text-sm font-semibold text-[var(--text)]">{props.track.title}</span>
           <span className="block truncate text-xs text-[var(--muted)]">{props.track.channel}</span>
@@ -50,7 +50,7 @@ export default function PlayerDock(props: PlayerDockProps) {
         {props.onVideo && <PlayerIconButton label="Expand video" onClick={props.onVideo}><Maximize2 size={19} /></PlayerIconButton>}
       </div>
       <div className={styles.mobile}>
-        <PlayerIconButton label={props.playing ? "Pause" : "Play"} disabled={props.disabled} onClick={props.onPlayPause}>{props.playing ? <Pause size={24} /> : <Play size={24} />}</PlayerIconButton>
+        <PlayerIconButton label={props.playing ? "Pause" : "Play"} disabled={props.disabled} onClick={props.onPlayPause} className="!rounded-full !bg-[var(--accent)] !text-[var(--navy)] hover:brightness-110">{props.playing ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</PlayerIconButton>
         <PlayerIconButton label="Next song" disabled={props.disabled} onClick={props.onNext}><SkipForward size={22} /></PlayerIconButton>
         <PlayerIconButton label="Expand player" onClick={expandPlayer}><Maximize2 size={20} /></PlayerIconButton>
       </div>

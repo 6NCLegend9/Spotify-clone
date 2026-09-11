@@ -23,7 +23,7 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
       {props.queue.length === 0 && <li className="py-8 text-center text-sm text-[var(--muted)]">Queue is empty.</li>}
       {props.queue.map((track, index) => <li key={`${track.id}-${index}`} data-track-id={track.id} className="border-b border-[var(--hairline)] pb-1">
         <button type="button" disabled={props.disabled} aria-current={track.id === props.track.id ? "true" : undefined} onClick={() => props.onSelect(track)} className="flex min-h-12 w-full min-w-0 items-center gap-3 rounded p-2 text-left hover:bg-white/10 aria-[current=true]:bg-white/10 disabled:opacity-50">
-          <img src={track.thumbnail || "/icon-192x192.png"} alt="" loading="lazy" width={40} height={40} className="h-10 w-10 shrink-0 rounded object-cover" />
+          <img src={track.thumbnail || "/icon-192x192.png"} alt="" loading="lazy" width={40} height={40} className="h-10 w-10 shrink-0 rounded-[4px] object-cover" />
           <span className="min-w-0"><span className="block break-words text-sm">{track.title}</span><span className="block truncate text-xs text-[var(--muted)]">{track.channel}</span></span>
         </button>
         {index >= boundary && track.id !== props.track.id && props.onQueueEdit && <div className="flex justify-end">

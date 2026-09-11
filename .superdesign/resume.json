@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "/": {
+      "targetKind": "existing-ui",
+      "projectId": "0b4a2c8d-4448-47f6-93db-65ee63b54327",
+      "baselineDraftId": "376b05f7-aa52-4cc5-9d47-8ff20d50142f",
+      "activeDraftId": "376b05f7-aa52-4cc5-9d47-8ff20d50142f",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "src-assets-HayKasa-logo-removebg.png",
+        "src-assets-HayKasa-banner-removebg.png"
+      ],
+      "brandAssets": {
+        "logo": {
+          "assetKey": "src-assets-HayKasa-logo-removebg.png",
+          "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/0b4a2c8d-4448-47f6-93db-65ee63b54327/brand-assets/src-assets-HayKasa-logo-removebg.png/HayKasa-logo-removebg.png",
+          "sourcePath": "src/assets/HayKasa-logo-removebg.png"
+        }
+      },
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "src/components/Homepage/Home.jsx",
+        "src/components/Homepage/HomeHeader.jsx",
+        "src/components/Homepage/QuickAccessGrid.jsx",
+        "src/components/Homepage/HomeRail.jsx",
+        "src/components/Homepage/MixCard.jsx",
+        "src/components/Homepage/FeaturedRelease.jsx",
+        "src/components/Sidebar/Sidebar.jsx",
+        "src/components/Navbar.jsx",
+        "src/components/Layout/BrandMark.jsx"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "b1a7f1ee975aa3416d2ef2dc8f729ae96c109df99424b90677fb14dcf43f1f7d",
+        "src/components/Homepage/Home.jsx": "547f0c117d0dde6ba43034ae9362e54143ee5b1c7980f41ee69bd18810ae3123",
+        "src/components/Homepage/HomeHeader.jsx": "00df0b7d23d9829158b196d74296d8acd78ebcad3fc8827aa7952c6296c48dee",
+        "src/components/Homepage/QuickAccessGrid.jsx": "e925921cba6d1597b7946408c2fdce7c8d6f4ee855568bb9a4fa246669a525f8",
+        "src/components/Homepage/HomeRail.jsx": "4e8c84c6b0630b41c3820022ce4281e247ee5fec4b5763645e22c82efb5505c4",
+        "src/components/Homepage/MixCard.jsx": "3a1709a29856840fbc30e1651e6b7a584d77509bde9502dffe78291cb5d02cc0",
+        "src/components/Homepage/FeaturedRelease.jsx": "a61a5b0cfe9ba1cbac92f470bdf77da61fb77530025f66c28cc77c2e770cbbe5",
+        "src/components/Sidebar/Sidebar.jsx": "621ac841aeea261fc70b9e7e0c7f122fb310b26da80ef3611952ea9b2d794cb4",
+        "src/components/Navbar.jsx": "813515b20cb0a8375069a07ff801e01a8cf55f078666029fc7d886d5efc8faef",
+        "src/components/Layout/BrandMark.jsx": "db86468a07be5be0e9089b8ccedd308c8144c9743e558713a982c91be5b88800"
+      },
+      "drafts": {
+        "376b05f7-aa52-4cc5-9d47-8ff20d50142f": {
+          "title": "HeyKasa Desktop Home",
+          "visualDirection": "spotify-close home",
+          "currentVersion": 1
+        }
+      },
+      "updatedAt": "2026-09-11T13:40:00.000Z"
+    },
+    "now-playing": {
+      "targetKind": "existing-ui",
+      "projectId": "0b4a2c8d-4448-47f6-93db-65ee63b54327",
+      "baselineDraftId": "6145c99a-aea3-4e0a-a2f7-693d4db1e90e",
+      "activeDraftId": "6145c99a-aea3-4e0a-a2f7-693d4db1e90e",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "src-assets-HayKasa-logo-removebg.png",
+        "src-assets-HayKasa-banner-removebg.png"
+      ],
+      "brandAssets": {
+        "logo": {
+          "assetKey": "src-assets-HayKasa-logo-removebg.png",
+          "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/0b4a2c8d-4448-47f6-93db-65ee63b54327/brand-assets/src-assets-HayKasa-logo-removebg.png/HayKasa-logo-removebg.png",
+          "sourcePath": "src/assets/HayKasa-logo-removebg.png"
+        }
+      },
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".superdesign/init/theme.md",
+        "src/components/Layout/AppShell.jsx",
+        "src/components/Navbar.jsx",
+        "src/components/Sidebar/Sidebar.jsx",
+        "src/components/Layout/BrandMark.jsx",
+        "src/components/MusicPlayer/PlayerDock.tsx",
+        "src/components/MusicPlayer/ExpandedPlayer.tsx",
+        "src/components/MusicPlayer/playerDock.module.css",
+        "src/components/MusicPlayer/QueueEditor.tsx",
+        "src/components/MusicPlayer/PlayerTimeline.tsx"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "ef8d69a4a557d4d4222faedff976433d1b148f124ee519f998198be6a8493979",
+        ".superdesign/init/theme.md": "074049ccd31d8bc32da310ea5072676a72028e903b70a7f42f16376217073f87",
+        "src/components/Layout/AppShell.jsx": "eb134133025942a5637c43af1bdcb874c5e01b5253c7f2bb9a59edc69e76c097",
+        "src/components/Navbar.jsx": "813515b20cb0a8375069a07ff801e01a8cf55f078666029fc7d886d5efc8faef",
+        "src/components/Sidebar/Sidebar.jsx": "621ac841aeea261fc70b9e7e0c7f122fb310b26da80ef3611952ea9b2d794cb4",
+        "src/components/Layout/BrandMark.jsx": "db86468a07be5be0e9089b8ccedd308c8144c9743e558713a982c91be5b88800",
+        "src/components/MusicPlayer/PlayerDock.tsx": "adbaa55edec6579e82d14f1c3a74d0a61fff70b435a639ce92347a8034fa405a",
+        "src/components/MusicPlayer/ExpandedPlayer.tsx": "14478206df18201fb008365316f251389d4888721a2290b172ef429cd58a9dd4",
+        "src/components/MusicPlayer/playerDock.module.css": "77461846d78bc288243ee77bf3c3ed79d15ab90b4d0be618bbe2f0509b24d78f",
+        "src/components/MusicPlayer/QueueEditor.tsx": "88b587d3c320a8931fa1c711e7eb83468282ba520100f48c7109842df8e9853f",
+        "src/components/MusicPlayer/PlayerTimeline.tsx": "5e3581ea5d185bc4fae323d86c5929a4b0345a56693f87f48fb4c7f7f3ad3318"
+      },
+      "components": [
+        {
+          "name": "BrandMark",
+          "sourcePath": "src/components/Layout/BrandMark.jsx",
+          "logoAssetKey": "src-assets-HayKasa-logo-removebg.png"
+        }
+      ],
+      "drafts": {
+        "6145c99a-aea3-4e0a-a2f7-693d4db1e90e": {
+          "title": "HeyKasa Music Desktop Experience",
+          "visualDirection": "current-ui baseline",
+          "currentVersion": 1
+        },
+        "b0f590f5-e54e-4c77-8f65-550ce9687ddc": {
+          "title": "HeyKasa Now Playing Desktop",
+          "visualDirection": "desktop split-pane art + queue",
+          "parentDraftId": "6145c99a-aea3-4e0a-a2f7-693d4db1e90e",
+          "currentVersion": 1
+        },
+        "6cbc30e5-7e19-4cc9-a9c4-9f0fb6ab7262": {
+          "title": "HeyKasa Now Playing – Immersive Theater",
+          "visualDirection": "immersive full-bleed theater",
+          "parentDraftId": "6145c99a-aea3-4e0a-a2f7-693d4db1e90e",
+          "currentVersion": 1
+        }
+      },
+      "updatedAt": "2026-09-11T13:30:00.000Z"
+    }
+  }
+}

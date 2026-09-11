@@ -75,7 +75,7 @@ const Home = () => {
         queueIndex: index,
       });
     });
-    return uniqueById(items).slice(0, 12);
+    return uniqueById(items).slice(0, 8);
   }, [history, playlists, status, trending]);
 
   const playlistMixes = (featuredPlaylists || []).slice(0, 8).map((playlist) => ({
@@ -107,7 +107,7 @@ const Home = () => {
           onAction={() => setFilter("all")}
         />
       ) : (
-        <div key={filter} className="fx-stack">
+        <div className="fx-stack">
           <QuickAccessGrid items={quickItems} />
           {loading && <HomeFeedSkeleton />}
 
@@ -137,11 +137,10 @@ const Home = () => {
             <FeaturedRelease video={featured} queue={featuredQueue} />
           )}
 
-          {!loading && <MixRail title={soundtrackTitle} mixes={moodMixes} />}
-
           {!loading && (
             <TrackRail
               title="Jump back in"
+              seeAllHref="/library"
               videos={history.map((song) => ({
                 ...song,
                 title: song.title || song.name,
@@ -159,6 +158,7 @@ const Home = () => {
           {!loading && (
             <TrackRail
               title={isPersonalized ? "Made For You" : "Featured Editorial"}
+              seeAllHref="/search"
               videos={trending.filter((video) => video.id !== featured?.id)}
             />
           )}
@@ -166,6 +166,7 @@ const Home = () => {
           {!loading && (
             <TrackRail
               title={isPersonalized ? "Top Trends For You" : "Trending Now"}
+              seeAllHref="/search"
               videos={charts}
             />
           )}
@@ -173,11 +174,14 @@ const Home = () => {
           {!loading && (
             <MixRail
               title={isPersonalized ? "Mixes for you" : "Made for you"}
+              seeAllHref="/search"
               mixes={categoryMixes}
             />
           )}
 
-          {!loading && <MixRail title="Featured Playlists" mixes={playlistMixes} />}
+          {!loading && <MixRail title={soundtrackTitle} mixes={moodMixes} seeAllHref="/search" />}
+
+          {!loading && <MixRail title="Featured Playlists" mixes={playlistMixes} seeAllHref="/search" />}
 
           {!loading &&
             genreSections.map((section) => (

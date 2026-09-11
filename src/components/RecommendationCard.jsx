@@ -15,6 +15,7 @@ import { useJam } from "@/components/Jam/JamProvider";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import BottomSheet from "@/components/BottomSheet";
 import MediaImage from "@/components/MediaImage";
+import PlayFab from "@/components/PlayFab";
 import { cleanTitle } from "@/utils/text";
 
 export default function RecommendationCard({ video, queue }) {
@@ -160,8 +161,9 @@ export default function RecommendationCard({ video, queue }) {
 
   return (
     <article className="card group relative w-full text-left" onContextMenu={handleContextMenu}>
-      <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden bg-black">
+      <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black">
         <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03] group-active:scale-[0.98]" />
+        <PlayFab />
       </button>
       {showMenu ? (
         <div className="absolute right-2 top-2 z-20">
@@ -218,8 +220,8 @@ export default function RecommendationCard({ video, queue }) {
           </div>
         </BottomSheet>
       ) : null}
-      <button type="button" onClick={playVideo} className="block w-full p-4 text-left">
-        <p className="line-clamp-2 text-sm font-semibold text-white">{title}</p>
+      <button type="button" onClick={playVideo} className="block w-full p-3 text-left">
+        <p className="home-shelf-title mt-0">{title}</p>
         <div className="mt-2 flex items-center gap-2">
           {video.artistThumbnail ? (
             <MediaImage

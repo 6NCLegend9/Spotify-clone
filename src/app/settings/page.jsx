@@ -169,7 +169,7 @@ function AccountSettings({ owner, status }) {
       <header className="page-hero border-b border-white/10 pb-6">
         <div>
           <p className="eyebrow mb-3 flex items-center gap-2"><FiSettings /> Settings</p>
-          <h1 className="font-display text-3xl sm:text-5xl">Tune your listening.</h1>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">Tune your listening.</h1>
           <p className="mt-3 max-w-2xl text-sm text-[#9aa8b5]">Playback, discovery, privacy, and audio preferences in one place.</p>
         </div>
         {status === "unauthenticated" ? (
