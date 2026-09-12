@@ -20,11 +20,8 @@
   --sidebar-w: 16.25rem;
   --sidebar-collapsed-w: 5.25rem;
   --topbar-h: 64px;
-  --mobile-tabbar-h: max(
-    3.75rem,
-    calc(3rem + env(safe-area-inset-bottom, 0px))
-  );
-  --mobile-player-h: 11.5rem;
+  --mobile-tabbar-h: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  --mobile-player-h: 3.75rem;
   --text: #f4f7fb;
   --muted: #9aa8b5;
   --motion-fast: 180ms;
@@ -286,10 +283,14 @@ select:-webkit-autofill {
     height: 100%;
     max-height: 100%;
     min-height: 0;
-    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-rows: minmax(0, 1fr) var(--mobile-player-h) var(--mobile-tabbar-h);
     grid-template-columns: 1fr;
     background: var(--navy);
     padding-bottom: 0;
+  }
+
+  .app-shell:not(:has(.player-dock)) {
+    --mobile-player-h: 0px;
   }
 
   body.arcade-open .app-player,
@@ -307,6 +308,8 @@ select:-webkit-autofill {
     min-width: 0;
     min-height: 0;
     display: flex;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
     flex-direction: column;
     background: var(--navy);
   }
@@ -584,7 +587,8 @@ select:-webkit-autofill {
   }
 
   .app-player:has(.player-dock:not(.player-dock--full)) {
-    max-height: 11.5rem;
+    height: var(--mobile-player-h);
+    max-height: var(--mobile-player-h);
   }
 
   .app-footer {
