@@ -54,8 +54,12 @@ export default function AppShell({ children }) {
   const [isCompactNav, setIsCompactNav] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === "undefined") return 260;
-    const saved = Number(window.localStorage.getItem("heykasa.sidebar.width"));
-    return Number.isFinite(saved) && saved >= 220 && saved <= 420 ? saved : 260;
+    try {
+      const saved = Number(window.localStorage.getItem("heykasa.sidebar.width"));
+      return Number.isFinite(saved) && saved >= 220 && saved <= 420 ? saved : 260;
+    } catch {
+      return 260;
+    }
   });
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
