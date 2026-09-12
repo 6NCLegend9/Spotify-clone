@@ -41,7 +41,6 @@ const AccountPlaylists = ({ owner, status }) => {
 
   useEffect(() => {
     if (status === "loading") {
-      setLoading(true);
       return;
     }
     if (status !== "authenticated" || !owner) {
@@ -56,26 +55,29 @@ const AccountPlaylists = ({ owner, status }) => {
     const getPlaylists = async () => {
       if (cachedPlaylists?.owner !== owner) setLoading(true);
       setError(null);
-      const res = await getUserPlaylists();
-      if (!active) return;
-      if (res?.success === true) {
-        const list = Array.isArray(res.data?.playlists)
-          ? res.data.playlists.filter(
-            (playlist) => playlist && typeof playlist === "object" && playlist._id,
-          )
-          : [];
-        cachedPlaylists = { owner, data: list, savedAt: Date.now() };
-        setPlaylists(list);
-      } else {
-        const normalized = toUserError(res);
-        setError(normalized.code === "UNAUTHORIZED"
-          ? normalized
-          : toUserError(res, {
-            title: "Playlists unavailable",
-            message: "We couldn’t load your playlists. Please try again.",
-          }));
+      try {
+        const res = await getUserPlaylists();
+        if (!active) return;
+        if (res?.success === true) {
+          const list = Array.isArray(res.data?.playlists)
+            ? res.data.playlists.filter(
+              (playlist) => playlist && typeof playlist === "object" && playlist._id,
+            )
+            : [];
+          cachedPlaylists = { owner, data: list, savedAt: Date.now() };
+          setPlaylists(list);
+        } else {
+          const normalized = toUserError(res);
+          setError(normalized.code === "UNAUTHORIZED"
+            ? normalized
+            : toUserError(res, {
+              title: "Playlists unavailable",
+              message: "We couldn’t load your playlists. Please try again.",
+            }));
+        }
+      } finally {
+        if (active) setLoading(false);
       }
-      setLoading(false);
     };
     getPlaylists();
     const onChanged = () => { cachedPlaylists = null; setRefreshKey((value) => value + 1); };

@@ -6,12 +6,11 @@ import { useParams } from "next/navigation";
 function readQuery(value) {
   const encoded = Array.isArray(value) ? value[0] : value;
   if (typeof encoded !== "string") return { query: "", invalid: false };
-  if (!/%[0-9a-f]{2}/i.test(encoded)) {
-    return { query: encoded.trim(), invalid: false };
-  }
-
   try {
-    return { query: decodeURIComponent(encoded).trim(), invalid: false };
+    const decoded = /%[0-9a-f]{2}/i.test(encoded)
+      ? decodeURIComponent(encoded.replace(/\+/g, " "))
+      : encoded;
+    return { query: decoded.trim().replace(/\s+/g, " "), invalid: false };
   } catch {
     return { query: "", invalid: true };
   }

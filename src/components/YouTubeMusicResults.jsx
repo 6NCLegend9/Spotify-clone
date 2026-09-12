@@ -17,6 +17,7 @@ import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
+import { SITE_BRAND, SITE_NAME } from "@/utils/siteConfig";
 
 export default function YouTubeMusicResults({ query }) {
   const searchParams = useSearchParams();
@@ -171,7 +172,7 @@ export default function YouTubeMusicResults({ query }) {
           {
             signal: controller.signal,
             fallbackTitle: "Search is temporarily unavailable",
-            fallbackMessage: "We couldn’t search HayKasa Music. Please try again.",
+            fallbackMessage: `We couldn’t search ${SITE_BRAND}. Please try again.`,
           },
         );
         if (cancelled) return;
@@ -194,7 +195,7 @@ export default function YouTubeMusicResults({ query }) {
           setSongError(
             toUserError(error, {
               title: "Search is temporarily unavailable",
-              message: "We couldn’t search HayKasa Music. Please try again.",
+              message: `We couldn’t search ${SITE_BRAND}. Please try again.`,
             }),
           );
         }
@@ -352,10 +353,10 @@ export default function YouTubeMusicResults({ query }) {
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00e6e6]">
-            HayKasa Music
+            {SITE_BRAND}
           </p>
           <h2 id="youtube-results-title" className="mt-2 text-2xl font-bold tracking-tight text-white lg:text-3xl">
-            Play On HayKasa
+            Play on {SITE_NAME}
           </h2>
         </div>
         <span className="hidden text-xs text-gray-400 sm:block">Official videos and audio</span>
@@ -365,7 +366,7 @@ export default function YouTubeMusicResults({ query }) {
         <div role="tablist" aria-label="Search result type" className="flex flex-wrap gap-2">
           {[["video", "Songs"], ["channel", "Artists"], ["playlist", "Playlists"]].map(([value, label]) =>
             <button type="button" role="tab" key={value} aria-selected={resultType === value} onClick={() => changeSearch("type", value)}
-              className={`home-chip ${resultType === value ? "is-active" : ""}`}>{label}</button>)}
+              className={`search-type-tab ${resultType === value ? "is-active" : ""}`}>{label}</button>)}
         </div>
         <div className="flex flex-wrap gap-3">
           <label className="grid gap-1 text-xs text-[var(--muted)]">Sort
@@ -394,7 +395,7 @@ export default function YouTubeMusicResults({ query }) {
         <EmptyState
           eyebrow="Search"
           title="No music found"
-          message={`We couldn’t find playable HayKasa Music results for “${query}”. Try another search.`}
+          message={`We couldn’t find playable ${SITE_BRAND} results for “${query}”. Try another search.`}
           href="/"
           actionLabel="Start another search"
         />
@@ -530,7 +531,7 @@ export default function YouTubeMusicResults({ query }) {
               const playlistHref = `/youtube-playlist/${encodeURIComponent(album.id)}?${new URLSearchParams({
                 title: album.title || "Playlist",
                 thumbnail: album.thumbnail || "",
-                creator: album.channel || "HayKasa Music",
+                creator: album.channel || SITE_BRAND,
               })}`;
               return (
                 <article key={album.id} className="card group relative w-full overflow-hidden text-left">

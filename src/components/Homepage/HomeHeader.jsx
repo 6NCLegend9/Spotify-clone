@@ -35,9 +35,13 @@ export default function HomeHeader({ filter, onFilter }) {
     setHello(greetingForHour(new Date().getHours()));
   }, []);
 
-  const href = status === "authenticated" ? "/settings" : "/login";
+  const href = status === "authenticated" ? "/settings" : status === "unauthenticated" ? "/login" : null;
   const label =
-    status === "authenticated" ? `Open settings for ${userName}` : "Log in";
+    status === "authenticated"
+      ? `Open settings for ${userName}`
+      : status === "unauthenticated"
+        ? "Log in"
+        : "Loading account";
 
   return (
     <header className="home-header">
@@ -59,20 +63,28 @@ export default function HomeHeader({ filter, onFilter }) {
         })}
       </div>
       <div className="home-header-row">
-        <Link href={href} aria-label={label} title={label} className="home-avatar ring-1 ring-white/20 md:hidden">
-          {status === "authenticated" && imageUrl && !imageFailed ? (
-            <img
-              src={imageUrl}
-              alt=""
-              onError={() => setImageFailed(true)}
-              className="h-full w-full object-cover"
-            />
-          ) : status === "authenticated" ? (
-            <span aria-hidden="true">{userName.charAt(0).toUpperCase()}</span>
-          ) : (
-            <span aria-hidden="true">H</span>
-          )}
-        </Link>
+        {href ? (
+          <Link href={href} aria-label={label} title={label} className="home-avatar ring-1 ring-white/20 md:hidden">
+            {status === "authenticated" && imageUrl && !imageFailed ? (
+              <img
+                src={imageUrl}
+                alt=""
+                onError={() => setImageFailed(true)}
+                className="h-full w-full object-cover"
+              />
+            ) : status === "authenticated" ? (
+              <span aria-hidden="true">{userName.charAt(0).toUpperCase()}</span>
+            ) : (
+              <span aria-hidden="true">H</span>
+            )}
+          </Link>
+        ) : (
+          <span
+            className="home-avatar animate-pulse bg-white/10 ring-1 ring-white/20 md:hidden"
+            role="status"
+            aria-label={label}
+          />
+        )}
         <div className="home-title-copy">
           <span className="home-eyebrow">YOUR DAILY SOUND</span>
           <h1 className="home-display">{hello}</h1>

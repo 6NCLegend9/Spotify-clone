@@ -13,6 +13,7 @@ import { SongRowsSkeleton } from "@/components/Skeleton";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
+import { SITE_BRAND } from "@/utils/siteConfig";
 
 function formatDuration(seconds) {
   const value = Math.max(0, Number(seconds) || 0);
@@ -27,7 +28,7 @@ export default function YouTubePlaylistPage() {
   const dispatch = useDispatch();
   const title = searchParams.get("title") || "Playlist";
   const thumbnail = searchParams.get("thumbnail") || "";
-  const creator = searchParams.get("creator") || "HayKasa Music";
+  const creator = searchParams.get("creator") || SITE_BRAND;
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -68,6 +69,25 @@ export default function YouTubePlaylistPage() {
     dispatch(setYoutubeVideo(seededTracks[0]));
     dispatch(playPause(true));
   };
+
+  const unavailable = !loading && (
+    Boolean(error)
+    || (tracks.length === 0 && !searchParams.get("title"))
+  );
+
+  if (unavailable) {
+    return (
+      <div className="page text-gray-200">
+        <EmptyState
+          eyebrow="Playlist"
+          title={error?.title || "This playlist page is unavailable"}
+          message={error?.message || "Search for the playlist to open its songs in HeyKasa."}
+          href="/"
+          actionLabel="Back to Home"
+        />
+      </div>
+    );
+  }
 
   return (
     <main className="text-white">

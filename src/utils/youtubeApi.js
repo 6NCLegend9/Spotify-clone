@@ -289,6 +289,7 @@ async function mapWithConcurrency(values, concurrency, mapper) {
 }
 
 let officialApiCooldownUntil = 0;
+let officialQuotaWarned = false;
 
 function officialApiAvailable() {
   return Date.now() >= officialApiCooldownUntil && Boolean(youtubeApiKey());
@@ -511,8 +512,13 @@ async function fetchFromOfficialApi(endpoint, params, fetchOptions) {
     }
     if (response.status === 403 || response.status === 429) {
       officialApiCooldownUntil = Date.now() + 10 * 60 * 1000;
+      if (!officialQuotaWarned) {
+        officialQuotaWarned = true;
+        console.warn(`YouTube Data API returned ${response.status}; using fallback until cooldown ends.`);
+      }
+    } else {
+      console.warn(`YouTube Data API ${endpoint} returned ${response.status}; using fallback.`);
     }
-    console.warn(`YouTube Data API ${endpoint} returned ${response.status}; using fallback.`);
   } catch (error) {
     console.warn(`YouTube Data API ${endpoint} was unavailable; using fallback.`);
   }

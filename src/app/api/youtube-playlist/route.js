@@ -45,6 +45,12 @@ export async function GET(request) {
     const { ok, status, data } = await youtubeFetch("playlistItems", params, { next: { revalidate: 900 } });
 
     if (!ok) {
+      if (status === 400 || status === 404) {
+        return apiError("NOT_FOUND", {
+          title: "This playlist page is unavailable",
+          message: "Search for the playlist to open its songs in HeyKasa.",
+        });
+      }
       return apiError(upstreamCode(status), {
         message: "This playlist could not be loaded.",
       });
@@ -62,6 +68,20 @@ export async function GET(request) {
           item.snippet.thumbnails?.default?.url ||
           "",
       }));
+
+    if (!tracks.length) {
+      const meta = await youtubeFetch("playlists", {
+        part: "id",
+        id: playlistId,
+        maxResults: "1",
+      }, { next: { revalidate: 900 } });
+      if (!meta.ok || !Array.isArray(meta.data?.items) || meta.data.items.length === 0) {
+        return apiError("NOT_FOUND", {
+          title: "This playlist page is unavailable",
+          message: "Search for the playlist to open its songs in HeyKasa.",
+        });
+      }
+    }
 
     return NextResponse.json(
       { tracks },

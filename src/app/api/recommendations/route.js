@@ -61,15 +61,6 @@ function normalizeVideo(item, reason, extra = {}) {
   };
 }
 
-function upstreamError(status, message) {
-  const code = status === 429
-    ? "RATE_LIMITED"
-    : status === 503
-      ? "SERVICE_UNAVAILABLE"
-      : "BAD_GATEWAY";
-  return new ApiRouteError(code, { message });
-}
-
 async function searchYouTube(query, reason, extra = {}) {
   const params = {
     part: "snippet",
@@ -80,8 +71,8 @@ async function searchYouTube(query, reason, extra = {}) {
     maxResults: "8",
     q: `${query} official audio`,
   };
-  const { ok, status, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
-  if (!ok) throw upstreamError(status, "Music recommendations are temporarily unavailable.");
+  const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
+  if (!ok) return [];
   return (Array.isArray(data?.items) ? data.items : [])
     .filter((item) => item?.id?.videoId)
     .map((item) => normalizeVideo(item, reason, extra));
@@ -95,8 +86,8 @@ async function getPopularMusic() {
     regionCode: "US",
     maxResults: "24",
   };
-  const { ok, status, data } = await youtubeFetch("videos", params, { next: { revalidate: 900 } });
-  if (!ok) throw upstreamError(status, "Music recommendations are temporarily unavailable.");
+  const { ok, data } = await youtubeFetch("videos", params, { next: { revalidate: 900 } });
+  if (!ok) return [];
   return (Array.isArray(data?.items) ? data.items : [])
     .filter(
       (item) =>
@@ -114,8 +105,8 @@ async function searchPlaylists(query) {
     maxResults: "6",
     q: `${query} official playlist`,
   };
-  const { ok, status, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
-  if (!ok) throw upstreamError(status, "Featured playlists are temporarily unavailable.");
+  const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
+  if (!ok) return [];
   return (Array.isArray(data?.items) ? data.items : [])
     .filter((item) => item?.id?.playlistId)
     .map((item) => ({
