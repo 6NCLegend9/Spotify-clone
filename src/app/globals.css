@@ -595,10 +595,17 @@ select:-webkit-autofill {
     margin-top: 3.5rem;
     margin-bottom: 1.5rem;
     border-top: 1px solid var(--hairline);
-    padding-top: 1.5rem;
+    padding: 1.5rem 1rem 0;
     text-align: center;
     font-size: 0.75rem;
     color: var(--muted);
+  }
+
+  .app-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem 1rem;
   }
 
   .app-shell[data-player="full"] .app-tabbar,
@@ -774,6 +781,10 @@ select:-webkit-autofill {
   @media (min-width: 768px) {
     .page {
       padding: 2rem 2rem 3rem;
+    }
+
+    .search-suggest {
+      max-height: min(70vh, 28rem);
     }
   }
 
@@ -1585,7 +1596,7 @@ select:-webkit-autofill {
     position: absolute;
     z-index: 30;
     margin-top: 0.5rem;
-    max-height: 70vh;
+    max-height: min(70vh, calc(100dvh - var(--topbar-h) - var(--mobile-player-h) - var(--mobile-tabbar-h) - 4.5rem));
     width: 100%;
     overflow-y: auto;
     border-radius: 0.75rem;
@@ -2635,7 +2646,7 @@ body:has(.yt-video-expanded--idle) .jam-fab {
 
 @media (max-width: 1023px) {
   .yt-pip-float {
-    bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--mobile-player-h) + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -2661,7 +2672,7 @@ body:has(.yt-video-expanded--idle) .jam-fab {
 
 @media (max-width: 1023px) {
   .lyrics-panel {
-    bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--mobile-player-h) + env(safe-area-inset-bottom, 0px));
   }
 }
 

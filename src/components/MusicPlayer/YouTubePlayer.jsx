@@ -2707,6 +2707,8 @@ function YouTubePlayer() {
     chromeVisibleRef.current = true;
     setChromeVisible(true);
     if (chromePinnedRef.current || chromeLockedRef.current) return;
+    // Phone expanded sheet stays 3/4 + chrome until the video is tapped.
+    if (isPhoneRef.current) return;
     chromeIdleTimerRef.current = window.setTimeout(() => {
       if (hideGeneration !== chromeHideGenRef.current) return;
       if (chromePinnedRef.current || chromeLockedRef.current) return;
@@ -2961,7 +2963,7 @@ function YouTubePlayer() {
           <button type="button" aria-label="Expand floating video" title="Expand video" onClick={toggleExpanded} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiMaximize2 /></button>
           <button type="button" aria-label="Close floating video" title="Close floating video" onClick={closePictureInPicture} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiX /></button>
         </div>}
-        {playerError && (
+        {playerError && (fullscreen || pipFloat) && (
           <div
             className="absolute inset-0 z-10 grid place-content-center bg-black/90 p-3 text-center"
             role="alert"
@@ -2973,13 +2975,31 @@ function YouTubePlayer() {
               <p className="mt-1 text-[11px] text-gray-300">You may need to allow autoplay in your browser settings.</p>
             )}
             <div className="mt-3 flex flex-wrap justify-center gap-2">
-              <button type="button" onClick={handleRetryPlayback} className="rounded-md bg-[#00e6e6] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>
-              <button type="button" onClick={handleSkipPlaybackFailure} disabled={isJamGuest} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
-              <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#00e6e6] hover:bg-white/20">Open YouTube</a>
+              <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#00e6e6] px-3 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>
+              <button type="button" onClick={handleSkipPlaybackFailure} disabled={isJamGuest} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
+              <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-[#00e6e6] hover:bg-white/20">Open YouTube</a>
             </div>
           </div>
         )}
       </div>
+      {playerError && !fullscreen && (
+        <div
+          className="relative z-20 border-t border-white/10 bg-black/90 px-4 py-3 text-center"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
+          <p className="text-sm font-medium text-white">{playerError.message}</p>
+          {playerError.kind === "autoplay" && (
+            <p className="mt-1 text-xs text-gray-300">You may need to allow autoplay in your browser settings.</p>
+          )}
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#00e6e6] px-3 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>
+            <button type="button" onClick={handleSkipPlaybackFailure} disabled={isJamGuest} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
+            <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-[#00e6e6] hover:bg-white/20">Open YouTube</a>
+          </div>
+        </div>
+      )}
       {!fullscreen && <PlayerDock
         track={video} playing={isPlaying} position={currentTime} duration={duration}
         disabled={isJamGuest} shuffle={shuffle} repeat={repeat}

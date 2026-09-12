@@ -397,10 +397,12 @@ function AccountLibraryView({ session, status, owner }) {
         )}
       </header>
 
-      {status !== "authenticated" ? (
+      {status === "loading" ? (
+        <div className="mt-8"><CardGridSkeleton /></div>
+      ) : status !== "authenticated" ? (
         <GuestLibrary
           playlists={publicPlaylists}
-          loading={loading || status === "loading"}
+          loading={loading}
           error={error}
           onRetry={() => setRefreshKey((value) => value + 1)}
         />

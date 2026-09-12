@@ -520,7 +520,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               <div className="relative ml-auto">
                 <button type="button" aria-label="Playlist options" title="Playlist options" aria-expanded={showOptions} disabled={!isOwner || isLiked} onClick={() => setShowOptions((value) => !value)} className="grid h-11 w-11 place-items-center rounded-full text-xl text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiMoreHorizontal /></button>
                 {showOptions && collection && (
-                  <div className="absolute right-0 top-12 z-20 w-80 rounded-md border border-white/10 bg-[#111d28] p-1.5 text-sm shadow-2xl">
+                  <div className="absolute right-0 top-12 z-20 w-[min(20rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] rounded-md border border-white/10 bg-[#111d28] p-1.5 text-sm shadow-2xl">
                     <button type="button" disabled={saving} onClick={() => updateSetting("pinned", !collection.pinned)} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10"><BsPinAngleFill /> {collection.pinned ? "Unpin from Library" : "Pin to Library"}</button>
                     <button type="button" disabled={saving} onClick={() => updateSetting("visibility", collection.visibility === "public" ? "private" : "public")} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10">{collection.visibility === "public" ? <FiLock /> : <FiGlobe />} Make {collection.visibility === "public" ? "private" : "public"}</button>
                     <div className="border-t border-white/10 px-3 py-2">
@@ -562,11 +562,11 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             )}
 
             <section aria-label={`${title} tracks`}>
-              <div className="grid grid-cols-[44px_minmax(0,1fr)_56px_96px] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px]">
-                <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><span className="mx-auto"><FiClock aria-hidden="true" className="inline" /><span className="sr-only">Duration</span></span><span />
+              <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px]">
+                <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><span className="mx-auto hidden md:inline"><FiClock aria-hidden="true" className="inline" /><span className="sr-only">Duration</span></span><span />
               </div>
               {filteredTracks.map((track, index) => (
-                <div key={track.id} className={`group grid min-h-[66px] grid-cols-[44px_minmax(0,1fr)_56px_96px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
+                <div key={track.id} className={`group grid min-h-[66px] grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
                   <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-11 w-11 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
                   <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
                     <MediaImage src={track.thumbnail} size="mq" alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-11 w-11 shrink-0 rounded object-cover" />
@@ -574,7 +574,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                   </button>
                   <span className="hidden truncate text-xs text-gray-400 md:block">-</span>
                   <span className="hidden text-xs text-gray-400 lg:block">{formatAddedDate(track.addedAt)}</span>
-                  <span className="text-right text-xs tabular-nums text-gray-400">{formatDuration(track.duration)}</span>
+                  <span className="hidden text-right text-xs tabular-nums text-gray-400 md:block">{formatDuration(track.duration)}</span>
                   <div className="flex items-center justify-end gap-1">
                     <AddToQueueButton track={track} className="text-gray-500 opacity-100 hover:text-white sm:opacity-0 sm:group-hover:opacity-100" />
                     {(isLiked || canEditTracks) ? <button type="button" aria-label={isLiked ? `Remove ${cleanText(track.title)} from Liked Songs` : `Remove ${cleanText(track.title)} from playlist`} title={isLiked ? "Remove from Liked Songs" : "Remove from playlist"} onClick={() => removeTrack(track)} className="grid h-11 w-11 place-items-center rounded-full text-gray-500 opacity-100 hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100">{isLiked ? <FiHeart className="fill-current text-[#00e6e6]" /> : <FiTrash2 />}</button> : null}

@@ -103,7 +103,7 @@ const Sidebar = () => {
           </Link>
         ))}
 
-        {status !== "authenticated" && (
+        {status === "unauthenticated" && (
           <Link href="/signup" onClick={go} className={`nav-link ${collapsed ? "md:hidden" : ""}`}>
             Create account
           </Link>

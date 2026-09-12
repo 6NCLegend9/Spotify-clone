@@ -209,7 +209,7 @@ const SongsList = ({
                     />
                   )}
                 </div>
-                <div className=" w-24 md:w-64">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm lg:text-lg font-semibold truncate">
                     {trackName}
                   </p>

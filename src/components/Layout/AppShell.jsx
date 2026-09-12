@@ -297,7 +297,7 @@ export default function AppShell({ children }) {
             <PageTransit pathname={pathname}>{children}</PageTransit>
             {pathname?.startsWith("/arcade") ? null : (
               <footer className="app-footer">
-                <div className="flex justify-center gap-4">
+                <div className="app-footer-links">
                   <Link href="/terms" className="transition hover:text-white">Terms of Service</Link>
                   <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
                   <Link href="/accessibility" className="transition hover:text-white">Accessibility</Link>

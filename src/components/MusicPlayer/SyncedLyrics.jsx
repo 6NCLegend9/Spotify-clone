@@ -125,6 +125,13 @@ export default function SyncedLyrics({
                 onSeek?.(line.time);
                 centerLine(index);
               }}
+              onKeyDown={(event) => {
+                if (line.unsynced) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSeek?.(line.time);
+                }
+              }}
               className={`lyrics-line ${isActive ? "lyrics-line--active" : ""} ${line.unsynced ? "cursor-default" : ""}`}
             >
               {line.text}

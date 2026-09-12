@@ -401,7 +401,7 @@ export default function YouTubeMusicResults({ query }) {
         />
       )}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {resultType === "video" && <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {results.map((video) => {
           const playVideo = () => {
             dispatch(setYoutubeQueue(results));
@@ -440,7 +440,7 @@ export default function YouTubeMusicResults({ query }) {
           </article>
           );
         })}
-      </div>
+      </div>}
 
       {!loading && resultType === "video" && results.length > 0 && !extrasLoaded && (
         <button

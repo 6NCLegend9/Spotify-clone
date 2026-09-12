@@ -2,9 +2,9 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { toast } from "react-hot-toast";
-import { redirect, useSearchParams } from "next/navigation";
+import { redirect, useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import { useSession } from "next-auth/react";
@@ -29,6 +29,7 @@ function safeCallbackPath(value) {
 const LoginPage = () => {
   const { status } = useSession();
   const dispatch = useDispatch();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const afterLogin = safeCallbackPath(searchParams.get("callbackUrl"));
   const emailRef = useRef(null);
@@ -83,6 +84,15 @@ const LoginPage = () => {
       if (res.ok && !res.error) {
         toast.success("Logged in successfully");
         setFormError(null);
+        // SessionProvider does not poll. getSession() fills the client cache
+        // without POSTing an update that re-runs jwt and can drop the cookie.
+        try {
+          await getSession();
+        } catch {
+          // Cookie is already set; navigation still hydrates the session.
+        }
+        router.replace(afterLogin);
+        router.refresh();
       } else {
         setFormError(humanizeError(res.error, AUTH_CODES.CredentialsSignin));
         setRetryAction(null);
