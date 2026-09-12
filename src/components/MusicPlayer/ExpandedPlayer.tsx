@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ListMusic, Music2, PictureInPicture2 } from "lucide-react";
+import { ChevronDown, ListMusic, Music2 } from "lucide-react";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
@@ -52,7 +52,7 @@ export default function ExpandedPlayer(props: PlayerDockProps & { initialPanel: 
           <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
           <Transport {...props} />
           {props.sleepControl}
-          <div className="flex items-center justify-between">{props.volume}{props.trackActions}<PlayerIconButton label={props.pipLabel} active={props.pipActive} disabled={props.pipDisabled} onClick={() => { props.onPip(); props.onClose(); }}><PictureInPicture2 /></PlayerIconButton></div>
+          <div className="flex items-center justify-between gap-3">{props.volume}{props.trackActions}</div>
         </div>
       </div>
       <aside className={styles.queuePane} aria-label="Queue">
