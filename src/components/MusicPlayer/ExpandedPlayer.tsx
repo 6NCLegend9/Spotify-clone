@@ -14,9 +14,28 @@ export default function ExpandedPlayer(props: PlayerDockProps & { initialPanel: 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
-    dialog?.showModal();
-    return () => { dialog?.close(); previous?.focus(); };
-  }, []);
+    if (!dialog) return undefined;
+
+    if (typeof dialog.showModal === "function") {
+      if (!dialog.open) dialog.showModal();
+    } else {
+      // Older Safari/WebView fallback: preserve the modal presentation instead
+      // of crashing when the native dialog API is unavailable.
+      dialog.setAttribute("open", "");
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") props.onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      if (typeof dialog.close === "function" && dialog.open) dialog.close();
+      else dialog.removeAttribute("open");
+      previous?.focus();
+    };
+  }, [props.onClose]);
   return <dialog ref={dialogRef} aria-label="Now playing" data-panel={panel} onCancel={props.onClose} className={styles.dialog}>
     <header className="flex shrink-0 items-center justify-between border-b border-[var(--hairline)] px-4 py-2">
       <h2 className="text-base font-semibold">{panel === "queue" ? "Queue" : "Now playing"}</h2>
