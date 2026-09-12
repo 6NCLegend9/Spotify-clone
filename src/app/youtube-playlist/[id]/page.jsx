@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { FiArrowLeft, FiClock, FiPlay } from "react-icons/fi";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
@@ -24,6 +23,7 @@ function formatDuration(seconds) {
 export default function YouTubePlaylistPage() {
   const { id } = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const dispatch = useDispatch();
   const title = searchParams.get("title") || "Playlist";
   const thumbnail = searchParams.get("thumbnail") || "";
@@ -71,9 +71,9 @@ export default function YouTubePlaylistPage() {
     <main className="text-white">
       <section className="bg-[linear-gradient(180deg,rgba(0,230,230,0.22),rgba(7,18,29,0.94))] px-[3vw] pb-8 pt-6">
         <div className="mx-auto w-full max-w-[1440px]">
-          <Link href="javascript:history.back()" onClick={(event) => { event.preventDefault(); history.back(); }} className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-gray-300 hover:text-white">
+          <button type="button" onClick={() => router.back()} className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-gray-300 hover:text-white">
             <FiArrowLeft /> Back to results
-          </Link>
+          </button>
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
             <MediaImage src={thumbnail || tracks[0]?.thumbnail} size="hq" alt="" className="aspect-square w-44 shrink-0 rounded-md object-cover shadow-2xl sm:w-56" />
             <div className="min-w-0 pb-1">
