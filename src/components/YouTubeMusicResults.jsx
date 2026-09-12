@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
-import { playPause, setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
@@ -334,8 +334,7 @@ export default function YouTubeMusicResults({ query }) {
         seedQuery: playlist.title || playlist.seedQuery,
         genre: playlist.title,
       }));
-      dispatch(setYoutubeQueue(seeded));
-      dispatch(setYoutubeVideo(seeded[0]));
+      dispatch(startYoutubePlayback({ queue: seeded, track: seeded[0] }));
       dispatch(playPause(true));
     } catch (error) {
       const userError = toUserError(error, {
@@ -404,8 +403,7 @@ export default function YouTubeMusicResults({ query }) {
       {resultType === "video" && <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {results.map((video) => {
           const playVideo = () => {
-            dispatch(setYoutubeQueue(results));
-            dispatch(setYoutubeVideo(video));
+            dispatch(startYoutubePlayback({ queue: results, track: video }));
             dispatch(playPause(true));
           };
           const title = cleanTitle(video.title);
