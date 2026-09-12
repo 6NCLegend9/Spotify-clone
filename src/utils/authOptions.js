@@ -7,6 +7,7 @@ import UserData from "@/models/UserData";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
   AuthError,
+  AUTH_CODES,
   EMAIL_PATTERN,
   LOGIN_ERRORS,
 } from "@/utils/authErrors";
@@ -75,19 +76,22 @@ export const authOptions = {
           const user = await User.findOne({ email }).select("+password");
 
           if (!user) {
-            throw new AuthError(LOGIN_ERRORS.emailNotFound.message, {
-              title: LOGIN_ERRORS.emailNotFound.title,
+            throw new AuthError(AUTH_CODES.CredentialsSignin.message, {
+              title: AUTH_CODES.CredentialsSignin.title,
+              code: "CredentialsSignin",
             });
           }
           if (!user.password) {
-            throw new AuthError(LOGIN_ERRORS.googleOnly.message, {
-              title: LOGIN_ERRORS.googleOnly.title,
+            throw new AuthError(AUTH_CODES.CredentialsSignin.message, {
+              title: AUTH_CODES.CredentialsSignin.title,
+              code: "CredentialsSignin",
             });
           }
           const passwordMatches = await bcrypt.compare(password, user.password);
           if (!passwordMatches) {
-            throw new AuthError(LOGIN_ERRORS.wrongPassword.message, {
-              title: LOGIN_ERRORS.wrongPassword.title,
+            throw new AuthError(AUTH_CODES.CredentialsSignin.message, {
+              title: AUTH_CODES.CredentialsSignin.title,
+              code: "CredentialsSignin",
             });
           }
           if (!user.isVerified) {
