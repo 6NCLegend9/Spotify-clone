@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiChevronLeft, FiChevronRight, FiList, FiPlay } from "react-icons/fi";
-import { setYoutubeVideo } from "@/redux/features/playerSlice";
+import { playPause, setYoutubeVideo } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import { cleanTitle } from "@/utils/text";
 
@@ -51,7 +51,10 @@ export default function DesktopNowPlayingPanel({ collapsed, onToggle }) {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => dispatch(setYoutubeVideo(item))}
+                      onClick={() => {
+                        dispatch(setYoutubeVideo(item));
+                        dispatch(playPause(true));
+                      }}
                       className="now-playing-panel__track group"
                       aria-label={`Play ${cleanTitle(item.title)}`}
                     >
