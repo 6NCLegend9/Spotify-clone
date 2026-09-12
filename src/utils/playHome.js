@@ -2,8 +2,7 @@ import {
   playPause,
   setActiveSong,
   setFullScreen,
-  setYoutubeQueue,
-  setYoutubeVideo,
+  startYoutubePlayback,
 } from "@/redux/features/playerSlice";
 import { buildRadioQueue } from "@/utils/radioEngine.mjs";
 
@@ -34,8 +33,7 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0) {
       seedQuery: item.seedQuery || item.genre || seedQuery,
       genre: item.genre || start.genre,
     }));
-    dispatch(setYoutubeQueue(seededQueue));
-    dispatch(setYoutubeVideo({ ...start, seedQuery, genre: start.genre || seedQuery }));
+    dispatch(startYoutubePlayback({ queue: seededQueue, track: { ...start, seedQuery, genre: start.genre || seedQuery } }));
     return;
   }
 
