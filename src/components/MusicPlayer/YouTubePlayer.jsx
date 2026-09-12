@@ -2431,16 +2431,22 @@ function YouTubePlayer() {
 
   const handlePrev = () => {
     if (isJamGuestRef.current) return;
+    if (currentTime > 3) {
+      seekOnCurrentTrack(0);
+      return;
+    }
     fadeOutThenSkip(() => {
       const previous = getPreviousVideo();
-      if (previous) {
-        if (status === "authenticated" && videoRef.current?.id) recordPlayEvent(videoRef.current.id, "skipped");
-        markExpectPlaying();
-        dispatch(playPause(true));
-        dispatch(setYoutubeVideo(previous));
+      if (!previous) {
+        seekOnCurrentTrack(0);
         return;
       }
-      seekOnCurrentTrack(0);
+      if (status === "authenticated" && videoRef.current?.id) {
+        recordPlayEvent(videoRef.current.id, "skipped");
+      }
+      markExpectPlaying();
+      dispatch(playPause(true));
+      dispatch(setYoutubeVideo(previous));
     });
   };
 
