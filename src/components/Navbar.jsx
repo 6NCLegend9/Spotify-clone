@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GoHome, GoHomeFill } from "react-icons/go";
-import { MdOutlineMenu, MdRefresh, MdSportsEsports } from "react-icons/md";
+import { MdOutlineMenu, MdSportsEsports } from "react-icons/md";
 import BrandMark from "./Layout/BrandMark";
 import { useNav } from "./Layout/AppShell";
 import Searchbar from "./Searchbar";
@@ -64,15 +64,6 @@ const Navbar = () => {
       </div>
 
       <div className="navbar-slot navbar-slot-end">
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="icon-btn navbar-refresh h-11 w-11 shrink-0"
-          aria-label="Refresh"
-          title="Refresh"
-        >
-          <MdRefresh aria-hidden="true" className="text-xl" />
-        </button>
         <Link
           href="/arcade"
           className={`icon-btn h-11 w-11 shrink-0 ${canUseArcade(session?.user?.email) ? "" : "hidden"}`}
