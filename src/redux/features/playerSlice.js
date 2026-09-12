@@ -107,6 +107,27 @@ const playerSlice = createSlice({
       state.youtubeQueue = (action.payload || []).map((track) => decodeTrackFields(track));
     },
 
+    startYoutubePlayback: (state, action) => {
+      const track = decodeTrackFields(action.payload?.track);
+      if (!track?.id) return;
+      const queue = Array.isArray(action.payload?.queue)
+        ? action.payload.queue.map((item) => decodeTrackFields(item)).filter((item) => item?.id)
+        : [];
+      if (!queue.some((item) => item.id === track.id)) queue.unshift(track);
+      state.queueUndo = null;
+      state.queueManualEnd = false;
+      state.youtubeQueue = queue;
+      state.youtubeVideo = track;
+      state.activeSong = {};
+      state.currentSongs = [];
+      state.currentIndex = Math.max(0, queue.findIndex((item) => item.id === track.id));
+      state.isActive = false;
+      state.isPlaying = true;
+      state.position = 0;
+      state.restorePosition = null;
+    },
+
+
     editQueue: (state, action) => {
       const currentId = state.youtubeVideo?.id;
       const next = editUpcomingQueue(state.youtubeQueue, currentId, action.payload);
@@ -189,6 +210,7 @@ export const {
   playPause,
   setYoutubeVideo,
   setYoutubeQueue,
+  startYoutubePlayback,
   editQueue,
   undoQueueEdit,
   expireQueueUndo,
