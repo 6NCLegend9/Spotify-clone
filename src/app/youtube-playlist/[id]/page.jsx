@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { FiArrowLeft, FiClock, FiPlay } from "react-icons/fi";
-import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { playPause, setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import MediaImage from "@/components/MediaImage";
 import EmptyState from "@/components/EmptyState";
@@ -59,12 +59,14 @@ export default function YouTubePlaylistPage() {
   const playTrack = (track) => {
     dispatch(setYoutubeQueue(seededTracks));
     dispatch(setYoutubeVideo({ ...track, seedQuery: title, genre: title }));
+    dispatch(playPause(true));
   };
 
   const playAll = () => {
     if (!seededTracks.length) return;
     dispatch(setYoutubeQueue(seededTracks));
     dispatch(setYoutubeVideo(seededTracks[0]));
+    dispatch(playPause(true));
   };
 
   return (
