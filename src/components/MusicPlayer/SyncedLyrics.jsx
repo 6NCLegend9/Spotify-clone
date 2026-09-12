@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import UserMessage from "@/components/UserMessage";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 
@@ -19,6 +20,39 @@ export default function SyncedLyrics({
     enabled: Boolean(title),
   });
   const activeIndex = indexFor(currentTime);
+  const listRef = useRef(null);
+  const lineRefs = useRef([]);
+  const resumeAutoScrollTimer = useRef(null);
+  const autoScroll = useRef(true);
+
+  useEffect(() => {
+    if (activeIndex < 0 || !autoScroll.current) return;
+    const line = lineRefs.current[activeIndex];
+    const list = listRef.current;
+    if (!line || !list) return;
+    const listRect = list.getBoundingClientRect();
+    const lineRect = line.getBoundingClientRect();
+    const comfortableTop = listRect.top + listRect.height * 0.28;
+    const comfortableBottom = listRect.top + listRect.height * 0.72;
+    if (lineRect.top < comfortableTop || lineRect.bottom > comfortableBottom) {
+      line.scrollIntoView({
+        block: "center",
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
+    }
+  }, [activeIndex]);
+
+  useEffect(() => () => {
+    if (resumeAutoScrollTimer.current) clearTimeout(resumeAutoScrollTimer.current);
+  }, []);
+
+  const pauseAutoScroll = () => {
+    autoScroll.current = false;
+    if (resumeAutoScrollTimer.current) clearTimeout(resumeAutoScrollTimer.current);
+    resumeAutoScrollTimer.current = setTimeout(() => {
+      autoScroll.current = true;
+    }, 4000);
+  };
 
   if (!title) {
     return (
@@ -68,20 +102,36 @@ export default function SyncedLyrics({
           </span>
         )}
       </div>
-      <div className="lyrics-live-list hideScrollBar">
+      <div
+        ref={listRef}
+        className="lyrics-live-list hideScrollBar"
+        onWheel={pauseAutoScroll}
+        onTouchMove={pauseAutoScroll}
+      >
         {lines.map((line, index) => {
           const isActive = index === activeIndex;
           return (
-            <div
+            <button
+              ref={(node) => {
+                lineRefs.current[index] = node;
+              }}
               key={`${line.time}-${index}`}
-              role={line.unsynced ? undefined : "button"}
+              type="button"
+              disabled={line.unsynced}
+              aria-current={isActive ? "true" : undefined}
               onClick={() => {
-                if (!line.unsynced) onSeek?.(line.time);
+                if (line.unsynced) return;
+                autoScroll.current = true;
+                onSeek?.(line.time);
+                lineRefs.current[index]?.scrollIntoView({
+                  block: "center",
+                  behavior: "smooth",
+                });
               }}
               className={`lyrics-line ${isActive ? "lyrics-line--active" : ""} ${line.unsynced ? "cursor-default" : ""}`}
             >
               {line.text}
-            </div>
+            </button>
           );
         })}
       </div>
