@@ -215,9 +215,14 @@ const LoginPage = () => {
               className="field mt-2"
             />
           </label>
-          <Link href="/reset-password" className="text-xs font-semibold text-[#00e6e6]">
-            Forgot password?
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Link href="/reset-password" className="text-xs font-semibold text-[var(--accent)]">
+              Forgot password?
+            </Link>
+            <Link href="/resend-verification" className="text-xs font-semibold text-[var(--accent)]">
+              Resend verification
+            </Link>
+          </div>
           <button type="submit" disabled={submitting || googleSubmitting} className="btn-primary w-full">
             {submitting ? "Signing in..." : "Log in"}
           </button>
