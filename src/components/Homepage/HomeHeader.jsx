@@ -73,7 +73,11 @@ export default function HomeHeader({ filter, onFilter }) {
             <span aria-hidden="true">H</span>
           )}
         </Link>
-        <h1 className="home-display">{hello}</h1>
+        <div className="home-title-copy">
+          <span className="home-eyebrow">YOUR DAILY SOUND</span>
+          <h1 className="home-display">{hello}</h1>
+          <p className="home-subtitle">Fresh picks, familiar favourites, and your next obsession.</p>
+        </div>
       </div>
     </header>
   );
