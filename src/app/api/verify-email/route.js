@@ -36,24 +36,28 @@ export async function POST(request) {
         }
 
         await dbConnect();
-        const tokenHash = hashToken(token);
-
-        const user = await User.findOne({
-            verificationToken: tokenHash,
-            verificationTokenExpires: { $gt: Date.now() }
-        });
+        const user = await User.findOneAndUpdate(
+            {
+                verificationToken: hashToken(token),
+                verificationTokenExpires: { $gt: Date.now() },
+                isVerified: false,
+            },
+            {
+                $set: {
+                    isVerified: true,
+                    verificationToken: null,
+                    verificationTokenExpires: null,
+                },
+            },
+            { new: true },
+        ).select("_id");
 
         if (!user) {
             return apiError("VALIDATION_ERROR", {
                 title: "Invalid verification link",
-                message: "The verification link is invalid or has expired.",
+                message: "The verification link is invalid, expired, or has already been used.",
             });
         }
-
-        user.isVerified = true;
-        user.verificationToken = null;
-        user.verificationTokenExpires = null;
-        await user.save();
 
         return apiSuccess(null, { message: "Email verified successfully." });
     } catch (error) {
