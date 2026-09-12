@@ -57,6 +57,14 @@ export default function PlayerDock(props: PlayerDockProps) {
       </div>
       <div className={styles.mobile}>
         <PlayerIconButton
+          label="Previous song"
+          disabled={props.disabled}
+          onClick={props.onPrevious}
+          className={styles.mobileButton}
+        >
+          <SkipBack size={20} />
+        </PlayerIconButton>
+        <PlayerIconButton
           label={props.playing ? "Pause" : "Play"}
           disabled={props.disabled}
           onClick={props.onPlayPause}
