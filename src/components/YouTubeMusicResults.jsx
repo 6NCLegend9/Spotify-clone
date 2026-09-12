@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
@@ -8,7 +8,6 @@ import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
 import PlayFab from "@/components/PlayFab";
 import { CardGridSkeleton } from "@/components/Skeleton";
-import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import EmptyState from "@/components/EmptyState";
@@ -95,8 +94,6 @@ export default function YouTubeMusicResults({ query }) {
       controller.abort();
     };
   }, [followRetryKey, status]);
-
-  const genreHits = useMemo(() => searchGenres(query, { limit: 8 }), [query]);
 
   const toggleFollow = async (name, channelId = "", thumbnail = "") => {
     if (status !== "authenticated") return;
@@ -381,23 +378,6 @@ export default function YouTubeMusicResults({ query }) {
           </label>}
         </div>
       </div>
-
-      {genreHits.length > 0 && (
-        <div className="mb-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">Matching genres</p>
-          <div className="flex flex-wrap gap-2">
-            {genreHits.map((match) => (
-              <Link
-                key={`${match.id}-${match.matchLabel}`}
-                href={`/search/${encodeURIComponent(searchQueryForGenre(match))}`}
-                className="home-chip"
-              >
-                {match.matchLabel}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
 
       {loading && <CardGridSkeleton count={6} aspect="aspect-video" />}
       {!loading && songError && (
