@@ -28,8 +28,14 @@ export function Transport(props: PlayerDockProps) {
 export default function PlayerDock(props: PlayerDockProps) {
   const [panel, setPanel] = useState<"player" | "queue" | null>(null);
   const expandPlayer = () => props.onVideo ? props.onVideo() : setPanel("player");
+  const progress = props.duration > 0
+    ? Math.min(100, Math.max(0, (props.position / props.duration) * 100))
+    : 0;
   return <>
     <div className={styles.dock} data-testid="player-dock">
+      <div className={styles.mobileProgress} aria-hidden="true">
+        <span style={{ width: `${progress}%` }} />
+      </div>
       <div className="flex min-w-0 items-center gap-3">
         <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-[4px] object-cover" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/icon-192x192.png"; }} />
         <button type="button" aria-label={`Expand player: ${props.track.title}`} onClick={expandPlayer} className="min-h-12 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-[var(--accent)]">
@@ -52,7 +58,6 @@ export default function PlayerDock(props: PlayerDockProps) {
       <div className={styles.mobile}>
         <PlayerIconButton label={props.playing ? "Pause" : "Play"} disabled={props.disabled} onClick={props.onPlayPause} className="!rounded-full !bg-[var(--accent)] !text-[var(--navy)] hover:brightness-110">{props.playing ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}</PlayerIconButton>
         <PlayerIconButton label="Next song" disabled={props.disabled} onClick={props.onNext}><SkipForward size={22} /></PlayerIconButton>
-        <PlayerIconButton label="Expand player" onClick={expandPlayer}><Maximize2 size={20} /></PlayerIconButton>
       </div>
     </div>
     {panel && <ExpandedPlayer {...props} initialPanel={panel} onClose={() => setPanel(null)} />}
