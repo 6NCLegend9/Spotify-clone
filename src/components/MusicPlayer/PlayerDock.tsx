@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { ListMusic, Maximize2, Mic2, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
@@ -27,6 +27,7 @@ export function Transport(props: PlayerDockProps) {
 
 export default function PlayerDock(props: PlayerDockProps) {
   const [panel, setPanel] = useState<"player" | "queue" | null>(null);
+  const closePanel = useCallback(() => setPanel(null), []);
   const expandPlayer = () => props.onVideo ? props.onVideo() : setPanel("player");
   const progress = props.duration > 0
     ? Math.min(100, Math.max(0, (props.position / props.duration) * 100))
@@ -67,7 +68,7 @@ export default function PlayerDock(props: PlayerDockProps) {
           label={props.playing ? "Pause" : "Play"}
           disabled={props.disabled}
           onClick={props.onPlayPause}
-          className={`${styles.mobileButton} !rounded-full !bg-white !text-black hover:brightness-110`}
+          className={`${styles.mobileButton} !rounded-full !bg-[var(--accent)] !text-[var(--play-ink)] hover:brightness-110`}
         >
           {props.playing ? <Pause size={21} fill="currentColor" /> : <Play size={21} fill="currentColor" />}
         </PlayerIconButton>
@@ -88,6 +89,6 @@ export default function PlayerDock(props: PlayerDockProps) {
         </PlayerIconButton>
       </div>
     </div>
-    {panel && <ExpandedPlayer {...props} initialPanel={panel} onClose={() => setPanel(null)} />}
+    {panel && <ExpandedPlayer {...props} initialPanel={panel} onClose={closePanel} />}
   </>;
 }
