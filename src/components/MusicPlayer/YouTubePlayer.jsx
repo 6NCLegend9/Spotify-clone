@@ -26,7 +26,7 @@ import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
 const QueueEditor = dynamic(() => import("./QueueEditor"), { ssr: false });
 import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiSkipBack, FiSkipForward, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
-import { MdOutlineLyrics, MdPictureInPictureAlt } from "react-icons/md";
+import { MdOutlineLyrics } from "react-icons/md";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
 const SyncedLyrics = dynamic(() => import("@/components/MusicPlayer/SyncedLyrics"), { ssr: false });
@@ -2626,8 +2626,6 @@ function YouTubePlayer() {
         seekBy(10);
       } else if (event.shiftKey && (event.key === "N" || event.key === "n")) {
         handleNext();
-      } else if (event.key === "p" || event.key === "P") {
-        togglePictureInPicture();
       } else if (event.key === "t" || event.key === "T") {
         toggleLyrics();
       }
@@ -3124,19 +3122,6 @@ function YouTubePlayer() {
         >
           <MdOutlineLyrics size={18} />
         </button>
-        {!isPhone && (
-        <button
-          type="button"
-          aria-pressed={Boolean(pipWindow || pipFloat)}
-          aria-label={pipWindow || pipFloat ? "Exit picture in picture" : "Picture in picture"}
-          title={videoVisible ? "Picture in picture unavailable for this video" : pictureInPicture === false ? "Picture-in-picture is turned off in Settings" : "Picture in picture"}
-          disabled={pictureInPicture === false || videoVisible}
-          onClick={togglePictureInPicture}
-          className={expanded && !dataSaver && !audioOnly ? `rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${pipWindow || pipFloat ? "text-[#00e6e6]" : "text-white"}` : `rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${pipWindow || pipFloat ? "text-[#00e6e6]" : "text-gray-300"}`}
-        >
-          <MdPictureInPictureAlt size={18} />
-        </button>
-        )}
         {!fullscreen && <PlayerVolume />}
         <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "grid min-h-11 min-w-11 place-items-center rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         {showDesktopQueue && !fullscreen && (
