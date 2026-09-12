@@ -2103,6 +2103,7 @@ select:-webkit-autofill {
     grid-row: 1;
     width: 100%;
     min-width: 0;
+    min-height: 0;
     height: 100%;
     max-height: 100%;
     overflow: hidden;
@@ -3458,5 +3459,64 @@ body {
   .home-rail img {
     transition: none;
     transform: none;
+  }
+}
+
+
+/* Keep the sidebar's fixed sections and scrolling content within its grid row. */
+.app-sidebar > .sidebar-head,
+.app-sidebar > .sidebar-head + div {
+  flex-shrink: 0;
+}
+
+.app-sidebar > nav {
+  min-height: 0;
+  overscroll-behavior: contain;
+  padding-bottom: 1rem;
+  scroll-padding-block: 1rem;
+}
+
+.app-sidebar > nav > * {
+  flex-shrink: 0;
+}
+
+/* The video preview shares the dock row, so feedback cannot displace it. */
+.yt-player--docked {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "feedback" "dock";
+}
+
+.yt-dock-feedback {
+  grid-area: feedback;
+}
+
+.yt-dock-preview {
+  grid-area: dock;
+  align-self: center;
+  justify-self: start;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  margin-left: 16px;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  .yt-dock-preview {
+    width: 44px;
+    height: 44px;
+    margin-left: 17px;
+    border-radius: 8px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .yt-dock-preview {
+    width: 58px;
+    height: 58px;
+    margin-left: 24px;
+    border-radius: 8px;
   }
 }
