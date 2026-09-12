@@ -3,12 +3,23 @@ import { recordDiagnostic } from "../utils/diagnostics.mjs";
 
 const DEFAULT_TIMEOUT = 15000;
 
+function abortReason(signal) {
+  if (signal.reason !== undefined) return signal.reason;
+  const error = new Error("Request cancelled");
+  error.name = "AbortError";
+  return error;
+}
+
+function throwIfAborted(signal) {
+  if (signal.aborted) throw abortReason(signal);
+}
+
 function waitForRetry(delay, signal) {
-  signal.throwIfAborted();
+  throwIfAborted(signal);
   return new Promise((resolve, reject) => {
     const onAbort = () => {
       clearTimeout(timer);
-      reject(signal.reason);
+      reject(abortReason(signal));
     };
     const timer = setTimeout(() => {
       signal.removeEventListener("abort", onAbort);
@@ -20,7 +31,7 @@ function waitForRetry(delay, signal) {
 
 async function fetchWithRecovery(url, options, retry) {
   for (let attempt = 0; ; attempt += 1) {
-    options.signal.throwIfAborted();
+    throwIfAborted(options.signal);
     try {
       const response = await fetch(url, options);
       if (!retry || attempt >= 2 || ![502, 503, 504].includes(response.status)
