@@ -52,6 +52,11 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const [showNav, setShowNav] = useState(false);
   const [isCompactNav, setIsCompactNav] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window === "undefined") return 260;
+    const saved = Number(window.localStorage.getItem("heykasa.sidebar.width"));
+    return Number.isFinite(saved) && saved >= 220 && saved <= 420 ? saved : 260;
+  });
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -90,6 +95,47 @@ export default function AppShell({ children }) {
     return () => window.removeEventListener("hashchange", focusSkipTarget);
   }, []);
 
+  const updateSidebarWidth = (width) => {
+    const next = Math.min(420, Math.max(220, Math.round(width)));
+    setSidebarWidth(next);
+    try {
+      window.localStorage.setItem("heykasa.sidebar.width", String(next));
+    } catch {
+      // storage disabled or unavailable
+    }
+  };
+
+  const startSidebarResize = (event) => {
+    if (collapsed || event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    const target = event.currentTarget;
+    target.setPointerCapture?.(event.pointerId);
+    document.body.classList.add("is-resizing-sidebar");
+
+    const move = (moveEvent) => {
+      updateSidebarWidth(startWidth + moveEvent.clientX - startX);
+    };
+    const finish = () => {
+      document.body.classList.remove("is-resizing-sidebar");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  };
+
+  const resizeSidebarWithKeyboard = (event) => {
+    if (collapsed || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === "Home") updateSidebarWidth(220);
+    else if (event.key === "End") updateSidebarWidth(420);
+    else updateSidebarWidth(sidebarWidth + (event.key === "ArrowRight" ? 16 : -16));
+  };
+
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -124,10 +170,23 @@ export default function AppShell({ children }) {
       <PlaybackPersistence />
       <div
         className={`app-shell${collapsed ? " is-sidebar-collapsed" : ""}`}
+        style={{ "--sidebar-live-w": `${sidebarWidth}px` }}
         data-route={pathname === "/" ? "home" : "app"}
         data-player={fullScreen ? "full" : "dock"}
       >
         <Sidebar />
+        <div
+          className="sidebar-resizer"
+          role="separator"
+          aria-label="Resize library sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={220}
+          aria-valuemax={420}
+          aria-valuenow={sidebarWidth}
+          tabIndex={collapsed ? -1 : 0}
+          onPointerDown={startSidebarResize}
+          onKeyDown={resizeSidebarWithKeyboard}
+        />
         <button
           type="button"
           aria-label="Close navigation"
