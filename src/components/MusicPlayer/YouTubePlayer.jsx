@@ -2907,7 +2907,7 @@ function YouTubePlayer() {
       data-chrome={fullscreen ? (chromeVisible ? "visible" : "hidden") : undefined}
       data-immersive={phoneSheet ? (immersive ? "true" : "false") : undefined}
       data-layout={expandedLayout}
-      className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${phoneSheet ? "yt-video-expanded--phone" : compactFullscreen ? "yt-video-expanded--compact" : "yt-video-expanded--theater"}${chromeVisible ? "" : " yt-video-expanded--idle"}` : "relative w-full"}
+      className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${phoneSheet ? "yt-video-expanded--phone" : compactFullscreen ? "yt-video-expanded--compact" : "yt-video-expanded--theater"}${chromeVisible ? "" : " yt-video-expanded--idle"}` : "yt-player--docked relative w-full"}
       onClick={(event) => event.stopPropagation()}
       onPointerMove={fullscreen && !phoneSheet ? () => bumpExpandedChrome() : undefined}
       onPointerDown={fullscreen && !phoneSheet ? () => bumpExpandedChrome() : undefined}
@@ -2938,7 +2938,7 @@ function YouTubePlayer() {
       )}
       <div
         data-testid="youtube-decks"
-        className={pipFloat && videoVisible ? "yt-crop yt-pip-float yt-video-floating bg-black" : phoneSheet ? "yt-crop yt-phone-video bg-black" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop !absolute left-3 top-2 z-10 h-12 w-12 rounded bg-black lg:left-5 lg:top-8" : "yt-crop yt-audio-stage"}
+        className={pipFloat && videoVisible ? "yt-crop yt-pip-float yt-video-floating bg-black" : phoneSheet ? "yt-crop yt-phone-video bg-black" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-preview bg-black" : "yt-crop yt-audio-stage"}
         onPointerDown={phoneSheet && chromeVisible ? (event) => {
           videoTapRef.current = { x: event.clientX, y: event.clientY, active: true };
         } : undefined}
@@ -2990,7 +2990,7 @@ function YouTubePlayer() {
       </div>
       {playerError && !fullscreen && (
         <div
-          className="relative z-20 border-t border-white/10 bg-black/90 px-4 py-3 text-center"
+          className="yt-dock-feedback relative z-20 border-t border-white/10 bg-black/90 px-4 py-3 text-center"
           role="alert"
           aria-live="assertive"
           aria-atomic="true"
