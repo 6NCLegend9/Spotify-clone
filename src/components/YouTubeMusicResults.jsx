@@ -7,6 +7,7 @@ import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
 import PlayFab from "@/components/PlayFab";
+import AddToQueueButton from "@/components/AddToQueueButton";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -416,6 +417,8 @@ export default function YouTubeMusicResults({ query }) {
               <button type="button" onClick={playVideo} className="block w-full text-left">
                 <p className="home-shelf-title mt-0">{title}</p>
               </button>
+              <div className="flex min-w-0 items-center gap-1">
+              <div className="min-w-0 flex-1">
               {video.channelId ? (
                 <Link
                   href={`/artist/${encodeURIComponent(video.channelId)}?name=${encodeURIComponent(video.channel || "")}`}
@@ -427,6 +430,9 @@ export default function YouTubeMusicResults({ query }) {
               ) : (
                 <p className="mt-2 truncate text-xs text-gray-400">{channel}</p>
               )}
+              </div>
+              <AddToQueueButton track={video} className="text-gray-400 hover:text-white" />
+              </div>
             </div>
           </article>
           );
@@ -519,21 +525,32 @@ export default function YouTubeMusicResults({ query }) {
         <div className="mt-10">
           <h3 className="mb-4 text-xl font-semibold text-white">Albums & Playlists</h3>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {albums.map((album) => (
-              <button
-                key={album.id}
-                type="button"
-                onClick={() => playPlaylist(album)}
-                disabled={loadingPlaylistId === album.id}
-                className="card group w-full overflow-hidden text-left disabled:opacity-60"
-              >
-                <span className="relative block aspect-video overflow-hidden rounded-[4px]">
-                  <MediaImage src={album.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
-                  <PlayFab />
-                </span>
-                <p className="home-shelf-title px-3 pb-3">{loadingPlaylistId === album.id ? "Loading..." : cleanTitle(album.title)}</p>
-              </button>
-            ))}
+            {albums.map((album) => {
+              const playlistHref = `/youtube-playlist/${encodeURIComponent(album.id)}?${new URLSearchParams({
+                title: album.title || "Playlist",
+                thumbnail: album.thumbnail || "",
+                creator: album.channel || "HayKasa Music",
+              })}`;
+              return (
+                <article key={album.id} className="card group relative w-full overflow-hidden text-left">
+                  <Link href={playlistHref} className="block" aria-label={`View playlist ${cleanTitle(album.title)}`}>
+                    <span className="relative block aspect-video overflow-hidden rounded-[4px]">
+                      <MediaImage src={album.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
+                    </span>
+                    <p className="home-shelf-title px-3 pb-3">{cleanTitle(album.title)}</p>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => playPlaylist(album)}
+                    disabled={loadingPlaylistId === album.id}
+                    aria-label={`Play playlist ${cleanTitle(album.title)}`}
+                    className="play-fab absolute bottom-12 right-3 z-10 h-12 w-12 min-h-12 min-w-12 disabled:opacity-60"
+                  >
+                    {loadingPlaylistId === album.id ? <span className="custom-loader" /> : <PlayFab />}
+                  </button>
+                </article>
+              );
+            })}
           </div>
         </div>
       )}
