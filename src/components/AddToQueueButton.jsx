@@ -9,6 +9,7 @@ import { addToQueue, setYoutubeQueue, setYoutubeVideo } from "@/redux/features/p
 export default function AddToQueueButton({ track, className = "" }) {
   const dispatch = useDispatch();
   const youtubeVideo = useSelector((state) => state.player.youtubeVideo);
+  const youtubeQueue = useSelector((state) => state.player.youtubeQueue || []);
 
   const handleClick = (event) => {
     event.stopPropagation();
@@ -16,6 +17,10 @@ export default function AddToQueueButton({ track, className = "" }) {
     if (!youtubeVideo) {
       dispatch(setYoutubeQueue([track]));
       dispatch(setYoutubeVideo(track));
+      return;
+    }
+    if (youtubeQueue.some((item) => item?.id === track.id)) {
+      toast("Already in queue");
       return;
     }
     dispatch(addToQueue(track));
