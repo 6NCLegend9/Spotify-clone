@@ -27,8 +27,13 @@ const MusicPlayer = dynamic(
   { ssr: false, loading: () => <div role="status" aria-label="Loading player" className="h-20 w-full animate-pulse bg-white/5 motion-reduce:animate-none" /> },
 );
 
-const GhostFibers = dynamic(
-  () => import("@/components/ReactBits/GhostFibers"),
+const LightPillar = dynamic(
+  () => import("@/components/Backgrounds/LightPillar"),
+  { ssr: false },
+);
+
+const HomeBackdropRotator = dynamic(
+  () => import("@/components/Homepage/HomeBackdropRotator"),
   { ssr: false },
 );
 
@@ -270,24 +275,20 @@ export default function AppShell({ children }) {
           onClick={() => setShowNav(false)}
         />
         <div className="app-stage" inert={navModal}>
-          <GhostFibers
+          <LightPillar
             className="app-ghost-fibers"
-            lineColor="#0a5c66"
-            glowColor="#00e6e6"
-            backdropColor="#000814"
-            speed={0.22}
-            scale={2.05}
-            rotation={-12}
-            rotationSpeed={0.18}
-            layers={4}
-            glowIntensity={1.75}
-            brightness={1.62}
-            blueBoost={1.1}
-            vignette={0.76}
-            grain={0.04}
-            fps={42}
-            dpr={0.85}
+            topColor="#00e6e6"
+            bottomColor="#176b55"
+            intensity={0.52}
+            rotationSpeed={0.1}
+            glowAmount={0.003}
+            pillarWidth={3.2}
+            pillarHeight={0.42}
+            noiseIntensity={0.14}
+            pillarRotation={10}
+            quality="medium"
           />
+          {pathname === "/" ? <HomeBackdropRotator /> : null}
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Atmosphere />
           <Navbar />
