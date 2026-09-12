@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { ListMusic, Maximize2, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { ListMusic, Maximize2, Mic2, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 import type { PlayerDockProps } from "./player.types";
 import PlayerTimeline from "./PlayerTimeline";
@@ -52,7 +52,6 @@ export default function PlayerDock(props: PlayerDockProps) {
         <div className={styles.volume}>{props.volume}</div>
         {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={props.onLyrics}><Mic2 size={19} /></PlayerIconButton>}
         <PlayerIconButton label="Queue" onClick={() => setPanel("queue")}><ListMusic size={20} /></PlayerIconButton>
-        <PlayerIconButton label={props.pipLabel} active={props.pipActive} disabled={props.pipDisabled} onClick={props.onPip}><PictureInPicture2 size={20} /></PlayerIconButton>
         {props.onVideo && <PlayerIconButton label="Expand video" onClick={props.onVideo}><Maximize2 size={19} /></PlayerIconButton>}
       </div>
       <div className={styles.mobile}>
