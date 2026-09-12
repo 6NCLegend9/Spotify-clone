@@ -251,6 +251,10 @@ const MusicPlayer = () => {
     }
   }, []);
 
+  // Kept internally for restoring an existing PiP session, but intentionally
+  // not exposed in the player navigation.
+  void toggleNativePip;
+
   const handlePlayPause = (e) => {
     e?.stopPropagation();
     if (!isActive || (!activeSong?.id && !youtubeVideo?.id)) return;
