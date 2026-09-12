@@ -5,9 +5,10 @@
   align-items: center;
   gap: 6px;
   width: calc(100% - 16px);
+  height: 60px;
   min-width: 0;
-  margin: 0 8px 6px;
-  padding: 8px 8px 9px;
+  margin: 0 8px;
+  padding: 7px 7px 8px;
   overflow: hidden;
   background:
     linear-gradient(115deg, rgba(18, 43, 52, 0.96), rgba(7, 18, 29, 0.96) 58%, rgba(12, 25, 38, 0.98));
@@ -18,12 +19,31 @@
   backdrop-filter: blur(18px);
   letter-spacing: 0;
 }
+.track {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+.artwork {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 6px;
+  object-fit: cover;
+}
 .center, .tools, .favourite { display: none; }
 .mobile {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 0;
+}
+.mobileButton {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
 }
 .mobileProgress {
   position: absolute;
@@ -81,11 +101,12 @@
   border-radius: var(--radius-art);
   object-fit: cover;
 }
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .dock {
     grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.4fr) auto;
     gap: 16px;
     width: 100%;
+    height: auto;
     margin: 0;
     padding: 8px 20px;
     border-width: 1px 0 0;
@@ -94,6 +115,12 @@
     backdrop-filter: none;
   }
   .mobileProgress { display: none; }
+  .artwork {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+    border-radius: 4px;
+  }
   .center { display: flex; min-width: 0; flex-direction: column; align-items: center; }
   .tools { display: flex; align-items: center; }
   .favourite { display: block; }
