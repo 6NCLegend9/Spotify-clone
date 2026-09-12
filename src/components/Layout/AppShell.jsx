@@ -48,6 +48,7 @@ export function useNav() {
 
 export default function AppShell({ children }) {
   const hasTrack = useSelector((state) => Boolean(state.player.youtubeVideo?.id || state.player.activeSong?.id));
+  const fullScreen = useSelector((state) => Boolean(state.player.fullScreen));
   const pathname = usePathname();
   const [showNav, setShowNav] = useState(false);
   const [isCompactNav, setIsCompactNav] = useState(false);
@@ -124,6 +125,7 @@ export default function AppShell({ children }) {
       <div
         className={`app-shell${collapsed ? " is-sidebar-collapsed" : ""}`}
         data-route={pathname === "/" ? "home" : "app"}
+        data-player={fullScreen ? "full" : "dock"}
       >
         <Sidebar />
         <button
@@ -182,7 +184,7 @@ export default function AppShell({ children }) {
             {hasTrack && <MusicPlayer />}
           </ErrorBoundary>
         </div>
-        <MobileTabBar />
+        <MobileTabBar hidden={fullScreen} />
         <CreateHub />
       </div>
       </JamProvider>

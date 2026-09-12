@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FiDisc, FiHome, FiPlus, FiSearch } from "react-icons/fi";
 
-export default function MobileTabBar() {
+export default function MobileTabBar({ hidden = false }) {
   const pathname = usePathname();
 
   const homeActive = pathname === "/";
@@ -12,7 +12,13 @@ export default function MobileTabBar() {
   const libraryActive = pathname.startsWith("/library");
 
   return (
-    <nav className="app-tabbar md:hidden" aria-label="Primary">
+    <nav
+      className={`app-tabbar md:hidden${hidden ? " is-hidden" : ""}`}
+      aria-label="Primary"
+      hidden={hidden}
+      inert={hidden || undefined}
+      aria-hidden={hidden || undefined}
+    >
       <Link
         href="/"
         aria-current={homeActive ? "page" : undefined}

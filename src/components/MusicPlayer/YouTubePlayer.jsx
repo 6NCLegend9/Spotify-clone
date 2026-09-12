@@ -35,7 +35,7 @@ import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
 import { useJam } from "@/components/Jam/JamProvider";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { requestJson } from "@/services/http";
-import { useIsMobile, useMediaQuery } from "@/hooks/useMediaQuery";
+import { useIsPhoneViewport, useMediaQuery } from "@/hooks/useMediaQuery";
 import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import {
@@ -71,7 +71,7 @@ const playerErrorMessage = (code) => {
 };
 
 const otherDeck = (key) => (key === "A" ? "B" : "A");
-const CHROME_IDLE_MS = 2800;
+const CHROME_IDLE_MS = 10000;
 const SEEK_GUARD_MS = 5000;
 const TRACK_CHANGE_GUARD_MS = 8000;
 const ACTIVE_BUFFER_RECOVERY_MS = 4500;
@@ -195,10 +195,12 @@ function YouTubePlayer() {
   } = useSelector((state) => state.settings);
   const transitionMode = "off";
   const crossfadeSeconds = 0;
-  const isMobile = useIsMobile();
+  const isPhone = useIsPhoneViewport();
   const isNarrow = useMediaQuery("(max-width: 1179px)");
   const isLandscape = useMediaQuery("(orientation: landscape)");
   const isShortViewport = useMediaQuery("(max-height: 540px)");
+  const isPhoneRef = useRef(isPhone);
+  isPhoneRef.current = isPhone;
   const videoId = video?.id || "";
   const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
   // "Audio only" can be set via the dedicated toggle or the Video quality dropdown; either should hide video.
@@ -262,6 +264,10 @@ function YouTubePlayer() {
   const [showQueue, setShowQueue] = useState(false);
   const queueMenuRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
+  const [immersive, setImmersive] = useState(false);
+  const immersiveRef = useRef(false);
+  const toggleExpandedRef = useRef(() => {});
+  const videoTapRef = useRef({ x: 0, y: 0, active: false });
   const [chromeVisible, setChromeVisible] = useState(true);
   const expandLockRef = useRef(false);
   const chromeVisibleRef = useRef(true);
@@ -2198,6 +2204,8 @@ function YouTubePlayer() {
   useEffect(() => {
     if (!dataSaver && !audioOnly) return undefined;
     setExpanded(false);
+    setImmersive(false);
+    immersiveRef.current = false;
     setMobileSheet(false);
     dispatch(setFullScreen(false));
     return undefined;
@@ -2494,12 +2502,30 @@ function YouTubePlayer() {
     const delta = (endY ?? swipeStartYRef.current) - swipeStartYRef.current;
     swipeStartYRef.current = null;
     if (delta < -56) {
+      immersiveRef.current = false;
+      setImmersive(false);
       setMobileSheet(true);
       setShowQueue(true);
       setShowLyrics(syncedLyrics !== false);
       return;
     }
     if (delta > 56) {
+      if (mobileSheet) {
+        setMobileSheet(false);
+        setShowQueue(false);
+        setShowLyrics(false);
+        return;
+      }
+      if (isPhoneRef.current && immersiveRef.current) {
+        immersiveRef.current = false;
+        setImmersive(false);
+        bumpExpandedChromeRef.current({ reveal: true });
+        return;
+      }
+      if (isPhoneRef.current) {
+        toggleExpandedRef.current();
+        return;
+      }
       setMobileSheet(false);
       setShowQueue(false);
       setShowLyrics(false);
@@ -2620,6 +2646,15 @@ function YouTubePlayer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video, isPlaying]);
 
+  const enterIdleChrome = () => {
+    if (isPhoneRef.current) {
+      immersiveRef.current = true;
+      setImmersive(true);
+    }
+    chromeVisibleRef.current = false;
+    setChromeVisible(false);
+  };
+
   const bumpExpandedChrome = (options = {}) => {
     const isFullscreen = expanded && !dataSaver && !audioOnly;
     if (!isFullscreen) return;
@@ -2627,14 +2662,18 @@ function YouTubePlayer() {
     window.clearTimeout(chromeIdleTimerRef.current);
     chromeHideGenRef.current += 1;
     const hideGeneration = chromeHideGenRef.current;
+    if (isPhoneRef.current && immersiveRef.current && !options.reveal) return;
+    if (options.reveal) {
+      immersiveRef.current = false;
+      setImmersive(false);
+    }
     chromeVisibleRef.current = true;
     setChromeVisible(true);
     if (chromePinnedRef.current || chromeLockedRef.current) return;
     chromeIdleTimerRef.current = window.setTimeout(() => {
       if (hideGeneration !== chromeHideGenRef.current) return;
       if (chromePinnedRef.current || chromeLockedRef.current) return;
-      chromeVisibleRef.current = false;
-      setChromeVisible(false);
+      enterIdleChrome();
     }, CHROME_IDLE_MS);
   };
   bumpExpandedChromeRef.current = bumpExpandedChrome;
@@ -2655,6 +2694,8 @@ function YouTubePlayer() {
       chromePinnedRef.current = false;
       chromeVisibleRef.current = true;
       setChromeVisible(true);
+      immersiveRef.current = false;
+      setImmersive(false);
       window.clearTimeout(chromeIdleTimerRef.current);
       return;
     }
@@ -2666,6 +2707,8 @@ function YouTubePlayer() {
       chromePinnedRef.current = true;
       chromeVisibleRef.current = true;
       setChromeVisible(true);
+      immersiveRef.current = false;
+      setImmersive(false);
       window.clearTimeout(chromeIdleTimerRef.current);
       return;
     }
@@ -2688,6 +2731,8 @@ function YouTubePlayer() {
       expandLockRef.current = false;
     }, 1500);
     setMobileSheet(false);
+    immersiveRef.current = false;
+    setImmersive(false);
     setExpanded(next);
     dispatch(setFullScreen(next));
     if (next) closePictureInPicture();
@@ -2700,10 +2745,30 @@ function YouTubePlayer() {
       if (isPlaying) player?.playVideo?.();
     });
   };
+  toggleExpandedRef.current = toggleExpanded;
 
   const fullscreen = expanded && videoVisible;
-  const compactFullscreen = Boolean(fullscreen && isNarrow && !isLandscape);
+  const phoneSheet = Boolean(fullscreen && isPhone);
+  const compactFullscreen = Boolean(fullscreen && isNarrow && !isLandscape && !isPhone);
   const sheetChrome = Boolean(fullscreen && isNarrow);
+  const expandedLayout = !fullscreen
+    ? undefined
+    : phoneSheet
+      ? (isLandscape ? "phone-landscape" : "phone-portrait")
+      : compactFullscreen
+        ? "compact"
+        : "theater";
+
+  const togglePhoneImmersive = () => {
+    if (!phoneSheet) return;
+    if (immersiveRef.current) {
+      bumpExpandedChrome({ reveal: true });
+      return;
+    }
+    window.clearTimeout(chromeIdleTimerRef.current);
+    chromeHideGenRef.current += 1;
+    enterIdleChrome();
+  };
   const toggleShuffle = () => {
     if (isJamGuest) return;
     if (!shuffle) {
@@ -2761,34 +2826,53 @@ function YouTubePlayer() {
     <div
       data-testid="youtube-player"
       data-chrome={fullscreen ? (chromeVisible ? "visible" : "hidden") : undefined}
-      className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${compactFullscreen ? "yt-video-expanded--compact" : "yt-video-expanded--theater"}${chromeVisible ? "" : " yt-video-expanded--idle"}` : "relative w-full"}
+      data-immersive={phoneSheet ? (immersive ? "true" : "false") : undefined}
+      data-layout={expandedLayout}
+      className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${phoneSheet ? "yt-video-expanded--phone" : compactFullscreen ? "yt-video-expanded--compact" : "yt-video-expanded--theater"}${chromeVisible ? "" : " yt-video-expanded--idle"}` : "relative w-full"}
       onClick={(event) => event.stopPropagation()}
-      onPointerMove={fullscreen ? () => bumpExpandedChrome() : undefined}
-      onPointerDown={fullscreen ? () => bumpExpandedChrome() : undefined}
+      onPointerMove={fullscreen && !phoneSheet ? () => bumpExpandedChrome() : undefined}
+      onPointerDown={fullscreen && !phoneSheet ? () => bumpExpandedChrome() : undefined}
       onTouchStart={fullscreen ? (event) => {
-        bumpExpandedChrome();
-        if (!compactFullscreen) onFullscreenSwipeStart(event);
+        if (!phoneSheet) bumpExpandedChrome();
+        onFullscreenSwipeStart(event);
       } : undefined}
-      onTouchEnd={fullscreen && !compactFullscreen ? onFullscreenSwipeEnd : undefined}
+      onTouchEnd={fullscreen ? onFullscreenSwipeEnd : undefined}
     >
-      <div className={compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
+      <div className={phoneSheet ? "yt-phone-stage" : compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
       {fullscreen && !chromeVisible && (
         <button
           type="button"
           aria-label="Show player controls"
-          className="absolute inset-0 z-[15] cursor-none border-0 bg-transparent"
+          className={`absolute inset-0 z-[15] border-0 bg-transparent ${phoneSheet ? "" : "cursor-none"}`}
           onPointerDown={(event) => {
             event.preventDefault();
-            bumpExpandedChrome();
+            if (phoneSheet) togglePhoneImmersive();
+            else bumpExpandedChrome();
           }}
           onClick={(event) => {
             event.preventDefault();
+            if (phoneSheet) return;
             bumpExpandedChrome();
           }}
-          onPointerMove={() => bumpExpandedChrome()}
+          onPointerMove={phoneSheet ? undefined : () => bumpExpandedChrome()}
         />
       )}
-      <div data-testid="youtube-decks" className={pipFloat && videoVisible ? "yt-crop yt-pip-float yt-video-floating bg-black" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop !absolute left-3 top-2 z-10 h-12 w-12 rounded bg-black lg:left-5 lg:top-8" : "yt-crop yt-audio-stage"}>
+      <div
+        data-testid="youtube-decks"
+        className={pipFloat && videoVisible ? "yt-crop yt-pip-float yt-video-floating bg-black" : phoneSheet ? "yt-crop yt-phone-video bg-black" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop !absolute left-3 top-2 z-10 h-12 w-12 rounded bg-black lg:left-5 lg:top-8" : "yt-crop yt-audio-stage"}
+        onPointerDown={phoneSheet && chromeVisible ? (event) => {
+          videoTapRef.current = { x: event.clientX, y: event.clientY, active: true };
+        } : undefined}
+        onPointerUp={phoneSheet && chromeVisible ? (event) => {
+          const start = videoTapRef.current;
+          videoTapRef.current = { ...start, active: false };
+          if (!start.active) return;
+          const dx = event.clientX - start.x;
+          const dy = event.clientY - start.y;
+          if ((dx * dx) + (dy * dy) > 144) return;
+          togglePhoneImmersive();
+        } : undefined}
+      >
         {["A", "B"].map((key) => (
           <div
             key={key}
@@ -2853,7 +2937,9 @@ function YouTubePlayer() {
         onVideo={videoVisible ? toggleExpanded : undefined}
         onLyrics={syncedLyrics !== false ? toggleLyrics : undefined}
       />}
-      {fullscreen && <div className={`yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pt-4" : "pointer-events-none absolute inset-x-0 top-0 z-20 min-w-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-4 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-28"}`} {...(!chromeVisible ? { inert: true } : {})} aria-hidden={!chromeVisible}>
+      {fullscreen && (
+      <div className={phoneSheet ? "yt-phone-chrome" : "contents"} {...(phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={phoneSheet ? !chromeVisible : undefined}>
+      {<div className={phoneSheet ? "yt-phone-chrome-title" : `yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pt-4" : "pointer-events-none absolute inset-x-0 top-0 z-20 min-w-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-4 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-28"}`} {...(!phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={!phoneSheet && !chromeVisible}>
         {fullscreen ? (
           <div>
             <p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p>
@@ -2877,9 +2963,9 @@ function YouTubePlayer() {
           </div>
         )}
       </div>}
-      {fullscreen && <div className={`yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pb-6 pt-2" : "absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[min(96vw,880px)] flex-col items-center gap-1 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-10"}`} {...(!chromeVisible ? { inert: true } : {})} aria-hidden={!chromeVisible} {...expandedChromePointer}>
+      {<div className={phoneSheet ? "yt-phone-chrome-transport" : `yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pb-6 pt-2" : "absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[min(96vw,880px)] flex-col items-center gap-1 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-10"}`} {...(!phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={!phoneSheet && !chromeVisible} {...expandedChromePointer}>
         <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "yt-dock-transport"}>
-        {fullscreen && !compactFullscreen && !isShortViewport && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
+        {fullscreen && !phoneSheet && !compactFullscreen && !isShortViewport && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
           <div className={fullscreen ? "flex max-w-full flex-wrap items-center justify-center gap-1 rounded-lg bg-[var(--glass-strong)] px-1 py-2 backdrop-blur sm:px-3" : "contents"}>
           <AddToPlaylistButton track={video} className="!h-12 !w-12 shrink-0 text-xl sm:!h-14 sm:!w-14" />
           <button type="button" aria-label="Previous song" title={isJamGuest ? "The host controls playback" : "Previous"} onClick={() => handlePrev()} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-2 text-xl text-[var(--text)] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14"><FiSkipBack aria-hidden="true" /></button>
@@ -2889,7 +2975,7 @@ function YouTubePlayer() {
           <button type="button" aria-label="Next song" title={isJamGuest ? "The host controls playback" : "Next"} onClick={() => handleNext()} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-2 text-xl text-[var(--text)] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14"><FiSkipForward aria-hidden="true" /></button>
           <FavouriteTrackButton track={video} className="!h-12 !w-12 shrink-0 text-xl sm:!h-14 sm:!w-14" />
           </div>
-          {fullscreen && !compactFullscreen && !isShortViewport && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
+          {fullscreen && !phoneSheet && !compactFullscreen && !isShortViewport && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
         </div>
         <div className={fullscreen ? "w-full" : "yt-dock-seek"}>
           <input
@@ -2914,7 +3000,7 @@ function YouTubePlayer() {
           <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
         </div>
       </div>}
-      {fullscreen && <div ref={queueMenuRef} className={`yt-expand-chrome ${compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : "absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex items-center justify-end gap-1 sm:gap-2"}`} {...(!chromeVisible ? { inert: true } : {})} aria-hidden={!chromeVisible} {...expandedChromePointer}>
+      {<div ref={queueMenuRef} className={phoneSheet ? "yt-phone-chrome-tools" : `yt-expand-chrome ${compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : "absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex items-center justify-end gap-1 sm:gap-2"}`} {...(!phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={!phoneSheet && !chromeVisible} {...expandedChromePointer}>
         <button
           type="button"
           aria-label="Queue"
@@ -2947,7 +3033,7 @@ function YouTubePlayer() {
         >
           <MdOutlineLyrics size={18} />
         </button>
-        {!isMobile && (
+        {!isPhone && (
         <button
           type="button"
           aria-pressed={Boolean(pipWindow || pipFloat)}
@@ -3005,6 +3091,8 @@ function YouTubePlayer() {
           </div>
         )}
       </div>}
+      </div>
+      )}
       </div>
       {sheetChrome && mobileSheet && (
         <div className="yt-mobile-sheet">
