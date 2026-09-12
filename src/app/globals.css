@@ -289,7 +289,7 @@ select:-webkit-autofill {
     padding-bottom: 0;
   }
 
-  .app-shell:not(:has(.player-dock)) {
+  .app-shell[data-has-track="false"] {
     --mobile-player-h: 0px;
   }
 
@@ -586,7 +586,7 @@ select:-webkit-autofill {
     overflow: visible;
   }
 
-  .app-player:has(.player-dock:not(.player-dock--full)) {
+  .app-player {
     height: var(--mobile-player-h);
     max-height: var(--mobile-player-h);
   }
@@ -2172,6 +2172,8 @@ select:-webkit-autofill {
   .app-player {
     grid-column: 1 / -1;
     grid-row: 2;
+    height: auto;
+    max-height: none;
   }
 
   .app-overlay {
