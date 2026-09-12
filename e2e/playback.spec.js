@@ -75,7 +75,7 @@ test("lock-screen play reaches the engine even when playback state is already pl
           window.__engine = this;
           setTimeout(() => options.events.onReady({ target: this }), 0);
         }
-        getIframe() { return this.frame; }
+        getIframe() { return typeof this.frame === "string" ? document.getElementById(this.frame) : this.frame; }
         getDuration() { return 180; }
         getCurrentTime() { return window.__engineTime; }
         getPlayerState() { return 2; }
@@ -202,25 +202,7 @@ test("responsive player expands, exposes queue modes and preserves deck hosts", 
   await expect(expand).toBeFocused();
   await page.setViewportSize({ width: 768, height: 1024 });
   expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__deckHost)).toBe(true);
-  await page.evaluate(() => {
-    Object.defineProperty(window, "documentPictureInPicture", { configurable: true, value: undefined });
-  });
-  await expand.click();
-  await dialog.getByRole("button", { name: /picture in picture controls|floating player/i }).click();
-  const floating = page.getByRole("region", { name: "Floating player", exact: true });
-  await expect(floating).toBeVisible();
-  await floating.getByRole("button", { name: "Close floating player" }).click();
-  await expect(floating).toHaveCount(0);
-  await page.evaluate(() => {
-    Object.defineProperty(window, "documentPictureInPicture", {
-      configurable: true,
-      value: { requestWindow: () => Promise.reject(new DOMException("Blocked", "NotAllowedError")) },
-    });
-  });
-  await expand.click();
-  await dialog.getByRole("button", { name: /picture in picture controls|floating player/i }).click();
-  await expect(floating).toBeVisible();
-  await floating.getByRole("button", { name: "Close floating player" }).click();
+  await expect(dock.getByRole("button", { name: /picture in picture|floating player/i })).toHaveCount(0);
   await page.locator('a[href="/terms"]:visible').first().click();
   await expect(page).toHaveURL(/\/terms$/);
   expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__deckHost)).toBe(true);
@@ -340,7 +322,6 @@ test("video expansion fits desktop and mobile without replacing the media host",
   await page.getByRole("button", { name: "Minimize video", exact: true }).click();
   await expect(dock).toBeVisible();
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost)).toBe(true);
-  await expect(dock.getByRole("button", { name: "Picture in picture unavailable", exact: true, includeHidden: true })).toBeDisabled();
   await expect(dock.getByRole("button", { name: "Floating video", exact: true })).toHaveCount(0);
   await dock.getByRole("button", { name: /^Expand player:/ }).click();
   await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
@@ -356,7 +337,7 @@ test("video expansion fits desktop and mobile without replacing the media host",
       return rect.left < 0 || rect.right > window.innerWidth || rect.width < 48 || rect.height < 48;
     }).map((button) => ({ label: button.getAttribute("aria-label"), rect: button.getBoundingClientRect().toJSON() }))), { message: `Dock controls at ${width}px` }).toEqual([]);
     expect(await dock.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    expect(await dock.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(7, 18, 29)");
+    expect(await dock.evaluate((element) => getComputedStyle(element).backgroundImage)).not.toBe("none");
     await page.screenshot({ path: testInfo.outputPath(`dock-${width}.png`) });
     await dock.getByRole("button", { name: "Expand player", exact: true }).click();
     await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
