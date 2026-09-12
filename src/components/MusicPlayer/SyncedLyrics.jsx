@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import UserMessage from "@/components/UserMessage";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 
@@ -24,23 +24,22 @@ export default function SyncedLyrics({
   const lineRefs = useRef([]);
   const resumeAutoScrollTimer = useRef(null);
   const autoScroll = useRef(true);
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
+
+  const centerLine = useCallback((index, behavior = "smooth") => {
+    const line = lineRefs.current[index];
+    const list = listRef.current;
+    if (!line || !list) return;
+    const top = line.offsetTop - list.clientHeight / 2 + line.offsetHeight / 2;
+    list.scrollTo({ top: Math.max(0, top), behavior });
+  }, []);
 
   useEffect(() => {
     if (activeIndex < 0 || !autoScroll.current) return;
-    const line = lineRefs.current[activeIndex];
-    const list = listRef.current;
-    if (!line || !list) return;
-    const listRect = list.getBoundingClientRect();
-    const lineRect = line.getBoundingClientRect();
-    const comfortableTop = listRect.top + listRect.height * 0.28;
-    const comfortableBottom = listRect.top + listRect.height * 0.72;
-    if (lineRect.top < comfortableTop || lineRect.bottom > comfortableBottom) {
-      line.scrollIntoView({
-        block: "center",
-        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-      });
-    }
-  }, [activeIndex]);
+    const behavior = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    centerLine(activeIndex, behavior);
+  }, [activeIndex, centerLine]);
 
   useEffect(() => () => {
     if (resumeAutoScrollTimer.current) clearTimeout(resumeAutoScrollTimer.current);
@@ -51,6 +50,7 @@ export default function SyncedLyrics({
     if (resumeAutoScrollTimer.current) clearTimeout(resumeAutoScrollTimer.current);
     resumeAutoScrollTimer.current = setTimeout(() => {
       autoScroll.current = true;
+      centerLine(activeIndexRef.current);
     }, 4000);
   };
 
@@ -123,10 +123,7 @@ export default function SyncedLyrics({
                 if (line.unsynced) return;
                 autoScroll.current = true;
                 onSeek?.(line.time);
-                lineRefs.current[index]?.scrollIntoView({
-                  block: "center",
-                  behavior: "smooth",
-                });
+                centerLine(index);
               }}
               className={`lyrics-line ${isActive ? "lyrics-line--active" : ""} ${line.unsynced ? "cursor-default" : ""}`}
             >
