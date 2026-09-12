@@ -245,6 +245,7 @@ export default function AppShell({ children }) {
           "--right-panel-live-w": `${rightPanelWidth}px`,
         }}
         data-route={pathname === "/" ? "home" : "app"}
+        data-has-track={hasTrack ? "true" : "false"}
         data-player={fullScreen ? "full" : "dock"}
       >
         <Sidebar />
