@@ -1,4 +1,4 @@
-const { defineConfig } = require("@playwright/test");
+const { defineConfig, devices } = require("@playwright/test");
 
 module.exports = defineConfig({
   testDir: "./e2e",
@@ -13,8 +13,26 @@ module.exports = defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "desktop", use: { viewport: { width: 1440, height: 900 } } },
-    { name: "mobile", use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+    {
+      name: "chromium-desktop",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "firefox-desktop",
+      use: { ...devices["Desktop Firefox"], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "webkit-desktop",
+      use: { ...devices["Desktop Safari"], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "mobile-chrome",
+      use: { ...devices["Pixel 7"] },
+    },
+    {
+      name: "mobile-safari",
+      use: { ...devices["iPhone 15"] },
+    },
   ],
   webServer: process.env.CI ? {
     command: "node node_modules/next/dist/bin/next start --port 3100",
