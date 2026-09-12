@@ -1000,6 +1000,13 @@ function YouTubePlayer() {
           frame.style.height = "100%";
           frame.style.pointerEvents = "none";
           frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+          const frameAllow = frame.getAttribute("allow") || "";
+          if (!frameAllow.includes("compute-pressure")) {
+            frame.setAttribute(
+              "allow",
+              `${frameAllow}${frameAllow.trim() ? "; " : ""}compute-pressure`,
+            );
+          }
           if (key === activeDeckRef.current) {
             setDuration(safeMediaTime(event.target.getDuration()));
             requestYouTubeQuality(event.target, requestedYouTubeQuality);
