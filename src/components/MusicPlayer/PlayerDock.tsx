@@ -73,6 +73,14 @@ export default function PlayerDock(props: PlayerDockProps) {
           {props.playing ? <Pause size={21} fill="currentColor" /> : <Play size={21} fill="currentColor" />}
         </PlayerIconButton>
         <PlayerIconButton
+          label="Next song"
+          disabled={props.disabled}
+          onClick={props.onNext}
+          className={styles.mobileButton}
+        >
+          <SkipForward size={20} />
+        </PlayerIconButton>
+        <PlayerIconButton
           label="Expand player"
           onClick={expandPlayer}
           className={styles.mobileButton}
