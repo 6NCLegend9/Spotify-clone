@@ -986,7 +986,8 @@ function YouTubePlayer() {
 
     let hasUnmutedOnce = false;
     let firstPlayingHandled = false;
-    const player = new window.YT.Player(mount, {
+    const player = new window.YT.Player(mount.id, {
+      host: "https://www.youtube.com",
       videoId,
       width: "100%",
       height: "100%",
