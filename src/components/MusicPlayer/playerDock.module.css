@@ -101,7 +101,38 @@
   border-radius: var(--radius-art);
   object-fit: cover;
 }
-@media (min-width: 768px) {
+@media (min-width: 768px) and (max-width: 1023px) {
+  .dock {
+    grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.25fr) auto;
+    gap: 10px;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 8px 12px;
+    border-width: 1px 0 0;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  .mobileProgress { display: none; }
+  .artwork {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+    border-radius: 4px;
+  }
+  .center {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+  }
+  .tools { display: flex; align-items: center; }
+  .favourite { display: block; }
+  .mobile { display: none; }
+}
+
+@media (min-width: 1024px) {
   .dock {
     grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.4fr) auto;
     gap: 16px;
