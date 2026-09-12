@@ -96,10 +96,6 @@ const KEYBOARD_GROUPS = [
         detail: "Open or close the expanded player.",
       },
       {
-        keys: ["P"],
-        detail: "Toggle picture-in-picture when available.",
-      },
-      {
         keys: ["Esc"],
         detail: "Leave the expanded player.",
       },
