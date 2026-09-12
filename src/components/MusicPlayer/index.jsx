@@ -30,7 +30,6 @@ import usePlayerTransport from "@/hooks/usePlayerTransport";
 import useMediaSession from "@/hooks/useMediaSession";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import useWakeLock from "@/hooks/useWakeLock";
-import { MdPictureInPictureAlt } from "react-icons/md";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 
@@ -593,17 +592,6 @@ const MusicPlayer = () => {
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-pressed={Boolean(pipWindow)}
-              aria-label={pipWindow ? "Exit picture in picture" : "Picture in picture"}
-              title={pictureInPicture === false ? "Picture-in-picture is turned off in Settings" : "Picture in picture"}
-              disabled={pictureInPicture === false}
-              onClick={toggleNativePip}
-              className={`hidden rounded-full p-2 hover:bg-white/10 md:grid ${pipWindow ? "text-[#00e6e6]" : "text-gray-300"}`}
-            >
-              <MdPictureInPictureAlt size={18} />
-            </button>
             <PlayerVolume />
             <VolumeBar
             activeSong={activeSong}
