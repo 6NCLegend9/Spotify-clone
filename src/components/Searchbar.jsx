@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
-import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import { requestJson } from "@/services/http";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
@@ -130,8 +130,7 @@ const Searchbar = () => {
 
   const playSong = (song) => {
     if (!song?.id) return;
-    dispatch(setYoutubeQueue(songs));
-    dispatch(setYoutubeVideo(song));
+    dispatch(startYoutubePlayback({ queue: songs, track: song }));
     setOpen(false);
     setActiveIndex(-1);
     dispatch(setIsTyping(false));
