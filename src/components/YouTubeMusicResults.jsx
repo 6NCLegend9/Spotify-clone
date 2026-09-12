@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
-import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { playPause, setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
@@ -336,6 +336,7 @@ export default function YouTubeMusicResults({ query }) {
       }));
       dispatch(setYoutubeQueue(seeded));
       dispatch(setYoutubeVideo(seeded[0]));
+      dispatch(playPause(true));
     } catch (error) {
       const userError = toUserError(error, {
         title: "Playlist unavailable",
@@ -405,6 +406,7 @@ export default function YouTubeMusicResults({ query }) {
           const playVideo = () => {
             dispatch(setYoutubeQueue(results));
             dispatch(setYoutubeVideo(video));
+            dispatch(playPause(true));
           };
           const title = cleanTitle(video.title);
           const channel = cleanTitle(video.channel);
