@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
+import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
 import PlayFab from "@/components/PlayFab";
 import AddToQueueButton from "@/components/AddToQueueButton";
@@ -546,7 +547,7 @@ export default function YouTubeMusicResults({ query }) {
                     aria-label={`Play playlist ${cleanTitle(album.title)}`}
                     className="play-fab absolute bottom-12 right-3 z-10 h-12 w-12 min-h-12 min-w-12 disabled:opacity-60"
                   >
-                    {loadingPlaylistId === album.id ? <span className="custom-loader" /> : <PlayFab />}
+                    {loadingPlaylistId === album.id ? <span className="custom-loader" /> : <BsPlayFill aria-hidden="true" className="text-2xl" />}
                   </button>
                 </article>
               );
