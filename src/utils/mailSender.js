@@ -27,18 +27,39 @@ function getTransporter() {
     return transporter;
 }
 
+function htmlToPlainText(html) {
+    return String(html || "")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>|<\/div>|<\/h[1-6]>/gi, "\n")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;|&apos;/gi, "'")
+        .replace(/[ \t]+/g, " ")
+        .replace(/\n\s+/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+}
+
 const mailSender = async (email, title, body) => {
     const sender = (process.env.MAIL_FROM || process.env.MAIL_USER || "").trim();
-    if (!sender) {
+    const recipient = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (!sender || !recipient) {
         throw new Error("Email delivery is not configured.");
     }
 
     try {
         return await getTransporter().sendMail({
             from: `"HeyKasa" <${sender}>`,
-            to: email,
+            to: recipient,
             subject: title,
             html: body,
+            text: htmlToPlainText(body),
         });
     } catch {
         console.error("Email delivery failed.");
@@ -46,5 +67,5 @@ const mailSender = async (email, title, body) => {
     }
 };
 
+export { htmlToPlainText };
 export default mailSender;
-
