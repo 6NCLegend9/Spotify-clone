@@ -9,6 +9,7 @@ import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
 import MobileTabBar from "@/components/Layout/MobileTabBar";
+import DesktopNowPlayingPanel from "@/components/Layout/DesktopNowPlayingPanel";
 import CreateHub from "@/components/Layout/CreateHub";
 import Atmosphere from "@/components/Layout/Atmosphere";
 import PageTransit from "@/components/Layout/PageTransit";
@@ -52,6 +53,23 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const [showNav, setShowNav] = useState(false);
   const [isCompactNav, setIsCompactNav] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("heykasa.nowPlaying.collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
+    if (typeof window === "undefined") return 320;
+    try {
+      const saved = Number(window.localStorage.getItem("heykasa.nowPlaying.width"));
+      return Number.isFinite(saved) && saved >= 280 && saved <= 420 ? saved : 320;
+    } catch {
+      return 320;
+    }
+  });
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === "undefined") return 260;
     try {
@@ -140,6 +158,54 @@ export default function AppShell({ children }) {
     else updateSidebarWidth(sidebarWidth + (event.key === "ArrowRight" ? 16 : -16));
   };
 
+  const updateRightPanelWidth = (width) => {
+    const next = Math.min(420, Math.max(280, Math.round(width)));
+    setRightPanelWidth(next);
+    try {
+      window.localStorage.setItem("heykasa.nowPlaying.width", String(next));
+    } catch {
+      // storage disabled or unavailable
+    }
+  };
+
+  const startRightPanelResize = (event) => {
+    if (rightPanelCollapsed || event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = rightPanelWidth;
+    document.body.classList.add("is-resizing-panel");
+    const move = (moveEvent) => updateRightPanelWidth(startWidth + startX - moveEvent.clientX);
+    const finish = () => {
+      document.body.classList.remove("is-resizing-panel");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  };
+
+  const resizeRightPanelWithKeyboard = (event) => {
+    if (rightPanelCollapsed || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === "Home") updateRightPanelWidth(280);
+    else if (event.key === "End") updateRightPanelWidth(420);
+    else updateRightPanelWidth(rightPanelWidth + (event.key === "ArrowLeft" ? 16 : -16));
+  };
+
+  const toggleRightPanel = () => {
+    setRightPanelCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("heykasa.nowPlaying.collapsed", String(next));
+      } catch {
+        // storage disabled or unavailable
+      }
+      return next;
+    });
+  };
+
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -173,8 +239,11 @@ export default function AppShell({ children }) {
       <JamProvider>
       <PlaybackPersistence />
       <div
-        className={`app-shell${collapsed ? " is-sidebar-collapsed" : ""}`}
-        style={{ "--sidebar-live-w": `${sidebarWidth}px` }}
+        className={`app-shell${collapsed ? " is-sidebar-collapsed" : ""}${rightPanelCollapsed ? " is-right-panel-collapsed" : ""}`}
+        style={{
+          "--sidebar-live-w": `${sidebarWidth}px`,
+          "--right-panel-live-w": `${rightPanelWidth}px`,
+        }}
         data-route={pathname === "/" ? "home" : "app"}
         data-player={fullScreen ? "full" : "dock"}
       >
@@ -238,6 +307,19 @@ export default function AppShell({ children }) {
           </div>
           <JamController />
         </div>
+        <div
+          className={`right-panel-resizer ${rightPanelCollapsed ? "is-collapsed" : ""}`}
+          role="separator"
+          aria-label="Resize now playing panel"
+          aria-orientation="vertical"
+          aria-valuemin={280}
+          aria-valuemax={420}
+          aria-valuenow={rightPanelWidth}
+          tabIndex={rightPanelCollapsed ? -1 : 0}
+          onPointerDown={startRightPanelResize}
+          onKeyDown={resizeRightPanelWithKeyboard}
+        />
+        <DesktopNowPlayingPanel collapsed={rightPanelCollapsed} onToggle={toggleRightPanel} />
         <div className="app-player" id="player" tabIndex={-1}>
           <ErrorBoundary
             name="Music player"
