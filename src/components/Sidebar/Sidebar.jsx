@@ -4,8 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { FaGithub } from "react-icons/fa";
-import { FiChevronLeft, FiChevronRight, FiDisc, FiFileText, FiHeart, FiHome, FiInfo, FiSettings, FiShield, FiUsers } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiDisc, FiHeart, FiHome, FiSettings, FiUsers } from "react-icons/fi";
 import { MdSportsEsports } from "react-icons/md";
 import { canUseArcade } from "@/utils/arcadeAccess";
 import { IoClose } from "react-icons/io5";
@@ -43,9 +42,6 @@ const Sidebar = () => {
     ["Following", "/following", FiUsers],
     ...(canUseArcade(session?.user?.email) ? [["Beat Arcade", "/arcade", MdSportsEsports]] : []),
     ["Settings", "/settings", FiSettings],
-    ["Terms of Service", "/terms", FiFileText],
-    ["Privacy Policy", "/privacy", FiShield],
-    ["Accessibility", "/accessibility", FiInfo],
   ];
 
   return (
@@ -117,17 +113,6 @@ const Sidebar = () => {
         </div>
       </nav>
 
-      <div className={`border-t border-white/10 px-4 py-4 ${collapsed ? "md:hidden" : ""}`}>
-        <a
-          href="https://github.com/6NCLegend9"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-[#9aa8b5] transition hover:text-[#00e6e6]"
-        >
-          <FaGithub aria-hidden="true" />
-          GitHub
-        </a>
-      </div>
     </aside>
   );
 };
