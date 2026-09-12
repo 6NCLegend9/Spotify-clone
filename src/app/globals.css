@@ -3166,3 +3166,295 @@ details > summary {
     max-height: min(56.25vw, 48dvh);
   }
 }
+
+
+/* HeyKasa Premium UI — cohesive shell, hierarchy and interaction language. */
+:root {
+  --premium-surface: rgba(8, 16, 25, 0.78);
+  --premium-surface-raised: rgba(15, 27, 39, 0.88);
+  --premium-border: rgba(255, 255, 255, 0.09);
+  --premium-border-hover: rgba(110, 241, 235, 0.28);
+  --premium-shadow: 0 18px 55px rgba(0, 0, 0, 0.34);
+  --premium-glow: 0 0 0 1px rgba(0, 230, 230, 0.06), 0 16px 48px rgba(0, 14, 25, 0.4);
+}
+
+body {
+  background:
+    radial-gradient(circle at 72% -10%, rgba(0, 230, 230, 0.08), transparent 34rem),
+    #020813;
+}
+
+.app-sidebar {
+  border-right: 1px solid var(--premium-border);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 28, 0.97), rgba(3, 9, 17, 0.99));
+  box-shadow: 18px 0 60px rgba(0, 0, 0, 0.16);
+}
+
+.sidebar-head {
+  padding: 0.85rem 0.75rem 0.6rem;
+}
+
+.nav-link {
+  min-height: 48px;
+  margin-block: 2px;
+  padding-inline: 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: rgba(226, 233, 240, 0.68);
+  font-weight: 560;
+  letter-spacing: -0.01em;
+}
+
+.nav-link:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.055);
+  transform: translateX(2px);
+}
+
+.nav-link.is-active {
+  color: #fff;
+  border-color: rgba(0, 230, 230, 0.15);
+  background:
+    linear-gradient(90deg, rgba(0, 230, 230, 0.16), rgba(0, 230, 230, 0.035));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.app-navbar {
+  margin: 10px 12px 0;
+  min-height: 64px;
+  border: 1px solid var(--premium-border);
+  border-radius: 16px;
+  background: rgba(5, 13, 22, 0.72);
+  box-shadow: var(--premium-glow);
+  backdrop-filter: blur(24px) saturate(140%);
+}
+
+.search-field,
+.navbar-search-cluster form {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.search-field:focus-within,
+.navbar-search-cluster form:focus-within {
+  border-color: rgba(0, 230, 230, 0.42);
+  background: rgba(10, 27, 38, 0.92);
+  box-shadow: 0 0 0 3px rgba(0, 230, 230, 0.09);
+}
+
+.app-content {
+  scrollbar-gutter: stable;
+}
+
+.page-home {
+  max-width: 1720px;
+  margin-inline: auto;
+  padding-bottom: 5rem;
+}
+
+.home-header {
+  position: relative;
+  margin-bottom: 1.35rem;
+  padding: clamp(1rem, 2.5vw, 2.25rem) 0 0.5rem;
+}
+
+.home-header-row {
+  align-items: flex-end;
+}
+
+.home-title-copy {
+  min-width: 0;
+}
+
+.home-eyebrow {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #68e9e4;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.2em;
+}
+
+.home-display {
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.home-subtitle {
+  max-width: 38rem;
+  margin-top: 0.65rem;
+  color: rgba(219, 229, 237, 0.62);
+  font-size: clamp(0.85rem, 1.1vw, 1rem);
+}
+
+.home-chips {
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.home-chip {
+  min-height: 38px;
+  padding-inline: 1rem;
+  border: 1px solid var(--premium-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(235, 241, 246, 0.72);
+  font-weight: 650;
+}
+
+.home-chip:hover {
+  border-color: var(--premium-border-hover);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.home-chip.is-active {
+  border-color: rgba(122, 247, 241, 0.5);
+  background: #e9ffff;
+  color: #041318;
+  box-shadow: 0 8px 24px rgba(0, 230, 230, 0.16);
+}
+
+.home-quick-card,
+.home-feature-card,
+.home-shelf-card,
+.home-square,
+.library-tile,
+.browse-tile,
+.card,
+.glass-panel {
+  border: 1px solid var(--premium-border);
+  background: linear-gradient(145deg, rgba(19, 31, 43, 0.78), rgba(7, 15, 24, 0.88));
+  box-shadow: var(--premium-shadow);
+  transition:
+    transform 220ms cubic-bezier(.2,.8,.2,1),
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.home-quick-card:hover,
+.home-feature-card:hover,
+.home-shelf-card:hover,
+.home-square:hover,
+.library-tile:hover,
+.browse-tile:hover,
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--premium-border-hover);
+  background: linear-gradient(145deg, rgba(25, 42, 55, 0.9), rgba(9, 20, 30, 0.94));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.42), 0 0 30px rgba(0, 230, 230, 0.055);
+}
+
+.home-rail {
+  gap: clamp(0.8rem, 1.35vw, 1.2rem);
+  padding-block: 0.4rem 1.25rem;
+  scroll-padding-inline: 1rem;
+}
+
+.home-rail-card {
+  flex-basis: clamp(10.5rem, 14vw, 14rem);
+  width: clamp(10.5rem, 14vw, 14rem);
+  min-width: clamp(10.5rem, 14vw, 14rem);
+}
+
+.home-rail img,
+.library-tile img,
+.browse-tile img {
+  transition: transform 420ms cubic-bezier(.2,.8,.2,1), filter 250ms ease;
+}
+
+.home-rail-card:hover img,
+.library-tile:hover img,
+.browse-tile:hover img {
+  transform: scale(1.035);
+  filter: saturate(1.08) contrast(1.03);
+}
+
+.btn-primary {
+  min-height: 42px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8dfff8, #00d5d9);
+  color: #021114;
+  box-shadow: 0 10px 28px rgba(0, 230, 230, 0.2);
+}
+
+.icon-btn {
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+.icon-btn:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.075);
+}
+
+:where(button, a, input, [tabindex]):focus-visible {
+  outline: 2px solid #73fff7;
+  outline-offset: 3px;
+}
+
+@media (max-width: 767px) {
+  .app-navbar {
+    margin: 6px 8px 0;
+    min-height: 56px;
+    border-radius: 14px;
+  }
+
+  .page-home {
+    padding-inline: 0.85rem;
+  }
+
+  .home-header {
+    padding-top: 0.85rem;
+  }
+
+  .home-display {
+    font-size: clamp(2rem, 10vw, 3rem);
+  }
+
+  .home-subtitle {
+    max-width: 19rem;
+    line-height: 1.45;
+  }
+
+  .home-rail {
+    margin-inline: -0.85rem;
+    padding-inline: 0.85rem;
+  }
+
+  .home-rail-card {
+    flex-basis: 10.75rem;
+    width: 10.75rem;
+    min-width: 10.75rem;
+  }
+
+  .home-quick-card,
+  .home-feature-card,
+  .home-shelf-card,
+  .home-square,
+  .library-tile,
+  .browse-tile {
+    border-radius: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link,
+  .home-quick-card,
+  .home-feature-card,
+  .home-shelf-card,
+  .home-square,
+  .library-tile,
+  .browse-tile,
+  .card,
+  .home-rail img {
+    transition: none;
+    transform: none;
+  }
+}
