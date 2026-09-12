@@ -976,21 +976,21 @@ function YouTubePlayer() {
       vq: key !== activeDeckRef.current ? "small" : requestedYouTubeQuality,
       widget_referrer: window.location.href,
     });
-    const iframe = document.createElement("iframe");
-    // Privacy-enhanced host avoids most YouTube/doubleclick ad-conversion beacons (and their CORS console noise).
-    iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?${playerParams}`;
-    iframe.title = title ? `${title} video` : "YouTube video player";
-    iframe.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
-    iframe.allowFullscreen = true;
-    iframe.referrerPolicy = "strict-origin-when-cross-origin";
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    iframe.style.border = "0";
-    host.replaceChildren(iframe);
+    // Let the official IFrame API create and navigate the iframe. Passing an
+    // already-navigating iframe can make the API postMessage to YouTube while
+    // the frame still has the app origin, which breaks playback in some
+    // browsers with a target-origin mismatch.
+    const mount = document.createElement("div");
+    mount.id = `youtube-deck-${key}-${generation}`;
+    host.replaceChildren(mount);
 
     let hasUnmutedOnce = false;
     let firstPlayingHandled = false;
-    const player = new window.YT.Player(iframe, {
+    const player = new window.YT.Player(mount, {
+      videoId,
+      width: "100%",
+      height: "100%",
+      playerVars: Object.fromEntries(playerParams),
       events: {
         onReady: (event) => {
           if (!isCurrent()) return;
