@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import PlayerDock from "./PlayerDock";
 import { nextQueueTrack, shuffleUpcoming } from "@/utils/playerQueue.mjs";
@@ -270,6 +271,7 @@ function YouTubePlayer() {
   const videoTapRef = useRef({ x: 0, y: 0, active: false });
   const [chromeVisible, setChromeVisible] = useState(true);
   const expandLockRef = useRef(false);
+  const pendingLyricsSheetRef = useRef(false);
   const chromeVisibleRef = useRef(true);
   const chromePinnedRef = useRef(false);
   const chromeLockedRef = useRef(false);
@@ -2206,10 +2208,19 @@ function YouTubePlayer() {
     setExpanded(false);
     setImmersive(false);
     immersiveRef.current = false;
+    pendingLyricsSheetRef.current = false;
     setMobileSheet(false);
+    setShowLyrics(false);
+    setShowQueue(false);
     dispatch(setFullScreen(false));
     return undefined;
   }, [dataSaver, audioOnly, dispatch]);
+
+  useEffect(() => {
+    if (!isPhone || !showLyrics) return undefined;
+    setShowLyrics(false);
+    return undefined;
+  }, [isPhone, showLyrics]);
 
   useEffect(() => {
     if (!videoId || !apiReady || transitionMode === "off" || dataSaver) return;
@@ -2504,6 +2515,11 @@ function YouTubePlayer() {
     if (delta < -56) {
       immersiveRef.current = false;
       setImmersive(false);
+      if (isPhoneRef.current) {
+        setSheetTab(syncedLyrics !== false ? "lyrics" : "queue");
+        setMobileSheet(true);
+        return;
+      }
       setMobileSheet(true);
       setShowQueue(true);
       setShowLyrics(syncedLyrics !== false);
@@ -2534,6 +2550,21 @@ function YouTubePlayer() {
 
   const toggleLyrics = () => {
     if (syncedLyrics === false) return;
+    if (isPhoneRef.current) {
+      if (expandLockRef.current && !expanded) return;
+      if (!expanded) {
+        pendingLyricsSheetRef.current = true;
+        toggleExpandedRef.current();
+        return;
+      }
+      if (mobileSheet && sheetTab === "lyrics") {
+        setMobileSheet(false);
+        return;
+      }
+      setSheetTab("lyrics");
+      setMobileSheet(true);
+      return;
+    }
     setShowLyrics((value) => !value);
   };
 
@@ -2725,14 +2756,28 @@ function YouTubePlayer() {
 
   const toggleExpanded = () => {
     if (dataSaver || audioOnly) return;
+    if (expandLockRef.current) return;
     const next = !expanded;
     expandLockRef.current = true;
     window.setTimeout(() => {
       expandLockRef.current = false;
     }, 1500);
-    setMobileSheet(false);
     immersiveRef.current = false;
     setImmersive(false);
+    if (next) {
+      if (pendingLyricsSheetRef.current) {
+        pendingLyricsSheetRef.current = false;
+        setSheetTab("lyrics");
+        setMobileSheet(true);
+      } else {
+        setMobileSheet(false);
+      }
+    } else {
+      pendingLyricsSheetRef.current = false;
+      setMobileSheet(false);
+      setShowLyrics(false);
+      setShowQueue(false);
+    }
     setExpanded(next);
     dispatch(setFullScreen(next));
     if (next) closePictureInPicture();
@@ -2821,6 +2866,26 @@ function YouTubePlayer() {
     setSheetTab(tab);
     setMobileSheet(true);
   };
+
+  const dockedLyricsPanel = showLyrics && syncedLyrics !== false && !sheetChrome && !isPhone ? (
+    <div className={fullscreen ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
+      <button
+        type="button"
+        aria-label="Close lyrics"
+        onClick={() => setShowLyrics(false)}
+        className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
+      >
+        <FiX size={16} />
+      </button>
+      <SyncedLyrics
+        title={video.title}
+        artist={video.channel}
+        duration={duration}
+        currentTime={currentTime}
+        onSeek={seekOnCurrentTrack}
+      />
+    </div>
+  ) : null;
 
   return (
     <div
@@ -3152,25 +3217,11 @@ function YouTubePlayer() {
           </div>
         </div>
       )}
-      {showLyrics && syncedLyrics !== false && !sheetChrome && (
-        <div className={fullscreen ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
-          <button
-            type="button"
-            aria-label="Close lyrics"
-            onClick={() => setShowLyrics(false)}
-            className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
-          >
-            <FiX size={16} />
-          </button>
-          <SyncedLyrics
-            title={video.title}
-            artist={video.channel}
-            duration={duration}
-            currentTime={currentTime}
-            onSeek={seekOnCurrentTrack}
-          />
-        </div>
-      )}
+      {dockedLyricsPanel
+        ? typeof document === "undefined"
+          ? dockedLyricsPanel
+          : createPortal(dockedLyricsPanel, document.body)
+        : null}
       {pipFloat && !videoVisible && <FloatingPlayer track={video} playing={isPlaying} disabled={isJamGuest} onPlayPause={handlePlayPause} onNext={() => handleNext()} onClose={closePictureInPicture} />}
       {pipWindow && pipMountRef.current && (
         <PictureInPictureWindow

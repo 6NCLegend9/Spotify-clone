@@ -2662,7 +2662,7 @@ body:has(.yt-video-expanded--idle) .jam-fab {
 }
 
 .lyrics-panel--expanded {
-  position: absolute;
+  position: fixed;
   right: 20px;
   top: 72px;
   bottom: 110px;
