@@ -12,6 +12,7 @@ import MediaImage from "@/components/MediaImage";
 import { requestJson } from "@/services/http";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 import { cleanTitle } from "@/utils/text";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 
 const Searchbar = () => {
   const dispatch = useDispatch();
@@ -26,6 +27,7 @@ const Searchbar = () => {
   const listboxId = useId();
   const abortRef = useRef(null);
   const inputRef = useRef(null);
+  const clusterRef = useRef(null);
 
   // Global shortcuts: "/" (when not already typing) and Cmd/Ctrl+K focus search.
   useEffect(() => {
@@ -145,9 +147,14 @@ const Searchbar = () => {
   const suggestionsVisible = open && items.length > 0;
   const selectedIndex =
     activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
+  useDismissOnOutside(suggestionsVisible, () => {
+    setOpen(false);
+    setActiveIndex(-1);
+  }, [clusterRef]);
 
   return (
     <form
+      ref={clusterRef}
       role="search"
       aria-label="Search music"
       onSubmit={handleSubmit}

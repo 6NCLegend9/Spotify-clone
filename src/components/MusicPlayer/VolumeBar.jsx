@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { BiAddToQueue } from "react-icons/bi";
 import { addSongToPlaylist, getUserPlaylists } from "@/services/playlistApi";
 import { toast } from "react-hot-toast";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 
 const VolumeBar = ({
   value,
@@ -26,21 +27,7 @@ const VolumeBar = ({
     getPlaylists();
   }, []);
 
-  useEffect(() => {
-    if (!showMenu) return;
-    const handler = (event) => {
-      if (!menuRef.current?.contains(event.target)) setShowMenu(false);
-    };
-    document.addEventListener("mousedown", handler);
-    const onKey = (event) => {
-      if (event.key === "Escape") setShowMenu(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [showMenu]);
+  useDismissOnOutside(showMenu, () => setShowMenu(false), [menuRef], { escape: true });
 
   // add song to playlist
   const handleAddToPlaylist = async (song, playlistID) => {

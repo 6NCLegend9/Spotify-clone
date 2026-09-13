@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineBell } from "react-icons/hi2";
 import { IoClose } from "react-icons/io5";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 
 const CURRENT_UPDATE_KEY = "HeyKasa_updates_seen_v1";
 
@@ -32,25 +33,7 @@ const UpdatesBell = () => {
     setHasUnread(window.localStorage.getItem(CURRENT_UPDATE_KEY) !== "true");
   }, []);
 
-  useEffect(() => {
-    if (!open) return undefined;
-
-    const handleOutsideClick = (event) => {
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(event.target) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target)
-      ) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, [open]);
+  useDismissOnOutside(open, () => setOpen(false), [panelRef, buttonRef]);
 
   const handleToggle = () => {
     setOpen((prev) => !prev);

@@ -37,6 +37,7 @@ import { useJam } from "@/components/Jam/JamProvider";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { requestJson } from "@/services/http";
 import { useIsPhoneViewport, useMediaQuery } from "@/hooks/useMediaQuery";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import {
@@ -264,6 +265,9 @@ function YouTubePlayer() {
   const [deliveredVideoQuality, setDeliveredVideoQuality] = useState("");
   const [showQueue, setShowQueue] = useState(false);
   const queueMenuRef = useRef(null);
+  const queuePanelRef = useRef(null);
+  const lyricsPanelRef = useRef(null);
+  const sheetRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
   const [immersive, setImmersive] = useState(false);
   const immersiveRef = useRef(false);
@@ -2152,14 +2156,14 @@ function YouTubePlayer() {
     setAddResults((current) => current.filter((item) => item.id !== track.id));
   };
 
-  useEffect(() => {
-    if (!showQueue) return;
-    const handler = (event) => {
-      if (!queueMenuRef.current?.contains(event.target)) setShowQueue(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showQueue]);
+  const overlaySheet = Boolean(expanded && isNarrow && !dataSaver && !audioOnly);
+  useDismissOnOutside(showQueue && !overlaySheet, () => setShowQueue(false), [queueMenuRef, queuePanelRef]);
+  useDismissOnOutside(
+    Boolean(showLyrics && !overlaySheet && !isPhone),
+    () => setShowLyrics(false),
+    [queueMenuRef, lyricsPanelRef],
+  );
+  useDismissOnOutside(Boolean(overlaySheet && mobileSheet), () => setMobileSheet(false), [queueMenuRef, sheetRef]);
 
   useEffect(() => {
     const ms = showLyrics || pipWindow || pipFloat ? 120 : 500;
@@ -2613,9 +2617,31 @@ function YouTubePlayer() {
         return;
       }
 
-      if (event.key === "Escape" && expanded) {
-        event.preventDefault();
-        toggleExpanded();
+      if (event.key === "Escape") {
+        if (showQueue && !overlaySheet) {
+          event.preventDefault();
+          setShowQueue(false);
+          return;
+        }
+        if (showLyrics && !overlaySheet && !isPhoneRef.current) {
+          event.preventDefault();
+          setShowLyrics(false);
+          return;
+        }
+        if (overlaySheet && mobileSheet) {
+          event.preventDefault();
+          setMobileSheet(false);
+          return;
+        }
+        if (isPhoneRef.current && immersiveRef.current) {
+          event.preventDefault();
+          bumpExpandedChromeRef.current({ reveal: true });
+          return;
+        }
+        if (expanded) {
+          event.preventDefault();
+          toggleExpanded();
+        }
         return;
       }
 
@@ -2713,8 +2739,6 @@ function YouTubePlayer() {
     chromeVisibleRef.current = true;
     setChromeVisible(true);
     if (chromePinnedRef.current || chromeLockedRef.current) return;
-    // Phone expanded sheet stays 3/4 + chrome until the video is tapped.
-    if (isPhoneRef.current) return;
     chromeIdleTimerRef.current = window.setTimeout(() => {
       if (hideGeneration !== chromeHideGenRef.current) return;
       if (chromePinnedRef.current || chromeLockedRef.current) return;
@@ -2810,6 +2834,7 @@ function YouTubePlayer() {
   const phoneSheet = Boolean(fullscreen && isPhone);
   const compactFullscreen = Boolean(fullscreen && isNarrow && !isLandscape && !isPhone);
   const sheetChrome = Boolean(fullscreen && isNarrow);
+  const showDesktopQueue = showQueue && !sheetChrome;
   const expandedLayout = !fullscreen
     ? undefined
     : phoneSheet
@@ -2828,6 +2853,29 @@ function YouTubePlayer() {
     chromeHideGenRef.current += 1;
     enterIdleChrome();
   };
+
+  const dismissPlayerOverlays = () => {
+    setMobileSheet(false);
+    setShowQueue(false);
+    if (!sheetChrome) setShowLyrics(false);
+  };
+
+  const handleVideoSurfaceTap = () => {
+    if (!fullscreen) {
+      toggleExpanded();
+      return;
+    }
+    if (mobileSheet || showDesktopQueue || (showLyrics && !sheetChrome)) {
+      dismissPlayerOverlays();
+      return;
+    }
+    if (phoneSheet) {
+      togglePhoneImmersive();
+      return;
+    }
+    if (chromeVisible) enterIdleChrome();
+    else bumpExpandedChrome({ reveal: true });
+  };
   const toggleShuffle = () => {
     if (isJamGuest) return;
     if (!shuffle) {
@@ -2842,7 +2890,6 @@ function YouTubePlayer() {
   };
   const currentQueueIndex = safeQueue.findIndex((item) => item.id === video.id);
   const upcoming = currentQueueIndex === -1 ? safeQueue : safeQueue.slice(currentQueueIndex + 1);
-  const showDesktopQueue = showQueue && !sheetChrome;
   const queueControls = {
     track: video, queue: safeQueue, disabled: isJamGuest, onSelect: playQueueItem,
     canUndoQueue: Boolean(queueUndo),
@@ -2882,7 +2929,7 @@ function YouTubePlayer() {
   };
 
   const dockedLyricsPanel = showLyrics && syncedLyrics !== false && !sheetChrome && !isPhone ? (
-    <div className={fullscreen ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
+    <div ref={lyricsPanelRef} className={fullscreen ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
       <button
         type="button"
         aria-label="Close lyrics"
@@ -2910,7 +2957,6 @@ function YouTubePlayer() {
       className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${phoneSheet ? "yt-video-expanded--phone" : compactFullscreen ? "yt-video-expanded--compact" : "yt-video-expanded--theater"}${chromeVisible ? "" : " yt-video-expanded--idle"}` : "yt-player--docked relative w-full"}
       onClick={(event) => event.stopPropagation()}
       onPointerMove={fullscreen && !phoneSheet ? () => bumpExpandedChrome() : undefined}
-      onPointerDown={fullscreen && !phoneSheet ? () => bumpExpandedChrome() : undefined}
       onTouchStart={fullscreen ? (event) => {
         if (!phoneSheet) bumpExpandedChrome();
         onFullscreenSwipeStart(event);
@@ -2918,39 +2964,9 @@ function YouTubePlayer() {
       onTouchEnd={fullscreen ? onFullscreenSwipeEnd : undefined}
     >
       <div className={phoneSheet ? "yt-phone-stage" : compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
-      {fullscreen && !chromeVisible && (
-        <button
-          type="button"
-          aria-label="Show player controls"
-          className={`absolute inset-0 z-[15] border-0 bg-transparent ${phoneSheet ? "" : "cursor-none"}`}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            if (phoneSheet) togglePhoneImmersive();
-            else bumpExpandedChrome();
-          }}
-          onClick={(event) => {
-            event.preventDefault();
-            if (phoneSheet) return;
-            bumpExpandedChrome();
-          }}
-          onPointerMove={phoneSheet ? undefined : () => bumpExpandedChrome()}
-        />
-      )}
       <div
         data-testid="youtube-decks"
         className={pipFloat && videoVisible ? "yt-crop yt-pip-float yt-video-floating bg-black" : phoneSheet ? "yt-crop yt-phone-video bg-black" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-preview bg-black" : "yt-crop yt-audio-stage"}
-        onPointerDown={phoneSheet && chromeVisible ? (event) => {
-          videoTapRef.current = { x: event.clientX, y: event.clientY, active: true };
-        } : undefined}
-        onPointerUp={phoneSheet && chromeVisible ? (event) => {
-          const start = videoTapRef.current;
-          videoTapRef.current = { ...start, active: false };
-          if (!start.active) return;
-          const dx = event.clientX - start.x;
-          const dy = event.clientY - start.y;
-          if ((dx * dx) + (dy * dy) > 144) return;
-          togglePhoneImmersive();
-        } : undefined}
       >
         {["A", "B"].map((key) => (
           <div
@@ -2965,6 +2981,50 @@ function YouTubePlayer() {
           </div>
         ))}
         <div className="yt-chrome-mask" aria-hidden="true" />
+        {videoVisible && !pipFloat && !playerError && (
+          <button
+            type="button"
+            data-testid="video-tap-target"
+            aria-label={
+              !fullscreen
+                ? "Expand video"
+                : !chromeVisible
+                  ? "Show player controls"
+                  : phoneSheet
+                    ? "Watch video fullscreen"
+                    : "Hide player controls"
+            }
+            className={`absolute inset-0 z-[16] border-0 bg-transparent ${fullscreen && !chromeVisible && !phoneSheet ? "cursor-none" : ""}`}
+            onPointerMove={(event) => {
+              event.stopPropagation();
+              if (!phoneSheet && event.pointerType !== "touch") bumpExpandedChrome();
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              videoTapRef.current = {
+                x: event.clientX,
+                y: event.clientY,
+                active: true,
+                hadOverlay: Boolean(mobileSheet || showDesktopQueue || (showLyrics && !sheetChrome)),
+              };
+            }}
+            onPointerUp={(event) => {
+              event.stopPropagation();
+              const start = videoTapRef.current;
+              videoTapRef.current = { ...start, active: false };
+              if (!start.active) return;
+              const dx = event.clientX - start.x;
+              const dy = event.clientY - start.y;
+              if ((dx * dx) + (dy * dy) > 144) return;
+              event.preventDefault();
+              if (start.hadOverlay) {
+                dismissPlayerOverlays();
+                return;
+              }
+              handleVideoSurfaceTap();
+            }}
+          />
+        )}
         {pipFloat && videoVisible && <div className="absolute inset-x-0 top-0 z-30 flex justify-end bg-gradient-to-b from-black/80 to-transparent">
           <button type="button" aria-label="Expand floating video" title="Expand video" onClick={toggleExpanded} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiMaximize2 /></button>
           <button type="button" aria-label="Close floating video" title="Close floating video" onClick={closePictureInPicture} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiX /></button>
@@ -3133,7 +3193,7 @@ function YouTubePlayer() {
         {!fullscreen && <PlayerVolume />}
         <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "grid min-h-11 min-w-11 place-items-center rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
         {showDesktopQueue && !fullscreen && (
-          <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl">
+          <div ref={queuePanelRef} className="absolute bottom-full right-0 z-30 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl">
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>
             <div className="max-h-72 overflow-y-auto">
               {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
@@ -3179,7 +3239,7 @@ function YouTubePlayer() {
       )}
       </div>
       {sheetChrome && mobileSheet && (
-        <div className="yt-mobile-sheet">
+        <div ref={sheetRef} className="yt-mobile-sheet">
           <button
             type="button"
             aria-label="Close"
@@ -3229,7 +3289,7 @@ function YouTubePlayer() {
         </div>
       )}
       {showDesktopQueue && fullscreen && (
-        <div className="yt-queue-panel">
+        <div ref={queuePanelRef} className="yt-queue-panel">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <QueueEditor {...queueControls} />{sleepControl}

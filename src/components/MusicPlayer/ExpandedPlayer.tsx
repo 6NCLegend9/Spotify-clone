@@ -6,9 +6,11 @@ import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import QueueEditor from "./QueueEditor";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import styles from "./playerDock.module.css";
 
 export default function ExpandedPlayer(props: PlayerDockProps & { initialPanel: "player" | "queue"; onClose: () => void }) {
+  const { onClose } = props;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [panel, setPanel] = useState(props.initialPanel);
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function ExpandedPlayer(props: PlayerDockProps & { initialPanel: 
     }
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") props.onClose();
+      if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleEscape);
 
@@ -35,13 +37,23 @@ export default function ExpandedPlayer(props: PlayerDockProps & { initialPanel: 
       else dialog.removeAttribute("open");
       previous?.focus();
     };
-  }, [props.onClose]);
-  return <dialog ref={dialogRef} aria-label="Now playing" data-panel={panel} onCancel={props.onClose} className={styles.dialog}>
+  }, [onClose]);
+  useDismissOnOutside(true, onClose, [dialogRef]);
+  return <dialog
+    ref={dialogRef}
+    aria-label="Now playing"
+    data-panel={panel}
+    onCancel={onClose}
+    onPointerDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}
+    className={styles.dialog}
+  >
     <header className="flex shrink-0 items-center justify-between border-b border-[var(--hairline)] px-4 py-2">
       <h2 className="text-base font-semibold">{panel === "queue" ? "Queue" : "Now playing"}</h2>
       <div className="flex">
         <PlayerIconButton label={panel === "queue" ? "Now playing" : "Queue"} onClick={() => setPanel(panel === "queue" ? "player" : "queue")}>{panel === "queue" ? <Music2 /> : <ListMusic />}</PlayerIconButton>
-        <PlayerIconButton label="Close player" onClick={props.onClose}><ChevronDown /></PlayerIconButton>
+        <PlayerIconButton label="Close player" onClick={onClose}><ChevronDown /></PlayerIconButton>
       </div>
     </header>
     <div className={styles.stage}>

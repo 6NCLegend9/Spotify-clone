@@ -26,6 +26,7 @@
   --muted: #9aa8b5;
   --motion-fast: 180ms;
   --motion-ui: 220ms;
+  --motion-zoom: 560ms;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
   --glass: rgba(7, 18, 29, 0.72);
@@ -2488,7 +2489,9 @@ select:-webkit-autofill {
   min-height: 0;
   flex: 3 1 0;
   cursor: pointer;
-  transition: flex-grow var(--motion-ui) var(--motion-ease), flex-basis var(--motion-ui) var(--motion-ease);
+  transition:
+    flex-grow var(--motion-zoom) var(--motion-ease),
+    flex-basis var(--motion-zoom) var(--motion-ease);
 }
 
 .yt-phone-chrome {
@@ -2504,11 +2507,14 @@ select:-webkit-autofill {
   padding: 0.4rem 0.85rem 0.55rem;
   background: linear-gradient(180deg, rgba(2, 8, 19, 0.2) 0%, rgba(2, 8, 19, 0.92) 28%);
   transition:
-    flex-grow var(--motion-ui) var(--motion-ease),
-    flex-basis var(--motion-ui) var(--motion-ease),
-    opacity var(--motion-ui) var(--motion-ease),
-    max-height var(--motion-ui) var(--motion-ease),
-    padding var(--motion-ui) var(--motion-ease);
+    flex-grow var(--motion-zoom) var(--motion-ease),
+    flex-basis var(--motion-zoom) var(--motion-ease),
+    max-width var(--motion-zoom) var(--motion-ease),
+    min-width var(--motion-zoom) var(--motion-ease),
+    opacity var(--motion-zoom) var(--motion-ease),
+    max-height var(--motion-zoom) var(--motion-ease),
+    padding var(--motion-zoom) var(--motion-ease),
+    visibility 0s linear 0s;
 }
 
 .yt-phone-chrome-title {
@@ -2538,8 +2544,25 @@ select:-webkit-autofill {
   gap: 0.35rem;
 }
 
+.yt-video-expanded--phone {
+  transition: padding var(--motion-zoom) var(--motion-ease);
+}
+
+.yt-video-expanded--phone .yt-phone-video .yt-crop-frame iframe {
+  transition: transform var(--motion-zoom) var(--motion-ease);
+}
+
+.yt-video-expanded--phone.yt-video-expanded--idle {
+  padding: 0;
+}
+
 .yt-video-expanded--phone.yt-video-expanded--idle .yt-phone-video {
   flex: 1 1 auto;
+  max-height: none;
+}
+
+.yt-video-expanded--phone.yt-video-expanded--idle .yt-crop-frame iframe {
+  transform: translate(-50%, -50%) scale(max(1, calc(max(100dvw / 16, 100dvh / 9) / min(100dvw / 16, 100dvh / 9)))) !important;
 }
 
 .yt-video-expanded--phone.yt-video-expanded--idle .yt-phone-chrome {
@@ -2549,6 +2572,15 @@ select:-webkit-autofill {
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
+  transition:
+    flex-grow var(--motion-zoom) var(--motion-ease),
+    flex-basis var(--motion-zoom) var(--motion-ease),
+    max-width var(--motion-zoom) var(--motion-ease),
+    min-width var(--motion-zoom) var(--motion-ease),
+    opacity var(--motion-zoom) var(--motion-ease),
+    max-height var(--motion-zoom) var(--motion-ease),
+    padding var(--motion-zoom) var(--motion-ease),
+    visibility 0s linear var(--motion-zoom);
 }
 
 @media (orientation: landscape) and (max-height: 540px) and (max-width: 1100px) {
@@ -2604,8 +2636,10 @@ select:-webkit-autofill {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .yt-video-expanded--phone,
   .yt-phone-video,
-  .yt-phone-chrome {
+  .yt-phone-chrome,
+  .yt-video-expanded--phone .yt-phone-video .yt-crop-frame iframe {
     transition: none;
   }
 }
@@ -3195,9 +3229,8 @@ details > summary {
   }
 
   .yt-phone-video {
-    flex: 1 1 auto;
-    max-height: min(56.25vw, 48vh);
-    max-height: min(56.25vw, 48dvh);
+    flex: 3 1 0;
+    max-height: none;
   }
 }
 
@@ -3558,7 +3591,11 @@ body {
   height: 40px;
   margin-left: 16px;
   border-radius: 6px;
-  pointer-events: none;
+}
+
+.yt-dock-preview .yt-crop-frame,
+.yt-dock-preview iframe {
+  pointer-events: none !important;
 }
 
 @media (max-width: 767px) {

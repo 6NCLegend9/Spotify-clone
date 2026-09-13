@@ -43,9 +43,13 @@ export const metadata = {
   // verification: {
   //   // google: "xKWFwcLg7uqtQGOTNIKraZ8uxuWF9Jxa_By43QL3678",
   // },
-  icons: [
-    { rel: "apple-touch-icon", url: "/icon-192x192.png" },
-  ],
+  icons: {
+    icon: [
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192x192.png", sizes: "192x192" }],
+  },
   manifest: "/manifest.json",
   openGraph: {
     type: "website",

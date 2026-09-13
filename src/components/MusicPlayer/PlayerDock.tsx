@@ -38,10 +38,12 @@ export default function PlayerDock(props: PlayerDockProps) {
         <span style={{ width: `${progress}%` }} />
       </div>
       <div className={styles.track}>
-        <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={48} height={48} className={styles.artwork} onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/icon-192x192.png"; }} />
-        <button type="button" aria-label={`Expand player: ${props.track.title}`} onClick={expandPlayer} className="min-h-12 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-[var(--accent)]">
-          <span className="block truncate text-sm font-semibold text-[var(--text)]">{props.track.title}</span>
-          <span className="block truncate text-xs text-[var(--muted)]">{props.track.channel}</span>
+        <button type="button" aria-label={`Expand player: ${props.track.title}`} onClick={expandPlayer} className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 text-left focus-visible:outline focus-visible:outline-[var(--accent)]">
+          <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={48} height={48} className={styles.artwork} onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/icon-192x192.png"; }} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-[var(--text)]">{props.track.title}</span>
+            <span className="block truncate text-xs text-[var(--muted)]">{props.track.channel}</span>
+          </span>
         </button>
         <div className={styles.favourite}>{props.favourite}</div>
       </div>

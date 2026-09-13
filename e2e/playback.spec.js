@@ -305,7 +305,7 @@ test("video expansion fits desktop and mobile without replacing the media host",
       return Boolean(play && play.getBoundingClientRect().top >= video.bottom - 2);
     });
     expect(chromeBelow).toBe(true);
-    await page.getByTestId("youtube-decks").click();
+    await page.getByTestId("video-tap-target").click();
     await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "hidden");
     const filled = await page.getByTestId("youtube-decks").evaluate((host) => host.getBoundingClientRect().height >= window.innerHeight * 0.92);
     expect(filled).toBe(true);
@@ -317,13 +317,18 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
   }
   await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
+  const queueToggle = page.getByRole("button", { name: "Queue" });
+  await queueToggle.click();
+  await expect(queueToggle).toHaveAttribute("aria-expanded", "true");
+  await page.getByTestId("video-tap-target").click();
+  await expect(queueToggle).toHaveAttribute("aria-expanded", "false");
   await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
   await page.mouse.move(64, 64);
   await page.getByRole("button", { name: "Minimize video", exact: true }).click();
   await expect(dock).toBeVisible();
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost)).toBe(true);
   await expect(dock.getByRole("button", { name: "Floating video", exact: true })).toHaveCount(0);
-  await dock.getByRole("button", { name: /^Expand player:/ }).click();
+  await page.getByTestId("video-tap-target").click();
   await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Expand floating video", exact: true })).toHaveCount(0);
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
@@ -383,8 +388,10 @@ test("video expansion fits desktop and mobile without replacing the media host",
   expect(landscape.overflow).toBe(false);
   expect(landscape.videoHeight).toBeGreaterThan(landscape.viewportHeight * 0.7);
   await page.screenshot({ path: testInfo.outputPath("expanded-landscape.png") });
-  await page.getByTestId("youtube-decks").click();
+  await page.getByTestId("video-tap-target").click();
   await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "hidden");
+  const filledLandscape = await page.getByTestId("youtube-decks").evaluate((host) => host.getBoundingClientRect().height >= window.innerHeight * 0.92);
+  expect(filledLandscape).toBe(true);
   await page.getByRole("button", { name: "Show player controls" }).click();
   await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
   await page.setViewportSize({ width: 667, height: 375 });

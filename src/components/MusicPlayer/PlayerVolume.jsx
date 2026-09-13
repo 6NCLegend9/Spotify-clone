@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { BsFillVolumeMuteFill, BsFillVolumeUpFill, BsVolumeDownFill } from "react-icons/bs";
 import { updateSetting } from "@/redux/features/settingsSlice";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 
 export default function PlayerVolume({ className = "" }) {
   const dispatch = useDispatch();
@@ -13,18 +14,7 @@ export default function PlayerVolume({ className = "" }) {
   const setVolume = (value) => dispatch(updateSetting({ key: "masterVolume", value }));
   const Icon = volume === 0 ? BsFillVolumeMuteFill : volume <= 0.5 ? BsVolumeDownFill : BsFillVolumeUpFill;
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (event) => {
-      if (!rootRef.current?.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("touchstart", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("touchstart", close);
-    };
-  }, [open]);
+  useDismissOnOutside(open, () => setOpen(false), [rootRef], { escape: true });
 
   return (
     <div
