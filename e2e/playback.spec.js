@@ -307,8 +307,18 @@ test("video expansion fits desktop and mobile without replacing the media host",
     expect(chromeBelow).toBe(true);
     await page.getByTestId("video-tap-target").click();
     await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "hidden");
-    const filled = await page.getByTestId("youtube-decks").evaluate((host) => host.getBoundingClientRect().height >= window.innerHeight * 0.92);
-    expect(filled).toBe(true);
+    const filled = await page.getByTestId("youtube-decks").evaluate((host) => {
+      const frame = host.querySelector("iframe");
+      const hostRect = host.getBoundingClientRect();
+      const frameRect = frame.getBoundingClientRect();
+      return {
+        hostFilled: hostRect.height >= window.innerHeight * 0.92,
+        frameWidth: frameRect.width,
+        viewportWidth: window.innerWidth,
+      };
+    });
+    expect(filled.hostFilled).toBe(true);
+    expect(filled.frameWidth).toBeLessThan(filled.viewportWidth * 1.25);
     await page.getByRole("button", { name: "Show player controls" }).click();
     await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
   } else {

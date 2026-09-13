@@ -2562,7 +2562,9 @@ select:-webkit-autofill {
 }
 
 .yt-video-expanded--phone.yt-video-expanded--idle .yt-crop-frame iframe {
-  transform: translate(-50%, -50%) scale(max(1, calc(max(100dvw / 16, 100dvh / 9) / min(100dvw / 16, 100dvh / 9)))) !important;
+  width: 100% !important;
+  height: min(100%, 56.25vw) !important;
+  transform: translate(-50%, -50%) !important;
 }
 
 .yt-video-expanded--phone.yt-video-expanded--idle .yt-phone-chrome {
@@ -2604,6 +2606,10 @@ select:-webkit-autofill {
   .yt-phone-chrome-title p:first-child,
   .yt-phone-chrome-title [aria-live] {
     display: none;
+  }
+
+  .yt-video-expanded--phone.yt-video-expanded--idle .yt-crop-frame iframe {
+    transform: translate(-50%, -50%) scale(max(1, calc(max(100dvw / 16, 100dvh / 9) / min(100dvw / 16, 100dvh / 9)))) !important;
   }
 
   .yt-video-expanded--phone.yt-video-expanded--idle .yt-phone-chrome {
