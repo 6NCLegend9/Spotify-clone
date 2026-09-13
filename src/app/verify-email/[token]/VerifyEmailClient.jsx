@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -10,12 +9,17 @@ import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
 
 export default function VerifyEmailClient({ token }) {
-  const [status, setStatus] = useState("verifying"); // verifying, success, error
-  const [message, setMessage] = useState("");
-  const [errorDetails, setErrorDetails] = useState(null);
-  const [attempt, setAttempt] = useState(0);
-  const router = useRouter();
-  const redirectTimerRef = useRef(null);
+  const normalizedToken = typeof token === "string" ? token.trim() : "";
+  const tokenIsValid = /^[a-f0-9]{64}$/i.test(normalizedToken);
+  const invalidTokenError = {
+    title: "Invalid verification link",
+    message: "This verification link is incomplete or invalid. Request a new link and try again.",
+    retryable: false,
+  };
+  const [status, setStatus] = useState(tokenIsValid ? "ready" : "error");
+  const [errorDetails, setErrorDetails] = useState(
+    tokenIsValid ? null : invalidTokenError,
+  );
   const reduceMotion = useReducedMotion();
   const motionProps = reduceMotion
     ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 1 }, transition: { duration: 0 } }
@@ -26,64 +30,56 @@ export default function VerifyEmailClient({ token }) {
         transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
       };
 
-  useEffect(() => {
-    if (typeof token !== "string" || !/^[a-f0-9]{64}$/i.test(token.trim())) {
-      setStatus("error");
-      setErrorDetails({
-        title: "Invalid verification link",
-        message: "This verification link is incomplete or invalid. Request a new link and try again.",
-        retryable: false,
+  const verify = async () => {
+    if (!tokenIsValid || status === "verifying") return;
+    setStatus("verifying");
+    setErrorDetails(null);
+    try {
+      const data = await requestJson("/api/verify-email", {
+        method: "POST",
+        body: { token: normalizedToken },
+        fallbackTitle: "Verification failed",
+        fallbackMessage: "We couldn't verify your email. Please try again.",
       });
-      return undefined;
+
+      if (!data?.success) throw new Error("Verification did not complete.");
+      setStatus("success");
+    } catch (error) {
+      setStatus("error");
+      setErrorDetails(userErrorDetails(error, {
+        title: "Verification failed",
+        message: "We couldn't verify your email. Please try again.",
+      }));
     }
-
-    let cancelled = false;
-    const controller = new AbortController();
-    const verify = async () => {
-      setStatus("verifying");
-      setErrorDetails(null);
-      try {
-        const data = await requestJson("/api/verify-email", {
-          method: "POST",
-          body: { token: token.trim() },
-          signal: controller.signal,
-          fallbackTitle: "Verification failed",
-          fallbackMessage: "We couldn't verify your email. Please try again.",
-        });
-
-        if (!cancelled && data?.success) {
-          setStatus("success");
-          setMessage("Your email has been verified successfully. You will be redirected to the login page shortly.");
-          redirectTimerRef.current = window.setTimeout(() => {
-            router.push("/login");
-          }, 3500);
-        } else {
-          throw new Error("Verification did not complete.");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setStatus("error");
-          setErrorDetails(userErrorDetails(error, {
-            title: "Verification failed",
-            message: "We couldn't verify your email. Please try again.",
-          }));
-        }
-      }
-    };
-
-    void verify();
-    return () => {
-      cancelled = true;
-      controller.abort();
-      if (redirectTimerRef.current) window.clearTimeout(redirectTimerRef.current);
-    };
-  }, [attempt, token, router]);
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#000814] px-4 py-12 sm:px-6 lg:px-8">
       <SpotlightCard className="w-full max-w-md space-y-8 bg-[#07121d]">
         <div className="relative text-center min-h-[220px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
+          {status === "ready" && (
+            <motion.div
+              key="ready"
+              {...motionProps}
+              className="z-10 relative"
+            >
+              <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white mb-2">
+                Verify your email
+              </h2>
+              <p className="mt-4 text-sm text-[#9aa8b5]">
+                Confirm that you want to verify this email address.
+              </p>
+              <button
+                type="button"
+                onClick={() => void verify()}
+                className="mt-7 rounded-full bg-[#00e6e6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2]"
+              >
+                Verify email
+              </button>
+            </motion.div>
+          )}
+
           {status === "verifying" && (
             <motion.div
               key="verifying"
@@ -114,7 +110,15 @@ export default function VerifyEmailClient({ token }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               </div>
-              <p className="mt-4 text-sm text-[#9aa8b5] font-medium">{message}</p>
+              <p className="mt-4 text-sm text-[#9aa8b5] font-medium">
+                Your email has been verified. You can now log in.
+              </p>
+              <Link
+                href="/login"
+                className="mt-7 inline-block rounded-full bg-[#00e6e6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2]"
+              >
+                Continue to login
+              </Link>
             </motion.div>
           )}
 
@@ -136,7 +140,7 @@ export default function VerifyEmailClient({ token }) {
                 <UserMessage
                   title={errorDetails?.title}
                   message={errorDetails?.message}
-                  onRetry={errorDetails?.retryable ? () => setAttempt((value) => value + 1) : undefined}
+                  onRetry={tokenIsValid && errorDetails?.retryable ? verify : undefined}
                   retryLabel="Verify again"
                 />
               </div>

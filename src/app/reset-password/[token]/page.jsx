@@ -64,7 +64,7 @@ const ResetPasswordPage = () => {
       });
       if (res?.success === true) {
         toast.success("Password updated. You can log in now.");
-        router.push("/login");
+        router.replace("/login");
       } else {
         setFormError({
           title: "Couldn't reset password",

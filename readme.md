@@ -36,7 +36,8 @@
     DB_NAME = database name
 
    JWT_SECRET = JWT secret
-   NEXTAUTH_URL= next auth url (http://localhost:3000 or your domain)
+   NEXTAUTH_URL=http://localhost:3000
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 
    GOOGLE_CLIENT_ID = Google client id  (https://analytify.io/get-google-client-id-and-client-secret)
@@ -48,6 +49,10 @@
    MAIL_PASS = mail password (google app password)
 
    ```
+
+   Use the same loopback origin and port for both local URL values. Production
+   uses `https://haykasa.vercel.app` for both. Do not point local HTTP
+   development at the production HTTPS origin.
 
 4. Start the development server.
 

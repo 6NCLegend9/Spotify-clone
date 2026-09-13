@@ -7,6 +7,7 @@ import { FiPlus, FiRadio } from "react-icons/fi";
 import PlaylistModal from "@/components/Sidebar/PlaylistModal";
 import BottomSheet from "@/components/BottomSheet";
 import { requestJamOpen } from "@/utils/jam.mjs";
+import { loginPath } from "@/utils/appOrigin.mjs";
 
 export default function CreateHub() {
   const { status } = useSession();
@@ -24,7 +25,7 @@ export default function CreateHub() {
     setPickerOpen(false);
     if (status === "loading") return;
     if (status !== "authenticated") {
-      router.push("/login");
+      router.push(loginPath(window.location.href, window.location.origin));
       return;
     }
     setPlaylistOpen(true);
@@ -34,7 +35,7 @@ export default function CreateHub() {
     setPickerOpen(false);
     if (status === "loading") return;
     if (status !== "authenticated") {
-      router.push("/login");
+      router.push(loginPath(window.location.href, window.location.origin));
       return;
     }
     requestJamOpen();

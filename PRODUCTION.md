@@ -7,10 +7,30 @@
   runtime.
 - [ ] Keep `.env.local` local and out of source control. Configure production
   values in Vercel Project Settings instead.
-- [ ] Set `NEXT_PUBLIC_APP_URL` and `NEXTAUTH_URL` to the same canonical HTTPS
-  production origin (for example, `https://haykasa.vercel.app`).
+- [ ] Set `NEXT_PUBLIC_APP_URL` and `NEXTAUTH_URL` to the exact canonical HTTPS
+  production origin: `https://haykasa.vercel.app`.
 - [ ] Generate unique, high-entropy values for `JWT_SECRET` (or
   `NEXTAUTH_SECRET`) and `RATE_LIMIT_SECRET`.
+
+## Authentication origin contract
+
+- Production has one authenticated origin: `https://haykasa.vercel.app`.
+  Configure every old Vercel deployment alias to redirect browser navigation to
+  that host. The application also redirects the known legacy alias, but Vercel
+  domain configuration remains the first line of defense.
+- Local development is separate. Set both URL variables to the same loopback
+  origin and actual port, such as `http://localhost:3003`. Never use the
+  production HTTPS URL while running a local HTTP server; NextAuth would select
+  secure cookie names that local browsers reject.
+- Chrome, Edge, Firefox, Safari, mobile browsers, and installed PWAs all use the
+  same relative APIs. They do not require CORS entries. Do not add wildcard
+  credentialed CORS, `SameSite=None`, reflected origins, or shared cookies
+  between domains. Each browser keeps and authenticates its own cookie store.
+- Keep `connect-src 'self'`. Cookie-authenticated mutations reject missing and
+  foreign `Origin` headers against the explicit canonical/loopback trust set.
+- Preserve the existing production `JWT_SECRET`/`NEXTAUTH_SECRET` during this
+  rollout. Rotating it is a separate incident-response action that signs out all
+  existing sessions.
 
 ## Account security rollout
 
@@ -89,6 +109,15 @@
 - [ ] Optionally set `MONITORED_INBOX` to receive account-deletion notices.
 - [ ] Test signup verification and password reset delivery. Reset links expire
   after 15 minutes. Verify a reset also rejects a previously issued session.
+- [ ] Confirm verification and reset links start with
+  `https://haykasa.vercel.app` and contain only a random one-time token. Opening
+  a verification link must not change the account until the user presses
+  **Verify email**; mail scanners and prefetchers may perform GET requests.
+- [ ] There is no email-provider allow-list. “Accept all emails” means ordinary
+  valid public addresses, subdomains, mixed case, and plus-addressing are
+  accepted regardless of provider. Inbox delivery still requires a verified
+  sender domain, healthy SMTP credentials and reputation, plus SPF, DKIM, and
+  DMARC alignment.
 
 ## Optional integrations
 
@@ -110,6 +139,8 @@
 - [ ] Run `npm test` and `npm run test:e2e`. Local browser tests use an existing
   server at `http://localhost:3000` (override with `PLAYWRIGHT_BASE_URL`). CI
   starts the built application on port 3100 in an isolated browser context.
+  The auth matrix runs on Chromium, Firefox, WebKit, mobile Chrome, and mobile
+  Safari using local request fixtures; it does not call the live website.
 - [ ] To build locally without touching a running dev server's `.next` output,
   set `NEXT_BUILD_DIR=.next-check` and `DISABLE_PWA=1` for that build only.
   CI runs the normal PWA-enabled production build.
@@ -122,6 +153,9 @@
 - [ ] Confirm `/api/auth/providers` contains only configured providers.
 - [ ] Confirm API and auth responses are not served from the service-worker
   cache.
+- [ ] Confirm `/login` preserves a safe same-origin return path, an unverified
+  account shows verification guidance, and a credentials `401` displays the
+  matching public reason instead of being treated as a transport failure.
 - [ ] Verify the production response includes HSTS, CSP,
   `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`, and
   does not include `X-Powered-By`.

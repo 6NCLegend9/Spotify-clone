@@ -1,3 +1,5 @@
+import { PRODUCTION_SITE_URL } from "./appOrigin.mjs";
+
 export function validateDeploymentConfig(env) {
   const errors = [];
   const warnings = [];
@@ -16,6 +18,14 @@ export function validateDeploymentConfig(env) {
   const authOrigin = origin("NEXTAUTH_URL");
   const appOrigin = origin("NEXT_PUBLIC_APP_URL");
   if (authOrigin && appOrigin && authOrigin !== appOrigin) errors.push("NEXTAUTH_URL and NEXT_PUBLIC_APP_URL must match.");
+  for (const [key, configuredOrigin] of [
+    ["NEXTAUTH_URL", authOrigin],
+    ["NEXT_PUBLIC_APP_URL", appOrigin],
+  ]) {
+    if (configuredOrigin && configuredOrigin !== PRODUCTION_SITE_URL) {
+      errors.push(`${key} must use ${PRODUCTION_SITE_URL} in production.`);
+    }
+  }
   if ((value("JWT_SECRET") || value("NEXTAUTH_SECRET")).length < 32) errors.push("JWT_SECRET or NEXTAUTH_SECRET must contain at least 32 characters.");
   if (value("RATE_LIMIT_SECRET").length < 32) errors.push("RATE_LIMIT_SECRET must contain at least 32 characters.");
   if (!/^mongodb(?:\+srv)?:\/\//.test(value("MONGODB_URL") || value("MONGODB_URI"))) errors.push("MONGODB_URL or MONGODB_URI must be configured with a MongoDB URI.");

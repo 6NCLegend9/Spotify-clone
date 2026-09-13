@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useNav } from "../Layout/AppShell";
 import { accountOwner } from "@/utils/accountCache.mjs";
+import { loginPath } from "@/utils/appOrigin.mjs";
 
 const AccountProfile = ({ status, data }) => {
   const router = useRouter();
@@ -58,26 +59,29 @@ const AccountProfile = ({ status, data }) => {
   if (status === "unauthenticated") {
     return (
       <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => {
+        <Link
+          href="/login"
+          prefetch
+          onClick={(event) => {
             close();
-            router.push("/login");
+            const next = loginPath(window.location.href, window.location.origin);
+            if (next !== "/login") {
+              event.preventDefault();
+              router.push(next);
+            }
           }}
           className="btn-ghost h-10 text-sm"
         >
           Log in
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            close();
-            router.push("/signup");
-          }}
+        </Link>
+        <Link
+          href="/signup"
+          prefetch
+          onClick={close}
           className="btn-primary h-10 text-sm"
         >
           Sign up
-        </button>
+        </Link>
       </div>
     );
   }

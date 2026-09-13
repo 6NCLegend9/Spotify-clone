@@ -1,10 +1,35 @@
-export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const EMAIL_PATTERN =
+  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+
+export const AUTH_FAILURE_CODES = {
+  invalidCredentials: "AUTH_INVALID_CREDENTIALS",
+  unverified: "AUTH_EMAIL_UNVERIFIED",
+  rateLimited: "AUTH_RATE_LIMITED",
+  unavailable: "AUTH_TEMPORARILY_UNAVAILABLE",
+};
 
 export const AUTH_CODES = {
   CredentialsSignin: {
     title: "Couldn't sign in",
     message:
       "We couldn't sign you in with those details. Check the spelling, try again, or request a new password link.",
+  },
+  AUTH_INVALID_CREDENTIALS: {
+    title: "Couldn't sign in",
+    message:
+      "We couldn't sign you in with those details. Check the spelling, try again, or request a new password link.",
+  },
+  AUTH_EMAIL_UNVERIFIED: {
+    title: "Verify your email",
+    message: "Please verify your email before logging in. Check your inbox for the link.",
+  },
+  AUTH_RATE_LIMITED: {
+    title: "Too many attempts",
+    message: "Too many login attempts. Please wait a few minutes and try again.",
+  },
+  AUTH_TEMPORARILY_UNAVAILABLE: {
+    title: "Sign-in is unavailable",
+    message: "Sign-in is temporarily unavailable. Please try again in a moment.",
   },
   OAuthSignin: {
     title: "Google sign-in didn't start",
@@ -53,10 +78,9 @@ const TECHNICAL_PATTERN =
   /CredentialsSignin|OAuthSignin|OAuthCallback|OAuthCreateAccount|OAuthAccountNotLinked|AccessDenied|Configuration|Callback|SessionRequired|EmailSignin|Mongo(Server)?Error|Mongoose|ECONN|ENOTFOUND|EAI_AGAIN|Internal Server Error|TypeError|SyntaxError|Unexpected token|Prisma|Cast to ObjectId|node_modules|fetch failed|at\s+\S+\s+\([^)]+:\d+:\d+\)|\bstack\b/i;
 
 export class AuthError extends Error {
-  constructor(message, { title = "Something went wrong", code = "Default" } = {}) {
-    super(message);
+  constructor(code = AUTH_FAILURE_CODES.unavailable) {
+    super(code);
     this.name = "AuthError";
-    this.title = title;
     this.code = code;
   }
 }
@@ -79,15 +103,27 @@ function safeAuthText(value) {
   return text;
 }
 
+export function normalizeEmail(email) {
+  return typeof email === "string" ? email.trim().toLowerCase() : "";
+}
+
 export function validateEmail(email) {
-  const value = typeof email === "string" ? email.trim() : "";
+  const value = normalizeEmail(email);
   if (!value) {
     return {
       title: "Email required",
       message: "Please enter your email address.",
     };
   }
-  if (!EMAIL_PATTERN.test(value) || value.length > 254) {
+  const [localPart = ""] = value.split("@");
+  if (
+    !EMAIL_PATTERN.test(value)
+    || value.length > 254
+    || localPart.length > 64
+    || localPart.startsWith(".")
+    || localPart.endsWith(".")
+    || localPart.includes("..")
+  ) {
     return {
       title: "Invalid email",
       message: "Please enter a valid email address.",

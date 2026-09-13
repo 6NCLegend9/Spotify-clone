@@ -10,6 +10,7 @@ import { addSongToPlaylist, getUserPlaylists } from "@/services/playlistApi";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { toUserError } from "@/utils/userError";
+import { loginPath } from "@/utils/appOrigin.mjs";
 
 export default function AddToPlaylistButton({ track, className = "" }) {
   const { status } = useSession();
@@ -51,7 +52,7 @@ export default function AddToPlaylistButton({ track, className = "" }) {
     event.stopPropagation();
     if (status !== "authenticated") {
       toast.error("Log in to add songs to a playlist.");
-      router.push("/login");
+      router.push(loginPath(window.location.href, window.location.origin));
       return;
     }
     if (!track?.id) return;

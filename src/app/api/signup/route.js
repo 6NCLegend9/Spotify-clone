@@ -5,7 +5,7 @@ import UserData from "@/models/UserData";
 import crypto from "crypto";
 import mailSender from "@/utils/mailSender";
 import { getVerificationEmailTemplate } from "@/emails/VerificationEmail";
-import { getAppUrl, getPublicAssetUrl } from "@/utils/appUrl";
+import { getAppLink, getPublicAssetUrl } from "@/utils/appUrl";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import {
     apiError,
@@ -13,7 +13,11 @@ import {
     handleApiError,
     readRequestJson,
 } from "@/utils/apiResponse";
-import { EMAIL_PATTERN } from "@/utils/authErrors";
+import {
+    normalizeEmail,
+    validateEmail,
+    validatePassword,
+} from "@/utils/authErrors";
 import { hashToken } from "@/utils/tokenHash.mjs";
 
 export const runtime = "nodejs";
@@ -40,10 +44,7 @@ export async function POST(request) {
             typeof payload.userName === "string"
                 ? payload.userName.trim().slice(0, 50)
                 : "";
-        const email =
-            typeof payload.email === "string"
-                ? payload.email.trim().toLowerCase()
-                : "";
+        const email = normalizeEmail(payload.email);
         const password = typeof payload.password === "string" ? payload.password : "";
 
         if (!userName) {
@@ -52,13 +53,13 @@ export async function POST(request) {
                 message: "Please enter a username.",
             });
         }
-        if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+        if (validateEmail(email)) {
             return apiError("VALIDATION_ERROR", {
                 title: "Invalid email",
                 message: "Please enter a valid email address.",
             });
         }
-        if (password.length < 8 || password.length > 72) {
+        if (validatePassword(password)) {
             return apiError("VALIDATION_ERROR", {
                 title: "Invalid password",
                 message: "Use a password between 8 and 72 characters.",
@@ -91,7 +92,7 @@ export async function POST(request) {
         });
         createdUser = result;
 
-        const url = `${getAppUrl(request)}/verify-email/${verificationToken}`;
+        const url = getAppLink(`/verify-email/${verificationToken}`, request);
         const title = "Welcome to HeyKasa! Verify Your Email";
         const body = getVerificationEmailTemplate(userName, url, {
             logoUrl: getPublicAssetUrl("/icon-192x192.png", request),

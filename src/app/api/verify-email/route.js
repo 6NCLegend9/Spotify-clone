@@ -8,12 +8,14 @@ import {
     handleApiError,
     readRequestJson,
 } from "@/utils/apiResponse";
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 export async function POST(request) {
     try {
+        if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
         const rateLimit = await isRateLimited(getClientKey(request), {
             windowMs: 15 * 60_000,
             max: 20,

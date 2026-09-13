@@ -1,38 +1,20 @@
+import {
+  PRODUCTION_SITE_URL,
+  normalizeAppOrigin,
+} from "./appOrigin.mjs";
+
 // Single source of truth for SEO + metadata.
-export const PRODUCTION_SITE_URL = "https://haykasa.vercel.app";
+export { PRODUCTION_SITE_URL };
 
 // Google Sign-In (OAuth) is disabled; the app uses email/password only.
 // The Gmail SMTP mail system is unaffected by this flag.
 export const GOOGLE_SIGN_IN_ENABLED = false;
 
 export function normalizeAppUrl(value, { allowHttp = false } = {}) {
-  const rawValue = String(value || "").trim();
-  if (!rawValue) return "";
-
-  try {
-    const url = new URL(
-      /^[a-z][a-z\d+.-]*:\/\//i.test(rawValue)
-        ? rawValue
-        : `https://${rawValue}`,
-    );
-    const isLocalHttp =
-      allowHttp
-      && url.protocol === "http:"
-      && ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
-
-    if (url.protocol !== "https:" && !isLocalHttp) return "";
-    if (url.username || url.password) return "";
-
-    return url.origin;
-  } catch {
-    return "";
-  }
+  return normalizeAppOrigin(value, { allowLocalHttp: allowHttp });
 }
 
-export const SITE_URL =
-  normalizeAppUrl(process.env.NEXT_PUBLIC_APP_URL) ||
-  normalizeAppUrl(process.env.NEXTAUTH_URL) ||
-  PRODUCTION_SITE_URL;
+export const SITE_URL = PRODUCTION_SITE_URL;
 export const SITE_NAME = "HeyKasa";
 export const SITE_BRAND = "HeyKasa Music";
 export const SITE_TAGLINE = "Free Music Streaming";

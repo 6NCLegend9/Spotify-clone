@@ -4,7 +4,7 @@ import User from "@/models/User";
 import mailSender from "@/utils/mailSender";
 import dbConnect from "@/utils/dbconnect";
 import { getResetPasswordTemplate } from "@/emails/ResetPasswordEmail";
-import { getAppUrl, getPublicAssetUrl } from "@/utils/appUrl";
+import { getAppLink, getPublicAssetUrl } from "@/utils/appUrl";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import {
   apiError,
@@ -12,7 +12,11 @@ import {
   handleApiError,
   readRequestJson,
 } from "@/utils/apiResponse";
-import { EMAIL_PATTERN } from "@/utils/authErrors";
+import {
+  normalizeEmail,
+  validateEmail,
+  validatePassword,
+} from "@/utils/authErrors";
 import { hashToken } from "@/utils/tokenHash.mjs";
 
 export const runtime = "nodejs";
@@ -38,22 +42,13 @@ export async function POST(request) {
     }
 
     const payload = await readRequestJson(request);
-    const email =
-      typeof payload.email === "string"
-        ? payload.email.trim().toLowerCase()
-        : "";
+    const email = normalizeEmail(payload.email);
 
-    if (!email) {
+    const emailError = validateEmail(email);
+    if (emailError) {
       return apiError("VALIDATION_ERROR", {
-        title: "Email required",
-        message: "Please enter your email address.",
-      });
-    }
-
-    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
-      return apiError("VALIDATION_ERROR", {
-        title: "Invalid email",
-        message: "Please enter a valid email address.",
+        title: emailError.title,
+        message: emailError.message,
       });
     }
 
@@ -65,11 +60,13 @@ export async function POST(request) {
 
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenHash = hashToken(resetToken);
+    const previousToken = user.resetPasswordToken ?? null;
+    const previousExpiry = user.resetPasswordExpires ?? null;
     user.resetPasswordToken = resetTokenHash;
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60_000);
     await user.save();
 
-    const url = `${getAppUrl(request)}/reset-password/${resetToken}`;
+    const url = getAppLink(`/reset-password/${resetToken}`, request);
     try {
       await mailSender(
         user.email,
@@ -82,7 +79,12 @@ export async function POST(request) {
     } catch {
       await User.updateOne(
         { _id: user._id, resetPasswordToken: resetTokenHash },
-        { $set: { resetPasswordToken: null, resetPasswordExpires: null } },
+        {
+          $set: {
+            resetPasswordToken: previousToken,
+            resetPasswordExpires: previousExpiry,
+          },
+        },
       ).catch(() => {});
       return apiSuccess(null, RESET_REQUEST_RESPONSE);
     }
@@ -120,16 +122,11 @@ export async function PUT(request) {
         message: "Invalid or expired reset link.",
       });
     }
-    if (password.length < 8 || password.length > 72) {
+    const passwordError = validatePassword(password, { confirm: confirmPassword });
+    if (passwordError) {
       return apiError("VALIDATION_ERROR", {
-        title: "Invalid password",
-        message: "Password must be between 8 and 72 characters.",
-      });
-    }
-    if (password !== confirmPassword) {
-      return apiError("VALIDATION_ERROR", {
-        title: "Passwords don't match",
-        message: "Passwords do not match.",
+        title: passwordError.title,
+        message: passwordError.message,
       });
     }
 

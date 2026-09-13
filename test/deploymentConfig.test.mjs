@@ -3,8 +3,8 @@ import test from "node:test";
 import { validateDeploymentConfig } from "../src/utils/deploymentConfig.mjs";
 
 const valid = {
-  NEXTAUTH_URL: "https://music.example.test",
-  NEXT_PUBLIC_APP_URL: "https://music.example.test/",
+  NEXTAUTH_URL: "https://haykasa.vercel.app",
+  NEXT_PUBLIC_APP_URL: "https://haykasa.vercel.app/",
   NEXTAUTH_SECRET: "a".repeat(32), RATE_LIMIT_SECRET: "b".repeat(32),
   MONGODB_URI: "mongodb://localhost/test", MAIL_HOST: "smtp.example.test",
   MAIL_USER: "sender@example.test", MAIL_PASS: "test-only-password",
@@ -18,7 +18,17 @@ test("valid configuration permits absent optional integrations", () => {
 
 test("preflight rejects mismatched origins, invalid ports and partial integration pairs", () => {
   const result = validateDeploymentConfig({ ...valid, NEXTAUTH_URL: "https://other.example.test", MAIL_PORT: "0", GOOGLE_CLIENT_ID: "configured" });
-  assert.equal(result.errors.length, 3);
+  assert.equal(result.errors.length, 4);
+});
+
+test("preflight rejects the legacy deployment origin", () => {
+  const result = validateDeploymentConfig({
+    ...valid,
+    NEXTAUTH_URL: "https://spotify-clone-iota-pink.vercel.app",
+    NEXT_PUBLIC_APP_URL: "https://spotify-clone-iota-pink.vercel.app",
+  });
+  assert.equal(result.errors.length, 2);
+  assert.ok(result.errors.every((error) => error.includes("haykasa.vercel.app")));
 });
 
 test("errors do not expose secret values or URL credentials", () => {

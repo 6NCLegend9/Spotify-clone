@@ -2,12 +2,11 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { getSession, signIn } from "next-auth/react";
+import { getSession, signIn, useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
-import { redirect, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setProgress } from "@/redux/features/loadingBarSlice";
-import { useSession } from "next-auth/react";
 import GradientText from "@/components/ReactBits/GradientText";
 import AuthMessage from "@/components/AuthMessage";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
@@ -19,20 +18,20 @@ import {
   validatePassword,
 } from "@/utils/authErrors";
 import { userErrorDetails } from "@/utils/userError";
-
-function safeCallbackPath(value) {
-  const raw = String(value || "").trim();
-  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("://")) return "/";
-  return raw;
-}
+import {
+  isSuccessfulAuthResponseUrl,
+  safeReturnPath,
+} from "@/utils/appOrigin.mjs";
 
 const LoginPage = () => {
   const { status } = useSession();
   const dispatch = useDispatch();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const afterLogin = safeCallbackPath(searchParams.get("callbackUrl"));
+  const browserOrigin =
+    typeof window === "undefined" ? undefined : window.location.origin;
+  const afterLogin = safeReturnPath(searchParams.get("callbackUrl"), browserOrigin);
   const emailRef = useRef(null);
+  const navigatingRef = useRef(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -46,6 +45,18 @@ const LoginPage = () => {
     const code = searchParams.get("error");
     if (code) setFormError(humanizeError(code, AUTH_CODES.CredentialsSignin));
   }, [searchParams]);
+
+  useEffect(() => {
+    if (
+      status !== "authenticated"
+      || submitting
+      || navigatingRef.current
+    ) {
+      return;
+    }
+    navigatingRef.current = true;
+    window.location.replace(afterLogin);
+  }, [afterLogin, status, submitting]);
 
   const onchange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -75,24 +86,26 @@ const LoginPage = () => {
       dispatch(setProgress(70));
       const res = await signIn("credentials", {
         redirect: false,
+        callbackUrl: afterLogin,
         email: formData.email,
         password: formData.password,
       });
       if (!res || typeof res.ok !== "boolean") {
         throw new Error("Sign-in did not return a usable response.");
       }
-      if (res.ok && !res.error) {
+      if (
+        res.ok
+        && !res.error
+        && isSuccessfulAuthResponseUrl(res.url, window.location.origin)
+      ) {
+        const session = await getSession();
+        if (!session?.user) {
+          throw new Error("Sign-in completed without an authenticated session.");
+        }
         toast.success("Logged in successfully");
         setFormError(null);
-        // SessionProvider does not poll. getSession() fills the client cache
-        // without POSTing an update that re-runs jwt and can drop the cookie.
-        try {
-          await getSession();
-        } catch {
-          // Cookie is already set; navigation still hydrates the session.
-        }
-        router.replace(afterLogin);
-        router.refresh();
+        navigatingRef.current = true;
+        window.location.replace(afterLogin);
       } else {
         setFormError(humanizeError(res.error, AUTH_CODES.CredentialsSignin));
         setRetryAction(null);
@@ -144,15 +157,12 @@ const LoginPage = () => {
         ? submitCredentials
         : undefined;
 
-  if (status === "loading") {
+  if (status === "authenticated") {
     return (
-      <div className="page-loading" role="status" aria-label="Loading sign in">
+      <div className="page-loading" role="status" aria-label="Opening your account">
         <span className="loader" aria-hidden="true" />
       </div>
     );
-  }
-  if (status === "authenticated") {
-    redirect(afterLogin);
   }
 
   return (

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { useDispatch } from "react-redux";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -19,7 +18,6 @@ import { userErrorDetails } from "@/utils/userError";
 
 const SignupPage = () => {
   const { status } = useSession();
-  const router = useRouter();
   const [formData, setFormData] = useState({
     userName: "",
     email: "",
@@ -29,6 +27,7 @@ const SignupPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [retryAction, setRetryAction] = useState(null);
+  const [accountCreated, setAccountCreated] = useState(false);
   const onchange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (formError) {
@@ -73,7 +72,8 @@ const SignupPage = () => {
       });
       if (data?.success === true) {
         toast.success("Account created. Check your email to verify.");
-        router.push("/login");
+        setFormData((current) => ({ ...current, password: "" }));
+        setAccountCreated(true);
       } else {
         setFormError(AUTH_CODES.Default);
         setRetryAction(null);
@@ -129,15 +129,30 @@ const SignupPage = () => {
         ? submitAccount
         : undefined;
 
-  if (status === "loading") {
-    return (
-      <div className="page-loading" role="status" aria-label="Loading sign up">
-        <span className="loader" aria-hidden="true" />
-      </div>
-    );
-  }
   if (status === "authenticated") {
     redirect("/");
+  }
+  if (accountCreated) {
+    return (
+      <div className="page grid min-h-full place-items-center relative z-10">
+        <div className="auth-card animate-fade-in text-center backdrop-blur-md bg-white/[0.02]">
+          <p className="eyebrow">One more step</p>
+          <h1 className="mt-2 text-3xl font-bold text-white">Check your email</h1>
+          <p className="mt-4 text-sm leading-6 text-[#9aa8b5]">
+            Open the verification link we sent, then return here to log in.
+            The link works even if you open it in a different browser.
+          </p>
+          <div className="mt-7 flex flex-col gap-3">
+            <Link href="/login" className="btn-primary w-full">
+              Go to login
+            </Link>
+            <Link href="/resend-verification" className="btn-ghost w-full">
+              Resend verification email
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

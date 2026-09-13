@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { addFavourite, getFavourite } from "@/services/dataAPI";
 import { toUserError } from "@/utils/userError";
 import { accountOwner } from "@/utils/accountCache.mjs";
+import { loginPath } from "@/utils/appOrigin.mjs";
 
 let cachedFavouriteIds = null;
 let favouriteRequest = null;
@@ -95,7 +96,7 @@ function AccountFavouriteButton({ owner, status, track, className }) {
       toast.error("Log in to save tracks to your Liked Songs.", {
         id: "favourites-login-required",
       });
-      router.push("/login");
+      router.push(loginPath(window.location.href, window.location.origin));
       return;
     }
     if (!track?.id || saving) return;
@@ -129,7 +130,9 @@ function AccountFavouriteButton({ owner, status, track, className }) {
         message: "We couldn’t update your Liked Songs. Please try again.",
       });
       toast.error(userError.message);
-      if (userError.action === "login") router.push("/login");
+      if (userError.action === "login") {
+        router.push(loginPath(window.location.href, window.location.origin));
+      }
     } finally {
       if (live.current) setSaving(false);
     }

@@ -3,10 +3,10 @@ import dbConnect from "@/utils/dbconnect";
 import User from "@/models/User";
 import mailSender from "@/utils/mailSender";
 import { getVerificationEmailTemplate } from "@/emails/VerificationEmail";
-import { getAppUrl, getPublicAssetUrl } from "@/utils/appUrl";
+import { getAppLink, getPublicAssetUrl } from "@/utils/appUrl";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { hashToken } from "@/utils/tokenHash.mjs";
-import { EMAIL_PATTERN } from "@/utils/authErrors";
+import { normalizeEmail, validateEmail } from "@/utils/authErrors";
 import { apiError, apiSuccess, handleApiError, readRequestJson } from "@/utils/apiResponse";
 
 export const runtime = "nodejs";
@@ -17,11 +17,9 @@ const GENERIC_MESSAGE = "If an unverified account exists for that email, a new v
 export async function POST(request) {
   try {
     const payload = await readRequestJson(request);
-    const email = typeof payload.email === "string"
-      ? payload.email.trim().toLowerCase()
-      : "";
+    const email = normalizeEmail(payload.email);
 
-    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+    if (validateEmail(email)) {
       return apiError("VALIDATION_ERROR", {
         title: "Invalid email",
         message: "Enter the email address used for your account.",
@@ -41,20 +39,35 @@ export async function POST(request) {
 
     await dbConnect();
     const user = await User.findOne({ email, isVerified: false })
-      .select("_id userName email verificationTokenExpires");
+      .select("_id userName email verificationToken verificationTokenExpires");
 
     if (user) {
       const token = crypto.randomBytes(32).toString("hex");
-      user.verificationToken = hashToken(token);
+      const tokenHash = hashToken(token);
+      const previousToken = user.verificationToken ?? null;
+      const previousExpiry = user.verificationTokenExpires ?? null;
+      user.verificationToken = tokenHash;
       user.verificationTokenExpires = Date.now() + 60 * 60_000;
       await user.save();
 
-      const url = `${getAppUrl(request)}/verify-email/${token}`;
+      const url = getAppLink(`/verify-email/${token}`, request);
       const body = getVerificationEmailTemplate(user.userName, url, {
         logoUrl: getPublicAssetUrl("/icon-192x192.png", request),
         lightPillarUrl: getPublicAssetUrl("/email-light-pillar.png", request),
       });
-      await mailSender(user.email, "Verify your HeyKasa email", body);
+      try {
+        await mailSender(user.email, "Verify your HeyKasa email", body);
+      } catch {
+        await User.updateOne(
+          { _id: user._id, verificationToken: tokenHash },
+          {
+            $set: {
+              verificationToken: previousToken,
+              verificationTokenExpires: previousExpiry,
+            },
+          },
+        ).catch(() => {});
+      }
     }
 
     return apiSuccess(null, { message: GENERIC_MESSAGE });

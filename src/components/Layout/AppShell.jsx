@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { Toaster } from "react-hot-toast";
 import Navbar from "@/components/Navbar";
@@ -22,6 +22,7 @@ import useScrollPerformance from "@/hooks/useScrollPerformance";
 import usePointerTilt from "@/hooks/usePointerTilt";
 import PlaybackPersistence from "@/components/PlaybackPersistence";
 import DiscordPresenceSync from "@/components/DiscordPresenceSync";
+import { isAuthPath } from "@/utils/authPaths.mjs";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -57,6 +58,8 @@ export default function AppShell({ children }) {
   const hasTrack = useSelector((state) => Boolean(state.player.youtubeVideo?.id || state.player.activeSong?.id));
   const fullScreen = useSelector((state) => Boolean(state.player.fullScreen));
   const pathname = usePathname();
+  const router = useRouter();
+  const authRoute = isAuthPath(pathname);
   const [showNav, setShowNav] = useState(false);
   const [isCompactNav, setIsCompactNav] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => {
@@ -101,6 +104,11 @@ export default function AppShell({ children }) {
   useEffect(() => {
     setShowNav(false);
   }, [pathname]);
+
+  useEffect(() => {
+    router.prefetch("/login");
+    router.prefetch("/signup");
+  }, [router]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
@@ -297,7 +305,7 @@ export default function AppShell({ children }) {
           <div className="app-content" id="main-content" tabIndex={-1}>
             <PullToRefresh />
             <OnlineStatus />
-            <PageTransit pathname={pathname}>{children}</PageTransit>
+            {authRoute ? children : <PageTransit pathname={pathname}>{children}</PageTransit>}
             {pathname?.startsWith("/arcade") ? null : (
               <footer className="app-footer">
                 <div className="app-footer-links">

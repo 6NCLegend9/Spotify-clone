@@ -7,17 +7,18 @@ import Genre from "@/models/Genre";
 import Tag from "@/models/Tag";
 import { ApiRouteError, apiError, apiSuccess, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(request) {
   try {
+    if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
     const user = await getSessionUser(request);
     if (!user) {
       return apiError("UNAUTHORIZED");
     }
-    if (request.headers.get("origin") !== new URL(request.url).origin) return apiError("FORBIDDEN");
     const body = await readRequestJson(request);
     if (body.confirm !== "DELETE") return apiError("VALIDATION_ERROR", { message: "Confirm account deletion." });
     const userEmail = user.email;

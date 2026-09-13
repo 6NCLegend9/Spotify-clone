@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { togglePlaylistLike } from "@/services/playlistApi";
 import { toUserError } from "@/utils/userError";
+import { loginPath } from "@/utils/appOrigin.mjs";
 
 export default function LikePlaylistButton({ playlist, onChange, className = "" }) {
   const { status } = useSession();
@@ -25,7 +26,7 @@ export default function LikePlaylistButton({ playlist, onChange, className = "" 
     event?.stopPropagation?.();
     if (status !== "authenticated") {
       toast.error("Log in to like playlists.");
-      router.push("/login");
+      router.push(loginPath(window.location.href, window.location.origin));
       return;
     }
     if (pending || !playlist?._id) return;

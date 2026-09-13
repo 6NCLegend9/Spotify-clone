@@ -7,14 +7,21 @@ import UserData from "@/models/UserData";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
   AuthError,
-  AUTH_CODES,
-  EMAIL_PATTERN,
-  LOGIN_ERRORS,
+  AUTH_FAILURE_CODES,
+  normalizeEmail,
+  validateEmail,
+  validatePassword,
 } from "@/utils/authErrors";
 import { ensureUserData } from "@/utils/userAccount";
 import { GOOGLE_SIGN_IN_ENABLED } from "@/utils/siteConfig";
-import { resolveSessionUser } from "@/utils/sessionAuth";
+import {
+  resolveSessionUser,
+  SessionLookupUnavailableError,
+} from "@/utils/sessionAuth";
 import { sessionIdentity } from "@/utils/sessionIdentity.mjs";
+import { safeReturnPath } from "@/utils/appOrigin.mjs";
+import { resolveAuthBaseUrl } from "@/utils/trustedOrigin";
+import { logServerDiagnostic } from "@/utils/diagnostics.mjs";
 
 const googleProvider =
   GOOGLE_SIGN_IN_ENABLED
@@ -33,34 +40,14 @@ export const authOptions = {
       name: "Credentials",
       credentials: {},
       async authorize(credentials) {
-        const email =
-          typeof credentials?.email === "string"
-            ? credentials.email.trim().toLowerCase()
-            : "";
+        const email = normalizeEmail(credentials?.email);
         const password =
           typeof credentials?.password === "string"
             ? credentials.password
             : "";
 
-        if (!email) {
-          throw new AuthError("Please enter your email address.", {
-            title: "Email required",
-          });
-        }
-        if (!EMAIL_PATTERN.test(email)) {
-          throw new AuthError("Please enter a valid email address.", {
-            title: "Invalid email",
-          });
-        }
-        if (!password) {
-          throw new AuthError("Please enter your password.", {
-            title: "Password required",
-          });
-        }
-        if (password.length > 72) {
-          throw new AuthError("Passwords must be 72 characters or fewer.", {
-            title: "Password too long",
-          });
+        if (validateEmail(email) || validatePassword(password)) {
+          throw new AuthError(AUTH_FAILURE_CODES.invalidCredentials);
         }
         try {
           await dbConnect();
@@ -69,43 +56,30 @@ export const authOptions = {
             max: 10,
           });
           if (rateLimit.limited) {
-            throw new AuthError(LOGIN_ERRORS.rateLimited.message, {
-              title: LOGIN_ERRORS.rateLimited.title,
-            });
+            logServerDiagnostic("provider", { code: "RATE_LIMITED" });
+            throw new AuthError(AUTH_FAILURE_CODES.rateLimited);
           }
           const user = await User.findOne({ email }).select("+password");
 
-          if (!user) {
-            throw new AuthError(AUTH_CODES.CredentialsSignin.message, {
-              title: AUTH_CODES.CredentialsSignin.title,
-              code: "CredentialsSignin",
-            });
-          }
-          if (!user.password) {
-            throw new AuthError(AUTH_CODES.CredentialsSignin.message, {
-              title: AUTH_CODES.CredentialsSignin.title,
-              code: "CredentialsSignin",
-            });
+          if (!user || !user.password) {
+            logServerDiagnostic("provider", { code: "UNAUTHORIZED" });
+            throw new AuthError(AUTH_FAILURE_CODES.invalidCredentials);
           }
           const passwordMatches = await bcrypt.compare(password, user.password);
           if (!passwordMatches) {
-            throw new AuthError(AUTH_CODES.CredentialsSignin.message, {
-              title: AUTH_CODES.CredentialsSignin.title,
-              code: "CredentialsSignin",
-            });
+            logServerDiagnostic("provider", { code: "UNAUTHORIZED" });
+            throw new AuthError(AUTH_FAILURE_CODES.invalidCredentials);
           }
           if (!user.isVerified) {
-            throw new AuthError(LOGIN_ERRORS.unverified.message, {
-              title: LOGIN_ERRORS.unverified.title,
-            });
+            logServerDiagnostic("provider", { code: "UNAUTHORIZED" });
+            throw new AuthError(AUTH_FAILURE_CODES.unverified);
           }
           await ensureUserData(user);
           return user;
         } catch (e) {
           if (e?.name === "AuthError") throw e;
-          throw new AuthError("We couldn't sign you in. Please try again.", {
-            title: "Couldn't sign in",
-          });
+          logServerDiagnostic("provider", { code: "INTERNAL_ERROR" });
+          throw new AuthError(AUTH_FAILURE_CODES.unavailable);
         }
       },
     }),
@@ -122,6 +96,11 @@ export const authOptions = {
   secret: process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET,
 
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      const trustedBaseUrl = resolveAuthBaseUrl(baseUrl);
+      return new URL(safeReturnPath(url, trustedBaseUrl), trustedBaseUrl).href;
+    },
+
     async jwt({ token, user, account }) {
       if (user) {
         const email =
@@ -147,12 +126,24 @@ export const authOptions = {
           isVerified: sessionUser.isVerified,
         };
       }
-      if (!await resolveSessionUser(token)) throw new Error("Session is no longer valid");
-      return token;
+      try {
+        if (!await resolveSessionUser(token)) {
+          throw new Error("Session is no longer valid");
+        }
+        if (!token.sessionLookupUnavailable) return token;
+        const recoveredToken = { ...token };
+        delete recoveredToken.sessionLookupUnavailable;
+        return recoveredToken;
+      } catch (error) {
+        if (error instanceof SessionLookupUnavailableError) {
+          return { ...token, sessionLookupUnavailable: true };
+        }
+        throw error;
+      }
     },
 
     async session({ session, token }) {
-      if (!token) return null;
+      if (!token || token.sessionLookupUnavailable) return null;
       session.user = session.user || {};
       session.user.id = token.id;
       session.user.email = token.email;

@@ -43,6 +43,11 @@ globalThis.__apiFixtures = {
   token: () => state.token,
   connect() { state.connections += 1; if (state.databaseError) throw new Error("Fixture database unavailable"); },
   mail() { state.mails += 1; },
+  rateLimit() {
+    return state.rateLimited
+      ? { limited: true, retryAfter: 60 }
+      : { limited: false };
+  },
   User: {
     db: {
       async transaction(callback) {
@@ -158,6 +163,7 @@ function request(path, method = "GET", body) {
 }
 
 beforeEach(() => {
+  globalThis.__HeyKasaSessionLookup?.clear();
   const owner = {
     _id: ownerId, email: "account@example.test", userName: "Owner", isVerified: true,
     userData: "owner-data", sessionVersion: 0, password: passwordHash,
@@ -167,6 +173,7 @@ beforeEach(() => {
   state = {
     users: [owner, reader], token: sessionIdentity(owner), connections: 0, userReads: 0,
     dataReads: 0, writes: 0, mails: 0, playlistQueries: [], databaseError: false,
+    rateLimited: false,
     profiles: {
       "owner-data": { _id: "owner-data", playlists: [playlistId], likedPlaylists: [], settings: {} },
       "reader-data": { _id: "reader-data", playlists: [], likedPlaylists: [playlistId], settings: {} },
@@ -193,6 +200,33 @@ test("real credentials and Google JWT callbacks issue immutable claims and never
   await assert.rejects(authOptions.callbacks.jwt({ token }), /Session is no longer valid/);
   await assert.rejects(authOptions.callbacks.jwt({ token: { email: state.users[0].email } }), /Session is no longer valid/);
   assert.equal(token.sessionVersion, 0);
+});
+
+test("credentials failures expose stable public reason codes", async () => {
+  await assert.rejects(
+    authOptions.providers[0].authorize({
+      email: state.users[0].email,
+      password: "wrong-password",
+    }),
+    /AUTH_INVALID_CREDENTIALS/,
+  );
+  state.users[0].isVerified = false;
+  await assert.rejects(
+    authOptions.providers[0].authorize({ email: state.users[0].email, password }),
+    /AUTH_EMAIL_UNVERIFIED/,
+  );
+  state.users[0].isVerified = true;
+  state.rateLimited = true;
+  await assert.rejects(
+    authOptions.providers[0].authorize({ email: state.users[0].email, password }),
+    /AUTH_RATE_LIMITED/,
+  );
+  state.rateLimited = false;
+  state.databaseError = true;
+  await assert.rejects(
+    authOptions.providers[0].authorize({ email: state.users[0].email, password }),
+    /AUTH_TEMPORARILY_UNAVAILABLE/,
+  );
 });
 
 test("password-reset handler consumes its token once and revokes old sessions atomically", async () => {
@@ -292,9 +326,47 @@ test("library and detail endpoints enforce privacy after a public playlist becom
 
 test("database errors fail closed without refreshing or mutating account state", async () => {
   state.databaseError = true;
-  await assert.rejects(sessionAuth.getSessionUser(request("/api/test")), /Fixture database unavailable/);
-  await assert.rejects(authOptions.callbacks.jwt({ token: state.token }), /Fixture database unavailable/);
+  await assert.rejects(
+    sessionAuth.getSessionUser(request("/api/test")),
+    /Session lookup is temporarily unavailable/,
+  );
+  const token = await authOptions.callbacks.jwt({ token: state.token });
+  assert.equal(token.sessionLookupUnavailable, true);
   assert.equal(state.writes, 0);
+});
+
+test("a transient database outage preserves the JWT cookie but returns no session", async () => {
+  state.databaseError = true;
+  let cleaned = 0;
+  let encodedToken;
+  const response = await nextAuthSession.default({
+    options: {
+      session: { strategy: "jwt", maxAge: 3600 },
+      callbacks: authOptions.callbacks,
+      jwt: {
+        decode: async () => state.token,
+        encode: async ({ token }) => {
+          encodedToken = token;
+          return "preserved";
+        },
+      },
+      logger: { error() {} },
+      events: {},
+    },
+    sessionStore: {
+      value: "fixture-cookie",
+      clean() {
+        cleaned += 1;
+        return [{ name: "session", value: "" }];
+      },
+      chunk() {
+        return [{ name: "session", value: "preserved" }];
+      },
+    },
+  });
+  assert.equal(cleaned, 0);
+  assert.equal(encodedToken.sessionLookupUnavailable, true);
+  assert.equal(response.body, null);
 });
 
 test("export includes owned preferences and activity but excludes credentials and other user identities", async () => {

@@ -32,6 +32,7 @@ import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import useWakeLock from "@/hooks/useWakeLock";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
+import { loginPath } from "@/utils/appOrigin.mjs";
 
 function getAverageImageColor(src) {
   return new Promise((resolve, reject) => {
@@ -380,14 +381,15 @@ const MusicPlayer = () => {
     }
 
     if (status !== "authenticated") {
+      const loginHref = loginPath(window.location.href, window.location.origin);
       setFavouriteFeedback({
         tone: "info",
         title: "Log in to save tracks",
         message: "Log in to add this track to your Liked Songs.",
-        href: "/login",
+        href: loginHref,
       });
       dispatch(setFullScreen(false));
-      router.push("/login");
+      router.push(loginHref);
       return;
     }
 

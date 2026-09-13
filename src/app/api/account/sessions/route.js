@@ -2,13 +2,14 @@ import User from "@/models/User";
 import { getSessionUser } from "@/utils/sessionAuth";
 import { isRateLimited } from "@/utils/rateLimit";
 import { apiError, apiSuccess, handleApiError, readRequestJson } from "@/utils/apiResponse";
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 export async function POST(request) {
   try {
-    if (request.headers.get("origin") !== new URL(request.url).origin) {
+    if (!isTrustedRequestOrigin(request)) {
       return apiError("FORBIDDEN");
     }
     const user = await getSessionUser(request);

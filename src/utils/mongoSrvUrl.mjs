@@ -49,14 +49,25 @@ async function resolveSrvRecords(hostname) {
   return { srvRecords, txt };
 }
 
+const resolvedUrlCache = globalThis.__HeyKasaMongoResolved || { source: "", resolved: "" };
+globalThis.__HeyKasaMongoResolved = resolvedUrlCache;
+
 export async function resolveMongoConnectionUrl(mongoUrl) {
+  if (resolvedUrlCache.source === mongoUrl && resolvedUrlCache.resolved) {
+    return resolvedUrlCache.resolved;
+  }
+
   let parsed;
   try {
     parsed = new URL(mongoUrl);
   } catch {
     return mongoUrl;
   }
-  if (parsed.protocol !== "mongodb+srv:") return mongoUrl;
+  if (parsed.protocol !== "mongodb+srv:") {
+    resolvedUrlCache.source = mongoUrl;
+    resolvedUrlCache.resolved = mongoUrl;
+    return mongoUrl;
+  }
 
   const { srvRecords, txt } = await resolveSrvRecords(parsed.hostname);
   if (!Array.isArray(srvRecords) || srvRecords.length === 0) {
@@ -69,7 +80,7 @@ export async function resolveMongoConnectionUrl(mongoUrl) {
     .map((record) => `${record.name}:${record.port || 27017}`)
     .join(",");
 
-  return buildStandardMongoUrl({
+  const resolved = buildStandardMongoUrl({
     username: parsed.username,
     password: parsed.password,
     hosts,
@@ -77,4 +88,7 @@ export async function resolveMongoConnectionUrl(mongoUrl) {
     search: parsed.search,
     txt,
   });
+  resolvedUrlCache.source = mongoUrl;
+  resolvedUrlCache.resolved = resolved;
+  return resolved;
 }

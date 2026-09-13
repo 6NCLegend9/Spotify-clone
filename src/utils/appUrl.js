@@ -1,29 +1,49 @@
 import {
   PRODUCTION_SITE_URL,
-  normalizeAppUrl,
-} from "@/utils/siteConfig";
+  isLocalAppOrigin,
+  normalizeAppOrigin,
+} from "@/utils/appOrigin.mjs";
+import { trustedAppOrigins } from "@/utils/trustedOrigin";
+
+function configuredLocalOrigin() {
+  for (const value of [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXTAUTH_URL,
+  ]) {
+    const origin = normalizeAppOrigin(value, { allowLocalHttp: true });
+    if (origin && isLocalAppOrigin(origin)) return origin;
+  }
+  return "";
+}
+
+function localRequestOrigin(request) {
+  if (process.env.NODE_ENV === "production") return "";
+
+  try {
+    const value =
+      request?.nextUrl?.origin
+      || (request?.url ? new URL(request.url).origin : "");
+    const origin = normalizeAppOrigin(value, { allowLocalHttp: true });
+    return isLocalAppOrigin(origin) && trustedAppOrigins().has(origin)
+      ? origin
+      : "";
+  } catch {
+    return "";
+  }
+}
 
 export function getAppUrl(request) {
-  const configuredUrl =
-    normalizeAppUrl(process.env.NEXT_PUBLIC_APP_URL) ||
-    normalizeAppUrl(process.env.NEXTAUTH_URL);
+  if (process.env.NODE_ENV === "production") return PRODUCTION_SITE_URL;
+  return localRequestOrigin(request) || configuredLocalOrigin() || "http://localhost:3000";
+}
 
-  if (configuredUrl) return configuredUrl;
-
-  if (process.env.NODE_ENV !== "production") {
-    return (
-      normalizeAppUrl(request?.nextUrl?.origin, { allowHttp: true }) ||
-      "http://localhost:3000"
-    );
-  }
-
-  return PRODUCTION_SITE_URL;
+export function getAppLink(pathname, request) {
+  const publicBaseUrl = normalizeAppOrigin(getAppUrl(request), {
+    allowLocalHttp: process.env.NODE_ENV !== "production",
+  }) || PRODUCTION_SITE_URL;
+  return new URL(pathname, `${publicBaseUrl}/`).href;
 }
 
 export function getPublicAssetUrl(pathname, request) {
-  const publicBaseUrl =
-    normalizeAppUrl(getAppUrl(request))
-    || PRODUCTION_SITE_URL;
-  const assetUrl = new URL(pathname, `${publicBaseUrl}/`);
-  return assetUrl.href;
+  return getAppLink(pathname, request);
 }

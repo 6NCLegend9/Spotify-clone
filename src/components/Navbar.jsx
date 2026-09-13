@@ -97,7 +97,7 @@ const Navbar = () => {
             )}
           </Link>
         ) : status === "unauthenticated" ? (
-          <Link href="/login" className="btn-primary h-8 px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm">
+          <Link href="/login" prefetch className="btn-primary h-8 px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm">
             Log in
           </Link>
         ) : (

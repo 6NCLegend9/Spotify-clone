@@ -94,6 +94,22 @@ const nextConfig = {
         ],
       },
       {
+        source: "/verify-email/:token",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
+        source: "/reset-password/:token",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
         source: "/sitemap.xml",
         headers: [
           { key: "Content-Type", value: "application/xml" },
@@ -161,7 +177,7 @@ const withPWA = disablePwa ? (config) => config : require("@ducanh2912/next-pwa"
           && (
             url.pathname.startsWith("/api/")
             || url.pathname === "/api"
-            || /^\/(?:login|signup|reset-password|verify-email)(?:\/|$)/.test(
+            || /^\/(?:login|signup|resend-verification|reset-password|verify-email)(?:\/|$)/.test(
               url.pathname,
             )
           ),
