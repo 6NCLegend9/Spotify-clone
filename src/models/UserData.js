@@ -121,6 +121,7 @@ const fileSchema = new mongoose.Schema(
             fadeEnabled: { type: Boolean, default: true },
             fadeSeconds: { type: Number, min: 0, max: 12, default: 0.8 },
             spatialAudio: { type: Boolean, default: false },
+            discordPresence: { type: Boolean, default: true },
         },
     },
     { timestamps: true, toJSON: { flattenMaps: true } }

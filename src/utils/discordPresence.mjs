@@ -1,0 +1,100 @@
+const LISTENING_TYPE = 2;
+const MAX_PRESENCE_TEXT = 128;
+const MAX_BUTTON_LABEL = 32;
+
+export function clipPresenceText(value, max = MAX_PRESENCE_TEXT) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(1, max - 1)).trimEnd()}…`;
+}
+
+export function httpsAssetUrl(value) {
+  if (typeof value === "string") {
+    const url = value.trim();
+    return /^https:\/\//i.test(url) ? url : "";
+  }
+  if (Array.isArray(value)) {
+    for (let index = value.length - 1; index >= 0; index -= 1) {
+      const found = httpsAssetUrl(value[index]);
+      if (found) return found;
+    }
+    return "";
+  }
+  if (value && typeof value === "object") {
+    return httpsAssetUrl(value.url || value.link || value.src || value.image);
+  }
+  return "";
+}
+
+export function presenceTrack(player = {}) {
+  const video = player.youtubeVideo;
+  if (video?.id) {
+    const title = clipPresenceText(video.title || "Unknown track");
+    const artist = clipPresenceText(video.channel || video.author || video.author_name || "HeyKasa");
+    return {
+      id: String(video.id),
+      title,
+      artist,
+      artwork: httpsAssetUrl(video.thumbnail),
+      duration: Number(video.duration) || 0,
+    };
+  }
+
+  const song = player.activeSong;
+  if (song?.id) {
+    return {
+      id: String(song.id),
+      title: clipPresenceText(song.name || song.title || "Unknown track"),
+      artist: clipPresenceText(song.primaryArtists || song.subtitle || song.author || "HeyKasa"),
+      artwork: httpsAssetUrl(song.image || song.thumbnail),
+      duration: Number(song.duration) || 0,
+    };
+  }
+
+  return null;
+}
+
+export function shouldPublishDiscordPresence({ enabled, privateSession, track } = {}) {
+  return enabled !== false && privateSession !== true && Boolean(track?.id && track.title);
+}
+
+export function buildDiscordActivity({
+  track,
+  playing = true,
+  startedAt,
+  siteName = "HeyKasa",
+  siteUrl = "",
+} = {}) {
+  if (!track?.id || !track.title) return null;
+
+  const started = Number(startedAt);
+  const duration = Number(track.duration) || 0;
+  const timestamps = Number.isFinite(started) && started > 0
+    ? {
+      start: Math.floor(started),
+      ...(duration > 0 ? { end: Math.floor(started + duration * 1000) } : {}),
+    }
+    : undefined;
+
+  const activity = {
+    type: LISTENING_TYPE,
+    details: clipPresenceText(track.title),
+    state: clipPresenceText(track.artist || siteName),
+    timestamps,
+    assets: {
+      large_image: track.artwork || "logo",
+      large_text: clipPresenceText(siteName),
+      small_text: playing ? "Playing" : "Paused",
+    },
+  };
+
+  const buttonUrl = httpsAssetUrl(siteUrl);
+  if (buttonUrl) {
+    activity.buttons = [
+      { label: clipPresenceText(`Listen on ${siteName}`, MAX_BUTTON_LABEL), url: buttonUrl },
+    ];
+  }
+
+  return activity;
+}

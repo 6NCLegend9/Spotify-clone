@@ -7,7 +7,9 @@ import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/setti
 import { EQ_BAND_FREQS, bandsForPreset } from "@/utils/eqPresets";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
+import { FaDiscord } from "react-icons/fa";
 import { FiCheck, FiLogOut, FiSave, FiSettings } from "react-icons/fi";
+import { getDiscordPresenceStatus, subscribeDiscordPresenceStatus } from "@/utils/discordPresenceStatus";
 import DeleteAccountForm from "@/components/DeleteAccountForm";
 import ExportDataButton from "@/components/ExportDataButton";
 import UserMessage from "@/components/UserMessage";
@@ -63,6 +65,55 @@ function Toggle({ label, description, checked, onChange }) {
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="peer sr-only" />
       <span className="relative h-6 w-11 shrink-0 rounded-full bg-white/15 transition peer-checked:bg-[#00e6e6] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#00e6e6] after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5 peer-checked:after:bg-black" />
     </label>
+  );
+}
+
+function discordStatusCopy(status, configured) {
+  if (!configured) {
+    return "Add a Discord application client ID and secret to enable listening activity.";
+  }
+  switch (status.state) {
+    case "connected":
+      return status.detail ? `Showing “${status.detail}” on Discord.` : "Connected to Discord.";
+    case "connecting":
+      return "Connecting to Discord desktop…";
+    case "private":
+      return "Private session is hiding Discord activity.";
+    case "off":
+      return "Discord listening activity is turned off.";
+    case "unavailable":
+      return "Discord desktop is not open on this computer.";
+    case "error":
+      return status.detail || "Discord could not update your listening activity.";
+    default:
+      return "Play a song with Discord desktop open to share what you are listening to.";
+  }
+}
+
+function DiscordPresenceHint() {
+  const [configured, setConfigured] = useState(null);
+  const [status, setStatus] = useState(getDiscordPresenceStatus);
+  useEffect(() => subscribeDiscordPresenceStatus(setStatus), []);
+  useEffect(() => {
+    let cancelled = false;
+    requestJson("/api/discord/config", {
+      fallbackTitle: "Discord status unavailable",
+      fallbackMessage: "Could not check Discord presence configuration.",
+    })
+      .then((json) => {
+        if (!cancelled) setConfigured(json?.configured === true);
+      })
+      .catch(() => {
+        if (!cancelled) setConfigured(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return (
+    <p className="mt-3 text-xs leading-5 text-[#9aa8b5]">
+      {configured === null ? "Checking Discord connection…" : discordStatusCopy(status, configured)}
+    </p>
   );
 }
 
@@ -284,7 +335,22 @@ function AccountSettings({ owner, status }) {
 
       <section className="grid gap-8 lg:grid-cols-2 mb-8">
         <div className="glass-panel rounded-xl p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Playback & data</h2><Toggle label="Data Saver mode" checked={settings.dataSaver} onChange={(value) => set("dataSaver", value)} /><Toggle label="Audio-only mode" checked={settings.audioOnly} onChange={(value) => set("audioOnly", value)} /><Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them." checked={settings.captions !== false} onChange={(value) => set("captions", value)} /><Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} /><Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} /><Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} /><Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} /></div>
-        <div className="glass-panel rounded-xl p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2><Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} /><Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} /><p className="mt-4 text-xs text-[#9aa8b5]">Private session prevents new listening activity from being used for recommendations.</p></div>
+        <div className="glass-panel rounded-xl p-5 sm:p-7">
+          <h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2>
+          <Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} />
+          <Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} />
+          <Toggle
+            label="Discord listening activity"
+            description="Show the current song on your Discord profile. Discord desktop must be open on this computer."
+            checked={settings.discordPresence !== false}
+            onChange={(value) => set("discordPresence", value)}
+          />
+          <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-[#9aa8b5]">
+            <FaDiscord className="mt-0.5 h-4 w-4 shrink-0 text-[#5865F2]" aria-hidden="true" />
+            <span>Private session also hides Discord activity and recommendation history.</span>
+          </p>
+          <DiscordPresenceHint />
+        </div>
       </section>
 
       {status === "authenticated" && (

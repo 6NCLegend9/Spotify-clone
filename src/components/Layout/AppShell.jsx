@@ -21,6 +21,7 @@ import useNetworkRecovery from "@/hooks/useNetworkRecovery";
 import useScrollPerformance from "@/hooks/useScrollPerformance";
 import usePointerTilt from "@/hooks/usePointerTilt";
 import PlaybackPersistence from "@/components/PlaybackPersistence";
+import DiscordPresenceSync from "@/components/DiscordPresenceSync";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -243,6 +244,7 @@ export default function AppShell({ children }) {
     <NavContext.Provider value={value}>
       <JamProvider>
       <PlaybackPersistence />
+      <DiscordPresenceSync />
       <div
         className={`app-shell${collapsed ? " is-sidebar-collapsed" : ""}${rightPanelCollapsed ? " is-right-panel-collapsed" : ""}`}
         style={{

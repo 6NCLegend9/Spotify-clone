@@ -29,6 +29,7 @@ const initialState = {
   fadeEnabled: true,
   fadeSeconds: 0.8,
   spatialAudio: false,
+  discordPresence: true,
   owner: null,
 };
 
