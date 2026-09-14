@@ -14,6 +14,8 @@ import { toUserError } from "@/utils/userError";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import { accountOwner } from "@/utils/accountCache.mjs";
+import PlaylistCover from "@/components/PlaylistCover";
+import LibraryList from "./LibraryList";
 
 // Cached across client-side navigations and remounts within the session so the
 // sidebar shows the last-known list (or empty state) instantly instead of
@@ -119,118 +121,35 @@ const AccountPlaylists = ({ owner, status }) => {
   return (
     <>
       <div className="flex items-center justify-between px-2 py-2">
-        <p className="flex items-center gap-2 text-sm font-semibold text-white">
-          <MdPlaylistPlay aria-hidden="true" className="text-lg" />
-          Playlists
-        </p>
-        <button
-          type="button"
-          onClick={() => setShow(true)}
-          className="icon-btn h-11 w-11"
-          aria-label="Create playlist"
-        >
-          <FaPlus aria-hidden="true" className="text-xs" />
-        </button>
+        <p className="flex items-center gap-2 text-sm font-semibold text-white"><MdPlaylistPlay aria-hidden="true" className="text-lg" />Your Library</p>
+        <button type="button" onClick={() => setShow(true)} className="icon-btn h-11 w-11" aria-label="Create playlist"><FaPlus aria-hidden="true" className="text-xs" /></button>
       </div>
-      <div
-        className={`flex flex-col ${
-          !loading && !error && playlists.length > 0 ? "max-h-52 overflow-y-auto" : ""
-        }`}
-      >
-        {loading ? <p className="px-2 py-3 text-xs text-[#9aa8b5]">Loading playlists…</p> : null}
-        {!loading && error ? (
-          <div className="px-2 py-2">
-            <UserMessage
-              compact
-              title={error.title}
-              message={error.message}
-              onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined}
-              href={error.action === "login" ? "/login" : undefined}
-              hrefLabel="Log in"
-            />
-          </div>
-        ) : null}
-        {!loading && !error && deleteError ? (
-          <div className="px-2 py-2">
-            <UserMessage
-              compact
-              title={deleteError.title}
-              message={deleteError.message}
-              href={deleteError.action === "login" ? "/login" : undefined}
-              hrefLabel="Log in"
-            />
-          </div>
-        ) : null}
-        {!loading && !error && playlists.length === 0 ? (
-          <div className="px-2 py-2">
-            <EmptyState
-              title="No playlists yet"
-              message="Create one to keep songs together."
-              actionLabel="Create playlist"
-              onAction={() => setShow(true)}
-            />
-          </div>
-        ) : null}
-        {!loading && !error && playlists.map((playlist) => (
-          <div
-            key={playlist._id}
-            className="group flex items-center justify-between rounded-lg pr-1 hover:bg-white/5"
-          >
-            <Link
-              href={`/library/playlist/${playlist._id}`}
-              onClick={() => setShowNav(false)}
-              className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2"
-            >
-              <MdPlaylistPlay className="shrink-0 text-[#00e6e6]" />
-              <p className="truncate text-sm text-white">{playlist.name}</p>
+      <div className="flex min-h-0 flex-col">
+        {loading ? <p className="px-2 py-3 text-xs text-[var(--muted)]">Loading playlists…</p> : null}
+        {!loading && error ? <div className="px-2 py-2"><UserMessage compact title={error.title} message={error.message} onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined} href={error.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
+        {!loading && !error && deleteError ? <div className="px-2 py-2"><UserMessage compact title={deleteError.title} message={deleteError.message} href={deleteError.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
+        {!loading && !error && playlists.length === 0 ? <div className="px-2 py-2"><EmptyState title="No playlists yet" message="Create one to keep songs together." actionLabel="Create playlist" onAction={() => setShow(true)} /></div> : null}
+        {!loading && !error && <LibraryList playlists={playlists}>{(playlist) => (
+          <div key={playlist._id} className="group flex items-center justify-between rounded-lg pr-1 hover:bg-[var(--navy-panel)]">
+            <Link href={`/library/playlist/${playlist._id}`} onClick={() => setShowNav(false)} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
+              <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md"><PlaylistCover playlist={playlist} className="h-full w-full" /></span>
+              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">{playlist.name}</span><span className="mt-1 block truncate text-xs text-[var(--teal)]">Playlist</span></span>
             </Link>
             <div className="relative">
-              <button
-                type="button"
-                aria-label={`Playlist options for ${playlist.name}`}
-                onClick={() => setShowMenu(playlist._id)}
-                className="grid h-8 w-8 place-items-center text-[#9aa8b5] hover:text-white"
-              >
-                <PiDotsThreeVerticalBold size={18} />
-              </button>
-              {showMenu === playlist._id && (
-                <button
-                  type="button"
-                  disabled={deletingId === playlist._id}
-                  onClick={() => {
-                    setShowMenu(false);
-                    handleDelete(playlist._id);
-                  }}
-                  className="absolute right-0 top-8 z-50 flex items-center gap-1 rounded-lg border border-white/10 bg-[#07121d] px-3 py-2 text-xs text-white shadow-xl hover:bg-white/10"
-                >
-                  Delete <MdOutlineDeleteOutline size={14} />
-                </button>
-              )}
+              <button type="button" aria-label={`Playlist options for ${playlist.name}`} onClick={() => setShowMenu(playlist._id)} className="grid h-9 w-9 place-items-center text-[var(--muted)] hover:text-white"><PiDotsThreeVerticalBold size={18} /></button>
+              {showMenu === playlist._id && <button type="button" disabled={deletingId === playlist._id} onClick={() => { setShowMenu(false); handleDelete(playlist._id); }} className="absolute right-0 top-8 z-50 flex items-center gap-1 rounded-lg border border-white/10 bg-[var(--navy-raised)] px-3 py-2 text-xs text-white shadow-xl hover:bg-[var(--navy-panel)]">Delete <MdOutlineDeleteOutline size={14} /></button>}
             </div>
           </div>
-        ))}
+        )}</LibraryList>}
       </div>
-      <PlaylistModal
-        show={show}
-        setShow={setShow}
-        onCreated={() => setRefreshKey((value) => value + 1)}
-      />
-      {showMenu && (
-        <button
-          type="button"
-          aria-label="Close playlist options"
-          onClick={() => setShowMenu(false)}
-          className="fixed inset-0 z-30 cursor-default"
-        />
-      )}
+      <PlaylistModal show={show} setShow={setShow} onCreated={() => setRefreshKey((value) => value + 1)} />
+      {showMenu && <button type="button" aria-label="Close playlist options" onClick={() => setShowMenu(false)} className="fixed inset-0 z-30 cursor-default" />}
     </>
   );
 };
-
 const Playlists = () => {
   const { data: session, status } = useSession();
   const owner = accountOwner(session, status);
   return <AccountPlaylists key={owner || status} owner={owner} status={status} />;
 };
-
 export default Playlists;

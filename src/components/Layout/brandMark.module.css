@@ -1,0 +1,6 @@
+.brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; color: var(--accent); text-decoration: none; }
+.symbol { width: 36px; height: 42px; flex-shrink: 0; }
+.wordmark { display: flex; flex-direction: column; gap: 2px; }
+.wordmark strong { font: 750 27px/1 system-ui, sans-serif; letter-spacing: .14em; }
+.wordmark small { font: 600 8px/1.3 system-ui, sans-serif; letter-spacing: .15em; white-space: nowrap; color: var(--text); }
+.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
