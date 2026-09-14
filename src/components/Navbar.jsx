@@ -20,6 +20,7 @@ const Navbar = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [imageFailed, setImageFailed] = useState(false);
+  const [historyState, setHistoryState] = useState({ canBack: false, canForward: true });
   const homeActive = pathname === "/";
   const userName =
     typeof session?.user?.name === "string" && session.user.name.trim()
@@ -30,16 +31,58 @@ const Navbar = () => {
 
   useEffect(() => { setImageFailed(false); }, [imageUrl]);
 
+  useEffect(() => {
+    const sync = () => {
+      const navigation = window.navigation;
+      setHistoryState({
+        canBack: typeof navigation?.canGoBack === "boolean" ? navigation.canGoBack : window.history.length > 1,
+        canForward: typeof navigation?.canGoForward === "boolean" ? navigation.canGoForward : true,
+      });
+    };
+    sync();
+    const navigation = window.navigation;
+    const deferredSync = () => window.setTimeout(sync, 0);
+    window.addEventListener("popstate", deferredSync);
+    window.addEventListener("pageshow", deferredSync);
+    navigation?.addEventListener?.("navigatesuccess", deferredSync);
+    return () => {
+      window.removeEventListener("popstate", deferredSync);
+      window.removeEventListener("pageshow", deferredSync);
+      navigation?.removeEventListener?.("navigatesuccess", deferredSync);
+    };
+  }, [pathname]);
+
+  const goBack = () => {
+    const navigation = window.navigation;
+    if (typeof navigation?.canGoBack === "boolean") {
+      if (navigation.canGoBack) void navigation.back();
+      return;
+    }
+    if (window.history.length > 1) router.back();
+  };
+
+  const goForward = () => {
+    const navigation = window.navigation;
+    if (typeof navigation?.canGoForward === "boolean") {
+      if (navigation.canGoForward) void navigation.forward();
+      return;
+    }
+    router.forward();
+  };
+
   return (
     <header className={`app-navbar ${styles.navbar}`}>
       <div className="navbar-slot navbar-slot-start">
         <button type="button" onClick={() => setShowNav(true)} className="icon-btn h-11 w-11 shrink-0 md:hidden" aria-label="Open menu" aria-expanded={navModal} aria-controls="app-sidebar">
           <MdOutlineMenu aria-hidden="true" className="text-xl" />
         </button>
+        <button type="button" onClick={goBack} disabled={!historyState.canBack} className="icon-btn h-11 w-11 shrink-0 md:hidden disabled:cursor-not-allowed disabled:opacity-35" aria-label="Go back" title="Go back">
+          <FiChevronLeft aria-hidden="true" size={22} />
+        </button>
         <BrandMark compact className="hidden shrink-0 sm:flex md:hidden" />
         <div className={styles.history} aria-label="Navigation history">
-          <button type="button" onClick={() => router.back()} aria-label="Go back"><FiChevronLeft size={20} /></button>
-          <button type="button" onClick={() => router.forward()} aria-label="Go forward"><FiChevronRight size={20} /></button>
+          <button type="button" onClick={goBack} disabled={!historyState.canBack} aria-label="Go back" title="Go back"><FiChevronLeft size={20} /></button>
+          <button type="button" onClick={goForward} disabled={!historyState.canForward} aria-label="Go forward" title="Go forward"><FiChevronRight size={20} /></button>
         </div>
       </div>
       <div className="navbar-search-cluster">
