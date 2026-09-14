@@ -12,7 +12,8 @@ import styles from "./playerDock.module.css";
 import sanitizerStyles from "./youtubeSanitizer.module.css";
 
 const ExpandedPlayer = dynamic(() => import("./ExpandedPlayer"), { ssr: false });
-const END_SCREEN_GUARD_SECONDS = 0.55;
+const END_SCREEN_GUARD_SECONDS = 1.5;
+const END_MASK_RELEASE_SECONDS = 3;
 
 export function PlayerIconButton({ label, active, children, className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean }) {
   return <button type="button" aria-label={label} title={label} aria-pressed={active}
@@ -29,10 +30,36 @@ export function Transport(props: PlayerDockProps) {
   </div>;
 }
 
+function youtubeDeckHost() {
+  return typeof document === "undefined"
+    ? null
+    : document.querySelector<HTMLElement>('[data-testid="youtube-decks"]');
+}
+
+function setEndScreenMask(active: boolean) {
+  const host = youtubeDeckHost();
+  if (!host) return;
+  if (active) host.dataset.kasaEndGuard = "true";
+  else delete host.dataset.kasaEndGuard;
+}
+
+function disableYouTubeCaptions() {
+  if (typeof document === "undefined") return;
+  const command = JSON.stringify({ event: "command", func: "unloadModule", args: ["captions"] });
+  document.querySelectorAll<HTMLIFrameElement>('[data-testid="youtube-decks"] iframe').forEach((frame) => {
+    try {
+      frame.contentWindow?.postMessage(command, "*");
+    } catch {
+      // The player can be between iframe generations during a track handoff.
+    }
+  });
+}
+
 export default function PlayerDock(props: PlayerDockProps) {
   const [queueOpen, setQueueOpen] = useState(false);
   const presentationRef = useRef<MediaPresentationHandle>(null);
   const endGuardTrackRef = useRef("");
+  const endGuardTimerRef = useRef<number | null>(null);
   const closeQueue = useCallback(() => setQueueOpen(false), []);
   const openQueue = useCallback(() => {
     presentationRef.current?.dismiss();
@@ -47,17 +74,67 @@ export default function PlayerDock(props: PlayerDockProps) {
 
   useEffect(() => {
     endGuardTrackRef.current = "";
+    setEndScreenMask(false);
+    return () => {
+      if (endGuardTimerRef.current) window.clearTimeout(endGuardTimerRef.current);
+      endGuardTimerRef.current = null;
+      setEndScreenMask(false);
+    };
   }, [props.track.id]);
 
   useEffect(() => {
-    if (props.disabled || !props.playing || props.duration <= 8) return;
+    const host = youtubeDeckHost();
+    disableYouTubeCaptions();
+
+    const observer = host && typeof MutationObserver !== "undefined"
+      ? new MutationObserver(() => disableYouTubeCaptions())
+      : null;
+    observer?.observe(host!, { childList: true, subtree: true });
+
+    // YouTube may lazily reload the captions module after an iframe state change.
+    // Keep unloading it while this playback surface is mounted.
+    const interval = window.setInterval(disableYouTubeCaptions, 1200);
+    return () => {
+      observer?.disconnect();
+      window.clearInterval(interval);
+    };
+  }, [props.track.id]);
+
+  useEffect(() => {
+    if (endGuardTimerRef.current) {
+      window.clearTimeout(endGuardTimerRef.current);
+      endGuardTimerRef.current = null;
+    }
+
     const remaining = props.duration - props.position;
-    if (remaining < 0 || remaining > END_SCREEN_GUARD_SECONDS) return;
-    if (endGuardTrackRef.current === props.track.id) return;
-    endGuardTrackRef.current = props.track.id;
-    // Move through the existing playback controller before YouTube gets a chance
-    // to render its native end-screen recommendation grid.
-    props.onNext();
+    if (
+      endGuardTrackRef.current === props.track.id
+      && props.duration > 0
+      && props.position < props.duration - END_MASK_RELEASE_SECONDS
+    ) {
+      endGuardTrackRef.current = "";
+      setEndScreenMask(false);
+    }
+
+    if (props.disabled || !props.playing || props.duration <= 8 || remaining < 0) return undefined;
+    if (endGuardTrackRef.current === props.track.id) return undefined;
+
+    const trigger = () => {
+      if (endGuardTrackRef.current === props.track.id) return;
+      endGuardTrackRef.current = props.track.id;
+      setEndScreenMask(true);
+      // Hand off through the existing queue/controller before YouTube reaches its
+      // native end state. The mask stays up until a new track/position is observed.
+      props.onNext();
+    };
+
+    const delayMs = Math.max(0, (remaining - END_SCREEN_GUARD_SECONDS) * 1000);
+    endGuardTimerRef.current = window.setTimeout(trigger, delayMs);
+
+    return () => {
+      if (endGuardTimerRef.current) window.clearTimeout(endGuardTimerRef.current);
+      endGuardTimerRef.current = null;
+    };
   }, [props.disabled, props.duration, props.onNext, props.playing, props.position, props.track.id]);
 
   return <>
