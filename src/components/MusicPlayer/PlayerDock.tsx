@@ -32,8 +32,8 @@ export default function PlayerDock(props: PlayerDockProps) {
   const closePanel = useCallback(() => setPanel(null), []);
   const expandPlayer = () => props.onVideo ? props.onVideo() : setPanel("player");
   const presentationRef = useRef<MediaPresentationHandle>(null);
-  const openPresentation = () => presentationRef.current?.open();
-  const openQueue = useCallback(() => setPanel("queue"), []);
+  const openPresentation = () => props.onVideo ? presentationRef.current?.open() : setPanel("player");
+  const openQueue = useCallback(() => { presentationRef.current?.dismiss(); setPanel("queue"); }, []);
   const progress = props.duration > 0
     ? Math.min(100, Math.max(0, (props.position / props.duration) * 100))
     : 0;
@@ -54,7 +54,7 @@ export default function PlayerDock(props: PlayerDockProps) {
       </div>
       <div className={styles.tools}>
         <PlayerIconButton label="Now playing view" onClick={openPresentation}><PanelRightOpen size={18} /></PlayerIconButton>
-        {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={props.onLyrics}><Mic2 size={18} /></PlayerIconButton>}
+        {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={() => { presentationRef.current?.dismiss(); props.onLyrics?.(); }}><Mic2 size={18} /></PlayerIconButton>}
         <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={19} /></PlayerIconButton>
         <div className={styles.volume}>{props.volume}</div>
         {props.onVideo && <PlayerIconButton label="Open full-screen video player" onClick={expandPlayer}><Maximize2 size={18} /></PlayerIconButton>}

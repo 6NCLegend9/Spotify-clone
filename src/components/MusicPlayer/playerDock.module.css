@@ -1,6 +1,6 @@
 .dock { position: relative; grid-area: dock; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; width: calc(100% - 16px); height: 60px; min-width: 0; margin: 0 8px; padding: 6px 8px; color: var(--text); border: 1px solid var(--hairline-cyan); border-radius: 12px; background: linear-gradient(110deg, var(--navy-raised), var(--navy-deep)); letter-spacing: 0; }
 .track { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.trackButton { display: flex; align-items: center; min-width: 0; min-height: 44px; flex: 1; gap: 10px; text-align: left; }
+.trackButton { display: flex; align-items: center; min-width: 0; min-height: 48px; flex: 1; gap: 10px; text-align: left; }
 .trackText { display: block; min-width: 0; flex: 1; }
 .trackText strong, .trackText small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trackText strong { font-size: 12px; font-weight: 650; }
@@ -8,7 +8,7 @@
 .artwork { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 6px; object-fit: cover; }
 .center, .tools, .favourite, .pip { display: none; }
 .mobile { display: flex; align-items: center; min-width: 0; gap: 2px; }
-.iconButton { position: relative; display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; min-height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--text); transition: color 160ms ease, background-color 160ms ease, transform 160ms ease; }
+.iconButton { position: relative; display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 48px; height: 48px; min-width: 48px; min-height: 48px; border: 0; border-radius: 50%; background: transparent; color: var(--text); transition: color 160ms ease, background-color 160ms ease, transform 160ms ease; }
 .iconButton:hover:not(:disabled) { background: var(--navy-panel); color: var(--teal); }
 .iconButton:disabled { opacity: .4; cursor: not-allowed; }
 .iconButton:focus-visible, .trackButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -17,7 +17,7 @@
 .playButton { background: var(--accent); color: var(--navy-deep); }
 .playButton:hover:not(:disabled) { background: var(--teal); color: var(--navy-deep); transform: scale(1.04); }
 .transport { display: flex; align-items: center; justify-content: center; gap: 5px; }
-.mobileButton { width: 44px; height: 44px; }
+.mobileButton { width: 48px; height: 48px; }
 .mobilePrevious, .mobileExpand { display: none; }
 .mobileProgress { position: absolute; inset: auto 0 0; height: 2px; overflow: hidden; border-radius: 99px; background: var(--navy-panel); pointer-events: none; }
 .mobileProgress span { display: block; height: 100%; background: var(--accent); transition: width 180ms linear; }
@@ -26,17 +26,17 @@
 .dialog { inset: 0; margin: auto; width: min(100%, 480px); max-width: 100%; height: min(100dvh, 800px); max-height: 100dvh; padding: 0 0 env(safe-area-inset-bottom); color: var(--text); background: var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 12px; letter-spacing: 0; }
 .dialog[open] { display: flex; flex-direction: column; }
 .dialog::backdrop { background: rgb(0 8 20 / 75%); }
-.dialog button { min-width: 44px; min-height: 44px; }
+.dialog button { min-width: 48px; min-height: 48px; }
 .stage { display: flex; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; }
 .nowPlaying, .queuePane { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem; }
 .dialog[data-panel="queue"] .nowPlaying, .dialog[data-panel="player"] .queuePane { display: none; }
 .art { aspect-ratio: 1; width: 100%; border-radius: 12px; object-fit: cover; }
 @media (min-width: 768px) {
- .dock { grid-template-columns: minmax(0, 1fr) minmax(230px, 1.3fr) minmax(0, 1fr); width: 100%; height: 90px; margin: 0; padding: 8px 16px; gap: 12px; border-radius: 0; border-width: 1px 0 0; background: var(--navy-deep); }
+ .dock { grid-template-columns: minmax(0, 1fr) minmax(230px, 1.3fr) minmax(0, 1fr); width: 100%; height: 90px; margin: 0; padding: 8px 16px; gap: 12px; border-radius: 0; border-width: 1px 0 0; background: linear-gradient(110deg, var(--navy-deep), var(--navy-surface)); }
  .center { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 3px; }
- .center .iconButton { width: 34px; height: 34px; min-width: 34px; min-height: 34px; }
+ .center .iconButton { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
  .tools { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
- .tools .iconButton { width: 34px; min-width: 34px; }
+ .tools .iconButton { width: 48px; min-width: 48px; }
  .mobile, .mobileProgress { display: none; }
  .trackText strong { font-size: 13px; }
  .artwork { width: 52px; height: 52px; flex-basis: 52px; }
@@ -45,7 +45,8 @@
  .dialog[data-panel] .nowPlaying, .dialog[data-panel] .queuePane { display: flex; flex-direction: column; }
  .queuePane { border-left: 1px solid var(--hairline-cyan); background: var(--navy-deep); }
 }
-@media (min-width: 1180px) { .favourite, .pip, .volume { display: block; } .dock:has(~ [data-kasa-media-view="expanded"]) { visibility: visible; } .dock { grid-template-columns: minmax(0,1fr) minmax(280px,560px) minmax(0,1fr); } }
+@media (min-width: 1180px) { .favourite, .pip { display: block; } .dock:has(~ [data-kasa-media-view="expanded"]) { visibility: visible; } .dock { grid-template-columns: minmax(0,1fr) minmax(280px,560px) minmax(0,1fr); } }
+@media (min-width: 1440px) { .volume { display: block; } }
 @media (max-width: 479px) { .dialog { width: 100%; height: 100dvh; border-radius: 0; border: 0; } }
 @media (prefers-reduced-motion: no-preference) { .dialog[open] { animation: player-enter 160ms ease-out; } }
 @keyframes player-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }

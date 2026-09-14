@@ -10,7 +10,7 @@ import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
 
-export interface MediaPresentationHandle { open: () => void; }
+export interface MediaPresentationHandle { open: () => void; dismiss: () => void; }
 interface Props extends PlayerDockProps { onQueue: () => void; }
 
 
@@ -52,6 +52,7 @@ export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | n
 
 /** Presentation only. The existing decks, sources, refs and transport are not moved or recreated. */
 const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function MediaPresentation(props, ref) {
+  const [mediaHost, setMediaHost] = useState<HTMLElement | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [mobile, setMobile] = useState(false);
   const [drawer, setDrawer] = useState(false);
@@ -71,6 +72,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
 
   useEffect(() => {
     setSlot(document.getElementById("kasa-now-playing-slot"));
+    setMediaHost(document.querySelector<HTMLElement>('[data-testid="youtube-decks"]'));
     const query = window.matchMedia("(max-width: 1179px)");
     const update = () => setMobile(query.matches);
     update();
@@ -81,8 +83,8 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   useImperativeHandle(ref, () => ({ open: () => {
     returnFocusRef.current = document.activeElement as HTMLElement | null;
     setDrawer(true);
-    if (!mobile) setExpanded(true);
-  } }), [mobile]);
+    if (!mobile) { setVideo(canVideo); setExpanded(true); }
+  }, dismiss: () => { setDrawer(false); setExpanded(false); } }), [mobile, canVideo]);
 
   useEffect(() => {
     if (!canVideo) { setVideo(false); setExpanded(false); }
@@ -220,7 +222,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
           onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/icon-192x192.png"; }} />}
       </div>
       {!expanded && <>
-        <div className={styles.mediaTools}>{modeButton}{showingVideo && <PlayerIconButton label="Expand video" onClick={openExpanded}><Maximize2 size={19} /></PlayerIconButton>}</div>
+        <div className={styles.mediaTools}>{modeButton}</div>
         <div className={styles.metadata}><div><h2>{props.track.title}</h2><p>{props.track.channel}</p></div>{props.favourite}</div>
         {mobile && <div className={styles.mobileTransport}>
           <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
@@ -229,6 +231,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
             {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={() => { setDrawer(false); props.onLyrics?.(); }}><Mic2 size={20} /></PlayerIconButton>}
             <PlayerIconButton label="Queue" onClick={() => { setDrawer(false); props.onQueue(); }}><ListMusic size={20} /></PlayerIconButton>
             {props.trackActions}
+            {props.sleepControl}
           </div>
         </div>}
         <section className={styles.queue} aria-label="Next in queue"><header><h3>Next in queue</h3><button type="button" onClick={() => { setDrawer(false); props.onQueue(); }}>Show all</button></header>
@@ -244,6 +247,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   </>;
 
   return <>
+    {mediaHost && showingVideo && !expanded && (!mobile || drawer) && createPortal(
+      <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>, mediaHost,
+    )}
     <span hidden data-kasa-media-view={overlay ? (expanded ? "expanded" : "drawer") : showingVideo ? "video" : "audio"} />
     {!mobile && !overlay && slot && createPortal(<section className={styles.panel} aria-label="Current track media">{content}</section>, slot)}
     {overlay && typeof document !== "undefined" && createPortal(<section ref={overlayRef}
