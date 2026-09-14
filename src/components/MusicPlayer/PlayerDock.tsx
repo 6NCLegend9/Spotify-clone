@@ -9,6 +9,7 @@ import PlayerTimeline from "./PlayerTimeline";
 import MediaPresentation from "./MediaPresentation";
 import type { MediaPresentationHandle } from "./MediaPresentation";
 import styles from "./playerDock.module.css";
+import sanitizerStyles from "./youtubeSanitizer.module.css";
 
 const ExpandedPlayer = dynamic(() => import("./ExpandedPlayer"), { ssr: false });
 const END_SCREEN_GUARD_SECONDS = 0.55;
@@ -60,7 +61,7 @@ export default function PlayerDock(props: PlayerDockProps) {
   }, [props.disabled, props.duration, props.onNext, props.playing, props.position, props.track.id]);
 
   return <>
-    <div className={styles.dock} data-testid="player-dock">
+    <div className={`${styles.dock} ${sanitizerStyles.scope}`} data-testid="player-dock">
       <div className={styles.mobileProgress} aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
       <div className={styles.track}>
         <button type="button" aria-label={`Expand player: ${props.track.title}`} onClick={openPresentation} className={styles.trackButton}>
