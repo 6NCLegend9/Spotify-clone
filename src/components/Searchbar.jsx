@@ -9,6 +9,7 @@ import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
+import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 import { cleanTitle } from "@/utils/text";
@@ -29,18 +30,12 @@ const Searchbar = () => {
   const inputRef = useRef(null);
   const clusterRef = useRef(null);
 
-  // Global shortcuts: "/" (when not already typing) and Cmd/Ctrl+K focus search.
   useEffect(() => {
     const onKey = (event) => {
       const target = event.target;
-      const isEditable =
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-      const isModK =
-        (event.metaKey || event.ctrlKey) && (event.key === "k" || event.key === "K");
-      const isSlash =
-        event.key === "/" && !isEditable && !event.metaKey && !event.ctrlKey && !event.altKey;
+      const isEditable = target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+      const isModK = (event.metaKey || event.ctrlKey) && (event.key === "k" || event.key === "K");
+      const isSlash = event.key === "/" && !isEditable && !event.metaKey && !event.ctrlKey && !event.altKey;
       if (isModK || isSlash) {
         event.preventDefault();
         inputRef.current?.focus();
@@ -51,7 +46,6 @@ const Searchbar = () => {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  // Let other UI (e.g. the mobile tab bar) focus the search input.
   useEffect(() => {
     const onOpenSearch = () => {
       inputRef.current?.focus();
@@ -66,7 +60,6 @@ const Searchbar = () => {
     [searchTerm],
   );
 
-  // Live song suggestions so the box actually surfaces songs (not just genres).
   useEffect(() => {
     const term = searchTerm.trim();
     if (!open || term.length < 2) {
@@ -78,18 +71,15 @@ const Searchbar = () => {
     abortRef.current = controller;
     const timer = window.setTimeout(async () => {
       try {
-        const data = await requestJson(
-          `/api/youtube-search?type=video&q=${encodeURIComponent(term)}`,
-          {
-            signal: controller.signal,
-            fallbackTitle: "Search unavailable",
-            fallbackMessage: "We couldn\u2019t load suggestions.",
-          },
-        );
+        const data = await requestJson(`/api/youtube-search?type=video&q=${encodeURIComponent(term)}`, {
+          signal: controller.signal,
+          fallbackTitle: "Search unavailable",
+          fallbackMessage: "We couldn’t load suggestions.",
+        });
         const list = Array.isArray(data?.results) ? data.results.slice(0, 5) : [];
         if (!controller.signal.aborted) setSongs(list);
       } catch {
-        // Ignore aborted/failed suggestion loads; genre matches still show.
+        // Suggestions are optional; full search remains available.
       }
     }, 300);
     return () => {
@@ -101,11 +91,7 @@ const Searchbar = () => {
   const items = useMemo(
     () => [
       ...songs.map((song) => ({ type: "song", key: `song-${song.id}`, song })),
-      ...genreMatches.map((match) => ({
-        type: "genre",
-        key: `genre-${match.id}-${match.matchLabel}`,
-        match,
-      })),
+      ...genreMatches.map((match) => ({ type: "genre", key: `genre-${match.id}-${match.matchLabel}`, match })),
     ],
     [songs, genreMatches],
   );
@@ -119,8 +105,8 @@ const Searchbar = () => {
     router.push(`/search/${encodeURIComponent(next)}`);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = (event) => {
+    event.preventDefault();
     go(searchTerm);
   };
 
@@ -145,22 +131,14 @@ const Searchbar = () => {
   };
 
   const suggestionsVisible = open && items.length > 0;
-  const selectedIndex =
-    activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
+  const selectedIndex = activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
   useDismissOnOutside(suggestionsVisible, () => {
     setOpen(false);
     setActiveIndex(-1);
   }, [clusterRef]);
 
   return (
-    <form
-      ref={clusterRef}
-      role="search"
-      aria-label="Search music"
-      onSubmit={handleSubmit}
-      autoComplete="off"
-      className="search-cluster-form"
-    >
+    <form ref={clusterRef} role="search" aria-label="Search music" onSubmit={handleSubmit} autoComplete="off" className="search-cluster-form">
       <div className={`search-field ${browseActive ? "is-browse" : ""}`}>
         <label htmlFor={inputId} className="search-field-icon-hit">
           <FiSearch aria-hidden="true" className="search-field-icon" />
@@ -184,13 +162,9 @@ const Searchbar = () => {
           aria-haspopup="listbox"
           aria-expanded={suggestionsVisible}
           aria-controls={suggestionsVisible ? listboxId : undefined}
-          aria-activedescendant={
-            suggestionsVisible && selectedIndex >= 0
-              ? `${listboxId}-option-${selectedIndex}`
-              : undefined
-          }
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
+          aria-activedescendant={suggestionsVisible && selectedIndex >= 0 ? `${listboxId}-option-${selectedIndex}` : undefined}
+          onChange={(event) => {
+            setSearchTerm(event.target.value);
             setOpen(true);
             setActiveIndex(-1);
           }}
@@ -208,17 +182,13 @@ const Searchbar = () => {
             if (event.key === "ArrowDown" && items.length > 0) {
               event.preventDefault();
               setOpen(true);
-              setActiveIndex((index) =>
-                index < 0 || index >= items.length - 1 ? 0 : index + 1,
-              );
+              setActiveIndex((index) => index < 0 || index >= items.length - 1 ? 0 : index + 1);
               return;
             }
             if (event.key === "ArrowUp" && items.length > 0) {
               event.preventDefault();
               setOpen(true);
-              setActiveIndex(
-                (index) => (index <= 0 ? items.length - 1 : index - 1),
-              );
+              setActiveIndex((index) => index <= 0 ? items.length - 1 : index - 1);
               return;
             }
             if (event.key === "Home" && suggestionsVisible) {
@@ -243,83 +213,50 @@ const Searchbar = () => {
           className="search-field-input"
         />
         <span className="search-split" aria-hidden="true" />
-        <Link
-          href="/search"
-          aria-label="Browse all"
-          title="Browse all"
-          aria-current={browseActive ? "page" : undefined}
-          className={`search-browse ${browseActive ? "is-active" : ""}`}
-        >
-          {browseActive ? (
-            <HiViewGrid aria-hidden="true" />
-          ) : (
-            <HiOutlineViewGrid aria-hidden="true" />
-          )}
+        <Link href="/search" aria-label="Browse all" title="Browse all" aria-current={browseActive ? "page" : undefined} className={`search-browse ${browseActive ? "is-active" : ""}`}>
+          {browseActive ? <HiViewGrid aria-hidden="true" /> : <HiOutlineViewGrid aria-hidden="true" />}
         </Link>
       </div>
       {suggestionsVisible ? (
-        <ul
-          id={listboxId}
-          role="listbox"
-          aria-label="Search suggestions"
-          className="search-suggest"
-        >
-          {items.map((item, index) =>
-            item.type === "song" ? (
-              <li
-                id={`${listboxId}-option-${index}`}
-                key={item.key}
-                role="option"
-                aria-selected={selectedIndex === index}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseMove={() => setActiveIndex(index)}
-                onClick={() => selectItem(item)}
-                className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm text-white ${
-                  selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"
-                }`}
-              >
-                <MediaImage
-                  src={item.song.thumbnail}
-                  size="mq"
-                  alt=""
-                  className="h-9 w-9 shrink-0 rounded object-cover"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{cleanTitle(item.song.title, "Song")}</span>
-                  <span className="block truncate text-[11px] text-[#9aa8b5]">
-                    {cleanTitle(item.song.channel)}
-                  </span>
-                </span>
-                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">Song</span>
-              </li>
-            ) : (
-              <li
-                id={`${listboxId}-option-${index}`}
-                key={item.key}
-                role="option"
-                aria-selected={selectedIndex === index}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseMove={() => setActiveIndex(index)}
-                onClick={() => selectItem(item)}
-                className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm text-white ${
-                  selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"
-                }`}
-              >
-                <span>{item.match.matchLabel}</span>
-                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">
-                  {item.match.matchType === "subgenre" ? `${item.match.name} sub-genre` : "Genre"}
-                </span>
-              </li>
-            ),
-          )}
+        <ul id={listboxId} role="listbox" aria-label="Search suggestions" className="search-suggest">
+          {items.map((item, index) => item.type === "song" ? (
+            <li
+              id={`${listboxId}-option-${index}`}
+              key={item.key}
+              role="option"
+              aria-selected={selectedIndex === index}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseMove={() => setActiveIndex(index)}
+              onClick={() => selectItem(item)}
+              className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
+            >
+              <MediaImage src={item.song.thumbnail} size="mq" alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{cleanTitle(item.song.title, "Song")}</span>
+                <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanTitle(item.song.channel)}</span>
+              </span>
+              <AddToQueueButton track={item.song} className="z-[90]" />
+              <span className="hidden text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
+            </li>
+          ) : (
+            <li
+              id={`${listboxId}-option-${index}`}
+              key={item.key}
+              role="option"
+              aria-selected={selectedIndex === index}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseMove={() => setActiveIndex(index)}
+              onClick={() => selectItem(item)}
+              className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
+            >
+              <span>{item.match.matchLabel}</span>
+              <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">{item.match.matchType === "subgenre" ? `${item.match.name} sub-genre` : "Genre"}</span>
+            </li>
+          ))}
         </ul>
       ) : null}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {open && searchTerm.trim().length >= 2
-          ? items.length > 0
-            ? `${items.length} suggestions available. Use the up and down arrow keys to review them.`
-            : "No suggestions yet. Press Enter to see full results."
-          : ""}
+        {open && searchTerm.trim().length >= 2 ? items.length > 0 ? `${items.length} suggestions available. Use the up and down arrow keys to review them.` : "No suggestions yet. Press Enter to see full results." : ""}
       </p>
     </form>
   );
