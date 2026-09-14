@@ -1,0 +1,124 @@
+/* Opt-in shell skin. Every rule is scoped to this navbar's mounted application.
+   Existing authentication, settings, data and media-controller modules stay intact. */
+:global(body):has(.navbar) { font-family: Inter, Figtree, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+:global(.app-shell):has(.navbar) { --accent: #00e6e6; --teal: #64c9d7; --teal-mid: #22a6b3; --navy: #000814; --navy-deep: #020813; --navy-surface: #07121d; --navy-raised: #0b1722; --navy-panel: #101c28; --text: #ffffff; --muted: #9eb6c6; --hairline-cyan: rgb(34 166 179 / 24%); --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: var(--navy-deep); }
+:global(.app-shell[data-has-track="false"]):has(.navbar) { --mobile-player-h: 0px; }
+.navbar { margin: 0; border-radius: 0; background: rgb(2 8 19 / 65%); border: 0; box-shadow: none; min-height: 64px; padding: 8px 24px; gap: 16px; }
+.navbar :global(.search-field) { border: 1px solid var(--hairline-cyan); border-radius: 999px; background: rgb(7 18 29 / 90%); box-shadow: none; min-height: 42px; }
+.navbar :global(.search-field):focus-within { border-color: var(--accent); }
+.history { display: none; align-items: center; gap: 8px; }
+.history button { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--navy-deep); color: var(--teal); }
+.history button:hover { color: var(--text); background: var(--navy-panel); }
+.account { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; color: var(--text); }
+.account img, .account > span:first-child { width: 34px; height: 34px; border: 1px solid var(--accent); border-radius: 50%; object-fit: cover; }
+.account > span:first-child { display: grid; place-items: center; background: var(--accent); color: var(--navy-deep); font-weight: 700; }
+.accountName { max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:global(.app-shell):has(.navbar) :global(.app-stage) { background: linear-gradient(140deg, rgb(34 166 179 / 9%), transparent 55%), var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 12px; }
+:global(.app-shell):has(.navbar) :global(.app-content) { background: transparent; }
+:global(.app-shell):has(.navbar) :global(.app-ghost-fibers) { opacity: .1; }
+:global(.app-shell):has(.navbar) :global(.app-atmosphere) { opacity: .22; }
+:global(.app-shell):has(.navbar) :global(.app-player) { grid-row: 2; grid-column: 1 / -1; min-width: 0; }
+:global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { padding: 0; min-height: var(--mobile-player-h); height: var(--mobile-player-h); border: 0; border-radius: 0; background: var(--navy-deep); box-shadow: none; }
+:global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full))::before,
+:global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full))::after { content: none; }
+:global(.app-shell):has(.navbar) :global(.now-playing-panel) { background: var(--navy-deep); border: 1px solid var(--hairline-cyan); border-radius: 12px; min-width: 0; min-height: 0; overflow: hidden; }
+:global(.app-shell):has(.navbar) :global(.now-playing-panel__header) { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; min-height: 56px; padding: 8px 14px; border: 0; }
+:global(.app-shell):has(.navbar) :global(.now-playing-panel__header h2) { font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot) { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot:not(:empty) + .kasa-now-playing-fallback) { display: none; }
+:global(.app-shell):has(.navbar) :global(.kasa-sidebar) { background: linear-gradient(155deg, rgb(34 166 179 / 10%), transparent 42%), var(--navy-deep); border: 1px solid var(--hairline-cyan); border-radius: 12px; }
+:global(.app-shell):has(.navbar) :global(.sidebar-head) { min-height: 86px; padding: 14px 18px; }
+:global(.app-shell):has(.navbar) :global(.nav-link) { border: 0; border-radius: 8px; background: transparent; min-height: 44px; font-weight: 600; font-size: 13px; box-shadow: none; animation: none; }
+:global(.app-shell):has(.navbar) :global(.nav-link:hover),
+:global(.app-shell):has(.navbar) :global(.nav-link.is-active) { background: var(--navy-panel); color: var(--accent); }
+:global(.app-shell):has(.navbar) :global(.kasa-sidebar-nav) { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--hairline-cyan); }
+:global(.app-shell):has(.navbar) :global(.kasa-library-scroll) { overflow-y: auto; min-height: 0; flex: 1; padding: 12px 10px; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-pills) { display: flex; gap: 6px; padding: 0 2px 12px; overflow-x: auto; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-pills a) { min-height: 34px; padding: 6px 12px; display: flex; align-items: center; border: 1px solid var(--hairline-cyan); border-radius: 999px; font-size: 11px; white-space: nowrap; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-pills a:hover) { color: var(--accent); background: var(--navy-panel); }
+:global(.app-shell):has(.navbar) :global(.kasa-library-pills a[aria-current="page"]) { border-color: var(--accent); color: var(--accent); background: var(--navy-panel); }
+:global(.app-shell):has(.navbar) :global(.kasa-sidebar-extra) { margin: 14px 2px; border-top: 1px solid var(--hairline-cyan); padding-top: 12px; }
+:global(.app-shell):has(.navbar) :global(.kasa-sidebar-extra summary) { cursor: pointer; color: var(--teal); font-size: 12px; padding: 8px; }
+:global(.app-shell):has(.navbar) :global(.page-home) { padding: 20px 24px 32px; max-width: none; }
+:global(.app-shell):has(.navbar) :global(.home-wash) { opacity: .15; }
+:global(.app-shell):has(.navbar) :global(.home-header) { padding: 0; margin-bottom: 20px; }
+:global(.app-shell):has(.navbar) :global(.home-display) { margin: 0; color: var(--text); font-size: clamp(26px, 2.5vw, 38px); line-height: 1.2; font-weight: 750; letter-spacing: -.035em; background: none; -webkit-text-fill-color: currentColor; animation: none; }
+:global(.app-shell):has(.navbar) :global(.home-subtitle) { margin-top: 6px; font-size: 14px; font-weight: 400; color: var(--teal); }
+:global(.app-shell):has(.navbar) :global(.kasa-home-filters) { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+:global(.app-shell):has(.navbar) :global(.home-chips) { min-width: 0; display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 0; margin: 0; }
+:global(.app-shell):has(.navbar) :global(.home-chip) { border: 1px solid var(--hairline-cyan); border-radius: 999px; background: var(--navy-raised); color: var(--text); padding: 7px 14px; min-height: 36px; font-size: 12px; white-space: nowrap; box-shadow: none; }
+:global(.app-shell):has(.navbar) :global(.home-chip.is-active) { color: var(--navy-deep); background: var(--accent); border-color: var(--accent); }
+:global(.app-shell):has(.navbar) :global(.home-avatar) { width: 38px; height: 38px; min-width: 38px; flex-shrink: 0; border-radius: 50%; overflow: hidden; background: var(--navy-panel); color: var(--accent); }
+:global(.app-shell):has(.navbar) :global(.home-quick) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 28px; }
+:global(.app-shell):has(.navbar) :global(.home-quick-card) { min-width: 0; height: 76px; border: 1px solid var(--hairline-cyan); border-radius: 8px; padding: 5px; gap: 10px; background: rgb(11 23 34 / 90%); box-shadow: none; transform: none; }
+:global(.app-shell):has(.navbar) :global(.home-quick-card:hover) { background: var(--navy-panel); border-color: var(--teal-mid); }
+:global(.app-shell):has(.navbar) :global(.home-quick-art) { width: 64px; height: 64px; border-radius: 5px; object-fit: cover; }
+:global(.app-shell):has(.navbar) :global(.home-quick-title) { font-size: 12px; font-weight: 650; letter-spacing: -.01em; }
+:global(.app-shell):has(.navbar) :global(.home-quick-card:nth-child(n+7)) { display: none; }
+:global(.app-shell):has(.navbar) :global(.home-quick-play) { background: var(--accent); color: var(--navy-deep); }
+:global(.app-shell):has(.navbar) :global(.home-rail) { margin-bottom: 28px; }
+:global(.app-shell):has(.navbar) :global(.home-rail-title) { font-size: 18px; letter-spacing: -.025em; }
+:global(.app-shell):has(.navbar) :global(.home-rail-track) { gap: 16px; }
+:global(.app-shell):has(.navbar) :global(.app-tabbar) { border-top: 1px solid var(--hairline-cyan); background: var(--navy); box-shadow: none; }
+:global(.app-shell):has(.navbar) :global(.app-tab.is-active) { color: var(--accent); background: transparent; box-shadow: none; }
+:global(.app-shell):has(.navbar) :global(.app-tab.is-active svg) { animation: none; }
+:global(.app-shell):has(.navbar) :global(.app-content),
+:global(.app-shell):has(.navbar) :global(.kasa-library-scroll),
+:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot) { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+:global(.app-shell):has(.navbar) :global(.app-content:hover),
+:global(.app-shell):has(.navbar) :global(.kasa-library-scroll:hover),
+:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot:hover) { scrollbar-color: var(--navy-panel) transparent; }
+
+:global(.app-shell):has(.navbar) :global(.home-rail-wrap) { margin-bottom: 24px; }
+:global(.app-shell):has(.navbar) :global(.home-rail) { display: flex; gap: 14px; overflow-x: auto; padding: 0 0 8px; }
+:global(.app-shell):has(.navbar) :global(.home-rail-card) { width: clamp(128px, 12vw, 180px); flex: 0 0 clamp(128px, 12vw, 180px); min-width: 0; }
+:global(.app-shell):has(.navbar) :global(.home-rail-heading) { margin-bottom: 12px; }
+:global(.app-shell):has(.navbar) :global(.home-shelf-card) { min-width: 0; padding: 0; background: transparent; border: 0; border-radius: 8px; box-shadow: none; transform: none; }
+:global(.app-shell):has(.navbar) :global(.home-square) { display: block; position: relative; aspect-ratio: 1; width: 100%; overflow: hidden; border: 1px solid var(--hairline-cyan); border-radius: 6px; }
+:global(.app-shell):has(.navbar) :global(.home-shelf-title) { display: block; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 12px; font-weight: 650; }
+:global(.app-shell):has(.navbar) :global(.home-shelf-subtitle) { margin-top: 3px; font-size: 12px; color: var(--teal); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+:global(.app-shell):has(.navbar) :global(.home-square-play) { position: absolute; bottom: 8px; right: 8px; display: grid; place-items: center; width: 40px; height: 40px; background: var(--accent); color: var(--navy-deep); border-radius: 50%; opacity: 0; transform: translateY(8px); transition: opacity 200ms, transform 200ms; }
+:global(.app-shell):has(.navbar) :global(.home-shelf-card:hover .home-square-play), :global(.app-shell):has(.navbar) :global(.home-shelf-card:focus-visible .home-square-play) { opacity: 1; transform: translateY(0); }
+:global(.app-shell):has(.navbar) :global(.home-feature-card) { border: 1px solid var(--hairline-cyan); background: var(--navy-raised); border-radius: 12px; box-shadow: none; }
+:global(.app-shell):has(.navbar) :global(.home-feature-art) { border-radius: 8px; }
+
+@media (min-width: 768px) {
+ .history { display: flex; }
+ .navbar :global(.nav-home-btn) { display: none; }
+ :global(.app-shell):has(.navbar) { display: grid; grid-template-columns: min(var(--sidebar-live-w, 260px), 32vw) 8px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 90px; gap: 8px 0; padding: 8px 8px 0; }
+ :global(.app-shell.is-sidebar-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr); }
+ :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: relative; inset: auto; grid-column: 1; grid-row: 1; width: 100%; height: 100%; transform: none; min-height: 0; }
+ :global(.app-shell):has(.navbar) :global(.sidebar-resizer) { grid-column: 2; grid-row: 1; position: relative; display: block; width: 8px; margin: 0; inset: auto; }
+ :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 3; grid-row: 1; min-width: 0; min-height: 0; }
+ :global(.app-shell:not([data-player="full"])):has(.navbar) :global(.app-player) { height: 90px; max-height: 90px; }
+ :global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: 90px; min-height: 90px; }
+ :global(.app-shell):has(.navbar) :global(.now-playing-panel), :global(.app-shell):has(.navbar) :global(.right-panel-resizer) { display: none; }
+ :global(.app-shell):has(.navbar) :global(.app-tabbar) { display: none; }
+}
+@media (min-width: 1180px) {
+ :global(.app-shell):has(.navbar) { grid-template-columns: var(--sidebar-live-w, 260px) 8px minmax(0, 1fr) 8px var(--right-panel-live-w, 320px); }
+ :global(.app-shell.is-sidebar-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr) 8px var(--right-panel-live-w, 320px); }
+ :global(.app-shell.is-right-panel-collapsed):has(.navbar) { grid-template-columns: var(--sidebar-live-w, 260px) 8px minmax(0, 1fr) 8px 48px; }
+ :global(.app-shell.is-sidebar-collapsed.is-right-panel-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr) 8px 48px; }
+ :global(.app-shell):has(.navbar) :global(.right-panel-resizer) { display: block; position: relative; inset: auto; grid-column: 4; grid-row: 1; width: 8px; margin: 0; }
+ :global(.app-shell):has(.navbar) :global(.now-playing-panel) { display: flex; flex-direction: column; grid-column: 5; grid-row: 1; position: relative; inset: auto; height: 100%; width: 100%; }
+}
+@media (max-width: 767px) {
+ :global(.app-shell):has(.navbar) { padding: 0; gap: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
+ .navbar { min-height: 56px; padding: 8px 12px; gap: 8px; }
+ .accountName { display: none; }
+ :global(.app-shell[data-route="home"]):has(.navbar) .navbar { display: none; }
+ :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 1; grid-row: 1; border: 0; border-radius: 0; }
+ :global(.app-shell):has(.navbar) :global(.page-home) { padding: max(16px, env(safe-area-inset-top)) 16px 24px; }
+ :global(.app-shell):has(.navbar) :global(.home-quick) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+ :global(.app-shell):has(.navbar) :global(.home-quick-card) { height: 66px; gap: 8px; }
+ :global(.app-shell):has(.navbar) :global(.home-quick-art) { width: 52px; height: 52px; }
+ :global(.app-shell):has(.navbar) :global(.home-quick-card > span:first-child) { width: 52px; height: 52px; }
+ :global(.app-shell):has(.navbar) :global(.home-quick-title) { font-size: 11px; }
+ :global(.app-shell):has(.navbar) :global(.home-quick-play) { display: none; }
+ :global(.app-shell):has(.navbar) :global(.home-subtitle) { font-size: 13px; }
+ :global(.app-shell):has(.navbar) :global(.home-chip) { padding: 7px 12px; }
+ :global(.app-shell):has(.navbar) :global(.app-tabbar) { grid-row: 3; grid-column: 1; }
+}
+/* Preserve user accessibility overrides rather than overwriting their palette. */
+:global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) { --accent: #6affff; --teal: #a7ffff; --teal-mid: #6affff; --navy: #000; --navy-deep: #000; --navy-surface: #000; --navy-raised: #000; --navy-panel: #000; --text: #fff; --muted: #fff; --hairline-cyan: #fff; }

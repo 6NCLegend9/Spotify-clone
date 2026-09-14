@@ -19,19 +19,19 @@ export default function DesktopNowPlayingPanel({ collapsed, onToggle }) {
   return (
     <aside className={`now-playing-panel ${collapsed ? "is-collapsed" : ""}`} aria-label="Now playing and queue">
       <header className="now-playing-panel__header">
+        {!collapsed && <h2>Now Playing</h2>}
         <button type="button" onClick={onToggle} className="icon-btn"
           aria-label={collapsed ? "Open now playing panel" : "Close now playing panel"}
           title={collapsed ? "Open now playing panel" : "Close now playing panel"}>
           {collapsed ? <FiChevronLeft /> : <FiChevronRight />}
         </button>
-        {!collapsed && <h2>Now playing</h2>}
       </header>
-      <div className="kasa-panel-scroll" data-kasa-scrollport>
-        {/* A stable portal target for player-owned presentation, not another media engine. */}
-        <div id="kasa-now-playing-slot" />
-        {!collapsed && (
-          <div className="now-playing-panel__body kasa-panel-fallback">
-            {track?.id ? <>
+      {/* Stable presentation portal target, retained when the panel is collapsed. */}
+      <div id="kasa-now-playing-slot" hidden={collapsed} />
+      {!collapsed && (
+        <div className="now-playing-panel__body kasa-now-playing-fallback">
+          {track?.id ? (
+            <>
               <MediaImage src={track.thumbnail} size="hq" alt="" className="now-playing-panel__art" />
               <div className="min-w-0">
                 <p className="truncate text-base font-bold text-white">{cleanTitle(track.title)}</p>
@@ -41,10 +41,8 @@ export default function DesktopNowPlayingPanel({ collapsed, onToggle }) {
                 <div className="mb-3 flex items-center gap-2"><FiList className="text-[var(--accent)]" /><h3 id="desktop-queue-title" className="text-xs font-semibold uppercase tracking-widest text-white">Next in queue</h3></div>
                 <div className="now-playing-panel__queue">
                   {upcoming.length > 0 ? upcoming.map((item) => (
-                    <button key={item.id} type="button" onClick={() => {
-                      dispatch(setYoutubeVideo(item));
-                      dispatch(playPause(true));
-                    }} className="now-playing-panel__track group" aria-label={`Play ${cleanTitle(item.title)}`}>
+                    <button key={item.id} type="button" onClick={() => { dispatch(setYoutubeVideo(item)); dispatch(playPause(true)); }}
+                      className="now-playing-panel__track group" aria-label={`Play ${cleanTitle(item.title)}`}>
                       <MediaImage src={item.thumbnail} size="mq" alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
                       <span className="min-w-0 flex-1 text-left"><span className="block truncate text-xs font-semibold text-white">{cleanTitle(item.title)}</span><span className="mt-0.5 block truncate text-[11px] text-[var(--muted)]">{cleanTitle(item.channel)}</span></span>
                       <FiPlay className="shrink-0 opacity-0 transition group-hover:opacity-100" />
@@ -52,10 +50,10 @@ export default function DesktopNowPlayingPanel({ collapsed, onToggle }) {
                   )) : <p className="py-4 text-xs text-[var(--muted)]">The queue is empty.</p>}
                 </div>
               </section>
-            </> : <p className="px-2 py-6 text-sm text-[var(--muted)]">Play a song to see it here.</p>}
-          </div>
-        )}
-      </div>
+            </>
+          ) : <p className="px-2 py-6 text-sm text-[var(--muted)]">Play a song to see it here.</p>}
+        </div>
+      )}
     </aside>
   );
 }
