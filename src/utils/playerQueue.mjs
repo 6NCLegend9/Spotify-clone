@@ -16,12 +16,33 @@ export function nextQueueTrack(queue, currentId, repeat = false) {
     || (repeat ? queue.find((track) => track?.id) : null) || null;
 }
 
-export function editUpcomingQueue(queue, currentId, { kind, id, direction }) {
-  const boundary = queue.findIndex((track) => track.id === currentId) + 1;
+export function editUpcomingQueue(queue, currentId, { kind, id, index: requestedIndex, direction, toIndex }) {
+  const currentIndex = queue.findIndex((track) => track.id === currentId);
+  const boundary = currentIndex < 0 ? 0 : currentIndex + 1;
   if (kind === "clear") return queue.length > boundary ? queue.slice(0, boundary) : queue;
-  const index = queue.findIndex((track) => track.id === id);
-  if (index < boundary || index < 0 || id === currentId) return queue;
-  if (kind === "remove") return queue.filter((_, position) => position !== index);
+
+  // Prefer a concrete row index so duplicate tracks can be edited independently.
+  const index = Number.isInteger(requestedIndex)
+    ? requestedIndex
+    : queue.findIndex((track, position) => position >= boundary && track.id === id);
+  if (index < boundary || index < 0 || index >= queue.length) return queue;
+
+  if (kind === "remove") {
+    const next = [...queue];
+    next.splice(index, 1);
+    return next;
+  }
+
+  if (kind === "reorder") {
+    if (!Number.isInteger(toIndex)) return queue;
+    const target = Math.min(queue.length - 1, Math.max(boundary, toIndex));
+    if (target === index) return queue;
+    const next = [...queue];
+    const [track] = next.splice(index, 1);
+    next.splice(target, 0, track);
+    return next;
+  }
+
   const target = index + direction;
   if (kind !== "move" || ![-1, 1].includes(direction) || target < boundary || target >= queue.length) return queue;
   const next = [...queue];
