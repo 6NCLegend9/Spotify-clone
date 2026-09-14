@@ -1,6 +1,7 @@
 import { Poppins, Righteous } from "next/font/google";
 import "./globals.css";
 import "./motion.css";
+import "./spotify-shell.css";
 import SongsHistory from "@/components/SongsHistory";
 import SettingsSync from "@/components/SettingsSync";
 import LanguageSync from "@/components/LanguageSync";
@@ -40,9 +41,6 @@ export const metadata = {
   category: "music",
   classification: "Music Streaming",
   referrer: "origin-when-cross-origin",
-  // verification: {
-  //   // google: "xKWFwcLg7uqtQGOTNIKraZ8uxuWF9Jxa_By43QL3678",
-  // },
   icons: {
     icon: [
       { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
@@ -105,9 +103,9 @@ export const metadata = {
     "apple-mobile-web-app-status-bar-style": "black-translucent",
     "apple-mobile-web-app-title": SITE_NAME,
     "mobile-web-app-capable": "yes",
-    "msapplication-TileColor": "#000000",
+    "msapplication-TileColor": "#000814",
     "msapplication-TileImage": "/icon-256x256.png",
-    "theme-color": "#000000",
+    "theme-color": "#000814",
   },
 };
 
@@ -116,8 +114,6 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-poppins",
   display: "swap",
-  // Skip <link rel=preload> for the 5 weights: most aren't used above the fold,
-  // which spams Chrome's "preloaded but not used" warning. swap keeps text visible.
   preload: false,
 });
 
@@ -130,7 +126,7 @@ const righteous = Righteous({
 });
 
 export const viewport = {
-  themeColor: "#000000",
+  themeColor: "#000814",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
