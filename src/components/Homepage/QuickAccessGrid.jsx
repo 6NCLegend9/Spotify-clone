@@ -7,6 +7,7 @@ import { FiHeart } from "react-icons/fi";
 import MediaImage from "@/components/MediaImage";
 import PlaylistCover from "@/components/PlaylistCover";
 import FxEq from "@/components/FxEq";
+import AddToQueueButton from "@/components/AddToQueueButton";
 import { playHomeTracks } from "@/utils/playHome";
 import { cleanTitle } from "@/utils/text";
 
@@ -39,11 +40,7 @@ export default function QuickAccessGrid({ items }) {
       {items.slice(0, 6).map((item) => {
         if (item.type === "liked") {
           return (
-            <QuickCard
-              key="liked"
-              href="/library/liked"
-              aria-label="Open Liked Songs"
-            >
+            <QuickCard key="liked" href="/library/liked" aria-label="Open Liked Songs">
               <span className="grid h-16 w-16 shrink-0 place-items-center bg-gradient-to-br from-[#00e6e6] via-[#128a9a] to-[#3b1d8f]">
                 <FiHeart aria-hidden="true" className="text-xl text-white" />
               </span>
@@ -54,11 +51,7 @@ export default function QuickAccessGrid({ items }) {
 
         if (item.type === "playlist") {
           return (
-            <QuickCard
-              key={`playlist-${item.playlist._id}`}
-              href={`/library/playlist/${item.playlist._id}`}
-              aria-label={`Open playlist ${item.playlist.name}`}
-            >
+            <QuickCard key={`playlist-${item.playlist._id}`} href={`/library/playlist/${item.playlist._id}`} aria-label={`Open playlist ${item.playlist.name}`}>
               <span className="h-16 w-16 shrink-0 overflow-hidden">
                 <PlaylistCover playlist={item.playlist} className="h-16 w-16" />
               </span>
@@ -70,32 +63,29 @@ export default function QuickAccessGrid({ items }) {
         const title = cleanTitle(item.title || item.name, "Track");
         const playing = youtubeVideo?.id === item.id || activeSong?.id === item.id;
         return (
-          <QuickCard
-            key={`${item.source || "track"}-${item.id}`}
-            playing={playing}
-            aria-label={`Play ${title}`}
-            onClick={() => playHomeTracks(dispatch, item.queue || [item], item.queueIndex || 0)}
-          >
-            {item.thumbnail || item.image ? (
-              <MediaImage
-                src={
-                  item.thumbnail ||
-                  item.image?.[2]?.url ||
-                  item.image?.[1]?.url ||
-                  item.image?.[0]?.url ||
-                  ""
-                }
-                size="mq"
-                alt=""
-                className="home-quick-art"
-              />
-            ) : (
-              <span className="grid h-16 w-16 shrink-0 place-items-center bg-[#101c28] text-[#00e6e6]">
-                <BsPlayFill aria-hidden="true" className="text-xl" />
-              </span>
-            )}
-            <span className="home-quick-title line-clamp-2">{title}</span>
-          </QuickCard>
+          <div key={`${item.source || "track"}-${item.id}`} className="group relative min-w-0">
+            <QuickCard
+              playing={playing}
+              aria-label={`Play ${title}`}
+              className="w-full pr-12"
+              onClick={() => playHomeTracks(dispatch, item.queue || [item], item.queueIndex || 0)}
+            >
+              {item.thumbnail || item.image ? (
+                <MediaImage
+                  src={item.thumbnail || item.image?.[2]?.url || item.image?.[1]?.url || item.image?.[0]?.url || ""}
+                  size="mq"
+                  alt=""
+                  className="home-quick-art"
+                />
+              ) : (
+                <span className="grid h-16 w-16 shrink-0 place-items-center bg-[#101c28] text-[#00e6e6]">
+                  <BsPlayFill aria-hidden="true" className="text-xl" />
+                </span>
+              )}
+              <span className="home-quick-title line-clamp-2">{title}</span>
+            </QuickCard>
+            <AddToQueueButton track={item} className="absolute right-1 top-1/2 z-20 -translate-y-1/2 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
+          </div>
         );
       })}
     </div>
