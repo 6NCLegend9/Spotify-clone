@@ -10,6 +10,7 @@ import {
   playPause,
   appendToQueue,
 } from "@/redux/features/playerSlice";
+import { signedJamChannel } from "@/utils/jamSignedChannel.mjs";
 import { getSupabase, isSupabaseConfigured } from "@/utils/supabaseClient";
 import {
   HOST_RECONNECT_GRACE_MS,
@@ -194,7 +195,7 @@ export default function useJamSession() {
     const supabase = supabaseRef.current;
     const channel = channelRef.current;
     channelRef.current = null;
-    if (channel && supabase) void supabase.removeChannel(channel);
+    if (channel && supabase) void supabase.removeChannel(channel.__raw || channel);
   }, []);
 
   const resetLocal = useCallback(() => {
@@ -273,12 +274,12 @@ export default function useJamSession() {
   );
 
   const connect = useCallback(
-    async (roomCode, asRole, { startedAt, guestJoined } = {}) => {
+    async (roomCode, asRole, { startedAt, guestJoined, create = false } = {}) => {
       if (authStatus !== "authenticated") {
         setStatus("idle");
         return;
       }
-      const nextCode = normalizeJamCode(roomCode);
+      let nextCode = normalizeJamCode(roomCode);
       if (!isJamCode(nextCode) || (asRole !== "host" && asRole !== "guest")) {
         setStatus("error");
         return;
@@ -297,7 +298,24 @@ export default function useJamSession() {
       setStatus("connecting");
 
       let supabase;
+      let grant;
       try {
+        const response = await fetch("/api/jam", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: create ? "create" : "join", code: nextCode }),
+        });
+        const json = await response.json();
+        if (!response.ok || !json.data?.publicKey) throw new Error("Jam authorization failed");
+        grant = json.data;
+        if (attempt !== connectAttemptRef.current) return;
+        nextCode = grant.code;
+        asRole = grant.role;
+        startedAtRef.current = grant.startedAt;
+        participantKeyRef.current = authSession?.user?.id;
+        roleRef.current = asRole;
+        setRole(asRole);
+        setCode(nextCode);
         supabase = await getSupabase();
       } catch {
         if (attempt === connectAttemptRef.current) {
@@ -314,12 +332,21 @@ export default function useJamSession() {
       }
       supabaseRef.current = supabase;
 
-      const channel = supabase.channel(jamChannelName(nextCode), {
+      const rawChannel = supabase.channel(jamChannelName(nextCode), {
         config: {
           broadcast: { self: false },
           presence: { key: `${asRole}:${participantKeyRef.current}` },
         },
       });
+      let channel;
+      try {
+        channel = await signedJamChannel(rawChannel, grant);
+      } catch {
+        void supabase.removeChannel(rawChannel);
+        if (attempt === connectAttemptRef.current) { resetLocal(); setStatus("error"); }
+        return;
+      }
+      if (attempt !== connectAttemptRef.current) { void supabase.removeChannel(rawChannel); return; }
       channelRef.current = channel;
       const isCurrent = () => (
         attempt === connectAttemptRef.current
@@ -532,6 +559,7 @@ export default function useJamSession() {
     [
       applySync,
       authStatus,
+      authSession?.user?.id,
       disconnectChannel,
       dispatch,
       displayName,
@@ -547,7 +575,7 @@ export default function useJamSession() {
   const host = useCallback(() => {
     guestJoinedRef.current = false;
     startedAtRef.current = Date.now();
-    return connect(makeJamCode(), "host", { startedAt: startedAtRef.current, guestJoined: false });
+    return connect(makeJamCode(), "host", { startedAt: startedAtRef.current, guestJoined: false, create: true });
   }, [connect]);
 
   const join = useCallback(

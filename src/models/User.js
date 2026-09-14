@@ -20,6 +20,13 @@ const fileSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    googleSubject: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    discordOAuthStateHash: { type: String, select: false },
+    discordOAuthStateExpires: { type: Date, select: false },
     sessionVersion: {
       type: Number,
       default: 0,

@@ -4,6 +4,7 @@ import { resolve as resolvePath } from "node:path";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const mocks = {
+  "@/models/JamRoom": "export default globalThis.__apiFixtures.JamRoom;",
   "@/models/User": "export default globalThis.__apiFixtures.User;",
   "@/models/UserData": "export default globalThis.__apiFixtures.UserData;",
   "@/models/Playlist": "export default globalThis.__apiFixtures.Playlist;",
