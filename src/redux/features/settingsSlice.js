@@ -25,7 +25,7 @@ const initialState = {
   pictureInPicture: true,
   masterVolume: 0.85,
   keyboardShortcuts: true,
-  captions: true,
+  captions: false,
   fadeEnabled: true,
   fadeSeconds: 0.8,
   spatialAudio: false,
@@ -39,6 +39,10 @@ const settingsSlice = createSlice({
   reducers: {
     updateSetting: (state, action) => {
       const { key, value } = action.payload;
+      if (key === "captions") {
+        state.captions = false;
+        return;
+      }
       if (key in initialState && key !== "owner") state[key] = value;
       if (key === "eqPreset" && value !== "Custom" && EQ_PRESET_BANDS[value]) {
         state.eqBands = EQ_PRESET_BANDS[value];
@@ -55,7 +59,7 @@ const settingsSlice = createSlice({
         owner: action.payload,
         masterVolume: state.masterVolume,
         keyboardShortcuts: state.keyboardShortcuts,
-        captions: state.captions,
+        captions: false,
       };
     },
     hydrateSettings: (state, action) => {
@@ -71,10 +75,7 @@ const settingsSlice = createSlice({
           payload.keyboardShortcuts !== undefined
             ? payload.keyboardShortcuts !== false
             : state.keyboardShortcuts !== false,
-        captions:
-          payload.captions !== undefined
-            ? payload.captions !== false
-            : state.captions !== false,
+        captions: false,
       };
       if (next.eqPreset && next.eqPreset !== "Custom" && EQ_PRESET_BANDS[next.eqPreset]) {
         const bands = Array.isArray(next.eqBands) ? next.eqBands : [];
