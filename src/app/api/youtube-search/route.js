@@ -3,6 +3,7 @@ import { hasYouTubeApiKey, youtubeFetch, searchChannelsViaInnertube } from "@/ut
 import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { readSearchOptions } from "@/utils/searchOptions.mjs";
+import { buildOfficialMusicQuery, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
 import {
   apiError,
   handleApiError,
@@ -15,30 +16,6 @@ function upstreamCode(status) {
   if (status === 429) return "RATE_LIMITED";
   if (status === 503) return "SERVICE_UNAVAILABLE";
   return "BAD_GATEWAY";
-}
-
-// Rank official artist sources (exact channel, VEVO, "- Topic" audio, "official")
-// above random re-uploaders. Non-artist/song searches score 0 and keep YouTube's
-// original relevance order.
-function officialChannelScore(channelTitle, query) {
-  const channel = String(channelTitle || "").toLowerCase().trim();
-  const q = String(query || "").toLowerCase().trim();
-  if (!channel || !q) return 0;
-  const base = channel.replace(/\s*-\s*topic$/, "").replace(/vevo$/, "").trim();
-  let score = 0;
-  if (channel === q || base === q) score += 100;
-  if (/vevo$/.test(channel)) score += 60;
-  if (/\s-\stopic$/.test(channel)) score += 50;
-  if (channel.includes(q) || (base && q.includes(base))) score += 30;
-  if (channel.includes("official")) score += 20;
-  return score;
-}
-
-function rankVideoResults(results, query) {
-  return results
-    .map((result, index) => ({ result, index, score: officialChannelScore(result.channel, query) }))
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map((entry) => entry.result);
 }
 
 async function searchChannels(query) {
@@ -65,7 +42,6 @@ async function searchChannels(query) {
       // Fall through to the no-key Innertube lookup below.
     }
   }
-  // No key, quota exhausted, or empty result -> resolve channels without the Data API.
   return searchChannelsViaInnertube(query, 12);
 }
 
@@ -91,15 +67,18 @@ export async function GET(request) {
       part: "snippet",
       type,
       maxResults: type === "video" ? "20" : "12",
-      q: type === "video" ? `${query} official audio` : query,
+      q: type === "video" ? buildOfficialMusicQuery(query) : query,
       order,
       ...(pageToken ? { pageToken } : {}),
     };
     if (type === "video") {
+      // Keep the result set inside YouTube's Music category and reject sources
+      // that cannot be played inside the app's embedded player.
       params.videoCategoryId = "10";
       params.videoEmbeddable = "true";
       params.videoSyndicated = "true";
       params.videoDuration = duration;
+      params.safeSearch = "moderate";
     }
 
     const { ok, status, data } = type === "channel" && !requireOfficial
@@ -132,7 +111,7 @@ export async function GET(request) {
       }));
 
     const rankedResults = type === "video" && order === "relevance"
-      ? rankVideoResults(results, query)
+      ? rankOfficialMusicResults(results, query)
       : results;
 
     return NextResponse.json(
@@ -147,4 +126,3 @@ export async function GET(request) {
     return handleApiError(error, "YouTube search");
   }
 }
-
