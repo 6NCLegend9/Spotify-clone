@@ -62,6 +62,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const overlayRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const gestureRef = useRef<{ x: number; y: number } | null>(null);
+  const dismissStartRef = useRef<{ pointerId: number; y: number } | null>(null);
   const canVideo = Boolean(props.onVideo);
   const overlay = expanded || (mobile && drawer);
   const showingVideo = canVideo && video;
@@ -101,12 +102,20 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     background.forEach((element) => { element.inert = true; });
     overlayRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
+      // A playlist or queue dialog owns focus and Escape while it is on top.
+      if (document.querySelector("dialog[open]")) return;
+      const focusedDialog = event.target instanceof Element ? event.target.closest("[role='dialog']") : null;
+      if (focusedDialog && focusedDialog !== overlayRef.current) return;
       if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); close(); }
       if (event.key !== "Tab") return;
       const roots = [overlayRef.current, !mobile ? document.querySelector('[data-testid="player-dock"]') : null];
       const controls = roots.flatMap((root) => root ? Array.from(root.querySelectorAll<HTMLElement>(
-        'a[href], button:not(:disabled), input:not(:disabled), [tabindex="0"]',
-      )) : []).filter((element) => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden");
+        'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]',
+      )) : []).filter((element) => {
+        const closedMenu = element.closest("details:not([open])");
+        return element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden"
+          && !element.closest("[hidden], [inert]") && (!closedMenu || element.tagName === "SUMMARY");
+      });
       const first = controls[0]; const last = controls[controls.length - 1];
       if (!first) { event.preventDefault(); return; }
       if (event.shiftKey && (document.activeElement === first || document.activeElement === overlayRef.current)) {
@@ -148,24 +157,37 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     for (const property of ["transform", "filter", "backdrop-filter", "contain"]) dockBoundary.style.setProperty(property, "none", "important");
     dockBoundary.style.setProperty("overflow", "visible", "important");
     let frame = 0;
+    let disposed = false;
     const place = () => {
       frame = 0;
+      if (disposed) return;
       positionMediaViewport(host, anchorRef.current, showingVideo, expanded);
+      // ResizeObserver does not report transforms. Track finite view animations,
+      // then stop requesting frames once the presentation is stationary.
+      const movingView = anchorRef.current?.closest<HTMLElement>('[data-testid="kasa-media-overlay"]');
+      if (showingVideo && movingView?.getAnimations?.().some((animation) =>
+        animation.playState === "running" && Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)),
+      )) frame = requestAnimationFrame(place);
     };
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(place); };
-    const observer = new ResizeObserver(schedule);
-    if (anchorRef.current) observer.observe(anchorRef.current);
-    if (slot) observer.observe(slot);
-    observer.observe(document.documentElement);
+    const schedule = () => { if (!frame && !disposed) frame = requestAnimationFrame(place); };
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null;
+    if (anchorRef.current) observer?.observe(anchorRef.current);
+    if (slot) observer?.observe(slot);
+    observer?.observe(document.documentElement);
     place();
     window.addEventListener("resize", schedule);
     window.addEventListener("scroll", schedule, true);
+    window.addEventListener("animationend", schedule, true);
+    window.addEventListener("transitionend", schedule, true);
     window.visualViewport?.addEventListener("resize", schedule);
     window.visualViewport?.addEventListener("scroll", schedule);
     return () => {
-      cancelAnimationFrame(frame); observer.disconnect();
+      disposed = true;
+      cancelAnimationFrame(frame); observer?.disconnect();
       window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("animationend", schedule, true);
+      window.removeEventListener("transitionend", schedule, true);
       window.visualViewport?.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("scroll", schedule);
       restoreProperties(host, originalHostStyle); restore(host, originalHidden, "aria-hidden");
@@ -219,7 +241,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     <div className={`${styles.body} ${expanded ? styles.expandedBody : ""}`}>
       <div ref={anchorRef} onTouchStart={startGesture} onTouchEnd={endGesture} className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
         {!showingVideo && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
-          onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/icon-192x192.png"; }} />}
+          onError={(event) => {
+            if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png";
+          }} />}
       </div>
       {!expanded && <>
         <div className={styles.mediaTools}>{modeButton}</div>
@@ -256,7 +280,20 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       role="dialog" aria-modal={mobile ? true : undefined} aria-label={expanded && showingVideo ? "Expanded video" : "Now playing"} tabIndex={-1}
       className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer}`} data-testid="kasa-media-overlay">
       {content}
-      {!expanded && <button type="button" className={styles.dismissHandle} aria-label="Close player" onClick={close}><span /></button>}
+      {!expanded && <button type="button" className={styles.dismissHandle} aria-label="Close player" onClick={close}
+        onPointerDown={(event) => {
+          if (!event.isPrimary || event.button !== 0) return;
+          dismissStartRef.current = { pointerId: event.pointerId, y: event.clientY };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerUp={(event) => {
+          const start = dismissStartRef.current;
+          if (!start || start.pointerId !== event.pointerId) return;
+          dismissStartRef.current = null;
+          if (event.clientY - start.y > 60) close();
+        }}
+        onPointerCancel={() => { dismissStartRef.current = null; }}
+        onLostPointerCapture={() => { dismissStartRef.current = null; }}><span aria-hidden="true" /></button>}
     </section>, document.body)}
   </>;
 });

@@ -1,0 +1,61 @@
+/* The existing dock supplies its compact 20px seek row beneath 48px controls.
+   Standalone timelines retain 32px desktop and 44px phone hit targets. */
+.timeline {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
+  color: var(--teal);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.time { width: 40px; flex: 0 0 40px; }
+.time:first-child { text-align: right; }
+.range {
+  --seek-fill: var(--teal);
+  display: block;
+  flex: 1;
+  min-width: 32px;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+.range:hover, .range:focus-visible { --seek-fill: var(--accent); }
+.range:disabled { opacity: .45; cursor: default; }
+.range:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--seek-fill) 0 var(--seek-progress), var(--navy-panel) var(--seek-progress) 100%);
+}
+.range::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 0;
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--accent);
+}
+.range::-moz-range-track { height: 4px; border-radius: 999px; background: var(--navy-panel); }
+.range::-moz-range-progress { height: 4px; border-radius: 999px; background: var(--seek-fill); }
+.range::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: var(--accent); }
+@media (max-width: 767px) {
+  .range { height: 44px; min-height: 44px; }
+}
+@media (min-width: 768px) {
+  /* Override the shared coarse-pointer minimum only inside this compact timeline. */
+  .range[type="range"] { height: 32px; min-height: 32px; }
+}
