@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ListMusic, Maximize2, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
@@ -11,6 +11,7 @@ import type { MediaPresentationHandle } from "./MediaPresentation";
 import styles from "./playerDock.module.css";
 
 const ExpandedPlayer = dynamic(() => import("./ExpandedPlayer"), { ssr: false });
+const END_SCREEN_GUARD_SECONDS = 0.55;
 
 export function PlayerIconButton({ label, active, children, className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean }) {
   return <button type="button" aria-label={label} title={label} aria-pressed={active}
@@ -30,6 +31,7 @@ export function Transport(props: PlayerDockProps) {
 export default function PlayerDock(props: PlayerDockProps) {
   const [queueOpen, setQueueOpen] = useState(false);
   const presentationRef = useRef<MediaPresentationHandle>(null);
+  const endGuardTrackRef = useRef("");
   const closeQueue = useCallback(() => setQueueOpen(false), []);
   const openQueue = useCallback(() => {
     presentationRef.current?.dismiss();
@@ -41,6 +43,21 @@ export default function PlayerDock(props: PlayerDockProps) {
   const progress = props.duration > 0
     ? Math.min(100, Math.max(0, (props.position / props.duration) * 100))
     : 0;
+
+  useEffect(() => {
+    endGuardTrackRef.current = "";
+  }, [props.track.id]);
+
+  useEffect(() => {
+    if (props.disabled || !props.playing || props.duration <= 8) return;
+    const remaining = props.duration - props.position;
+    if (remaining < 0 || remaining > END_SCREEN_GUARD_SECONDS) return;
+    if (endGuardTrackRef.current === props.track.id) return;
+    endGuardTrackRef.current = props.track.id;
+    // Move through the existing playback controller before YouTube gets a chance
+    // to render its native end-screen recommendation grid.
+    props.onNext();
+  }, [props.disabled, props.duration, props.onNext, props.playing, props.position, props.track.id]);
 
   return <>
     <div className={styles.dock} data-testid="player-dock">
