@@ -34,6 +34,8 @@
 @media (min-width: 768px) {
  .dock { grid-template-columns: minmax(0, 1fr) minmax(230px, 1.3fr) minmax(0, 1fr); width: 100%; height: 90px; margin: 0; padding: 8px 16px; gap: 12px; border-radius: 0; border-width: 1px 0 0; background: linear-gradient(110deg, var(--navy-deep), var(--navy-surface)); }
  .center { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 3px; }
+ /* Reserve a compact seek row below the 48px transport inside the 90px dock. */
+ .center input[type="range"] { height: 20px; min-height: 20px; }
  .center .iconButton { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
  .tools { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
  .tools .iconButton { width: 48px; min-width: 48px; }
