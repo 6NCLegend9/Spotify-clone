@@ -1,0 +1,44 @@
+.scope {}
+
+/* The iframe is cross-origin, so native annotations cannot be restyled internally.
+   Keep the real player mounted, crop its outer edge, and place non-interactive
+   masks over the areas where YouTube paints title/linkout chrome. */
+:global(body):has(.scope) :global([data-testid="youtube-decks"]) {
+  overflow: hidden !important;
+  isolation: isolate;
+  background: #000 !important;
+}
+
+:global(body):has(.scope) :global([data-testid="youtube-decks"] .yt-crop-frame) {
+  overflow: hidden !important;
+  transform: scale(1.08) !important;
+  transform-origin: center center !important;
+}
+
+:global(body):has(.scope) :global([data-testid="youtube-decks"] iframe) {
+  pointer-events: none !important;
+  user-select: none !important;
+  border: 0 !important;
+}
+
+:global(body):has(.scope) :global([data-testid="youtube-decks"])::before,
+:global(body):has(.scope) :global([data-testid="youtube-decks"])::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  pointer-events: none;
+}
+
+:global(body):has(.scope) :global([data-testid="youtube-decks"])::before {
+  top: 0;
+  height: clamp(24px, 5.5%, 46px);
+  background: linear-gradient(180deg, #000 0%, rgb(0 0 0 / 78%) 48%, transparent 100%);
+}
+
+:global(body):has(.scope) :global([data-testid="youtube-decks"])::after {
+  bottom: 0;
+  height: clamp(22px, 5%, 42px);
+  background: linear-gradient(0deg, #000 0%, rgb(0 0 0 / 72%) 48%, transparent 100%);
+}
