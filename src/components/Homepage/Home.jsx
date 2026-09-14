@@ -133,13 +133,9 @@ const Home = () => {
             </div>
           )}
 
-          {!loading && featured && (
-            <FeaturedRelease video={featured} queue={featuredQueue} />
-          )}
-
           {!loading && (
             <TrackRail
-              title="Jump back in"
+              title="Recently Played"
               seeAllHref="/library"
               videos={history.map((song) => ({
                 ...song,
@@ -151,10 +147,6 @@ const Home = () => {
             />
           )}
 
-          {!loading && followRail.length > 0 && (
-            <TrackRail title="New from artists you follow" videos={followRail} />
-          )}
-
           {!loading && (
             <TrackRail
               title={isPersonalized ? "Made For You" : "Featured Editorial"}
@@ -164,18 +156,26 @@ const Home = () => {
           )}
 
           {!loading && (
-            <TrackRail
-              title={isPersonalized ? "Top Trends For You" : "Trending Now"}
-              seeAllHref="/search"
-              videos={charts}
-            />
-          )}
-
-          {!loading && (
             <MixRail
               title={isPersonalized ? "Mixes for you" : "Made for you"}
               seeAllHref="/search"
               mixes={categoryMixes}
+            />
+          )}
+
+          {!loading && followRail.length > 0 && (
+            <TrackRail title="New from artists you follow" videos={followRail} />
+          )}
+
+          {!loading && featured && (
+            <FeaturedRelease video={featured} queue={featuredQueue} />
+          )}
+
+          {!loading && (
+            <TrackRail
+              title={isPersonalized ? "Top Trends For You" : "Trending Now"}
+              seeAllHref="/search"
+              videos={charts}
             />
           )}
 

@@ -36,7 +36,7 @@ export default function QuickAccessGrid({ items }) {
 
   return (
     <div className="home-quick">
-      {items.map((item) => {
+      {items.slice(0, 6).map((item) => {
         if (item.type === "liked") {
           return (
             <QuickCard
