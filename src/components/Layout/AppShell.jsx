@@ -23,6 +23,7 @@ import usePointerTilt from "@/hooks/usePointerTilt";
 import PlaybackPersistence from "@/components/PlaybackPersistence";
 import DiscordPresenceSync from "@/components/DiscordPresenceSync";
 import { isAuthPath } from "@/utils/authPaths.mjs";
+import presentation from "./kasaShell.module.css";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -254,7 +255,7 @@ export default function AppShell({ children }) {
       <PlaybackPersistence />
       <DiscordPresenceSync />
       <div
-        className={`app-shell${collapsed ? " is-sidebar-collapsed" : ""}${rightPanelCollapsed ? " is-right-panel-collapsed" : ""}`}
+        className={`${presentation.shell} app-shell${collapsed ? " is-sidebar-collapsed" : ""}${rightPanelCollapsed ? " is-right-panel-collapsed" : ""}`}
         style={{
           "--sidebar-live-w": `${sidebarWidth}px`,
           "--right-panel-live-w": `${rightPanelWidth}px`,
