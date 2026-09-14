@@ -55,19 +55,9 @@ const Navbar = () => {
         <Searchbar />
       </div>
 
-      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto md:hidden" aria-label="Content filters">
+      <div className="mobile-category-pills md:hidden" aria-label="Content filters">
         {["All", "Music", "Podcasts"].map((filter) => (
-          <button
-            key={filter}
-            type="button"
-            onClick={() => setMobileFilter(filter)}
-            aria-pressed={mobileFilter === filter}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
-              mobileFilter === filter
-                ? "bg-[var(--accent)] text-[#001014]"
-                : "bg-[var(--navy-raised)] text-white hover:bg-[var(--navy-panel)]"
-            }`}
-          >
+          <button key={filter} type="button" onClick={() => setMobileFilter(filter)} aria-pressed={mobileFilter === filter} className={`mobile-category-pill ${mobileFilter === filter ? "is-active" : ""}`}>
             {filter}
           </button>
         ))}
