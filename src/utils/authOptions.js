@@ -166,8 +166,9 @@ export const authOptions = {
               ? profile.email.trim().toLowerCase()
               : "";
           const picture = typeof profile?.picture === "string" ? profile.picture : "";
-          if (!email || profile?.email_verified === false) return false;
-          const userDB = await User.findOne({ email });
+          const subject = typeof profile?.sub === "string" ? profile.sub : "";
+          if (!email || profile?.email_verified !== true || !subject) return false;
+          const userDB = await User.findOne({ email }).select("+password");
           if (!userDB) {
             const userData = await UserData.create({});
             try {
@@ -177,16 +178,31 @@ export const authOptions = {
                 imageUrl: picture || "/icon-192x192.png",
                 userData: userData._id,
                 isVerified: true,
+                googleSubject: subject,
               });
             } catch (error) {
               await UserData.deleteOne({ _id: userData._id }).catch(() => {});
               throw error;
             }
           } else {
-            if (!userDB.isVerified) {
-              userDB.isVerified = true;
-              if (picture) userDB.imageUrl = picture;
-              await userDB.save();
+            // Never activate a password registered by someone who did not own
+            // the mailbox. Credential accounts require explicit provider linking.
+            if (!userDB.isVerified) return false;
+            if (userDB.googleSubject) {
+              if (userDB.googleSubject !== subject) return false;
+            } else {
+              if (userDB.password) return false;
+              // Migrate verified Google-only accounts from before subjects were
+              // stored. The condition also prevents racing a password reset/link.
+              const linked = await User.findOneAndUpdate({
+                _id: userDB._id,
+                isVerified: true,
+                $and: [
+                  { $or: [{ password: { $exists: false } }, { password: null }, { password: "" }] },
+                  { $or: [{ googleSubject: { $exists: false } }, { googleSubject: null }] },
+                ],
+              }, { $set: { googleSubject: subject } }, { new: true });
+              if (!linked) return false;
             }
             await ensureUserData(userDB);
           }

@@ -189,24 +189,18 @@ export default class DiscordRpcClient {
       ["identify", "rpc.activities.write"],
       ["rpc", "identify"],
     ];
-    let rpcToken = "";
-    try {
-      const rpcResponse = await fetch("/api/discord/oauth", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ wantRpcToken: true }),
-      });
-      if (rpcResponse.ok) {
-        const json = await rpcResponse.json();
-        rpcToken = json?.data?.rpcToken || json?.rpcToken || "";
-      }
-    } catch {
-      rpcToken = "";
-    }
-
     let lastError = new Error("Discord did not authorize HeyKasa.");
     for (const scope of scopes) {
       try {
+        // Each scope attempt gets a fresh, session-bound, single-use exchange nonce.
+        const begin = await fetch("/api/discord/oauth", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "begin" }),
+        });
+        const started = await begin.json();
+        const { state, rpcToken } = started?.data || {};
+        if (!begin.ok || !state) throw new Error(started?.message || "Log in to connect Discord.");
         const authorized = await this.command("AUTHORIZE", {
           client_id: this.clientId,
           scopes: scope,
@@ -217,6 +211,7 @@ export default class DiscordRpcClient {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             code: authorized?.code,
+            state,
             redirectUri: window.location.origin,
           }),
         });

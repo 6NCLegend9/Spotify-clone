@@ -70,7 +70,11 @@ test("lock-screen play reaches the engine even when playback state is already pl
       PlayerState: { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 },
       Player: class {
         constructor(frame, options) {
-          this.frame = frame;
+          const mount = typeof frame === "string" ? document.getElementById(frame) : frame;
+          this.frame = document.createElement("iframe");
+          this.frame.id = mount.id;
+          this.frame.title = "YouTube test player";
+          mount.replaceWith(this.frame);
           window.__engineEvents = options.events;
           window.__engine = this;
           setTimeout(() => options.events.onReady({ target: this }), 0);
@@ -88,7 +92,7 @@ test("lock-screen play reaches the engine even when playback state is already pl
         setVolume() {}
         setPlaybackQuality() {}
         seekTo() {}
-        destroy() {}
+        destroy() { this.frame.remove(); }
       },
     };
     const track = { id: "abcdefghijk", title: "Lock screen test", channel: "Test" };

@@ -183,8 +183,8 @@ const playerSlice = createSlice({
       state.queueManualEnd = false;
       const queue = state.youtubeQueue || [];
       const currentId = state.youtubeVideo?.id;
-      const index = currentId ? queue.findIndex((item) => item.id === currentId) : -1;
       const filtered = queue.filter((item) => item.id !== track.id);
+      const index = currentId ? filtered.findIndex((item) => item.id === currentId) : -1;
       const insertIndex = index >= 0 ? index + 1 : 0;
       filtered.splice(insertIndex, 0, track);
       state.youtubeQueue = filtered;

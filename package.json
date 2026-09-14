@@ -17,7 +17,7 @@
     "audit:production": "npm audit --omit=dev --audit-level=high",
     "test": "node --test",
     "test:e2e": "playwright test",
-    "typecheck": "node node_modules/typescript/bin/tsc --noEmit --incremental false",
+    "typecheck": "next typegen && node node_modules/typescript/bin/tsc --noEmit --incremental false",
     "lint": "eslint src test e2e scripts playwright.config.js --ext .js,.jsx,.mjs,.ts,.tsx --no-cache --max-warnings=0",
     "check": "npm test && npm run lint && npm run typecheck && npm run build"
   },
