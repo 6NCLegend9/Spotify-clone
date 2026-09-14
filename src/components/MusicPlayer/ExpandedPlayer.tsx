@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton } from "./PlayerDock";
@@ -12,6 +12,16 @@ import styles from "./playerDock.module.css";
 export default function ExpandedPlayer(props: PlayerDockProps & { onClose: () => void }) {
   const { onClose } = props;
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const closingRef = useRef(false);
+
+  const closeQueue = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    const dialog = dialogRef.current;
+    if (dialog?.open && typeof dialog.close === "function") dialog.close();
+    onClose();
+    window.setTimeout(() => { closingRef.current = false; }, 0);
+  }, [onClose]);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -25,33 +35,39 @@ export default function ExpandedPlayer(props: PlayerDockProps & { onClose: () =>
     }
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeQueue();
     };
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener("keydown", handleEscape, true);
 
     return () => {
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleEscape, true);
       if (typeof dialog.close === "function" && dialog.open) dialog.close();
       else dialog.removeAttribute("open");
-      previous?.focus();
+      if (previous?.isConnected) previous.focus();
     };
-  }, [onClose]);
+  }, [closeQueue]);
 
-  useDismissOnOutside(true, onClose, [dialogRef]);
+  useDismissOnOutside(true, closeQueue, [dialogRef]);
 
   return <dialog
     ref={dialogRef}
     aria-label="Queue"
     data-panel="queue"
-    onCancel={onClose}
+    onCancel={(event) => {
+      event.preventDefault();
+      closeQueue();
+    }}
     onPointerDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
+      if (event.target === event.currentTarget) closeQueue();
     }}
     className={styles.dialog}
   >
     <header className="flex shrink-0 items-center justify-between border-b border-[var(--hairline-cyan)] px-4 py-2">
       <h2 className="text-base font-semibold">Queue</h2>
-      <PlayerIconButton label="Close queue" onClick={onClose}><ChevronDown /></PlayerIconButton>
+      <PlayerIconButton label="Close queue" onClick={(event) => { event.stopPropagation(); closeQueue(); }}><ChevronDown /></PlayerIconButton>
     </header>
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--navy-deep)] p-4">
       <QueueEditor {...props} />
