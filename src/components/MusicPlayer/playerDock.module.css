@@ -33,8 +33,8 @@
 .art { aspect-ratio: 1; width: 100%; border-radius: 12px; object-fit: cover; }
 @media (min-width: 768px) {
  .dock { grid-template-columns: minmax(0, 1fr) minmax(230px, 1.3fr) minmax(0, 1fr); width: 100%; height: 90px; margin: 0; padding: 8px 16px; gap: 12px; border-radius: 0; border-width: 1px 0 0; background: linear-gradient(110deg, var(--navy-deep), var(--navy-surface)); }
+ .dock:has(~ [data-kasa-media-view]) { visibility: visible; }
  .center { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 3px; }
- /* Reserve a compact seek row below the 48px transport inside the 90px dock. */
  .center input[type="range"] { height: 20px; min-height: 20px; }
  .center .iconButton { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
  .tools { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
@@ -42,12 +42,9 @@
  .mobile, .mobileProgress { display: none; }
  .trackText strong { font-size: 13px; }
  .artwork { width: 52px; height: 52px; flex-basis: 52px; }
- .dialog { width: min(calc(100vw - 48px), 1000px); height: min(calc(100dvh - 48px), 820px); }
- .stage { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr); }
- .dialog[data-panel] .nowPlaying, .dialog[data-panel] .queuePane { display: flex; flex-direction: column; }
- .queuePane { border-left: 1px solid var(--hairline-cyan); background: var(--navy-deep); }
+ .dialog { width: min(calc(100vw - 48px), 760px); height: min(calc(100dvh - 48px), 820px); }
 }
-@media (min-width: 1180px) { .favourite, .pip { display: block; } .dock:has(~ [data-kasa-media-view="expanded"]) { visibility: visible; } .dock { grid-template-columns: minmax(0,1fr) minmax(280px,560px) minmax(0,1fr); } }
+@media (min-width: 1180px) { .favourite, .pip { display: block; } .dock { grid-template-columns: minmax(0,1fr) minmax(280px,560px) minmax(0,1fr); } }
 @media (min-width: 1440px) { .volume { display: block; } }
 @media (max-width: 479px) { .dialog { width: 100%; height: 100dvh; border-radius: 0; border: 0; } }
 @media (prefers-reduced-motion: no-preference) { .dialog[open] { animation: player-enter 160ms ease-out; } }

@@ -2,7 +2,9 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useSelector } from "react-redux";
 import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Settings2, Video } from "lucide-react";
 import type { TouchEvent } from "react";
 import type { PlayerDockProps } from "./player.types";
@@ -10,9 +12,16 @@ import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
 
-export interface MediaPresentationHandle { open: () => void; dismiss: () => void; }
-interface Props extends PlayerDockProps { onQueue: () => void; }
+const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 
+type View = "player" | "lyrics";
+interface Props extends PlayerDockProps { onQueue: () => void; }
+export interface MediaPresentationHandle {
+  open: () => void;
+  dismiss: () => void;
+  expand: () => void;
+  showLyrics: () => void;
+}
 
 export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | null, showingVideo: boolean, expanded: boolean) {
   const rect = anchor?.getBoundingClientRect();
@@ -50,7 +59,7 @@ export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | n
   host.style.setProperty("clip-path", visible ? `inset(${Math.max(0, top - rect!.top)}px ${Math.max(0, rect!.right - right)}px ${Math.max(0, rect!.bottom - bottom)}px ${Math.max(0, left - rect!.left)}px)` : "none", "important");
 }
 
-/** Presentation only. The existing decks, sources, refs and transport are not moved or recreated. */
+/** One presentation owner. It never recreates decks or invokes legacy view callbacks. */
 const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function MediaPresentation(props, ref) {
   const [mediaHost, setMediaHost] = useState<HTMLElement | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -58,71 +67,124 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const [drawer, setDrawer] = useState(false);
   const [video, setVideo] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [view, setView] = useState<View>("player");
+  const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
+  const [browserFullscreen, setBrowserFullscreen] = useState(false);
+  const [fullscreenMessage, setFullscreenMessage] = useState("");
+  const shortcutsEnabled = useSelector((state: { settings: { keyboardShortcuts?: boolean } }) => state.settings.keyboardShortcuts !== false);
   const anchorRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const ownsFullscreenRef = useRef(false);
   const gestureRef = useRef<{ x: number; y: number } | null>(null);
   const dismissStartRef = useRef<{ pointerId: number; y: number } | null>(null);
+  // These existing props advertise capability only; calling them opens the old UI.
   const canVideo = Boolean(props.onVideo);
-  const overlay = expanded || (mobile && drawer);
-  const showingVideo = canVideo && video;
+  const canLyrics = Boolean(props.onLyrics);
+  const overlay = expanded || drawer;
+  const showingVideo = canVideo && video && view === "player";
+
+  const rememberFocus = useCallback(() => {
+    if (!returnFocusRef.current) returnFocusRef.current = document.activeElement as HTMLElement | null;
+  }, []);
+  const leaveFullscreen = useCallback(() => {
+    if (ownsFullscreenRef.current && document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => {});
+    }
+    ownsFullscreenRef.current = false;
+  }, []);
+  const dismiss = useCallback(() => {
+    leaveFullscreen(); setDrawer(false); setExpanded(false); setView("player");
+  }, [leaveFullscreen]);
+  const open = useCallback(() => {
+    rememberFocus(); setView("player"); setExpanded(false); setDrawer(true);
+  }, [rememberFocus]);
+  const openExpanded = useCallback(() => {
+    if (!canVideo) { open(); return; }
+    rememberFocus(); setView("player"); setVideo(true); setExpanded(true);
+  }, [canVideo, open, rememberFocus]);
+  const openLyrics = useCallback(() => {
+    if (!canLyrics) return;
+    rememberFocus(); leaveFullscreen(); setExpanded(false); setDrawer(true); setView("lyrics");
+  }, [canLyrics, leaveFullscreen, rememberFocus]);
+  const openQueue = useCallback(() => {
+    dismiss(); props.onQueue();
+  }, [dismiss, props.onQueue]);
   const close = useCallback(() => {
-    if (expanded) setExpanded(false);
-    else setDrawer(false);
-  }, [expanded]);
+    if (view !== "player") setView("player");
+    else if (expanded) { leaveFullscreen(); setExpanded(false); }
+    else dismiss();
+  }, [view, expanded, leaveFullscreen, dismiss]);
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useImperativeHandle(ref, () => ({ open, dismiss, expand: openExpanded, showLyrics: openLyrics }), [open, dismiss, openExpanded, openLyrics]);
 
   useEffect(() => {
     setSlot(document.getElementById("kasa-now-playing-slot"));
     setMediaHost(document.querySelector<HTMLElement>('[data-testid="youtube-decks"]'));
-    const query = window.matchMedia("(max-width: 1179px)");
+    const query = window.matchMedia("(max-width: 767px)");
     const update = () => setMobile(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-
-  useImperativeHandle(ref, () => ({ open: () => {
-    returnFocusRef.current = document.activeElement as HTMLElement | null;
-    setDrawer(true);
-    if (!mobile) { setVideo(canVideo); setExpanded(true); }
-  }, dismiss: () => { setDrawer(false); setExpanded(false); } }), [mobile, canVideo]);
+    update(); query.addEventListener("change", update);
+    setFullscreenAvailable(Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen));
+    const fullscreenChanged = () => {
+      setBrowserFullscreen(Boolean(document.fullscreenElement));
+      if (!document.fullscreenElement) ownsFullscreenRef.current = false;
+    };
+    document.addEventListener("fullscreenchange", fullscreenChanged);
+    return () => {
+      query.removeEventListener("change", update);
+      document.removeEventListener("fullscreenchange", fullscreenChanged);
+      leaveFullscreen();
+    };
+  }, [leaveFullscreen]);
 
   useEffect(() => {
     if (!canVideo) { setVideo(false); setExpanded(false); }
-  }, [canVideo]);
+    if (!canLyrics && view === "lyrics") setView("player");
+  }, [canVideo, canLyrics, view]);
 
-  // Focus and inertness belong to the overlay, never to the playback controller.
+  const hasOtherDialog = useCallback(() => Array.from(document.querySelectorAll<HTMLElement>('dialog[open], [role="dialog"][aria-modal="true"]'))
+    .some((element) => element !== overlayRef.current && element.getClientRects().length > 0), []);
+
+  // Preserve transport shortcuts; take ownership only of legacy view shortcuts.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!shortcutsEnabled || event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || hasOtherDialog()) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"], button, a, [role="menuitem"], [role="tab"]')) return;
+      const key = event.key.toLowerCase();
+      if ((key === "f" || key === "v") && canVideo) {
+        event.preventDefault(); event.stopImmediatePropagation();
+        if (expanded) close(); else openExpanded();
+      } else if (key === "t" && canLyrics) {
+        event.preventDefault(); event.stopImmediatePropagation();
+        if (view === "lyrics") close(); else openLyrics();
+      }
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [shortcutsEnabled, canVideo, canLyrics, expanded, view, close, openExpanded, openLyrics, hasOtherDialog]);
+
   useEffect(() => {
     if (!overlay) return;
     const previousFocus = returnFocusRef.current || document.activeElement as HTMLElement | null;
-    const background = Array.from(document.querySelectorAll<HTMLElement>(
-      ".app-sidebar, .app-stage, .now-playing-panel, .app-tabbar",
-    ));
+    const background = Array.from(document.querySelectorAll<HTMLElement>(".app-sidebar, .app-stage, .now-playing-panel, .app-tabbar, .sidebar-resizer, .right-panel-resizer"));
     const previousInert = background.map((element) => element.inert);
     background.forEach((element) => { element.inert = true; });
     overlayRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      // A playlist or queue dialog owns focus and Escape while it is on top.
-      if (document.querySelector("dialog[open]")) return;
-      const focusedDialog = event.target instanceof Element ? event.target.closest("[role='dialog']") : null;
-      if (focusedDialog && focusedDialog !== overlayRef.current) return;
-      if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); close(); }
+      if (event.defaultPrevented || hasOtherDialog()) return;
+      if (event.key === "Escape" && !document.fullscreenElement) {
+        event.preventDefault(); event.stopImmediatePropagation(); closeRef.current(); return;
+      }
       if (event.key !== "Tab") return;
       const roots = [overlayRef.current, !mobile ? document.querySelector('[data-testid="player-dock"]') : null];
-      const controls = roots.flatMap((root) => root ? Array.from(root.querySelectorAll<HTMLElement>(
-        'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]',
-      )) : []).filter((element) => {
-        const closedMenu = element.closest("details:not([open])");
-        return element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden"
-          && !element.closest("[hidden], [inert]") && (!closedMenu || element.tagName === "SUMMARY");
-      });
+      const controls = roots.flatMap((root) => root ? Array.from(root.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')) : [])
+        .filter((element) => element.getClientRects().length && !element.closest('[inert]') && getComputedStyle(element).visibility !== "hidden");
       const first = controls[0]; const last = controls[controls.length - 1];
       if (!first) { event.preventDefault(); return; }
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === overlayRef.current)) {
-        event.preventDefault(); last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault(); first.focus();
-      }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === overlayRef.current)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     document.addEventListener("keydown", onKey, true);
     return () => {
@@ -131,169 +193,135 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       if (previousFocus?.isConnected) previousFocus.focus();
       returnFocusRef.current = null;
     };
-  }, [overlay, mobile, close]);
+  }, [overlay, mobile, hasOtherDialog]);
 
-  // A viewport adapter: only geometry is changed. Never reparent an iframe, set a
-  // source, call a media API, or feed a second time/volume/queue state into it.
+  useEffect(() => { if (overlay) overlayRef.current?.focus(); }, [view, expanded, overlay]);
+
+  // Geometry only: leave both media decks and iframe identities in their original tree.
   useEffect(() => {
-    const host = document.querySelector<HTMLElement>('[data-testid="youtube-decks"]');
-    const playerRegion = host?.closest<HTMLElement>(".app-player");
-    const dockBoundary = host?.closest<HTMLElement>(".player-dock");
-    if (!host || !playerRegion || !dockBoundary) return;
-    const savedProperties = (element: HTMLElement, names: string[]) => names.map((name) => ({ name, value: element.style.getPropertyValue(name), priority: element.style.getPropertyPriority(name) }));
-    const restoreProperties = (element: HTMLElement, properties: ReturnType<typeof savedProperties>) => properties.forEach(({ name, value, priority }) => {
-      if (value) element.style.setProperty(name, value, priority); else element.style.removeProperty(name);
-    });
-    const originalHostStyle = savedProperties(host, ["display", "position", "inset", "margin", "transform", "width", "height", "min-height", "max-height", "left", "top", "opacity", "pointer-events", "border-radius", "overflow", "z-index", "clip-path"]);
-    const originalRegionStyle = savedProperties(playerRegion, ["z-index"]);
-    const originalBoundaryStyle = savedProperties(dockBoundary, ["transform", "filter", "backdrop-filter", "contain", "overflow"]);
-    const originalInert = host.inert;
+    const host = mediaHost;
+    const region = host?.closest<HTMLElement>(".app-player");
+    const boundary = host?.closest<HTMLElement>(".player-dock");
+    if (!host || !region || !boundary) return;
+    const names = ["display", "position", "inset", "margin", "transform", "width", "height", "min-height", "max-height", "left", "top", "opacity", "pointer-events", "border-radius", "overflow", "z-index", "clip-path"];
+    const saved = names.map((name) => [name, host.style.getPropertyValue(name), host.style.getPropertyPriority(name)]);
+    const oldZ = [region.style.getPropertyValue("z-index"), region.style.getPropertyPriority("z-index")];
+    const oldHidden = host.getAttribute("aria-hidden");
+    const oldInert = host.inert;
     host.classList.add(styles.viewport);
-    const originalHidden = host.getAttribute("aria-hidden");
-    const restore = (element: HTMLElement, value: string | null, attribute = "style") => {
-      if (value === null) element.removeAttribute(attribute); else element.setAttribute(attribute, value);
-    };
-    playerRegion.style.setProperty("z-index", overlay ? "80" : "30");
-    for (const property of ["transform", "filter", "backdrop-filter", "contain"]) dockBoundary.style.setProperty(property, "none", "important");
-    dockBoundary.style.setProperty("overflow", "visible", "important");
+    region.classList.add(styles.presentationRegion);
+    region.style.setProperty("z-index", overlay ? "80" : "30");
     let frame = 0;
-    let disposed = false;
-    const place = () => {
-      frame = 0;
-      if (disposed) return;
-      positionMediaViewport(host, anchorRef.current, showingVideo, expanded);
-      // ResizeObserver does not report transforms. Track finite view animations,
-      // then stop requesting frames once the presentation is stationary.
-      const movingView = anchorRef.current?.closest<HTMLElement>('[data-testid="kasa-media-overlay"]');
-      if (showingVideo && movingView?.getAnimations?.().some((animation) =>
-        animation.playState === "running" && Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)),
-      )) frame = requestAnimationFrame(place);
-    };
-    const schedule = () => { if (!frame && !disposed) frame = requestAnimationFrame(place); };
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null;
-    if (anchorRef.current) observer?.observe(anchorRef.current);
-    if (slot) observer?.observe(slot);
-    observer?.observe(document.documentElement);
+    const place = () => { frame = 0; positionMediaViewport(host, anchorRef.current, showingVideo, expanded); };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(place); };
+    const observer = new ResizeObserver(schedule);
+    if (anchorRef.current) observer.observe(anchorRef.current);
+    if (slot) observer.observe(slot);
+    observer.observe(document.documentElement);
     place();
     window.addEventListener("resize", schedule);
     window.addEventListener("scroll", schedule, true);
-    window.addEventListener("animationend", schedule, true);
-    window.addEventListener("transitionend", schedule, true);
     window.visualViewport?.addEventListener("resize", schedule);
     window.visualViewport?.addEventListener("scroll", schedule);
     return () => {
-      disposed = true;
-      cancelAnimationFrame(frame); observer?.disconnect();
+      cancelAnimationFrame(frame); observer.disconnect();
       window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", schedule, true);
-      window.removeEventListener("animationend", schedule, true);
-      window.removeEventListener("transitionend", schedule, true);
       window.visualViewport?.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("scroll", schedule);
-      restoreProperties(host, originalHostStyle); restore(host, originalHidden, "aria-hidden");
-      restoreProperties(playerRegion, originalRegionStyle); restoreProperties(dockBoundary, originalBoundaryStyle);
-      host.inert = originalInert; host.classList.remove(styles.viewport);
+      saved.forEach(([name, value, priority]) => { if (value) host.style.setProperty(name, value, priority); else host.style.removeProperty(name); });
+      if (oldZ[0]) region.style.setProperty("z-index", oldZ[0], oldZ[1]); else region.style.removeProperty("z-index");
+      if (oldHidden === null) host.removeAttribute("aria-hidden"); else host.setAttribute("aria-hidden", oldHidden);
+      host.inert = oldInert; host.classList.remove(styles.viewport); region.classList.remove(styles.presentationRegion);
     };
-  }, [showingVideo, overlay, mobile, drawer, expanded, slot]);
+  }, [mediaHost, showingVideo, overlay, mobile, drawer, expanded, view, slot]);
 
   const startGesture = (event: TouchEvent<HTMLElement>) => {
-    if (!mobile || (event.target as HTMLElement).closest("button, a, input")) return;
+    if (!mobile || (event.target as HTMLElement).closest("button, a, input, select")) return;
     const touch = event.touches[0];
     gestureRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
   };
   const endGesture = (event: TouchEvent<HTMLElement>) => {
-    const start = gestureRef.current;
-    const touch = event.changedTouches[0];
-    gestureRef.current = null;
+    const start = gestureRef.current; const touch = event.changedTouches[0]; gestureRef.current = null;
     if (!start || !touch || !mobile) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
+    const dx = touch.clientX - start.x; const dy = touch.clientY - start.y;
     if (dy > 72 && Math.abs(dx) < 40) close();
-    else if (!props.disabled && Math.abs(dx) > 72 && Math.abs(dy) < 40) {
-      if (dx < 0) props.onNext(); else props.onPrevious();
+    else if (!props.disabled && Math.abs(dx) > 72 && Math.abs(dy) < 40) { if (dx < 0) props.onNext(); else props.onPrevious(); }
+  };
+  const toggleBrowserFullscreen = async () => {
+    setFullscreenMessage("");
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else {
+        await document.documentElement.requestFullscreen();
+        ownsFullscreenRef.current = true;
+      }
+    } catch {
+      setFullscreenMessage("Fullscreen is unavailable. You can keep watching in this view.");
     }
   };
-
   const modeButton = canVideo ? <button type="button" className={styles.modeButton}
-    onClick={() => { setVideo((value) => !value); if (expanded && video) setExpanded(false); }}
+    onClick={() => { setVideo((value) => !value); if (expanded && video) { leaveFullscreen(); setExpanded(false); } }}
     aria-label={showingVideo ? "Switch to audio" : "Switch to video"}>
-    {showingVideo ? <Music2 size={17} /> : <Video size={17} />}
-    {showingVideo ? "Switch to audio" : "Switch to video"}
+    {showingVideo ? <Music2 size={17} /> : <Video size={17} />}{showingVideo ? "Switch to audio" : "Switch to video"}
   </button> : null;
-  const openExpanded = () => {
-    returnFocusRef.current = document.activeElement as HTMLElement | null;
-    setVideo(true); setExpanded(true);
-  };
   const upcomingIndex = props.queue.findIndex((track) => track.id === props.track.id);
   const upcoming = props.queue.slice(upcomingIndex < 0 ? 0 : upcomingIndex + 1, upcomingIndex < 0 ? 3 : upcomingIndex + 4);
+  const metadata = <div className={styles.metadata}><div><h2>{props.track.title}</h2><p>{props.track.channel}</p></div>{props.favourite}</div>;
+  const mobileTransport = <div className={styles.mobileTransport}>
+    <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
+    <Transport {...props} />
+    <div className={styles.mobileExtras}>{props.volume}
+      {canLyrics && <PlayerIconButton label={view === "lyrics" ? "Close lyrics" : "Show live lyrics"} active={view === "lyrics"} onClick={view === "lyrics" ? close : openLyrics}><Mic2 size={20} /></PlayerIconButton>}
+      <PlayerIconButton label="Show queue" onClick={openQueue}><ListMusic size={20} /></PlayerIconButton>
+      {props.trackActions}{props.sleepControl}
+    </div>
+  </div>;
   const content = <>
     {overlay && <header className={styles.overlayHeader} onTouchStart={startGesture} onTouchEnd={endGesture}>
-      <PlayerIconButton label={expanded && showingVideo ? "Collapse video" : "Close player"} onClick={close}>
-        {expanded ? <Minimize2 size={21} /> : <ChevronDown size={25} />}
-      </PlayerIconButton>
-      <span className={styles.source}><small>NOW PLAYING</small><strong>{props.track.title}</strong></span>
-      {expanded ? <div className={styles.topTools}>
-        {modeButton}
-        <Link href="/settings" onClick={() => { setDrawer(false); setExpanded(false); }} aria-label="Video quality settings" className={styles.modeButton}><Settings2 size={17} /><span>Quality settings</span></Link>
-        {props.onVideo && <PlayerIconButton label="Open full-screen video player" onClick={props.onVideo}><Maximize2 size={18} /></PlayerIconButton>}
-      </div> : <PlayerIconButton label="Queue" onClick={() => { setDrawer(false); props.onQueue(); }}><ListMusic size={21} /></PlayerIconButton>}
+      <PlayerIconButton label={view !== "player" ? "Back to player" : expanded ? "Collapse video" : "Close player"} onClick={close}>{expanded ? <Minimize2 size={21} /> : <ChevronDown size={25} />}</PlayerIconButton>
+      <span className={styles.source}><small>{view === "player" ? "NOW PLAYING" : view.toUpperCase()}</small><strong>{props.track.title}</strong></span>
+      {expanded ? <div className={styles.topTools}>{modeButton}
+        <Link href="/settings" onClick={dismiss} aria-label="Video quality settings" className={styles.modeButton}><Settings2 size={17} /><span>Quality settings</span></Link>
+        {fullscreenAvailable && <PlayerIconButton label={browserFullscreen ? "Exit fullscreen" : "Enter fullscreen"} onClick={toggleBrowserFullscreen}><Maximize2 size={18} /></PlayerIconButton>}
+      </div> : <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={21} /></PlayerIconButton>}
     </header>}
-    <div className={`${styles.body} ${expanded ? styles.expandedBody : ""}`}>
-      <div ref={anchorRef} onTouchStart={startGesture} onTouchEnd={endGesture} className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
-        {!showingVideo && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
-          onError={(event) => {
-            if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png";
-          }} />}
-      </div>
-      {!expanded && <>
-        <div className={styles.mediaTools}>{modeButton}</div>
-        <div className={styles.metadata}><div><h2>{props.track.title}</h2><p>{props.track.channel}</p></div>{props.favourite}</div>
-        {mobile && <div className={styles.mobileTransport}>
-          <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
-          <Transport {...props} />
-          <div className={styles.mobileExtras}>{props.volume}
-            {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={() => { setDrawer(false); props.onLyrics?.(); }}><Mic2 size={20} /></PlayerIconButton>}
-            <PlayerIconButton label="Queue" onClick={() => { setDrawer(false); props.onQueue(); }}><ListMusic size={20} /></PlayerIconButton>
-            {props.trackActions}
-            {props.sleepControl}
-          </div>
-        </div>}
-        <section className={styles.queue} aria-label="Next in queue"><header><h3>Next in queue</h3><button type="button" onClick={() => { setDrawer(false); props.onQueue(); }}>Show all</button></header>
-          {upcoming.length ? upcoming.map((track) => <button type="button" key={track.id} disabled={props.disabled}
-            onClick={() => props.onSelect(track)} className={styles.queueRow}>
-            <img src={track.thumbnail || "/icon-192x192.png"} alt="" width={44} height={44} />
-            <span><strong>{track.title}</strong><small>{track.channel}</small></span>
-          </button>) : <p className={styles.empty}>Your queue is empty.</p>}
-        </section>
-      </>}
+    {fullscreenMessage && <p className={styles.notice} role="status">{fullscreenMessage}</p>}
+    <div className={`${styles.body} ${expanded ? styles.expandedBody : ""} ${view !== "player" ? styles.utilityBody : ""}`}>
+      {view === "player" ? <>
+        <div ref={anchorRef} onTouchStart={startGesture} onTouchEnd={endGesture} className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
+          {!showingVideo && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
+            onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
+        </div>
+        {!expanded && <>
+          <div className={styles.mediaTools}>{modeButton}</div>{metadata}
+          {mobile && mobileTransport}
+          <section className={styles.queue} aria-label="Next in queue"><header><h3>Next in queue</h3><button type="button" onClick={openQueue}>Show all</button></header>
+            {upcoming.length ? upcoming.map((track, index) => <button type="button" key={`${track.id}-${index}`} disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueRow}>
+              <img src={track.thumbnail || "/icon-192x192.png"} alt="" width={44} height={44} />
+              <span><strong>{track.title}</strong><small>{track.channel}</small></span>
+            </button>) : <p className={styles.empty}>Your queue is empty.</p>}
+          </section>
+        </>}
+      </> : <section className={styles.lyrics} aria-label="Live lyrics">
+        {metadata}<SyncedLyrics title={props.track.title} artist={props.track.channel || ""} duration={props.duration} currentTime={props.position} onSeek={props.disabled ? undefined : props.onSeek} />
+      </section>}
     </div>
-    {expanded && mobile && <footer className={styles.expandedTransport}><PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} /><Transport {...props} /></footer>}
+    {mobile && overlay && (expanded || view !== "player") && <footer className={styles.expandedTransport}>{mobileTransport}</footer>}
   </>;
 
   return <>
-    {mediaHost && showingVideo && !expanded && (!mobile || drawer) && createPortal(
-      <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>, mediaHost,
-    )}
+    {mediaHost && showingVideo && (!mobile || overlay) && createPortal(<>
+      <div className={styles.gestureSurface} aria-hidden="true" onTouchStart={startGesture} onTouchEnd={endGesture} />
+      {!expanded && <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
+    </>, mediaHost)}
     <span hidden data-kasa-media-view={overlay ? (expanded ? "expanded" : "drawer") : showingVideo ? "video" : "audio"} />
-    {!mobile && !overlay && slot && createPortal(<section className={styles.panel} aria-label="Current track media">{content}</section>, slot)}
-    {overlay && typeof document !== "undefined" && createPortal(<section ref={overlayRef}
-      role="dialog" aria-modal={mobile ? true : undefined} aria-label={expanded && showingVideo ? "Expanded video" : "Now playing"} tabIndex={-1}
-      className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer}`} data-testid="kasa-media-overlay">
+    {!mobile && !overlay && slot && createPortal(<section className={styles.panel} aria-label="Current track media" onClick={(event) => event.stopPropagation()}>{content}</section>, slot)}
+    {overlay && typeof document !== "undefined" && createPortal(<section ref={overlayRef} role="dialog" aria-modal={mobile ? true : undefined}
+      aria-label={expanded ? "Expanded video" : "Now playing"} tabIndex={-1} onClick={(event) => event.stopPropagation()}
+      className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer}`} data-testid="kasa-media-overlay" data-view={view}>
       {content}
-      {!expanded && <button type="button" className={styles.dismissHandle} aria-label="Close player" onClick={close}
-        onPointerDown={(event) => {
-          if (!event.isPrimary || event.button !== 0) return;
-          dismissStartRef.current = { pointerId: event.pointerId, y: event.clientY };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerUp={(event) => {
-          const start = dismissStartRef.current;
-          if (!start || start.pointerId !== event.pointerId) return;
-          dismissStartRef.current = null;
-          if (event.clientY - start.y > 60) close();
-        }}
-        onPointerCancel={() => { dismissStartRef.current = null; }}
-        onLostPointerCapture={() => { dismissStartRef.current = null; }}><span aria-hidden="true" /></button>}
+      {!expanded && <div className={styles.dismissHandle} onTouchStart={startGesture} onTouchEnd={endGesture}><span /></div>}
     </section>, document.body)}
   </>;
 });

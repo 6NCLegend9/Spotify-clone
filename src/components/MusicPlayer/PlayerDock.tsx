@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ListMusic, Maximize2, Mic2, PanelRightOpen, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { ListMusic, Maximize2, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 import type { PlayerDockProps } from "./player.types";
 import PlayerTimeline from "./PlayerTimeline";
@@ -28,21 +28,27 @@ export function Transport(props: PlayerDockProps) {
 }
 
 export default function PlayerDock(props: PlayerDockProps) {
-  const [panel, setPanel] = useState<"player" | "queue" | null>(null);
-  const closePanel = useCallback(() => setPanel(null), []);
-  const expandPlayer = () => props.onVideo ? props.onVideo() : setPanel("player");
+  const [queueOpen, setQueueOpen] = useState(false);
   const presentationRef = useRef<MediaPresentationHandle>(null);
-  const openPresentation = () => props.onVideo ? presentationRef.current?.open() : setPanel("player");
-  const openQueue = useCallback(() => { presentationRef.current?.dismiss(); setPanel("queue"); }, []);
+  const closeQueue = useCallback(() => setQueueOpen(false), []);
+  const openQueue = useCallback(() => {
+    presentationRef.current?.dismiss();
+    setQueueOpen(true);
+  }, []);
+  const openPresentation = () => presentationRef.current?.open();
+  const openLyrics = () => presentationRef.current?.showLyrics();
+  const expandVideo = () => presentationRef.current?.expand();
   const progress = props.duration > 0
     ? Math.min(100, Math.max(0, (props.position / props.duration) * 100))
     : 0;
+
   return <>
     <div className={styles.dock} data-testid="player-dock">
       <div className={styles.mobileProgress} aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
       <div className={styles.track}>
         <button type="button" aria-label={`Expand player: ${props.track.title}`} onClick={openPresentation} className={styles.trackButton}>
-          <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={48} height={48} className={styles.artwork} onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/icon-192x192.png"; }} />
+          <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={48} height={48} className={styles.artwork}
+            onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />
           <span className={styles.trackText}><strong>{props.track.title}</strong><small>{props.track.channel}</small></span>
         </button>
         <div className={styles.favourite}>{props.favourite}</div>
@@ -53,11 +59,10 @@ export default function PlayerDock(props: PlayerDockProps) {
         <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
       </div>
       <div className={styles.tools}>
-        <PlayerIconButton label="Now playing view" onClick={openPresentation}><PanelRightOpen size={18} /></PlayerIconButton>
-        {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={() => { presentationRef.current?.dismiss(); props.onLyrics?.(); }}><Mic2 size={18} /></PlayerIconButton>}
+        {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={openLyrics}><Mic2 size={18} /></PlayerIconButton>}
         <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={19} /></PlayerIconButton>
         <div className={styles.volume}>{props.volume}</div>
-        {props.onVideo && <PlayerIconButton label="Open full-screen video player" onClick={expandPlayer}><Maximize2 size={18} /></PlayerIconButton>}
+        {props.onVideo && <PlayerIconButton label="Expand video" onClick={expandVideo}><Maximize2 size={18} /></PlayerIconButton>}
       </div>
       <div className={styles.mobile}>
         <PlayerIconButton label="Previous song" disabled={props.disabled} onClick={props.onPrevious} className={`${styles.mobileButton} ${styles.mobilePrevious}`}><SkipBack size={20} /></PlayerIconButton>
@@ -69,6 +74,6 @@ export default function PlayerDock(props: PlayerDockProps) {
       </div>
     </div>
     <MediaPresentation ref={presentationRef} {...props} onQueue={openQueue} />
-    {panel && <ExpandedPlayer {...props} initialPanel={panel} onClose={closePanel} />}
+    {queueOpen && <ExpandedPlayer {...props} onClose={closeQueue} />}
   </>;
 }
