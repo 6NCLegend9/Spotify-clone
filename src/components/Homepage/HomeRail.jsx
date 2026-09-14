@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useDispatch } from "react-redux";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
+import AddToQueueButton from "@/components/AddToQueueButton";
 import MixCard from "./MixCard";
 import { playHomeTracks } from "@/utils/playHome";
 import { cleanTitle } from "@/utils/text";
@@ -57,25 +58,22 @@ export function HomeSquareCard({ video, queue }) {
 
   const list = queue?.length ? queue : [video];
   const index = list.findIndex((item) => item?.id === video.id);
+  const play = () => playHomeTracks(dispatch, list, index >= 0 ? index : 0);
 
   return (
-    <button
-      type="button"
-      onClick={() => playHomeTracks(dispatch, list, index >= 0 ? index : 0)}
-      aria-label={`Play ${title}`}
-      className="home-shelf-card group w-full text-left"
-    >
-      <span className="home-square">
-        <MediaImage src={cover} size="hq" alt="" className="h-full w-full object-cover" />
-        <span className="home-square-play max-md:hidden">
-          <BsPlayFill aria-hidden="true" className="text-xl" />
+    <div className="home-shelf-card group relative w-full text-left">
+      <button type="button" onClick={play} aria-label={`Play ${title}`} className="block w-full text-left">
+        <span className="home-square">
+          <MediaImage src={cover} size="hq" alt="" className="h-full w-full object-cover" />
+          <span className="home-square-play max-md:hidden">
+            <BsPlayFill aria-hidden="true" className="text-xl" />
+          </span>
         </span>
-      </span>
-      <span className="home-shelf-title">{title}</span>
-      {subtitle ? (
-        <span className="home-shelf-subtitle">{subtitle}</span>
-      ) : null}
-    </button>
+        <span className="home-shelf-title">{title}</span>
+        {subtitle ? <span className="home-shelf-subtitle">{subtitle}</span> : null}
+      </button>
+      <AddToQueueButton track={video} className="absolute right-1 top-1 z-20 rounded-full bg-[var(--navy-deep)]/90 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
+    </div>
   );
 }
 
