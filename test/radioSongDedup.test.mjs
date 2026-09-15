@@ -23,14 +23,16 @@ const variants = [
   { id: "variant0004", title: "Don Toliver - Lose My Mind (Official Visualizer)", channel: "Don Toliver" },
 ];
 
-test("canonical song title collapses alternate YouTube uploads", () => {
+test("canonical song identity collapses alternate uploads of the same recording", () => {
   assert.equal(canonicalSongTitle(seed), "lose my mind");
-  variants.forEach((track) => assert.equal(canonicalSongTitle(track), "lose my mind"));
   assert.equal(canonicalSongIdentity(seed), "don toliver|lose my mind");
-  assert.equal(canonicalSongIdentity(variants[0]), "don toliver|lose my mind");
+  variants.forEach((track) => {
+    assert.equal(canonicalSongTitle(track), "lose my mind");
+    assert.equal(canonicalSongIdentity(track), "don toliver|lose my mind");
+  });
 });
 
-test("radio auto-extension rejects same-title variants and keeps genuinely different songs", () => {
+test("radio auto-extension rejects alternate uploads but keeps different artists with the same title", () => {
   let state = reducer(undefined, startYoutubePlayback({ track: seed, queue: [seed] }));
   state = reducer(state, appendToQueue([
     ...variants,
@@ -41,13 +43,19 @@ test("radio auto-extension rejects same-title variants and keeps genuinely diffe
   ]));
 
   assert.deepEqual(
-    state.youtubeQueue.map((track) => canonicalSongTitle(track)),
-    ["lose my mind", "no idea", "after party"],
+    state.youtubeQueue.map((track) => canonicalSongIdentity(track)),
+    [
+      "don toliver|lose my mind",
+      "don toliver|no idea",
+      "don toliver|after party",
+      "brett eldredge|lose my mind",
+      "partynextdoor|lose my mind",
+    ],
   );
   assert.equal(state.queueManualEnd, false);
 });
 
-test("finite playlist queues keep distinct same-title songs because playlist order is explicit", () => {
+test("finite playlist queues keep explicit order even when titles repeat", () => {
   let state = reducer(undefined, startYoutubePlayback({
     track: seed,
     queue: [seed],
