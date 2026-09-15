@@ -26,7 +26,7 @@ import { CardGridSkeleton } from "@/components/Skeleton";
 import { cleanTitle } from "@/utils/text";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { requestJson } from "@/services/http";
-import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import {
   getFavouriteLibrary,
   getPublicLibrary,
@@ -155,8 +155,17 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
         seedQuery: playlist.title,
         genre: playlist.title,
       }));
-      dispatch(setYoutubeQueue(seeded));
-      dispatch(setYoutubeVideo(seeded[0]));
+      dispatch(startYoutubePlayback({
+        queue: seeded,
+        track: seeded[0],
+        queueMode: "collection",
+        autoExtend: false,
+        context: {
+          type: "playlist",
+          id: String(playlist.id),
+          name: playlist.title || "Playlist",
+        },
+      }));
     } catch (playError) {
       toast.error(toUserError(playError, {
         title: "Playlist unavailable",
