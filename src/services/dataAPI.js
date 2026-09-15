@@ -17,52 +17,6 @@ function mutationFailure(error, fallback) {
   };
 }
 
-// home page data
-export async function homePageData(language) {
-  return null;
-}
-
-// get song data
-export async function getSongData(id) {
-  return null;
-}
-
-// get album data
-export async function getAlbumData(id) {
-  return null;
-}
-
-// get playlist data
-export async function getplaylistData(id) {
-  return null;
-}
-
-// get Lyrics data
-export async function getlyricsData(lyricsId) {
-  return null;
-}
-
-// get artist data
-export async function getArtistData(id) {
-  return null;
-}
-
-// get artist songs
-export async function getArtistSongs(id, page) {
-  return [];
-}
-
-// get artist albums
-export async function getArtistAlbums(id, page) {
-  return [];
-}
-
-// get search data
-export async function getSearchedData(query) {
-  return { songs: { results: [] }, albums: [], artists: [], playlists: [] };
-}
-
-// add and remove from favourite
 export async function addFavourite(id) {
   try {
     const data = await requestJson("/api/favourite", {
@@ -92,7 +46,6 @@ export async function addFavourite(id) {
   }
 }
 
-// get favourite
 export async function getFavourite() {
   const fallback = {
     title: "Liked Songs unavailable",
@@ -115,7 +68,6 @@ export async function getFavourite() {
   }
 }
 
-// user info
 export async function getUserInfo() {
   try {
     const data = await requestJson("/api/userInfo", {
@@ -128,7 +80,6 @@ export async function getUserInfo() {
   }
 }
 
-// reset password
 export async function resetPassword(password, confirmPassword, token) {
   return requestJson("/api/forgotPassword", {
     method: "PUT",
@@ -138,7 +89,6 @@ export async function resetPassword(password, confirmPassword, token) {
   });
 }
 
-// send reset password link
 export async function sendResetPasswordLink(email) {
   return requestJson("/api/forgotPassword", {
     method: "POST",
@@ -146,9 +96,4 @@ export async function sendResetPasswordLink(email) {
     fallbackTitle: "Couldn't send link",
     fallbackMessage: "We couldn't send a reset link. Please try again.",
   });
-}
-
-// get  recommended songs
-export async function getRecommendedSongs(artistId, songId) {
-  return [];
 }
