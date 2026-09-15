@@ -117,7 +117,7 @@ const fileSchema = new mongoose.Schema(
             pictureInPicture: { type: Boolean, default: true },
             masterVolume: { type: Number, min: 0, max: 1, default: 0.85 },
             keyboardShortcuts: { type: Boolean, default: true },
-            captions: { type: Boolean, default: true },
+            captions: { type: Boolean, default: false },
             fadeEnabled: { type: Boolean, default: true },
             fadeSeconds: { type: Number, min: 0, max: 12, default: 0.8 },
             spatialAudio: { type: Boolean, default: false },
