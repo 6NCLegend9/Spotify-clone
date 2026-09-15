@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { FiArrowLeft, FiClock, FiPlay } from "react-icons/fi";
-import { playPause, setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import MediaImage from "@/components/MediaImage";
 import EmptyState from "@/components/EmptyState";
@@ -12,7 +12,7 @@ import UserMessage from "@/components/UserMessage";
 import { SongRowsSkeleton } from "@/components/Skeleton";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
-import { cleanTitle } from "@/utils/text";
+import { cleanArtist, cleanTitle } from "@/utils/text";
 import { SITE_BRAND } from "@/utils/siteConfig";
 
 function formatDuration(seconds) {
@@ -58,15 +58,14 @@ export default function YouTubePlaylistPage() {
   );
 
   const playTrack = (track) => {
-    dispatch(setYoutubeQueue(seededTracks));
-    dispatch(setYoutubeVideo({ ...track, seedQuery: title, genre: title }));
+    const selected = seededTracks.find((item) => item.id === track.id) || track;
+    dispatch(startYoutubePlayback({ queue: seededTracks, track: selected, autoExtend: false }));
     dispatch(playPause(true));
   };
 
   const playAll = () => {
     if (!seededTracks.length) return;
-    dispatch(setYoutubeQueue(seededTracks));
-    dispatch(setYoutubeVideo(seededTracks[0]));
+    dispatch(startYoutubePlayback({ queue: seededTracks, track: seededTracks[0], autoExtend: false }));
     dispatch(playPause(true));
   };
 
@@ -101,7 +100,7 @@ export default function YouTubePlaylistPage() {
             <div className="min-w-0 pb-1">
               <p className="text-xs font-bold uppercase tracking-widest text-white/70">Playlist</p>
               <h1 className="mt-3 break-words text-4xl font-black sm:text-5xl lg:text-6xl">{cleanTitle(title)}</h1>
-              <p className="mt-4 text-sm text-gray-300">{cleanTitle(creator)} · {tracks.length} {tracks.length === 1 ? "song" : "songs"}</p>
+              <p className="mt-4 text-sm text-gray-300">{cleanArtist(creator)} · {tracks.length} {tracks.length === 1 ? "song" : "songs"}</p>
             </div>
           </div>
         </div>
@@ -130,7 +129,7 @@ export default function YouTubePlaylistPage() {
                 </button>
                 <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
                   <MediaImage src={track.thumbnail} size="mq" alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
-                  <span className="min-w-0"><span className="block truncate text-sm font-semibold">{cleanTitle(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{cleanTitle(track.channel)}</span></span>
+                  <span className="min-w-0"><span className="block truncate text-sm font-semibold">{cleanTitle(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{cleanArtist(track.channel)}</span></span>
                 </button>
                 <span className="text-right text-xs tabular-nums text-gray-400">{formatDuration(track.duration)}</span>
                 <AddToQueueButton track={track} className="text-gray-400 hover:text-white" />
