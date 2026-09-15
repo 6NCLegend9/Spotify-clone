@@ -89,8 +89,25 @@ const playerSlice = createSlice({
       state.queueUndo = null;
       state.position = 0;
       state.restorePosition = null;
-      state.youtubeVideo = decodeTrackFields(action.payload);
-      if (action.payload) {
+      let nextVideo = decodeTrackFields(action.payload);
+
+      // `extendQueue()` may dispatch accepted recommendations and then, before
+      // component refs refresh, fall back to the first raw candidate it fetched.
+      // If that candidate was an alternate upload rejected by radio de-duping,
+      // redirect the handoff to the first accepted upcoming queue entry instead.
+      if (nextVideo?.id && state.youtubeVideo?.id && state.queueManualEnd === false
+        && !state.youtubeQueue.some((item) => item?.id === nextVideo.id)
+        && canonicalSongIdentity(nextVideo)
+        && canonicalSongIdentity(nextVideo) === canonicalSongIdentity(state.youtubeVideo)) {
+        const currentIndex = state.youtubeQueue.findIndex((item) => item?.id === state.youtubeVideo.id);
+        const replacement = state.youtubeQueue
+          .slice(currentIndex < 0 ? 0 : currentIndex + 1)
+          .find((item) => item?.id && canonicalSongIdentity(item) !== canonicalSongIdentity(state.youtubeVideo));
+        if (replacement) nextVideo = replacement;
+      }
+
+      state.youtubeVideo = nextVideo;
+      if (nextVideo) {
         state.activeSong = {};
         state.currentSongs = [];
         state.isActive = false;
