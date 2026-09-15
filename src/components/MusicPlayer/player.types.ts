@@ -5,6 +5,8 @@ export interface PlayerTrack {
   title: string;
   channel?: string;
   thumbnail?: string;
+  queueEntryId?: string;
+  queueSource?: "user" | "context";
 }
 
 export interface PlayerDockProps {
