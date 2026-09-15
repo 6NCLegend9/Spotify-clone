@@ -7,16 +7,15 @@ import { Undo2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { PiDotsThreeVerticalBold } from "react-icons/pi";
 import { FiThumbsDown, FiClock, FiRadio, FiCornerDownRight, FiPlus } from "react-icons/fi";
-import { addToQueue, playNextToQueue, setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { addToQueue, playNextToQueue, startYoutubePlayback } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
-import { buildRadioQueue } from "@/utils/radioEngine.mjs";
 import { toUserError } from "@/utils/userError";
 import { useJam } from "@/components/Jam/JamProvider";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import BottomSheet from "@/components/BottomSheet";
 import MediaImage from "@/components/MediaImage";
 import PlayFab from "@/components/PlayFab";
-import { cleanTitle } from "@/utils/text";
+import { cleanArtist, cleanTitle } from "@/utils/text";
 
 export default function RecommendationCard({ video, queue }) {
   const dispatch = useDispatch();
@@ -37,23 +36,16 @@ export default function RecommendationCard({ video, queue }) {
   }, [menuOpen]);
 
   const playVideo = () => {
-    const seedQuery = video.seedQuery || video.genre;
-    // Parametric radio: re-rank the pool (variety + selection depth) around the
-    // clicked track, keep it playing first, and never drop tracks.
-    const tuned = buildRadioQueue({
-      seedTrack: video,
-      candidates: queue || [],
-      varietyLevel: "med",
-      selectionDepth: "discover",
-      limit: (queue || []).length || 50,
-    });
-    const seededQueue = [video, ...tuned].map((item) => ({
-      ...item,
-      seedQuery: item.seedQuery || item.genre || seedQuery,
-      genre: item.genre || video.genre,
-    }));
-    dispatch(setYoutubeQueue(seededQueue));
-    dispatch(setYoutubeVideo({ ...video, seedQuery, genre: video.genre || seedQuery }));
+    const artist = cleanArtist(video.channel);
+    const title = cleanTitle(video.title);
+    const seedQuery = video.seedQuery || video.genre || [artist, title].filter(Boolean).join(" ");
+    const radioTrack = {
+      ...video,
+      channel: artist || video.channel,
+      seedQuery,
+      genre: video.genre || artist || seedQuery,
+    };
+    dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
   };
 
   const savePreference = async (url, successMessage) => {
@@ -157,7 +149,7 @@ export default function RecommendationCard({ video, queue }) {
     : undefined;
 
   const title = cleanTitle(video.title);
-  const channel = cleanTitle(video.channel);
+  const channel = cleanArtist(video.channel);
 
   return (
     <article className="card group relative w-full text-left" onContextMenu={handleContextMenu}>
