@@ -16,6 +16,7 @@ const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
 
 type View = "player" | "lyrics";
+type PlaybackContext = { type?: string; id?: string; name?: string } | null;
 interface Props extends PlayerDockProps { onQueue: () => void; }
 export interface MediaPresentationHandle {
   open: () => void;
@@ -80,6 +81,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const [browserFullscreen, setBrowserFullscreen] = useState(false);
   const [fullscreenMessage, setFullscreenMessage] = useState("");
   const shortcutsEnabled = useSelector((state: { settings: { keyboardShortcuts?: boolean } }) => state.settings.keyboardShortcuts !== false);
+  const playbackContext = useSelector((state: { player: { playbackContext?: PlaybackContext } }) => state.player.playbackContext || null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -125,7 +127,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [canLyrics, leaveFullscreen, rememberFocus]);
   const openQueue = useCallback(() => {
     dismiss(); props.onQueue();
-  }, [dismiss, props]);
+  }, [dismiss, props.onQueue]);
   const close = useCallback(() => {
     if (view !== "player") setView("player");
     else if (expanded) { leaveFullscreen(); setExpanded(false); }
@@ -287,9 +289,19 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     aria-label={showingVideo ? "Switch to audio" : "Switch to video"}>
     {showingVideo ? <Music2 size={17} /> : <Video size={17} />}{showingVideo ? "Switch to audio" : "Switch to video"}
   </button> : null;
-  const upcomingIndex = props.queue.findIndex((track) => track.id === props.track.id);
+  const upcomingIndex = props.queue.findIndex((track) =>
+    props.track.queueEntryId && track.queueEntryId
+      ? track.queueEntryId === props.track.queueEntryId
+      : track.id === props.track.id,
+  );
   const upcoming = props.queue.slice(upcomingIndex < 0 ? 0 : upcomingIndex + 1, upcomingIndex < 0 ? 3 : upcomingIndex + 4);
   const metadata = <div className={styles.metadata}><div><h2>{props.track.title}</h2><p>{props.track.channel}</p></div>{props.favourite}</div>;
+  const sourceLabel = view === "player"
+    ? (playbackContext?.name ? "PLAYING FROM" : "NOW PLAYING")
+    : view.toUpperCase();
+  const sourceName = view === "player" && playbackContext?.name
+    ? playbackContext.name
+    : props.track.title;
   const mobileTransport = <div className={styles.mobileTransport}>
     <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
     <Transport {...props} />
@@ -302,7 +314,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const content = <>
     {overlay && <header className={styles.overlayHeader} onTouchStart={startGesture} onTouchEnd={endGesture}>
       <PlayerIconButton label={view !== "player" ? "Back to player" : expanded ? "Collapse video" : "Close player"} onClick={close}>{expanded ? <Minimize2 size={21} /> : <ChevronDown size={25} />}</PlayerIconButton>
-      <span className={styles.source}><small>{view === "player" ? "NOW PLAYING" : view.toUpperCase()}</small><strong>{props.track.title}</strong></span>
+      <span className={styles.source}><small>{sourceLabel}</small><strong>{sourceName}</strong></span>
       {expanded ? <div className={styles.topTools}>{modeButton}
         <Link href="/settings" onClick={dismiss} aria-label="Video quality settings" className={styles.modeButton}><Settings2 size={17} /><span>Quality settings</span></Link>
         {fullscreenAvailable && <PlayerIconButton label={browserFullscreen ? "Exit fullscreen" : "Enter fullscreen"} onClick={toggleBrowserFullscreen}><Maximize2 size={18} /></PlayerIconButton>}
@@ -319,7 +331,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
           <div className={styles.mediaTools}>{modeButton}</div>{metadata}
           {mobile && mobileTransport}
           <section className={styles.queue} aria-label="Next in queue"><header><h3>Next in queue</h3><button type="button" onClick={openQueue}>Show all</button></header>
-            {upcoming.length ? upcoming.map((track, index) => <button type="button" key={`${track.id}-${index}`} disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueRow}>
+            {upcoming.length ? upcoming.map((track, index) => <button type="button" key={track.queueEntryId || `${track.id}-${index}`} disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueRow}>
               <img src={track.thumbnail || "/icon-192x192.png"} alt="" width={44} height={44} />
               <span><strong>{track.title}</strong><small>{track.channel}</small></span>
             </button>) : <p className={styles.empty}>Your queue is empty.</p>}
