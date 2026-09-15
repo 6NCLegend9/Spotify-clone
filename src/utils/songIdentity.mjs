@@ -32,11 +32,18 @@ function cleanSongSegment(value) {
   );
 }
 
+function cleanArtistSegment(value) {
+  return normalizeArtist(
+    String(value || "")
+      .replace(/\((?:[^)]*\b(?:official|video|audio|version|visuali[sz]er|soundtrack|movie|lyrics?|4k|uhd|hd)\b[^)]*)\)/gi, " ")
+      .replace(/\[(?:[^\]]*\b(?:official|video|audio|version|visuali[sz]er|soundtrack|movie|lyrics?|4k|uhd|hd)\b[^\]]*)\]/gi, " ")
+      .replace(MEDIA_SUFFIX, " "),
+  );
+}
+
 /**
- * Produces a title-level identity for radio de-duplication. Different YouTube
- * uploads of the same recording often have unrelated video ids, uploaders and
- * suffixes (Official Video, Official Audio, Topic, visualizer, soundtrack).
- * Radio queues intentionally collapse those variants to one song title.
+ * Produces a title-level identity for display grouping and diagnostics. Different
+ * YouTube uploads of the same recording often have unrelated ids and media suffixes.
  */
 export function canonicalSongTitle(track) {
   const raw = String(track?.title || track?.name || "").trim();
@@ -51,8 +58,8 @@ export function canonicalSongTitle(track) {
   if (parts.length === 1) return cleanSongSegment(parts[0]);
 
   const channel = normalizeArtist(track?.channel || track?.channelTitle || track?.artist || "");
-  const firstArtist = normalizeArtist(parts[0]);
-  const secondArtist = normalizeArtist(parts[1]);
+  const firstArtist = cleanArtistSegment(parts[0]);
+  const secondArtist = cleanArtistSegment(parts[1]);
 
   // Handles "Song ft. Artist – Primary Artist" and "Song – Artist" uploads.
   if (FEATURE_MARKER.test(parts[0])) return cleanSongSegment(parts[0]);
@@ -61,12 +68,15 @@ export function canonicalSongTitle(track) {
   }
 
   // The overwhelmingly common YouTube music shape is "Artist - Song".
-  // This also fixes soundtrack channels such as "F1 The Album" where the
-  // uploader is not the primary artist but the title still begins with them.
+  // This also fixes soundtrack channels where the uploader is not the artist.
   if (firstArtist) return cleanSongSegment(parts[1]);
   return cleanSongSegment(parts[0]);
 }
 
+/**
+ * Canonical recording identity for radio de-duplication. Artist is part of the
+ * key so unrelated songs that share a title remain eligible recommendations.
+ */
 export function canonicalSongIdentity(track) {
   const title = canonicalSongTitle(track);
   if (!title) return "";
@@ -75,12 +85,13 @@ export function canonicalSongIdentity(track) {
   const channel = normalizeArtist(track?.channel || track?.channelTitle || track?.artist || "");
   let artist = channel;
   if (parts.length > 1) {
-    if (FEATURE_MARKER.test(parts[0])) artist = normalizeArtist(parts[1]) || channel;
-    else {
-      const second = normalizeArtist(parts[1]);
+    if (FEATURE_MARKER.test(parts[0])) {
+      artist = cleanArtistSegment(parts[1]) || channel;
+    } else {
+      const second = cleanArtistSegment(parts[1]);
       artist = channel && second && (channel === second || channel.includes(second) || second.includes(channel))
         ? channel
-        : normalizeArtist(parts[0]) || channel;
+        : cleanArtistSegment(parts[0]) || channel;
     }
   }
   return artist ? `${artist}|${title}` : title;
