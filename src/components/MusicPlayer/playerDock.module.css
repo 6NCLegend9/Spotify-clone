@@ -23,9 +23,9 @@
 .mobileProgress span { display: block; height: 100%; background: var(--accent); transition: width 180ms linear; }
 .volume { display: none; }
 .dock:has(~ [data-kasa-media-view="drawer"]), .dock:has(~ [data-kasa-media-view="expanded"]) { visibility: hidden; }
-.dialog { inset: 0; margin: auto; width: min(100%, 480px); max-width: 100%; height: min(100dvh, 800px); max-height: 100dvh; padding: 0 0 env(safe-area-inset-bottom); color: var(--text); background: var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 12px; letter-spacing: 0; }
-.dialog[open] { display: flex; flex-direction: column; }
-.dialog::backdrop { background: rgb(0 8 20 / 75%); }
+.queueBackdrop { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; background: rgb(0 8 20 / 78%); }
+.dialog { position: relative; display: flex; flex-direction: column; width: min(100%, 480px); max-width: 100%; height: min(100dvh, 800px); max-height: calc(100dvh - 48px); padding: 0 0 env(safe-area-inset-bottom); overflow: hidden; color: var(--text); background: var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 12px; letter-spacing: 0; box-shadow: 0 28px 70px rgb(0 0 0 / 45%); }
+.dialog:focus { outline: none; }
 .dialog button { min-width: 48px; min-height: 48px; }
 .stage { display: flex; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; }
 .nowPlaying, .queuePane { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem; }
@@ -46,7 +46,7 @@
 }
 @media (min-width: 1180px) { .favourite, .pip { display: block; } .dock { grid-template-columns: minmax(0,1fr) minmax(280px,560px) minmax(0,1fr); } }
 @media (min-width: 1440px) { .volume { display: block; } }
-@media (max-width: 479px) { .dialog { width: 100%; height: 100dvh; border-radius: 0; border: 0; } }
-@media (prefers-reduced-motion: no-preference) { .dialog[open] { animation: player-enter 160ms ease-out; } }
+@media (max-width: 479px) { .queueBackdrop { padding: 0; } .dialog { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; } }
+@media (prefers-reduced-motion: no-preference) { .dialog { animation: player-enter 160ms ease-out; } }
 @keyframes player-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .iconButton, .mobileProgress span { transition: none; } }
