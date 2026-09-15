@@ -28,10 +28,20 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0) {
       seedQuery,
       genre: start.genre || artist || seedQuery,
     };
-    dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
+    dispatch(startYoutubePlayback({
+      queue: [radioTrack],
+      track: radioTrack,
+      queueMode: "radio",
+      context: {
+        type: "radio",
+        id: String(start.id),
+        name: artist ? `${artist} Radio` : `${title || "Track"} Radio`,
+      },
+    }));
     return;
   }
 
+  // Legacy non-YouTube fallback remains until its final callers are migrated.
   dispatch(setActiveSong({ song: start, data: list, i: list.indexOf(start) }));
   dispatch(setFullScreen(true));
   dispatch(playPause(true));
