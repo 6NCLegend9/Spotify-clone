@@ -26,7 +26,6 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
   const router = useRouter();
   const { status } = useSession();
   const youtubeVideo = useSelector((state) => state.player.youtubeVideo);
-  const youtubeQueue = useSelector((state) => state.player.youtubeQueue || []);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState("actions");
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -87,7 +86,16 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
 
   const startIfIdle = () => {
     if (youtubeVideo?.id) return false;
-    dispatch(startYoutubePlayback({ queue: [track], track }));
+    dispatch(startYoutubePlayback({
+      queue: [track],
+      track,
+      queueMode: "radio",
+      context: {
+        type: "radio",
+        id: track.id,
+        name: track.title || "Track radio",
+      },
+    }));
     toast.success("Playing now");
     closeMenu();
     return true;
@@ -106,11 +114,8 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
     event.preventDefault();
     event.stopPropagation();
     if (startIfIdle()) return;
-    if (youtubeQueue.some((item) => item?.id === track.id)) {
-      toast("Already in queue");
-      closeMenu();
-      return;
-    }
+    // Deliberate queue additions are occurrences, not unique songs. Spotify-like
+    // queues allow the same recording to be added twice on purpose.
     dispatch(addToQueue(track));
     toast.success("Added to queue");
     closeMenu();
