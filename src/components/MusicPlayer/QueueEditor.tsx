@@ -19,7 +19,11 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const slotRef = useRef<number | null>(null);
-  const currentIndex = props.queue.findIndex((track) => track.id === props.track.id);
+  const currentIndex = props.queue.findIndex((track) =>
+    props.track.queueEntryId && track.queueEntryId
+      ? track.queueEntryId === props.track.queueEntryId
+      : track.id === props.track.id,
+  );
   const boundary = currentIndex < 0 ? 0 : currentIndex + 1;
   const upcomingCount = Math.max(0, props.queue.length - boundary);
 
@@ -143,8 +147,9 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
         const showBefore = draggingIndex !== null && dropSlot === index;
         const showAfter = draggingIndex !== null && index === props.queue.length - 1 && dropSlot === props.queue.length;
         return <li
-          key={`${track.id}-${index}`}
+          key={track.queueEntryId || `${track.id}-${index}`}
           data-track-id={track.id}
+          data-queue-entry-id={track.queueEntryId || undefined}
           data-queue-index={index}
           className={`relative border-b border-[var(--hairline)] pb-1 transition ${dragging ? "opacity-30" : ""}`}
         >
