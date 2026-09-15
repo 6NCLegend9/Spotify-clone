@@ -168,6 +168,9 @@ const playerSlice = createSlice({
       const track = decodeTrackFields(action.payload);
       if (track?.id && !state.youtubeQueue.some((item) => item.id === track.id)) {
         state.queueUndo = null;
+        // If Clear Queue left only the current radio seed, a deliberate user
+        // addition reopens continuation. Finite multi-track collections remain finite.
+        if (state.queueManualEnd && state.youtubeQueue.length <= 1) state.queueManualEnd = false;
         state.youtubeQueue.push(track);
       }
     },
