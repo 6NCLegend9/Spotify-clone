@@ -269,7 +269,7 @@ const playerSlice = createSlice({
       if (!track?.id) return;
       state.queueUndo = null;
       state.youtubeQueue.push(track);
-      state.userQueue.push(track);
+      syncUserQueue(state);
     },
 
     appendToQueue: (state, action) => {
@@ -297,16 +297,38 @@ const playerSlice = createSlice({
     },
 
     playNextToQueue: (state, action) => {
-      const track = nextQueueEntry(state, action.payload, 'user');
-      if (!track?.id) return;
+      const incoming = decodeTrackFields(action.payload);
+      if (!incoming?.id) return;
+
+      // Playing the current recording "next" is a no-op rather than an accidental duplicate.
+      if (state.youtubeVideo?.id === incoming.id) return;
+
       state.queueUndo = null;
-      const currentEntryId = state.youtubeVideo?.queueEntryId;
-      const index = currentEntryId
-        ? state.youtubeQueue.findIndex((item) => item.queueEntryId === currentEntryId)
-        : state.youtubeQueue.findIndex((item) => item.id === state.youtubeVideo?.id);
-      const insertIndex = index >= 0 ? index + 1 : 0;
+      const currentIdentity = state.youtubeVideo?.queueEntryId || state.youtubeVideo?.id;
+      let currentIndex = currentIdentity
+        ? state.youtubeQueue.findIndex((item) => sameOccurrence(item, state.youtubeVideo)
+          || item.queueEntryId === currentIdentity || item.id === currentIdentity)
+        : -1;
+
+      // If this recording already exists in the queue, promote that exact occurrence.
+      // Add to Queue remains occurrence-based and may intentionally contain duplicates;
+      // Play Next behaves like Spotify and repositions an existing matching row.
+      let candidateIndex = state.youtubeQueue.findIndex((item, index) =>
+        index !== currentIndex && item?.id === incoming.id,
+      );
+      let track;
+      if (candidateIndex >= 0) {
+        [track] = state.youtubeQueue.splice(candidateIndex, 1);
+        track.queueSource = 'user';
+        if (candidateIndex < currentIndex) currentIndex -= 1;
+      } else {
+        track = nextQueueEntry(state, incoming, 'user');
+      }
+      if (!track) return;
+
+      const insertIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
       state.youtubeQueue.splice(insertIndex, 0, track);
-      state.userQueue.unshift(track);
+      syncUserQueue(state);
     },
 
     clearUserQueue: (state) => {
