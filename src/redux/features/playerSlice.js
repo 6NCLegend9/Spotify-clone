@@ -101,9 +101,10 @@ const playerSlice = createSlice({
       }
     },
 
+    // Reordering an existing queue (shuffle, mood, queue editor) must not change
+    // whether it is a finite collection or an auto-extending radio queue.
     setYoutubeQueue: (state, action) => {
       state.queueUndo = null;
-      state.queueManualEnd = false;
       state.youtubeQueue = (action.payload || []).map((track) => decodeTrackFields(track));
     },
 
@@ -115,7 +116,9 @@ const playerSlice = createSlice({
         : [];
       if (!queue.some((item) => item.id === track.id)) queue.unshift(track);
       state.queueUndo = null;
-      state.queueManualEnd = false;
+      // `autoExtend: false` marks a finite collection such as a playlist or
+      // Liked Songs. Home/Search starts omit it and become track-seeded radio.
+      state.queueManualEnd = action.payload?.autoExtend === false;
       state.youtubeQueue = queue;
       state.youtubeVideo = track;
       state.activeSong = {};
@@ -157,7 +160,6 @@ const playerSlice = createSlice({
       const track = decodeTrackFields(action.payload);
       if (track?.id && !state.youtubeQueue.some((item) => item.id === track.id)) {
         state.queueUndo = null;
-        state.queueManualEnd = false;
         state.youtubeQueue.push(track);
       }
     },
@@ -180,7 +182,6 @@ const playerSlice = createSlice({
       if (!track?.id) return;
       if (track.id === state.youtubeVideo?.id) return;
       state.queueUndo = null;
-      state.queueManualEnd = false;
       const queue = state.youtubeQueue || [];
       const currentId = state.youtubeVideo?.id;
       const filtered = queue.filter((item) => item.id !== track.id);
