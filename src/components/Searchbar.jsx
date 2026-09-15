@@ -254,7 +254,6 @@ const Searchbar = () => {
                 type="button"
                 role="option"
                 aria-selected={selectedIndex === index}
-                onPointerDown={(event) => event.preventDefault()}
                 onClick={() => playSong(item.song)}
                 className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
               >
@@ -274,7 +273,6 @@ const Searchbar = () => {
                 type="button"
                 role="option"
                 aria-selected={selectedIndex === index}
-                onPointerDown={(event) => event.preventDefault()}
                 onClick={() => chooseGenre(item.match)}
                 className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
               >
