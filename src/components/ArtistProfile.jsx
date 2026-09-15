@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
-import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
 import PlayFab from "@/components/PlayFab";
@@ -94,8 +94,12 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
       seedQuery: item.seedQuery || artist.title,
       genre: item.genre || artist.title,
     }));
-    dispatch(setYoutubeQueue(queue));
-    dispatch(setYoutubeVideo({ ...video, seedQuery: artist.title, genre: artist.title }));
+    const selected = queue.find((item) => item.id === video.id) || {
+      ...video,
+      seedQuery: video.seedQuery || artist.title,
+      genre: video.genre || artist.title,
+    };
+    dispatch(startYoutubePlayback({ queue, track: selected, autoExtend: false }));
   };
 
   const playAll = () => {
