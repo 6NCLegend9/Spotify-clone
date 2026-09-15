@@ -45,7 +45,16 @@ export default function RecommendationCard({ video, queue }) {
       seedQuery,
       genre: video.genre || artist || seedQuery,
     };
-    dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
+    dispatch(startYoutubePlayback({
+      queue: [radioTrack],
+      track: radioTrack,
+      queueMode: "radio",
+      context: {
+        type: "radio",
+        id: String(video.id),
+        name: artist ? `${artist} Radio` : `${title || "Track"} Radio`,
+      },
+    }));
   };
 
   const savePreference = async (url, successMessage) => {
@@ -141,8 +150,6 @@ export default function RecommendationCard({ video, queue }) {
 
   const handleContextMenu = showMenu
     ? (event) => {
-        // Desktop right-click (and Android long-press, which fires contextmenu)
-        // open the same options menu instead of the native browser menu.
         event.preventDefault();
         setMenuOpen(true);
       }
@@ -172,21 +179,10 @@ export default function RecommendationCard({ video, queue }) {
           </button>
           {!isMobile && menuOpen ? (
             <>
-              <button
-                type="button"
-                aria-label="Close menu"
-                className="fixed inset-0 z-10 cursor-default"
-                onClick={() => setMenuOpen(false)}
-              />
+              <button type="button" aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setMenuOpen(false)} />
               <div role="menu" className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-white/10 bg-[#07121d] py-1 text-sm shadow-2xl">
                 {actions.map(({ key, Icon, label, accent, onClick }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="menuitem"
-                    onClick={onClick}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/5 ${accent ? "text-[#00e6e6]" : "text-gray-200"}`}
-                  >
+                  <button key={key} type="button" role="menuitem" onClick={onClick} className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/5 ${accent ? "text-[#00e6e6]" : "text-gray-200"}`}>
                     <Icon aria-hidden="true" /> {label}
                   </button>
                 ))}
@@ -200,12 +196,7 @@ export default function RecommendationCard({ video, queue }) {
           <p className="mb-2 line-clamp-1 px-1 text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">{title}</p>
           <div className="flex flex-col">
             {actions.map(({ key, Icon, label, accent, onClick }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={onClick}
-                className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] hover:bg-white/5 active:bg-white/10 ${accent ? "text-[#00e6e6]" : "text-gray-100"}`}
-              >
+              <button key={key} type="button" onClick={onClick} className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] hover:bg-white/5 active:bg-white/10 ${accent ? "text-[#00e6e6]" : "text-gray-100"}`}>
                 <Icon aria-hidden="true" className="shrink-0 text-lg" /> {label}
               </button>
             ))}
@@ -215,14 +206,7 @@ export default function RecommendationCard({ video, queue }) {
       <button type="button" onClick={playVideo} className="block w-full p-3 text-left">
         <p className="home-shelf-title mt-0">{title}</p>
         <div className="mt-2 flex items-center gap-2">
-          {video.artistThumbnail ? (
-            <MediaImage
-              src={video.artistThumbnail}
-              size="mq"
-              alt=""
-              className="h-5 w-5 shrink-0 rounded-full object-cover"
-            />
-          ) : null}
+          {video.artistThumbnail ? <MediaImage src={video.artistThumbnail} size="mq" alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" /> : null}
           <p className="truncate text-xs text-gray-400">{channel}</p>
         </div>
         <p className="mt-2 text-[11px] text-[#00e6e6]">{video.reason}</p>
