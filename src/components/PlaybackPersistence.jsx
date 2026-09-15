@@ -40,7 +40,10 @@ export default function PlaybackPersistence() {
       if (player.youtubeVideo === previous.youtubeVideo
         && player.youtubeQueue === previous.youtubeQueue
         && player.position === previous.position
-        && player.queueManualEnd === previous.queueManualEnd) return;
+        && player.queueMode === previous.queueMode
+        && player.playbackContext === previous.playbackContext
+        && player.userQueue === previous.userQueue
+        && player.history === previous.history) return;
       previous = player;
       pending = player;
       clearTimeout(timer);
