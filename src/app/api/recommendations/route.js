@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import UserData from "@/models/UserData";
 import Genre from "@/models/Genre";
 import { youtubeFetch } from "@/utils/youtubeApi";
-import { cleanTitle } from "@/utils/text";
+import { cleanArtist, cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { ensureSystemGenres } from "@/services/genreCatalog";
 import { normalizeGenreName } from "@/utils/genreTaxonomy";
@@ -10,6 +10,8 @@ import {
   resolveGenrePreferences,
   resolveRecommendationPlan,
 } from "@/utils/recommendationSeeds.mjs";
+import { buildOfficialMusicQuery, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
+import { canonicalSongIdentity } from "@/utils/songIdentity.mjs";
 import {
   ApiRouteError,
   apiError,
@@ -49,7 +51,8 @@ function normalizeVideo(item, reason, extra = {}) {
   return {
     id: typeof item?.id === "string" ? item.id : item?.id?.videoId,
     title: cleanTitle(item?.snippet?.title || ""),
-    channel: cleanTitle(item?.snippet?.channelTitle || ""),
+    channel: cleanArtist(item?.snippet?.channelTitle || ""),
+    channelId: item?.snippet?.channelId || "",
     description: cleanTitle(item?.snippet?.description || ""),
     thumbnail:
       item?.snippet?.thumbnails?.high?.url ||
@@ -68,14 +71,16 @@ async function searchYouTube(query, reason, extra = {}) {
     videoCategoryId: "10",
     videoEmbeddable: "true",
     videoSyndicated: "true",
-    maxResults: "8",
-    q: `${query} official audio`,
+    maxResults: "12",
+    q: buildOfficialMusicQuery(query),
+    safeSearch: "moderate",
   };
   const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
   if (!ok) return [];
-  return (Array.isArray(data?.items) ? data.items : [])
+  const videos = (Array.isArray(data?.items) ? data.items : [])
     .filter((item) => item?.id?.videoId)
     .map((item) => normalizeVideo(item, reason, extra));
+  return rankOfficialMusicResults(videos, query).slice(0, 8);
 }
 
 async function getPopularMusic() {
@@ -112,13 +117,26 @@ async function searchPlaylists(query) {
     .map((item) => ({
       id: item.id.playlistId,
       title: cleanTitle(item.snippet?.title || ""),
-      channel: cleanTitle(item.snippet?.channelTitle || ""),
+      channel: cleanArtist(item.snippet?.channelTitle || ""),
       thumbnail:
         item.snippet?.thumbnails?.high?.url ||
         item.snippet?.thumbnails?.medium?.url ||
         item.snippet?.thumbnails?.default?.url ||
         "",
     }));
+}
+
+function uniqueSongs(videos) {
+  const ids = new Set();
+  const identities = new Set();
+  return videos.filter((video) => {
+    if (!video?.id || ids.has(video.id)) return false;
+    const identity = canonicalSongIdentity(video);
+    if (identity && identities.has(identity)) return false;
+    ids.add(video.id);
+    if (identity) identities.add(identity);
+    return true;
+  });
 }
 
 export async function GET(request) {
@@ -141,10 +159,9 @@ export async function GET(request) {
     const skipped = new Set(profile?.skippedTracks || []);
     const recent = new Set((profile?.songHistory || []).map((song) => song?.id || song));
     const explicitDisabled = mode === "guest" || profile?.settings?.explicitContent === false;
-    const filterRecommendations = (videos) => videos
+    const filterRecommendations = (videos) => uniqueSongs(videos
       .filter((video) => !excluded.has(video.id) && !snoozed.has(video.id) && !skipped.has(video.id) && !recent.has(video.id))
-      .filter((video) => !explicitDisabled || !/explicit|uncensored|18\+/i.test(`${video.title} ${video.description}`))
-      .filter((video, index, all) => all.findIndex((item) => item.id === video.id) === index);
+      .filter((video) => !explicitDisabled || !/explicit|uncensored|18\+/i.test(`${video.title} ${video.description}`)));
 
     let source = "search";
     let recommendations = [];
