@@ -22,7 +22,10 @@ for (const [name, queue, current, selected, expected] of [
 }
 test("Play next on an empty queue inserts once and ignores invalid tracks", () => {
   let state = reducer(undefined, playNextToQueue(tracks.A));
+  const firstEntryId = state.youtubeQueue[0]?.queueEntryId;
   state = reducer(state, playNextToQueue(tracks.A));
   state = reducer(state, playNextToQueue(null));
-  assert.deepEqual(state.youtubeQueue, [tracks.A]);
+  assert.deepEqual(state.youtubeQueue.map((item) => item.id), [tracks.A.id]);
+  assert.equal(state.youtubeQueue[0].queueSource, "user");
+  assert.equal(state.youtubeQueue[0].queueEntryId, firstEntryId);
 });
