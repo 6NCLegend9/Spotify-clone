@@ -1,5 +1,11 @@
-export function shuffleUpcoming(queue, currentId, random = Math.random) {
-  const index = queue.findIndex((track) => track.id === currentId);
+function matchesTrack(track, identity) {
+  if (!track || !identity) return false;
+  if (track.queueEntryId && track.queueEntryId === identity) return true;
+  return track.id === identity;
+}
+
+export function shuffleUpcoming(queue, currentIdentity, random = Math.random) {
+  const index = queue.findIndex((track) => matchesTrack(track, currentIdentity));
   const boundary = index < 0 ? 0 : index + 1;
   const upcoming = queue.slice(boundary);
   for (let cursor = upcoming.length - 1; cursor > 0; cursor -= 1) {
@@ -9,22 +15,23 @@ export function shuffleUpcoming(queue, currentId, random = Math.random) {
   return [...queue.slice(0, boundary), ...upcoming];
 }
 
-export function nextQueueTrack(queue, currentId, repeat = false) {
-  const index = queue.findIndex((track) => track?.id === currentId);
+export function nextQueueTrack(queue, currentIdentity, repeat = false) {
+  const index = queue.findIndex((track) => matchesTrack(track, currentIdentity));
   if (index < 0) return null;
   return queue.slice(index + 1).find((track) => track?.id)
     || (repeat ? queue.find((track) => track?.id) : null) || null;
 }
 
-export function editUpcomingQueue(queue, currentId, { kind, id, index: requestedIndex, direction, toIndex }) {
-  const currentIndex = queue.findIndex((track) => track.id === currentId);
+export function editUpcomingQueue(queue, currentIdentity, { kind, id, entryId, index: requestedIndex, direction, toIndex }) {
+  const currentIndex = queue.findIndex((track) => matchesTrack(track, currentIdentity));
   const boundary = currentIndex < 0 ? 0 : currentIndex + 1;
   if (kind === "clear") return queue.length > boundary ? queue.slice(0, boundary) : queue;
 
-  // Prefer a concrete row index so duplicate tracks can be edited independently.
+  // Prefer a concrete row index or occurrence id so duplicate tracks can be edited independently.
   const index = Number.isInteger(requestedIndex)
     ? requestedIndex
-    : queue.findIndex((track, position) => position >= boundary && track.id === id);
+    : queue.findIndex((track, position) => position >= boundary
+      && (entryId ? track.queueEntryId === entryId : track.id === id));
   if (index < boundary || index < 0 || index >= queue.length) return queue;
 
   if (kind === "remove") {
