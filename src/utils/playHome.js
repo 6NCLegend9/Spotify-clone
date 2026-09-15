@@ -4,7 +4,7 @@ import {
   setFullScreen,
   startYoutubePlayback,
 } from "@/redux/features/playerSlice";
-import { buildRadioQueue } from "@/utils/radioEngine.mjs";
+import { cleanArtist, cleanTitle } from "@/utils/text";
 
 function isYoutubeTrack(track) {
   if (!track) return false;
@@ -19,21 +19,16 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0) {
 
   const start = list[Math.max(0, Math.min(startIndex, list.length - 1))];
   if (isYoutubeTrack(start)) {
-    const youtubeList = list.filter(isYoutubeTrack);
-    const seedQuery = start.seedQuery || start.genre;
-    const tuned = buildRadioQueue({
-      seedTrack: start,
-      candidates: youtubeList,
-      varietyLevel: "med",
-      selectionDepth: "discover",
-      limit: youtubeList.length || 50,
-    });
-    const seededQueue = [start, ...tuned.filter((track) => track?.id !== start.id)].map((item) => ({
-      ...item,
-      seedQuery: item.seedQuery || item.genre || seedQuery,
-      genre: item.genre || start.genre,
-    }));
-    dispatch(startYoutubePlayback({ queue: seededQueue, track: { ...start, seedQuery, genre: start.genre || seedQuery } }));
+    const artist = cleanArtist(start.channel);
+    const title = cleanTitle(start.title || start.name);
+    const seedQuery = start.seedQuery || start.genre || [artist, title].filter(Boolean).join(" ");
+    const radioTrack = {
+      ...start,
+      channel: artist || start.channel,
+      seedQuery,
+      genre: start.genre || artist || seedQuery,
+    };
+    dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
     return;
   }
 
