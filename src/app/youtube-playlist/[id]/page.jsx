@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { FiArrowLeft, FiClock, FiPlay } from "react-icons/fi";
-import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
+import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import MediaImage from "@/components/MediaImage";
 import EmptyState from "@/components/EmptyState";
@@ -56,17 +56,32 @@ export default function YouTubePlaylistPage() {
     () => tracks.map((track) => ({ ...track, seedQuery: title, genre: title })),
     [title, tracks],
   );
+  const playbackContext = useMemo(() => ({
+    type: "playlist",
+    id: String(id),
+    name: cleanTitle(title, "Playlist"),
+  }), [id, title]);
 
   const playTrack = (track) => {
     const selected = seededTracks.find((item) => item.id === track.id) || track;
-    dispatch(startYoutubePlayback({ queue: seededTracks, track: selected, autoExtend: false }));
-    dispatch(playPause(true));
+    dispatch(startYoutubePlayback({
+      queue: seededTracks,
+      track: selected,
+      queueMode: "collection",
+      autoExtend: false,
+      context: playbackContext,
+    }));
   };
 
   const playAll = () => {
     if (!seededTracks.length) return;
-    dispatch(startYoutubePlayback({ queue: seededTracks, track: seededTracks[0], autoExtend: false }));
-    dispatch(playPause(true));
+    dispatch(startYoutubePlayback({
+      queue: seededTracks,
+      track: seededTracks[0],
+      queueMode: "collection",
+      autoExtend: false,
+      context: playbackContext,
+    }));
   };
 
   const unavailable = !loading && (
