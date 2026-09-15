@@ -37,8 +37,7 @@ import {
 } from "@/services/libraryApi";
 import {
   setAutoAdd,
-  setYoutubeQueue,
-  setYoutubeVideo,
+  startYoutubePlayback,
 } from "@/redux/features/playerSlice";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import AddToQueueButton from "@/components/AddToQueueButton";
@@ -277,23 +276,40 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
       genre: item.genre || title,
     }));
 
+  const playbackContext = {
+    type: isLiked ? "liked" : "playlist",
+    id: isLiked ? "liked" : String(playlistId || collection?._id || ""),
+    name: title,
+  };
+
   const playTrack = async (track) => {
     const queue = seedTracks(await createQueue());
     if (!live.current) return;
-    dispatch(setYoutubeQueue(queue));
-    dispatch(setYoutubeVideo({
+    const selected = queue.find((item) => item.id === track.id) || {
       ...track,
       seedQuery: track.seedQuery || track.genre || title,
       genre: track.genre || title,
+    };
+    dispatch(startYoutubePlayback({
+      queue,
+      track: selected,
+      queueMode: "collection",
+      autoExtend: false,
+      context: playbackContext,
     }));
   };
 
   const playCollection = async () => {
     if (tracks.length === 0) return;
     const queue = seedTracks(await createQueue());
-    if (!live.current) return;
-    dispatch(setYoutubeQueue(queue));
-    dispatch(setYoutubeVideo(queue[0]));
+    if (!live.current || queue.length === 0) return;
+    dispatch(startYoutubePlayback({
+      queue,
+      track: queue[0],
+      queueMode: "collection",
+      autoExtend: false,
+      context: playbackContext,
+    }));
   };
 
   const reportMutationError = (failure, fallback) => {
