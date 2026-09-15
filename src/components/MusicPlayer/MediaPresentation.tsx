@@ -63,6 +63,7 @@ export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | n
 
 /** One presentation owner. It never recreates decks or invokes legacy view callbacks. */
 const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function MediaPresentation(props, ref) {
+  const { onQueue } = props;
   const [mediaHost, setMediaHost] = useState<HTMLElement | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [mobile, setMobile] = useState(false);
@@ -88,7 +89,6 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const ownsFullscreenRef = useRef(false);
   const gestureRef = useRef<{ x: number; y: number } | null>(null);
   const dismissStartRef = useRef<{ pointerId: number; y: number } | null>(null);
-  // These existing props advertise capability only; calling them opens the old UI.
   const canVideo = Boolean(props.onVideo);
   const canLyrics = Boolean(props.onLyrics);
   const overlay = expanded || drawer;
@@ -126,8 +126,8 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     rememberFocus(); leaveFullscreen(); setExpanded(false); setDrawer(true); setView("lyrics");
   }, [canLyrics, leaveFullscreen, rememberFocus]);
   const openQueue = useCallback(() => {
-    dismiss(); props.onQueue();
-  }, [dismiss, props.onQueue]);
+    dismiss(); onQueue();
+  }, [dismiss, onQueue]);
   const close = useCallback(() => {
     if (view !== "player") setView("player");
     else if (expanded) { leaveFullscreen(); setExpanded(false); }
@@ -157,8 +157,6 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [leaveFullscreen]);
 
   useEffect(() => {
-    // Track transitions can briefly report no video capability. Keep the user's
-    // chosen mode so the next playable track returns to that same presentation.
     if (!canVideo && expanded) setExpanded(false);
     if (!canLyrics && view === "lyrics") setView("player");
   }, [canVideo, canLyrics, expanded, view]);
@@ -166,7 +164,6 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const hasOtherDialog = useCallback(() => Array.from(document.querySelectorAll<HTMLElement>('dialog[open], [role="dialog"][aria-modal="true"]'))
     .some((element) => element !== overlayRef.current && element.getClientRects().length > 0), []);
 
-  // Preserve transport shortcuts; take ownership only of legacy view shortcuts.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!shortcutsEnabled || event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || hasOtherDialog()) return;
@@ -217,7 +214,6 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
 
   useEffect(() => { if (overlay) overlayRef.current?.focus(); }, [view, expanded, overlay]);
 
-  // Geometry only: leave both media decks and iframe identities in their original tree.
   useEffect(() => {
     const host = mediaHost;
     const region = host?.closest<HTMLElement>(".app-player");
