@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { decodeTrackFields } from '../../utils/text.js';
 import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
 import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
-import { canonicalSongTitle } from '../../utils/songIdentity.mjs';
+import { canonicalSongIdentity } from '../../utils/songIdentity.mjs';
 
 const initialState = {
   currentSongs: [],
@@ -179,9 +179,9 @@ const playerSlice = createSlice({
       const tracks = action.payload || [];
       const existingIds = new Set(state.youtubeQueue.map((item) => item.id));
       const radioMode = state.queueManualEnd === false;
-      const existingSongTitles = new Set(
+      const existingSongIdentities = new Set(
         radioMode
-          ? state.youtubeQueue.map((item) => canonicalSongTitle(item)).filter(Boolean)
+          ? state.youtubeQueue.map((item) => canonicalSongIdentity(item)).filter(Boolean)
           : [],
       );
 
@@ -189,16 +189,16 @@ const playerSlice = createSlice({
         const decoded = decodeTrackFields(track);
         if (!decoded?.id || existingIds.has(decoded.id)) return;
 
-        // Radio recommendations must be different songs, not alternate YouTube
-        // uploads of the same recording. This intentionally collapses official
-        // video/audio/Topic/visualizer/repost variants that have different ids.
-        const songTitle = radioMode ? canonicalSongTitle(decoded) : "";
-        if (radioMode && songTitle && existingSongTitles.has(songTitle)) return;
+        // Radio recommendations must be different recordings, not alternate
+        // YouTube uploads of the same song. Artist + canonical title avoids
+        // collapsing unrelated songs that merely share a common title.
+        const songIdentity = radioMode ? canonicalSongIdentity(decoded) : "";
+        if (radioMode && songIdentity && existingSongIdentities.has(songIdentity)) return;
 
         state.queueUndo = null;
         state.youtubeQueue.push(decoded);
         existingIds.add(decoded.id);
-        if (songTitle) existingSongTitles.add(songTitle);
+        if (songIdentity) existingSongIdentities.add(songIdentity);
       });
     },
 
