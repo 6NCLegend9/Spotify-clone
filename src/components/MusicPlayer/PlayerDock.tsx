@@ -12,8 +12,9 @@ import styles from "./playerDock.module.css";
 import sanitizerStyles from "./youtubeSanitizer.module.css";
 
 const ExpandedPlayer = dynamic(() => import("./ExpandedPlayer"), { ssr: false });
-const END_SCREEN_GUARD_SECONDS = 1.5;
-const END_MASK_RELEASE_SECONDS = 3;
+// YouTube can paint creator end-screen elements several seconds before ENDED.
+// Hide the cross-origin frame during that final segment while its audio continues.
+const END_SCREEN_MASK_SECONDS = 8;
 
 export function PlayerIconButton({ label, active, children, className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean }) {
   return <button type="button" aria-label={label} title={label} aria-pressed={active}
@@ -58,8 +59,6 @@ function disableYouTubeCaptions() {
 export default function PlayerDock(props: PlayerDockProps) {
   const [queueOpen, setQueueOpen] = useState(false);
   const presentationRef = useRef<MediaPresentationHandle>(null);
-  const endGuardTrackRef = useRef("");
-  const endGuardTimerRef = useRef<number | null>(null);
   const closeQueue = useCallback(() => setQueueOpen(false), []);
   const openQueue = useCallback(() => {
     presentationRef.current?.dismiss();
@@ -73,13 +72,8 @@ export default function PlayerDock(props: PlayerDockProps) {
     : 0;
 
   useEffect(() => {
-    endGuardTrackRef.current = "";
     setEndScreenMask(false);
-    return () => {
-      if (endGuardTimerRef.current) window.clearTimeout(endGuardTimerRef.current);
-      endGuardTimerRef.current = null;
-      setEndScreenMask(false);
-    };
+    return () => setEndScreenMask(false);
   }, [props.track.id]);
 
   useEffect(() => {
@@ -91,8 +85,6 @@ export default function PlayerDock(props: PlayerDockProps) {
       : null;
     observer?.observe(host!, { childList: true, subtree: true });
 
-    // YouTube may lazily reload the captions module after an iframe state change.
-    // Keep unloading it while this playback surface is mounted.
     const interval = window.setInterval(disableYouTubeCaptions, 1200);
     return () => {
       observer?.disconnect();
@@ -101,41 +93,13 @@ export default function PlayerDock(props: PlayerDockProps) {
   }, [props.track.id]);
 
   useEffect(() => {
-    if (endGuardTimerRef.current) {
-      window.clearTimeout(endGuardTimerRef.current);
-      endGuardTimerRef.current = null;
-    }
-
     const remaining = props.duration - props.position;
-    if (
-      endGuardTrackRef.current === props.track.id
-      && props.duration > 0
-      && props.position < props.duration - END_MASK_RELEASE_SECONDS
-    ) {
-      endGuardTrackRef.current = "";
-      setEndScreenMask(false);
-    }
-
-    if (props.disabled || !props.playing || props.duration <= 8 || remaining < 0) return undefined;
-    if (endGuardTrackRef.current === props.track.id) return undefined;
-
-    const trigger = () => {
-      if (endGuardTrackRef.current === props.track.id) return;
-      endGuardTrackRef.current = props.track.id;
-      setEndScreenMask(true);
-      // Hand off through the existing queue/controller before YouTube reaches its
-      // native end state. The mask stays up until a new track/position is observed.
-      props.onNext();
-    };
-
-    const delayMs = Math.max(0, (remaining - END_SCREEN_GUARD_SECONDS) * 1000);
-    endGuardTimerRef.current = window.setTimeout(trigger, delayMs);
-
-    return () => {
-      if (endGuardTimerRef.current) window.clearTimeout(endGuardTimerRef.current);
-      endGuardTimerRef.current = null;
-    };
-  }, [props.disabled, props.duration, props.onNext, props.playing, props.position, props.track.id]);
+    const shouldMask =
+      props.duration > 8
+      && remaining >= 0
+      && remaining <= END_SCREEN_MASK_SECONDS;
+    setEndScreenMask(shouldMask);
+  }, [props.duration, props.position, props.track.id]);
 
   return <>
     <div className={`${styles.dock} ${sanitizerStyles.scope}`} data-testid="player-dock">
