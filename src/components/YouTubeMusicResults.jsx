@@ -16,7 +16,7 @@ import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
-import { cleanTitle } from "@/utils/text";
+import { cleanArtist, cleanTitle } from "@/utils/text";
 import { SITE_BRAND, SITE_NAME } from "@/utils/siteConfig";
 
 export default function YouTubeMusicResults({ query }) {
@@ -335,7 +335,7 @@ export default function YouTubeMusicResults({ query }) {
         seedQuery: playlist.title || playlist.seedQuery,
         genre: playlist.title,
       }));
-      dispatch(startYoutubePlayback({ queue: seeded, track: seeded[0] }));
+      dispatch(startYoutubePlayback({ queue: seeded, track: seeded[0], autoExtend: false }));
       dispatch(playPause(true));
     } catch (error) {
       const userError = toUserError(error, {
@@ -403,12 +403,19 @@ export default function YouTubeMusicResults({ query }) {
 
       {resultType === "video" && <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {results.map((video) => {
+          const title = cleanTitle(video.title);
+          const channel = cleanArtist(video.channel);
           const playVideo = () => {
-            dispatch(startYoutubePlayback({ queue: results, track: video }));
+            const seedQuery = video.seedQuery || video.genre || [channel, title].filter(Boolean).join(" ");
+            const radioTrack = {
+              ...video,
+              channel: channel || video.channel,
+              seedQuery,
+              genre: video.genre || channel || seedQuery,
+            };
+            dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
             dispatch(playPause(true));
           };
-          const title = cleanTitle(video.title);
-          const channel = cleanTitle(video.channel);
           return (
           <article key={video.id} className="card group text-left">
             <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black">
@@ -423,7 +430,7 @@ export default function YouTubeMusicResults({ query }) {
               <div className="min-w-0 flex-1">
               {video.channelId ? (
                 <Link
-                  href={`/artist/${encodeURIComponent(video.channelId)}?name=${encodeURIComponent(video.channel || "")}`}
+                  href={`/artist/${encodeURIComponent(video.channelId)}?name=${encodeURIComponent(channel || "")}`}
                   prefetch={false}
                   className="mt-2 block truncate text-xs text-gray-400 hover:text-[#00e6e6]"
                 >
