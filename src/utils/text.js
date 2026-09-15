@@ -84,12 +84,20 @@ export function cleanTitle(value, fallback = "") {
   return decoded || fallback;
 }
 
+// YouTube auto-generated artist channels are exposed as "Artist - Topic".
+// Keep that transport detail out of KASA's artist labels and radio seeds.
+export function cleanArtist(value, fallback = "") {
+  const decoded = cleanTitle(value, fallback);
+  const cleaned = decoded.replace(/\s*[-–—]\s*Topic\s*$/i, "").trim();
+  return cleaned || fallback;
+}
+
 export function decodeTrackFields(track) {
   if (!track || typeof track !== "object") return track;
   const next = { ...track };
   if (typeof next.title === "string") next.title = cleanTitle(next.title);
   if (typeof next.name === "string") next.name = cleanTitle(next.name);
-  if (typeof next.channel === "string") next.channel = cleanTitle(next.channel);
+  if (typeof next.channel === "string") next.channel = cleanArtist(next.channel);
   if (typeof next.description === "string") next.description = cleanTitle(next.description);
   if (typeof next.primaryArtists === "string") next.primaryArtists = cleanTitle(next.primaryArtists);
   if (typeof next.subtitle === "string") next.subtitle = cleanTitle(next.subtitle);
