@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { setYoutubeQueue, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
 import PlayFab from "@/components/PlayFab";
@@ -36,8 +36,7 @@ export default function RecommendationPlaylistCard({ playlist }) {
         seedQuery: playlist.title,
         genre: playlist.title,
       }));
-      dispatch(setYoutubeQueue(seeded));
-      dispatch(setYoutubeVideo(seeded[0]));
+      dispatch(startYoutubePlayback({ queue: seeded, track: seeded[0], autoExtend: false }));
     } catch (error) {
       const userError = toUserError(error, {
         title: "Playlist unavailable",
@@ -72,4 +71,3 @@ export default function RecommendationPlaylistCard({ playlist }) {
     </button>
   );
 }
-
