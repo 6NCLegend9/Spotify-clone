@@ -25,7 +25,9 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
       : track.id === props.track.id,
   );
   const boundary = currentIndex < 0 ? 0 : currentIndex + 1;
-  const upcomingCount = Math.max(0, props.queue.length - boundary);
+  const upcoming = props.queue.slice(boundary);
+  const upcomingCount = upcoming.length;
+  const explicitCount = upcoming.filter((track) => track.queueSource === "user").length;
 
   const canReorder = (index: number) => Boolean(props.onQueueEdit && !props.disabled && index >= boundary);
 
@@ -39,7 +41,6 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
     const rows = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-queue-index]") || [])
       .filter((row) => Number(row.dataset.queueIndex) >= boundary);
     if (!rows.length) return boundary;
-
     for (const row of rows) {
       const index = Number(row.dataset.queueIndex);
       const rect = row.getBoundingClientRect();
@@ -133,10 +134,12 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
   return <div ref={rootRef}>
     {props.queueSearch}
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--hairline)] pb-2">
-      <p className="text-sm text-[var(--muted)]">{upcomingCount} upcoming</p>
+      <p className="text-sm text-[var(--muted)]">
+        {upcomingCount} upcoming{explicitCount > 0 ? ` · ${explicitCount} added by you` : ""}
+      </p>
       <div className="flex">
         <PlayerIconButton label="Undo queue edit" disabled={props.disabled || !props.canUndoQueue} onClick={props.onQueueUndo}><Undo2 size={20} /></PlayerIconButton>
-        <PlayerIconButton label="Clear upcoming tracks" disabled={props.disabled || upcomingCount === 0} onClick={() => props.onQueueEdit?.({ kind: "clear" })}><ListX size={20} /></PlayerIconButton>
+        <PlayerIconButton label="Clear added tracks" disabled={props.disabled || explicitCount === 0} onClick={() => props.onQueueEdit?.({ kind: "clear" })}><ListX size={20} /></PlayerIconButton>
       </div>
     </div>
     <ol className="space-y-2" aria-label="Playback queue">
@@ -171,7 +174,11 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
             ><GripVertical size={18} /></button> : <span className="w-2 shrink-0" />}
             <button type="button" disabled={props.disabled} aria-current={index === currentIndex ? "true" : undefined} onClick={() => props.onSelect(track)} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded p-2 text-left hover:bg-white/10 aria-[current=true]:bg-white/10 disabled:opacity-50">
               <img src={track.thumbnail || "/icon-192x192.png"} alt="" loading="lazy" width={40} height={40} className="h-10 w-10 shrink-0 rounded-[4px] object-cover" />
-              <span className="min-w-0"><span className="block break-words text-sm">{track.title}</span><span className="block truncate text-xs text-[var(--muted)]">{track.channel}</span></span>
+              <span className="min-w-0">
+                <span className="block break-words text-sm">{track.title}</span>
+                <span className="block truncate text-xs text-[var(--muted)]">{track.channel}</span>
+              </span>
+              {track.queueSource === "user" && <span className="shrink-0 rounded-full border border-[var(--hairline-cyan)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--teal)]">Queued</span>}
             </button>
             {movable && <PlayerIconButton label={`Remove ${track.title} from queue`} disabled={props.disabled} onClick={() => props.onQueueEdit?.({ kind: "remove", index })}><Trash2 size={18} /></PlayerIconButton>}
           </div>
