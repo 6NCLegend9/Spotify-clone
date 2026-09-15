@@ -101,11 +101,18 @@ const playerSlice = createSlice({
       }
     },
 
-    // Reordering an existing queue (shuffle, mood, queue editor) must not change
-    // whether it is a finite collection or an auto-extending radio queue.
+    // `setYoutubeQueue` represents an explicit user/content queue. Loading a
+    // different membership makes it finite (playlist/Liked Songs/etc.). A pure
+    // reorder keeps the existing mode so shuffle does not accidentally enable radio.
     setYoutubeQueue: (state, action) => {
       state.queueUndo = null;
-      state.youtubeQueue = (action.payload || []).map((track) => decodeTrackFields(track));
+      const nextQueue = (action.payload || []).map((track) => decodeTrackFields(track));
+      const currentIds = new Set(state.youtubeQueue.map((track) => track?.id).filter(Boolean));
+      const sameMembership =
+        nextQueue.length === state.youtubeQueue.length
+        && nextQueue.every((track) => track?.id && currentIds.has(track.id));
+      if (!sameMembership) state.queueManualEnd = true;
+      state.youtubeQueue = nextQueue;
     },
 
     startYoutubePlayback: (state, action) => {
@@ -116,8 +123,8 @@ const playerSlice = createSlice({
         : [];
       if (!queue.some((item) => item.id === track.id)) queue.unshift(track);
       state.queueUndo = null;
-      // `autoExtend: false` marks a finite collection such as a playlist or
-      // Liked Songs. Home/Search starts omit it and become track-seeded radio.
+      // `autoExtend: false` marks a finite collection. Home/Search starts omit
+      // it and become track-seeded radio queues that the player can extend.
       state.queueManualEnd = action.payload?.autoExtend === false;
       state.youtubeQueue = queue;
       state.youtubeVideo = track;
