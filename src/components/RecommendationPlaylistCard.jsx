@@ -36,7 +36,17 @@ export default function RecommendationPlaylistCard({ playlist }) {
         seedQuery: playlist.title,
         genre: playlist.title,
       }));
-      dispatch(startYoutubePlayback({ queue: seeded, track: seeded[0], autoExtend: false }));
+      dispatch(startYoutubePlayback({
+        queue: seeded,
+        track: seeded[0],
+        queueMode: "collection",
+        autoExtend: false,
+        context: {
+          type: "playlist",
+          id: String(playlist.id),
+          name: playlist.title || "Playlist",
+        },
+      }));
     } catch (error) {
       const userError = toUserError(error, {
         title: "Playlist unavailable",
