@@ -126,7 +126,16 @@ const Searchbar = () => {
       seedQuery,
       genre: song.genre || artist || seedQuery,
     };
-    dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
+    dispatch(startYoutubePlayback({
+      queue: [radioTrack],
+      track: radioTrack,
+      queueMode: "radio",
+      context: {
+        type: "search-radio",
+        id: song.id,
+        name: artist ? `${artist} Radio` : `${title || "Track"} Radio`,
+      },
+    }));
     dispatch(playPause(true));
     setOpen(false);
     setActiveIndex(-1);
