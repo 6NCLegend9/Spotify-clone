@@ -12,7 +12,7 @@ import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
-import { cleanTitle } from "@/utils/text";
+import { cleanArtist, cleanTitle } from "@/utils/text";
 
 const Searchbar = () => {
   const dispatch = useDispatch();
@@ -117,8 +117,16 @@ const Searchbar = () => {
 
   const playSong = (song) => {
     if (!song?.id) return;
-    const queue = songs.length ? [...songs] : [song];
-    dispatch(startYoutubePlayback({ queue, track: song }));
+    const artist = cleanArtist(song.channel);
+    const title = cleanTitle(song.title);
+    const seedQuery = song.seedQuery || song.genre || [artist, title].filter(Boolean).join(" ");
+    const radioTrack = {
+      ...song,
+      channel: artist || song.channel,
+      seedQuery,
+      genre: song.genre || artist || seedQuery,
+    };
+    dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
     dispatch(playPause(true));
     setOpen(false);
     setActiveIndex(-1);
@@ -260,7 +268,7 @@ const Searchbar = () => {
                 <MediaImage src={item.song.thumbnail} size="mq" alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{cleanTitle(item.song.title, "Song")}</span>
-                  <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanTitle(item.song.channel)}</span>
+                  <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanArtist(item.song.channel)}</span>
                 </span>
               </button>
               <AddToQueueButton track={item.song} className="z-[90]" />
