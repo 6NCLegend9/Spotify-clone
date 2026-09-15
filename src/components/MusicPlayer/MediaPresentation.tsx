@@ -13,6 +13,7 @@ import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
+const MEDIA_MODE_KEY = "heykasa.media.presentation";
 
 type View = "player" | "lyrics";
 interface Props extends PlayerDockProps { onQueue: () => void; }
@@ -65,7 +66,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [mobile, setMobile] = useState(false);
   const [drawer, setDrawer] = useState(false);
-  const [video, setVideo] = useState(false);
+  const [video, setVideo] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(MEDIA_MODE_KEY) === "video";
+    } catch {
+      return false;
+    }
+  });
   const [expanded, setExpanded] = useState(false);
   const [view, setView] = useState<View>("player");
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
@@ -84,6 +92,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const overlay = expanded || drawer;
   const showingVideo = canVideo && video && view === "player";
 
+  const persistVideoMode = useCallback((next: boolean) => {
+    setVideo(next);
+    try {
+      window.localStorage.setItem(MEDIA_MODE_KEY, next ? "video" : "audio");
+    } catch {
+      // Private browsing/storage restrictions must not block the presentation toggle.
+    }
+  }, []);
   const rememberFocus = useCallback(() => {
     if (!returnFocusRef.current) returnFocusRef.current = document.activeElement as HTMLElement | null;
   }, []);
@@ -101,8 +117,8 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [rememberFocus]);
   const openExpanded = useCallback(() => {
     if (!canVideo) { open(); return; }
-    rememberFocus(); setView("player"); setVideo(true); setExpanded(true);
-  }, [canVideo, open, rememberFocus]);
+    rememberFocus(); setView("player"); persistVideoMode(true); setExpanded(true);
+  }, [canVideo, open, persistVideoMode, rememberFocus]);
   const openLyrics = useCallback(() => {
     if (!canLyrics) return;
     rememberFocus(); leaveFullscreen(); setExpanded(false); setDrawer(true); setView("lyrics");
@@ -139,9 +155,11 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [leaveFullscreen]);
 
   useEffect(() => {
-    if (!canVideo) { setVideo(false); setExpanded(false); }
+    // Track transitions can briefly report no video capability. Keep the user's
+    // chosen mode so the next playable track returns to that same presentation.
+    if (!canVideo && expanded) setExpanded(false);
     if (!canLyrics && view === "lyrics") setView("player");
-  }, [canVideo, canLyrics, view]);
+  }, [canVideo, canLyrics, expanded, view]);
 
   const hasOtherDialog = useCallback(() => Array.from(document.querySelectorAll<HTMLElement>('dialog[open], [role="dialog"][aria-modal="true"]'))
     .some((element) => element !== overlayRef.current && element.getClientRects().length > 0), []);
@@ -261,7 +279,11 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     }
   };
   const modeButton = canVideo ? <button type="button" className={styles.modeButton}
-    onClick={() => { setVideo((value) => !value); if (expanded && video) { leaveFullscreen(); setExpanded(false); } }}
+    onClick={() => {
+      const next = !video;
+      persistVideoMode(next);
+      if (expanded && !next) { leaveFullscreen(); setExpanded(false); }
+    }}
     aria-label={showingVideo ? "Switch to audio" : "Switch to video"}>
     {showingVideo ? <Music2 size={17} /> : <Video size={17} />}{showingVideo ? "Switch to audio" : "Switch to video"}
   </button> : null;
