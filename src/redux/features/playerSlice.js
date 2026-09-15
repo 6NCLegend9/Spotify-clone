@@ -18,9 +18,6 @@ const initialState = {
   restorePosition: null,
   playbackOwner: null,
   queueUndo: null,
-
-  // New playback-session model. queueManualEnd remains as a compatibility alias
-  // while the YouTube transport is migrated away from the legacy boolean.
   queueMode: 'radio',
   queueManualEnd: false,
   playbackContext: null,
@@ -154,7 +151,6 @@ const playerSlice = createSlice({
       state.restorePosition = null;
       let nextVideo = decodeTrackFields(action.payload);
 
-      // `extendQueue()` may briefly try to play a rejected alternate upload.
       if (nextVideo?.id && state.youtubeVideo?.id && state.queueMode === 'radio'
         && !state.youtubeQueue.some((item) => item?.id === nextVideo.id)
         && canonicalSongIdentity(nextVideo)
@@ -184,8 +180,6 @@ const playerSlice = createSlice({
       syncUserQueue(state);
     },
 
-    // Compatibility setter used by shuffle, Jam and mood tuning. Entry metadata is
-    // preserved so explicit user-queue occurrences remain distinguishable.
     setYoutubeQueue: (state, action) => {
       state.queueUndo = null;
       const rawQueue = Array.isArray(action.payload) ? action.payload : [];
@@ -236,7 +230,14 @@ const playerSlice = createSlice({
 
     editQueue: (state, action) => {
       const currentId = state.youtubeVideo?.queueEntryId || state.youtubeVideo?.id;
-      const next = editUpcomingQueue(state.youtubeQueue, currentId, action.payload);
+      let next;
+      if (action.payload?.kind === 'clear') {
+        if (!state.userQueue.length || !Number.isFinite(action.payload.now)) return;
+        const explicitEntries = new Set(state.userQueue.map((item) => item.queueEntryId).filter(Boolean));
+        next = state.youtubeQueue.filter((item) => !explicitEntries.has(item.queueEntryId));
+      } else {
+        next = editUpcomingQueue(state.youtubeQueue, currentId, action.payload);
+      }
       if (next === state.youtubeQueue || !Number.isFinite(action.payload.now)) return;
       state.queueUndo = {
         queue: state.youtubeQueue,
@@ -246,7 +247,6 @@ const playerSlice = createSlice({
         expiresAt: action.payload.now + 10_000,
       };
       state.youtubeQueue = next;
-      if (action.payload.kind === 'clear') state.queueMode = 'collection';
       syncLegacyQueueMode(state);
       syncUserQueue(state);
     },
