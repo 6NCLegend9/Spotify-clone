@@ -42,7 +42,7 @@ test("progress from an old track is ignored and selection clears restore positio
   assert.equal(state.isPlaying, true);
 });
 
-test("upcoming edits preserve the current track and explicit collection mode", () => {
+test("upcoming edits preserve context and clear only explicit user additions", () => {
   const second = { id: "lmnopqrstuv", title: "Second" };
   const third = { id: "12345678901", title: "Third" };
   let state = reducer(undefined, restorePlayback({ owner: "guest", snapshot: {
@@ -60,19 +60,23 @@ test("upcoming edits preserve the current track and explicit collection mode", (
   assert.equal(state.isPlaying, false);
   state = reducer(state, undoQueueEdit({ now: 200 }));
   assert.deepEqual(state.youtubeQueue.map((item) => item.id), [track.id, second.id, third.id]);
+
+  // No explicit User Queue means Clear must preserve playlist context.
   state = reducer(state, editQueue({ kind: "clear", now: 300 }));
   assert.equal(state.queueMode, "collection");
   assert.equal(state.queueManualEnd, true);
-  assert.deepEqual(state.youtubeQueue.map((item) => item.id), [track.id]);
-  state = reducer(state, undoQueueEdit({ now: 10_300 }));
-  assert.equal(state.youtubeQueue.length, 1);
-  state = reducer(state, addToQueue(second));
-  assert.equal(state.queueMode, "collection");
+  assert.deepEqual(state.youtubeQueue.map((item) => item.id), [track.id, second.id, third.id]);
+
+  // Explicit additions are removable without deleting the remaining playlist.
+  const queued = { id: "zzzzzzzzzzz", title: "Queued" };
+  state = reducer(state, addToQueue(queued));
   assert.equal(state.userQueue.length, 1);
-  state = reducer(state, editQueue({ kind: "remove", index: 1, now: 20_000 }));
-  state = reducer(state, addToQueue(third));
-  state = reducer(state, undoQueueEdit({ now: 20_001 }));
-  assert.deepEqual(state.youtubeQueue.map((item) => item.id), [track.id, third.id]);
+  state = reducer(state, editQueue({ kind: "clear", now: 400 }));
+  assert.deepEqual(state.youtubeQueue.map((item) => item.id), [track.id, second.id, third.id]);
+  assert.equal(state.userQueue.length, 0);
+  state = reducer(state, undoQueueEdit({ now: 401 }));
+  assert.equal(state.userQueue.length, 1);
+  assert.equal(state.youtubeQueue.at(-1).id, queued.id);
 });
 
 test("explicit user queue allows duplicate occurrences and Play Next keeps priority", () => {
