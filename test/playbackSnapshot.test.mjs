@@ -8,13 +8,16 @@ function memoryStorage() {
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
 }
 
-test("snapshots restore safe queue metadata and finite/radio mode without leaking arbitrary fields", () => {
+test("snapshots restore playback context, queue mode and safe metadata without leaking arbitrary fields", () => {
   const storage = memoryStorage();
   writePlaybackSnapshot(storage, "account-a", {
-    youtubeVideo: { ...track, token: "secret" },
-    youtubeQueue: [track],
+    youtubeVideo: { ...track, token: "secret", queueEntryId: "context:1:abcdefghijk", queueSource: "context" },
+    youtubeQueue: [{ ...track, queueEntryId: "context:1:abcdefghijk", queueSource: "context" }],
+    userQueue: [],
+    history: [],
     position: 42,
-    queueManualEnd: false,
+    queueMode: "radio",
+    playbackContext: { type: "radio", id: track.id, name: "Track radio" },
   });
   assert.equal(readPlaybackSnapshot(storage, "account-b"), null);
   assert.equal(readPlaybackSnapshot(storage, "guest"), null);
@@ -23,22 +26,30 @@ test("snapshots restore safe queue metadata and finite/radio mode without leakin
   assert.equal(restored.youtubeVideo.seedQuery, "Artist Track");
   assert.equal(restored.youtubeVideo.genre, "R&B");
   assert.equal(restored.position, 42);
+  assert.equal(restored.queueMode, "radio");
   assert.equal(restored.queueManualEnd, false);
+  assert.equal(restored.playbackContext.type, "radio");
   assert.equal(restored.youtubeVideo.token, undefined);
   assert.equal(restored.isPlaying, undefined);
 });
 
-test("snapshots reject invalid IDs, deduplicate queues and bound position and size", () => {
+test("snapshots preserve intentional duplicate occurrences and bound position and size", () => {
+  const duplicateOne = { ...track, queueEntryId: "user:1:abcdefghijk", queueSource: "user" };
+  const duplicateTwo = { ...track, queueEntryId: "user:2:abcdefghijk", queueSource: "user" };
   const snapshot = normalizePlaybackSnapshot({
-    youtubeVideo: track,
-    youtubeQueue: [track, track, { id: "invalid" }, ...Array.from({ length: 250 }, (_, index) => ({ id: String(index).padStart(11, "0") }))],
+    youtubeVideo: duplicateOne,
+    youtubeQueue: [duplicateOne, duplicateTwo, { id: "invalid" }, ...Array.from({ length: 250 }, (_, index) => ({ id: String(index).padStart(11, "0") }))],
+    userQueue: [duplicateTwo],
     position: -100,
-    queueManualEnd: true,
+    queueMode: "collection",
   });
   assert.equal(snapshot.youtubeQueue.length, 200);
   assert.equal(snapshot.position, 0);
+  assert.equal(snapshot.queueMode, "collection");
   assert.equal(snapshot.queueManualEnd, true);
-  assert.equal(snapshot.youtubeQueue.filter((item) => item.id === track.id).length, 1);
+  assert.equal(snapshot.youtubeQueue.filter((item) => item.id === track.id).length, 2);
+  assert.notEqual(snapshot.youtubeQueue[0].queueEntryId, snapshot.youtubeQueue[1].queueEntryId);
+  assert.equal(snapshot.userQueue.length, 1);
   assert.equal(normalizePlaybackSnapshot({ youtubeVideo: { id: {} }, youtubeQueue: null }).youtubeVideo, null);
 });
 
@@ -54,6 +65,7 @@ test("version 1 snapshots migrate conservatively without turning collections int
     position: 10,
   }));
   const restored = readPlaybackSnapshot(storage, owner);
+  assert.equal(restored.queueMode, "collection");
   assert.equal(restored.queueManualEnd, true);
 });
 
