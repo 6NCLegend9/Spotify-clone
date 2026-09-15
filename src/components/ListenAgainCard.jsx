@@ -5,14 +5,13 @@ import {
   playPause,
   setActiveSong,
   setFullScreen,
-  setYoutubeQueue,
-  setYoutubeVideo,
+  startYoutubePlayback,
 } from "@/redux/features/playerSlice";
 import { BiHeadphone } from "react-icons/bi";
 import { useSelector } from "react-redux";
 import AddToQueueButton from "./AddToQueueButton";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
-import { cleanTitle } from "@/utils/text";
+import { cleanArtist, cleanTitle } from "@/utils/text";
 
 const ListenAgainCard = ({ song, index, SongData }) => {
   const { activeSong, youtubeVideo } = useSelector((state) => state.player);
@@ -22,11 +21,16 @@ const ListenAgainCard = ({ song, index, SongData }) => {
 
   const handlePlayClick = () => {
     if (isYoutube) {
-      const queue = Array.isArray(SongData)
-        ? SongData.filter((item) => item?.source === "youtube" && item?.id)
-        : [song];
-      dispatch(setYoutubeQueue(queue.length ? queue : [song]));
-      dispatch(setYoutubeVideo(song));
+      const artist = cleanArtist(song?.channel || "");
+      const title = cleanTitle(song?.title);
+      const seedQuery = song.seedQuery || song.genre || [artist, title].filter(Boolean).join(" ");
+      const radioTrack = {
+        ...song,
+        channel: artist || song.channel,
+        seedQuery,
+        genre: song.genre || artist || seedQuery,
+      };
+      dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
       return;
     }
     dispatch(setActiveSong({ song, data: SongData, i: index }));
@@ -35,7 +39,7 @@ const ListenAgainCard = ({ song, index, SongData }) => {
   };
 
   const artistDisplay = isYoutube
-    ? cleanTitle(song?.channel || "")
+    ? cleanArtist(song?.channel || "")
     : cleanTitle(
         (Array.isArray(song?.artists?.primary) &&
           song.artists.primary.map((artist) => artist?.name).join(", ")) ||
@@ -89,7 +93,7 @@ const ListenAgainCard = ({ song, index, SongData }) => {
               <BsPlayFill
                 size={25}
                 aria-hidden="true"
-                className=" opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200"
+                className=" opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 absolute top-1/2 left-1/2 transform -translate-x-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200"
               />
             )}
           </div>
