@@ -7,13 +7,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
-import { startYoutubePlayback } from "@/redux/features/playerSlice";
+import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
 import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 import { cleanTitle } from "@/utils/text";
-import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 
 const Searchbar = () => {
   const dispatch = useDispatch();
@@ -118,7 +117,9 @@ const Searchbar = () => {
 
   const playSong = (song) => {
     if (!song?.id) return;
-    dispatch(startYoutubePlayback({ queue: songs, track: song }));
+    const queue = songs.length ? [...songs] : [song];
+    dispatch(startYoutubePlayback({ queue, track: song }));
+    dispatch(playPause(true));
     setOpen(false);
     setActiveIndex(-1);
     dispatch(setIsTyping(false));
@@ -132,10 +133,32 @@ const Searchbar = () => {
 
   const suggestionsVisible = open && items.length > 0;
   const selectedIndex = activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
-  useDismissOnOutside(suggestionsVisible, () => {
-    setOpen(false);
-    setActiveIndex(-1);
-  }, [clusterRef]);
+
+  useEffect(() => {
+    if (!suggestionsVisible) return undefined;
+    const dismiss = (event) => {
+      const target = event.target;
+      if (clusterRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest('[data-track-actions-portal="true"]')) return;
+      setOpen(false);
+      setActiveIndex(-1);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [suggestionsVisible]);
+
+  const closeAfterBlur = () => {
+    const finish = () => {
+      if (document.querySelector('[data-track-actions-portal="true"]')) {
+        window.setTimeout(finish, 100);
+        return;
+      }
+      if (clusterRef.current?.contains(document.activeElement)) return;
+      setOpen(false);
+      setActiveIndex(-1);
+    };
+    window.setTimeout(finish, 150);
+  };
 
   return (
     <form ref={clusterRef} role="search" aria-label="Search music" onSubmit={handleSubmit} autoComplete="off" className="search-cluster-form">
@@ -208,7 +231,7 @@ const Searchbar = () => {
           }}
           onBlur={() => {
             dispatch(setIsTyping(false));
-            window.setTimeout(() => setOpen(false), 150);
+            closeAfterBlur();
           }}
           className="search-field-input"
         />
@@ -221,36 +244,43 @@ const Searchbar = () => {
         <ul id={listboxId} role="listbox" aria-label="Search suggestions" className="search-suggest">
           {items.map((item, index) => item.type === "song" ? (
             <li
-              id={`${listboxId}-option-${index}`}
               key={item.key}
-              role="option"
-              aria-selected={selectedIndex === index}
-              onMouseDown={(event) => event.preventDefault()}
+              role="none"
               onMouseMove={() => setActiveIndex(index)}
-              onClick={() => selectItem(item)}
-              className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
+              className={`flex w-full items-center gap-1 px-2 py-1 text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
             >
-              <MediaImage src={item.song.thumbnail} size="mq" alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">{cleanTitle(item.song.title, "Song")}</span>
-                <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanTitle(item.song.channel)}</span>
-              </span>
+              <button
+                id={`${listboxId}-option-${index}`}
+                type="button"
+                role="option"
+                aria-selected={selectedIndex === index}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => playSong(item.song)}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+              >
+                <MediaImage src={item.song.thumbnail} size="mq" alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{cleanTitle(item.song.title, "Song")}</span>
+                  <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanTitle(item.song.channel)}</span>
+                </span>
+              </button>
               <AddToQueueButton track={item.song} className="z-[90]" />
-              <span className="hidden text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
+              <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
             </li>
           ) : (
-            <li
-              id={`${listboxId}-option-${index}`}
-              key={item.key}
-              role="option"
-              aria-selected={selectedIndex === index}
-              onMouseDown={(event) => event.preventDefault()}
-              onMouseMove={() => setActiveIndex(index)}
-              onClick={() => selectItem(item)}
-              className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
-            >
-              <span>{item.match.matchLabel}</span>
-              <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">{item.match.matchType === "subgenre" ? `${item.match.name} sub-genre` : "Genre"}</span>
+            <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}>
+              <button
+                id={`${listboxId}-option-${index}`}
+                type="button"
+                role="option"
+                aria-selected={selectedIndex === index}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => chooseGenre(item.match)}
+                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
+              >
+                <span>{item.match.matchLabel}</span>
+                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">{item.match.matchType === "subgenre" ? `${item.match.name} sub-genre` : "Genre"}</span>
+              </button>
             </li>
           ))}
         </ul>
