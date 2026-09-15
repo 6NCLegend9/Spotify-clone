@@ -60,8 +60,6 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
   };
 
   const slotToFinalIndex = (fromIndex: number, slot: number) => {
-    // Slots describe the gap in the original list. Once the dragged row is removed,
-    // every gap after it shifts left by one position.
     const shifted = slot > fromIndex ? slot - 1 : slot;
     return Math.min(props.queue.length - 1, Math.max(boundary, shifted));
   };
@@ -110,8 +108,8 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     finishDrag(drag.index);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   const handleGripKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
