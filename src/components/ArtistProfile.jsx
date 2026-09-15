@@ -17,12 +17,7 @@ import { cleanTitle } from "@/utils/text";
 export default function ArtistProfile({ artistId, initialName = "" }) {
   const dispatch = useDispatch();
   const { status } = useSession();
-  const [artist, setArtist] = useState({
-    id: artistId,
-    title: initialName,
-    description: "",
-    thumbnail: "",
-  });
+  const [artist, setArtist] = useState({ id: artistId, title: initialName, description: "", thumbnail: "" });
   const [tracks, setTracks] = useState([]);
   const [nextPageToken, setNextPageToken] = useState("");
   const [loading, setLoading] = useState(true);
@@ -53,22 +48,14 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
       } catch (loadError) {
         if (!cancelled && !controller.signal.aborted) {
           setTracks([]);
-          setError(
-            toUserError(loadError, {
-              title: "Artist unavailable",
-              message: "We couldn’t load this artist. Please try again.",
-            }),
-          );
+          setError(toUserError(loadError, { title: "Artist unavailable", message: "We couldn’t load this artist. Please try again." }));
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     void load();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
+    return () => { cancelled = true; controller.abort(); };
   }, [artistId, initialName, retryKey]);
 
   useEffect(() => {
@@ -78,15 +65,16 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
       signal: controller.signal,
       fallbackTitle: "Follow status unavailable",
       fallbackMessage: "You can still play this artist.",
-    })
-      .then((json) => {
-        if (json?.success === true && Array.isArray(json.data)) {
-          setFollowed(json.data.some((value) => value.toLowerCase() === artist.title.toLowerCase()));
-        }
-      })
-      .catch(() => {});
+    }).then((json) => {
+      if (json?.success === true && Array.isArray(json.data)) {
+        setFollowed(json.data.some((value) => value.toLowerCase() === artist.title.toLowerCase()));
+      }
+    }).catch(() => {});
     return () => controller.abort();
   }, [artist.title, status]);
+
+  const title = artist.title || initialName || "Artist";
+  const playbackContext = { type: "artist", id: String(artist.id || artistId), name: title };
 
   const playTrack = (video) => {
     const queue = tracks.map((item) => ({
@@ -99,12 +87,16 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
       seedQuery: video.seedQuery || artist.title,
       genre: video.genre || artist.title,
     };
-    dispatch(startYoutubePlayback({ queue, track: selected, autoExtend: false }));
+    dispatch(startYoutubePlayback({
+      queue,
+      track: selected,
+      queueMode: "collection",
+      autoExtend: false,
+      context: playbackContext,
+    }));
   };
 
-  const playAll = () => {
-    if (tracks[0]) playTrack(tracks[0]);
-  };
+  const playAll = () => { if (tracks[0]) playTrack(tracks[0]); };
 
   const loadMore = async () => {
     if (!nextPageToken || loadingMore) return;
@@ -123,10 +115,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
       });
       setNextPageToken(typeof data?.nextPageToken === "string" ? data.nextPageToken : "");
     } catch (loadError) {
-      toast.error(toUserError(loadError, {
-        title: "More songs unavailable",
-        message: "We couldn’t load more songs. Please try again.",
-      }).message);
+      toast.error(toUserError(loadError, { title: "More songs unavailable", message: "We couldn’t load more songs. Please try again." }).message);
     } finally {
       setLoadingMore(false);
     }
@@ -156,97 +145,35 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
     }
   };
 
-  const title = artist.title || initialName || "Artist";
-
   return (
     <div className="page text-gray-200">
       <header className="page-hero border-b border-white/10 pb-6">
         <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-end">
-          <MediaImage
-            src={artist.thumbnail}
-            size="hq"
-            alt=""
-            className="h-36 w-36 shrink-0 rounded-full object-cover ring-1 ring-white/10 sm:h-44 sm:w-44"
-          />
+          <MediaImage src={artist.thumbnail} size="hq" alt="" className="h-36 w-36 shrink-0 rounded-full object-cover ring-1 ring-white/10 sm:h-44 sm:w-44" />
           <div className="min-w-0">
             <p className="eyebrow">Artist</p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-5xl">{title}</h1>
-            {artist.description ? (
-              <p className="mt-3 line-clamp-3 max-w-2xl text-sm leading-6 text-[#9aa8b5]">
-                {artist.description}
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-[#9aa8b5]">Songs and videos from this artist.</p>
-            )}
+            {artist.description ? <p className="mt-3 line-clamp-3 max-w-2xl text-sm leading-6 text-[#9aa8b5]">{artist.description}</p> : <p className="mt-3 text-sm text-[#9aa8b5]">Songs and videos from this artist.</p>}
             <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={playAll}
-                disabled={tracks.length === 0}
-                className="btn-primary disabled:opacity-50"
-              >
-                Play
-              </button>
-              {status === "authenticated" ? (
-                <button
-                  type="button"
-                  onClick={() => void toggleFollow()}
-                  disabled={followBusy}
-                  aria-pressed={followed}
-                  className="btn-ghost"
-                >
-                  {followBusy ? "Saving…" : followed ? "Following" : "Follow"}
-                </button>
-              ) : null}
+              <button type="button" onClick={playAll} disabled={tracks.length === 0} className="btn-primary disabled:opacity-50">Play</button>
+              {status === "authenticated" ? <button type="button" onClick={() => void toggleFollow()} disabled={followBusy} aria-pressed={followed} className="btn-ghost">{followBusy ? "Saving…" : followed ? "Following" : "Follow"}</button> : null}
             </div>
           </div>
         </div>
       </header>
 
       {loading ? <div className="mt-8"><CardGridSkeleton count={6} aspect="aspect-video" /></div> : null}
-      {!loading && error ? (
-        <div className="mt-8">
-          <UserMessage
-            title={error.title}
-            message={error.message}
-            onRetry={() => setRetryKey((value) => value + 1)}
-            busy={loading}
-          />
-        </div>
-      ) : null}
-      {!loading && !error && tracks.length === 0 ? (
-        <div className="mt-8">
-          <EmptyState
-            eyebrow="Artist"
-            title={`No songs found for ${title}`}
-            message="Try another search to find playable tracks."
-            href="/"
-            actionLabel="Back to Home"
-          />
-        </div>
-      ) : null}
+      {!loading && error ? <div className="mt-8"><UserMessage title={error.title} message={error.message} onRetry={() => setRetryKey((value) => value + 1)} busy={loading} /></div> : null}
+      {!loading && !error && tracks.length === 0 ? <div className="mt-8"><EmptyState eyebrow="Artist" title={`No songs found for ${title}`} message="Try another search to find playable tracks." href="/" actionLabel="Back to Home" /></div> : null}
 
       {tracks.length > 0 ? (
         <section className="mt-8" aria-labelledby="artist-songs-title">
-          <h2 id="artist-songs-title" className="mb-4 text-xl font-semibold text-white">
-            Songs
-            <span className="ml-2 text-sm font-normal text-[#9aa8b5]">{tracks.length}</span>
-          </h2>
+          <h2 id="artist-songs-title" className="mb-4 text-xl font-semibold text-white">Songs<span className="ml-2 text-sm font-normal text-[#9aa8b5]">{tracks.length}</span></h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tracks.map((video) => (
               <article key={video.id} className="card group text-left">
-                <button
-                  type="button"
-                  aria-label={`Play ${cleanTitle(video.title)}`}
-                  onClick={() => playTrack(video)}
-                  className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black"
-                >
-                  <MediaImage
-                    src={video.thumbnail}
-                    size="hq"
-                    alt=""
-                    className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]"
-                  />
+                <button type="button" aria-label={`Play ${cleanTitle(video.title)}`} onClick={() => playTrack(video)} className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black">
+                  <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
                   <PlayFab />
                 </button>
                 <button type="button" onClick={() => playTrack(video)} className="block w-full p-3 text-left">
@@ -256,16 +183,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
               </article>
             ))}
           </div>
-          {nextPageToken ? (
-            <button
-              type="button"
-              onClick={() => void loadMore()}
-              disabled={loadingMore}
-              className="btn-ghost mt-6 text-sm disabled:opacity-60"
-            >
-              {loadingMore ? "Loading more…" : "Load more songs"}
-            </button>
-          ) : null}
+          {nextPageToken ? <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="btn-ghost mt-6 text-sm disabled:opacity-60">{loadingMore ? "Loading more…" : "Load more songs"}</button> : null}
         </section>
       ) : null}
     </div>
