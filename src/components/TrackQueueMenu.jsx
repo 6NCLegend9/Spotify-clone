@@ -242,10 +242,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
         title={buttonLabel}
         aria-haspopup="menu"
         aria-expanded={open}
-        onPointerDown={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        }}
+        onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
