@@ -39,7 +39,8 @@ export default function PlaybackPersistence() {
       }
       if (player.youtubeVideo === previous.youtubeVideo
         && player.youtubeQueue === previous.youtubeQueue
-        && player.position === previous.position) return;
+        && player.position === previous.position
+        && player.queueManualEnd === previous.queueManualEnd) return;
       previous = player;
       pending = player;
       clearTimeout(timer);
