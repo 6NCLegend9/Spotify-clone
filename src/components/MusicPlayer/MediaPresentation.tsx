@@ -125,7 +125,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [canLyrics, leaveFullscreen, rememberFocus]);
   const openQueue = useCallback(() => {
     dismiss(); props.onQueue();
-  }, [dismiss, props.onQueue]);
+  }, [dismiss, props]);
   const close = useCallback(() => {
     if (view !== "player") setView("player");
     else if (expanded) { leaveFullscreen(); setExpanded(false); }
