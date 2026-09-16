@@ -11,15 +11,16 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Test-only values for the local production servers used by CI.
+  # Production deployment secrets remain managed by Vercel.
+  NEXTAUTH_SECRET: heykasa-ci-browser-regression-only-secret
+  NEXTAUTH_URL: http://localhost:3100
+
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 65
-    env:
-      # Test-only values for the local production server started by Playwright.
-      # Production deployment secrets remain managed by Vercel.
-      NEXTAUTH_SECRET: heykasa-ci-browser-regression-only-secret
-      NEXTAUTH_URL: http://localhost:3100
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,8 +30,55 @@ jobs:
       - run: npm ci
       - run: npm run audit:production
       - run: npm run check
-      - run: npx playwright install --with-deps chromium firefox webkit
-      - run: npm run test:e2e
+
+  e2e:
+    name: e2e / ${{ matrix.project }}
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: chromium-desktop
+            browser: chromium
+          - project: firefox-desktop
+            browser: firefox
+          - project: webkit-desktop
+            browser: webkit
+          - project: mobile-chrome
+            browser: chromium
+          - project: mobile-safari
+            browser: webkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npx playwright test --project="${{ matrix.project }}" --workers=2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-test-results-${{ matrix.project }}
+          path: test-results/
+          retention-days: 7
+
+  benchmark:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - run: npm run benchmark:production
       - uses: actions/upload-artifact@v4
         if: always()
@@ -38,9 +86,3 @@ jobs:
           name: performance-${{ github.sha }}
           path: artifacts/performance.json
           retention-days: 14
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: browser-test-results
-          path: test-results/
-          retention-days: 7
