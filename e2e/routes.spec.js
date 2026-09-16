@@ -49,7 +49,10 @@ async function smokeRoutes(page, routes) {
         expect.soft(response, `${path} should return a document response`).not.toBeNull();
         expect.soft(response?.status() || 0, `${path} should resolve instead of returning 4xx/5xx`).toBeLessThan(400);
         await expect.soft(page.locator("body"), `${path} should render a body`).toBeVisible();
-        await expect.soft(page.getByText(/application error/i), `${path} should not expose a Next.js application error`).toHaveCount(0);
+        await expect.soft(
+          page.getByRole("heading", { name: "This page couldn’t load", exact: true }),
+          `${path} should not expose the application error boundary`,
+        ).toHaveCount(0);
         expect.soft(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${path} should not overflow horizontally`).toBe(true);
         expect.soft(pageErrors, `${path} should not throw uncaught browser errors`).toEqual([]);
       } finally {
