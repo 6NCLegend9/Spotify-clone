@@ -7,12 +7,10 @@ function genericPayload() {
     data: [],
     results: [],
     releases: [],
-    notifications: [],
     genres: [],
     tree: [],
     personalGenres: [],
     sections: {},
-    unreadCount: 0,
   };
 }
 
@@ -49,7 +47,7 @@ async function smokeRoutes(page, routes) {
       try {
         const response = await page.goto(path, { waitUntil: "domcontentloaded" });
         expect.soft(response, `${path} should return a document response`).not.toBeNull();
-        expect.soft(response?.status() || 0, `${path} should not return a server error`).toBeLessThan(500);
+        expect.soft(response?.status() || 0, `${path} should resolve instead of returning 4xx/5xx`).toBeLessThan(400);
         await expect.soft(page.locator("body"), `${path} should render a body`).toBeVisible();
         await expect.soft(page.getByText(/application error/i), `${path} should not expose a Next.js application error`).toHaveCount(0);
         expect.soft(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${path} should not overflow horizontally`).toBe(true);
@@ -61,16 +59,14 @@ async function smokeRoutes(page, routes) {
   }
 }
 
-test("public, legal, support and auth-entry routes render without runtime crashes", async ({ page }) => {
+test("public, legal and auth-entry routes render without runtime crashes", async ({ page }) => {
   await installApiFixtures(page, { authenticated: false });
   await smokeRoutes(page, [
     "/search",
     "/login",
     "/signup",
-    "/forgot-password",
-    "/about",
+    "/reset-password",
     "/accessibility",
-    "/support",
     "/privacy",
     "/terms",
     "/dmca",
@@ -84,10 +80,9 @@ test("authenticated top-level application routes render without runtime crashes"
     "/search",
     "/library",
     "/library/liked",
+    "/favourite",
     "/following",
     "/settings",
-    "/notifications",
-    "/your-updates",
     "/arcade",
   ]);
 });
