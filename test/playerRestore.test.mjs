@@ -13,6 +13,7 @@ const {
   undoQueueEdit,
   addToQueue,
   playNextToQueue,
+  playPreviousFromHistory,
   startYoutubePlayback,
 } = await import("../src/redux/features/playerSlice.js");
 
@@ -103,4 +104,27 @@ test("track changes build a bounded previous-track history", () => {
   state = reducer(state, setYoutubeVideo(secondOccurrence));
   assert.equal(state.history.length, 1);
   assert.equal(state.history[0].id, track.id);
+});
+
+test("Previous consumes listening history instead of walking backward through queue order", () => {
+  const second = { id: "lmnopqrstuv", title: "Second" };
+  const third = { id: "12345678901", title: "Third" };
+  let state = reducer(undefined, startYoutubePlayback({
+    queue: [track, second, third],
+    track,
+    queueMode: "collection",
+  }));
+  state = reducer(state, setYoutubeVideo(state.youtubeQueue[2]));
+  state = reducer(state, setYoutubeVideo(state.youtubeQueue[1]));
+  assert.deepEqual(state.history.map((item) => item.id), [track.id, third.id]);
+
+  state = reducer(state, playPreviousFromHistory());
+  assert.equal(state.youtubeVideo.id, third.id);
+  assert.deepEqual(state.history.map((item) => item.id), [track.id]);
+  assert.equal(state.position, 0);
+  assert.equal(state.isPlaying, true);
+
+  state = reducer(state, playPreviousFromHistory());
+  assert.equal(state.youtubeVideo.id, track.id);
+  assert.deepEqual(state.history, []);
 });
