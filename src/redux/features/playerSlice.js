@@ -180,6 +180,23 @@ const playerSlice = createSlice({
       syncUserQueue(state);
     },
 
+    playPreviousFromHistory: (state) => {
+      const previous = state.history.pop();
+      if (!previous?.id) return;
+
+      state.queueUndo = null;
+      state.position = 0;
+      state.restorePosition = null;
+      const queuedOccurrence = state.youtubeQueue.find((item) => sameOccurrence(item, previous))
+        || state.youtubeQueue.find((item) => item?.id === previous.id);
+      state.youtubeVideo = queuedOccurrence || previous;
+      state.activeSong = {};
+      state.currentSongs = [];
+      state.isActive = false;
+      state.isPlaying = true;
+      syncUserQueue(state);
+    },
+
     setYoutubeQueue: (state, action) => {
       state.queueUndo = null;
       const rawQueue = Array.isArray(action.payload) ? action.payload : [];
@@ -366,6 +383,7 @@ export const {
   prevSong,
   playPause,
   setYoutubeVideo,
+  playPreviousFromHistory,
   setYoutubeQueue,
   startYoutubePlayback,
   editQueue,
