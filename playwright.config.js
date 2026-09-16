@@ -3,7 +3,9 @@ const { defineConfig, devices } = require("@playwright/test");
 module.exports = defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
-  workers: 1,
+  // Keep resource usage bounded while allowing the five browser/device projects
+  // to finish inside CI instead of serializing the entire matrix through one worker.
+  workers: process.env.CI ? 2 : 1,
   timeout: 120000,
   expect: { timeout: 30000 },
   retries: process.env.CI ? 1 : 0,
