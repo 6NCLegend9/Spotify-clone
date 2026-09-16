@@ -11,14 +11,27 @@
 
 :global(body):has(.scope) :global([data-testid="youtube-decks"] .yt-crop-frame) {
   overflow: hidden !important;
-  transform: scale(1.08) !important;
-  transform-origin: center center !important;
+  transform: none !important;
 }
 
-:global(body):has(.scope) :global([data-testid="youtube-decks"] iframe) {
+/* Iframes do not stretch from inset the way boxes do. Oversized width/height
+   plus a raised top crops YouTube's "More videos" row and watermark. */
+:global(body):has(.scope) :global([data-testid="youtube-decks"] .yt-crop-frame iframe) {
   pointer-events: none !important;
   user-select: none !important;
   border: 0 !important;
+  position: absolute !important;
+  top: -10% !important;
+  left: -8% !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 116% !important;
+  height: 148% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  transform: none !important;
 }
 
 :global(body):has(.scope) :global([data-testid="youtube-decks"])::before,
@@ -47,6 +60,10 @@
    marks the deck before the video reaches ENDED and advances through KASA's queue.
    If the next source takes a moment to load, users see the KASA canvas instead of
    external recommendation cards/channel links. */
+:global(body):has(.scope) :global([data-testid="youtube-decks"][data-kasa-end-guard="true"] iframe) {
+  opacity: 0 !important;
+}
+
 :global(body):has(.scope) :global([data-testid="youtube-decks"][data-kasa-end-guard="true"])::after {
   inset: 0;
   height: auto;

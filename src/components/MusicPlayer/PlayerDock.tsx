@@ -96,7 +96,6 @@ export default function PlayerDock(props: PlayerDockProps) {
     const remaining = props.duration - props.position;
     const shouldMask =
       props.duration > 8
-      && remaining >= 0
       && remaining <= END_SCREEN_MASK_SECONDS;
     setEndScreenMask(shouldMask);
   }, [props.duration, props.position, props.track.id]);

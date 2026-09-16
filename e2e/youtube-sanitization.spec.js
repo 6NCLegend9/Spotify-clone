@@ -101,6 +101,10 @@ test("YouTube embed stays sanitized even when old account data requested caption
   await expect(deck).not.toHaveAttribute("data-kasa-end-guard", "true");
   await page.evaluate(() => { window.__ytTime = 114; });
   await expect(deck).toHaveAttribute("data-kasa-end-guard", "true");
+  await page.evaluate(() => { window.__ytTime = 120; });
+  await expect(deck).toHaveAttribute("data-kasa-end-guard", "true");
+  await page.evaluate(() => { window.__ytTime = 125; });
+  await expect(deck).toHaveAttribute("data-kasa-end-guard", "true");
   await page.evaluate(() => { window.__ytTime = 100; });
   await expect(deck).not.toHaveAttribute("data-kasa-end-guard", "true");
 });
