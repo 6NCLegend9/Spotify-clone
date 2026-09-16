@@ -14,7 +14,12 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 65
+    env:
+      # Test-only values for the local production server started by Playwright.
+      # Production deployment secrets remain managed by Vercel.
+      NEXTAUTH_SECRET: heykasa-ci-browser-regression-only-secret
+      NEXTAUTH_URL: http://localhost:3100
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
