@@ -52,6 +52,16 @@ test("builds a Discord Rich Presence activity from the current YouTube track", (
   assert.equal(activity.timestamps.end, 1_700_000_000_000 + 200_000);
   assert.equal(activity.buttons[0].url, "https://haykasa.vercel.app");
   assert.ok(activity.buttons[0].label.length <= 32);
+
+  const paused = buildDiscordActivity({
+    track,
+    playing: false,
+    startedAt: 1_700_000_000_000,
+    siteName: "HeyKasa",
+    siteUrl: "https://haykasa.vercel.app",
+  });
+  assert.equal("timestamps" in paused, false);
+  assert.equal(paused.assets.small_text, "Paused");
 });
 
 test("validates Discord app configuration and redirect origins", () => {
