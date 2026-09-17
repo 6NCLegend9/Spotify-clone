@@ -1,8 +1,9 @@
 "use client";
 
+import DesktopCompatibilityGate from "@/components/DesktopCompatibilityGate";
 import useDiscordPresence from "@/hooks/useDiscordPresence";
 
 export default function DiscordPresenceSync() {
   useDiscordPresence();
-  return null;
+  return <DesktopCompatibilityGate />;
 }
