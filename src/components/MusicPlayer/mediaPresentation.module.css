@@ -60,6 +60,11 @@
 .theater .expandedTransport { position: absolute; z-index: 50; left: 0; right: 0; bottom: 0; padding: 20px max(24px, env(safe-area-inset-right, 0px)) max(18px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px)); background: linear-gradient(0deg, rgb(0 0 0 / 90%) 0%, rgb(0 0 0 / 62%) 68%, transparent 100%); transition: opacity 180ms ease, transform 180ms ease, visibility 180ms; }
 .theater .expandedTransport .mobileTransport { width: min(100%, 980px); margin: 0 auto; gap: 8px; }
 .theaterChrome { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
+/* The iframe must stay below KASA's controls. The transparent theater shell lets
+   the real video show through while only its chrome remains interactive. */
+.theater[data-media="video"] { background: transparent; pointer-events: none; }
+.theater[data-media="video"] .expandedArt { background: transparent; pointer-events: none; }
+.theater[data-media="video"] .theaterChrome { pointer-events: auto; }
 .theater[data-controls="hidden"] .overlayHeader { opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-12px); }
 .theater[data-controls="hidden"] .expandedTransport { opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(12px); }
 .theater[data-controls="hidden"] .theaterChrome:focus-within { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
