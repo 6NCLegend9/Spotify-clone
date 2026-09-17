@@ -110,13 +110,16 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [clearControlsTimer, expanded, view]);
   const toggleTheaterControls = useCallback(() => {
     if (!expanded || view !== "player") return;
-    if (controlsVisible) {
-      clearControlsTimer();
-      setControlsVisible(false);
-    } else {
-      showTheaterControls();
-    }
-  }, [clearControlsTimer, controlsVisible, expanded, showTheaterControls, view]);
+    clearControlsTimer();
+    setControlsVisible((current) => {
+      if (current) return false;
+      controlsTimerRef.current = window.setTimeout(() => {
+        controlsTimerRef.current = null;
+        setControlsVisible(false);
+      }, THEATER_CONTROLS_HIDE_MS);
+      return true;
+    });
+  }, [clearControlsTimer, expanded, view]);
 
   const persistVideoMode = useCallback((next: boolean) => {
     setVideo(next);
