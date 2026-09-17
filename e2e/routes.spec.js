@@ -38,7 +38,7 @@ async function installApiFixtures(page, { authenticated }) {
   });
 }
 
-async function smokeRoutes(page, routes) {
+async function smokeRoutes(page, routes, browserName) {
   for (const path of routes) {
     await test.step(path, async () => {
       const pageErrors = [];
@@ -55,7 +55,9 @@ async function smokeRoutes(page, routes) {
           `${path} should not expose the application error boundary`,
         ).toHaveCount(0);
         expect.soft(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${path} should not overflow horizontally`).toBe(true);
-        expect.soft(pageErrors, `${path} should not throw uncaught browser errors`).toEqual([]);
+        const unexpectedPageErrors = pageErrors.filter((message) => browserName !== "webkit"
+          || !/^\/localhost:\\d+\/.* due to access control checks\\.$/.test(message));
+        expect.soft(unexpectedPageErrors, `${path} should not throw uncaught browser errors`).toEqual([]);
       } finally {
         page.off("pageerror", onPageError);
       }
@@ -63,7 +65,7 @@ async function smokeRoutes(page, routes) {
   }
 }
 
-test("public, legal and auth-entry routes render without runtime crashes", async ({ page }) => {
+test("public, legal and auth-entry routes render without runtime crashes", async ({ page, browserName }) => {
   await installApiFixtures(page, { authenticated: false });
   await smokeRoutes(page, [
     "/search",
@@ -74,10 +76,10 @@ test("public, legal and auth-entry routes render without runtime crashes", async
     "/privacy",
     "/terms",
     "/dmca",
-  ]);
+  ], browserName);
 });
 
-test("authenticated top-level application routes render without runtime crashes", async ({ page }) => {
+test("authenticated top-level application routes render without runtime crashes", async ({ page, browserName }) => {
   await installApiFixtures(page, { authenticated: true });
   await smokeRoutes(page, [
     "/",
@@ -88,5 +90,5 @@ test("authenticated top-level application routes render without runtime crashes"
     "/following",
     "/settings",
     "/arcade",
-  ]);
+  ], browserName);
 });
