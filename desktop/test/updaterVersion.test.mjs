@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { semanticVersionParts, versionOlderThan } from "../src/updater.mjs";
+import { semanticVersionParts, versionOlderThan } from "../src/version.mjs";
 
 test("desktop updater compares semantic versions for mandatory upgrades", () => {
   assert.deepEqual(semanticVersionParts("1.2.3"), [1, 2, 3]);
