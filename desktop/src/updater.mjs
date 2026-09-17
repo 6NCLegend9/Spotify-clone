@@ -7,6 +7,7 @@ import {
   UPDATE_MANIFEST_URL,
   UPDATE_PREFLIGHT_TIMEOUT_MS,
 } from "./config.mjs";
+import { installationEligibleForRollout } from "./policy.mjs";
 
 const { autoUpdater } = updaterPackage;
 
@@ -156,6 +157,14 @@ export class DesktopUpdater {
     }
   }
 
+  manifestRolloutAllows(manifest) {
+    if (this.channel() !== "stable") return true;
+    return installationEligibleForRollout(
+      this.store.get("installationId"),
+      manifest?.updateRolloutPercent ?? 100,
+    );
+  }
+
   async runCheck({ manual = false } = {}) {
     if (!this.app.isPackaged) {
       this.emit({ state: "disabled", detail: "Updates are disabled in development builds." });
@@ -189,6 +198,15 @@ export class DesktopUpdater {
         this.emit({
           state: "disabled",
           detail: `No signed ${this.channel()} desktop release has been published yet.`,
+        });
+        return this.getStatus();
+      }
+      if (!this.manifestRolloutAllows(manifest)) {
+        this.emit({
+          state: "deferred",
+          version: manifest.latest || this.app.getVersion(),
+          progress: 0,
+          detail: "A newer HeyKasa Desktop release is rolling out gradually. This installation will update automatically when its rollout group becomes eligible.",
         });
         return this.getStatus();
       }
