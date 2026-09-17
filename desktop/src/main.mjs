@@ -27,6 +27,7 @@ import {
 } from "./authFlow.mjs";
 import { DiscordIpcClient } from "./discord/ipcClient.mjs";
 import { NativeStore } from "./nativeStore.mjs";
+import { DesktopPolicy } from "./policy.mjs";
 import {
   assertTrustedIpcEvent,
   buildTrustedOrigins,
@@ -40,6 +41,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
 const PROTOCOL = "heykasa";
 const DESKTOP_PARTITION = "persist:heykasa";
+const CAPABILITY_POLICY = Object.freeze({
+  authV1: "auth",
+  discordPresenceV1: "discord",
+  updaterV1: "updater",
+});
 const appUrl = desktopAppUrl({
   isPackaged: app.isPackaged,
   overrideUrl: process.env.HEYKASA_DESKTOP_URL || "",
@@ -49,6 +55,7 @@ const trustedOrigins = buildTrustedOrigins({ appUrl, isPackaged: app.isPackaged 
 let mainWindow = null;
 let store = null;
 let updater = null;
+let policy = null;
 let tray = null;
 let quitting = false;
 let authAttempt = null;
@@ -63,6 +70,28 @@ function resourceIconPath() {
 
 function desktopSession() {
   return session.fromPartition(DESKTOP_PARTITION);
+}
+
+function policyFeature(name) {
+  return policy?.feature(name) !== false;
+}
+
+function effectiveCapabilities() {
+  return DESKTOP_CAPABILITIES.filter((capability) => {
+    const feature = CAPABILITY_POLICY[capability];
+    return !feature || policyFeature(feature);
+  });
+}
+
+function policyDisabledMessage(feature) {
+  const snapshot = policy?.snapshot();
+  if (snapshot?.maintenance && snapshot.maintenanceMessage) return snapshot.maintenanceMessage;
+  const labels = {
+    auth: "Desktop sign-in",
+    discord: "Discord Rich Presence",
+    updater: "Desktop updates",
+  };
+  return `${labels[feature] || "This desktop feature"} is temporarily disabled.`;
 }
 
 function focusMainWindow() {
@@ -91,6 +120,7 @@ function setAuthStatus(state, detail = "") {
 }
 
 async function startDesktopAuth() {
+  if (!policyFeature("auth")) return setAuthStatus("disabled", policyDisabledMessage("auth"));
   authAttempt = createDesktopAuthAttempt();
   const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, authAttempt);
   setAuthStatus("waiting", "Complete sign-in in your browser, then return to HeyKasa.");
@@ -104,6 +134,11 @@ async function startDesktopAuth() {
 }
 
 async function exchangeDesktopAuth(value) {
+  if (!policyFeature("auth")) {
+    authAttempt = null;
+    setAuthStatus("disabled", policyDisabledMessage("auth"));
+    return false;
+  }
   const deepLink = parseDesktopAuthDeepLink(value);
   if (!deepLink || !authAttempt || desktopAuthAttemptExpired(authAttempt)
     || !isMatchingDesktopAuthState(authAttempt, deepLink.state)) {
@@ -153,7 +188,9 @@ async function exchangeDesktopAuth(value) {
 
     authAttempt = null;
     setAuthStatus("authenticated", "Desktop sign-in completed.");
-    if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.loadURL(appUrl, { extraHeaders: "Cache-Control: no-cache\n" });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      await mainWindow.loadURL(appUrl, { extraHeaders: "Cache-Control: no-cache\n" });
+    }
     focusMainWindow();
     return true;
   } catch (error) {
@@ -239,8 +276,7 @@ async function showOfflineScreen(window) {
   try {
     await window.loadFile(path.join(__dirname, "offline.html"));
   } catch {
-    // If even the bundled recovery page cannot load there is no useful renderer
-    // action left; the next application launch will retry production.
+    // The next application launch retries the production renderer.
   }
 }
 
@@ -309,10 +345,8 @@ async function createMainWindow() {
   return window;
 }
 
-function createTray() {
-  if (tray && !tray.isDestroyed()) return tray;
-  tray = new Tray(resourceIconPath());
-  tray.setToolTip(PRODUCT_NAME);
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: "Open HeyKasa",
@@ -320,6 +354,7 @@ function createTray() {
     },
     {
       label: "Check for updates",
+      enabled: policyFeature("updater"),
       click: () => void updater?.checkNow({ manual: true }),
     },
     { type: "separator" },
@@ -331,6 +366,13 @@ function createTray() {
       },
     },
   ]));
+}
+
+function createTray() {
+  if (tray && !tray.isDestroyed()) return tray;
+  tray = new Tray(resourceIconPath());
+  tray.setToolTip(PRODUCT_NAME);
+  updateTrayMenu();
   tray.on("click", () => focusMainWindow());
   return tray;
 }
@@ -364,6 +406,31 @@ function sendUpdateStatus(status) {
   if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", status);
 }
 
+async function applyPolicy(snapshot) {
+  updateTrayMenu();
+  if (snapshot?.maintenance || snapshot?.features?.auth === false) {
+    authAttempt = null;
+    setAuthStatus("disabled", policyDisabledMessage("auth"));
+  } else if (authStatus.state === "disabled") {
+    setAuthStatus("idle", "");
+  }
+
+  if (snapshot?.maintenance || snapshot?.features?.discord === false) {
+    await discord.clearActivity().catch(() => {});
+    discord.disconnect();
+  }
+
+  if (snapshot?.maintenance || snapshot?.features?.updater === false) {
+    updater?.dispose();
+  } else if (updater) {
+    updater.start();
+  }
+}
+
+function requirePolicyFeature(feature) {
+  if (!policyFeature(feature)) throw new Error(policyDisabledMessage(feature));
+}
+
 function secureHandle(channel, handler) {
   ipcMain.handle(channel, async (event, ...args) => {
     assertTrustedIpcEvent(event, trustedOrigins);
@@ -376,20 +443,23 @@ function registerIpcHandlers() {
     productName: PRODUCT_NAME,
     desktopVersion: app.getVersion(),
     apiVersion: DESKTOP_API_VERSION,
-    capabilities: [...DESKTOP_CAPABILITIES],
+    capabilities: effectiveCapabilities(),
     platform: process.platform,
     arch: process.arch,
     packaged: app.isPackaged,
+    policy: policy?.snapshot() || null,
   }));
 
   secureHandle("heykasa:auth:start", () => startDesktopAuth());
   secureHandle("heykasa:auth:status", () => ({ ...authStatus }));
 
   secureHandle("heykasa:discord:set-activity", async (activity) => {
+    requirePolicyFeature("discord");
     await discord.setActivity(activity);
     return { connected: discord.connected };
   });
   secureHandle("heykasa:discord:clear", async () => {
+    if (!policyFeature("discord")) return { connected: false };
     await discord.clearActivity();
     return { connected: discord.connected };
   });
@@ -399,13 +469,22 @@ function registerIpcHandlers() {
     return { connected: false };
   });
   secureHandle("heykasa:discord:status", () => ({
-    connected: discord.connected,
+    connected: policyFeature("discord") && discord.connected,
     previouslyConnected: discord.everConnected,
+    enabled: policyFeature("discord"),
   }));
 
-  secureHandle("heykasa:updates:status", () => updater?.getStatus() || { state: "idle" });
-  secureHandle("heykasa:updates:check", () => updater?.checkNow({ manual: true }) || { state: "disabled" });
+  secureHandle("heykasa:updates:status", () => (
+    policyFeature("updater")
+      ? updater?.getStatus() || { state: "idle" }
+      : { state: "disabled", detail: policyDisabledMessage("updater") }
+  ));
+  secureHandle("heykasa:updates:check", () => {
+    requirePolicyFeature("updater");
+    return updater?.checkNow({ manual: true }) || { state: "disabled" };
+  });
   secureHandle("heykasa:updates:install", async () => {
+    requirePolicyFeature("updater");
     await updater?.installReadyUpdate();
     return { ok: true };
   });
@@ -425,6 +504,7 @@ function registerIpcHandlers() {
 }
 
 async function shutdownNativeIntegrations() {
+  policy?.dispose();
   updater?.dispose();
   await discord.clearActivity().catch(() => {});
   discord.disconnect();
@@ -441,14 +521,23 @@ if (registerSingleInstance()) {
     const actualAutoLaunch = app.getLoginItemSettings().openAtLogin === true;
     if (store.get("autoLaunch") !== actualAutoLaunch) store.set("autoLaunch", actualAutoLaunch);
 
+    policy = new DesktopPolicy({
+      url: new URL("/api/desktop/policy", appUrl).href,
+      fetchImpl: (url, options) => net.fetch(url, options),
+      onChange: (snapshot) => void applyPolicy(snapshot),
+    });
+    await policy.refresh();
+
     updater = new DesktopUpdater({ app, store, onStatus: sendUpdateStatus });
     registerIpcHandlers();
     await createMainWindow();
     createTray();
-    updater.start();
+    if (policyFeature("updater")) updater.start();
+    policy.start();
 
     powerMonitor.on("resume", () => {
-      if (updater && store.get("autoUpdate") !== false) void updater.checkNow();
+      void policy?.refresh();
+      if (policyFeature("updater") && updater && store.get("autoUpdate") !== false) void updater.checkNow();
       if (authAttempt && desktopAuthAttemptExpired(authAttempt)) {
         authAttempt = null;
         setAuthStatus("idle", "");
