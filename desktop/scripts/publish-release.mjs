@@ -46,7 +46,8 @@ async function packageVersion() {
 
 async function releaseFiles(version) {
   const names = await fsp.readdir(distDir);
-  const installerPattern = new RegExp(`^HeyKasa-Setup-${version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-x64\\.exe$`, "i");
+  const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const installerPattern = new RegExp(`^HeyKasa-Setup-${escapedVersion}-x64\\.exe$`, "i");
   const installer = names.find((name) => installerPattern.test(name));
   if (!installer) throw new Error(`Signed installer for ${version} was not found in desktop/dist.`);
 
@@ -57,16 +58,35 @@ async function releaseFiles(version) {
   return { installer, updateMetadata, blockmaps };
 }
 
+async function sha512File(file) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha512");
+    const input = fs.createReadStream(file);
+    input.on("error", reject);
+    input.on("data", (chunk) => hash.update(chunk));
+    input.on("end", () => resolve(hash.digest("base64")));
+  });
+}
+
 async function uploadFile(localName, remoteName, { overwrite = false, immutable = false } = {}) {
   const file = path.join(distDir, localName);
-  const result = await put(remoteName, fs.createReadStream(file), {
+  return put(remoteName, fs.createReadStream(file), {
     access: "public",
     addRandomSuffix: false,
     allowOverwrite: overwrite,
     cacheControlMaxAge: immutable ? 31_536_000 : 60,
     token: required("BLOB_READ_WRITE_TOKEN"),
   });
-  return result;
+}
+
+async function verifyPublishedFile(url, expectedSize = null) {
+  const response = await fetch(url, { method: "HEAD", redirect: "follow" });
+  if (!response.ok) throw new Error(`Published desktop artifact returned ${response.status}: ${url}`);
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(expectedSize) && expectedSize > 0 && Number.isFinite(contentLength) && contentLength > 0
+    && contentLength !== expectedSize) {
+    throw new Error(`Published desktop artifact size mismatch: ${url}`);
+  }
 }
 
 function deriveBlobBaseUrl(uploadUrl, channel, filename) {
@@ -95,17 +115,24 @@ if (manifestSecret.length < 32) throw new Error("HEYKASA_DESKTOP_MANIFEST_HMAC_S
 
 const files = await releaseFiles(version);
 const remotePrefix = `desktop/${channel}`;
+const installerPath = path.join(distDir, files.installer);
+const installerStat = await fsp.stat(installerPath);
+const installerSha512 = await sha512File(installerPath);
 const installerUpload = await uploadFile(
   files.installer,
   `${remotePrefix}/${files.installer}`,
   { immutable: true },
 );
+const installerUrl = installerUpload.downloadUrl || installerUpload.url;
+await verifyPublishedFile(installerUrl, installerStat.size);
 
 for (const blockmap of files.blockmaps) {
-  await uploadFile(blockmap, `${remotePrefix}/${blockmap}`, { immutable: true });
+  const blockmapPath = path.join(distDir, blockmap);
+  const blockmapStat = await fsp.stat(blockmapPath);
+  const result = await uploadFile(blockmap, `${remotePrefix}/${blockmap}`, { immutable: true });
+  await verifyPublishedFile(result.downloadUrl || result.url, blockmapStat.size);
 }
 
-const installerStat = await fsp.stat(path.join(distDir, files.installer));
 const payload = {
   latest: version,
   minimum,
@@ -114,17 +141,18 @@ const payload = {
   channel,
   platform: "win32",
   arch: "x64",
-  downloadUrl: installerUpload.downloadUrl || installerUpload.url,
+  downloadUrl: installerUrl,
   releaseNotesUrl,
   publishedAt: new Date().toISOString(),
   sizeBytes: installerStat.size,
+  sha512: installerSha512,
 };
 const signature = crypto
   .createHmac("sha256", manifestSecret)
   .update(JSON.stringify(payload), "utf8")
   .digest("base64url");
 const envelope = `${JSON.stringify({ payload, signature }, null, 2)}\n`;
-await put(`${remotePrefix}/release-manifest.json`, envelope, {
+const manifestUpload = await put(`${remotePrefix}/release-manifest.json`, envelope, {
   access: "public",
   addRandomSuffix: false,
   allowOverwrite: true,
@@ -132,23 +160,28 @@ await put(`${remotePrefix}/release-manifest.json`, envelope, {
   contentType: "application/json; charset=utf-8",
   token: required("BLOB_READ_WRITE_TOKEN"),
 });
+await verifyPublishedFile(manifestUpload.downloadUrl || manifestUpload.url);
 
-// The updater metadata is the final publication switch. All referenced binary
-// files and the signed website manifest already exist before latest.yml moves.
-await uploadFile(files.updateMetadata, `${remotePrefix}/latest.yml`, { overwrite: true });
+// This normalized metadata file is the final publication switch for every
+// channel. DesktopUpdater deliberately asks electron-updater for `latest.yml`
+// inside the selected channel directory.
+const metadataUpload = await uploadFile(files.updateMetadata, `${remotePrefix}/latest.yml`, { overwrite: true });
+await verifyPublishedFile(metadataUpload.downloadUrl || metadataUpload.url);
 
 const blobBaseUrl = deriveBlobBaseUrl(installerUpload.url, channel, files.installer);
 writeGithubOutput({
   version,
   channel,
-  installer_url: installerUpload.downloadUrl || installerUpload.url,
+  installer_url: installerUrl,
   blob_base_url: blobBaseUrl,
+  sha512: installerSha512,
 });
 
 console.log(JSON.stringify({
   event: "desktop_release_published",
   version,
   channel,
-  installerUrl: installerUpload.downloadUrl || installerUpload.url,
+  installerUrl,
   blobBaseUrl,
+  sha512: installerSha512,
 }));
