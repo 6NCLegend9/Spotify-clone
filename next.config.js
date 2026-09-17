@@ -1,4 +1,6 @@
 const isProduction = process.env.NODE_ENV === "production";
+const upgradeInsecureRequests =
+  isProduction && process.env.DISABLE_HTTPS_UPGRADE !== "1";
 const disablePwa =
   process.env.NODE_ENV === "development"
   || process.env.DISABLE_PWA === "1";
@@ -27,7 +29,7 @@ const contentSecurityPolicy = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'self'",
-  ...(isProduction ? ["upgrade-insecure-requests"] : []),
+  ...(upgradeInsecureRequests ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
 /** @type {import('next').NextConfig} */
