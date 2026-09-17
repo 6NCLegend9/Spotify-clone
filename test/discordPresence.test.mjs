@@ -24,7 +24,7 @@ test("clips presence strings and keeps https artwork only", () => {
   assert.equal(httpsAssetUrl([{ url: "https://cdn.example/a.jpg" }]), "https://cdn.example/a.jpg");
 });
 
-test("builds a listening activity from the current YouTube track", () => {
+test("builds a Discord Rich Presence activity from the current YouTube track", () => {
   const track = presenceTrack({
     youtubeVideo: {
       id: "abcdefghijk",
@@ -46,7 +46,7 @@ test("builds a listening activity from the current YouTube track", () => {
     siteName: "HeyKasa",
     siteUrl: "https://haykasa.vercel.app",
   });
-  assert.equal(activity.type, 2);
+  assert.equal(activity.type, 0);
   assert.equal(activity.details, track.title);
   assert.equal(activity.state, "EminemMusic");
   assert.equal(activity.timestamps.end, 1_700_000_000_000 + 200_000);

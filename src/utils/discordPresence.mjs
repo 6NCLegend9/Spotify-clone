@@ -1,4 +1,4 @@
-const LISTENING_TYPE = 2;
+const PLAYING_TYPE = 0;
 const MAX_PRESENCE_TEXT = 128;
 const MAX_BUTTON_LABEL = 32;
 
@@ -78,7 +78,9 @@ export function buildDiscordActivity({
     : undefined;
 
   const activity = {
-    type: LISTENING_TYPE,
+    // Local/browser RPC Rich Presence is most compatible with the standard
+    // custom application activity type. Song and artist stay in details/state.
+    type: PLAYING_TYPE,
     details: clipPresenceText(track.title),
     state: clipPresenceText(track.artist || siteName),
     timestamps,
