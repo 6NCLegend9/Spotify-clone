@@ -1,5 +1,6 @@
 import updaterPackage from "electron-updater";
 import {
+  DESKTOP_API_VERSION,
   UPDATE_CHECK_INTERVAL_MS,
   UPDATE_FEED_BASE_URL,
   UPDATE_INITIAL_DELAY_JITTER_MS,
@@ -161,6 +162,7 @@ export class DesktopUpdater {
   manifestRolloutAllows(manifest) {
     if (this.channel() !== "stable") return true;
     if (versionOlderThan(this.app.getVersion(), manifest?.minimum)) return true;
+    if ((Number(manifest?.desktopApiVersion) || 0) > DESKTOP_API_VERSION) return true;
     return installationEligibleForRollout(
       this.store.get("installationId"),
       manifest?.updateRolloutPercent ?? 100,
