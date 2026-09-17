@@ -11,11 +11,12 @@ async function desktopDiagnosticSnapshot() {
   if (!api) return null;
   const info = await getHeyKasaDesktopInfo();
   if (!info) return null;
-  const [updates, discord, startup, preferences] = await Promise.all([
+  const [updates, discord, startup, preferences, nativeDiagnostics] = await Promise.all([
     api.updates?.getStatus?.().catch(() => null),
     api.discord?.getStatus?.().catch(() => null),
     api.startup?.get?.().catch(() => null),
     api.preferences?.get?.().catch(() => null),
+    api.diagnostics?.get?.().catch(() => null),
   ]);
   return {
     ...info,
@@ -27,6 +28,7 @@ async function desktopDiagnosticSnapshot() {
     autoUpdate: preferences?.autoUpdate !== false,
     closeToTray: preferences?.closeToTray !== false,
     updateChannel: preferences?.updateChannel || "stable",
+    native: nativeDiagnostics || undefined,
   };
 }
 
@@ -36,6 +38,12 @@ export default function SupportDiagnostics() {
     const base = diagnosticSnapshot();
     const desktop = await desktopDiagnosticSnapshot().catch(() => null);
     setReport(desktop ? { ...base, desktop } : base);
+  };
+  const clearReport = async () => {
+    clearDiagnostics();
+    const api = getHeyKasaDesktopApi();
+    await api?.diagnostics?.clearLogs?.().catch(() => {});
+    await refresh();
   };
   return <>
     <DesktopAppCard />
@@ -50,7 +58,7 @@ export default function SupportDiagnostics() {
             const link = document.createElement("a"); link.href = url; link.download = "heykasa-diagnostics.json"; link.click();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
           }}><Download size={18} aria-hidden="true" />Download report</button>
-          <button type="button" className="btn-ghost min-h-12 px-4" onClick={() => { clearDiagnostics(); void refresh(); }}>Clear report</button>
+          <button type="button" className="btn-ghost min-h-12 px-4" onClick={() => void clearReport()}>Clear report</button>
         </div>
       </>}
     </details>
