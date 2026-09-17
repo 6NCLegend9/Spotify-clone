@@ -1,0 +1,67 @@
+name: Desktop CI
+
+on:
+  push:
+    paths:
+      - "desktop/**"
+      - "src/app/api/desktop/**"
+      - "src/components/DesktopAppCard.jsx"
+      - "src/components/SupportDiagnostics.jsx"
+      - "src/hooks/useDiscordPresence.js"
+      - "src/lib/discordPresenceClient.js"
+      - "src/utils/desktopEnvironment.js"
+      - ".github/workflows/desktop-ci.yml"
+  pull_request:
+    paths:
+      - "desktop/**"
+      - "src/app/api/desktop/**"
+      - "src/components/DesktopAppCard.jsx"
+      - "src/components/SupportDiagnostics.jsx"
+      - "src/hooks/useDiscordPresence.js"
+      - "src/lib/discordPresenceClient.js"
+      - "src/utils/desktopEnvironment.js"
+      - ".github/workflows/desktop-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: desktop
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: desktop/package.json
+      - name: Install desktop dependencies
+        run: npm install --no-audit --no-fund
+      - name: Test native boundary
+        run: npm test
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Package unsigned CI build
+        run: npm run pack
+      - name: Verify packaged executable
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "HeyKasa.exe" | Select-Object -First 1
+          if (-not $exe) { throw "HeyKasa.exe was not produced" }
+          Write-Host "Packaged executable: $($exe.FullName)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heykasa-desktop-windows-${{ github.sha }}
+          path: desktop/dist/win-unpacked/
+          if-no-files-found: error
+          retention-days: 7
