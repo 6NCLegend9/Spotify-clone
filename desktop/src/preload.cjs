@@ -12,6 +12,7 @@ const api = Object.freeze({
   discord: Object.freeze({
     setActivity: (activity) => ipcRenderer.invoke("heykasa:discord:set-activity", activity),
     clearActivity: () => ipcRenderer.invoke("heykasa:discord:clear"),
+    disconnect: () => ipcRenderer.invoke("heykasa:discord:disconnect"),
     getStatus: () => ipcRenderer.invoke("heykasa:discord:status"),
   }),
   updates: Object.freeze({
