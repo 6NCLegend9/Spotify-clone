@@ -9,6 +9,10 @@ const scriptSources = [
   "'unsafe-inline'",
   "https://www.youtube.com",
 ];
+const discordRpcSources = Array.from(
+  { length: 10 },
+  (_, index) => `ws://127.0.0.1:${6463 + index}`,
+);
 
 if (!isProduction) {
   scriptSources.push("'unsafe-eval'");
@@ -21,7 +25,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https://i.ytimg.com https://yt3.ggpht.com https://lh3.googleusercontent.com https://api.dicebear.com https://avatars.githubusercontent.com https://images.unsplash.com",
   "font-src 'self' data:",
   "media-src 'self' blob: https://*.googlevideo.com",
-  "connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.supabase.co wss://*.supabase.co",
+  `connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.supabase.co wss://*.supabase.co ${discordRpcSources.join(" ")}`,
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
