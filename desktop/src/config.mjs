@@ -8,6 +8,7 @@ export const DESKTOP_CAPABILITIES = Object.freeze([
   "desktopPreferencesV1",
   "trayV1",
   "diagnosticsV1",
+  "authV1",
 ]);
 
 // The signed installer never receives a Vercel Blob write token or a raw
