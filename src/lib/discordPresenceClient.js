@@ -1,8 +1,13 @@
 import DiscordBridgeClient from "@/lib/discordBridgeClient";
 
-function nativeDiscordApi() {
+function desktopShellApi() {
   if (typeof window === "undefined") return null;
   const desktop = window.heykasaDesktop;
+  return desktop && typeof desktop.getInfo === "function" ? desktop : null;
+}
+
+function nativeDiscordApi() {
+  const desktop = desktopShellApi();
   const discord = desktop?.discord;
   if (!discord || typeof discord.setActivity !== "function" || typeof discord.clearActivity !== "function") {
     return null;
@@ -38,11 +43,25 @@ class DesktopDiscordClient {
   }
 }
 
+class UnsupportedDesktopDiscordClient {
+  get connected() {
+    return false;
+  }
+
+  async setActivity() {
+    throw new Error("This HeyKasa Desktop version does not support native Discord presence. Update the desktop app first.");
+  }
+
+  disconnect() {}
+}
+
 export function isHeyKasaDesktop() {
-  return Boolean(nativeDiscordApi());
+  return Boolean(desktopShellApi());
 }
 
 export function createDiscordPresenceClient() {
   const nativeApi = nativeDiscordApi();
-  return nativeApi ? new DesktopDiscordClient(nativeApi) : new DiscordBridgeClient();
+  if (nativeApi) return new DesktopDiscordClient(nativeApi);
+  if (desktopShellApi()) return new UnsupportedDesktopDiscordClient();
+  return new DiscordBridgeClient();
 }
