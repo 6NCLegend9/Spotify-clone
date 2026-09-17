@@ -127,6 +127,13 @@ jobs:
       - name: Build signed Windows installer
         run: npm run dist
 
+      - name: Generate runtime SBOM
+        shell: pwsh
+        run: |
+          npm sbom --omit=dev --sbom-format=cyclonedx | Out-File -FilePath dist/heykasa-desktop-sbom.cdx.json -Encoding utf8
+          $sbom = Get-Content dist/heykasa-desktop-sbom.cdx.json -Raw | ConvertFrom-Json
+          if ($sbom.bomFormat -ne 'CycloneDX') { throw "Desktop SBOM generation failed" }
+
       - name: Verify Authenticode signature
         shell: pwsh
         run: |
@@ -152,6 +159,7 @@ jobs:
           "- Installer: ${{ steps.publish.outputs.installer_url }}" >> $env:GITHUB_STEP_SUMMARY
           "- SHA-512: ${{ steps.publish.outputs.sha512 }}" >> $env:GITHUB_STEP_SUMMARY
           "- Blob base URL: ${{ steps.publish.outputs.blob_base_url }}" >> $env:GITHUB_STEP_SUMMARY
+          "- SBOM: heykasa-desktop-sbom.cdx.json" >> $env:GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@v4
         with:
@@ -160,5 +168,6 @@ jobs:
             desktop/dist/HeyKasa-Setup-*-x64.exe
             desktop/dist/*.blockmap
             desktop/dist/*.yml
+            desktop/dist/heykasa-desktop-sbom.cdx.json
           if-no-files-found: error
           retention-days: 14
