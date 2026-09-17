@@ -22,12 +22,13 @@ test("desktop auth attempt produces PKCE authorize URL", () => {
 });
 
 test("desktop auth deep link requires matching unexpired state", () => {
-  const attempt = createDesktopAuthAttempt(10_000);
+  const now = Date.now();
+  const attempt = createDesktopAuthAttempt(now);
   const link = `heykasa://auth?code=${"c".repeat(43)}&state=${attempt.state}`;
   const parsed = parseDesktopAuthDeepLink(link);
   assert.ok(parsed);
   assert.equal(isMatchingDesktopAuthState(attempt, parsed.state), true);
-  assert.equal(desktopAuthAttemptExpired(attempt, 10_000 + AUTH_MAX_AGE_MS + 1), true);
+  assert.equal(desktopAuthAttemptExpired(attempt, now + AUTH_MAX_AGE_MS + 1), true);
   assert.equal(parseDesktopAuthDeepLink("https://evil.example/auth"), null);
 });
 
