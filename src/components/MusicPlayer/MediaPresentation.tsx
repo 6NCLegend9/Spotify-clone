@@ -324,7 +324,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
         </div>
         {!expanded && <>
-          <div className={styles.mediaTools}>{modeButton}</div>{metadata}
+          <div className={styles.mediaTools}>{modeButton}{!mobile && props.sleepControl}</div>{metadata}
           {mobile && mobileTransport}
           <section className={styles.queue} aria-label="Next in queue"><header><h3>Next in queue</h3><button type="button" onClick={openQueue}>Show all</button></header>
             {upcoming.length ? upcoming.map((track, index) => <button type="button" key={track.queueEntryId || `${track.id}-${index}`} disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueRow}>
