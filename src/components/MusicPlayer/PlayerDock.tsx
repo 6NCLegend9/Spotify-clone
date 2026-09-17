@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ListMusic, Maximize2, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { ListMusic, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 import type { PlayerDockProps } from "./player.types";
 import PlayerTimeline from "./PlayerTimeline";
@@ -66,7 +66,6 @@ export default function PlayerDock(props: PlayerDockProps) {
   }, []);
   const openPresentation = () => presentationRef.current?.open();
   const openLyrics = () => presentationRef.current?.showLyrics();
-  const expandVideo = () => presentationRef.current?.expand();
   const progress = props.duration > 0
     ? Math.min(100, Math.max(0, (props.position / props.duration) * 100))
     : 0;
@@ -96,6 +95,7 @@ export default function PlayerDock(props: PlayerDockProps) {
     const remaining = props.duration - props.position;
     const shouldMask =
       props.duration > 8
+      && remaining >= 0
       && remaining <= END_SCREEN_MASK_SECONDS;
     setEndScreenMask(shouldMask);
   }, [props.duration, props.position, props.track.id]);
@@ -120,7 +120,6 @@ export default function PlayerDock(props: PlayerDockProps) {
         {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={openLyrics}><Mic2 size={18} /></PlayerIconButton>}
         <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={19} /></PlayerIconButton>
         <div className={styles.volume}>{props.volume}</div>
-        {props.onVideo && <PlayerIconButton label="Expand video" onClick={expandVideo}><Maximize2 size={18} /></PlayerIconButton>}
       </div>
       <div className={styles.mobile}>
         <PlayerIconButton label="Previous song" disabled={props.disabled} onClick={props.onPrevious} className={`${styles.mobileButton} ${styles.mobilePrevious}`}><SkipBack size={20} /></PlayerIconButton>
@@ -128,7 +127,6 @@ export default function PlayerDock(props: PlayerDockProps) {
           {props.playing ? <Pause size={21} fill="currentColor" /> : <Play size={21} fill="currentColor" />}
         </PlayerIconButton>
         <PlayerIconButton label="Next song" disabled={props.disabled} onClick={props.onNext} className={styles.mobileButton}><SkipForward size={20} /></PlayerIconButton>
-        <PlayerIconButton label="Expand player" onClick={openPresentation} className={`${styles.mobileButton} ${styles.mobileExpand}`}><Maximize2 size={19} /></PlayerIconButton>
       </div>
     </div>
     <MediaPresentation ref={presentationRef} {...props} onQueue={openQueue} />
