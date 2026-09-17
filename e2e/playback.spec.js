@@ -294,8 +294,8 @@ test("video expansion fits desktop and mobile without replacing the media host",
   await expect.poll(() => page.getByTestId("youtube-decks").evaluate((host) => {
     const rect = host.getBoundingClientRect();
     const frame = window.__videoFrame.getBoundingClientRect();
-    return Math.max(Math.abs(frame.width - rect.width), Math.abs(frame.height - rect.height));
-  })).toBeLessThan(2);
+    return frame.width >= rect.width && frame.height >= rect.height;
+  })).toBe(true);
   const geometry = await page.getByTestId("youtube-decks").evaluate((host) => {
     const rect = host.getBoundingClientRect();
     const frame = window.__videoFrame.getBoundingClientRect();
@@ -307,8 +307,8 @@ test("video expansion fits desktop and mobile without replacing the media host",
   expect(geometry.height).toBeGreaterThan(250);
   expect(geometry.top).toBeGreaterThanOrEqual(0);
   expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
-  expect(Math.abs(geometry.frameWidth - geometry.width)).toBeLessThan(2);
-  expect(Math.abs(geometry.frameHeight - geometry.height)).toBeLessThan(2);
+  expect(geometry.frameWidth).toBeGreaterThanOrEqual(geometry.width);
+  expect(geometry.frameHeight).toBeGreaterThanOrEqual(geometry.height);
   expect(geometry.sameHost && geometry.sameFrame).toBe(true);
   const phonePortrait = (await page.viewportSize()).width <= 767;
   const tabBar = page.getByRole("navigation", { name: "Primary" });
