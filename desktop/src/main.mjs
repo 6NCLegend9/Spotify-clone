@@ -58,6 +58,8 @@ let updater = null;
 let policy = null;
 let tray = null;
 let quitting = false;
+let startupCompleted = false;
+let safeMode = false;
 let authAttempt = null;
 let authStatus = { state: "idle", detail: "" };
 const discord = new DiscordIpcClient();
@@ -76,14 +78,22 @@ function policyFeature(name) {
   return policy?.feature(name) !== false;
 }
 
+function runtimeFeature(name) {
+  if (safeMode && (name === "discord" || name === "updater")) return false;
+  return policyFeature(name);
+}
+
 function effectiveCapabilities() {
   return DESKTOP_CAPABILITIES.filter((capability) => {
     const feature = CAPABILITY_POLICY[capability];
-    return !feature || policyFeature(feature);
+    return !feature || runtimeFeature(feature);
   });
 }
 
-function policyDisabledMessage(feature) {
+function featureDisabledMessage(feature) {
+  if (safeMode && (feature === "discord" || feature === "updater")) {
+    return "HeyKasa Desktop is running in safe mode after repeated crashes. Nonessential native integrations are temporarily disabled.";
+  }
   const snapshot = policy?.snapshot();
   if (snapshot?.maintenance && snapshot.maintenanceMessage) return snapshot.maintenanceMessage;
   const labels = {
@@ -120,7 +130,7 @@ function setAuthStatus(state, detail = "") {
 }
 
 async function startDesktopAuth() {
-  if (!policyFeature("auth")) return setAuthStatus("disabled", policyDisabledMessage("auth"));
+  if (!runtimeFeature("auth")) return setAuthStatus("disabled", featureDisabledMessage("auth"));
   authAttempt = createDesktopAuthAttempt();
   const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, authAttempt);
   setAuthStatus("waiting", "Complete sign-in in your browser, then return to HeyKasa.");
@@ -134,9 +144,9 @@ async function startDesktopAuth() {
 }
 
 async function exchangeDesktopAuth(value) {
-  if (!policyFeature("auth")) {
+  if (!runtimeFeature("auth")) {
     authAttempt = null;
-    setAuthStatus("disabled", policyDisabledMessage("auth"));
+    setAuthStatus("disabled", featureDisabledMessage("auth"));
     return false;
   }
   const deepLink = parseDesktopAuthDeepLink(value);
@@ -288,6 +298,15 @@ async function loadApplication(window) {
   }
 }
 
+async function enterSafeMode() {
+  if (safeMode) return;
+  safeMode = true;
+  updateTrayMenu();
+  await discord.clearActivity().catch(() => {});
+  discord.disconnect();
+  updater?.dispose();
+}
+
 async function createMainWindow() {
   const ses = desktopSession();
   configureSession(ses);
@@ -334,6 +353,8 @@ async function createMainWindow() {
       reason: details?.reason || "unknown",
       exitCode: details?.exitCode,
     }));
+    const crashState = store?.recordRendererCrash();
+    if (crashState?.safeMode) void enterSafeMode();
     void showOfflineScreen(window);
   });
   window.on("closed", () => {
@@ -354,7 +375,7 @@ function updateTrayMenu() {
     },
     {
       label: "Check for updates",
-      enabled: policyFeature("updater"),
+      enabled: runtimeFeature("updater"),
       click: () => void updater?.checkNow({ manual: true }),
     },
     { type: "separator" },
@@ -410,25 +431,25 @@ async function applyPolicy(snapshot) {
   updateTrayMenu();
   if (snapshot?.maintenance || snapshot?.features?.auth === false) {
     authAttempt = null;
-    setAuthStatus("disabled", policyDisabledMessage("auth"));
+    setAuthStatus("disabled", featureDisabledMessage("auth"));
   } else if (authStatus.state === "disabled") {
     setAuthStatus("idle", "");
   }
 
-  if (snapshot?.maintenance || snapshot?.features?.discord === false) {
+  if (!runtimeFeature("discord")) {
     await discord.clearActivity().catch(() => {});
     discord.disconnect();
   }
 
-  if (snapshot?.maintenance || snapshot?.features?.updater === false) {
+  if (!runtimeFeature("updater")) {
     updater?.dispose();
   } else if (updater) {
     updater.start();
   }
 }
 
-function requirePolicyFeature(feature) {
-  if (!policyFeature(feature)) throw new Error(policyDisabledMessage(feature));
+function requireRuntimeFeature(feature) {
+  if (!runtimeFeature(feature)) throw new Error(featureDisabledMessage(feature));
 }
 
 function secureHandle(channel, handler) {
@@ -447,6 +468,7 @@ function registerIpcHandlers() {
     platform: process.platform,
     arch: process.arch,
     packaged: app.isPackaged,
+    safeMode,
     policy: policy?.snapshot() || null,
   }));
 
@@ -454,12 +476,12 @@ function registerIpcHandlers() {
   secureHandle("heykasa:auth:status", () => ({ ...authStatus }));
 
   secureHandle("heykasa:discord:set-activity", async (activity) => {
-    requirePolicyFeature("discord");
+    requireRuntimeFeature("discord");
     await discord.setActivity(activity);
     return { connected: discord.connected };
   });
   secureHandle("heykasa:discord:clear", async () => {
-    if (!policyFeature("discord")) return { connected: false };
+    if (!runtimeFeature("discord")) return { connected: false };
     await discord.clearActivity();
     return { connected: discord.connected };
   });
@@ -469,22 +491,22 @@ function registerIpcHandlers() {
     return { connected: false };
   });
   secureHandle("heykasa:discord:status", () => ({
-    connected: policyFeature("discord") && discord.connected,
+    connected: runtimeFeature("discord") && discord.connected,
     previouslyConnected: discord.everConnected,
-    enabled: policyFeature("discord"),
+    enabled: runtimeFeature("discord"),
   }));
 
   secureHandle("heykasa:updates:status", () => (
-    policyFeature("updater")
+    runtimeFeature("updater")
       ? updater?.getStatus() || { state: "idle" }
-      : { state: "disabled", detail: policyDisabledMessage("updater") }
+      : { state: "disabled", detail: featureDisabledMessage("updater") }
   ));
   secureHandle("heykasa:updates:check", () => {
-    requirePolicyFeature("updater");
+    requireRuntimeFeature("updater");
     return updater?.checkNow({ manual: true }) || { state: "disabled" };
   });
   secureHandle("heykasa:updates:install", async () => {
-    requirePolicyFeature("updater");
+    requireRuntimeFeature("updater");
     await updater?.installReadyUpdate();
     return { ok: true };
   });
@@ -518,6 +540,7 @@ if (registerSingleInstance()) {
   app.whenReady().then(async () => {
     app.setAppUserModelId(APP_USER_MODEL_ID);
     store = new NativeStore(app.getPath("userData"));
+    safeMode = store.recordStart().safeMode;
     const actualAutoLaunch = app.getLoginItemSettings().openAtLogin === true;
     if (store.get("autoLaunch") !== actualAutoLaunch) store.set("autoLaunch", actualAutoLaunch);
 
@@ -532,12 +555,13 @@ if (registerSingleInstance()) {
     registerIpcHandlers();
     await createMainWindow();
     createTray();
-    if (policyFeature("updater")) updater.start();
+    if (runtimeFeature("updater")) updater.start();
     policy.start();
+    startupCompleted = true;
 
     powerMonitor.on("resume", () => {
       void policy?.refresh();
-      if (policyFeature("updater") && updater && store.get("autoUpdate") !== false) void updater.checkNow();
+      if (runtimeFeature("updater") && updater && store.get("autoUpdate") !== false) void updater.checkNow();
       if (authAttempt && desktopAuthAttemptExpired(authAttempt)) {
         authAttempt = null;
         setAuthStatus("idle", "");
@@ -559,6 +583,7 @@ if (registerSingleInstance()) {
 
   app.on("before-quit", () => {
     quitting = true;
+    if (startupCompleted) store?.recordCleanExit();
     void shutdownNativeIntegrations();
   });
 }
