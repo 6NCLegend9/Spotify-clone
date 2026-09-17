@@ -274,9 +274,9 @@ test.describe("production PWA", () => {
     await page.goto("/search", { waitUntil: "load" });
     await expect(page.getByRole("heading", { name: "Browse all" })).toBeVisible();
     await page.waitForFunction(() => navigator.serviceWorker.controller?.scriptURL.endsWith("/sw.js"));
-    // Firefox service-worker fetches bypass Playwright's context routing. Other
-    // engines can additionally prove that two network-only responses stay fresh.
-    if (browserName !== "firefox") {
+    // Only Chromium reliably exposes service-worker fetches to Playwright routing;
+    // WebKit and Firefox still verify that private routes never enter Cache Storage.
+    if (browserName === "chromium") {
       const readAccount = () => page.evaluate(async () => (await (await fetch("/api/auth/session")).json()).user.id);
       expect(await readAccount()).toBe("pwa-a");
       currentAccount = "pwa-b";
