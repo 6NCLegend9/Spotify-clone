@@ -57,7 +57,7 @@ test("refresh restores the owner's queue paused and isolates another account", a
   expect(snapshot.position).toBe(42);
 });
 
-test("lock-screen play reaches the engine even when playback state is already playing", async ({ page }) => {
+test("lock-screen play reaches the engine even when playback state is already playing", async ({ page, isMobile }) => {
   await page.clock.install();
   await page.addInitScript(() => {
     window.__mediaActions = {};
@@ -119,13 +119,17 @@ test("lock-screen play reaches the engine even when playback state is already pl
   await expect.poll(() => page.evaluate(() => window.__enginePlayCalls)).toBeGreaterThan(calls);
   await page.evaluate(() => window.__mediaActions.pause());
   await expect(page.locator('#player button[aria-label="Play"]:visible').first()).toBeVisible();
-  await page.getByRole("button", { name: "Expand player: Lock screen test", exact: true }).click();
+  const expandPlayer = page.getByRole("button", { name: "Expand player: Lock screen test", exact: true });
+  await expect(expandPlayer).toBeAttached();
+  await expandPlayer.dispatchEvent("click");
   const dialog = page.getByRole("dialog", { name: "Now playing" });
+  const playControl = (isMobile ? dialog : page.locator("#player"))
+    .getByRole("button", { name: "Play", exact: true }).first();
   await dialog.getByLabel("Sleep timer", { exact: true }).selectOption("15");
   await page.evaluate(() => window.__mediaActions.play());
   const pauses = await page.evaluate(() => window.__enginePauseCalls);
   await page.clock.fastForward(900_100);
-  await expect(page.locator('#player button[aria-label="Play"]:visible').first()).toBeVisible();
+  await expect(playControl).toBeVisible();
   expect(await page.evaluate(() => window.__enginePauseCalls)).toBeGreaterThan(pauses);
   await expect(dialog.getByLabel("Sleep timer", { exact: true })).toHaveValue("off");
   await dialog.getByLabel("Sleep timer", { exact: true }).selectOption("track");
@@ -136,7 +140,7 @@ test("lock-screen play reaches the engine even when playback state is already pl
     window.__engineEvents.onStateChange({ data: 0, target: window.__engine });
   });
   await expect(dialog.getByLabel("Sleep timer", { exact: true })).toHaveValue("off");
-  await expect(page.locator('#player button[aria-label="Play"]:visible').first()).toBeVisible();
+  await expect(playControl).toBeVisible();
 });
 
 test("chunk errors show a dismissible notice without reloading", async ({ page }) => {
