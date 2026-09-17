@@ -8,6 +8,23 @@ export function isRunningInHeyKasaDesktop() {
   return Boolean(getHeyKasaDesktopApi());
 }
 
+function desktopPolicy(value) {
+  if (!value || typeof value !== "object") return null;
+  const features = value.features && typeof value.features === "object" ? value.features : {};
+  return {
+    maintenance: value.maintenance === true,
+    maintenanceMessage: typeof value.maintenanceMessage === "string"
+      ? value.maintenanceMessage.slice(0, 240)
+      : "",
+    features: {
+      auth: features.auth !== false,
+      discord: features.discord !== false,
+      updater: features.updater !== false,
+    },
+    updatedAt: Number.isFinite(value.updatedAt) ? value.updatedAt : 0,
+  };
+}
+
 export async function getHeyKasaDesktopInfo() {
   const api = getHeyKasaDesktopApi();
   if (!api) return null;
@@ -24,6 +41,7 @@ export async function getHeyKasaDesktopInfo() {
       platform: typeof info.platform === "string" ? info.platform : "",
       arch: typeof info.arch === "string" ? info.arch : "",
       packaged: info.packaged === true,
+      policy: desktopPolicy(info.policy),
     };
   } catch {
     return null;
