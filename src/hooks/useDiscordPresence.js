@@ -23,7 +23,9 @@ export default function useDiscordPresence() {
   const startedAtRef = useRef({ id: "", startedAt: 0 });
   const positionRef = useRef(position);
   positionRef.current = position;
-  const clientId = readDiscordClientId();
+  const clientId = readDiscordClientId({
+    NEXT_PUBLIC_DISCORD_CLIENT_ID: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID,
+  });
   const track = presenceTrack({ youtubeVideo, activeSong });
   const trackId = track?.id || "";
   const trackTitle = track?.title || "";
