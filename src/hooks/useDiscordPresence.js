@@ -2,8 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
-import DiscordRpcClient from "@/lib/discordRpcClient";
-import { readDiscordClientId } from "@/utils/discordOAuth.mjs";
+import DiscordBridgeClient from "@/lib/discordBridgeClient";
 import {
   buildDiscordActivity,
   presenceTrack,
@@ -23,9 +22,7 @@ export default function useDiscordPresence() {
   const startedAtRef = useRef({ id: "", startedAt: 0 });
   const positionRef = useRef(position);
   positionRef.current = position;
-  const clientId = readDiscordClientId({
-    NEXT_PUBLIC_DISCORD_CLIENT_ID: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID,
-  });
+
   const track = presenceTrack({ youtubeVideo, activeSong });
   const trackId = track?.id || "";
   const trackTitle = track?.title || "";
@@ -35,76 +32,66 @@ export default function useDiscordPresence() {
   const publish = shouldPublishDiscordPresence({ enabled, privateSession, track });
 
   useEffect(() => {
-    if (!clientId) {
-      setDiscordPresenceStatus({ state: "unconfigured", detail: "" });
-      return undefined;
-    }
     if (enabled === false) {
       setDiscordPresenceStatus({ state: "off", detail: "" });
     } else if (privateSession) {
       setDiscordPresenceStatus({ state: "private", detail: "" });
+    } else if (!trackId) {
+      setDiscordPresenceStatus({ state: "idle", detail: "" });
     }
 
-    const client = clientRef.current?.clientId === clientId
-      ? clientRef.current
-      : new DiscordRpcClient(clientId);
-    clientRef.current = client;
+    if (!publish) {
+      startedAtRef.current = trackId ? startedAtRef.current : { id: "", startedAt: 0 };
+      if (clientRef.current?.connected) {
+        clientRef.current.setActivity(null).catch(() => {});
+      }
+      return undefined;
+    }
 
+    const client = clientRef.current || new DiscordBridgeClient();
+    clientRef.current = client;
     let cancelled = false;
-    if (!trackId) {
-      startedAtRef.current = { id: "", startedAt: 0 };
-    } else if (startedAtRef.current.id !== trackId) {
+
+    if (startedAtRef.current.id !== trackId) {
       startedAtRef.current = {
         id: trackId,
         startedAt: Date.now() - Math.max(0, Number(positionRef.current) || 0) * 1000,
       };
     }
 
-    const activity = publish
-      ? buildDiscordActivity({
-        track: {
-          id: trackId,
-          title: trackTitle,
-          artist: trackArtist,
-          artwork: trackArtwork,
-          duration: trackDuration,
-        },
-        playing: isPlaying,
-        startedAt: startedAtRef.current.startedAt,
-        siteName: SITE_NAME,
-        siteUrl: SITE_URL,
+    const activity = buildDiscordActivity({
+      track: {
+        id: trackId,
+        title: trackTitle,
+        artist: trackArtist,
+        artwork: trackArtwork,
+        duration: trackDuration,
+      },
+      playing: isPlaying,
+      startedAt: startedAtRef.current.startedAt,
+      siteName: SITE_NAME,
+      siteUrl: SITE_URL,
+    });
+
+    setDiscordPresenceStatus({ state: "connecting", detail: "" });
+    client.setActivity(activity)
+      .then(() => {
+        if (!cancelled) {
+          setDiscordPresenceStatus({ state: "connected", detail: trackTitle });
+        }
       })
-      : null;
-
-    (async () => {
-      try {
-        if (!publish && !client.authenticated) return;
-        await client.setActivity(activity);
+      .catch((error) => {
         if (cancelled) return;
-        if (publish) setDiscordPresenceStatus({ state: "connected", detail: trackTitle });
-        else if (enabled === false) setDiscordPresenceStatus({ state: "off", detail: "" });
-        else if (privateSession) setDiscordPresenceStatus({ state: "private", detail: "" });
-        else setDiscordPresenceStatus({ state: "idle", detail: "" });
-      } catch (error) {
-        if (cancelled) return;
-        const message = error instanceof Error ? error.message : "Discord presence failed.";
         setDiscordPresenceStatus({
-          state: /not available|socket|timeout|closed/i.test(message) ? "unavailable" : "error",
-          detail: message,
+          state: "error",
+          detail: error instanceof Error ? error.message : "Discord Rich Presence failed.",
         });
-      }
-    })();
+      });
 
-    const onPageHide = () => {
-      if (client.authenticated) client.setActivity(null).catch(() => {});
-    };
-    window.addEventListener("pagehide", onPageHide);
     return () => {
       cancelled = true;
-      window.removeEventListener("pagehide", onPageHide);
     };
   }, [
-    clientId,
     enabled,
     isPlaying,
     privateSession,
@@ -117,10 +104,7 @@ export default function useDiscordPresence() {
   ]);
 
   useEffect(() => () => {
-    const client = clientRef.current;
-    if (!client) return;
-    client.setActivity(null).catch(() => {});
-    client.disconnect();
+    clientRef.current?.disconnect();
     clientRef.current = null;
   }, []);
 }
