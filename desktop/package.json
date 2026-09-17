@@ -1,0 +1,61 @@
+{
+  "name": "heykasa-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Secure Windows desktop shell for HeyKasa",
+  "author": "HeyKasa",
+  "type": "module",
+  "main": "src/main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.mjs",
+    "pack": "electron-builder --dir --win --x64",
+    "dist": "electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
+  },
+  "devDependencies": {
+    "electron": "44.4.1",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.heykasa.desktop",
+    "productName": "HeyKasa",
+    "artifactName": "HeyKasa-Setup-${version}-${arch}.${ext}",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../public/icon-256x256.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HeyKasa",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": null
+  }
+}
