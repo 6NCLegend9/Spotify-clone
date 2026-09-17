@@ -1,8 +1,11 @@
+import crypto from "node:crypto";
+
 const POLICY_REFRESH_MS = 15 * 60 * 1000;
 const DEFAULT_POLICY = Object.freeze({
   formatVersion: 1,
   maintenance: false,
   maintenanceMessage: "",
+  updateRolloutPercent: 100,
   features: Object.freeze({
     auth: true,
     discord: true,
@@ -14,6 +17,11 @@ function safeText(value, max = 240) {
   return String(value || "").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+function rolloutPercent(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : 100;
+}
+
 export function sanitizeDesktopPolicy(value) {
   if (!value || typeof value !== "object" || value.formatVersion !== 1) return null;
   const features = value.features && typeof value.features === "object" ? value.features : {};
@@ -21,12 +29,27 @@ export function sanitizeDesktopPolicy(value) {
     formatVersion: 1,
     maintenance: value.maintenance === true,
     maintenanceMessage: safeText(value.maintenanceMessage),
+    updateRolloutPercent: rolloutPercent(value.updateRolloutPercent),
     features: {
       auth: features.auth !== false,
       discord: features.discord !== false,
       updater: features.updater !== false,
     },
   };
+}
+
+export function installationRolloutBucket(installationId) {
+  const id = String(installationId || "").trim();
+  if (!id) return 99;
+  const digest = crypto.createHash("sha256").update(id, "utf8").digest();
+  return digest.readUInt32BE(0) % 100;
+}
+
+export function installationEligibleForRollout(installationId, percent) {
+  const bounded = rolloutPercent(percent);
+  if (bounded >= 100) return true;
+  if (bounded <= 0) return false;
+  return installationRolloutBucket(installationId) < bounded;
 }
 
 export class DesktopPolicy {
