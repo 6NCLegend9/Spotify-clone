@@ -5,21 +5,33 @@ on:
     paths:
       - "desktop/**"
       - "src/app/api/desktop/**"
+      - "src/app/api/version/**"
+      - "src/app/layout.js"
       - "src/components/DesktopAppCard.jsx"
+      - "src/components/DesktopCompatibilityGate.jsx"
+      - "src/components/DiscordPresenceSync.jsx"
       - "src/components/SupportDiagnostics.jsx"
+      - "src/components/WebUpdateNotifier.jsx"
       - "src/hooks/useDiscordPresence.js"
       - "src/lib/discordPresenceClient.js"
       - "src/utils/desktopEnvironment.js"
+      - "test/desktopManifest.test.mjs"
       - ".github/workflows/desktop-ci.yml"
   pull_request:
     paths:
       - "desktop/**"
       - "src/app/api/desktop/**"
+      - "src/app/api/version/**"
+      - "src/app/layout.js"
       - "src/components/DesktopAppCard.jsx"
+      - "src/components/DesktopCompatibilityGate.jsx"
+      - "src/components/DiscordPresenceSync.jsx"
       - "src/components/SupportDiagnostics.jsx"
+      - "src/components/WebUpdateNotifier.jsx"
       - "src/hooks/useDiscordPresence.js"
       - "src/lib/discordPresenceClient.js"
       - "src/utils/desktopEnvironment.js"
+      - "test/desktopManifest.test.mjs"
       - ".github/workflows/desktop-ci.yml"
 
 permissions:
