@@ -5,6 +5,7 @@ import {
   BrowserWindow,
   ipcMain,
   Menu,
+  net,
   powerMonitor,
   session,
   shell,
@@ -16,6 +17,14 @@ import {
   PRODUCT_NAME,
   desktopAppUrl,
 } from "./config.mjs";
+import {
+  buildDesktopAuthorizeUrl,
+  createDesktopAuthAttempt,
+  desktopAuthAttemptExpired,
+  isMatchingDesktopAuthState,
+  normalizeDesktopSessionExchange,
+  parseDesktopAuthDeepLink,
+} from "./authFlow.mjs";
 import { DiscordIpcClient } from "./discord/ipcClient.mjs";
 import { NativeStore } from "./nativeStore.mjs";
 import {
@@ -30,6 +39,7 @@ import { DesktopUpdater } from "./updater.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
 const PROTOCOL = "heykasa";
+const DESKTOP_PARTITION = "persist:heykasa";
 const appUrl = desktopAppUrl({
   isPackaged: app.isPackaged,
   overrideUrl: process.env.HEYKASA_DESKTOP_URL || "",
@@ -41,12 +51,18 @@ let store = null;
 let updater = null;
 let tray = null;
 let quitting = false;
+let authAttempt = null;
+let authStatus = { state: "idle", detail: "" };
 const discord = new DiscordIpcClient();
 
 function resourceIconPath() {
   return app.isPackaged
     ? path.join(process.resourcesPath, "icon.png")
     : path.resolve(__dirname, "../../public/icon-256x256.png");
+}
+
+function desktopSession() {
+  return session.fromPartition(DESKTOP_PARTITION);
 }
 
 function focusMainWindow() {
@@ -56,12 +72,103 @@ function focusMainWindow() {
   mainWindow.focus();
 }
 
-function handleDeepLink(value) {
+function canMessageRenderer() {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  return isTrustedRendererUrl(mainWindow.webContents.getURL(), trustedOrigins);
+}
+
+function sendAuthStatus(status) {
+  if (canMessageRenderer()) mainWindow.webContents.send("heykasa:auth:status-changed", status);
+}
+
+function setAuthStatus(state, detail = "") {
+  authStatus = {
+    state,
+    detail: typeof detail === "string" ? detail.slice(0, 240) : "",
+  };
+  sendAuthStatus({ ...authStatus });
+  return { ...authStatus };
+}
+
+async function startDesktopAuth() {
+  authAttempt = createDesktopAuthAttempt();
+  const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, authAttempt);
+  setAuthStatus("waiting", "Complete sign-in in your browser, then return to HeyKasa.");
+  try {
+    await shell.openExternal(authorizeUrl);
+  } catch (error) {
+    authAttempt = null;
+    return setAuthStatus("error", error instanceof Error ? error.message : "Could not open the sign-in browser.");
+  }
+  return { ...authStatus };
+}
+
+async function exchangeDesktopAuth(value) {
+  const deepLink = parseDesktopAuthDeepLink(value);
+  if (!deepLink || !authAttempt || desktopAuthAttemptExpired(authAttempt)
+    || !isMatchingDesktopAuthState(authAttempt, deepLink.state)) {
+    authAttempt = null;
+    setAuthStatus("error", "This desktop sign-in request is invalid or expired. Start sign-in again.");
+    return false;
+  }
+
+  setAuthStatus("exchanging", "Finishing desktop sign-in…");
+  try {
+    const response = await net.fetch(new URL("/api/desktop/auth/exchange", appUrl).href, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Cache-Control": "no-store",
+      },
+      body: JSON.stringify({
+        code: deepLink.code,
+        state: deepLink.state,
+        verifier: authAttempt.verifier,
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error || `Desktop sign-in failed with status ${response.status}.`);
+    }
+    const exchange = normalizeDesktopSessionExchange(payload);
+    if (!exchange) throw new Error("Desktop sign-in returned an invalid session.");
+
+    const ses = desktopSession();
+    const origin = new URL(appUrl).origin;
+    const secure = origin.startsWith("https://");
+    await ses.cookies.set({
+      url: `${origin}/`,
+      name: exchange.cookieName,
+      value: exchange.sessionToken,
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      expirationDate: exchange.expiresAt,
+    });
+    const otherCookie = exchange.cookieName === "__Secure-next-auth.session-token"
+      ? "next-auth.session-token"
+      : "__Secure-next-auth.session-token";
+    await ses.cookies.remove(`${origin}/`, otherCookie).catch(() => {});
+
+    authAttempt = null;
+    setAuthStatus("authenticated", "Desktop sign-in completed.");
+    if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.loadURL(appUrl, { extraHeaders: "Cache-Control: no-cache\n" });
+    focusMainWindow();
+    return true;
+  } catch (error) {
+    authAttempt = null;
+    setAuthStatus("error", error instanceof Error ? error.message : "Desktop sign-in could not be completed.");
+    focusMainWindow();
+    return false;
+  }
+}
+
+async function handleDeepLink(value) {
   if (!isSafeHeyKasaDeepLink(value)) return false;
-  // Deep-link command handling is intentionally conservative in v1. The
-  // protocol can focus the running app, but auth/open payloads are not trusted
-  // until the one-time server exchange is implemented.
-  focusMainWindow();
+  const url = new URL(value);
+  if (url.hostname === "auth") await exchangeDesktopAuth(value);
+  else focusMainWindow();
   return true;
 }
 
@@ -81,12 +188,12 @@ function registerSingleInstance() {
   }
   app.on("second-instance", (_event, argv) => {
     const deepLink = argv.find((value) => String(value || "").startsWith(`${PROTOCOL}://`));
-    if (deepLink) handleDeepLink(deepLink);
+    if (deepLink) void handleDeepLink(deepLink);
     focusMainWindow();
   });
   app.on("open-url", (event, url) => {
     event.preventDefault();
-    handleDeepLink(url);
+    void handleDeepLink(url);
   });
   return true;
 }
@@ -146,7 +253,7 @@ async function loadApplication(window) {
 }
 
 async function createMainWindow() {
-  const ses = session.fromPartition("persist:heykasa");
+  const ses = desktopSession();
   configureSession(ses);
   await clearDesktopWebCaches(ses);
 
@@ -162,7 +269,7 @@ async function createMainWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
-      partition: "persist:heykasa",
+      partition: DESKTOP_PARTITION,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -254,10 +361,7 @@ function setDesktopPreference(key, value) {
 }
 
 function sendUpdateStatus(status) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  const currentUrl = mainWindow.webContents.getURL();
-  if (!isTrustedRendererUrl(currentUrl, trustedOrigins)) return;
-  mainWindow.webContents.send("heykasa:updates:status-changed", status);
+  if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", status);
 }
 
 function secureHandle(channel, handler) {
@@ -277,6 +381,9 @@ function registerIpcHandlers() {
     arch: process.arch,
     packaged: app.isPackaged,
   }));
+
+  secureHandle("heykasa:auth:start", () => startDesktopAuth());
+  secureHandle("heykasa:auth:status", () => ({ ...authStatus }));
 
   secureHandle("heykasa:discord:set-activity", async (activity) => {
     await discord.setActivity(activity);
@@ -331,8 +438,6 @@ if (registerSingleInstance()) {
   app.whenReady().then(async () => {
     app.setAppUserModelId(APP_USER_MODEL_ID);
     store = new NativeStore(app.getPath("userData"));
-    // The OS is authoritative. Keep the local preference aligned if Windows
-    // changed the login item outside HeyKasa.
     const actualAutoLaunch = app.getLoginItemSettings().openAtLogin === true;
     if (store.get("autoLaunch") !== actualAutoLaunch) store.set("autoLaunch", actualAutoLaunch);
 
@@ -344,6 +449,10 @@ if (registerSingleInstance()) {
 
     powerMonitor.on("resume", () => {
       if (updater && store.get("autoUpdate") !== false) void updater.checkNow();
+      if (authAttempt && desktopAuthAttemptExpired(authAttempt)) {
+        authAttempt = null;
+        setAuthStatus("idle", "");
+      }
     });
 
     app.on("activate", () => {
