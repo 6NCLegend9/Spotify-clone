@@ -11,6 +11,7 @@ import GradientText from "@/components/ReactBits/GradientText";
 import AuthMessage from "@/components/AuthMessage";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { GOOGLE_SIGN_IN_ENABLED } from "@/utils/siteConfig";
+import { getHeyKasaDesktopApi } from "@/utils/desktopEnvironment";
 import {
   AUTH_CODES,
   humanizeError,
@@ -131,6 +132,14 @@ const LoginPage = () => {
     setFormError(null);
     setRetryAction(null);
     try {
+      const desktopApi = getHeyKasaDesktopApi();
+      if (desktopApi?.auth?.start) {
+        const result = await desktopApi.auth.start();
+        if (result?.state === "error") throw new Error(result.detail || "Desktop sign-in could not start.");
+        toast("Continue sign-in in your browser, then return to HeyKasa.");
+        return;
+      }
+
       const result = await signIn("google", {
         callbackUrl: afterLogin,
         redirect: false,
