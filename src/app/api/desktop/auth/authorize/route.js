@@ -52,7 +52,7 @@ export async function GET(request) {
       status: 429,
       headers: {
         ...noStoreHeaders(),
-        "Retry-After": String(Math.max(1, Math.ceil(rateLimit.retryAfter / 1000))),
+        "Retry-After": String(rateLimit.retryAfter),
       },
     });
   }
