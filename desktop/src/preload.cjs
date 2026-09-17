@@ -25,6 +25,10 @@ const api = Object.freeze({
     get: () => ipcRenderer.invoke("heykasa:startup:get"),
     set: (enabled) => ipcRenderer.invoke("heykasa:startup:set", enabled === true),
   }),
+  preferences: Object.freeze({
+    get: () => ipcRenderer.invoke("heykasa:preferences:get"),
+    set: (key, value) => ipcRenderer.invoke("heykasa:preferences:set", key, value),
+  }),
 });
 
 contextBridge.exposeInMainWorld("heykasaDesktop", api);
