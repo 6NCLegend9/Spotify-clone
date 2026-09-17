@@ -8,6 +8,13 @@ function enabled(name, fallback = true) {
   return fallback;
 }
 
+function percentage(name, fallback = 100) {
+  const raw = String(process.env[name] ?? "").trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : fallback;
+}
+
 function maintenanceMessage() {
   const value = String(process.env.HEYKASA_DESKTOP_MAINTENANCE_MESSAGE || "")
     .replace(/[\r\n\t]+/g, " ")
@@ -28,6 +35,7 @@ export async function GET() {
     formatVersion: 1,
     maintenance,
     maintenanceMessage: maintenance ? maintenanceMessage() : "",
+    updateRolloutPercent: percentage("HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT", 100),
     features,
   }, {
     headers: {
