@@ -29,7 +29,12 @@ const initialState = {
   fadeEnabled: true,
   fadeSeconds: 0.8,
   spatialAudio: false,
-  discordPresence: true,
+  discordPresence: false,
+  discordPresenceConsent: false,
+  // Local-only monotonic token. It changes only when the user touches the
+  // Discord setting, letting the presence hook distinguish an explicit connect
+  // request from settings hydration on page load.
+  discordPresenceConnectRequest: 0,
   owner: null,
 };
 
@@ -43,7 +48,13 @@ const settingsSlice = createSlice({
         state.captions = false;
         return;
       }
-      if (key in initialState && key !== "owner") state[key] = value;
+      if (key === "discordPresence") {
+        state.discordPresence = value === true;
+        state.discordPresenceConsent = true;
+        state.discordPresenceConnectRequest += 1;
+        return;
+      }
+      if (key in initialState && key !== "owner" && key !== "discordPresenceConnectRequest") state[key] = value;
       if (key === "eqPreset" && value !== "Custom" && EQ_PRESET_BANDS[value]) {
         state.eqBands = EQ_PRESET_BANDS[value];
       }
@@ -64,6 +75,10 @@ const settingsSlice = createSlice({
     },
     hydrateSettings: (state, action) => {
       const payload = action.payload || {};
+      const consent = payload.discordPresenceConsent === true || state.discordPresenceConsent === true;
+      const requestedPresence = payload.discordPresence !== undefined
+        ? payload.discordPresence === true
+        : state.discordPresence === true;
       const next = {
         ...initialState,
         ...state,
@@ -76,6 +91,11 @@ const settingsSlice = createSlice({
             ? payload.keyboardShortcuts !== false
             : state.keyboardShortcuts !== false,
         captions: false,
+        // Old accounts may have inherited the previous true-by-default value.
+        // Do not treat that historical value as explicit permission.
+        discordPresenceConsent: consent,
+        discordPresence: consent && requestedPresence,
+        discordPresenceConnectRequest: state.discordPresenceConnectRequest || 0,
       };
       if (next.eqPreset && next.eqPreset !== "Custom" && EQ_PRESET_BANDS[next.eqPreset]) {
         const bands = Array.isArray(next.eqBands) ? next.eqBands : [];
