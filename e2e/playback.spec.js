@@ -125,7 +125,7 @@ test("lock-screen play reaches the engine even when playback state is already pl
   await page.evaluate(() => window.__mediaActions.play());
   const pauses = await page.evaluate(() => window.__enginePauseCalls);
   await page.clock.fastForward(900_100);
-  await expect(dialog.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  await expect(page.locator('#player button[aria-label="Play"]:visible').first()).toBeVisible();
   expect(await page.evaluate(() => window.__enginePauseCalls)).toBeGreaterThan(pauses);
   await expect(dialog.getByLabel("Sleep timer", { exact: true })).toHaveValue("off");
   await dialog.getByLabel("Sleep timer", { exact: true }).selectOption("track");
@@ -136,7 +136,7 @@ test("lock-screen play reaches the engine even when playback state is already pl
     window.__engineEvents.onStateChange({ data: 0, target: window.__engine });
   });
   await expect(dialog.getByLabel("Sleep timer", { exact: true })).toHaveValue("off");
-  await expect(dialog.getByRole("button", { name: "Play", exact: true })).toBeVisible();
+  await expect(page.locator('#player button[aria-label="Play"]:visible').first()).toBeVisible();
 });
 
 test("chunk errors show a dismissible notice without reloading", async ({ page }) => {
@@ -226,7 +226,7 @@ test("queue edits preserve playback, undo safely, save a playlist and keep a sle
   });
   await page.addInitScript(() => {
     if (sessionStorage.getItem("queue-seeded")) return;
-    const tracks = [{ id: "abcdefghijk", title: "Current track" }, { id: "lmnopqrstuv", title: "Second track" }, { id: "12345678901", title: "Third track" }];
+    const tracks = [{ id: "abcdefghijk", title: "Current track" }, { id: "lmnopqrstuv", title: "Second track", queueSource: "user" }, { id: "12345678901", title: "Third track", queueSource: "user" }];
     localStorage.setItem("persist:settings", JSON.stringify({ owner: JSON.stringify("account:test-a"), audioOnly: "true" }));
     localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({ version: 1, owner: "account:test-a", savedAt: Date.now(), youtubeVideo: tracks[0], youtubeQueue: tracks, position: 42 }));
     sessionStorage.setItem("queue-seeded", "true");
@@ -240,13 +240,13 @@ test("queue edits preserve playback, undo safely, save a playlist and keep a sle
   const queueDialog = page.getByRole("dialog", { name: "Queue" });
   await expect(queueDialog).toBeVisible();
   const order = () => queueDialog.locator("li[data-track-id]").evaluateAll((rows) => rows.map((row) => row.dataset.trackId));
-  await queueDialog.getByRole("button", { name: "Move Third track up", exact: true }).click();
+  await queueDialog.getByRole("button", { name: "Drag Third track to reorder", exact: true }).press("ArrowUp");
   expect(await order()).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
   await queueDialog.getByRole("button", { name: "Remove Third track from queue", exact: true }).click();
   expect(await order()).toEqual(["abcdefghijk", "lmnopqrstuv"]);
   await queueDialog.getByRole("button", { name: "Undo queue edit" }).click();
   expect(await order()).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
-  await queueDialog.getByRole("button", { name: "Clear upcoming tracks" }).click();
+  await queueDialog.getByRole("button", { name: "Clear added tracks" }).click();
   expect(await order()).toEqual(["abcdefghijk"]);
   await queueDialog.getByRole("button", { name: "Undo queue edit" }).click();
   await queueDialog.getByLabel("Queue playlist name").fill("Evening queue");
@@ -291,6 +291,11 @@ test("video expansion fits desktop and mobile without replacing the media host",
   const videoDialog = page.getByRole("dialog", { name: "Expanded video" });
   await expect(videoDialog).toBeVisible();
   await expect(videoDialog.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
+  await expect.poll(() => page.getByTestId("youtube-decks").evaluate((host) => {
+    const rect = host.getBoundingClientRect();
+    const frame = window.__videoFrame.getBoundingClientRect();
+    return Math.max(Math.abs(frame.width - rect.width), Math.abs(frame.height - rect.height));
+  })).toBeLessThan(2);
   const geometry = await page.getByTestId("youtube-decks").evaluate((host) => {
     const rect = host.getBoundingClientRect();
     const frame = window.__videoFrame.getBoundingClientRect();
