@@ -1,3 +1,7 @@
+import crypto from "node:crypto";
+
+export const runtime = "nodejs";
+
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 function httpsUrl(value) {
@@ -42,6 +46,28 @@ function normalizeManifest(input = {}) {
   };
 }
 
+function verifiedRemotePayload(envelope) {
+  const secret = String(process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET || "");
+  if (secret.length < 32) throw new Error("Desktop manifest verification is not configured.");
+  if (!envelope || typeof envelope !== "object" || !envelope.payload || typeof envelope.payload !== "object") {
+    throw new Error("Desktop manifest envelope is invalid.");
+  }
+  const signature = typeof envelope.signature === "string" ? envelope.signature.trim() : "";
+  if (!/^[A-Za-z0-9_-]{43}$/.test(signature)) throw new Error("Desktop manifest signature is invalid.");
+
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(JSON.stringify(envelope.payload), "utf8")
+    .digest("base64url");
+  const expectedBytes = Buffer.from(expected, "utf8");
+  const receivedBytes = Buffer.from(signature, "utf8");
+  if (expectedBytes.length !== receivedBytes.length
+    || !crypto.timingSafeEqual(expectedBytes, receivedBytes)) {
+    throw new Error("Desktop manifest signature verification failed.");
+  }
+  return envelope.payload;
+}
+
 async function loadManifest() {
   const manifestUrl = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
   if (!manifestUrl) return normalizeManifest();
@@ -52,14 +78,17 @@ async function loadManifest() {
       next: { revalidate: 300 },
     });
     if (!response.ok) throw new Error(`Desktop manifest returned ${response.status}.`);
-    const payload = await response.json();
-    return normalizeManifest(payload);
+    const envelope = await response.json();
+    return normalizeManifest(verifiedRemotePayload(envelope));
   } catch (error) {
     console.error(JSON.stringify({
       level: "error",
       msg: "desktop_manifest_fetch_failed",
       error: error instanceof Error ? error.message : String(error),
     }));
+    // Fail closed to the server-owned fallback configuration. A public remote
+    // manifest can never choose a download link or minimum version unless its
+    // payload was signed by the release pipeline.
     return normalizeManifest();
   }
 }
