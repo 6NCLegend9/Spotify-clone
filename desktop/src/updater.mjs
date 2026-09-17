@@ -21,7 +21,14 @@ export class DesktopUpdater {
     this.started = false;
     this.initialTimer = null;
     this.intervalTimer = null;
-    this.feedBaseUrl = String(process.env.HEYKASA_DESKTOP_UPDATE_URL || UPDATE_FEED_BASE_URL || "").trim();
+    // Packaged clients never trust a process environment override for executable
+    // updates. The approved production feed is compiled into the signed shell.
+    // Development builds may override it to exercise a local/test feed.
+    this.feedBaseUrl = String(
+      app.isPackaged
+        ? UPDATE_FEED_BASE_URL
+        : process.env.HEYKASA_DESKTOP_UPDATE_URL || UPDATE_FEED_BASE_URL || "",
+    ).trim();
 
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
