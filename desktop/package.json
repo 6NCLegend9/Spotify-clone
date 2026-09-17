@@ -10,12 +10,14 @@
     "start": "electron .",
     "test": "node --test test/*.test.mjs",
     "pack": "electron-builder --dir --win --x64",
-    "dist": "electron-builder --win nsis --x64"
+    "dist": "electron-builder --win nsis --x64",
+    "publish-release": "node scripts/publish-release.mjs"
   },
   "dependencies": {
     "electron-updater": "6.8.9"
   },
   "devDependencies": {
+    "@vercel/blob": "2.8.0",
     "electron": "44.4.1",
     "electron-builder": "26.15.3"
   },
@@ -24,6 +26,7 @@
     "productName": "HeyKasa",
     "artifactName": "HeyKasa-Setup-${version}-${arch}.${ext}",
     "asar": true,
+    "electronUpdaterCompatibility": ">=2.16",
     "directories": {
       "output": "dist"
     },
@@ -56,6 +59,11 @@
       "shortcutName": "HeyKasa",
       "deleteAppDataOnUninstall": false
     },
-    "publish": null
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://haykasa.vercel.app/api/desktop/update/stable"
+      }
+    ]
   }
 }
