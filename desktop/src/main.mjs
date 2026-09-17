@@ -225,6 +225,11 @@ function registerIpcHandlers() {
     await discord.clearActivity();
     return { connected: discord.connected };
   });
+  secureHandle("heykasa:discord:disconnect", async () => {
+    await discord.clearActivity().catch(() => {});
+    discord.disconnect();
+    return { connected: false };
+  });
   secureHandle("heykasa:discord:status", () => ({
     connected: discord.connected,
     previouslyConnected: discord.everConnected,
