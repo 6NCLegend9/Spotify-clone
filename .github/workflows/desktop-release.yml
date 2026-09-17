@@ -1,0 +1,120 @@
+name: Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        required: true
+        type: choice
+        default: internal
+        options:
+          - internal
+          - beta
+          - stable
+      minimum_version:
+        description: Minimum supported desktop version
+        required: true
+        default: "1.0.0"
+        type: string
+      release_notes_url:
+        description: Optional HTTPS release notes URL
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    environment: desktop-release
+    defaults:
+      run:
+        working-directory: desktop
+    env:
+      CSC_LINK: ${{ secrets.HEYKASA_WINDOWS_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.HEYKASA_WINDOWS_CSC_PASSWORD }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: ${{ secrets.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET }}
+      HEYKASA_DESKTOP_RELEASE_CHANNEL: ${{ inputs.channel }}
+      HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ inputs.minimum_version }}
+      HEYKASA_DESKTOP_RELEASE_NOTES_URL: ${{ inputs.release_notes_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Validate release secrets
+        shell: pwsh
+        run: |
+          $missing = @()
+          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK)) { $missing += "HEYKASA_WINDOWS_CSC_LINK" }
+          if ([string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) { $missing += "HEYKASA_WINDOWS_CSC_PASSWORD" }
+          if ([string]::IsNullOrWhiteSpace($env:BLOB_READ_WRITE_TOKEN)) { $missing += "BLOB_READ_WRITE_TOKEN" }
+          if ([string]::IsNullOrWhiteSpace($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET)) { $missing += "HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET" }
+          if ($missing.Count -gt 0) { throw "Missing release secrets: $($missing -join ', ')" }
+          if ($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET.Length -lt 32) { throw "Manifest HMAC secret must be at least 32 characters" }
+
+      - name: Verify v1 package metadata
+        shell: pwsh
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          if ($package.version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') { throw "Invalid desktop version" }
+          if ($package.build.appId -ne 'com.heykasa.desktop') { throw "Desktop appId changed unexpectedly" }
+          if (-not ($package.build.protocols.schemes -contains 'heykasa')) { throw "heykasa:// protocol is not registered" }
+          Write-Host "Preparing HeyKasa Desktop $($package.version) on $env:HEYKASA_DESKTOP_RELEASE_CHANNEL"
+
+      - name: Install desktop dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Test native boundary
+        run: npm test
+
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build signed Windows installer
+        run: npm run dist
+
+      - name: Verify Authenticode signature
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path dist -Filter 'HeyKasa-Setup-*-x64.exe' | Select-Object -First 1
+          if (-not $installer) { throw "Signed installer was not produced" }
+          $signature = Get-AuthenticodeSignature $installer.FullName
+          if ($signature.Status -ne 'Valid') { throw "Installer signature is not valid: $($signature.Status)" }
+          if ([string]::IsNullOrWhiteSpace($signature.SignerCertificate.Subject)) { throw "Installer signer identity is missing" }
+          Write-Host "Signed by: $($signature.SignerCertificate.Subject)"
+
+      - name: Publish immutable release and update metadata
+        id: publish
+        run: npm run publish-release
+
+      - name: Release summary
+        shell: pwsh
+        run: |
+          "### HeyKasa Desktop release" >> $env:GITHUB_STEP_SUMMARY
+          "- Version: ${{ steps.publish.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          "- Channel: ${{ steps.publish.outputs.channel }}" >> $env:GITHUB_STEP_SUMMARY
+          "- Installer: ${{ steps.publish.outputs.installer_url }}" >> $env:GITHUB_STEP_SUMMARY
+          "- SHA-512: ${{ steps.publish.outputs.sha512 }}" >> $env:GITHUB_STEP_SUMMARY
+          "- Blob base URL: ${{ steps.publish.outputs.blob_base_url }}" >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heykasa-desktop-release-${{ steps.publish.outputs.version }}-${{ inputs.channel }}
+          path: |
+            desktop/dist/HeyKasa-Setup-*-x64.exe
+            desktop/dist/*.blockmap
+            desktop/dist/*.yml
+          if-no-files-found: error
+          retention-days: 14
