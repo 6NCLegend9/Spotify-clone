@@ -23,6 +23,7 @@ function updateCopy(status) {
     case "downloading": return `Downloading update… ${Math.round(status.progress || 0)}%`;
     case "ready": return `Version ${status.version || ""} is ready to install.`.trim();
     case "up-to-date": return "HeyKasa Desktop is up to date.";
+    case "deferred": return status.detail || "A newer version is rolling out gradually. This installation will update automatically when eligible.";
     case "error": return status.detail || "The update check failed. Your current version is still safe to use.";
     case "disabled": return status.detail || "Automatic updates are not available in this build yet.";
     default: return "Updates are checked automatically in signed desktop builds.";
@@ -185,6 +186,17 @@ export default function DesktopAppCard() {
           </div>
         ) : null}
       </div>
+
+      {desktopInfo?.safeMode ? (
+        <div className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-xs leading-5 text-amber-100">
+          HeyKasa Desktop started in safe mode after repeated crashes. Discord and automatic desktop updates are temporarily disabled for this run; the web music experience remains available.
+        </div>
+      ) : null}
+      {desktopInfo?.policy?.maintenance ? (
+        <div className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-xs leading-5 text-amber-100">
+          {desktopInfo.policy.maintenanceMessage || "Some HeyKasa Desktop native features are temporarily unavailable for maintenance."}
+        </div>
+      ) : null}
 
       {isDesktop ? (
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
