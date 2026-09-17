@@ -7,6 +7,7 @@ import {
 export const runtime = "nodejs";
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
 
 function httpsUrl(value) {
   const text = typeof value === "string" ? value.trim() : "";
@@ -19,9 +20,14 @@ function httpsUrl(value) {
   }
 }
 
-function version(value, fallback = "0.1.0") {
+function version(value, fallback = "1.0.0") {
   const text = typeof value === "string" ? value.trim() : "";
   return SEMVER.test(text) ? text : fallback;
+}
+
+function sha512(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return SHA512_BASE64.test(text) ? text : "";
 }
 
 function normalizeManifest(input = {}, requestedChannel = "stable") {
@@ -29,17 +35,20 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
   const isStable = channel === "stable";
   const latest = version(
     input.latest || input.version || (isStable ? process.env.HEYKASA_DESKTOP_LATEST_VERSION : ""),
-    "0.1.0",
+    "1.0.0",
   );
   const minimum = version(
     input.minimum || (isStable ? process.env.HEYKASA_DESKTOP_MINIMUM_VERSION : ""),
-    "0.1.0",
+    "1.0.0",
   );
   const downloadUrl = httpsUrl(
     input.downloadUrl || (isStable ? process.env.HEYKASA_DESKTOP_DOWNLOAD_URL : ""),
   );
   const releaseNotesUrl = httpsUrl(
     input.releaseNotesUrl || (isStable ? process.env.HEYKASA_DESKTOP_RELEASE_NOTES_URL : ""),
+  );
+  const installerSha512 = sha512(
+    input.sha512 || (isStable ? process.env.HEYKASA_DESKTOP_SHA512 : ""),
   );
 
   return {
@@ -57,6 +66,7 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
     releaseNotesUrl,
     publishedAt: typeof input.publishedAt === "string" ? input.publishedAt.slice(0, 40) : "",
     sizeBytes: Number.isSafeInteger(input.sizeBytes) && input.sizeBytes > 0 ? input.sizeBytes : null,
+    sha512: installerSha512,
     published: Boolean(downloadUrl),
   };
 }
@@ -127,8 +137,6 @@ async function loadManifest(channel) {
       channel,
       error: error instanceof Error ? error.message : String(error),
     }));
-    // Fail closed to server-owned fallback configuration. Non-stable channels
-    // never inherit the stable download URL when their signed manifest is absent.
     return normalizeManifest({}, channel);
   }
 }
