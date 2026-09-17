@@ -111,20 +111,43 @@ export class DesktopUpdater {
     return this.getStatus();
   }
 
-  start() {
-    if (this.started) return;
-    this.started = true;
-    if (!this.canCheck()) {
-      if (!this.app.isPackaged) {
-        this.emit({ state: "disabled", detail: "Updates are disabled in development builds." });
-      } else if (!this.feedBaseUrl) {
-        this.emit({ state: "disabled", detail: "The signed desktop update feed has not been published yet." });
-      }
+  clearSchedule() {
+    if (this.initialTimer) clearTimeout(this.initialTimer);
+    if (this.intervalTimer) clearInterval(this.intervalTimer);
+    this.initialTimer = null;
+    this.intervalTimer = null;
+  }
+
+  schedule() {
+    this.clearSchedule();
+    if (!this.started) return;
+    if (!this.app.isPackaged) {
+      this.emit({ state: "disabled", detail: "Updates are disabled in development builds." });
       return;
     }
+    if (this.store.get("autoUpdate") === false) {
+      this.emit({ state: "disabled", detail: "Automatic updates are turned off." });
+      return;
+    }
+    if (!this.feedBaseUrl) {
+      this.emit({ state: "disabled", detail: "The signed desktop update feed has not been published yet." });
+      return;
+    }
+
     const initialDelay = UPDATE_INITIAL_DELAY_MIN_MS + Math.floor(Math.random() * UPDATE_INITIAL_DELAY_JITTER_MS);
     this.initialTimer = setTimeout(() => void this.checkNow(), initialDelay);
     this.intervalTimer = setInterval(() => void this.checkNow(), UPDATE_CHECK_INTERVAL_MS);
+  }
+
+  start() {
+    if (this.started) return;
+    this.started = true;
+    this.schedule();
+  }
+
+  preferencesChanged() {
+    if (!this.started) return;
+    this.schedule();
   }
 
   async installReadyUpdate() {
@@ -133,9 +156,7 @@ export class DesktopUpdater {
   }
 
   dispose() {
-    if (this.initialTimer) clearTimeout(this.initialTimer);
-    if (this.intervalTimer) clearInterval(this.intervalTimer);
-    this.initialTimer = null;
-    this.intervalTimer = null;
+    this.started = false;
+    this.clearSchedule();
   }
 }
