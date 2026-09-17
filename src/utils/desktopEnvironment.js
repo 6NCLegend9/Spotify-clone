@@ -41,6 +41,7 @@ export async function getHeyKasaDesktopInfo() {
       platform: typeof info.platform === "string" ? info.platform : "",
       arch: typeof info.arch === "string" ? info.arch : "",
       packaged: info.packaged === true,
+      safeMode: info.safeMode === true,
       policy: desktopPolicy(info.policy),
     };
   } catch {
