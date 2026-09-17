@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { desktopStableManifestUrl } from "@/utils/desktopRelease.mjs";
 
 export const runtime = "nodejs";
 
@@ -9,7 +10,7 @@ function httpsUrl(value) {
   if (!text) return "";
   try {
     const url = new URL(text);
-    return url.protocol === "https:" ? url.href : "";
+    return url.protocol === "https:" && !url.username && !url.password ? url.href : "";
   } catch {
     return "";
   }
@@ -68,8 +69,14 @@ function verifiedRemotePayload(envelope) {
   return envelope.payload;
 }
 
+function configuredManifestUrl() {
+  const explicit = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
+  if (explicit) return explicit;
+  return desktopStableManifestUrl(process.env.HEYKASA_DESKTOP_BLOB_BASE_URL);
+}
+
 async function loadManifest() {
-  const manifestUrl = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
+  const manifestUrl = configuredManifestUrl();
   if (!manifestUrl) return normalizeManifest();
 
   try {
