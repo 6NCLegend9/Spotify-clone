@@ -339,7 +339,7 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await page.keyboard.press("v");
     await assertExpandedLayout(`${viewport.width}x${viewport.height}`);
     if (viewport.width <= 767) {
-      await expect(page.getByRole("navigation", { name: "Primary" })).toBeHidden();
+      await expect(page.locator(".app-tabbar")).toBeHidden();
     }
     await page.screenshot({ path: testInfo.outputPath(`expanded-${viewport.width}x${viewport.height}.png`) });
     await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
