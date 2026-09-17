@@ -246,7 +246,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     const oldInert = host.inert;
     host.classList.add(styles.viewport);
     region.classList.add(styles.presentationRegion);
-    region.style.setProperty("z-index", overlay ? "80" : "30");
+    // In theater the live cross-origin iframe sits just below the transparent KASA
+    // overlay so header/transport controls remain clickable over the video.
+    region.style.setProperty("z-index", expanded && showingVideo ? "69" : overlay ? "80" : "30");
     let frame = 0;
     const place = () => { frame = 0; positionMediaViewport(host, anchorRef.current, showingVideo, expanded); };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(place); };
@@ -375,7 +377,8 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       onPointerMove={(event) => { if (expanded && event.pointerType === "mouse") showTheaterControls(); }}
       onFocusCapture={() => { if (expanded) showTheaterControls(); }}
       className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer}`} data-testid="kasa-media-overlay" data-view={view}
-      data-controls={expanded ? (controlsVisible ? "visible" : "hidden") : undefined}>
+      data-controls={expanded ? (controlsVisible ? "visible" : "hidden") : undefined}
+      data-media={expanded ? (showingVideo ? "video" : "audio") : undefined}>
       {content}
       {!expanded && <div className={styles.dismissHandle} onTouchStart={startGesture} onTouchEnd={endGesture}><span /></div>}
     </section>, document.body)}
