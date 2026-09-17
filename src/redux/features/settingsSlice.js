@@ -31,9 +31,8 @@ const initialState = {
   spatialAudio: false,
   discordPresence: false,
   discordPresenceConsent: false,
-  // Local-only monotonic token. It changes only when the user touches the
-  // Discord setting, letting the presence hook distinguish an explicit connect
-  // request from settings hydration on page load.
+  // Local-only monotonic token. It changes only after an explicit user action,
+  // so a failed localhost/native connection stays quiet until the user retries.
   discordPresenceConnectRequest: 0,
   owner: null,
 };
@@ -49,15 +48,20 @@ const settingsSlice = createSlice({
         return;
       }
       if (key === "discordPresence") {
-        state.discordPresence = value === true;
+        const enabled = value === true;
+        state.discordPresence = enabled;
         state.discordPresenceConsent = true;
-        state.discordPresenceConnectRequest += 1;
+        if (enabled) state.discordPresenceConnectRequest += 1;
         return;
       }
       if (key in initialState && key !== "owner" && key !== "discordPresenceConnectRequest") state[key] = value;
       if (key === "eqPreset" && value !== "Custom" && EQ_PRESET_BANDS[value]) {
         state.eqBands = EQ_PRESET_BANDS[value];
       }
+    },
+    requestDiscordPresenceConnect: (state) => {
+      if (!state.discordPresence || !state.discordPresenceConsent) return;
+      state.discordPresenceConnectRequest += 1;
     },
     updateEqBands: (state, action) => {
       state.eqBands = action.payload;
@@ -106,5 +110,11 @@ const settingsSlice = createSlice({
   },
 });
 
-export const { updateSetting, updateEqBands, hydrateSettings, setSettingsOwner } = settingsSlice.actions;
+export const {
+  updateSetting,
+  requestDiscordPresenceConnect,
+  updateEqBands,
+  hydrateSettings,
+  setSettingsOwner,
+} = settingsSlice.actions;
 export default settingsSlice.reducer;
