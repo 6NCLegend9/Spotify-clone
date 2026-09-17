@@ -25,6 +25,22 @@ function httpsUrl(value) {
   }
 }
 
+export function semanticVersionParts(value) {
+  const match = String(value || "").trim().match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  return match ? match.slice(1, 4).map(Number) : null;
+}
+
+export function versionOlderThan(installed, minimum) {
+  const left = semanticVersionParts(installed);
+  const right = semanticVersionParts(minimum);
+  if (!left || !right) return false;
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] < right[index]) return true;
+    if (left[index] > right[index]) return false;
+  }
+  return false;
+}
+
 function normalizedGate(value) {
   if (value === false) return { allowed: false, detail: "This desktop release is not available to this installation yet." };
   if (!value || typeof value !== "object") return { allowed: true, detail: "" };
@@ -159,6 +175,7 @@ export class DesktopUpdater {
 
   manifestRolloutAllows(manifest) {
     if (this.channel() !== "stable") return true;
+    if (versionOlderThan(this.app.getVersion(), manifest?.minimum)) return true;
     return installationEligibleForRollout(
       this.store.get("installationId"),
       manifest?.updateRolloutPercent ?? 100,
