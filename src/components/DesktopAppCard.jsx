@@ -29,11 +29,30 @@ function updateCopy(status) {
   }
 }
 
+function DesktopToggle({ label, description, checked, disabled, onChange }) {
+  return (
+    <label className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-white/10 px-4 py-3">
+      <span>
+        <span className="block text-sm font-medium text-gray-200">{label}</span>
+        {description ? <span className="mt-1 block text-xs leading-5 text-[#9aa8b5]">{description}</span> : null}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked === true}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-5 w-5 shrink-0 accent-[#00e6e6] disabled:opacity-40"
+      />
+    </label>
+  );
+}
+
 export default function DesktopAppCard() {
   const [manifest, setManifest] = useState(null);
   const [desktopInfo, setDesktopInfo] = useState(null);
   const [updateStatus, setUpdateStatus] = useState(null);
   const [startupEnabled, setStartupEnabled] = useState(null);
+  const [preferences, setPreferences] = useState(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -41,6 +60,8 @@ export default function DesktopAppCard() {
   const desktopApi = typeof window !== "undefined" ? getHeyKasaDesktopApi() : null;
   const supportsUpdater = hasDesktopCapability(desktopInfo, "updaterV1");
   const supportsStartup = hasDesktopCapability(desktopInfo, "autoLaunchV1");
+  const supportsPreferences = hasDesktopCapability(desktopInfo, "desktopPreferencesV1");
+  const supportsTray = hasDesktopCapability(desktopInfo, "trayV1");
 
   useEffect(() => {
     let active = true;
@@ -60,13 +81,15 @@ export default function DesktopAppCard() {
       const api = getHeyKasaDesktopApi();
       if (!api || !nextInfo) return;
       try {
-        const [nextUpdate, nextStartup] = await Promise.all([
+        const [nextUpdate, nextStartup, nextPreferences] = await Promise.all([
           api.updates?.getStatus?.(),
           api.startup?.get?.(),
+          api.preferences?.get?.(),
         ]);
         if (!active) return;
         setUpdateStatus(nextUpdate || null);
         setStartupEnabled(nextStartup?.enabled === true);
+        setPreferences(nextPreferences || null);
         if (typeof api.updates?.onStatus === "function") {
           unsubscribe = api.updates.onStatus((value) => {
             if (active) setUpdateStatus(value || null);
@@ -130,6 +153,20 @@ export default function DesktopAppCard() {
     }
   };
 
+  const setPreference = async (key, value) => {
+    if (!desktopApi?.preferences?.set || busy) return;
+    setBusy(key);
+    setError("");
+    try {
+      const next = await desktopApi.preferences.set(key, value);
+      setPreferences(next || null);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Could not save the desktop preference.");
+    } finally {
+      setBusy("");
+    }
+  };
+
   return (
     <section className="mb-8 glass-panel rounded-xl p-5 sm:p-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -138,7 +175,7 @@ export default function DesktopAppCard() {
           <h2 className="text-xl font-semibold">{isDesktop ? "Desktop app controls" : "Get HeyKasa for Windows"}</h2>
           <p className="mt-2 max-w-2xl text-xs leading-5 text-[#9aa8b5]">
             {isDesktop
-              ? "This window is running inside the secure HeyKasa desktop shell. Native Discord, Windows startup, and signed application updates are handled outside the browser sandbox."
+              ? "This window is running inside the secure HeyKasa desktop shell. Native Discord, Windows startup, tray behavior, and signed application updates are handled outside the browser sandbox."
               : "Install the Windows app for native Discord Rich Presence and automatic desktop updates. The music experience still comes from the same HeyKasa account and Vercel web app."}
           </p>
         </div>
@@ -165,20 +202,41 @@ export default function DesktopAppCard() {
           </div>
 
           {supportsStartup ? (
-            <label className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-white/10 px-4 py-3 lg:col-span-2">
-              <span>
-                <span className="block text-sm font-medium text-gray-200">Start HeyKasa with Windows</span>
-                <span className="mt-1 block text-xs text-[#9aa8b5]">Launch the desktop app automatically after you sign in to Windows.</span>
-              </span>
-              <input
-                type="checkbox"
-                checked={startupEnabled === true}
-                disabled={startupEnabled === null || busy === "startup"}
-                onChange={(event) => void setStartup(event.target.checked)}
-                className="h-5 w-5 accent-[#00e6e6]"
-              />
-            </label>
+            <DesktopToggle
+              label="Start HeyKasa with Windows"
+              description="Launch the desktop app automatically after you sign in to Windows."
+              checked={startupEnabled === true}
+              disabled={startupEnabled === null || busy === "startup"}
+              onChange={(value) => void setStartup(value)}
+            />
           ) : null}
+
+          {supportsPreferences && supportsUpdater ? (
+            <DesktopToggle
+              label="Automatic desktop updates"
+              description="Check in the background and download signed HeyKasa Desktop updates automatically."
+              checked={preferences?.autoUpdate !== false}
+              disabled={!preferences || busy === "autoUpdate"}
+              onChange={(value) => void setPreference("autoUpdate", value)}
+            />
+          ) : null}
+
+          {supportsPreferences && supportsTray ? (
+            <DesktopToggle
+              label="Keep HeyKasa running in the system tray"
+              description="Closing the window hides HeyKasa instead of stopping playback and Discord presence. Use Quit HeyKasa from the tray to fully exit."
+              checked={preferences?.closeToTray !== false}
+              disabled={!preferences || busy === "closeToTray"}
+              onChange={(value) => void setPreference("closeToTray", value)}
+            />
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/10 px-4 py-3">
+            <span className="text-xs text-[#9aa8b5]">Update channel</span>
+            <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-gray-200">
+              {preferences?.updateChannel || manifest?.channel || "stable"}
+            </span>
+          </div>
 
           <div className="flex flex-wrap gap-3 lg:col-span-2">
             {supportsUpdater ? (
