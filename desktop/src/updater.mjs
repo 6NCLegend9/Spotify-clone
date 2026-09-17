@@ -24,19 +24,27 @@ function httpsUrl(value) {
   }
 }
 
+function normalizedGate(value) {
+  if (value === false) return { allowed: false, detail: "This desktop release is not available to this installation yet." };
+  if (!value || typeof value !== "object") return { allowed: true, detail: "" };
+  return {
+    allowed: value.allowed !== false,
+    detail: typeof value.detail === "string" ? value.detail.slice(0, 240) : "",
+  };
+}
+
 export class DesktopUpdater {
-  constructor({ app, store, onStatus = () => {} }) {
+  constructor({ app, store, onStatus = () => {}, canCheckRelease = () => ({ allowed: true }) }) {
     this.app = app;
     this.store = store;
     this.onStatus = onStatus;
+    this.canCheckRelease = canCheckRelease;
     this.status = { state: "idle", version: app.getVersion(), progress: 0, detail: "" };
     this.started = false;
     this.initialTimer = null;
     this.intervalTimer = null;
     this.checkingPromise = null;
 
-    // Packaged clients only trust release endpoints compiled into the signed
-    // shell. Development builds may point at local/test infrastructure.
     this.feedBaseUrl = String(
       app.isPackaged
         ? UPDATE_FEED_BASE_URL
@@ -119,11 +127,6 @@ export class DesktopUpdater {
     const url = this.configuredFeedUrl();
     if (!url) return false;
     const releaseChannel = this.channel();
-
-    // Each HeyKasa release channel lives in its own folder and publishes one
-    // normalized `latest.yml`. Keeping electron-updater on its `latest`
-    // metadata name avoids the stable/stable.yml mismatch and lets the server
-    // choose the folder independently.
     autoUpdater.channel = "latest";
     autoUpdater.allowPrerelease = releaseChannel !== "stable";
     autoUpdater.setFeedURL({ provider: "generic", url, channel: "latest" });
@@ -145,6 +148,14 @@ export class DesktopUpdater {
     return manifest;
   }
 
+  async rolloutGate({ manual = false } = {}) {
+    try {
+      return normalizedGate(await this.canCheckRelease({ manual, channel: this.channel() }));
+    } catch {
+      return { allowed: false, detail: "Desktop update eligibility could not be verified. HeyKasa will try again later." };
+    }
+  }
+
   async runCheck({ manual = false } = {}) {
     if (!this.app.isPackaged) {
       this.emit({ state: "disabled", detail: "Updates are disabled in development builds." });
@@ -155,6 +166,17 @@ export class DesktopUpdater {
       this.emit({ state: "disabled", detail: "Automatic updates are turned off." });
       return this.getStatus();
     }
+
+    const gate = await this.rolloutGate({ manual });
+    if (!gate.allowed) {
+      this.emit({
+        state: "deferred",
+        progress: 0,
+        detail: gate.detail || "The current release is rolling out gradually. HeyKasa will check again automatically.",
+      });
+      return this.getStatus();
+    }
+
     if (!this.configureFeed()) {
       this.emit({ state: "disabled", detail: "The signed desktop update feed is not configured." });
       return this.getStatus();
