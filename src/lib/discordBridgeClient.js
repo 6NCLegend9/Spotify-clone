@@ -12,10 +12,17 @@ export default class DiscordBridgeClient {
     this.socket = null;
     this.connecting = null;
     this.pending = new Map();
+    this.disconnectListeners = new Set();
   }
 
   get connected() {
     return this.socket?.readyState === WebSocket.OPEN;
+  }
+
+  onDisconnect(listener) {
+    if (typeof listener !== "function") return () => {};
+    this.disconnectListeners.add(listener);
+    return () => this.disconnectListeners.delete(listener);
   }
 
   ensureConnected() {
@@ -89,6 +96,9 @@ export default class DiscordBridgeClient {
       entry.reject(error);
     });
     this.pending.clear();
+    this.disconnectListeners.forEach((listener) => {
+      try { listener(error); } catch { /* listener errors must not break cleanup */ }
+    });
   }
 
   async command(action, activity = null) {
