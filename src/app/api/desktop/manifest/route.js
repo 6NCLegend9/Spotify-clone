@@ -30,6 +30,13 @@ function sha512(value) {
   return SHA512_BASE64.test(text) ? text : "";
 }
 
+function percentage(value, fallback = 100) {
+  const text = String(value ?? "").trim();
+  if (!text) return fallback;
+  const number = Number(text);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : fallback;
+}
+
 function normalizeManifest(input = {}, requestedChannel = "stable") {
   const channel = normalizeDesktopReleaseChannel(requestedChannel) || "stable";
   const isStable = channel === "stable";
@@ -50,6 +57,10 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
   const installerSha512 = sha512(
     input.sha512 || (isStable ? process.env.HEYKASA_DESKTOP_SHA512 : ""),
   );
+  const rolloutEnv = isStable ? String(process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT ?? "").trim() : "";
+  const updateRolloutPercent = rolloutEnv
+    ? percentage(rolloutEnv, 100)
+    : percentage(input.updateRolloutPercent, 100);
 
   return {
     formatVersion: 1,
@@ -67,6 +78,7 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
     publishedAt: typeof input.publishedAt === "string" ? input.publishedAt.slice(0, 40) : "",
     sizeBytes: Number.isSafeInteger(input.sizeBytes) && input.sizeBytes > 0 ? input.sizeBytes : null,
     sha512: installerSha512,
+    updateRolloutPercent,
     published: Boolean(downloadUrl),
   };
 }
