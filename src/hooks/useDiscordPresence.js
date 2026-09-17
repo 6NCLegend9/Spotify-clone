@@ -11,16 +11,15 @@ import {
 import { setDiscordPresenceStatus } from "@/utils/discordPresenceStatus";
 import { SITE_NAME, SITE_URL } from "@/utils/siteConfig";
 
-const RETRY_AFTER_ERROR_MS = 10_000;
-const REFRESH_WHILE_CONNECTED_MS = 60_000;
-
 function unavailableError(error) {
   const message = error instanceof Error ? error.message : String(error || "");
   return /bridge|discord desktop|ipc|disconnected|not running|not connected|unavailable/i.test(message);
 }
 
 export default function useDiscordPresence() {
-  const enabled = useSelector((state) => state.settings.discordPresence !== false);
+  const enabled = useSelector((state) => state.settings.discordPresence === true);
+  const consent = useSelector((state) => state.settings.discordPresenceConsent === true);
+  const connectRequest = useSelector((state) => state.settings.discordPresenceConnectRequest || 0);
   const privateSession = useSelector((state) => state.settings.privateSession);
   const youtubeVideo = useSelector((state) => state.player.youtubeVideo);
   const activeSong = useSelector((state) => state.player.activeSong);
@@ -29,6 +28,8 @@ export default function useDiscordPresence() {
   const clientRef = useRef(null);
   const startedAtRef = useRef({ id: "", startedAt: 0 });
   const positionRef = useRef(position);
+  const failedRequestRef = useRef(null);
+  const hasConnectedRef = useRef(false);
   positionRef.current = position;
 
   const track = presenceTrack({ youtubeVideo, activeSong });
@@ -37,29 +38,53 @@ export default function useDiscordPresence() {
   const trackArtist = track?.artist || "";
   const trackArtwork = track?.artwork || "";
   const trackDuration = track?.duration || 0;
-  const publish = shouldPublishDiscordPresence({ enabled, privateSession, track });
+  const publish = shouldPublishDiscordPresence({ enabled: enabled && consent, privateSession, track });
 
   useEffect(() => {
-    if (enabled === false) {
+    if (!enabled || !consent) {
       setDiscordPresenceStatus({ state: "off", detail: "" });
-    } else if (privateSession) {
-      setDiscordPresenceStatus({ state: "private", detail: "" });
-    } else if (!trackId) {
-      setDiscordPresenceStatus({ state: "idle", detail: "" });
+      startedAtRef.current = { id: "", startedAt: 0 };
+      failedRequestRef.current = null;
+      if (clientRef.current?.connected) {
+        clientRef.current.setActivity(null).catch(() => {});
+      }
+      clientRef.current?.disconnect();
+      clientRef.current = null;
+      return undefined;
     }
 
-    if (!publish) {
-      startedAtRef.current = trackId ? startedAtRef.current : { id: "", startedAt: 0 };
+    if (privateSession) {
+      setDiscordPresenceStatus({ state: "private", detail: "" });
       if (clientRef.current?.connected) {
         clientRef.current.setActivity(null).catch(() => {});
       }
       return undefined;
     }
 
+    if (!trackId) {
+      setDiscordPresenceStatus({ state: "idle", detail: "" });
+      startedAtRef.current = { id: "", startedAt: 0 };
+      if (clientRef.current?.connected) {
+        clientRef.current.setActivity(null).catch(() => {});
+      }
+      return undefined;
+    }
+
+    if (!publish) return undefined;
+
+    // A failed first connection is terminal for this explicit request. We do not
+    // probe localhost again on timers, visibility changes, track changes, or
+    // browser online events. Toggling Discord listening activity off/on creates
+    // a new connectRequest and allows one new attempt. Once a bridge has
+    // connected successfully, normal activity updates may reconnect if that
+    // established local bridge later drops.
+    if (!hasConnectedRef.current && failedRequestRef.current === connectRequest) {
+      return undefined;
+    }
+
     const client = clientRef.current || new DiscordBridgeClient();
     clientRef.current = client;
     let cancelled = false;
-    let retryTimer = null;
 
     if (startedAtRef.current.id !== trackId || !isPlaying) {
       startedAtRef.current = {
@@ -68,63 +93,47 @@ export default function useDiscordPresence() {
       };
     }
 
-    const schedule = (delay, callback) => {
-      if (cancelled) return;
-      retryTimer = window.setTimeout(callback, delay);
-    };
+    const activity = buildDiscordActivity({
+      track: {
+        id: trackId,
+        title: trackTitle,
+        artist: trackArtist,
+        artwork: trackArtwork,
+        duration: trackDuration,
+      },
+      playing: isPlaying,
+      startedAt: startedAtRef.current.startedAt,
+      siteName: SITE_NAME,
+      siteUrl: SITE_URL,
+    });
 
     const publishPresence = async () => {
-      if (cancelled) return;
-
-      const activity = buildDiscordActivity({
-        track: {
-          id: trackId,
-          title: trackTitle,
-          artist: trackArtist,
-          artwork: trackArtwork,
-          duration: trackDuration,
-        },
-        playing: isPlaying,
-        startedAt: startedAtRef.current.startedAt,
-        siteName: SITE_NAME,
-        siteUrl: SITE_URL,
-      });
-
       setDiscordPresenceStatus({ state: "connecting", detail: "" });
       try {
         await client.setActivity(activity);
         if (cancelled) return;
+        hasConnectedRef.current = true;
+        failedRequestRef.current = null;
         setDiscordPresenceStatus({ state: "connected", detail: trackTitle });
-        schedule(REFRESH_WHILE_CONNECTED_MS, publishPresence);
       } catch (error) {
         if (cancelled) return;
         const detail = error instanceof Error ? error.message : "Discord Rich Presence failed.";
+        if (!hasConnectedRef.current) failedRequestRef.current = connectRequest;
         setDiscordPresenceStatus({
           state: unavailableError(error) ? "unavailable" : "error",
           detail,
         });
-        schedule(RETRY_AFTER_ERROR_MS, publishPresence);
       }
     };
 
-    publishPresence();
-
-    const retryNow = () => {
-      if (cancelled) return;
-      if (retryTimer) window.clearTimeout(retryTimer);
-      retryTimer = null;
-      publishPresence();
-    };
-    window.addEventListener("online", retryNow);
-    document.addEventListener("visibilitychange", retryNow);
+    void publishPresence();
 
     return () => {
       cancelled = true;
-      if (retryTimer) window.clearTimeout(retryTimer);
-      window.removeEventListener("online", retryNow);
-      document.removeEventListener("visibilitychange", retryNow);
     };
   }, [
+    connectRequest,
+    consent,
     enabled,
     isPlaying,
     privateSession,
