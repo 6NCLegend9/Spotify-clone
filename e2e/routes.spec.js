@@ -46,6 +46,7 @@ async function smokeRoutes(page, routes) {
       page.on("pageerror", onPageError);
       try {
         const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+        await page.waitForLoadState("networkidle");
         expect.soft(response, `${path} should return a document response`).not.toBeNull();
         expect.soft(response?.status() || 0, `${path} should resolve instead of returning 4xx/5xx`).toBeLessThan(400);
         await expect.soft(page.locator("body"), `${path} should render a body`).toBeVisible();
