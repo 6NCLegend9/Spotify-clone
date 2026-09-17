@@ -38,7 +38,13 @@ export function parseRadioSeedQuery(value) {
 
 export function diversifyRadioTracks(
   tracks,
-  { seedArtist = "", limit = 24, maxPerArtist = 2, artistGap = 2 } = {},
+  {
+    seedArtist = "",
+    limit = 24,
+    maxPerArtist = 2,
+    maxSeedArtist = 1,
+    artistGap = 2,
+  } = {},
 ) {
   const sourceArtist = normalizeRadioArtist(seedArtist);
   const unique = [];
@@ -46,8 +52,6 @@ export function diversifyRadioTracks(
   for (const track of Array.isArray(tracks) ? tracks : []) {
     const id = String(track?.id || "").trim();
     if (!VIDEO_ID_PATTERN.test(id) || seenIds.has(id)) continue;
-    const artist = normalizeRadioArtist(track?.channel || track?.artist || "");
-    if (sourceArtist && artist && artist === sourceArtist) continue;
     seenIds.add(id);
     unique.push(track);
   }
@@ -58,18 +62,22 @@ export function diversifyRadioTracks(
   const recentArtists = [];
   const boundedLimit = Math.max(1, Math.min(50, Number(limit) || 24));
   const perArtist = Math.max(1, Math.min(5, Number(maxPerArtist) || 2));
+  const seedArtistLimit = Math.max(0, Math.min(5, Number(maxSeedArtist) || 0));
   const gap = Math.max(0, Math.min(6, Number(artistGap) || 0));
+  const artistLimit = (artist) => (
+    sourceArtist && artist === sourceArtist ? seedArtistLimit : perArtist
+  );
 
   while (remaining.length && result.length < boundedLimit) {
     let pick = remaining.findIndex((track) => {
       const artist = normalizeRadioArtist(track?.channel || track?.artist || "");
       if (!artist) return true;
-      return (counts.get(artist) || 0) < perArtist && !recentArtists.includes(artist);
+      return (counts.get(artist) || 0) < artistLimit(artist) && !recentArtists.includes(artist);
     });
     if (pick < 0) {
       pick = remaining.findIndex((track) => {
         const artist = normalizeRadioArtist(track?.channel || track?.artist || "");
-        return !artist || (counts.get(artist) || 0) < perArtist;
+        return !artist || (counts.get(artist) || 0) < artistLimit(artist);
       });
     }
     if (pick < 0) break;
