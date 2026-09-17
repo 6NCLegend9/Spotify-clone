@@ -1,0 +1,75 @@
+const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+
+function httpsUrl(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) return "";
+  try {
+    const url = new URL(text);
+    return url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function version(value, fallback = "0.1.0") {
+  const text = typeof value === "string" ? value.trim() : "";
+  return SEMVER.test(text) ? text : fallback;
+}
+
+function normalizeManifest(input = {}) {
+  const latest = version(input.latest || input.version || process.env.HEYKASA_DESKTOP_LATEST_VERSION, "0.1.0");
+  const minimum = version(input.minimum || process.env.HEYKASA_DESKTOP_MINIMUM_VERSION, "0.1.0");
+  const downloadUrl = httpsUrl(input.downloadUrl || process.env.HEYKASA_DESKTOP_DOWNLOAD_URL);
+  const releaseNotesUrl = httpsUrl(input.releaseNotesUrl || process.env.HEYKASA_DESKTOP_RELEASE_NOTES_URL);
+  const channel = ["stable", "beta", "internal"].includes(input.channel) ? input.channel : "stable";
+
+  return {
+    formatVersion: 1,
+    latest,
+    minimum,
+    recommended: version(input.recommended, latest),
+    desktopApiVersion: Number.isInteger(input.desktopApiVersion) && input.desktopApiVersion > 0
+      ? input.desktopApiVersion
+      : 1,
+    channel,
+    platform: "win32",
+    arch: "x64",
+    downloadUrl,
+    releaseNotesUrl,
+    publishedAt: typeof input.publishedAt === "string" ? input.publishedAt.slice(0, 40) : "",
+    sizeBytes: Number.isSafeInteger(input.sizeBytes) && input.sizeBytes > 0 ? input.sizeBytes : null,
+    published: Boolean(downloadUrl),
+  };
+}
+
+async function loadManifest() {
+  const manifestUrl = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
+  if (!manifestUrl) return normalizeManifest();
+
+  try {
+    const response = await fetch(manifestUrl, {
+      headers: { accept: "application/json" },
+      next: { revalidate: 300 },
+    });
+    if (!response.ok) throw new Error(`Desktop manifest returned ${response.status}.`);
+    const payload = await response.json();
+    return normalizeManifest(payload);
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      msg: "desktop_manifest_fetch_failed",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return normalizeManifest();
+  }
+}
+
+export async function GET() {
+  const manifest = await loadManifest();
+  return Response.json(manifest, {
+    headers: {
+      "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=900",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
