@@ -13,7 +13,7 @@ test("server HTML has a nonblank startup state before JavaScript hydrates", asyn
     await page.goto("/search", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("status", { name: "Loading HeyKasa" })).toBeVisible();
     await expect(page.getByAltText("HeyKasa")).toBeVisible();
-    await expect(page.locator("noscript")).toHaveJSProperty("textContent", "JavaScript is required to play music.");
+    await expect(page.locator("noscript")).toHaveText("JavaScript is required to play music.");
   } finally {
     await context.close();
   }
@@ -255,7 +255,7 @@ test("session revocation requires confirmation and retains a usable error state"
 
 test.describe("production PWA", () => {
   test.use({ serviceWorkers: "allow" });
-  test("registers successfully and never caches account API responses", async ({ page, context }) => {
+  test("registers successfully and never caches account API responses", async ({ page, context, browserName }) => {
     test.skip(!process.env.CI && process.env.PLAYWRIGHT_PWA !== "1", "Requires a PWA-enabled production build");
     let currentAccount = "pwa-a";
     const errors = [];
@@ -274,10 +274,14 @@ test.describe("production PWA", () => {
     await page.goto("/search", { waitUntil: "load" });
     await expect(page.getByRole("heading", { name: "Browse all" })).toBeVisible();
     await page.waitForFunction(() => navigator.serviceWorker.controller?.scriptURL.endsWith("/sw.js"));
-    const readAccount = () => page.evaluate(async () => (await (await fetch("/api/auth/session")).json()).user.id);
-    expect(await readAccount()).toBe("pwa-a");
-    currentAccount = "pwa-b";
-    expect(await readAccount()).toBe("pwa-b");
+    // Firefox service-worker fetches bypass Playwright's context routing. Other
+    // engines can additionally prove that two network-only responses stay fresh.
+    if (browserName !== "firefox") {
+      const readAccount = () => page.evaluate(async () => (await (await fetch("/api/auth/session")).json()).user.id);
+      expect(await readAccount()).toBe("pwa-a");
+      currentAccount = "pwa-b";
+      expect(await readAccount()).toBe("pwa-b");
+    }
     const privateCacheEntries = await page.evaluate(async () => {
       const entries = await Promise.all((await caches.keys()).map(async (name) => {
         const cache = await caches.open(name);
