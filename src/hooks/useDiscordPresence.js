@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
-import DiscordBridgeClient from "@/lib/discordBridgeClient";
+import { createDiscordPresenceClient } from "@/lib/discordPresenceClient";
 import {
   buildDiscordActivity,
   presenceTrack,
@@ -45,6 +45,7 @@ export default function useDiscordPresence() {
       setDiscordPresenceStatus({ state: "off", detail: "" });
       startedAtRef.current = { id: "", startedAt: 0 };
       failedRequestRef.current = null;
+      hasConnectedRef.current = false;
       if (clientRef.current?.connected) {
         clientRef.current.setActivity(null).catch(() => {});
       }
@@ -72,17 +73,16 @@ export default function useDiscordPresence() {
 
     if (!publish) return undefined;
 
-    // A failed first connection is terminal for this explicit request. We do not
-    // probe localhost again on timers, visibility changes, track changes, or
-    // browser online events. Toggling Discord listening activity off/on creates
-    // a new connectRequest and allows one new attempt. Once a bridge has
-    // connected successfully, normal activity updates may reconnect if that
-    // established local bridge later drops.
+    // A failed first connection is terminal for this explicit request. Browser
+    // mode therefore does not keep probing localhost; desktop mode likewise does
+    // not keep reopening Discord IPC after a failed opt-in. Toggling the setting
+    // off/on creates one fresh request. Once a transport has connected, ordinary
+    // activity updates may reconnect if that established connection later drops.
     if (!hasConnectedRef.current && failedRequestRef.current === connectRequest) {
       return undefined;
     }
 
-    const client = clientRef.current || new DiscordBridgeClient();
+    const client = clientRef.current || createDiscordPresenceClient();
     clientRef.current = client;
     let cancelled = false;
 
