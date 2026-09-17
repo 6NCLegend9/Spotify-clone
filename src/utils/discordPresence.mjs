@@ -70,7 +70,7 @@ export function buildDiscordActivity({
 
   const started = Number(startedAt);
   const duration = Number(track.duration) || 0;
-  const timestamps = Number.isFinite(started) && started > 0
+  const timestamps = playing && Number.isFinite(started) && started > 0
     ? {
       start: Math.floor(started),
       ...(duration > 0 ? { end: Math.floor(started + duration * 1000) } : {}),
@@ -78,12 +78,12 @@ export function buildDiscordActivity({
     : undefined;
 
   const activity = {
-    // Local/browser RPC Rich Presence is most compatible with the standard
+    // Discord local RPC Rich Presence is most compatible with the standard
     // custom application activity type. Song and artist stay in details/state.
     type: PLAYING_TYPE,
     details: clipPresenceText(track.title),
     state: clipPresenceText(track.artist || siteName),
-    timestamps,
+    ...(timestamps ? { timestamps } : {}),
     assets: {
       large_image: track.artwork || "logo",
       large_text: clipPresenceText(siteName),
