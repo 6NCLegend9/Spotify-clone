@@ -1,6 +1,7 @@
 import { PRODUCTION_SITE_URL, normalizeAppUrl } from "./siteConfig.js";
 
 export const DISCORD_CLIENT_ID_PATTERN = /^\d{17,22}$/;
+export const DEFAULT_DISCORD_CLIENT_ID = "1550162988407857252";
 const LOCAL_DEV_ORIGINS = [
   "http://localhost:3000",
   "http://localhost:3003",
@@ -9,7 +10,8 @@ const LOCAL_DEV_ORIGINS = [
 ];
 
 export function readDiscordClientId(env = process.env) {
-  const id = String(env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "").trim();
+  const configured = String(env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "").trim();
+  const id = configured || DEFAULT_DISCORD_CLIENT_ID;
   return DISCORD_CLIENT_ID_PATTERN.test(id) ? id : "";
 }
 
