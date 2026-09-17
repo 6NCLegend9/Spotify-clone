@@ -48,6 +48,23 @@ const LoginPage = () => {
   }, [searchParams]);
 
   useEffect(() => {
+    const api = getHeyKasaDesktopApi();
+    if (!api?.auth?.onStatus) return undefined;
+    const onStatus = (next) => {
+      if (next?.state !== "error") return;
+      setGoogleSubmitting(false);
+      setRetryAction("google");
+      setFormError({
+        title: "Desktop sign-in failed",
+        message: next.detail || "HeyKasa could not finish the desktop sign-in. Start the Google sign-in again.",
+        retryable: true,
+      });
+    };
+    void api.auth.getStatus?.().then(onStatus).catch(() => {});
+    return api.auth.onStatus(onStatus);
+  }, []);
+
+  useEffect(() => {
     if (
       status !== "authenticated"
       || submitting
