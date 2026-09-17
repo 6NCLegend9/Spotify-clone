@@ -24,6 +24,8 @@ import {
   absoluteUrl,
 } from "@/utils/siteConfig";
 
+const WEB_BUILD_ID = process.env.VERCEL_GIT_COMMIT_SHA || process.env.HEYKASA_BUILD_ID || "development";
+
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -250,6 +252,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${poppins.variable} ${righteous.variable}`} suppressHydrationWarning>
       <head>
+        <meta name="heykasa-build" content={WEB_BUILD_ID} />
         <link rel="preconnect" href="https://i.ytimg.com" />
         <link rel="dns-prefetch" href="https://i.ytimg.com" />
         <link rel="preconnect" href="https://yt3.ggpht.com" />
