@@ -1,6 +1,4 @@
 const isProduction = process.env.NODE_ENV === "production";
-const upgradeInsecureRequests =
-  isProduction && process.env.DISABLE_HTTPS_UPGRADE !== "1";
 const disablePwa =
   process.env.NODE_ENV === "development"
   || process.env.DISABLE_PWA === "1";
@@ -9,11 +7,7 @@ const scriptSources = [
   "'unsafe-inline'",
   "https://www.youtube.com",
 ];
-const discordRpcSources = [
-  ...Array.from(
-    { length: 10 },
-    (_, index) => `ws://127.0.0.1:${6463 + index}`,
-  ),
+const discordBridgeSources = [
   "ws://127.0.0.1:64650",
 ];
 
@@ -21,6 +15,11 @@ if (!isProduction) {
   scriptSources.push("'unsafe-eval'");
 }
 
+// HeyKasa intentionally connects from the HTTPS web app to a loopback-only
+// WebSocket bridge for Discord Rich Presence. Do not add the CSP
+// `upgrade-insecure-requests` directive here: it rewrites that ws:// URL to
+// wss://, while the local bridge intentionally does not terminate TLS.
+// HSTS below still protects the public HeyKasa origin.
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src ${scriptSources.join(" ")}`,
@@ -28,7 +27,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https://i.ytimg.com https://yt3.ggpht.com https://lh3.googleusercontent.com https://api.dicebear.com https://avatars.githubusercontent.com https://images.unsplash.com",
   "font-src 'self' data:",
   "media-src 'self' blob: https://*.googlevideo.com",
-  `connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.supabase.co wss://*.supabase.co ${discordRpcSources.join(" ")}`,
+  `connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.supabase.co wss://*.supabase.co ${discordBridgeSources.join(" ")}`,
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
@@ -36,7 +35,6 @@ const contentSecurityPolicy = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'self'",
-  ...(upgradeInsecureRequests ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
 /** @type {import('next').NextConfig} */
@@ -83,7 +81,7 @@ const nextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
-            value: 'camera=(), microphone=(), geolocation=(), compute-pressure=(self "https://www.youtube.com")',
+            value: 'camera=(), microphone=(), geolocation=(), loopback-network=(self), compute-pressure=(self "https://www.youtube.com")',
           },
           { key: "Content-Security-Policy", value: contentSecurityPolicy },
           ...(isProduction
