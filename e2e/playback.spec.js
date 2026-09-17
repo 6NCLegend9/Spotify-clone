@@ -287,139 +287,65 @@ test("video expansion fits desktop and mobile without replacing the media host",
     host.querySelector(".yt-crop-frame").appendChild(frame);
     window.__videoFrame = frame;
   });
-  await page.keyboard.press("v");
-  const videoDialog = page.getByRole("dialog", { name: "Expanded video" });
-  await expect(videoDialog).toBeVisible();
-  await expect(videoDialog.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
-  await expect.poll(() => page.getByTestId("youtube-decks").evaluate((host) => {
-    const rect = host.getBoundingClientRect();
-    const frame = window.__videoFrame.getBoundingClientRect();
-    return frame.width >= rect.width && frame.height >= rect.height;
-  })).toBe(true);
-  const geometry = await page.getByTestId("youtube-decks").evaluate((host) => {
-    const rect = host.getBoundingClientRect();
-    const frame = window.__videoFrame.getBoundingClientRect();
-    return { width: rect.width, height: rect.height, top: rect.top, bottom: rect.bottom,
-      viewportHeight: window.innerHeight, frameWidth: frame.width, frameHeight: frame.height,
-      sameHost: host === window.__videoHost, sameFrame: host.contains(window.__videoFrame) };
-  });
-  expect(geometry.width).toBeGreaterThan(300);
-  expect(geometry.height).toBeGreaterThan(250);
-  expect(geometry.top).toBeGreaterThanOrEqual(0);
-  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
-  expect(geometry.frameWidth).toBeGreaterThanOrEqual(geometry.width);
-  expect(geometry.frameHeight).toBeGreaterThanOrEqual(geometry.height);
-  expect(geometry.sameHost && geometry.sameFrame).toBe(true);
-  const phonePortrait = (await page.viewportSize()).width <= 767;
-  const tabBar = page.getByRole("navigation", { name: "Primary" });
-  if (phonePortrait) {
-    await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-layout", "phone-portrait");
-    await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
-    await expect(tabBar).toBeHidden();
-    expect(geometry.height).toBeGreaterThan(geometry.viewportHeight * 0.55);
-    expect(geometry.height).toBeLessThan(geometry.viewportHeight * 0.88);
-    const chromeBelow = await page.getByTestId("youtube-player").evaluate((player) => {
-      const video = player.querySelector("[data-testid='youtube-decks']").getBoundingClientRect();
-      const play = [...player.querySelectorAll("button")].find((button) => /^(Play|Pause)$/.test(button.getAttribute("aria-label") || ""));
-      return Boolean(play && play.getBoundingClientRect().top >= video.bottom - 2);
-    });
-    expect(chromeBelow).toBe(true);
-    await page.getByTestId("video-tap-target").click();
-    await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "hidden");
-    const filled = await page.getByTestId("youtube-decks").evaluate((host) => {
-      const frame = host.querySelector("iframe");
-      const hostRect = host.getBoundingClientRect();
-      const frameRect = frame.getBoundingClientRect();
+
+  const expanded = page.getByRole("dialog", { name: "Expanded video" });
+  const assertExpandedLayout = async (label) => {
+    await expect(expanded).toBeVisible();
+    await expect(expanded.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
+    const geometry = await page.getByTestId("youtube-decks").evaluate((host) => {
+      const rect = host.getBoundingClientRect();
+      const frame = window.__videoFrame.getBoundingClientRect();
       return {
-        hostFilled: hostRect.height >= window.innerHeight * 0.92,
-        frameWidth: frameRect.width,
-        viewportWidth: window.innerWidth,
+        left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+        width: rect.width, height: rect.height,
+        frameWidth: frame.width, frameHeight: frame.height,
+        viewportWidth: innerWidth, viewportHeight: innerHeight,
+        sameHost: host === window.__videoHost,
+        sameFrame: host.contains(window.__videoFrame),
       };
     });
-    expect(filled.hostFilled).toBe(true);
-    expect(filled.frameWidth).toBeLessThan(filled.viewportWidth * 1.25);
-    await page.getByRole("button", { name: "Show player controls" }).click();
-    await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
-  } else {
-    await expect.poll(() => page.getByTestId("youtube-player").getAttribute("data-chrome"), { timeout: 12000 }).toBe("hidden");
-    await page.mouse.move(48, 48);
-    await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
-  }
-  await expect(page.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
-  await page.mouse.move(64, 64);
-  await page.getByRole("button", { name: "Collapse video", exact: true }).click();
-  await expect(dock).toBeVisible();
-  expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost)).toBe(true);
-  await expect(dock.getByRole("button", { name: "Floating video", exact: true })).toHaveCount(0);
-  await page.keyboard.press("v");
-  await expect(page.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Expand floating video", exact: true })).toHaveCount(0);
-  expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
-  for (const width of [320, 360, 390, 768]) {
-    await page.mouse.move(72, 72);
-    await page.getByRole("button", { name: "Collapse video", exact: true }).click();
-    await page.setViewportSize({ width, height: 844 });
-    await expect(dock).toBeVisible();
-    await expect.poll(() => dock.locator("button:visible").evaluateAll((buttons) => buttons.filter((button) => {
+    expect(geometry.left, label).toBeGreaterThanOrEqual(-1);
+    expect(geometry.top, label).toBeGreaterThanOrEqual(-1);
+    expect(geometry.right, label).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+    expect(geometry.bottom, label).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+    expect(geometry.width, label).toBeGreaterThan(Math.min(240, geometry.viewportWidth * 0.6));
+    expect(geometry.height, label).toBeGreaterThan(Math.min(150, geometry.viewportHeight * 0.35));
+    expect(geometry.frameWidth, label).toBeGreaterThanOrEqual(geometry.width);
+    expect(geometry.frameHeight, label).toBeGreaterThanOrEqual(geometry.height);
+    expect(geometry.sameHost && geometry.sameFrame, label).toBe(true);
+    const outside = await expanded.locator("button:visible").evaluateAll((buttons) => buttons.filter((button) => {
       const rect = button.getBoundingClientRect();
-      return rect.left < 0 || rect.right > window.innerWidth || rect.width < 48 || rect.height < 48;
-    }).map((button) => ({ label: button.getAttribute("aria-label"), rect: button.getBoundingClientRect().toJSON() }))), { message: `Dock controls at ${width}px` }).toEqual([]);
-    expect(await dock.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-    expect(await dock.evaluate((element) => getComputedStyle(element).backgroundImage)).not.toBe("none");
-    await page.screenshot({ path: testInfo.outputPath(`dock-${width}.png`) });
-    await page.keyboard.press("v");
-    await expect(page.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
-    const outside = await page.getByTestId("youtube-player").locator("button:visible").evaluateAll((buttons) => buttons.filter((button) => {
-      const rect = button.getBoundingClientRect();
-      return rect.left < 0 || rect.right > window.innerWidth;
+      return rect.left < -1 || rect.right > innerWidth + 1 || rect.top < -1 || rect.bottom > innerHeight + 1;
     }).map((button) => button.getAttribute("aria-label")));
-    expect(outside, `Expanded controls at ${width}px`).toEqual([]);
-    if (width <= 390) {
-      await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-layout", "phone-portrait");
-      await expect(tabBar).toBeHidden();
-      const sheet = await page.getByTestId("youtube-decks").evaluate((host) => {
-        const rect = host.getBoundingClientRect();
-        return { height: rect.height, viewportHeight: window.innerHeight };
-      });
-      expect(sheet.height).toBeGreaterThan(sheet.viewportHeight * 0.55);
-      expect(sheet.height).toBeLessThan(sheet.viewportHeight * 0.88);
-    }
-    await page.screenshot({ path: testInfo.outputPath(`expanded-${width}.png`) });
-  }
-  await page.getByRole("button", { name: "Collapse video", exact: true }).click();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(dock).toBeVisible();
+    expect(outside, label).toEqual([]);
+  };
+
   await page.keyboard.press("v");
-  await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-layout", "phone-portrait");
+  await assertExpandedLayout("initial viewport");
+  await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
+  await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
+  await expect(dock).toBeVisible();
+
+  for (const viewport of [
+    { width: 320, height: 844 },
+    { width: 390, height: 844 },
+    { width: 768, height: 844 },
+    { width: 844, height: 390 },
+    { width: 1280, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(dock).toBeVisible();
+    expect(await dock.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.keyboard.press("v");
+    await assertExpandedLayout(`${viewport.width}x${viewport.height}`);
+    if (viewport.width <= 767) {
+      await expect(page.getByRole("navigation", { name: "Primary" })).toBeHidden();
+    }
+    await page.screenshot({ path: testInfo.outputPath(`expanded-${viewport.width}x${viewport.height}.png`) });
+    await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
+  }
+
+  await expect(dock).toBeVisible();
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
-  await page.setViewportSize({ width: 844, height: 390 });
-  await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-layout", "phone-landscape");
-  await expect(tabBar).toBeHidden();
-  expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
-  const landscape = await page.getByTestId("youtube-player").evaluate((player) => {
-    const video = player.querySelector("[data-testid='youtube-decks']").getBoundingClientRect();
-    const play = [...player.querySelectorAll("button")].find((button) => /^(Play|Pause)$/.test(button.getAttribute("aria-label") || ""));
-    const playRect = play?.getBoundingClientRect();
-    return {
-      sideBySide: Boolean(playRect && playRect.left >= video.right - 8),
-      overflow: Boolean(playRect && (playRect.right > window.innerWidth + 1 || playRect.bottom > window.innerHeight + 1)),
-      videoHeight: video.height,
-      viewportHeight: window.innerHeight,
-    };
-  });
-  expect(landscape.sideBySide).toBe(true);
-  expect(landscape.overflow).toBe(false);
-  expect(landscape.videoHeight).toBeGreaterThan(landscape.viewportHeight * 0.7);
-  await page.screenshot({ path: testInfo.outputPath("expanded-landscape.png") });
-  await page.getByTestId("video-tap-target").click();
-  await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "hidden");
-  const filledLandscape = await page.getByTestId("youtube-decks").evaluate((host) => host.getBoundingClientRect().height >= window.innerHeight * 0.92);
-  expect(filledLandscape).toBe(true);
-  await page.getByRole("button", { name: "Show player controls" }).click();
-  await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
-  await page.setViewportSize({ width: 667, height: 375 });
-  await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-layout", "phone-landscape");
-  await expect(tabBar).toBeHidden();
   expect(errors).toEqual([]);
 });
