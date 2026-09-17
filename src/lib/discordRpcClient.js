@@ -5,6 +5,7 @@ const TOKEN_STORAGE_KEY = "heykasa:discord-rpc:v1";
 const CONNECT_TIMEOUT_MS = 1500;
 const COMMAND_TIMEOUT_MS = 20000;
 const PROCESS_ID = 1;
+const ACTIVITY_SCOPES = ["identify", "rpc", "rpc.activities.write"];
 
 function randomNonce() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -161,7 +162,8 @@ export default class DiscordRpcClient {
         this.pending.delete(nonce);
         reject(new Error("Discord did not answer in time."));
       }, COMMAND_TIMEOUT_MS);
-      this.pending.set(nonce, { resolve, reject, timer });
+      this.pending.set(nonce, { resolve, reject });
+      this.pending.get(nonce).timer = timer;
       this.socket.send(JSON.stringify({ nonce, cmd, args }));
     });
   }
@@ -184,49 +186,39 @@ export default class DiscordRpcClient {
   }
 
   async authorize() {
-    const scopes = [
-      ["identify", "rpc", "rpc.activities.write"],
-      ["identify", "rpc.activities.write"],
-      ["rpc", "identify"],
-    ];
-    let lastError = new Error("Discord did not authorize HeyKasa.");
-    for (const scope of scopes) {
-      try {
-        // Each scope attempt gets a fresh, session-bound, single-use exchange nonce.
-        const begin = await fetch("/api/discord/oauth", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "begin" }),
-        });
-        const started = await begin.json();
-        const { state, rpcToken } = started?.data || {};
-        if (!begin.ok || !state) throw new Error(started?.message || "Log in to connect Discord.");
-        const authorized = await this.command("AUTHORIZE", {
-          client_id: this.clientId,
-          scopes: scope,
-          ...(rpcToken ? { rpc_token: rpcToken } : {}),
-        });
-        const response = await fetch("/api/discord/oauth", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            code: authorized?.code,
-            state,
-            redirectUri: window.location.origin,
-          }),
-        });
-        const json = await response.json();
-        const token = json?.data || json;
-        if (!response.ok || !token?.accessToken) {
-          throw new Error(json?.message || "Discord token exchange failed.");
-        }
-        writeStoredToken(token);
-        return token;
-      } catch (error) {
-        lastError = error;
-      }
+    // Rich Presence updates need both local RPC access and rpc.activities.write.
+    // Do not fall back to a smaller scope set: authentication can succeed while
+    // SET_ACTIVITY is guaranteed to fail afterwards.
+    const begin = await fetch("/api/discord/oauth", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "begin" }),
+    });
+    const started = await begin.json();
+    const { state, rpcToken } = started?.data || {};
+    if (!begin.ok || !state) throw new Error(started?.message || "Log in to connect Discord.");
+
+    const authorized = await this.command("AUTHORIZE", {
+      client_id: this.clientId,
+      scopes: ACTIVITY_SCOPES,
+      ...(rpcToken ? { rpc_token: rpcToken } : {}),
+    });
+    const response = await fetch("/api/discord/oauth", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        code: authorized?.code,
+        state,
+        redirectUri: window.location.origin,
+      }),
+    });
+    const json = await response.json();
+    const token = json?.data || json;
+    if (!response.ok || !token?.accessToken) {
+      throw new Error(json?.message || "Discord token exchange failed.");
     }
-    throw lastError;
+    writeStoredToken(token);
+    return token;
   }
 
   async setActivity(activity) {
