@@ -6,6 +6,7 @@ const DEFAULTS = Object.freeze({
   version: STORE_VERSION,
   autoLaunch: false,
   autoUpdate: true,
+  closeToTray: true,
   updateChannel: "stable",
   lastNotifiedVersion: "",
 });
@@ -16,6 +17,7 @@ function sanitize(value) {
     version: STORE_VERSION,
     autoLaunch: input.autoLaunch === true,
     autoUpdate: input.autoUpdate !== false,
+    closeToTray: input.closeToTray !== false,
     updateChannel: ["stable", "beta", "internal"].includes(input.updateChannel)
       ? input.updateChannel
       : "stable",
