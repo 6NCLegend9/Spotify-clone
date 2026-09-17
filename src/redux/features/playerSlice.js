@@ -3,7 +3,6 @@ import { decodeTrackFields } from '../../utils/text.js';
 import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
 import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity } from '../../utils/songIdentity.mjs';
-import { normalizeRadioArtist } from '../../utils/radioSeed.mjs';
 
 const initialState = {
   currentSongs: [],
@@ -36,17 +35,6 @@ function normalizeContext(value) {
   return { type: type || 'unknown', ...(id ? { id } : {}), ...(name ? { name } : {}) };
 }
 
-function trackArtist(track) {
-  return normalizeRadioArtist(
-    track?.channel
-      || track?.primaryArtists
-      || track?.subtitle
-      || track?.author
-      || track?.author_name
-      || '',
-  );
-}
-
 function trackScopedRadioSeed(rawTrack) {
   const track = decodeTrackFields(rawTrack);
   if (!track?.id) return track;
@@ -72,7 +60,8 @@ function trackScopedRadioSeed(rawTrack) {
     ...(artist ? { channel: artist } : {}),
     ...(seedQuery ? { seedQuery } : {}),
     // Radio discovery describes the selected recording, never the search rail
-    // and never "artist songs". Artist filtering below keeps autoplay varied.
+    // and never an artist-only query. Candidate diversification happens in the
+    // radio discovery layer rather than deleting valid queue entries here.
     genre: discoveryQuery,
   };
 }
@@ -194,21 +183,14 @@ const playerSlice = createSlice({
       let nextVideo = decodeTrackFields(action.payload);
 
       if (nextVideo?.id && state.youtubeVideo?.id && state.queueMode === 'radio'
-        && !state.youtubeQueue.some((item) => item?.id === nextVideo.id)) {
-        const currentArtist = trackArtist(state.youtubeVideo);
-        const incomingArtist = trackArtist(nextVideo);
-        const sameSong = canonicalSongIdentity(nextVideo)
-          && canonicalSongIdentity(nextVideo) === canonicalSongIdentity(state.youtubeVideo);
-        const sameArtist = currentArtist && incomingArtist && currentArtist === incomingArtist;
-        if (sameSong || sameArtist) {
-          const currentIndex = state.youtubeQueue.findIndex((item) => sameOccurrence(item, state.youtubeVideo));
-          const replacement = state.youtubeQueue
-            .slice(currentIndex < 0 ? 0 : currentIndex + 1)
-            .find((item) => item?.id && trackArtist(item) !== currentArtist
-              && canonicalSongIdentity(item) !== canonicalSongIdentity(state.youtubeVideo));
-          if (replacement) nextVideo = replacement;
-          else return;
-        }
+        && !state.youtubeQueue.some((item) => item?.id === nextVideo.id)
+        && canonicalSongIdentity(nextVideo)
+        && canonicalSongIdentity(nextVideo) === canonicalSongIdentity(state.youtubeVideo)) {
+        const currentIndex = state.youtubeQueue.findIndex((item) => sameOccurrence(item, state.youtubeVideo));
+        const replacement = state.youtubeQueue
+          .slice(currentIndex < 0 ? 0 : currentIndex + 1)
+          .find((item) => item?.id && canonicalSongIdentity(item) !== canonicalSongIdentity(state.youtubeVideo));
+        if (replacement) nextVideo = replacement;
       }
 
       if (state.youtubeVideo?.id && nextVideo?.id && !sameOccurrence(state.youtubeVideo, nextVideo)) {
@@ -269,11 +251,10 @@ const playerSlice = createSlice({
       if (!rawTrack?.id) return;
       if (queueMode === 'radio') rawTrack = trackScopedRadioSeed(rawTrack);
 
-      // Radio owns its own queue. Search/home rows are merely discovery UI and
-      // must never become the playback queue.
-      const rawQueue = queueMode === 'radio'
-        ? [rawTrack]
-        : (Array.isArray(action.payload?.queue) ? action.payload.queue : []);
+      // Search/home radio callers pass only the selected track. Keeping the
+      // reducer's queue contract intact is important for explicit contexts and
+      // tests; discovery UI must decide what context it intends to supply.
+      const rawQueue = Array.isArray(action.payload?.queue) ? action.payload.queue : [];
       let queue = rawQueue
         .map((item) => {
           const decoded = decodeTrackFields(item);
@@ -355,26 +336,15 @@ const playerSlice = createSlice({
       const tracks = action.payload || [];
       const existingIds = new Set(state.youtubeQueue.map((item) => item.id));
       const radioMode = state.queueMode === 'radio';
-      const sourceArtist = radioMode ? trackArtist(state.youtubeVideo) : '';
       const existingSongIdentities = new Set(
         radioMode
           ? state.youtubeQueue.map((item) => canonicalSongIdentity(item)).filter(Boolean)
           : [],
       );
-      const artistCounts = new Map();
-      if (radioMode) {
-        state.youtubeQueue.forEach((item) => {
-          const artist = trackArtist(item);
-          if (artist) artistCounts.set(artist, (artistCounts.get(artist) || 0) + 1);
-        });
-      }
 
       tracks.forEach((track) => {
         const decoded = decodeTrackFields(track);
         if (!decoded?.id || existingIds.has(decoded.id)) return;
-        const artist = radioMode ? trackArtist(decoded) : '';
-        if (radioMode && sourceArtist && artist === sourceArtist) return;
-        if (radioMode && artist && (artistCounts.get(artist) || 0) >= 2) return;
         const songIdentity = radioMode ? canonicalSongIdentity(decoded) : '';
         if (radioMode && songIdentity && existingSongIdentities.has(songIdentity)) return;
         const entry = nextQueueEntry(state, decoded, 'context');
@@ -383,7 +353,6 @@ const playerSlice = createSlice({
         state.youtubeQueue.push(entry);
         existingIds.add(entry.id);
         if (songIdentity) existingSongIdentities.add(songIdentity);
-        if (artist) artistCounts.set(artist, (artistCounts.get(artist) || 0) + 1);
       });
     },
 
