@@ -9,6 +9,11 @@ function subscribe(channel, listener) {
 
 const api = Object.freeze({
   getInfo: () => ipcRenderer.invoke("heykasa:get-info"),
+  auth: Object.freeze({
+    start: () => ipcRenderer.invoke("heykasa:auth:start"),
+    getStatus: () => ipcRenderer.invoke("heykasa:auth:status"),
+    onStatus: (listener) => subscribe("heykasa:auth:status-changed", listener),
+  }),
   discord: Object.freeze({
     setActivity: (activity) => ipcRenderer.invoke("heykasa:discord:set-activity", activity),
     clearActivity: () => ipcRenderer.invoke("heykasa:discord:clear"),
