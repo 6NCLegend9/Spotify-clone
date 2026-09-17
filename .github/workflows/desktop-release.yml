@@ -30,8 +30,49 @@ concurrency:
   group: desktop-release-${{ inputs.channel }}
   cancel-in-progress: false
 
+env:
+  NEXTAUTH_SECRET: heykasa-desktop-release-ci-only-secret
+  NEXTAUTH_URL: http://localhost:3100
+  DISABLE_HTTPS_UPGRADE: "1"
+
 jobs:
+  web-gate:
+    name: Verify web/native contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Protect stable channel
+        shell: bash
+        run: |
+          if [ "${{ inputs.channel }}" = "stable" ] && [ "${{ github.ref_name }}" != "main" ]; then
+            echo "Stable desktop releases must run from main. Current ref: ${{ github.ref_name }}" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Audit web runtime dependencies
+        run: npm run audit:production
+
+      - name: Test desktop server contract
+        run: node --test test/desktopAuth.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs
+
+      - name: Typecheck web integration
+        run: npm run typecheck
+
+      - name: Build production web application
+        run: npm run build
+
   release:
+    needs: web-gate
     runs-on: windows-latest
     timeout-minutes: 45
     environment: desktop-release
@@ -71,6 +112,7 @@ jobs:
           if ($package.version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') { throw "Invalid desktop version" }
           if ($package.build.appId -ne 'com.heykasa.desktop') { throw "Desktop appId changed unexpectedly" }
           if (-not ($package.build.protocols.schemes -contains 'heykasa')) { throw "heykasa:// protocol is not registered" }
+          if ('${{ inputs.channel }}' -eq 'stable' -and '${{ github.ref_name }}' -ne 'main') { throw "Stable desktop releases must run from main" }
           Write-Host "Preparing HeyKasa Desktop $($package.version) on $env:HEYKASA_DESKTOP_RELEASE_CHANNEL"
 
       - name: Install desktop dependencies
@@ -105,6 +147,8 @@ jobs:
           "### HeyKasa Desktop release" >> $env:GITHUB_STEP_SUMMARY
           "- Version: ${{ steps.publish.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
           "- Channel: ${{ steps.publish.outputs.channel }}" >> $env:GITHUB_STEP_SUMMARY
+          "- Source ref: ${{ github.ref_name }}" >> $env:GITHUB_STEP_SUMMARY
+          "- Source commit: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
           "- Installer: ${{ steps.publish.outputs.installer_url }}" >> $env:GITHUB_STEP_SUMMARY
           "- SHA-512: ${{ steps.publish.outputs.sha512 }}" >> $env:GITHUB_STEP_SUMMARY
           "- Blob base URL: ${{ steps.publish.outputs.blob_base_url }}" >> $env:GITHUB_STEP_SUMMARY
