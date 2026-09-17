@@ -42,7 +42,7 @@ test("search filters persist in the URL and pagination deduplicates results", as
   await expect(page.getByRole("link", { name: "Artist result", exact: true })).toBeVisible();
   await expect(page.getByLabel("Filter song duration")).toHaveCount(0);
   await page.getByRole("tab", { name: "Playlists", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Playlist result", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "View playlist Playlist result", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("search-controls.png") });
 });

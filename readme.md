@@ -1,65 +1,64 @@
-## Features
+# HeyKasa
 
-- Search and stream music from vast collection.
-- Play, pause, skip, and control the playback of songs.
-- Create your own playlists.
-- Add songs to your favorite.
-- Auto add similar songs to queue.
-- Display song details such as title, artist, album, and album artwork.
-- Responsive and mobile-friendly design for a great user experience.
-- Minimalistic and intuitive user interface.
+HeyKasa is a responsive music discovery and playback application with search, playlists, favourites, queue management, and YouTube-backed playback.
 
+## Requirements
 
-## Installation
+- Node.js 22 (Node.js 20.9 or newer is supported; Node.js 24 is not yet supported)
+- npm
+- MongoDB
+- SMTP credentials for account email flows
 
-1. Clone the repository to your local machine.
+## Local setup
 
-   ```sh
-   git clone 
-   ```
-
-2. Install the required packages.
+1. Clone the repository and install the locked dependencies.
 
    ```sh
-   cd HeyKasa
+   git clone https://github.com/6NCLegend9/Spotify-clone.git
+   cd Spotify-clone
+   npm ci
    ```
+
+2. Copy the environment template and fill in the required values.
 
    ```sh
-   npm install
+   cp .env.example .env.local
    ```
 
-3. Set up the environment variables:
-   Create env file in root dir.
+   At minimum, configure the MongoDB, authentication, and mail variables documented in `.env.example`. Keep both local URL variables on the same loopback origin:
 
-   ```
-    MONGODB_URL = MongoDB connection string
-    DB_NAME = database name
-
-   JWT_SECRET = JWT secret
+   ```dotenv
    NEXTAUTH_URL=http://localhost:3000
    NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-
-   GOOGLE_CLIENT_ID = Google client id  (https://analytify.io/get-google-client-id-and-client-secret)
-   GOOGLE_CLIENT_SECRET = Google client secret
-
-
-   MAIL_HOST = mail host (smtp.gmail.com)
-   MAIL_USER = mail user (your gmail address)
-   MAIL_PASS = mail password (google app password)
-
    ```
 
-   Use the same loopback origin and port for both local URL values. Production
-   uses `https://haykasa.vercel.app` for both. Do not point local HTTP
-   development at the production HTTPS origin.
+   Google sign-in, YouTube search, Discord presence, and Supabase Jam support are optional integrations and require their corresponding variables.
 
-4. Start the development server.
+3. Start the development server.
 
    ```sh
    npm run dev
    ```
 
-5. Open the project in your browser at [`http://localhost:3000`](http://localhost:3000) to view your project.
+4. Open [http://localhost:3000](http://localhost:3000).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Verification
+
+Run the static, unit, and production-build checks:
+
+```sh
+npm run check
+```
+
+Install a browser once, then run the Chromium end-to-end suite:
+
+```sh
+npx playwright install chromium
+npm run test:e2e -- --project=chromium-desktop
+```
+
+The full CI workflow also runs Firefox, WebKit, mobile browser projects, a production dependency audit, and the production performance benchmark.
+
+## Production
+
+Production configuration, deployment checks, and operational notes are documented in [PRODUCTION.md](./PRODUCTION.md). Deployments must use HTTPS; `DISABLE_HTTPS_UPGRADE=1` is reserved for local CI servers that intentionally run over HTTP.
