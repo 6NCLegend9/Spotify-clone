@@ -162,8 +162,7 @@ export default class DiscordRpcClient {
         this.pending.delete(nonce);
         reject(new Error("Discord did not answer in time."));
       }, COMMAND_TIMEOUT_MS);
-      this.pending.set(nonce, { resolve, reject });
-      this.pending.get(nonce).timer = timer;
+      this.pending.set(nonce, { resolve, reject, timer });
       this.socket.send(JSON.stringify({ nonce, cmd, args }));
     });
   }
