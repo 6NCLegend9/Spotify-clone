@@ -5,6 +5,8 @@ export const DESKTOP_CAPABILITIES = Object.freeze([
   "discordPresenceV1",
   "updaterV1",
   "autoLaunchV1",
+  "desktopPreferencesV1",
+  "trayV1",
   "diagnosticsV1",
 ]);
 
