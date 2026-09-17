@@ -15,6 +15,11 @@ function nativeDiscordApi() {
   return discord;
 }
 
+function localBrowserBridgeAllowed() {
+  if (typeof window === "undefined") return false;
+  return ["localhost", "127.0.0.1"].includes(window.location.hostname);
+}
+
 class DesktopDiscordClient {
   constructor(api) {
     this.api = api;
@@ -55,6 +60,18 @@ class UnsupportedDesktopDiscordClient {
   disconnect() {}
 }
 
+class BrowserDiscordUnavailableClient {
+  get connected() {
+    return false;
+  }
+
+  async setActivity() {
+    throw new Error("Discord Rich Presence requires HeyKasa Desktop. Install the Windows desktop app from Settings.");
+  }
+
+  disconnect() {}
+}
+
 export function isHeyKasaDesktop() {
   return Boolean(desktopShellApi());
 }
@@ -63,5 +80,9 @@ export function createDiscordPresenceClient() {
   const nativeApi = nativeDiscordApi();
   if (nativeApi) return new DesktopDiscordClient(nativeApi);
   if (desktopShellApi()) return new UnsupportedDesktopDiscordClient();
-  return new DiscordBridgeClient();
+
+  // The localhost WebSocket bridge is a development-only migration aid. A
+  // production browser must never probe 127.0.0.1 on a visitor's machine.
+  if (localBrowserBridgeAllowed()) return new DiscordBridgeClient();
+  return new BrowserDiscordUnavailableClient();
 }
