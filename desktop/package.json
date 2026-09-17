@@ -1,6 +1,6 @@
 {
   "name": "heykasa-desktop",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Secure Windows desktop shell for HeyKasa",
   "author": "HeyKasa",
@@ -27,6 +27,12 @@
     "artifactName": "HeyKasa-Setup-${version}-${arch}.${ext}",
     "asar": true,
     "electronUpdaterCompatibility": ">=2.16",
+    "protocols": [
+      {
+        "name": "HeyKasa",
+        "schemes": ["heykasa"]
+      }
+    ],
     "directories": {
       "output": "dist"
     },
@@ -44,9 +50,7 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ]
     },
