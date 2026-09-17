@@ -18,13 +18,13 @@ const allowedKeys = [
   "wifiOnlyDownloads", "streamingQuality", "videoQuality", "normalization", "monoAudio", "explicitContent",
   "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture", "masterVolume",
   "keyboardShortcuts", "captions", "fadeEnabled", "fadeSeconds", "spatialAudio",
-  "discordPresence",
+  "discordPresence", "discordPresenceConsent",
 ];
 const booleanKeys = new Set([
   "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "explicitContent",
   "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture",
   "keyboardShortcuts", "captions", "fadeEnabled", "spatialAudio",
-  "discordPresence",
+  "discordPresence", "discordPresenceConsent",
 ]);
 const enumValues = {
   streamingQuality: new Set(["auto", "low", "normal", "high", "very-high"]),
