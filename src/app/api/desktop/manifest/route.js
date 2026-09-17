@@ -1,5 +1,8 @@
 import crypto from "node:crypto";
-import { desktopStableManifestUrl } from "@/utils/desktopRelease.mjs";
+import {
+  desktopReleaseFileUrl,
+  normalizeDesktopReleaseChannel,
+} from "../../../../utils/desktopRelease.mjs";
 
 export const runtime = "nodejs";
 
@@ -21,12 +24,23 @@ function version(value, fallback = "0.1.0") {
   return SEMVER.test(text) ? text : fallback;
 }
 
-function normalizeManifest(input = {}) {
-  const latest = version(input.latest || input.version || process.env.HEYKASA_DESKTOP_LATEST_VERSION, "0.1.0");
-  const minimum = version(input.minimum || process.env.HEYKASA_DESKTOP_MINIMUM_VERSION, "0.1.0");
-  const downloadUrl = httpsUrl(input.downloadUrl || process.env.HEYKASA_DESKTOP_DOWNLOAD_URL);
-  const releaseNotesUrl = httpsUrl(input.releaseNotesUrl || process.env.HEYKASA_DESKTOP_RELEASE_NOTES_URL);
-  const channel = ["stable", "beta", "internal"].includes(input.channel) ? input.channel : "stable";
+function normalizeManifest(input = {}, requestedChannel = "stable") {
+  const channel = normalizeDesktopReleaseChannel(requestedChannel) || "stable";
+  const isStable = channel === "stable";
+  const latest = version(
+    input.latest || input.version || (isStable ? process.env.HEYKASA_DESKTOP_LATEST_VERSION : ""),
+    "0.1.0",
+  );
+  const minimum = version(
+    input.minimum || (isStable ? process.env.HEYKASA_DESKTOP_MINIMUM_VERSION : ""),
+    "0.1.0",
+  );
+  const downloadUrl = httpsUrl(
+    input.downloadUrl || (isStable ? process.env.HEYKASA_DESKTOP_DOWNLOAD_URL : ""),
+  );
+  const releaseNotesUrl = httpsUrl(
+    input.releaseNotesUrl || (isStable ? process.env.HEYKASA_DESKTOP_RELEASE_NOTES_URL : ""),
+  );
 
   return {
     formatVersion: 1,
@@ -69,15 +83,30 @@ function verifiedRemotePayload(envelope) {
   return envelope.payload;
 }
 
-function configuredManifestUrl() {
-  const explicit = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
-  if (explicit) return explicit;
-  return desktopStableManifestUrl(process.env.HEYKASA_DESKTOP_BLOB_BASE_URL);
+function requestedChannel(request) {
+  if (!request?.url) return "stable";
+  try {
+    return normalizeDesktopReleaseChannel(new URL(request.url).searchParams.get("channel")) || "stable";
+  } catch {
+    return "stable";
+  }
 }
 
-async function loadManifest() {
-  const manifestUrl = configuredManifestUrl();
-  if (!manifestUrl) return normalizeManifest();
+function configuredManifestUrl(channel) {
+  if (channel === "stable") {
+    const explicit = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
+    if (explicit) return explicit;
+  }
+  return desktopReleaseFileUrl(
+    process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
+    channel,
+    "release-manifest.json",
+  );
+}
+
+async function loadManifest(channel) {
+  const manifestUrl = configuredManifestUrl(channel);
+  if (!manifestUrl) return normalizeManifest({}, channel);
 
   try {
     const response = await fetch(manifestUrl, {
@@ -86,22 +115,27 @@ async function loadManifest() {
     });
     if (!response.ok) throw new Error(`Desktop manifest returned ${response.status}.`);
     const envelope = await response.json();
-    return normalizeManifest(verifiedRemotePayload(envelope));
+    const payload = verifiedRemotePayload(envelope);
+    if ((normalizeDesktopReleaseChannel(payload?.channel) || "stable") !== channel) {
+      throw new Error("Desktop manifest channel does not match the requested channel.");
+    }
+    return normalizeManifest(payload, channel);
   } catch (error) {
     console.error(JSON.stringify({
       level: "error",
       msg: "desktop_manifest_fetch_failed",
+      channel,
       error: error instanceof Error ? error.message : String(error),
     }));
-    // Fail closed to the server-owned fallback configuration. A public remote
-    // manifest can never choose a download link or minimum version unless its
-    // payload was signed by the release pipeline.
-    return normalizeManifest();
+    // Fail closed to server-owned fallback configuration. Non-stable channels
+    // never inherit the stable download URL when their signed manifest is absent.
+    return normalizeManifest({}, channel);
   }
 }
 
-export async function GET() {
-  const manifest = await loadManifest();
+export async function GET(request) {
+  const channel = requestedChannel(request);
+  const manifest = await loadManifest(channel);
   return Response.json(manifest, {
     headers: {
       "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=900",
