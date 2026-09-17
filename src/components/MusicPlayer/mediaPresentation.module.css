@@ -4,7 +4,7 @@
 .art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .videoArt { aspect-ratio: 16 / 9; }
 .mediaTools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 16px; }
-.modeButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--teal-mid); border-radius: 999px; background: var(--navy-raised); color: var(--text); font-size: 12px; font-weight: 650; white-space: nowrap; }
+.modeButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--teal-mid); border-radius: 999px; background: rgb(2 8 19 / 88%); color: var(--text); font-size: 12px; font-weight: 650; white-space: nowrap; backdrop-filter: blur(12px); }
 .modeButton:hover { background: var(--navy-panel); color: var(--accent); }
 .modeButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .metadata { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 22px; }
@@ -49,8 +49,23 @@
 .lyrics :global(.lyrics-live) { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .lyrics :global(.lyrics-live-list) { position: relative; min-height: 140px; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .notice { padding: 8px 20px; color: var(--teal); font-size: 13px; }
-@media (min-width: 768px) {
- .overlay { bottom: 90px; }
+
+/* Theater is a true viewport presentation. Chrome floats over the media instead
+   of shrinking it, so portrait/landscape rotation keeps the same geometry. */
+.overlay.theater { inset: 0; bottom: 0; background: #000; }
+.theater .expandedBody { position: absolute; inset: 0; display: block; padding: 0; }
+.theater .expandedArt { position: absolute; inset: 0; display: grid; place-items: center; width: 100%; height: 100%; background: #000; }
+.theater .expandedArt img { width: 100%; height: 100%; object-fit: contain; }
+.theater .overlayHeader { position: absolute; z-index: 50; top: 0; left: 0; right: 0; background: linear-gradient(180deg, rgb(0 0 0 / 84%) 0%, rgb(0 0 0 / 48%) 58%, transparent 100%); transition: opacity 180ms ease, transform 180ms ease, visibility 180ms; }
+.theater .expandedTransport { position: absolute; z-index: 50; left: 0; right: 0; bottom: 0; padding: 20px max(24px, env(safe-area-inset-right, 0px)) max(18px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px)); background: linear-gradient(0deg, rgb(0 0 0 / 90%) 0%, rgb(0 0 0 / 62%) 68%, transparent 100%); transition: opacity 180ms ease, transform 180ms ease, visibility 180ms; }
+.theater .expandedTransport .mobileTransport { width: min(100%, 980px); margin: 0 auto; gap: 8px; }
+.theaterChrome { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
+.theater[data-controls="hidden"] .overlayHeader { opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-12px); }
+.theater[data-controls="hidden"] .expandedTransport { opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(12px); }
+.theater[data-controls="hidden"] .theaterChrome:focus-within { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
+
+@media (min-width: 768px) and (min-height: 601px) {
+ .drawer { bottom: 90px; }
  .drawer .body:not(.utilityBody) { width: min(100%, 620px); margin: 0 auto; }
 }
 @media (max-width: 767px) {
@@ -59,8 +74,21 @@
  .theater .overlayHeader { justify-content: space-between; gap: 4px; }
  .theater .mobileExtras { display: none; }
 }
+@media (orientation: landscape) and (max-height: 600px) {
+ .overlay.theater { bottom: 0; }
+ .theater .overlayHeader { min-height: 48px; gap: 6px; padding: max(4px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 4px max(12px, env(safe-area-inset-left, 0px)); }
+ .theater .source small { display: none; }
+ .theater .source strong { font-size: 12px; }
+ .theater .topTools { gap: 6px; }
+ .theater .topTools .modeButton { min-height: 40px; padding: 4px 10px; }
+ .theater .expandedTransport { padding: 4px max(14px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); }
+ .theater .expandedTransport .mobileTransport { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; width: min(100%, 980px); }
+ .theater .expandedTransport .mobileExtras { display: none; }
+}
 @media (max-width: 400px) { .drawer .body { padding-left: 16px; padding-right: 16px; } .metadata h2 { font-size: 22px; } }
-@media (max-height: 500px) and (max-width: 767px) { .expandedTransport { padding-top: 0; padding-bottom: env(safe-area-inset-bottom, 0px); } .overlayHeader { min-height: 48px; } }
+@media (prefers-reduced-motion: reduce) {
+ .theater .overlayHeader, .theater .expandedTransport { transition: none; }
+}
 @media (prefers-reduced-motion: no-preference) { .drawer { animation: enter 200ms ease-out; } }
 @keyframes enter { from { opacity: 0; } to { opacity: 1; } }
 
@@ -73,6 +101,6 @@
 .viewport[data-testid="youtube-decks"] :global(iframe) { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-width: 0 !important; min-height: 0 !important; max-width: 100% !important; max-height: 100% !important; transform: none !important; border: 0; }
 .viewport :global(.yt-chrome-mask), .viewport :global([data-testid="video-tap-target"]) { display: none !important; }
 .gestureSurface { position: absolute; inset: 0; z-index: 20; touch-action: pan-y; }
-.expandButton { position: absolute; top: 8px; right: 8px; z-index: 30; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--hairline-cyan); border-radius: 8px; background: var(--navy-deep); color: var(--text); }
+.expandButton { position: absolute; top: 8px; right: 8px; z-index: 30; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--hairline-cyan); border-radius: 8px; background: rgb(2 8 19 / 82%); color: var(--text); backdrop-filter: blur(10px); }
 .expandButton:hover { color: var(--accent); background: var(--navy-panel); }
 .expandButton:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
