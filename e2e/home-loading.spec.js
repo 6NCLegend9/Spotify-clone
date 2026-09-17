@@ -13,7 +13,7 @@ test("server HTML has a nonblank startup state before JavaScript hydrates", asyn
     await page.goto("/search", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("status", { name: "Loading HeyKasa" })).toBeVisible();
     await expect(page.getByAltText("HeyKasa")).toBeVisible();
-    await expect(page.locator("noscript")).toHaveText("JavaScript is required to play music.");
+    expect(await page.content()).toContain("<noscript>JavaScript is required to play music.</noscript>");
   } finally {
     await context.close();
   }
