@@ -56,7 +56,7 @@ async function smokeRoutes(page, routes, browserName) {
         ).toHaveCount(0);
         expect.soft(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${path} should not overflow horizontally`).toBe(true);
         const unexpectedPageErrors = pageErrors.filter((message) => browserName !== "webkit"
-          || !/^\/localhost:\\d+\/.* due to access control checks\\.$/.test(message));
+          || !/^\/localhost:\d+\/.* due to access control checks\.$/.test(message));
         expect.soft(unexpectedPageErrors, `${path} should not throw uncaught browser errors`).toEqual([]);
       } finally {
         page.off("pageerror", onPageError);
