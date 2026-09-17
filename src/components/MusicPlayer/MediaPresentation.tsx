@@ -192,7 +192,13 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       const key = event.key.toLowerCase();
       if ((key === "f" || key === "v") && canVideo) {
         event.preventDefault(); event.stopImmediatePropagation();
-        if (expanded) close(); else openExpanded();
+        if (expanded) close();
+        else {
+          // V is an explicit video command. F expands the currently selected
+          // Audio/Video mode without changing the user's persisted preference.
+          if (key === "v") persistVideoMode(true);
+          openExpanded();
+        }
       } else if (key === "t" && canLyrics) {
         event.preventDefault(); event.stopImmediatePropagation();
         if (view === "lyrics") close(); else openLyrics();
@@ -200,7 +206,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
-  }, [shortcutsEnabled, canVideo, canLyrics, expanded, view, close, openExpanded, openLyrics, hasOtherDialog]);
+  }, [shortcutsEnabled, canVideo, canLyrics, expanded, view, close, openExpanded, openLyrics, hasOtherDialog, persistVideoMode]);
 
   useEffect(() => {
     if (!overlay) return;
