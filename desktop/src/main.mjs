@@ -4,9 +4,11 @@ import {
   app,
   BrowserWindow,
   ipcMain,
+  Menu,
   powerMonitor,
   session,
   shell,
+  Tray,
 } from "electron";
 import {
   DESKTOP_API_VERSION,
@@ -37,6 +39,8 @@ const trustedOrigins = buildTrustedOrigins({ appUrl, isPackaged: app.isPackaged 
 let mainWindow = null;
 let store = null;
 let updater = null;
+let tray = null;
+let quitting = false;
 const discord = new DiscordIpcClient();
 
 function resourceIconPath() {
@@ -163,6 +167,7 @@ async function createMainWindow() {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      backgroundThrottling: false,
       spellcheck: false,
     },
   });
@@ -170,6 +175,11 @@ async function createMainWindow() {
   installNavigationGuards(window);
 
   window.once("ready-to-show", () => window.show());
+  window.on("close", (event) => {
+    if (quitting || store?.get("closeToTray") === false) return;
+    event.preventDefault();
+    window.hide();
+  });
   window.webContents.on("did-fail-load", (_event, errorCode, _description, _validatedUrl, isMainFrame) => {
     if (!isMainFrame || errorCode === -3) return;
     void showOfflineScreen(window);
@@ -190,6 +200,57 @@ async function createMainWindow() {
   mainWindow = window;
   await loadApplication(window);
   return window;
+}
+
+function createTray() {
+  if (tray && !tray.isDestroyed()) return tray;
+  tray = new Tray(resourceIconPath());
+  tray.setToolTip(PRODUCT_NAME);
+  tray.setContextMenu(Menu.buildFromTemplate([
+    {
+      label: "Open HeyKasa",
+      click: () => focusMainWindow(),
+    },
+    {
+      label: "Check for updates",
+      click: () => void updater?.checkNow({ manual: true }),
+    },
+    { type: "separator" },
+    {
+      label: "Quit HeyKasa",
+      click: () => {
+        quitting = true;
+        app.quit();
+      },
+    },
+  ]));
+  tray.on("click", () => focusMainWindow());
+  return tray;
+}
+
+function desktopPreferences() {
+  return {
+    autoUpdate: store?.get("autoUpdate") !== false,
+    closeToTray: store?.get("closeToTray") !== false,
+    updateChannel: ["stable", "beta", "internal"].includes(store?.get("updateChannel"))
+      ? store.get("updateChannel")
+      : "stable",
+  };
+}
+
+function setDesktopPreference(key, value) {
+  if (!store) throw new Error("Desktop preferences are not ready yet.");
+  if (key === "autoUpdate" || key === "closeToTray") {
+    store.set(key, value === true);
+  } else if (key === "updateChannel") {
+    if (!["stable", "beta", "internal"].includes(value)) throw new Error("Unsupported desktop update channel.");
+    store.set(key, value);
+  } else {
+    throw new Error("Unsupported desktop preference.");
+  }
+
+  if (key === "autoUpdate" || key === "updateChannel") updater?.preferencesChanged();
+  return desktopPreferences();
 }
 
 function sendUpdateStatus(status) {
@@ -251,12 +312,17 @@ function registerIpcHandlers() {
     store.set("autoLaunch", next);
     return { enabled: app.getLoginItemSettings().openAtLogin === true };
   });
+
+  secureHandle("heykasa:preferences:get", () => desktopPreferences());
+  secureHandle("heykasa:preferences:set", (key, value) => setDesktopPreference(key, value));
 }
 
 async function shutdownNativeIntegrations() {
   updater?.dispose();
   await discord.clearActivity().catch(() => {});
   discord.disconnect();
+  tray?.destroy();
+  tray = null;
 }
 
 if (registerSingleInstance()) {
@@ -273,6 +339,7 @@ if (registerSingleInstance()) {
     updater = new DesktopUpdater({ app, store, onStatus: sendUpdateStatus });
     registerIpcHandlers();
     await createMainWindow();
+    createTray();
     updater.start();
 
     powerMonitor.on("resume", () => {
@@ -293,6 +360,7 @@ if (registerSingleInstance()) {
   });
 
   app.on("before-quit", () => {
+    quitting = true;
     void shutdownNativeIntegrations();
   });
 }
