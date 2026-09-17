@@ -4,6 +4,7 @@ import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { readSearchOptions } from "@/utils/searchOptions.mjs";
 import { buildOfficialMusicQuery, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
+import { diversifyRadioTracks } from "@/utils/radioSeed.mjs";
 import {
   apiError,
   handleApiError,
@@ -16,6 +17,22 @@ function upstreamCode(status) {
   if (status === 429) return "RATE_LIMITED";
   if (status === 503) return "SERVICE_UNAVAILABLE";
   return "BAD_GATEWAY";
+}
+
+function isRadioDiscoveryQuery(query, type, order) {
+  return type === "video"
+    && order === "relevance"
+    && /\b(?:similar songs|radio mix)\s*$/i.test(String(query || ""));
+}
+
+function trackScopedDiscoverySeed(track) {
+  const title = String(track?.title || "").trim();
+  if (!title) return track;
+  return {
+    ...track,
+    seedQuery: `${title} similar songs`,
+    genre: `${title} radio mix`,
+  };
 }
 
 async function searchChannels(query) {
@@ -48,6 +65,7 @@ async function searchChannels(query) {
 export async function GET(request) {
   try {
     const { query, type, order, duration, pageToken, requireOfficial } = readSearchOptions(new URL(request.url).searchParams);
+    const radioDiscovery = isRadioDiscoveryQuery(query, type, order);
 
     const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 30 });
     if (rateLimit.limited) {
@@ -113,9 +131,16 @@ export async function GET(request) {
     const rankedResults = type === "video" && order === "relevance"
       ? rankOfficialMusicResults(results, query)
       : results;
+    const responseResults = radioDiscovery
+      ? diversifyRadioTracks(rankedResults, {
+        limit: 20,
+        maxPerArtist: 2,
+        artistGap: 2,
+      }).map(trackScopedDiscoverySeed)
+      : rankedResults;
 
     return NextResponse.json(
-      { results: rankedResults, nextPageToken: typeof data?.nextPageToken === "string" ? data.nextPageToken : "" },
+      { results: responseResults, nextPageToken: typeof data?.nextPageToken === "string" ? data.nextPageToken : "" },
       {
         headers: {
           "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
