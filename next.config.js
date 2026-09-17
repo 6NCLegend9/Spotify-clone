@@ -9,10 +9,13 @@ const scriptSources = [
   "'unsafe-inline'",
   "https://www.youtube.com",
 ];
-const discordRpcSources = Array.from(
-  { length: 10 },
-  (_, index) => `ws://127.0.0.1:${6463 + index}`,
-);
+const discordRpcSources = [
+  ...Array.from(
+    { length: 10 },
+    (_, index) => `ws://127.0.0.1:${6463 + index}`,
+  ),
+  "ws://127.0.0.1:64650",
+];
 
 if (!isProduction) {
   scriptSources.push("'unsafe-eval'");
