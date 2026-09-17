@@ -10,14 +10,16 @@ export const DESKTOP_CAPABILITIES = Object.freeze([
   "diagnosticsV1",
 ]);
 
-// The signed desktop release pipeline will set this to the public, immutable
-// update root (for example a Vercel Blob directory). Until that feed exists,
-// the updater reports `disabled` instead of probing a broken URL.
-export const UPDATE_FEED_BASE_URL = "";
+// The signed installer never receives a Vercel Blob write token or a raw
+// storage hostname. It checks the production manifest first, then uses this
+// same-origin read-only proxy for electron-updater metadata and binaries.
+export const UPDATE_MANIFEST_URL = `${PRODUCTION_APP_URL}/api/desktop/manifest`;
+export const UPDATE_FEED_BASE_URL = `${PRODUCTION_APP_URL}/api/desktop/update`;
 
 export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 export const UPDATE_INITIAL_DELAY_MIN_MS = 30 * 1000;
 export const UPDATE_INITIAL_DELAY_JITTER_MS = 60 * 1000;
+export const UPDATE_PREFLIGHT_TIMEOUT_MS = 8 * 1000;
 
 export function desktopAppUrl({ isPackaged = true, overrideUrl = "" } = {}) {
   if (!isPackaged && overrideUrl) {
