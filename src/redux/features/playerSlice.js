@@ -35,6 +35,39 @@ function normalizeContext(value) {
   return { type: type || 'unknown', ...(id ? { id } : {}), ...(name ? { name } : {}) };
 }
 
+function trackScopedRadioSeed(rawTrack) {
+  const track = decodeTrackFields(rawTrack);
+  if (!track?.id) return track;
+
+  const title = typeof track.title === 'string' && track.title.trim()
+    ? track.title.trim()
+    : typeof track.name === 'string'
+      ? track.name.trim()
+      : '';
+  const artist = [
+    track.channel,
+    track.primaryArtists,
+    track.subtitle,
+    track.author,
+    track.author_name,
+  ].find((value) => typeof value === 'string' && value.trim())?.trim() || '';
+  const inheritedSeed = typeof track.seedQuery === 'string' ? track.seedQuery.trim() : '';
+  const seedQuery = [artist, title].filter(Boolean).join(' ').trim()
+    || inheritedSeed
+    || title
+    || artist;
+
+  return {
+    ...track,
+    ...(artist ? { channel: artist } : {}),
+    ...(seedQuery ? { seedQuery } : {}),
+    // Search/home feeds use `genre` as their source query. For track radio that
+    // query must not leak into autoplay, otherwise the queue simply replays the
+    // visible result rail instead of discovering from the selected song.
+    genre: artist || '',
+  };
+}
+
 function syncLegacyQueueMode(state) {
   state.queueManualEnd = state.queueMode === 'collection';
 }
@@ -213,11 +246,22 @@ const playerSlice = createSlice({
     },
 
     startYoutubePlayback: (state, action) => {
-      const rawTrack = decodeTrackFields(action.payload?.track);
+      const queueMode = action.payload?.queueMode === 'collection' || action.payload?.autoExtend === false
+        ? 'collection'
+        : 'radio';
+      let rawTrack = decodeTrackFields(action.payload?.track);
       if (!rawTrack?.id) return;
+      if (queueMode === 'radio') rawTrack = trackScopedRadioSeed(rawTrack);
+
       const rawQueue = Array.isArray(action.payload?.queue) ? action.payload.queue : [];
       let queue = rawQueue
-        .map((item) => nextQueueEntry(state, item, 'context'))
+        .map((item) => {
+          const decoded = decodeTrackFields(item);
+          if (queueMode === 'radio' && decoded?.id === rawTrack.id) {
+            return nextQueueEntry(state, trackScopedRadioSeed({ ...decoded, ...rawTrack }), 'context');
+          }
+          return nextQueueEntry(state, decoded, 'context');
+        })
         .filter(Boolean);
       let track = queue.find((item) => item.id === rawTrack.id);
       if (!track) {
@@ -227,9 +271,7 @@ const playerSlice = createSlice({
       if (!track) return;
 
       state.queueUndo = null;
-      state.queueMode = action.payload?.queueMode === 'collection' || action.payload?.autoExtend === false
-        ? 'collection'
-        : 'radio';
+      state.queueMode = queueMode;
       syncLegacyQueueMode(state);
       state.playbackContext = normalizeContext(action.payload?.context);
       state.userQueue = [];
