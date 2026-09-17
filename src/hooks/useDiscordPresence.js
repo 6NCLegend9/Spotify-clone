@@ -11,6 +11,14 @@ import {
 import { setDiscordPresenceStatus } from "@/utils/discordPresenceStatus";
 import { SITE_NAME, SITE_URL } from "@/utils/siteConfig";
 
+const RETRY_AFTER_ERROR_MS = 10_000;
+const REFRESH_WHILE_CONNECTED_MS = 60_000;
+
+function unavailableError(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return /bridge|discord desktop|ipc|disconnected|not running|not connected|unavailable/i.test(message);
+}
+
 export default function useDiscordPresence() {
   const enabled = useSelector((state) => state.settings.discordPresence !== false);
   const privateSession = useSelector((state) => state.settings.privateSession);
@@ -51,45 +59,70 @@ export default function useDiscordPresence() {
     const client = clientRef.current || new DiscordBridgeClient();
     clientRef.current = client;
     let cancelled = false;
+    let retryTimer = null;
 
-    if (startedAtRef.current.id !== trackId) {
+    if (startedAtRef.current.id !== trackId || !isPlaying) {
       startedAtRef.current = {
         id: trackId,
         startedAt: Date.now() - Math.max(0, Number(positionRef.current) || 0) * 1000,
       };
     }
 
-    const activity = buildDiscordActivity({
-      track: {
-        id: trackId,
-        title: trackTitle,
-        artist: trackArtist,
-        artwork: trackArtwork,
-        duration: trackDuration,
-      },
-      playing: isPlaying,
-      startedAt: startedAtRef.current.startedAt,
-      siteName: SITE_NAME,
-      siteUrl: SITE_URL,
-    });
+    const schedule = (delay, callback) => {
+      if (cancelled) return;
+      retryTimer = window.setTimeout(callback, delay);
+    };
 
-    setDiscordPresenceStatus({ state: "connecting", detail: "" });
-    client.setActivity(activity)
-      .then(() => {
-        if (!cancelled) {
-          setDiscordPresenceStatus({ state: "connected", detail: trackTitle });
-        }
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setDiscordPresenceStatus({
-          state: "error",
-          detail: error instanceof Error ? error.message : "Discord Rich Presence failed.",
-        });
+    const publishPresence = async () => {
+      if (cancelled) return;
+
+      const activity = buildDiscordActivity({
+        track: {
+          id: trackId,
+          title: trackTitle,
+          artist: trackArtist,
+          artwork: trackArtwork,
+          duration: trackDuration,
+        },
+        playing: isPlaying,
+        startedAt: startedAtRef.current.startedAt,
+        siteName: SITE_NAME,
+        siteUrl: SITE_URL,
       });
+
+      setDiscordPresenceStatus({ state: "connecting", detail: "" });
+      try {
+        await client.setActivity(activity);
+        if (cancelled) return;
+        setDiscordPresenceStatus({ state: "connected", detail: trackTitle });
+        schedule(REFRESH_WHILE_CONNECTED_MS, publishPresence);
+      } catch (error) {
+        if (cancelled) return;
+        const detail = error instanceof Error ? error.message : "Discord Rich Presence failed.";
+        setDiscordPresenceStatus({
+          state: unavailableError(error) ? "unavailable" : "error",
+          detail,
+        });
+        schedule(RETRY_AFTER_ERROR_MS, publishPresence);
+      }
+    };
+
+    publishPresence();
+
+    const retryNow = () => {
+      if (cancelled) return;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      retryTimer = null;
+      publishPresence();
+    };
+    window.addEventListener("online", retryNow);
+    document.addEventListener("visibilitychange", retryNow);
 
     return () => {
       cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      window.removeEventListener("online", retryNow);
+      document.removeEventListener("visibilitychange", retryNow);
     };
   }, [
     enabled,
