@@ -21,6 +21,25 @@ function isOlderThan(installed, minimum) {
   return false;
 }
 
+function compatibilityIssue(info, manifest) {
+  if (!info || !manifest) return null;
+  const requiredApi = Number(manifest.desktopApiVersion) || 0;
+  const installedApi = Number(info.apiVersion) || 0;
+  if (requiredApi > installedApi) {
+    return {
+      type: "api",
+      message: `This website requires Desktop API ${requiredApi}, but HeyKasa Desktop ${info.desktopVersion || "this version"} provides API ${installedApi}.`,
+    };
+  }
+  if (isOlderThan(info.desktopVersion, manifest.minimum)) {
+    return {
+      type: "version",
+      message: `This HeyKasa Desktop version (${info.desktopVersion}) is older than the minimum supported version (${manifest.minimum}).`,
+    };
+  }
+  return null;
+}
+
 export default function DesktopCompatibilityGate() {
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -36,13 +55,13 @@ export default function DesktopCompatibilityGate() {
         fallbackMessage: "Could not check the current desktop compatibility policy.",
       }).catch(() => null);
       if (!active || !manifest) return;
-      setState({ info, manifest });
+      setState({ info, manifest, issue: compatibilityIssue(info, manifest) });
     };
     void load();
     return () => { active = false; };
   }, []);
 
-  if (!state || !isOlderThan(state.info.desktopVersion, state.manifest.minimum)) return null;
+  if (!state?.issue) return null;
 
   const desktopApi = getHeyKasaDesktopApi();
   const checkUpdate = async () => {
@@ -55,9 +74,15 @@ export default function DesktopCompatibilityGate() {
         await desktopApi.updates.install();
         return;
       }
-      if (status?.state === "error") setError(status.detail || "The desktop updater could not prepare the required update.");
-      else if (status?.state === "disabled") setError(status.detail || "The automatic update feed is not available in this build.");
-      else setError("The update check started. Reopen Settings when the download finishes, or use the installer below.");
+      if (status?.state === "error") {
+        setError(status.detail || "The desktop updater could not prepare the required update.");
+      } else if (status?.state === "disabled") {
+        setError(status.detail || "The automatic update feed is not available in this build.");
+      } else if (status?.state === "deferred") {
+        setError("This installed version is incompatible, so staged rollout should not block its required update. Use the installer below if the updater still cannot proceed.");
+      } else {
+        setError("The required update is being prepared. Reopen Settings when the download finishes, or use the installer below.");
+      }
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "The required update could not be started.");
     } finally {
@@ -71,7 +96,7 @@ export default function DesktopCompatibilityGate() {
         <p className="eyebrow mb-3">HeyKasa Desktop</p>
         <h2 id="desktop-update-required-title" className="text-2xl font-bold">Desktop update required</h2>
         <p className="mt-3 text-sm leading-6 text-[#9aa8b5]">
-          This HeyKasa Desktop version ({state.info.desktopVersion}) is older than the minimum supported version ({state.manifest.minimum}). Update the desktop shell before continuing so the website and native security API stay compatible.
+          {state.issue.message} Update the desktop shell before continuing so the website and native security API stay compatible.
         </p>
         {error ? <p className="mt-4 text-sm leading-6 text-amber-200">{error}</p> : null}
         <div className="mt-6 flex flex-wrap gap-3">
