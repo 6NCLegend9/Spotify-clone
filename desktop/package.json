@@ -47,6 +47,8 @@
       }
     ],
     "win": {
+      "verifyUpdateCodeSignature": true,
+      "requestedExecutionLevel": "asInvoker",
       "target": [
         {
           "target": "nsis",
