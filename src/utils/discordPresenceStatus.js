@@ -1,4 +1,4 @@
-let status = { state: "idle", detail: "" };
+let status = { state: "off", detail: "" };
 const listeners = new Set();
 
 export function getDiscordPresenceStatus() {
@@ -13,7 +13,7 @@ export function subscribeDiscordPresenceStatus(listener) {
 
 export function setDiscordPresenceStatus(next) {
   status = {
-    state: next.state || "idle",
+    state: next.state || "off",
     detail: typeof next.detail === "string" ? next.detail : "",
   };
   listeners.forEach((listener) => listener(status));
