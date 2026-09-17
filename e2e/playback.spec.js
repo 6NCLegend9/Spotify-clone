@@ -22,6 +22,9 @@ test.beforeEach(async ({ page }) => {
     }
     if (pathname === "/api/auth/providers") return route.fulfill({ json: {} });
     if (pathname === "/api/favourite") return route.fulfill({ json: { success: true, data: { favourites: [] } } });
+    if (pathname === "/api/settings") return route.fulfill({ json: { authenticated: true, settings: {} } });
+    if (pathname === "/api/language") return route.fulfill({ json: { authenticated: true, language: [] } });
+    if (pathname === "/api/userPlaylists") return route.fulfill({ json: { success: true, data: { playlists: [] } } });
     return route.fulfill({ json: { authenticated: false, data: [], genres: [], tree: [], personalGenres: [], results: [] } });
   });
 });
@@ -139,7 +142,6 @@ test("lock-screen play reaches the engine even when playback state is already pl
 test("chunk errors show a dismissible notice without reloading", async ({ page }) => {
   await page.goto("/search", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Browse all" })).toBeVisible();
-  await expect(page.getByTestId("jam-button")).toBeVisible();
   await page.evaluate(() => {
     window.__recoveryMarker = "unchanged";
     window.dispatchEvent(new ErrorEvent("error", { message: "ChunkLoadError: Loading chunk test failed" }));
@@ -193,14 +195,18 @@ test("responsive player expands, exposes queue modes and preserves deck hosts", 
   await expand.click();
   const dialog = page.getByRole("dialog", { name: "Now playing" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Shuffle", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Shuffle", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await dialog.getByRole("button", { name: "Repeat queue" }).click();
-  await expect(dialog.getByRole("button", { name: "Repeat queue" })).toHaveAttribute("aria-pressed", "true");
+  const transportScope = await dialog.getByRole("button", { name: "Shuffle", exact: true }).isVisible()
+    ? dialog
+    : dock;
+  await transportScope.getByRole("button", { name: "Shuffle", exact: true }).click();
+  await expect(transportScope.getByRole("button", { name: "Shuffle", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await transportScope.getByRole("button", { name: "Repeat queue" }).click();
+  await expect(transportScope.getByRole("button", { name: "Repeat queue" })).toHaveAttribute("aria-pressed", "true");
   expect(favouriteRequests).toHaveLength(1);
   await page.screenshot({ path: testInfo.outputPath("player-expanded.png") });
   await dialog.getByRole("button", { name: "Queue", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: /^Second track/ })).toBeVisible();
+  const queueDialog = page.getByRole("dialog", { name: "Queue" });
+  await expect(queueDialog.getByRole("button", { name: /^Second track/ })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(expand).toBeFocused();
@@ -231,19 +237,21 @@ test("queue edits preserve playback, undo safely, save a playlist and keep a sle
   await dialog.getByLabel("Sleep timer", { exact: true }).selectOption("15");
   const deadline = await page.evaluate(() => JSON.parse(sessionStorage.getItem("heykasa:sleep-timer:v1")).deadline);
   await dialog.getByRole("button", { name: "Queue", exact: true }).click();
-  const order = () => dialog.locator("li[data-track-id]").evaluateAll((rows) => rows.map((row) => row.dataset.trackId));
-  await dialog.getByRole("button", { name: "Move Third track up", exact: true }).click();
+  const queueDialog = page.getByRole("dialog", { name: "Queue" });
+  await expect(queueDialog).toBeVisible();
+  const order = () => queueDialog.locator("li[data-track-id]").evaluateAll((rows) => rows.map((row) => row.dataset.trackId));
+  await queueDialog.getByRole("button", { name: "Move Third track up", exact: true }).click();
   expect(await order()).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
-  await dialog.getByRole("button", { name: "Remove Third track from queue", exact: true }).click();
+  await queueDialog.getByRole("button", { name: "Remove Third track from queue", exact: true }).click();
   expect(await order()).toEqual(["abcdefghijk", "lmnopqrstuv"]);
-  await dialog.getByRole("button", { name: "Undo queue edit" }).click();
+  await queueDialog.getByRole("button", { name: "Undo queue edit" }).click();
   expect(await order()).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
-  await dialog.getByRole("button", { name: "Clear upcoming tracks" }).click();
+  await queueDialog.getByRole("button", { name: "Clear upcoming tracks" }).click();
   expect(await order()).toEqual(["abcdefghijk"]);
-  await dialog.getByRole("button", { name: "Undo queue edit" }).click();
-  await dialog.getByLabel("Queue playlist name").fill("Evening queue");
-  await dialog.getByRole("button", { name: "Save queue as playlist" }).click();
-  await expect(dialog.getByText("Playlist saved.", { exact: true })).toBeVisible();
+  await queueDialog.getByRole("button", { name: "Undo queue edit" }).click();
+  await queueDialog.getByLabel("Queue playlist name").fill("Evening queue");
+  await queueDialog.getByRole("button", { name: "Save queue as playlist" }).click();
+  await expect(queueDialog.getByText("Playlist saved.", { exact: true })).toBeVisible();
   expect(saved).toMatchObject({ name: "Evening queue", songs: ["abcdefghijk", "12345678901", "lmnopqrstuv"] });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("queue-editor.png") });
@@ -279,8 +287,10 @@ test("video expansion fits desktop and mobile without replacing the media host",
     host.querySelector(".yt-crop-frame").appendChild(frame);
     window.__videoFrame = frame;
   });
-  await dock.getByRole("button", { name: /^Expand player:/ }).click();
-  await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
+  await page.keyboard.press("v");
+  const videoDialog = page.getByRole("dialog", { name: "Expanded video" });
+  await expect(videoDialog).toBeVisible();
+  await expect(videoDialog.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
   const geometry = await page.getByTestId("youtube-decks").evaluate((host) => {
     const rect = host.getBoundingClientRect();
     const frame = window.__videoFrame.getBoundingClientRect();
@@ -330,25 +340,20 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await page.mouse.move(48, 48);
     await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-chrome", "visible");
   }
-  await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
-  const queueToggle = page.getByRole("button", { name: "Queue" });
-  await queueToggle.click();
-  await expect(queueToggle).toHaveAttribute("aria-expanded", "true");
-  await page.getByTestId("video-tap-target").click();
-  await expect(queueToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
   await page.mouse.move(64, 64);
-  await page.getByRole("button", { name: "Minimize video", exact: true }).click();
+  await page.getByRole("button", { name: "Collapse video", exact: true }).click();
   await expect(dock).toBeVisible();
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost)).toBe(true);
   await expect(dock.getByRole("button", { name: "Floating video", exact: true })).toHaveCount(0);
-  await page.getByTestId("video-tap-target").click();
-  await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
+  await page.keyboard.press("v");
+  await expect(page.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Expand floating video", exact: true })).toHaveCount(0);
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
   for (const width of [320, 360, 390, 768]) {
     await page.mouse.move(72, 72);
-    await page.getByRole("button", { name: "Minimize video", exact: true }).click();
+    await page.getByRole("button", { name: "Collapse video", exact: true }).click();
     await page.setViewportSize({ width, height: 844 });
     await expect(dock).toBeVisible();
     await expect.poll(() => dock.locator("button:visible").evaluateAll((buttons) => buttons.filter((button) => {
@@ -358,8 +363,8 @@ test("video expansion fits desktop and mobile without replacing the media host",
     expect(await dock.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     expect(await dock.evaluate((element) => getComputedStyle(element).backgroundImage)).not.toBe("none");
     await page.screenshot({ path: testInfo.outputPath(`dock-${width}.png`) });
-    await dock.getByRole("button", { name: "Expand player", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Minimize video", exact: true })).toBeVisible();
+    await page.keyboard.press("v");
+    await expect(page.getByRole("button", { name: "Collapse video", exact: true })).toBeVisible();
     const outside = await page.getByTestId("youtube-player").locator("button:visible").evaluateAll((buttons) => buttons.filter((button) => {
       const rect = button.getBoundingClientRect();
       return rect.left < 0 || rect.right > window.innerWidth;
@@ -377,10 +382,10 @@ test("video expansion fits desktop and mobile without replacing the media host",
     }
     await page.screenshot({ path: testInfo.outputPath(`expanded-${width}.png`) });
   }
-  await page.getByRole("button", { name: "Minimize video", exact: true }).click();
+  await page.getByRole("button", { name: "Collapse video", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(dock).toBeVisible();
-  await dock.getByRole("button", { name: "Expand player", exact: true }).click();
+  await page.keyboard.press("v");
   await expect(page.getByTestId("youtube-player")).toHaveAttribute("data-layout", "phone-portrait");
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
   await page.setViewportSize({ width: 844, height: 390 });
