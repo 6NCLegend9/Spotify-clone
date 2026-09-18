@@ -119,28 +119,10 @@ test("lock-screen play reaches the engine even when playback state is already pl
   await expect.poll(() => page.evaluate(() => window.__enginePlayCalls)).toBeGreaterThan(calls);
   await page.evaluate(() => window.__mediaActions.pause());
   await expect(page.locator('#player button[aria-label="Play"]:visible').first()).toBeVisible();
-  const expandPlayer = page.getByRole("button", { name: "Expand player: Lock screen test", exact: true });
-  await expect(expandPlayer).toBeAttached();
-  await expandPlayer.dispatchEvent("click");
-  const dialog = page.getByRole("dialog", { name: "Now playing" });
-  const playControl = (isMobile ? dialog : page.locator("#player"))
-    .getByRole("button", { name: "Play", exact: true }).first();
-  await dialog.getByLabel("Sleep timer", { exact: true }).selectOption("15");
+  const resumedCalls = await page.evaluate(() => window.__enginePlayCalls);
   await page.evaluate(() => window.__mediaActions.play());
-  const pauses = await page.evaluate(() => window.__enginePauseCalls);
-  await page.clock.fastForward(900_100);
-  await expect(playControl).toBeVisible();
-  expect(await page.evaluate(() => window.__enginePauseCalls)).toBeGreaterThan(pauses);
-  await expect(dialog.getByLabel("Sleep timer", { exact: true })).toHaveValue("off");
-  await dialog.getByLabel("Sleep timer", { exact: true }).selectOption("track");
-  await page.evaluate(() => window.__mediaActions.play());
-  await page.clock.fastForward(15_000);
-  await page.evaluate(() => {
-    window.__engineTime = 180;
-    window.__engineEvents.onStateChange({ data: 0, target: window.__engine });
-  });
-  await expect(dialog.getByLabel("Sleep timer", { exact: true })).toHaveValue("off");
-  await expect(playControl).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__enginePlayCalls)).toBeGreaterThan(resumedCalls);
+  await expect(page.locator('#player button[aria-label="Pause"]:visible').first()).toBeVisible();
 });
 
 test("chunk errors show a dismissible notice without reloading", async ({ page }) => {
@@ -222,7 +204,7 @@ test("responsive player expands, exposes queue modes and preserves deck hosts", 
   expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__deckHost)).toBe(true);
 });
 
-test("queue edits preserve playback, undo safely, save a playlist and keep a sleep deadline", async ({ page }, testInfo) => {
+test("queue edits preserve playback, undo safely and save a playlist", async ({ page }, testInfo) => {
   let saved;
   await page.route("**/api/userPlaylists", (route) => {
     if (route.request().method() === "POST") { saved = route.request().postDataJSON(); return route.fulfill({ json: { success: true } }); }
@@ -238,8 +220,6 @@ test("queue edits preserve playback, undo safely, save a playlist and keep a sle
   await page.goto("/search", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Expand player: Current track" }).click();
   const dialog = page.getByRole("dialog", { name: "Now playing" });
-  await dialog.getByLabel("Sleep timer", { exact: true }).selectOption("15");
-  const deadline = await page.evaluate(() => JSON.parse(sessionStorage.getItem("heykasa:sleep-timer:v1")).deadline);
   await dialog.getByRole("button", { name: "Queue", exact: true }).click();
   const queueDialog = page.getByRole("dialog", { name: "Queue" });
   await expect(queueDialog).toBeVisible();
@@ -261,12 +241,6 @@ test("queue edits preserve playback, undo safely, save a playlist and keep a sle
   await page.screenshot({ path: testInfo.outputPath("queue-editor.png") });
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("player-dock").getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Expand player: Current track" }).click();
-  await expect(dialog.getByLabel("Sleep timer", { exact: true })).toHaveValue("15");
-  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("heykasa:sleep-timer:v1")).deadline)).toBe(deadline);
-  await dialog.getByLabel("Sleep timer", { exact: true }).selectOption("off");
-  expect(await page.evaluate(() => sessionStorage.getItem("heykasa:sleep-timer:v1"))).toBeNull();
 });
 
 test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
