@@ -40,6 +40,9 @@ Electron enforces:
 - external HTTPS pages opened in the system browser
 - PWA service workers and Cache Storage cleared from the desktop partition at startup
 - single-instance execution
+- production Electron fuses disable `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS`, and CLI inspector flags
+- cookie encryption enabled for the persistent desktop session
+- embedded ASAR integrity validation with `onlyLoadAppFromAsar`
 - stable `com.heykasa.desktop` Windows app ID
 - stable `heykasa://` protocol registration
 
@@ -267,7 +270,7 @@ Published version artifacts are immutable. A bad release is fixed by publishing 
 
 ## Current development deployment state
 
-While Desktop v1 is being built on `desktop-app-development`, that branch intentionally sets Vercel Git deployment to disabled in `vercel.json`. This prevents every desktop commit from creating another Vercel deployment. Re-enable deployment only when the v1 code is ready for final web/desktop verification.
+While Desktop v1 is being built on `desktop-app-development`, `vercel.json` disables Git deployments for that branch only. Other branches keep Vercel's normal deployment behavior, so merging to `main` will still produce the production deployment.
 
 ## Release invariants
 

@@ -30,7 +30,9 @@
     "protocols": [
       {
         "name": "HeyKasa",
-        "schemes": ["heykasa"]
+        "schemes": [
+          "heykasa"
+        ]
       }
     ],
     "directories": {
@@ -52,7 +54,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -70,6 +74,16 @@
         "provider": "generic",
         "url": "https://haykasa.vercel.app/api/desktop/update/stable"
       }
-    ]
+    ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "loadBrowserProcessSpecificV8Snapshot": false,
+      "grantFileProtocolExtraPrivileges": false
+    }
   }
 }
