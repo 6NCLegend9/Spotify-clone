@@ -21,18 +21,24 @@ export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 export const UPDATE_INITIAL_DELAY_MIN_MS = 30 * 1000;
 export const UPDATE_INITIAL_DELAY_JITTER_MS = 60 * 1000;
 export const UPDATE_PREFLIGHT_TIMEOUT_MS = 8 * 1000;
+export const LOCAL_DEV_APP_URL = "http://localhost:3003";
+
+function loopbackAppUrl(value) {
+  try {
+    const url = new URL(String(value || "").trim());
+    if ((url.protocol === "http:" || url.protocol === "https:")
+      && ["localhost", "127.0.0.1"].includes(url.hostname)) {
+      return url.href.replace(/\/$/, "");
+    }
+  } catch {
+    // Ignore invalid development overrides.
+  }
+  return "";
+}
 
 export function desktopAppUrl({ isPackaged = true, overrideUrl = "" } = {}) {
-  if (!isPackaged && overrideUrl) {
-    try {
-      const url = new URL(overrideUrl);
-      if ((url.protocol === "http:" || url.protocol === "https:")
-        && ["localhost", "127.0.0.1"].includes(url.hostname)) {
-        return url.href.replace(/\/$/, "");
-      }
-    } catch {
-      // Ignore invalid development overrides.
-    }
+  if (!isPackaged) {
+    return loopbackAppUrl(overrideUrl) || LOCAL_DEV_APP_URL;
   }
   return PRODUCTION_APP_URL;
 }

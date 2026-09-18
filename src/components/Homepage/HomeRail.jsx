@@ -70,6 +70,7 @@ export function HomeSquareCard({ video, queue }) {
           </span>
         </span>
         <span className="home-shelf-title">{title}</span>
+        {video.kicker ? <span className="home-shelf-kicker">{video.kicker}</span> : null}
         {subtitle ? <span className="home-shelf-subtitle">{subtitle}</span> : null}
       </button>
       <AddToQueueButton track={video} className="absolute right-1 top-1 z-20 rounded-full bg-[var(--navy-deep)]/90 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100" />

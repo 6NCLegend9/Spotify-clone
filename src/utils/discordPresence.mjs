@@ -1,6 +1,9 @@
+import { isJamCode, normalizeJamCode } from "./jam.mjs";
+
 const PLAYING_TYPE = 0;
 const MAX_PRESENCE_TEXT = 128;
 const MAX_BUTTON_LABEL = 32;
+const MAX_PARTY = 50;
 
 export function clipPresenceText(value, max = MAX_PRESENCE_TEXT) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
@@ -65,6 +68,8 @@ export function buildDiscordActivity({
   startedAt,
   siteName = "HeyKasa",
   siteUrl = "",
+  jamCode = "",
+  partySize = 1,
 } = {}) {
   if (!track?.id || !track.title) return null;
 
@@ -91,10 +96,21 @@ export function buildDiscordActivity({
     },
   };
 
+  const joinCode = isJamCode(jamCode) ? normalizeJamCode(jamCode) : "";
+  if (joinCode) {
+    const size = Math.max(1, Math.min(MAX_PARTY, Math.round(Number(partySize) || 1)));
+    activity.party = { id: `jam-${joinCode}`, size: [size, MAX_PARTY] };
+    activity.secrets = { join: joinCode };
+    activity.instance = true;
+    return activity;
+  }
+
   const buttonUrl = httpsAssetUrl(siteUrl);
   if (buttonUrl) {
+    const origin = buttonUrl.replace(/\/$/, "");
     activity.buttons = [
       { label: clipPresenceText(`Listen on ${siteName}`, MAX_BUTTON_LABEL), url: buttonUrl },
+      { label: clipPresenceText("Open HeyKasa", MAX_BUTTON_LABEL), url: `${origin}/open-desktop` },
     ];
   }
 

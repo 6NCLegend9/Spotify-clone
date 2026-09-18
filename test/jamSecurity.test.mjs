@@ -30,13 +30,17 @@ beforeEach(() => {
 });
 after(() => { if (originalSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = originalSecret; });
 test("host commands are refused to guests, strangers, expired rooms and closed rooms", () => {
-  for (const event of ["sync", "ended", "join-accept"]) {
+  for (const event of ["sync", "ended", "join-accept", "aux"]) {
     assert.equal(jamEventRole(room, host, event), "host");
     assert.equal(jamEventRole(room, guest, event), null);
     assert.equal(jamEventRole(room, stranger, event), null);
   }
   assert.equal(jamEventRole(room, guest, "enqueue"), "guest");
+  assert.equal(jamEventRole(room, guest, "aux-control"), "guest");
+  assert.equal(jamEventRole(room, guest, "arcade-score"), "guest");
+  assert.equal(jamEventRole(room, host, "arcade-score"), "host");
   assert.equal(jamEventRole(room, stranger, "enqueue"), null);
+  assert.equal(jamEventRole(room, stranger, "aux-control"), null);
   assert.equal(jamEventRole({ ...room, closed: true }, host, "sync"), null);
   assert.equal(jamEventRole({ ...room, expiresAt: new Date(0) }, host, "sync"), null);
 });
@@ -59,6 +63,18 @@ test("server signs the authenticated identity and only a host can end a Jam", as
   assert.equal(message.role, "host");
   assert.equal((await POST(request("ended"))).status, 200);
   assert.equal(room.closed, true);
+});
+
+test("persistent rooms keep the saved queue when the host closes them", async () => {
+  room.persistent = true;
+  const response = await POST(request("ended", {
+    queue: [{ id: "abcdefghijk", title: "Song", thumbnail: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" }],
+    track: { id: "abcdefghijk", title: "Song" },
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(room.closed, true);
+  assert.equal(room.savedTrack.id, "abcdefghijk");
+  assert.equal(room.savedQueue.length, 1);
 });
 test("browser verification rejects unsigned, altered, replayed, wrong-room and wrong-event messages", async () => {
   const envelope = signJamEvent({ roomId, event: "sync", senderId: host, role: "host", payload: { isPlaying: true } });

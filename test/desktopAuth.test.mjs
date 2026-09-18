@@ -8,6 +8,7 @@ import {
   normalizeDesktopPkceChallenge,
   normalizeDesktopPkceVerifier,
   safeHashEqual,
+  safeUtf8Equal,
 } from "../src/utils/desktopAuth.mjs";
 
 test("desktop auth validates PKCE and opaque values", () => {
@@ -34,4 +35,7 @@ test("desktop auth compares hashes without exposing raw secrets", () => {
   assert.equal(first.length, 64);
   assert.equal(safeHashEqual(first, same), true);
   assert.equal(safeHashEqual(first, other), false);
+  assert.equal(safeUtf8Equal("pkce-challenge", "pkce-challenge"), true);
+  assert.equal(safeUtf8Equal("pkce-challenge", "other-challenge"), false);
+  assert.equal(safeUtf8Equal("", ""), false);
 });

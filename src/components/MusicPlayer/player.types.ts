@@ -15,6 +15,7 @@ export interface PlayerDockProps {
   position: number;
   duration: number;
   disabled?: boolean;
+  nextDisabled?: boolean;
   shuffle: boolean;
   repeat: boolean;
   onShuffle: () => void;
@@ -46,4 +47,6 @@ export interface PlayerDockProps {
   pipDisabled?: boolean;
   onVideo?: () => void;
   onLyrics?: () => void;
+  onOneMore?: () => void;
+  oneMoreArmed?: boolean;
 }

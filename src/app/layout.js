@@ -232,7 +232,7 @@ const jsonLd = {
           name: "Do I need to sign up to listen on HeyKasa?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "You can stream music on HeyKasa without an account. Sign up only if you want to save favorites and create personal playlists synced across devices.",
+            text: "You can stream music on HeyKasa without an account. Sign up to save favorites, follow artists, and Jam with friends.",
           },
         },
         {

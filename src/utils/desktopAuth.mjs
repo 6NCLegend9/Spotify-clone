@@ -41,3 +41,9 @@ export function safeHashEqual(left, right) {
   const b = Buffer.from(String(right || ""), "hex");
   return a.length > 0 && a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+
+export function safeUtf8Equal(left, right) {
+  const a = Buffer.from(String(left || ""), "utf8");
+  const b = Buffer.from(String(right || ""), "utf8");
+  return a.length > 0 && a.length === b.length && crypto.timingSafeEqual(a, b);
+}

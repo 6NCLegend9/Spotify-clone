@@ -17,6 +17,8 @@ import {
   jamPath,
   normalizeJamCode,
 } from "@/utils/jam.mjs";
+import { JAM_ROOM_PRESETS } from "@/utils/jamRooms.mjs";
+import { SITE_URL } from "@/utils/siteConfig";
 
 const JAM_FAB_POS_KEY = "heykasa.jam.fab-pos";
 const FAB_EDGE = 12;
@@ -75,11 +77,15 @@ export default function JamController() {
   }, []);
 
   useEffect(() => {
+    if (open && !jam?.role) void jam?.loadRooms?.();
+  }, [jam, open]);
+
+  useEffect(() => {
     if (!jam?.code || typeof window === "undefined") {
       setShareUrl("");
       return;
     }
-    setShareUrl(`${window.location.origin}${jamPath(jam.code)}`);
+    setShareUrl(`${SITE_URL}${jamPath(jam.code)}`);
   }, [jam?.code]);
 
   useEffect(() => {
@@ -258,6 +264,36 @@ export default function JamController() {
             >
               {jam.status === "connecting" ? "Connecting…" : "Start a Jam"}
             </button>
+            <div className="glass-panel rounded-xl p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">Keep a room</p>
+              <p className="mt-1 text-[11px] leading-5 text-[#9aa8b5]">
+                Late night and Study reopen with the last queue. One-shot Jams still use a 6-character code.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {JAM_ROOM_PRESETS.map((preset) => {
+                  const saved = (jam.rooms || []).find((room) => room.name.toLowerCase() === preset.toLowerCase());
+                  const extra = saved?.trackTitle
+                    ? saved.closed
+                      ? `Last up: ${saved.trackTitle}`
+                      : "Live now"
+                    : saved?.songs
+                      ? `${saved.songs} saved`
+                      : "Empty queue";
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => jam.hostNamed(preset)}
+                      disabled={jam.status === "connecting"}
+                      className="min-h-11 rounded-xl border border-white/15 px-3 py-2 text-left transition hover:border-[#00e6e6]/50 disabled:opacity-60"
+                    >
+                      <span className="block text-sm font-semibold text-white">{preset}</span>
+                      <span className="mt-0.5 block truncate text-[11px] text-[#9aa8b5]">{extra}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div>
               <label htmlFor="jam-join-code" className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">
                 1. Join with a code
@@ -312,6 +348,9 @@ export default function JamController() {
 
             <div className="glass-panel rounded-xl p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">1. Code</p>
+              {jam.persistent && jam.name ? (
+                <p className="mt-1 text-sm font-semibold text-white">{jam.name}</p>
+              ) : null}
               <div className="mt-1 flex items-center justify-between gap-2">
                 <span data-testid="jam-code" className="text-2xl font-bold tracking-[0.28em] text-white">{jam.code || "······"}</span>
                 <button
@@ -326,10 +365,18 @@ export default function JamController() {
               </div>
               <p className="mt-2 text-[11px] text-[#9aa8b5]">
                 {jam.role === "host"
-                  ? "You're hosting — everyone hears what you play."
-                  : "You're listening along with the host."}
+                  ? jam.aux
+                    ? `${jam.aux.holderName} has the aux · ${jam.aux.remaining} song${jam.aux.remaining === 1 ? "" : "s"} left.`
+                    : jam.persistent
+                      ? `${jam.name || "This room"} stays open. You still own skip.`
+                      : "You're hosting — everyone hears what you play."
+                  : jam.hasAux
+                    ? `You have the aux · ${jam.aux?.remaining || 0} song${jam.aux?.remaining === 1 ? "" : "s"} left.`
+                    : jam.aux
+                      ? `${jam.aux.holderName} has the aux right now.`
+                      : "You're listening along with the host."}
               </p>
-              {jam.role === "host" && jam.listeners.length <= 1 ? (
+              {jam.role === "host" && jam.listeners.length <= 1 && !jam.persistent ? (
                 <p className="mt-2 text-[11px] text-amber-100/80">
                   This code expires if nobody joins within 10 minutes.
                 </p>
@@ -382,16 +429,66 @@ export default function JamController() {
 
             <KasaCrowd jam={jam} />
 
+            {jam.scores?.length ? (
+              <div className="glass-panel rounded-xl p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">Beat Arcade</p>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {jam.scores.slice(0, 5).map((entry, index) => (
+                    <li key={`${entry.name}-${entry.at}-${index}`} className="flex items-baseline justify-between gap-3 text-sm text-gray-200">
+                      <span className="truncate">{entry.name}</span>
+                      <span className="shrink-0 tabular-nums text-[#00e6e6]">{Number(entry.score || 0).toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {jam.role === "host" && jam.status === "connected" ? (
+              <div className="glass-panel rounded-xl p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]">Pass the aux</p>
+                <p className="mt-1 text-[11px] leading-5 text-[#9aa8b5]">
+                  One listener gets skip and the queue for 3 songs, then it comes back to you.
+                </p>
+                {jam.aux ? (
+                  <button type="button" onClick={() => jam.reclaimAux()} className="btn-ghost mt-3 min-h-11 w-full">
+                    Take aux back
+                  </button>
+                ) : (
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {(jam.people || [])
+                      .filter((person) => person.role === "guest")
+                      .map((person) => (
+                        <li key={person.participantId}>
+                          <button
+                            type="button"
+                            onClick={() => jam.passAux(person.participantId)}
+                            className="btn-primary min-h-11 w-full"
+                          >
+                            Pass aux to {person.name}
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+                {!jam.aux && !(jam.people || []).some((person) => person.role === "guest") ? (
+                  <p className="mt-2 text-[11px] text-amber-100/80">A friend has to join before you can pass the aux.</p>
+                ) : null}
+              </div>
+            ) : null}
+
             <button
               type="button"
               onClick={() => {
-                if (jam.role === "host") void jam.endJam("Jam ended.");
-                else void jam.leave();
+                if (jam.role === "host") {
+                  void jam.endJam(jam.persistent ? `${jam.name || "Room"} closed. The queue stays.` : "Jam ended.");
+                } else {
+                  void jam.leave();
+                }
                 setOpen(false);
               }}
               className="min-h-11 rounded-full border border-white/15 px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:border-red-500/60 hover:text-red-400"
             >
-              {jam.role === "host" ? "End Jam" : "Leave Jam"}
+              {jam.role === "host" ? (jam.persistent ? `Close ${jam.name || "room"}` : "End Jam") : "Leave Jam"}
             </button>
           </div>
         )}

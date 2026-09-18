@@ -18,11 +18,13 @@ import {
   JAM_REMOTE_PLAYBACK_EVENT,
   JAM_REMOTE_SEEK_EVENT,
 } from "@/utils/jam.mjs";
-import { analyzePcm, buildRhythmChart } from "@/utils/arcadeChart.mjs";
+import { analyzePcm, buildRhythmChart, sliceChartFrom } from "@/utils/arcadeChart.mjs";
 import { playPause, setYoutubeVideo } from "@/redux/features/playerSlice";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import { parseDurationSeconds } from "@/utils/radioEngine.mjs";
 import { cleanTitle } from "@/utils/text";
+import { useJam } from "@/components/Jam/JamProvider";
+import { toast } from "react-hot-toast";
 
 const BeatRunner3D = dynamic(() => import("@/components/Arcade/3D/BeatRunner3D"), {
   ssr: false,
@@ -120,7 +122,10 @@ export default function ArcadeStage() {
   const dispatch = useDispatch();
   const analyzer = useAudioAnalyzer();
   const isPlaying = useSelector((state) => state.player.isPlaying);
-  const youtubeVideoId = useSelector((state) => state.player.youtubeVideo?.id || null);
+  const youtubeVideo = useSelector((state) => state.player.youtubeVideo);
+  const youtubeVideoId = youtubeVideo?.id || null;
+  const playerPosition = useSelector((state) => state.player.position);
+  const jam = useJam();
 
   const rootRef = useRef(null);
   const audioRef = useRef(null);
@@ -133,6 +138,8 @@ export default function ArcadeStage() {
   const clock = useArcadeClock({ source, audioRef, videoId });
   const clockRef = useRef(clock);
   clockRef.current = clock;
+  const playerPositionRef = useRef(Number(playerPosition) || 0);
+  playerPositionRef.current = Number(playerPosition) || 0;
   const launchRef = useRef(-1);
 
   const controlMainPlayer = useCallback((shouldPlay) => {
@@ -163,6 +170,8 @@ export default function ArcadeStage() {
   const [result, setResult] = useState(null);
   const [roundKey, setRoundKey] = useState(0);
   const [countdown, setCountdown] = useState(0);
+  const [followLive, setFollowLive] = useState(false);
+  const [startHint, setStartHint] = useState("");
 
   useEffect(() => {
     setPortalReady(true);
@@ -179,11 +188,9 @@ export default function ArcadeStage() {
     setReducedMotion(prefersReducedMotion());
     resumeOnExitRef.current = isPlaying;
     mainVideoIdRef.current = youtubeVideoId;
-    if (isPlaying) controlMainPlayer(false);
     dispatch(setIsTyping(true));
     return () => {
       dispatch(setIsTyping(false));
-      if (resumeOnExitRef.current) controlMainPlayer(true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -203,12 +210,13 @@ export default function ArcadeStage() {
         return;
       }
       if (source === "youtube" && step === "playing" && !result && countdown === 0) {
+        if (followLive) return;
         controlMainPlayer(!document.hidden);
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [controlMainPlayer, countdown, result, source, step]);
+  }, [controlMainPlayer, countdown, followLive, result, source, step]);
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -230,6 +238,10 @@ export default function ArcadeStage() {
 
   useEffect(() => {
     if (step !== "playing" || result || countdown <= 0) return undefined;
+    if (followLive && source === "youtube") {
+      const timer = window.setTimeout(() => setCountdown((value) => value - 1), 750);
+      return () => window.clearTimeout(timer);
+    }
     clockRef.current.reset(0);
     if (source === "file") {
       const audio = audioRef.current;
@@ -243,13 +255,19 @@ export default function ArcadeStage() {
     }
     const timer = window.setTimeout(() => setCountdown((value) => value - 1), 750);
     return () => window.clearTimeout(timer);
-  }, [controlMainPlayer, countdown, result, seekMainPlayer, source, step]);
+  }, [controlMainPlayer, countdown, followLive, result, seekMainPlayer, source, step]);
 
   useEffect(() => {
     if (step !== "playing" || result || countdown !== 0) return;
     if (launchRef.current === roundKey) return;
     launchRef.current = roundKey;
     analyzer.resume();
+    if (followLive && source === "youtube") {
+      const time = Math.max(clockRef.current.getTime() || 0, playerPositionRef.current || 0);
+      clockRef.current.reset(time, { waitForStart: false, playing: true });
+      controlMainPlayer(true);
+      return;
+    }
     clockRef.current.reset(0);
     if (source === "file") {
       const audio = audioRef.current;
@@ -260,7 +278,7 @@ export default function ArcadeStage() {
       return;
     }
     controlMainPlayer(true);
-  }, [analyzer, controlMainPlayer, countdown, result, roundKey, source, step]);
+  }, [analyzer, controlMainPlayer, countdown, followLive, result, roundKey, source, step]);
 
   const pickFile = useCallback(async (file) => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -270,6 +288,7 @@ export default function ArcadeStage() {
     setSource("file");
     setVideoId("");
     setChartStatus("analyzing");
+    setFollowLive(false);
     controlMainPlayer(false);
     const audio = audioRef.current;
     if (audio) {
@@ -286,7 +305,7 @@ export default function ArcadeStage() {
     }
   }, [analyzer, controlMainPlayer]);
 
-  const pickTrack = useCallback((track) => {
+  const pickTrack = useCallback((track, { live = false } = {}) => {
     analyzer.release();
     if (audioRef.current) {
       audioRef.current.pause();
@@ -298,34 +317,63 @@ export default function ArcadeStage() {
     setVideoId(track.id);
     setChart(chartFromTrack(track));
     setChartStatus("ready");
+    setStartHint("");
+    setFollowLive(live || track.id === mainVideoIdRef.current);
     resumeOnExitRef.current = true;
     mainVideoIdRef.current = track.id;
-    dispatch(setYoutubeVideo(track));
-    dispatch(playPause(false));
-  }, [analyzer, dispatch]);
+    if (!live && track.id !== youtubeVideoId) {
+      dispatch(setYoutubeVideo(track));
+      dispatch(playPause(false));
+    }
+  }, [analyzer, dispatch, youtubeVideoId]);
+
+  useEffect(() => {
+    if (step !== "ready" || trackLabel || !youtubeVideo?.id) return;
+    pickTrack(youtubeVideo, { live: true });
+  }, [pickTrack, step, trackLabel, youtubeVideo]);
 
   const start = useCallback(() => {
     if (!chart?.notes?.length) return;
+    const live = followLive && source === "youtube";
+    if (live) {
+      const from = Math.max(clock.getTime() || 0, playerPositionRef.current || 0) + 2.3;
+      const remaining = sliceChartFrom(chart, from);
+      if (!remaining?.notes?.length) {
+        setStartHint("This song is almost over — wait for the next one.");
+        return;
+      }
+      setChart(remaining);
+    }
+    setStartHint("");
     setResult(null);
     setRoundKey((value) => value + 1);
     setCountdown(3);
     setStep("playing");
-    clock.reset(0);
-  }, [chart, clock]);
+    if (!live) clock.reset(0);
+  }, [chart, clock, followLive, source]);
 
   const endRound = useCallback((summary) => {
     audioRef.current?.pause?.();
-    if (source === "youtube") controlMainPlayer(false);
-    setResult(summary || { score: 0 });
-  }, [controlMainPlayer, source]);
+    if (source === "youtube" && !followLive) controlMainPlayer(false);
+    const next = summary || { score: 0 };
+    setResult(next);
+    if (jam?.code && jam.status === "connected") {
+      const posted = jam.postScore?.({
+        score: next.score,
+        game,
+        trackTitle: trackLabel,
+      });
+      if (posted) toast.success("Score posted to the Jam");
+    }
+  }, [controlMainPlayer, followLive, game, jam, source, trackLabel]);
 
   const backToSelect = useCallback(() => {
     audioRef.current?.pause?.();
-    if (source === "youtube") controlMainPlayer(false);
+    if (source === "youtube" && !followLive) controlMainPlayer(false);
     setResult(null);
     setCountdown(0);
     setStep("select");
-  }, [controlMainPlayer, source]);
+  }, [controlMainPlayer, followLive, source]);
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
@@ -394,7 +442,11 @@ export default function ArcadeStage() {
 
       <div className="relative min-h-0 flex-1">
         {step === "select" ? (
-          <ArcadeGameSelect onSelect={(id) => { setGame(id); setStep("ready"); }} />
+          <ArcadeGameSelect onSelect={(id) => {
+            setGame(id);
+            setStep("ready");
+            if (youtubeVideo?.id) pickTrack(youtubeVideo, { live: true });
+          }} />
         ) : null}
 
         {step === "ready" ? (
@@ -410,12 +462,16 @@ export default function ArcadeStage() {
               analyzerMode={analyzer.mode}
               chart={chart}
               chartStatus={chartStatus}
+              followLive={followLive}
             />
             {chartStatus === "analyzing" ? (
               <p className="mt-3 text-[11px] text-[#00e6e6]">Reading the beat from your file…</p>
             ) : null}
+            {startHint ? (
+              <p className="mt-3 text-[11px] text-[#ffb648]">{startHint}</p>
+            ) : null}
             {chartStatus !== "analyzing" && !trackLabel ? (
-              <p className="mt-3 text-[11px] text-[#ffb648]">Pick a song so the chart can lock to it.</p>
+              <p className="mt-3 text-[11px] text-[#ffb648]">Play a song in HeyKasa, or load a file, so the chart can lock to it.</p>
             ) : null}
           </HowToPlayOverlay>
         ) : null}

@@ -28,6 +28,20 @@ function cleanUrl(value) {
   return /^https:\/\//i.test(text) ? text.slice(0, 300) : "";
 }
 
+function sanitizeParty(value) {
+  const id = cleanText(value?.id, 128);
+  if (!id) return null;
+  const raw = Array.isArray(value.size) ? value.size : [];
+  const current = Math.max(1, Math.min(50, Math.round(Number(raw[0]) || 1)));
+  const max = Math.max(current, Math.min(50, Math.round(Number(raw[1]) || 50)));
+  return { id, size: [current, max] };
+}
+
+function sanitizeSecrets(value) {
+  const join = cleanText(value?.join, 128);
+  return join ? { join } : null;
+}
+
 export function sanitizeActivity(value) {
   if (!value || typeof value !== "object") return null;
   const activity = {
@@ -61,7 +75,13 @@ export function sanitizeActivity(value) {
     };
   }
 
-  if (Array.isArray(value.buttons)) {
+  const party = sanitizeParty(value.party);
+  const secrets = sanitizeSecrets(value.secrets);
+  if (party) activity.party = party;
+  if (secrets && party) {
+    activity.secrets = secrets;
+    activity.instance = value.instance !== false;
+  } else if (Array.isArray(value.buttons)) {
     const buttons = value.buttons
       .slice(0, 2)
       .map((button) => ({
@@ -117,6 +137,12 @@ export class DiscordIpcClient {
     this.pending = new Map();
     this.connecting = null;
     this.everConnected = false;
+    this.joinHandler = null;
+    this.subscribedJoin = false;
+  }
+
+  onJoin(handler) {
+    this.joinHandler = typeof handler === "function" ? handler : null;
   }
 
   get connected() {
@@ -252,8 +278,19 @@ export class DiscordIpcClient {
       return;
     }
     if (frame.opcode !== IPC_FRAME) return;
+    const evt = frame.payload?.evt;
     const nonce = frame.payload?.nonce;
-    if (!nonce || !this.pending.has(nonce)) return;
+    if (!nonce || !this.pending.has(nonce)) {
+      if (evt === "ACTIVITY_JOIN" && frame.payload?.data?.secret) {
+        this.joinHandler?.(String(frame.payload.data.secret));
+      }
+      if (evt === "ACTIVITY_JOIN_REQUEST" && frame.payload?.data?.user?.id) {
+        void this.command("SEND_ACTIVITY_JOIN_INVITE", {
+          user_id: String(frame.payload.data.user.id),
+        }).catch(() => {});
+      }
+      return;
+    }
     const entry = this.pending.get(nonce);
     this.pending.delete(nonce);
     clearTimeout(entry.timer);
@@ -272,7 +309,7 @@ export class DiscordIpcClient {
     this.pending.clear();
   }
 
-  async command(cmd, args) {
+  async command(cmd, args, extra = {}) {
     await this.ensureConnected();
     const socket = this.socket;
     if (!socket || socket.destroyed) throw new Error("Discord IPC is not connected.");
@@ -284,13 +321,24 @@ export class DiscordIpcClient {
       }, IPC_TIMEOUT_MS);
       this.pending.set(nonce, { resolve, reject, timer });
       try {
-        socket.write(encodeIpcFrame(IPC_FRAME, { cmd, args, nonce }));
+        socket.write(encodeIpcFrame(IPC_FRAME, { cmd, args, nonce, ...extra }));
       } catch (error) {
         clearTimeout(timer);
         this.pending.delete(nonce);
         reject(error);
       }
     });
+  }
+
+  async subscribeJoinEvents() {
+    if (this.subscribedJoin) return;
+    this.subscribedJoin = true;
+    try {
+      await this.command("SUBSCRIBE", {}, { evt: "ACTIVITY_JOIN" });
+      await this.command("SUBSCRIBE", {}, { evt: "ACTIVITY_JOIN_REQUEST" });
+    } catch {
+      this.subscribedJoin = false;
+    }
   }
 
   async setActivity(input) {
@@ -301,6 +349,10 @@ export class DiscordIpcClient {
     }
 
     const attempts = [activity];
+    if (activity.secrets) {
+      const { secrets, party, instance, ...withoutJoin } = activity;
+      attempts.push(withoutJoin);
+    }
     if (activity.buttons) {
       const { buttons, ...withoutButtons } = activity;
       attempts.push(withoutButtons);
@@ -315,6 +367,7 @@ export class DiscordIpcClient {
     for (const candidate of attempts) {
       try {
         await this.command("SET_ACTIVITY", { pid: process.pid, activity: candidate });
+        void this.subscribeJoinEvents();
         return;
       } catch (error) {
         lastError = error;
@@ -329,7 +382,8 @@ export class DiscordIpcClient {
   }
 
   disconnect() {
-    this.rejectPending(new Error("Discord desktop connection stopped."));
+    this.subscribedJoin = false;
+    this.rejectPending(new Error("Discord desktop connection closed."));
     this.socket?.destroy();
     this.socket = null;
     this.buffer = Buffer.alloc(0);

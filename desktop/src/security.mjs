@@ -28,7 +28,31 @@ export function isTrustedRendererUrl(value, trustedOrigins) {
 
 export function isSafeExternalUrl(value) {
   const parsed = parsedUrl(value);
-  return Boolean(parsed && parsed.protocol === "https:");
+  return Boolean(
+    parsed
+    && parsed.protocol === "https:"
+    && !parsed.username
+    && !parsed.password
+    && parsed.hostname
+  );
+}
+
+export function isSafeDesktopOpenUrl(value, { allowLoopbackHttp = false } = {}) {
+  if (isSafeExternalUrl(value)) return true;
+  if (!allowLoopbackHttp) return false;
+  const parsed = parsedUrl(value);
+  return Boolean(
+    parsed
+    && parsed.protocol === "http:"
+    && !parsed.username
+    && !parsed.password
+    && ["localhost", "127.0.0.1"].includes(parsed.hostname)
+  );
+}
+
+export function shouldAllowRendererNavigation(url, trustedOrigins, { isMainFrame = true } = {}) {
+  if (isMainFrame === false) return true;
+  return isTrustedRendererUrl(url, trustedOrigins);
 }
 
 export function isSafeHeyKasaDeepLink(value) {

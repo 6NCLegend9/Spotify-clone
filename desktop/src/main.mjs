@@ -10,6 +10,7 @@ import {
   session,
   shell,
   Tray,
+  nativeImage,
 } from "electron";
 import {
   DESKTOP_API_VERSION,
@@ -32,11 +33,14 @@ import { DesktopPolicy, effectiveUpdateRolloutPercent } from "./policy.mjs";
 import {
   assertTrustedIpcEvent,
   buildTrustedOrigins,
+  isSafeDesktopOpenUrl,
   isSafeExternalUrl,
   isSafeHeyKasaDeepLink,
   isTrustedRendererUrl,
+  shouldAllowRendererNavigation,
 } from "./security.mjs";
 import { DesktopUpdater } from "./updater.mjs";
+import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
@@ -65,6 +69,9 @@ let safeMode = false;
 let authAttempt = null;
 let authStatus = { state: "idle", detail: "" };
 const discord = new DiscordIpcClient();
+let miniWindow = null;
+let miniUserHidden = false;
+let playbackState = sanitizePlaybackState(null);
 
 function resourceIconPath() {
   return app.isPackaged
@@ -106,11 +113,19 @@ function featureDisabledMessage(feature) {
   return `${labels[feature] || "This desktop feature"} is temporarily disabled.`;
 }
 
-function focusMainWindow() {
+function hideMiniPlayer() {
+  if (miniWindow && !miniWindow.isDestroyed()) miniWindow.hide();
+}
+
+function showMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
+}
+
+function focusMainWindow() {
+  showMainWindow();
 }
 
 function canMessageRenderer() {
@@ -136,6 +151,10 @@ async function startDesktopAuth() {
   if (!runtimeFeature("auth")) return setAuthStatus("disabled", featureDisabledMessage("auth"));
   authAttempt = createDesktopAuthAttempt();
   const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, authAttempt);
+  if (!isSafeDesktopOpenUrl(authorizeUrl, { allowLoopbackHttp: !app.isPackaged })) {
+    authAttempt = null;
+    return setAuthStatus("error", "Desktop sign-in URL is not allowed.");
+  }
   setAuthStatus("waiting", "Complete sign-in in your browser, then return to HeyKasa.");
   try {
     await shell.openExternal(authorizeUrl);
@@ -268,21 +287,47 @@ async function clearDesktopWebCaches(ses) {
   ]);
 }
 
-function installNavigationGuards(window) {
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (isTrustedRendererUrl(url, trustedOrigins)) {
-      void window.loadURL(url);
+function navigationUrl(event, deprecatedUrl) {
+  return String(event?.url || deprecatedUrl || "");
+}
+
+function isMainFrameNavigation(event, deprecatedIsMainFrame) {
+  if (typeof event?.isMainFrame === "boolean") return event.isMainFrame;
+  if (typeof deprecatedIsMainFrame === "boolean") return deprecatedIsMainFrame;
+  return true;
+}
+
+function denyGuestContents(contents) {
+  contents.on("will-attach-webview", (event) => {
+    event.preventDefault();
+  });
+}
+
+function installPopupGuard(contents, { allowTrustedInApp = false } = {}) {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (allowTrustedInApp && isTrustedRendererUrl(url, trustedOrigins) && mainWindow && !mainWindow.isDestroyed()) {
+      void mainWindow.loadURL(url);
       return { action: "deny" };
     }
     if (isSafeExternalUrl(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
+}
 
-  window.webContents.on("will-navigate", (event, url) => {
-    if (isTrustedRendererUrl(url, trustedOrigins)) return;
-    event.preventDefault();
-    if (isSafeExternalUrl(url)) void shell.openExternal(url);
-  });
+function guardRendererNavigation(event, deprecatedUrl, deprecatedIsMainFrame) {
+  const url = navigationUrl(event, deprecatedUrl);
+  const isMainFrame = isMainFrameNavigation(event, deprecatedIsMainFrame);
+  if (shouldAllowRendererNavigation(url, trustedOrigins, { isMainFrame })) return;
+  event.preventDefault();
+  if (isSafeExternalUrl(url)) void shell.openExternal(url);
+}
+
+function installNavigationGuards(window) {
+  const contents = window.webContents;
+  denyGuestContents(contents);
+  installPopupGuard(contents, { allowTrustedInApp: true });
+  contents.on("will-navigate", guardRendererNavigation);
+  contents.on("will-redirect", guardRendererNavigation);
 }
 
 async function showOfflineScreen(window) {
@@ -338,6 +383,10 @@ async function createMainWindow() {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      webviewTag: false,
+      navigateOnDragDrop: false,
+      safeDialogs: true,
+      devTools: !app.isPackaged,
       backgroundThrottling: false,
       spellcheck: false,
     },
@@ -347,7 +396,11 @@ async function createMainWindow() {
 
   window.once("ready-to-show", () => window.show());
   window.on("close", (event) => {
-    if (quitting || store?.get("closeToTray") === false) return;
+    if (quitting || store?.get("closeToTray") === false) {
+      if (miniWindow && !miniWindow.isDestroyed()) miniWindow.destroy();
+      miniWindow = null;
+      return;
+    }
     event.preventDefault();
     window.hide();
   });
@@ -380,9 +433,153 @@ async function createMainWindow() {
   return window;
 }
 
+function sendPlaybackCommand(command) {
+  if (!isPlaybackCommand(command) || !canMessageRenderer()) return false;
+  mainWindow.webContents.send("heykasa:playback:command", command);
+  return true;
+}
+
+function broadcastPlayback() {
+  if (tray && !tray.isDestroyed()) {
+    tray.setToolTip(
+      playbackState.hasTrack
+        ? `${playbackState.playing ? "Playing" : "Paused"} · ${playbackState.title || PRODUCT_NAME}`
+        : PRODUCT_NAME,
+    );
+  }
+  updateTrayMenu();
+  updateThumbar();
+  if (miniWindow && !miniWindow.isDestroyed()) {
+    miniWindow.webContents.send("heykasa:playback:state", playbackState);
+  }
+  if (playbackState.hasTrack && !miniUserHidden) {
+    const window = createMiniPlayer();
+    if (!window.isVisible()) {
+      positionMiniPlayer();
+      window.webContents.send("heykasa:playback:state", playbackState);
+      window.showInactive();
+    }
+  }
+}
+
+function positionMiniPlayer() {
+  if (!miniWindow || miniWindow.isDestroyed()) return;
+  const { width, height } = miniWindow.getBounds();
+  const trayBounds = tray && !tray.isDestroyed() ? tray.getBounds() : null;
+  const cursor = trayBounds || { x: 24, y: 24, width: 0, height: 0 };
+  const x = Math.max(8, cursor.x + cursor.width - width);
+  const y = cursor.y > height + 24 ? cursor.y - height - 8 : cursor.y + cursor.height + 8;
+  miniWindow.setPosition(Math.round(x), Math.round(y));
+}
+
+function createMiniPlayer() {
+  if (miniWindow && !miniWindow.isDestroyed()) return miniWindow;
+  miniWindow = new BrowserWindow({
+    width: 360,
+    height: 148,
+    show: false,
+    frame: false,
+    resizable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    fullscreenable: false,
+    minimizable: false,
+    maximizable: false,
+    backgroundColor: "#07111f",
+    webPreferences: {
+      preload: path.join(__dirname, "miniPreload.cjs"),
+      partition: "temp:heykasa-mini",
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      webviewTag: false,
+      navigateOnDragDrop: false,
+      devTools: !app.isPackaged,
+    },
+  });
+  denyGuestContents(miniWindow.webContents);
+  installPopupGuard(miniWindow.webContents);
+  miniWindow.setMenu(null);
+  miniWindow.setAlwaysOnTop(true, "floating");
+  miniWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  miniWindow.on("closed", () => {
+    miniWindow = null;
+  });
+  void miniWindow.loadFile(path.join(__dirname, "miniPlayer.html"));
+  return miniWindow;
+}
+
+function toggleMiniPlayer() {
+  const window = createMiniPlayer();
+  if (window.isVisible()) {
+    miniUserHidden = true;
+    window.hide();
+    return;
+  }
+  miniUserHidden = false;
+  positionMiniPlayer();
+  window.webContents.send("heykasa:playback:state", playbackState);
+  window.show();
+}
+
+function updateThumbar() {
+  if (!mainWindow || mainWindow.isDestroyed() || process.platform !== "win32") return;
+  const icon = nativeImage.createFromPath(resourceIconPath()).resize({ width: 16, height: 16 });
+  mainWindow.setThumbarButtons([
+    {
+      tooltip: "Previous",
+      icon,
+      flags: playbackState.canPrev ? [] : ["disabled"],
+      click: () => sendPlaybackCommand("prev"),
+    },
+    {
+      tooltip: playbackState.playing ? "Pause" : "Play",
+      icon,
+      flags: playbackState.canPlay ? [] : ["disabled"],
+      click: () => sendPlaybackCommand("play-pause"),
+    },
+    {
+      tooltip: "Skip",
+      icon,
+      flags: playbackState.canSkip ? [] : ["disabled"],
+      click: () => sendPlaybackCommand("skip"),
+    },
+  ]);
+}
+
+function assertMiniOrTrustedIpcEvent(event) {
+  if (miniWindow && !miniWindow.isDestroyed() && event?.sender === miniWindow.webContents) {
+    return;
+  }
+  assertTrustedIpcEvent(event, trustedOrigins);
+}
+
 function updateTrayMenu() {
   if (!tray || tray.isDestroyed()) return;
   tray.setContextMenu(Menu.buildFromTemplate([
+    {
+      label: playbackState.hasTrack
+        ? `${playbackState.playing ? "Playing" : "Paused"} · ${playbackState.title || "Now playing"}`
+        : "Nothing playing",
+      enabled: false,
+    },
+    {
+      label: "Previous",
+      enabled: playbackState.canPrev,
+      click: () => sendPlaybackCommand("prev"),
+    },
+    {
+      label: playbackState.playing ? "Pause" : "Play",
+      enabled: playbackState.canPlay,
+      click: () => sendPlaybackCommand("play-pause"),
+    },
+    {
+      label: "Skip",
+      enabled: playbackState.canSkip,
+      click: () => sendPlaybackCommand("skip"),
+    },
+    { type: "separator" },
     {
       label: "Open HeyKasa",
       click: () => focusMainWindow(),
@@ -408,7 +605,7 @@ function createTray() {
   tray = new Tray(resourceIconPath());
   tray.setToolTip(PRODUCT_NAME);
   updateTrayMenu();
-  tray.on("click", () => focusMainWindow());
+  tray.on("click", () => toggleMiniPlayer());
   return tray;
 }
 
@@ -495,6 +692,13 @@ function secureHandle(channel, handler) {
 }
 
 function registerIpcHandlers() {
+  discord.onJoin((secret) => {
+    const code = String(secret || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    if (code.length !== 6) return;
+    if (canMessageRenderer()) mainWindow.webContents.send("heykasa:discord:join", code);
+    showMainWindow();
+  });
+
   secureHandle("heykasa:get-info", () => ({
     productName: PRODUCT_NAME,
     desktopVersion: app.getVersion(),
@@ -530,6 +734,32 @@ function registerIpcHandlers() {
     previouslyConnected: discord.everConnected,
     enabled: runtimeFeature("discord"),
   }));
+
+  secureHandle("heykasa:playback:report", (state) => {
+    playbackState = sanitizePlaybackState(state);
+    broadcastPlayback();
+    return playbackState;
+  });
+  ipcMain.handle("heykasa:mini:state", (event) => {
+    assertMiniOrTrustedIpcEvent(event);
+    return playbackState;
+  });
+  ipcMain.handle("heykasa:mini:command", (event, command) => {
+    assertMiniOrTrustedIpcEvent(event);
+    if (!isPlaybackCommand(command)) return { ok: false };
+    return { ok: sendPlaybackCommand(command) };
+  });
+  ipcMain.handle("heykasa:mini:open", (event) => {
+    assertMiniOrTrustedIpcEvent(event);
+    showMainWindow();
+    return { ok: true };
+  });
+  ipcMain.handle("heykasa:mini:hide", (event) => {
+    assertMiniOrTrustedIpcEvent(event);
+    miniUserHidden = true;
+    hideMiniPlayer();
+    return { ok: true };
+  });
 
   secureHandle("heykasa:updates:status", () => (
     runtimeFeature("updater")
@@ -584,15 +814,26 @@ async function shutdownNativeIntegrations() {
   updater?.dispose();
   await discord.clearActivity().catch(() => {});
   discord.disconnect();
+  if (miniWindow && !miniWindow.isDestroyed()) miniWindow.destroy();
+  miniWindow = null;
   tray?.destroy();
   tray = null;
 }
 
 if (registerSingleInstance()) {
   registerProtocol();
+  app.enableSandbox();
+  app.on("certificate-error", (_event, _webContents, _url, _error, _certificate, callback) => {
+    callback(false);
+  });
+  app.on("web-contents-created", (_event, contents) => {
+    denyGuestContents(contents);
+    installPopupGuard(contents);
+  });
 
   app.whenReady().then(async () => {
     app.setAppUserModelId(APP_USER_MODEL_ID);
+    configureSession(session.defaultSession);
     const userDataDir = app.getPath("userData");
     store = new NativeStore(userDataDir);
     logger = new NativeLogger(userDataDir);

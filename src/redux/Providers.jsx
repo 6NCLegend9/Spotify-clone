@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Provider } from "react-redux";
 import { store, persistor } from "./store";
 import { PersistGate } from "redux-persist/integration/react";
 import { RefreshCw } from "lucide-react";
+import { isEmbedPath } from "@/utils/embedPaths.mjs";
 
 function StartupFallback() {
   const [canRetry, setCanRetry] = useState(false);
@@ -26,6 +28,10 @@ function StartupFallback() {
 }
 
 export default function Providers({ children }) {
+  const pathname = usePathname();
+  if (isEmbedPath(pathname)) {
+    return <Provider store={store}>{children}</Provider>;
+  }
   return (
     <Provider store={store}>
       <PersistGate loading={<StartupFallback />} persistor={persistor}>

@@ -28,6 +28,7 @@ export default function HomeHeader({ filter, onFilter }) {
   useEffect(() => { setHello(greetingForHour(new Date().getHours())); }, []);
   const href = status === "authenticated" ? "/settings" : status === "unauthenticated" ? "/login" : null;
   const label = status === "authenticated" ? `Open settings for ${userName}` : status === "unauthenticated" ? "Log in" : "Loading account";
+  const guest = status !== "authenticated";
   return (
     <header className="home-header">
       <div className="kasa-home-filters">
@@ -43,7 +44,21 @@ export default function HomeHeader({ filter, onFilter }) {
         {href ? <Link href={href} aria-label={label} title={label} className="ml-auto grid h-11 w-11 shrink-0 place-items-center text-[var(--teal)] md:hidden"><FiSettings size={22} /></Link> : <span className="ml-auto h-8 w-8 animate-pulse rounded-full bg-white/10 md:hidden" role="status" aria-label={label} />}
       </div>
       <div className="home-header-row">
-        <div className="home-title-copy"><h1 className="home-display">{hello}</h1><p className="home-subtitle">Music for a brighter today.</p></div>
+        <div className="home-title-copy">
+          <h1 className="home-display">{guest ? "Free. No ads. Jam." : hello}</h1>
+          <p className="home-subtitle">
+            {guest
+              ? "Listen now. Save, follow, and Jam when you make an account."
+              : "Music for a brighter today."}
+          </p>
+          {guest ? (
+            <p className="home-guest-beats">
+              <span>Free</span>
+              <span>No ads</span>
+              <span>Jam</span>
+            </p>
+          ) : null}
+        </div>
       </div>
     </header>
   );

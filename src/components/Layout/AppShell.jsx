@@ -23,6 +23,7 @@ import usePointerTilt from "@/hooks/usePointerTilt";
 import PlaybackPersistence from "@/components/PlaybackPersistence";
 import DiscordPresenceSync from "@/components/DiscordPresenceSync";
 import { isAuthPath } from "@/utils/authPaths.mjs";
+import { isEmbedPath } from "@/utils/embedPaths.mjs";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -60,6 +61,7 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const authRoute = isAuthPath(pathname);
+  const embedRoute = isEmbedPath(pathname);
   const [showNav, setShowNav] = useState(false);
   const [isCompactNav, setIsCompactNav] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => {
@@ -247,6 +249,10 @@ export default function AppShell({ children }) {
     () => ({ showNav, setShowNav, navModal, collapsed, toggleCollapsed }),
     [collapsed, navModal, showNav],
   );
+
+  if (embedRoute) {
+    return children;
+  }
 
   return (
     <NavContext.Provider value={value}>

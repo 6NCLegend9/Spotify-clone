@@ -11,6 +11,7 @@
     "dev:webpack": "next dev",
     "build": "next build",
     "start": "next start",
+    "desktop": "npm --prefix desktop start",
     "check:deployment": "node scripts/check-deployment.mjs",
     "benchmark:dev": "node scripts/benchmark-dev.mjs",
     "benchmark:production": "node scripts/benchmark-dev.mjs --production",

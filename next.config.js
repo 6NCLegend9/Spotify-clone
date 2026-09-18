@@ -34,8 +34,31 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'self'",
 ].join("; ");
+
+function securityHeaders({ allowFraming = false } = {}) {
+  const csp = allowFraming
+    ? `${contentSecurityPolicy}; frame-ancestors *`
+    : `${contentSecurityPolicy}; frame-ancestors 'self'`;
+  return [
+    { key: "X-Content-Type-Options", value: "nosniff" },
+    ...(allowFraming ? [] : [{ key: "X-Frame-Options", value: "SAMEORIGIN" }]),
+    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+    {
+      key: "Permissions-Policy",
+      value: 'camera=(), microphone=(), geolocation=(), loopback-network=(self), compute-pressure=(self "https://www.youtube.com")',
+    },
+    { key: "Content-Security-Policy", value: csp },
+    ...(isProduction
+      ? [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+        ]
+      : []),
+  ];
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -73,26 +96,17 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Strong canonical signal + safe defaults across all routes.
-        source: "/:path*",
+        source: "/embed/:path*",
         headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          {
-            key: "Permissions-Policy",
-            value: 'camera=(), microphone=(), geolocation=(), loopback-network=(self), compute-pressure=(self "https://www.youtube.com")',
-          },
-          { key: "Content-Security-Policy", value: contentSecurityPolicy },
-          ...(isProduction
-            ? [
-                {
-                  key: "Strict-Transport-Security",
-                  value: "max-age=63072000; includeSubDomains; preload",
-                },
-              ]
-            : []),
+          ...securityHeaders({ allowFraming: true }),
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
         ],
+      },
+      {
+        // Keep the rest of the app unframed. Negative lookahead so embed
+        // routes do not inherit frame-ancestors 'self' or X-Frame-Options.
+        source: "/((?!embed/).*)",
+        headers: securityHeaders(),
       },
       {
         source: "/sw.js",

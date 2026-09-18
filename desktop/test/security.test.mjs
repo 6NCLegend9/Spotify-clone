@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildTrustedOrigins,
+  isSafeDesktopOpenUrl,
   isSafeExternalUrl,
   isSafeHeyKasaDeepLink,
   isTrustedRendererUrl,
+  shouldAllowRendererNavigation,
 } from "../src/security.mjs";
+import { PRODUCTION_APP_URL } from "../src/config.mjs";
 
 test("packaged desktop trusts only the production HeyKasa origin", () => {
   const origins = buildTrustedOrigins({
@@ -29,8 +32,23 @@ test("development may opt into loopback without trusting arbitrary HTTP", () => 
 test("only HTTPS URLs can be opened externally", () => {
   assert.equal(isSafeExternalUrl("https://discord.com/"), true);
   assert.equal(isSafeExternalUrl("http://discord.com/"), false);
+  assert.equal(isSafeExternalUrl("https://user:pass@discord.com/"), false);
   assert.equal(isSafeExternalUrl("file:///C:/Windows/System32/calc.exe"), false);
   assert.equal(isSafeExternalUrl("javascript:alert(1)"), false);
+});
+
+test("desktop sign-in may open loopback HTTP only when unpackaged", () => {
+  assert.equal(isSafeDesktopOpenUrl("https://haykasa.vercel.app/api/desktop/auth/authorize"), true);
+  assert.equal(isSafeDesktopOpenUrl("http://localhost:3003/api/desktop/auth/authorize"), false);
+  assert.equal(isSafeDesktopOpenUrl("http://localhost:3003/api/desktop/auth/authorize", { allowLoopbackHttp: true }), true);
+  assert.equal(isSafeDesktopOpenUrl("http://example.com/login", { allowLoopbackHttp: true }), false);
+});
+
+test("main-frame navigation stays on trusted origins; iframes may leave", () => {
+  const origins = buildTrustedOrigins({ appUrl: PRODUCTION_APP_URL, isPackaged: true });
+  assert.equal(shouldAllowRendererNavigation("https://haykasa.vercel.app/search", origins, { isMainFrame: true }), true);
+  assert.equal(shouldAllowRendererNavigation("https://evil.example/", origins, { isMainFrame: true }), false);
+  assert.equal(shouldAllowRendererNavigation("https://www.youtube.com/embed/abc", origins, { isMainFrame: false }), true);
 });
 
 test("deep links accept only reserved HeyKasa commands", () => {

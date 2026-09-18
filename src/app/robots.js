@@ -5,7 +5,7 @@ export default function robots() {
     rules: [
       {
         userAgent: "*",
-        allow: "/",
+        allow: ["/", "/library/playlist/", "/jam/", "/youtube-playlist/"],
         disallow: [
           "/api/",
           "/myPlaylists/",
@@ -15,8 +15,8 @@ export default function robots() {
           "/verify-email/",
           "/settings",
           "/following",
-          "/library/",
-          "/jam/",
+          "/library",
+          "/embed/",
           "/arcade",
         ],
       },

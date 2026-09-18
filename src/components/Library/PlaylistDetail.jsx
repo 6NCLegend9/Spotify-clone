@@ -11,6 +11,7 @@ import {
   FiClock,
   FiGlobe,
   FiHeart,
+  FiLink,
   FiLock,
   FiMoreHorizontal,
   FiMusic,
@@ -55,6 +56,10 @@ import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
 import { accountOwner } from "@/utils/accountCache.mjs";
+import {
+  playlistEmbedSnippet,
+  playlistListenUrl,
+} from "@/utils/shareCard.mjs";
 
 function cleanText(value = "") {
   return cleanTitle(value);
@@ -321,6 +326,17 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     toast.error(userError.message);
   };
 
+  const copyShare = async (value, success) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(success);
+    } catch {
+      toast.error("Couldn't copy that");
+    }
+  };
+
+  const isPublicPlaylist = !isLiked && collection?.visibility === "public";
+
   const toggleSmartShuffle = async () => {
     const nextValue = !smartShuffle;
     setSmartShuffle(nextValue);
@@ -531,6 +547,24 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="play-fab play-fab--static mr-2 h-14 w-14 min-h-14 min-w-14 disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
               <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${smartShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
               {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => current ? ({ ...current, ...next }) : current)} /> : null}
+              {isPublicPlaylist ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => copyShare(playlistListenUrl(playlistId), "Playlist link copied")}
+                    className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"
+                  >
+                    <FiLink /> <span className="hidden sm:inline">Copy link</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyShare(playlistEmbedSnippet(playlistId), "Embed code copied")}
+                    className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"
+                  >
+                    <FiGlobe /> <span className="hidden sm:inline">Copy embed</span>
+                  </button>
+                </>
+              ) : null}
               <button type="button" disabled={!isOwner || isLiked} onClick={() => setShowCollaborator(true)} title={isLiked ? "Dynamic collections cannot have collaborators" : isOwner ? "Add collaborator" : "Only the owner can invite collaborators"} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiUserPlus /> <span className="hidden sm:inline">Add collaborator</span></button>
               <button type="button" aria-label="Search in playlist" title="Search in playlist" aria-expanded={showSearch} onClick={() => setShowSearch((value) => !value)} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"><FiSearch /> <span className="hidden sm:inline">Search in playlist</span></button>
               <div className="relative ml-auto">

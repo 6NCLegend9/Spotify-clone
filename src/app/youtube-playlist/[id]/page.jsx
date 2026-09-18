@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { FiArrowLeft, FiClock, FiPlay } from "react-icons/fi";
+import { FiArrowLeft, FiClock, FiLink, FiPlay } from "react-icons/fi";
+import { toast } from "react-hot-toast";
 import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import MediaImage from "@/components/MediaImage";
@@ -13,7 +14,7 @@ import { SongRowsSkeleton } from "@/components/Skeleton";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanArtist, cleanTitle } from "@/utils/text";
-import { SITE_BRAND } from "@/utils/siteConfig";
+import { SITE_BRAND, SITE_URL } from "@/utils/siteConfig";
 
 function formatDuration(seconds) {
   const value = Math.max(0, Number(seconds) || 0);
@@ -122,9 +123,23 @@ export default function YouTubePlaylistPage() {
       </section>
 
       <div className="mx-auto w-[min(94%,1440px)] pb-12">
-        <section className="flex items-center py-6" aria-label="Playlist actions">
+        <section className="flex items-center gap-2 py-6" aria-label="Playlist actions">
           <button type="button" onClick={playAll} disabled={!tracks.length} aria-label={`Play ${title}`} className="play-fab play-fab--static h-14 w-14 min-h-14 min-w-14 disabled:opacity-40">
             <FiPlay className="ml-1 fill-current" />
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(`${SITE_URL}/youtube-playlist/${id}`);
+                toast.success("Playlist link copied");
+              } catch {
+                toast.error("Couldn't copy that");
+              }
+            }}
+            className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"
+          >
+            <FiLink /> Copy link
           </button>
         </section>
 

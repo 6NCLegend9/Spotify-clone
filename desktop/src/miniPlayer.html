@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; connect-src 'none'" />
+    <title>HeyKasa</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #07111f; color: #f8fbff; font-family: Inter, Segoe UI, sans-serif; position: relative; }
+      button { font: inherit; }
+      .shell { display: grid; grid-template-columns: 72px 1fr; gap: 10px; height: 100%; padding: 10px 36px 10px 10px; }
+      img, .art { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; background: #102033; }
+      .copy { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+      .title, .artist { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .title { margin: 0; font-size: 13px; font-weight: 700; }
+      .artist { margin: 2px 0 8px; font-size: 11px; color: #9aa8b5; }
+      .row { display: flex; gap: 6px; }
+      .row button { min-height: 36px; min-width: 44px; border: 0; border-radius: 999px; background: #00e6e6; color: #041017; font-weight: 800; cursor: pointer; }
+      .row button.ghost { background: #ffffff14; color: #f8fbff; }
+      .row button:disabled { opacity: .4; cursor: default; }
+      .row button:focus-visible { outline: 2px solid #00e6e6; outline-offset: 2px; }
+      .empty { grid-column: 1 / -1; display: grid; place-items: center; font-size: 12px; color: #9aa8b5; }
+      .close { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border: 0; border-radius: 999px; background: transparent; color: #9aa8b5; cursor: pointer; }
+      .close:hover, .close:focus-visible { color: #f8fbff; }
+    </style>
+  </head>
+  <body>
+    <button type="button" class="close" id="hide" aria-label="Hide controller">×</button>
+    <div class="shell" id="root">
+      <p class="empty">Play a song in HeyKasa.</p>
+    </div>
+    <script>
+      const api = window.heykasaMini;
+      const root = document.getElementById("root");
+      document.getElementById("hide")?.addEventListener("click", () => api?.hide());
+      function esc(value) {
+        return String(value || "").replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        }[char]));
+      }
+      function render(state = {}) {
+        if (!state.hasTrack) {
+          root.innerHTML = '<p class="empty">Play a song in HeyKasa.</p>';
+          return;
+        }
+        const art = /^https:\/\//.test(state.artwork || "")
+          ? `<img src="${esc(state.artwork)}" alt="">`
+          : `<div class="art" aria-hidden="true"></div>`;
+        root.innerHTML = `${art}<div class="copy">
+          <button type="button" id="open" class="title" style="background:none;border:0;color:inherit;padding:0;text-align:left;cursor:pointer">${esc(state.title || "HeyKasa")}</button>
+          <p class="artist">${esc(state.artist || "")}</p>
+          <div class="row">
+            <button type="button" id="prev" class="ghost" ${state.canPrev ? "" : "disabled"}>Prev</button>
+            <button type="button" id="play" ${state.canPlay ? "" : "disabled"}>${state.playing ? "Pause" : "Play"}</button>
+            <button type="button" id="skip" class="ghost" ${state.canSkip ? "" : "disabled"}>Skip</button>
+          </div>
+        </div>`;
+        document.getElementById("open")?.addEventListener("click", () => api?.openMain());
+        document.getElementById("prev")?.addEventListener("click", () => api?.prev());
+        document.getElementById("play")?.addEventListener("click", () => api?.playPause());
+        document.getElementById("skip")?.addEventListener("click", () => api?.skip());
+      }
+      api?.getState?.().then(render).catch(() => render());
+      api?.onState?.(render);
+    </script>
+  </body>
+</html>

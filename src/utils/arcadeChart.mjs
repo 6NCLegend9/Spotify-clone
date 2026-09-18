@@ -52,6 +52,15 @@ export function notesInWindow(notes, from, to) {
   return notes.filter((note) => note.t >= from && note.t < to);
 }
 
+export function sliceChartFrom(chart, fromTime) {
+  if (!chart || !Array.isArray(chart.notes)) return chart;
+  const from = Math.max(0, Number(fromTime) || 0);
+  return {
+    ...chart,
+    notes: chart.notes.filter((note) => Number(note.t) >= from),
+  };
+}
+
 export function chartEnergy(time, bpm, offset = 0) {
   const interval = beatInterval(bpm);
   const elapsed = Math.max(0, Number(time) - Number(offset || 0));

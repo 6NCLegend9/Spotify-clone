@@ -10,6 +10,8 @@ import {
 } from "@/utils/discordPresence.mjs";
 import { setDiscordPresenceStatus } from "@/utils/discordPresenceStatus";
 import { SITE_NAME, SITE_URL } from "@/utils/siteConfig";
+import { useJam } from "@/components/Jam/JamProvider";
+import { isJamCode, normalizeJamCode, requestJamOpen } from "@/utils/jam.mjs";
 
 function unavailableError(error) {
   const message = error instanceof Error ? error.message : String(error || "");
@@ -25,6 +27,7 @@ export default function useDiscordPresence() {
   const activeSong = useSelector((state) => state.player.activeSong);
   const isPlaying = useSelector((state) => state.player.isPlaying);
   const position = useSelector((state) => state.player.position);
+  const jam = useJam();
   const clientRef = useRef(null);
   const startedAtRef = useRef({ id: "", startedAt: 0 });
   const positionRef = useRef(position);
@@ -38,6 +41,8 @@ export default function useDiscordPresence() {
   const trackArtist = track?.artist || "";
   const trackArtwork = track?.artwork || "";
   const trackDuration = track?.duration || 0;
+  const jamCode = jam?.status === "connected" && isJamCode(jam.code) ? jam.code : "";
+  const partySize = Math.max(1, jam?.listeners?.length || 1);
   const publish = shouldPublishDiscordPresence({ enabled: enabled && consent, privateSession, track });
 
   useEffect(() => {
@@ -105,6 +110,8 @@ export default function useDiscordPresence() {
       startedAt: startedAtRef.current.startedAt,
       siteName: SITE_NAME,
       siteUrl: SITE_URL,
+      jamCode,
+      partySize,
     });
 
     const publishPresence = async () => {
@@ -143,7 +150,21 @@ export default function useDiscordPresence() {
     trackDuration,
     trackId,
     trackTitle,
+    jamCode,
+    partySize,
   ]);
+
+  useEffect(() => {
+    const onJoin = typeof window !== "undefined" ? window.heykasaDesktop?.discord?.onJoin : null;
+    if (typeof onJoin !== "function") return undefined;
+    return onJoin((secret) => {
+      const code = normalizeJamCode(secret);
+      if (!isJamCode(code) || jam?.status === "connecting") return;
+      requestJamOpen();
+      if (jam?.code === code && (jam.status === "connected" || jam.status === "connecting")) return;
+      jam?.join?.(code);
+    });
+  }, [jam]);
 
   useEffect(() => () => {
     clientRef.current?.disconnect();

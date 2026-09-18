@@ -18,9 +18,10 @@ export default function ArcadeSongPicker({
   analyzerMode,
   chart,
   chartStatus,
+  followLive = false,
 }) {
   const { youtubeQueue, youtubeVideo } = useSelector((state) => state.player);
-  const [tab, setTab] = useState("file");
+  const [tab, setTab] = useState(youtubeVideo?.id ? "queue" : "file");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -59,7 +60,7 @@ export default function ArcadeSongPicker({
   return (
     <div className="glass-panel rounded-xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-white">Pick your music</h3>
+        <h3 className="text-sm font-semibold text-white">{followLive ? "Playing against this track" : "Pick your music"}</h3>
         {selectedLabel ? (
           <span
             className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
@@ -146,7 +147,9 @@ export default function ArcadeSongPicker({
             <p className="text-[11px] text-[#9aa8b5]">Nothing queued yet. Play something in HeyKasa first, or load an audio file.</p>
           )}
           <p className="mt-2 text-[11px] leading-5 text-[#9aa8b5]">
-            The track loads into HeyKasa. Playback starts with the 3-2-1 countdown so tiles hit the line on the beat.
+            {followLive
+              ? "The chart stays locked to the song already playing. It does not restart."
+              : "The track loads into HeyKasa. Playback starts with the 3-2-1 countdown so tiles hit the line on the beat."}
           </p>
         </>
       ) : (

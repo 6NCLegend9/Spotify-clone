@@ -5,6 +5,7 @@ import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { isRateLimited } from "@/utils/rateLimit";
 import { jamEventRole } from "@/utils/jamAuthorization.mjs";
 import { signJamEvent } from "@/utils/jamSigning";
+import { persistentRoomExpiry, sanitizeArcadeScore, sanitizeSavedQueue, sanitizeSavedTrack } from "@/utils/jamRooms.mjs";
 
 export const runtime = "nodejs";
 export async function POST(request) {
@@ -26,14 +27,35 @@ export async function POST(request) {
       payload.startedAt = body.payload.startedAt;
     }
     if (body.event === "sync") payload.at = Date.now();
+    if (body.event === "arcade-score") Object.assign(payload, sanitizeArcadeScore({ ...body.payload, name: payload.name }));
     if (body.event === "member-left") {
       if (role === "host") body.event = "ended";
       else await JamRoom.updateOne({ _id: room._id }, { $pull: { members: userId } });
     }
     if (body.event === "ended") {
-      await JamRoom.updateOne({ _id: room._id, hostId: userId }, { $set: { closed: true } });
+      if (room.persistent) {
+        await JamRoom.updateOne({ _id: room._id, hostId: userId }, {
+          $set: {
+            closed: true,
+            expiresAt: persistentRoomExpiry(),
+            savedQueue: sanitizeSavedQueue(body.payload.queue || room.savedQueue),
+            savedTrack: sanitizeSavedTrack(body.payload.track || room.savedTrack),
+          },
+        });
+      } else {
+        await JamRoom.updateOne({ _id: room._id, hostId: userId }, { $set: { closed: true } });
+      }
     } else if (role === "host") {
-      await JamRoom.updateOne({ _id: room._id, closed: false }, { $set: { expiresAt: new Date(Date.now() + 30_000), startedAt: payload.startedAt } });
+      const update = {
+        expiresAt: room.persistent ? persistentRoomExpiry() : new Date(Date.now() + 30_000),
+        startedAt: payload.startedAt,
+        hostSeenAt: new Date(),
+      };
+      if (room.persistent && body.event === "sync") {
+        update.savedQueue = sanitizeSavedQueue(body.payload.queue);
+        update.savedTrack = sanitizeSavedTrack(body.payload.track);
+      }
+      await JamRoom.updateOne({ _id: room._id, closed: false }, { $set: update });
     }
     return apiSuccess(signJamEvent({ roomId: String(room._id), event: body.event, senderId: userId, role, payload }), { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return handleApiError(error, "Jam event"); }

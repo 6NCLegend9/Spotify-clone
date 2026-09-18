@@ -10,6 +10,7 @@ import {
   normalizeDesktopAuthState,
   normalizeDesktopPkceVerifier,
   safeHashEqual,
+  safeUtf8Equal,
 } from "@/utils/desktopAuth.mjs";
 import { isRateLimited } from "@/utils/rateLimit";
 import { sessionIdentity } from "@/utils/sessionIdentity.mjs";
@@ -69,7 +70,7 @@ export async function POST(request) {
   if (!safeHashEqual(grant.stateHash, expectedStateHash)) {
     return jsonError("Desktop sign-in state did not match.", 401);
   }
-  if (desktopPkceChallenge(verifier) !== grant.pkceChallenge) {
+  if (!safeUtf8Equal(desktopPkceChallenge(verifier), grant.pkceChallenge)) {
     return jsonError("Desktop sign-in proof did not match.", 401);
   }
 

@@ -14,6 +14,7 @@ import { signedJamChannel } from "@/utils/jamSignedChannel.mjs";
 import { getSupabase, isSupabaseConfigured } from "@/utils/supabaseClient";
 import {
   HOST_RECONNECT_GRACE_MS,
+  JAM_AUX_SKIP_EVENT,
   JAM_HEARTBEAT_MS,
   JAM_PLAYBACK_STATE_EVENT,
   JAM_REMOTE_PLAYBACK_EVENT,
@@ -29,6 +30,14 @@ import {
   shouldExpireEmptyJam,
   writeJamSession,
 } from "@/utils/jam.mjs";
+import {
+  AUX_SONG_LIMIT,
+  canControlAux,
+  consumeAuxSkip,
+  createAuxGrant,
+  sanitizeAuxState,
+} from "@/utils/jamAux.mjs";
+import { sanitizeArcadeScore } from "@/utils/jamRooms.mjs";
 
 function presenceList(channel) {
   return Object.values(channel?.presenceState?.() || {}).flat();
@@ -41,6 +50,7 @@ function hostPresence(channel) {
       role: "host",
       startedAt: Number(entry.startedAt),
       guestJoined: Boolean(entry.guestJoined),
+      persistent: Boolean(entry.persistent),
     })
   ));
 }
@@ -57,7 +67,13 @@ export default function useJamSession() {
   const [role, setRole] = useState(null);
   const [code, setCode] = useState("");
   const [listeners, setListeners] = useState([]);
+  const [people, setPeople] = useState([]);
+  const [aux, setAux] = useState(null);
   const [status, setStatus] = useState("idle");
+  const [persistent, setPersistent] = useState(false);
+  const [name, setName] = useState("");
+  const [rooms, setRooms] = useState([]);
+  const [scores, setScores] = useState([]);
 
   const channelRef = useRef(null);
   const supabaseRef = useRef(null);
@@ -72,7 +88,10 @@ export default function useJamSession() {
   const playbackPositionRef = useRef(null);
   const endingRef = useRef(false);
   const membersRef = useRef(new Map());
+  const auxRef = useRef(null);
   const lastHostSeenAtRef = useRef(0);
+  const persistentRef = useRef(false);
+  const nameRef = useRef("");
   const participantKeyRef = useRef(
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
   );
@@ -105,6 +124,8 @@ export default function useJamSession() {
       startedAt: startedAtRef.current,
       guestJoined: guestJoinedRef.current,
       participantId: participantKeyRef.current,
+      persistent: persistentRef.current,
+      name: nameRef.current,
     });
   }, []);
 
@@ -114,6 +135,7 @@ export default function useJamSession() {
         Number(right.role === "host") - Number(left.role === "host")
         || left.name.localeCompare(right.name)
       ));
+    setPeople(members);
     setListeners(members.map((member) => member.name));
   }, []);
 
@@ -155,6 +177,11 @@ export default function useJamSession() {
       // host's paused state afterwards when a guest joins a paused Jam.
       if (nextPlaying !== current.isPlaying || trackChanged) {
         dispatch(playPause(nextPlaying));
+      }
+      if ("aux" in payload) {
+        const nextAux = sanitizeAuxState(payload.aux);
+        auxRef.current = nextAux;
+        setAux(nextAux);
       }
       playerStateRef.current = {
         youtubeVideo: nextTrack,
@@ -203,14 +230,22 @@ export default function useJamSession() {
     endingRef.current = false;
     disconnectChannel();
     membersRef.current.clear();
+    auxRef.current = null;
     lastHostSeenAtRef.current = 0;
     startedAtRef.current = 0;
     guestJoinedRef.current = false;
     roleRef.current = null;
+    persistentRef.current = false;
+    nameRef.current = "";
     clearJamSession();
     setRole(null);
     setCode("");
     setListeners([]);
+    setPeople([]);
+    setAux(null);
+    setPersistent(false);
+    setName("");
+    setScores([]);
     setStatus("idle");
   }, [disconnectChannel]);
 
@@ -228,9 +263,25 @@ export default function useJamSession() {
         queue: snapshot.youtubeQueue,
         isPlaying: snapshot.isPlaying,
         position,
+        aux: auxRef.current,
         at: Date.now(),
       },
     });
+  }, []);
+
+  const publishAux = useCallback((next) => {
+    const sanitized = sanitizeAuxState(next);
+    auxRef.current = sanitized;
+    setAux(sanitized);
+    const channel = channelRef.current;
+    if (channel && roleRef.current === "host") {
+      void channel.send({
+        type: "broadcast",
+        event: "aux",
+        payload: { aux: sanitized },
+      });
+    }
+    return sanitized;
   }, []);
 
   const leave = useCallback(async () => {
@@ -260,7 +311,16 @@ export default function useJamSession() {
       if (channel) {
         try {
           await Promise.race([
-            channel.send({ type: "broadcast", event: "ended", payload: {} }),
+            channel.send({
+              type: "broadcast",
+              event: "ended",
+              payload: persistentRef.current
+                ? {
+                  queue: playerStateRef.current.youtubeQueue,
+                  track: playerStateRef.current.youtubeVideo,
+                }
+                : {},
+            }),
             new Promise((resolve) => window.setTimeout(resolve, 1000)),
           ]);
         } catch {
@@ -274,7 +334,7 @@ export default function useJamSession() {
   );
 
   const connect = useCallback(
-    async (roomCode, asRole, { startedAt, guestJoined, create = false } = {}) => {
+    async (roomCode, asRole, { startedAt, guestJoined, create = false, name: roomName } = {}) => {
       if (authStatus !== "authenticated") {
         setStatus("idle");
         return;
@@ -289,6 +349,9 @@ export default function useJamSession() {
       connectAttemptRef.current = attempt;
       disconnectChannel();
       membersRef.current.clear();
+      auxRef.current = null;
+      setAux(null);
+      setPeople([]);
       setListeners([]);
       startedAtRef.current = startedAt || Date.now();
       guestJoinedRef.current = Boolean(guestJoined);
@@ -303,7 +366,11 @@ export default function useJamSession() {
         const response = await fetch("/api/jam", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: create ? "create" : "join", code: nextCode }),
+          body: JSON.stringify({
+            action: create ? "create" : "join",
+            code: nextCode,
+            ...(create && roomName ? { name: roomName } : {}),
+          }),
         });
         const json = await response.json();
         if (!response.ok || !json.data?.publicKey) throw new Error("Jam authorization failed");
@@ -313,9 +380,21 @@ export default function useJamSession() {
         asRole = grant.role;
         startedAtRef.current = grant.startedAt;
         participantKeyRef.current = authSession?.user?.id;
+        persistentRef.current = Boolean(grant.persistent);
+        nameRef.current = grant.name || "";
         roleRef.current = asRole;
         setRole(asRole);
         setCode(nextCode);
+        setPersistent(persistentRef.current);
+        setName(nameRef.current);
+        setScores([]);
+        if (asRole === "host" && grant.restored) {
+          applySync({
+            track: grant.track || null,
+            queue: Array.isArray(grant.queue) ? grant.queue : [],
+            isPlaying: false,
+          });
+        }
         supabase = await getSupabase();
       } catch {
         if (attempt === connectAttemptRef.current) {
@@ -381,6 +460,7 @@ export default function useJamSession() {
             role: "host",
             startedAt: startedAtRef.current,
             guestJoined: guestJoinedRef.current,
+            persistent: persistentRef.current,
           })) {
             void endJam("Jam ended — nobody joined within 10 minutes.");
             return;
@@ -393,6 +473,7 @@ export default function useJamSession() {
               participantId: participantKeyRef.current,
               startedAt: startedAtRef.current,
               guestJoined: true,
+              persistent: persistentRef.current,
             });
             persist({ code: nextCode, role: asRole });
           }
@@ -436,10 +517,37 @@ export default function useJamSession() {
           if (!isCurrent() || !payload?.participantId) return;
           membersRef.current.delete(payload.participantId);
           publishMembers();
+          if (asRole === "host" && auxRef.current?.holderId === payload.participantId) {
+            publishAux(null);
+            toast("Aux is back with the host.");
+          }
         })
         .on("broadcast", { event: "enqueue" }, ({ payload }) => {
           if (isCurrent() && payload?.track?.id) {
             dispatch(appendToQueue([payload.track]));
+          }
+        })
+        .on("broadcast", { event: "aux" }, ({ payload }) => {
+          if (!isCurrent()) return;
+          const nextAux = sanitizeAuxState(payload?.aux);
+          auxRef.current = nextAux;
+          setAux(nextAux);
+        })
+        .on("broadcast", { event: "aux-control" }, ({ payload }) => {
+          if (!isCurrent() || asRole !== "host" || payload?.action !== "skip") return;
+          const holderId = payload.participantId;
+          if (!canControlAux(auxRef.current, holderId)) return;
+          const nextAux = consumeAuxSkip(auxRef.current, holderId);
+          publishAux(nextAux);
+          window.dispatchEvent(new Event(JAM_AUX_SKIP_EVENT));
+          if (!nextAux) toast("Aux is back with the host.");
+        })
+        .on("broadcast", { event: "arcade-score" }, ({ payload }) => {
+          if (!isCurrent()) return;
+          const score = sanitizeArcadeScore(payload);
+          setScores((current) => [score, ...current].slice(0, 8));
+          if (payload?.participantId && payload.participantId !== participantKeyRef.current) {
+            toast(`${score.name} scored ${score.score.toLocaleString()} on Beat Arcade`);
           }
         })
         .on("broadcast", { event: "ended" }, () => {
@@ -459,6 +567,7 @@ export default function useJamSession() {
               role: "host",
               startedAt: startedAtRef.current,
               guestJoined: guestJoinedRef.current,
+              persistent: persistentRef.current,
             })) {
               void endJam("Jam ended — nobody joined within 10 minutes.");
               return;
@@ -473,6 +582,7 @@ export default function useJamSession() {
                 participantId: participantKeyRef.current,
                 startedAt: startedAtRef.current,
                 guestJoined: false,
+                persistent: persistentRef.current,
               });
               persist({ code: nextCode, role: asRole });
             }
@@ -485,6 +595,7 @@ export default function useJamSession() {
                 participantId: participantKeyRef.current,
                 startedAt: startedAtRef.current,
                 guestJoined: true,
+                persistent: persistentRef.current,
               });
               persist({ code: nextCode, role: asRole });
             }
@@ -504,6 +615,7 @@ export default function useJamSession() {
               participantId: participantKeyRef.current,
               startedAt: startedAtRef.current,
               guestJoined: guestJoinedRef.current,
+              persistent: persistentRef.current,
             });
             if (!isCurrent()) return;
             if (trackResult !== "ok") {
@@ -569,13 +681,29 @@ export default function useJamSession() {
       rememberMember,
       resetLocal,
       sendSnapshot,
+      publishAux,
     ],
   );
 
   const host = useCallback(() => {
     guestJoinedRef.current = false;
     startedAtRef.current = Date.now();
+    persistentRef.current = false;
+    nameRef.current = "";
     return connect(makeJamCode(), "host", { startedAt: startedAtRef.current, guestJoined: false, create: true });
+  }, [connect]);
+
+  const hostNamed = useCallback((roomName) => {
+    guestJoinedRef.current = false;
+    startedAtRef.current = Date.now();
+    persistentRef.current = true;
+    nameRef.current = roomName;
+    return connect(makeJamCode(), "host", {
+      startedAt: startedAtRef.current,
+      guestJoined: false,
+      create: true,
+      name: roomName,
+    });
   }, [connect]);
 
   const join = useCallback(
@@ -613,6 +741,66 @@ export default function useJamSession() {
     [dispatch],
   );
 
+  const passAux = useCallback((participantId) => {
+    if (roleRef.current !== "host") return false;
+    const member = membersRef.current.get(participantId);
+    const grant = createAuxGrant(member, AUX_SONG_LIMIT);
+    if (!grant) return false;
+    publishAux(grant);
+    toast(`Aux passed to ${grant.holderName} for ${grant.remaining} songs.`);
+    return true;
+  }, [publishAux]);
+
+  const reclaimAux = useCallback(() => {
+    if (roleRef.current !== "host" || !auxRef.current) return false;
+    publishAux(null);
+    toast("Aux is back with the host.");
+    return true;
+  }, [publishAux]);
+
+  const requestAuxSkip = useCallback(() => {
+    if (!canControlAux(auxRef.current, participantKeyRef.current) || !channelRef.current) {
+      return false;
+    }
+    void channelRef.current.send({
+      type: "broadcast",
+      event: "aux-control",
+      payload: { action: "skip" },
+    });
+    return true;
+  }, []);
+
+  const postScore = useCallback((summary) => {
+    if (!channelRef.current || (roleRef.current !== "host" && roleRef.current !== "guest")) return false;
+    const score = sanitizeArcadeScore({
+      ...summary,
+      name: displayName,
+    });
+    void channelRef.current.send({
+      type: "broadcast",
+      event: "arcade-score",
+      payload: score,
+    });
+    setScores((current) => [score, ...current].slice(0, 8));
+    return true;
+  }, [displayName]);
+
+  const loadRooms = useCallback(async () => {
+    try {
+      const response = await fetch("/api/jam", { headers: { accept: "application/json" } });
+      const json = await response.json();
+      if (!response.ok || !Array.isArray(json.data?.rooms)) {
+        setRooms([]);
+        return [];
+      }
+      setRooms(json.data.rooms);
+      return json.data.rooms;
+    } catch {
+      setRooms([]);
+      return [];
+    }
+  }, []);
+
   useEffect(() => {
     if (!role || status !== "connected" || !channelRef.current) return undefined;
     const channel = channelRef.current;
@@ -625,6 +813,7 @@ export default function useJamSession() {
         name: displayName,
         startedAt: startedAtRef.current,
         guestJoined: guestJoinedRef.current,
+        persistent: persistentRef.current,
       };
       rememberMember(member);
       void channel.send({ type: "broadcast", event: "heartbeat", payload: member });
@@ -708,6 +897,8 @@ export default function useJamSession() {
     if (saved.participantId) participantKeyRef.current = saved.participantId;
     startedAtRef.current = saved.startedAt;
     guestJoinedRef.current = saved.guestJoined;
+    persistentRef.current = Boolean(saved.persistent);
+    nameRef.current = saved.name || "";
     void connect(saved.code, saved.role, {
       startedAt: saved.startedAt,
       guestJoined: saved.guestJoined,
@@ -721,6 +912,7 @@ export default function useJamSession() {
         role: "host",
         startedAt: startedAtRef.current,
         guestJoined: guestJoinedRef.current,
+        persistent: persistentRef.current,
       })) {
         void endJam("Jam ended — nobody joined within 10 minutes.");
       }
@@ -738,13 +930,26 @@ export default function useJamSession() {
     ready: authStatus !== "loading",
     role,
     code,
+    name,
+    persistent,
     listeners,
     status,
     host,
+    hostNamed,
     join,
     reconnect,
     leave,
     endJam,
     enqueue,
+    aux,
+    people,
+    rooms,
+    scores,
+    loadRooms,
+    postScore,
+    hasAux: canControlAux(aux, participantKeyRef.current),
+    passAux,
+    reclaimAux,
+    requestAuxSkip,
   };
 }

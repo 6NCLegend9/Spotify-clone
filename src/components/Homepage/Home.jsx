@@ -5,6 +5,8 @@ import HomeHeader from "./HomeHeader";
 import QuickAccessGrid from "./QuickAccessGrid";
 import FeaturedRelease from "./FeaturedRelease";
 import { MixRail, TrackRail } from "./HomeRail";
+import WeekOnKasa from "./WeekOnKasa";
+import ThisDayOnKasa from "./ThisDayOnKasa";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { HomeFeedSkeleton } from "@/components/Skeleton";
@@ -109,6 +111,8 @@ const Home = () => {
       ) : (
         <div className="fx-stack">
           <QuickAccessGrid items={quickItems} />
+          <ThisDayOnKasa />
+          <WeekOnKasa />
           {loading && <HomeFeedSkeleton />}
 
           {!loading && error && !hasAny && (

@@ -44,6 +44,20 @@ function cleanUrl(value) {
   return /^https:\/\//i.test(text) ? text.slice(0, 300) : "";
 }
 
+function sanitizeParty(value) {
+  const id = cleanText(value?.id, 128);
+  if (!id) return null;
+  const raw = Array.isArray(value.size) ? value.size : [];
+  const current = Math.max(1, Math.min(50, Math.round(Number(raw[0]) || 1)));
+  const max = Math.max(current, Math.min(50, Math.round(Number(raw[1]) || 50)));
+  return { id, size: [current, max] };
+}
+
+function sanitizeSecrets(value) {
+  const join = cleanText(value?.join, 128);
+  return join ? { join } : null;
+}
+
 export function sanitizeActivity(value) {
   if (!value || typeof value !== "object") return null;
   const activity = {
@@ -77,7 +91,13 @@ export function sanitizeActivity(value) {
     };
   }
 
-  if (Array.isArray(value.buttons)) {
+  const party = sanitizeParty(value.party);
+  const secrets = sanitizeSecrets(value.secrets);
+  if (party) activity.party = party;
+  if (secrets && party) {
+    activity.secrets = secrets;
+    activity.instance = value.instance !== false;
+  } else if (Array.isArray(value.buttons)) {
     const buttons = value.buttons
       .slice(0, 2)
       .map((button) => ({

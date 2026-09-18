@@ -51,6 +51,7 @@ test("builds a Discord Rich Presence activity from the current YouTube track", (
   assert.equal(activity.state, "EminemMusic");
   assert.equal(activity.timestamps.end, 1_700_000_000_000 + 200_000);
   assert.equal(activity.buttons[0].url, "https://haykasa.vercel.app");
+  assert.equal(activity.buttons[1].url, "https://haykasa.vercel.app/open-desktop");
   assert.ok(activity.buttons[0].label.length <= 32);
 
   const paused = buildDiscordActivity({
@@ -62,6 +63,26 @@ test("builds a Discord Rich Presence activity from the current YouTube track", (
   });
   assert.equal("timestamps" in paused, false);
   assert.equal(paused.assets.small_text, "Paused");
+});
+
+test("a live Jam uses a join secret instead of buttons", () => {
+  const track = presenceTrack({
+    youtubeVideo: { id: "abcdefghijk", title: "Song", channel: "Artist", duration: 100 },
+  });
+  const activity = buildDiscordActivity({
+    track,
+    playing: true,
+    startedAt: 1_700_000_000_000,
+    siteName: "HeyKasa",
+    siteUrl: "https://haykasa.vercel.app",
+    jamCode: "ABC234",
+    partySize: 3,
+  });
+  assert.equal("buttons" in activity, false);
+  assert.deepEqual(activity.secrets, { join: "ABC234" });
+  assert.equal(activity.party.id, "jam-ABC234");
+  assert.deepEqual(activity.party.size, [3, 50]);
+  assert.equal(activity.instance, true);
 });
 
 test("validates Discord app configuration and redirect origins", () => {

@@ -31,6 +31,21 @@ test("Discord activity sanitizer keeps only bounded safe fields", () => {
   assert.equal("ignored" in activity, false);
 });
 
+test("listen-along secrets replace buttons and keep a party id", () => {
+  const activity = sanitizeActivity({
+    details: "Song",
+    state: "Artist",
+    buttons: [{ label: "Open HeyKasa", url: "https://haykasa.vercel.app" }],
+    party: { id: "jam-ABC234", size: [2, 50] },
+    secrets: { join: "ABC234" },
+    instance: true,
+  });
+  assert.equal("buttons" in activity, false);
+  assert.deepEqual(activity.secrets, { join: "ABC234" });
+  assert.deepEqual(activity.party.size, [2, 50]);
+  assert.equal(activity.instance, true);
+});
+
 test("Discord IPC framing round-trips complete frames and preserves partial data", () => {
   const first = encodeIpcFrame(1, { evt: "READY" });
   const second = encodeIpcFrame(3, { ping: true });

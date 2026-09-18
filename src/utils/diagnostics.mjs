@@ -1,7 +1,7 @@
 const records = [];
 const EVENTS = new Set(["request", "api_error", "render_error", "chunk_error", "provider", "session_lookup", "playback_state", "playback_error"]);
 const CODES = new Set(["OK", "NETWORK_ERROR", "TIMEOUT", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "RATE_LIMITED", "VALIDATION_ERROR", "INTERNAL_ERROR", "PLAYBACK_ERROR", "playing", "paused", "buffering", "ended"]);
-const ROUTES = new Set(["settings", "language", "favourite", "history", "recommendations", "userInfo", "userPlaylists", "playEvent", "youtube-search", "youtube-videos", "youtube-playlist", "youtube-channel", "lyrics", "notInterested", "snoozedTracks", "genres", "tags", "followedArtists"]);
+const ROUTES = new Set(["settings", "language", "favourite", "history", "recommendations", "userInfo", "userPlaylists", "playEvent", "youtube-search", "youtube-videos", "youtube-playlist", "youtube-channel", "youtube-captions", "lyrics", "notInterested", "snoozedTracks", "genres", "tags", "followedArtists"]);
 
 export function diagnosticRoute(value) {
   try {

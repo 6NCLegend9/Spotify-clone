@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSelector } from "react-redux";
-import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Settings2, Video } from "lucide-react";
+import { ChevronDown, CircleStop, ListMusic, Maximize2, Mic2, Minimize2, Music2, Settings2, Video } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent } from "react";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
@@ -13,6 +13,8 @@ import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
+const TrackCutPicker = dynamic(() => import("./TrackCutPicker"), { ssr: false });
+const VideoComments = dynamic(() => import("./VideoComments"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
 const THEATER_CONTROLS_HIDE_MS = 6500;
 
@@ -189,6 +191,11 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     return undefined;
   }, [clearControlsTimer, expanded, props.track.id, showTheaterControls, view]);
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: expanded && showingVideo } }));
+    return () => window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: false } }));
+  }, [expanded, showingVideo]);
+
   const hasOtherDialog = useCallback(() => Array.from(document.querySelectorAll<HTMLElement>('dialog[open], [role="dialog"][aria-modal="true"]'))
     .some((element) => element !== overlayRef.current && element.getClientRects().length > 0), []);
 
@@ -325,10 +332,20 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const sourceName = view === "player" && playbackContext?.name
     ? playbackContext.name
     : props.track.title;
+  const oneMoreButton = props.onOneMore ? (
+    <PlayerIconButton
+      label={props.oneMoreArmed ? "Cancel one more song" : "One more song"}
+      active={props.oneMoreArmed}
+      onClick={props.onOneMore}
+    >
+      <CircleStop size={18} />
+    </PlayerIconButton>
+  ) : null;
   const mobileTransport = <div className={styles.mobileTransport}>
     <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
     <Transport {...props} />
     <div className={styles.mobileExtras}>{props.volume}
+      {oneMoreButton}
       {canLyrics && <PlayerIconButton label={view === "lyrics" ? "Close lyrics" : "Show live lyrics"} active={view === "lyrics"} onClick={view === "lyrics" ? close : openLyrics}><Mic2 size={20} /></PlayerIconButton>}
       <PlayerIconButton label="Show queue" onClick={openQueue}><ListMusic size={20} /></PlayerIconButton>
       {props.trackActions}{props.sleepControl}
@@ -338,7 +355,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     {overlay && <header className={`${styles.overlayHeader} ${expanded ? styles.theaterChrome : ""}`} onTouchStart={startGesture} onTouchEnd={endGesture}>
       <PlayerIconButton label={view !== "player" ? "Back to player" : expanded ? (showingVideo ? "Collapse video" : "Collapse player") : "Close player"} onClick={close}>{expanded ? <Minimize2 size={21} /> : <ChevronDown size={25} />}</PlayerIconButton>
       <span className={styles.source}><small>{sourceLabel}</small><strong>{sourceName}</strong></span>
-      {expanded ? <div className={styles.topTools}>{modeButton}
+      {expanded ? <div className={styles.topTools}>{oneMoreButton}{modeButton}
         <Link href="/settings" onClick={dismiss} aria-label="Video quality settings" className={styles.modeButton}><Settings2 size={17} /><span>Quality settings</span></Link>
       </div> : <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={21} /></PlayerIconButton>}
     </header>}
@@ -351,7 +368,8 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
         </div>
         {!expanded && <>
-          <div className={styles.mediaTools}>{modeButton}{!mobile && props.sleepControl}</div>{metadata}
+          <div className={styles.mediaTools}>{modeButton}{oneMoreButton}{!mobile && props.sleepControl}</div>{metadata}
+          <TrackCutPicker disabled={props.disabled} />
           {mobile && mobileTransport}
           <section className={styles.queue} aria-label="Next in queue"><header><h3>Next in queue</h3><button type="button" onClick={openQueue}>Show all</button></header>
             {upcoming.length ? upcoming.map((track, index) => <button type="button" key={track.queueEntryId || `${track.id}-${index}`} disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueRow}>
@@ -359,6 +377,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
               <span><strong>{track.title}</strong><small>{track.channel}</small></span>
             </button>) : <p className={styles.empty}>Your queue is empty.</p>}
           </section>
+          <VideoComments videoId={props.track.id} />
         </>}
       </> : <section className={styles.lyrics} aria-label="Live lyrics">
         {metadata}<SyncedLyrics title={props.track.title} artist={props.track.channel || ""} duration={props.duration} currentTime={props.position} onSeek={props.disabled ? undefined : props.onSeek} />

@@ -1,6 +1,17 @@
 import { Innertube, Log, UniversalCache } from "youtubei.js";
 import { cleanTitle } from "./text.js";
 import { logServerDiagnostic } from "./diagnostics.mjs";
+import { isYoutubeVideoId, sanitizeYoutubeComments } from "./youtubeComments.mjs";
+import { videoIdsMentionedInText } from "./commentVideoIds.mjs";
+import {
+  captionLinesFromJson3,
+  captionLinesFromTranscript,
+  captionLinesFromVtt,
+  captionTracksFromPlayerResponse,
+  pickCaptionTrack,
+  pickTimedTextTrack,
+  playerResponseFromWatchHtml,
+} from "./youtubeCaptions.mjs";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 const REQUEST_TIMEOUT_MS = 6_000;
@@ -9,6 +20,11 @@ const INNERTUBE_CLIENT = {
   clientVersion: "2.20260101.00.00",
   hl: "en",
   gl: "US",
+};
+const YOUTUBE_BROWSER_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Accept-Language": "en-US,en;q=0.9",
 };
 // Public WEB client key shipped in YouTube's own player (same one youtubei.js uses).
 const INNERTUBE_WEB_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
@@ -845,5 +861,283 @@ export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
     return { ok: false, status: 502, data: null };
   } finally {
     logServerDiagnostic("provider", { durationMs: performance.now() - started });
+  }
+}
+
+function mapOfficialComment(item) {
+  const snippet = item?.snippet?.topLevelComment?.snippet;
+  return {
+    id: item?.id || item?.snippet?.topLevelComment?.id,
+    author: snippet?.authorDisplayName,
+    text: snippet?.textOriginal || snippet?.textDisplay,
+    likeCount: snippet?.likeCount,
+  };
+}
+
+function mapInnertubeComment(thread) {
+  const comment = thread?.comment;
+  const likes = Number.parseInt(String(comment?.like_count || "").replace(/[^\d]/g, ""), 10);
+  return {
+    id: comment?.comment_id,
+    author: comment?.author?.name,
+    text: textValue(comment?.content),
+    likeCount: Number.isFinite(likes) ? likes : 0,
+  };
+}
+
+function parseIsoDuration(value = "") {
+  const match = String(value).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 0;
+  return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+}
+
+function commentText(value) {
+  if (typeof value === "string") return value;
+  if (typeof value?.text === "string") return value.text;
+  if (typeof value?.toString === "function") {
+    const raw = value.toString();
+    return raw === "[object Object]" ? "" : raw;
+  }
+  return "";
+}
+
+function captionTrackUrl(track) {
+  return String(track?.base_url || track?.baseUrl || "");
+}
+
+function isSafeCaptionUrl(value) {
+  try {
+    const url = new URL(value.startsWith("//") ? `https:${value}` : value);
+    return url.protocol === "https:"
+      && /(?:^|\.)(?:youtube\.com|youtube-nocookie\.com|googleapis\.com|google\.com)$/i.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchYoutubeTracksByIds(ids) {
+  const unique = [...new Set((ids || []).filter((id) => isYoutubeVideoId(id)))].slice(0, 12);
+  if (unique.length === 0) return [];
+  const { ok, data } = await youtubeFetch("videos", {
+    part: "snippet,contentDetails",
+    id: unique.join(","),
+  }, { next: { revalidate: 3600 } });
+  if (!ok) return [];
+  const tracks = (Array.isArray(data?.items) ? data.items : []).map((item) => {
+    const id = typeof item?.id === "string" ? item.id : "";
+    if (!isYoutubeVideoId(id) || !item?.snippet) return null;
+    return {
+      id,
+      title: cleanTitle(item.snippet.title || ""),
+      channel: cleanTitle(item.snippet.channelTitle || ""),
+      description: cleanTitle(item.snippet.description || ""),
+      publishedAt: item.snippet.publishedAt || "",
+      thumbnail:
+        item.snippet.thumbnails?.high?.url
+        || item.snippet.thumbnails?.medium?.url
+        || item.snippet.thumbnails?.default?.url
+        || "",
+      duration: parseIsoDuration(item.contentDetails?.duration),
+    };
+  }).filter(Boolean);
+  const order = new Map(unique.map((id, index) => [id, index]));
+  tracks.sort((left, right) => (order.get(left.id) ?? 99) - (order.get(right.id) ?? 99));
+  return tracks;
+}
+
+async function fetchYouTubeCommentTexts(videoId, maxResults = 20) {
+  const id = String(videoId || "").trim();
+  if (!isYoutubeVideoId(id)) return [];
+  const limit = Math.min(20, Math.max(1, Number(maxResults) || 20));
+  const official = await fetchFromOfficialApi("commentThreads", {
+    part: "snippet",
+    videoId: id,
+    maxResults: String(limit),
+    order: "relevance",
+    textFormat: "plainText",
+  });
+  if (official?.ok) {
+    return (official.data?.items || [])
+      .map((item) => String(item?.snippet?.topLevelComment?.snippet?.textOriginal || ""))
+      .filter(Boolean);
+  }
+  try {
+    const innertube = await getInnertube();
+    const comments = await innertube.getComments(id, "TOP_COMMENTS");
+    return (comments?.contents || []).slice(0, limit)
+      .map((thread) => commentText(thread?.comment?.content))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchChannelAlsoPlayed(channelId, { name = "", seedIds = [] } = {}) {
+  let seeds = [...new Set((seedIds || []).filter((id) => isYoutubeVideoId(id)))].slice(0, 3);
+  const blocked = new Set(seeds);
+  if (seeds.length === 0) {
+    const { tracks } = await fetchYouTubeChannel(channelId, { name, maxResults: 12 });
+    for (const track of tracks || []) {
+      if (track?.id) blocked.add(track.id);
+    }
+    seeds = (tracks || []).map((track) => track?.id).filter((id) => isYoutubeVideoId(id)).slice(0, 3);
+  }
+  const mentioned = [];
+  for (const seedId of seeds) {
+    const texts = await fetchYouTubeCommentTexts(seedId, 20);
+    for (const text of texts) {
+      for (const id of videoIdsMentionedInText(text)) {
+        if (blocked.has(id)) continue;
+        blocked.add(id);
+        mentioned.push(id);
+        if (mentioned.length >= 8) break;
+      }
+      if (mentioned.length >= 8) break;
+    }
+    if (mentioned.length >= 8) break;
+  }
+  return fetchYoutubeTracksByIds(mentioned);
+}
+
+async function captionLinesFromTrack(track) {
+  const raw = captionTrackUrl(track);
+  if (!isSafeCaptionUrl(raw)) return [];
+  const url = new URL(raw.startsWith("//") ? `https:${raw}` : raw);
+  url.searchParams.set("fmt", "json3");
+  const videoParam = url.searchParams.get("v") || "";
+  const response = await timedFetch(url.toString(), {
+    headers: {
+      ...YOUTUBE_BROWSER_HEADERS,
+      Accept: "*/*",
+      Origin: "https://www.youtube.com",
+      Referer: videoParam ? `https://www.youtube.com/watch?v=${videoParam}` : "https://www.youtube.com/",
+    },
+  });
+  if (!response.ok) return [];
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("html")) return [];
+  if (contentType.includes("json")) {
+    return captionLinesFromJson3(await response.json().catch(() => null));
+  }
+  const text = await response.text();
+  if (text.trim().startsWith("{")) {
+    try {
+      return captionLinesFromJson3(JSON.parse(text));
+    } catch {
+      return [];
+    }
+  }
+  return captionLinesFromVtt(text);
+}
+
+async function captionLinesFromTimedTextUrl(href) {
+  const response = await timedFetch(href, { headers: YOUTUBE_BROWSER_HEADERS });
+  if (!response.ok) return [];
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("html")) return [];
+  const text = await response.text();
+  if (text.includes("<title>Sorry...</title>")) return [];
+  if (text.trim().startsWith("{")) {
+    try {
+      return captionLinesFromJson3(JSON.parse(text));
+    } catch {
+      return [];
+    }
+  }
+  return captionLinesFromVtt(text);
+}
+
+async function captionLinesFromWatchPage(videoId) {
+  const response = await timedFetch(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&hl=en`, {
+    headers: {
+      ...YOUTUBE_BROWSER_HEADERS,
+      Accept: "text/html,application/xhtml+xml",
+    },
+  });
+  if (!response.ok) return { lines: [], hadTracks: false };
+  const tracks = captionTracksFromPlayerResponse(playerResponseFromWatchHtml(await response.text()));
+  const track = pickCaptionTrack(tracks);
+  if (!track) return { lines: [], hadTracks: false };
+  return { lines: await captionLinesFromTrack(track), hadTracks: true };
+}
+
+export async function fetchYouTubeCaptionLines(videoId) {
+  const id = String(videoId || "").trim();
+  if (!isYoutubeVideoId(id)) return [];
+  try {
+    const fromWatch = await captionLinesFromWatchPage(id);
+    if (fromWatch.lines.length > 0 || fromWatch.hadTracks) return fromWatch.lines;
+  } catch {
+    // Unsigned timedtext and Innertube still cover some videos.
+  }
+  const timedTextUrls = [
+    `https://www.youtube.com/api/timedtext?v=${encodeURIComponent(id)}&lang=en&fmt=json3`,
+    `https://www.youtube.com/api/timedtext?v=${encodeURIComponent(id)}&lang=en-US&fmt=json3`,
+    `https://www.youtube.com/api/timedtext?v=${encodeURIComponent(id)}&lang=en&kind=asr&fmt=json3`,
+  ];
+  for (const href of timedTextUrls) {
+    try {
+      const lines = await captionLinesFromTimedTextUrl(href);
+      if (lines.length > 0) return lines;
+    } catch {
+      // Try the track list, then Innertube.
+    }
+  }
+  try {
+    const list = await timedFetch(`https://www.youtube.com/api/timedtext?type=list&v=${encodeURIComponent(id)}`, {
+      headers: YOUTUBE_BROWSER_HEADERS,
+    });
+    if (list.ok) {
+      const track = pickTimedTextTrack(await list.text());
+      if (track) {
+        const url = new URL("https://www.youtube.com/api/timedtext");
+        url.searchParams.set("v", id);
+        url.searchParams.set("lang", track.lang);
+        url.searchParams.set("fmt", "json3");
+        if (track.kind) url.searchParams.set("kind", track.kind);
+        const lines = await captionLinesFromTimedTextUrl(url.toString());
+        if (lines.length > 0) return lines;
+      }
+    }
+  } catch {
+    // Innertube below still covers videos whose list endpoint is empty.
+  }
+  try {
+    const innertube = await getInnertube();
+    const info = await innertube.getInfo(id);
+    const track = pickCaptionTrack(info?.captions?.caption_tracks || []);
+    const fromTrack = track ? await captionLinesFromTrack(track) : [];
+    if (fromTrack.length > 0) return fromTrack;
+    if (typeof info?.getTranscript !== "function") return [];
+    const transcript = await info.getTranscript();
+    const segments = transcript?.transcript?.content?.body?.initial_segments || [];
+    return captionLinesFromTranscript(segments);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchYouTubeComments(videoId, maxResults = 8) {
+  const id = String(videoId || "").trim();
+  if (!isYoutubeVideoId(id)) return [];
+  const limit = Math.min(8, Math.max(1, Number(maxResults) || 8));
+
+  const official = await fetchFromOfficialApi("commentThreads", {
+    part: "snippet",
+    videoId: id,
+    maxResults: String(limit),
+    order: "relevance",
+    textFormat: "plainText",
+  });
+  if (official?.ok) {
+    return sanitizeYoutubeComments((official.data?.items || []).map(mapOfficialComment));
+  }
+
+  try {
+    const innertube = await getInnertube();
+    const comments = await innertube.getComments(id, "TOP_COMMENTS");
+    return sanitizeYoutubeComments((comments?.contents || []).slice(0, limit).map(mapInnertubeComment));
+  } catch {
+    return [];
   }
 }

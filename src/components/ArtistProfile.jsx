@@ -26,6 +26,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
   const [retryKey, setRetryKey] = useState(0);
   const [followed, setFollowed] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [alsoPlay, setAlsoPlay] = useState([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -58,6 +59,29 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
     return () => { cancelled = true; controller.abort(); };
   }, [artistId, initialName, retryKey]);
 
+  const seedKey = tracks.slice(0, 3).map((track) => track.id).filter(Boolean).join(",");
+
+  useEffect(() => {
+    if (!artistId || !seedKey) {
+      setAlsoPlay([]);
+      return undefined;
+    }
+    const controller = new AbortController();
+    const params = new URLSearchParams({ id: artistId });
+    if (artist.title || initialName) params.set("name", artist.title || initialName);
+    seedKey.split(",").forEach((id) => params.append("video", id));
+    requestJson(`/api/channel-rabbit-hole?${params}`, {
+      signal: controller.signal,
+      fallbackTitle: "Related songs unavailable",
+      fallbackMessage: "We couldn’t load songs people also play.",
+    }).then((data) => {
+      setAlsoPlay(Array.isArray(data?.tracks) ? data.tracks : []);
+    }).catch(() => {
+      if (!controller.signal.aborted) setAlsoPlay([]);
+    });
+    return () => controller.abort();
+  }, [artist.title, artistId, initialName, seedKey]);
+
   useEffect(() => {
     if (status !== "authenticated" || !artist.title) return undefined;
     const controller = new AbortController();
@@ -75,9 +99,10 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
 
   const title = artist.title || initialName || "Artist";
   const playbackContext = { type: "artist", id: String(artist.id || artistId), name: title };
+  const alsoPlayVisible = alsoPlay.filter((video) => video?.id && !tracks.some((track) => track.id === video.id));
 
-  const playTrack = (video) => {
-    const queue = tracks.map((item) => ({
+  const playTrack = (video, list = tracks) => {
+    const queue = list.map((item) => ({
       ...item,
       seedQuery: item.seedQuery || artist.title,
       genre: item.genre || artist.title,
@@ -168,7 +193,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
 
       {tracks.length > 0 ? (
         <section className="mt-8" aria-labelledby="artist-songs-title">
-          <h2 id="artist-songs-title" className="mb-4 text-xl font-semibold text-white">Songs<span className="ml-2 text-sm font-normal text-[#9aa8b5]">{tracks.length}</span></h2>
+          <h2 id="artist-songs-title" className="mb-4 text-xl font-semibold text-white">More from this channel<span className="ml-2 text-sm font-normal text-[#9aa8b5]">{tracks.length}</span></h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tracks.map((video) => (
               <article key={video.id} className="card group text-left">
@@ -183,7 +208,27 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
               </article>
             ))}
           </div>
-          {nextPageToken ? <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="btn-ghost mt-6 text-sm disabled:opacity-60">{loadingMore ? "Loading more…" : "Load more songs"}</button> : null}
+          {nextPageToken ? <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="btn-ghost mt-6 text-sm disabled:opacity-60">{loadingMore ? "Loading more…" : "Load more from this channel"}</button> : null}
+        </section>
+      ) : null}
+
+      {alsoPlayVisible.length > 0 ? (
+        <section className="mt-10" aria-labelledby="artist-comments-title">
+          <h2 id="artist-comments-title" className="mb-4 text-xl font-semibold text-white">From the comments people also play</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {alsoPlayVisible.map((video) => (
+              <article key={video.id} className="card group text-left">
+                <button type="button" aria-label={`Play ${cleanTitle(video.title)}`} onClick={() => playTrack(video, alsoPlayVisible)} className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black">
+                  <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
+                  <PlayFab />
+                </button>
+                <button type="button" onClick={() => playTrack(video, alsoPlayVisible)} className="block w-full p-3 text-left">
+                  <p className="home-shelf-title mt-0">{cleanTitle(video.title, "Untitled track")}</p>
+                  <p className="home-shelf-subtitle">{video.channel || title}</p>
+                </button>
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
     </div>

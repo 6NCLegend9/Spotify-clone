@@ -9,6 +9,9 @@ export const JAM_OPEN_EVENT = "heykasa:open-jam";
 export const JAM_PLAYBACK_STATE_EVENT = "heykasa:playback-state";
 export const JAM_REMOTE_PLAYBACK_EVENT = "heykasa:jam-playback";
 export const JAM_REMOTE_SEEK_EVENT = "heykasa:jam-seek";
+export const JAM_AUX_SKIP_EVENT = "heykasa:jam-aux-skip";
+export const DESKTOP_SKIP_EVENT = "heykasa:desktop-skip";
+export const DESKTOP_PREV_EVENT = "heykasa:desktop-prev";
 
 export function normalizeJamCode(value) {
   return String(value || "")
@@ -46,6 +49,7 @@ export function jamChannelName(code) {
 }
 
 export function shouldExpireEmptyJam(session, now = Date.now()) {
+  if (session?.persistent) return false;
   if (session?.role !== "host" || session?.guestJoined) return false;
   const startedAt = Number(session?.startedAt);
   if (!Number.isFinite(startedAt) || startedAt <= 0) return true;
@@ -85,6 +89,8 @@ export function readJamSession() {
       startedAt: Number.isFinite(startedAt) && startedAt > 0 ? startedAt : 0,
       guestJoined: Boolean(parsed.guestJoined),
       participantId: String(parsed.participantId || ""),
+      persistent: Boolean(parsed.persistent),
+      name: String(parsed.name || "").slice(0, 24),
     };
   } catch {
     return null;
@@ -106,6 +112,8 @@ export function writeJamSession(session) {
         startedAt: Number(session.startedAt) > 0 ? Number(session.startedAt) : Date.now(),
         guestJoined: Boolean(session.guestJoined),
         participantId: String(session.participantId || ""),
+        persistent: Boolean(session.persistent),
+        name: String(session.name || "").slice(0, 24),
       }),
     );
   } catch {

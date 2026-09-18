@@ -5,6 +5,8 @@ import { getAuthenticatedAccount } from "@/utils/userAccount";
 import UserData from "@/models/UserData";
 import { mutateDocument } from "@/utils/documentMutation.mjs";
 import { insightEvent, listeningSummary, retainedListeningEvents, MAX_INSIGHT_EVENTS } from "@/utils/listeningInsights.mjs";
+import { shouldRecordWeekPulse } from "@/utils/weekPulse.mjs";
+import { incrementWeekPulse } from "@/utils/weekPulseStore.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -50,6 +52,7 @@ export async function POST(request) {
     if (observation && userData.settings?.listeningInsights !== true) {
       return NextResponse.json({ success: true, message: "Listening insights are off", data: [] }, { headers: { "Cache-Control": "private, no-store" } });
     }
+    let addedObservation = false;
     const updated = await mutateDocument(UserData, userData._id, (current) => {
       if (current.settings?.privateSession) return null;
       const changes = {};
@@ -61,10 +64,18 @@ export async function POST(request) {
         const events = retainedListeningEvents(current.listeningEvents);
         if (!events.some((entry) => entry.eventId === observation.eventId)) {
           changes.listeningEvents = [...events, observation].slice(-MAX_INSIGHT_EVENTS);
+          addedObservation = true;
         }
       }
       return Object.keys(changes).length ? changes : null;
     }, { "settings.privateSession": { $ne: true }, ...(observation ? { "settings.listeningInsights": true } : {}) });
+    if (addedObservation && shouldRecordWeekPulse(observation, userData.settings)) {
+      try {
+        await incrementWeekPulse(observation.id);
+      } catch {
+        // Weekly pulse is anonymous and best-effort.
+      }
+    }
     return NextResponse.json({ success: true, message: "Recorded", data: updated[field] || [] }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     return handleApiError(e, "record play event");

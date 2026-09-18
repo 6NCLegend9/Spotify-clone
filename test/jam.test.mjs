@@ -33,6 +33,16 @@ test("jam code generation uses the readable alphabet", () => {
   assert.equal(makeJamCode(() => 0.999999), JAM_CODE_ALPHABET.at(-1).repeat(6));
 });
 
+test("named rooms do not auto-expire when empty", () => {
+  const now = 1_000_000;
+  assert.equal(shouldExpireEmptyJam({
+    role: "host",
+    persistent: true,
+    startedAt: now - EMPTY_JAM_MS - 1,
+    guestJoined: false,
+  }, now), false);
+});
+
 test("only empty host jams expire after ten minutes", () => {
   const now = 1_000_000;
   assert.equal(shouldExpireEmptyJam({
@@ -88,6 +98,8 @@ test("jam session persistence survives refresh and rejects corrupt values", () =
       startedAt: 123,
       guestJoined: true,
       participantId: "host-test",
+      persistent: true,
+      name: "Late night",
     });
     assert.deepEqual(readJamSession(), {
       code: "ABC234",
@@ -95,6 +107,8 @@ test("jam session persistence survives refresh and rejects corrupt values", () =
       startedAt: 123,
       guestJoined: true,
       participantId: "host-test",
+      persistent: true,
+      name: "Late night",
     });
 
     values.set(JAM_SESSION_KEY, JSON.stringify({
@@ -108,6 +122,8 @@ test("jam session persistence survives refresh and rejects corrupt values", () =
       startedAt: 0,
       guestJoined: false,
       participantId: "",
+      persistent: false,
+      name: "",
     });
 
     values.set(JAM_SESSION_KEY, "{bad json");

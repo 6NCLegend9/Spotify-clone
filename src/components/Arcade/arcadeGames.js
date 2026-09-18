@@ -8,7 +8,7 @@ export const ARCADE_GAMES = [
     desktop: [
       "D · F · J · K hit lanes 1 to 4",
       "Perfect timing on the line scores more",
-      "The chart is built from the song you pick",
+      "The chart follows the song that's already playing",
     ],
     mobile: [
       "Tap a column as its tile reaches the line",

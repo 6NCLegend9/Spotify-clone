@@ -19,6 +19,11 @@ const api = Object.freeze({
     clearActivity: () => ipcRenderer.invoke("heykasa:discord:clear"),
     disconnect: () => ipcRenderer.invoke("heykasa:discord:disconnect"),
     getStatus: () => ipcRenderer.invoke("heykasa:discord:status"),
+    onJoin: (listener) => subscribe("heykasa:discord:join", listener),
+  }),
+  playback: Object.freeze({
+    report: (state) => ipcRenderer.invoke("heykasa:playback:report", state),
+    onCommand: (listener) => subscribe("heykasa:playback:command", listener),
   }),
   updates: Object.freeze({
     getStatus: () => ipcRenderer.invoke("heykasa:updates:status"),

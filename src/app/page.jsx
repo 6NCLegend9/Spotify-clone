@@ -19,9 +19,8 @@ export default async function Home({ searchParams }) {
       <section className="sr-only" aria-label="HeyKasa music streaming">
         <h1>HeyKasa Music - Free Music Streaming and Playlists</h1>
         <p>
-          HeyKasa is a free music streaming app for English songs.
-          Listen online, create playlists, save favourites, explore albums,
-          and discover artists in a fast web music player.
+          HeyKasa is free, with no ads. Listen in one screen without an account.
+          Save, follow, and Jam after you sign in.
         </p>
         <ul>
           {featuredSearches.map((search) => (

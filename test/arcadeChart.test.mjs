@@ -12,6 +12,7 @@ import {
   hashSeed,
   notesInWindow,
   remapLanes,
+  sliceChartFrom,
 } from "../src/utils/arcadeChart.mjs";
 
 test("bpm stays in a playable range and is stable for a seed", () => {
@@ -89,4 +90,11 @@ test("PCM analysis recovers a 120 BPM pulse train", () => {
   assert.ok(Math.abs(detected - 120) <= 8);
   assert.equal(hashSeed("a"), hashSeed("a"));
   assert.notEqual(hashSeed("a"), hashSeed("b"));
+});
+
+test("live charts drop notes that already passed", () => {
+  const chart = buildRhythmChart({ duration: 60, bpm: 120, seed: "live", lanes: 4 });
+  const sliced = sliceChartFrom(chart, 30);
+  assert.ok(sliced.notes.every((note) => note.t >= 30));
+  assert.ok(sliced.notes.length < chart.notes.length);
 });

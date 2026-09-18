@@ -156,16 +156,20 @@ export default function useArcadeClock({ source = "none", audioRef, videoId } = 
         }
         return playbackRef.current.playing;
       },
-      reset(time = 0) {
+      reset(time = 0, options = {}) {
         const now = performance.now();
         const stamp = playbackRef.current;
         stamp.time = time;
         stamp.smooth = time;
         stamp.at = now;
         stamp.smoothAt = now;
-        stamp.playing = false;
         stamp.pauseStreak = 0;
-        stamp.waitForStart = sourceRef.current === "youtube";
+        const wait = options.waitForStart;
+        stamp.waitForStart = typeof wait === "boolean"
+          ? wait
+          : sourceRef.current === "youtube" && time < 0.5;
+        stamp.playing = options.playing === true
+          || (!stamp.waitForStart && sourceRef.current === "youtube" && time >= 0.5);
       },
     };
   }
