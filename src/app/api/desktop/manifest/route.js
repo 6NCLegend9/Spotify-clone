@@ -1,9 +1,13 @@
 import crypto from "node:crypto";
-import { desktopStableManifestUrl } from "@/utils/desktopRelease.mjs";
+import {
+  desktopReleaseFileUrl,
+  normalizeDesktopReleaseChannel,
+} from "../../../../utils/desktopRelease.mjs";
 
 export const runtime = "nodejs";
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
 
 function httpsUrl(value) {
   const text = typeof value === "string" ? value.trim() : "";
@@ -16,17 +20,47 @@ function httpsUrl(value) {
   }
 }
 
-function version(value, fallback = "0.1.0") {
+function version(value, fallback = "1.0.0") {
   const text = typeof value === "string" ? value.trim() : "";
   return SEMVER.test(text) ? text : fallback;
 }
 
-function normalizeManifest(input = {}) {
-  const latest = version(input.latest || input.version || process.env.HEYKASA_DESKTOP_LATEST_VERSION, "0.1.0");
-  const minimum = version(input.minimum || process.env.HEYKASA_DESKTOP_MINIMUM_VERSION, "0.1.0");
-  const downloadUrl = httpsUrl(input.downloadUrl || process.env.HEYKASA_DESKTOP_DOWNLOAD_URL);
-  const releaseNotesUrl = httpsUrl(input.releaseNotesUrl || process.env.HEYKASA_DESKTOP_RELEASE_NOTES_URL);
-  const channel = ["stable", "beta", "internal"].includes(input.channel) ? input.channel : "stable";
+function sha512(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return SHA512_BASE64.test(text) ? text : "";
+}
+
+function percentage(value, fallback = 100) {
+  const text = String(value ?? "").trim();
+  if (!text) return fallback;
+  const number = Number(text);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : fallback;
+}
+
+function normalizeManifest(input = {}, requestedChannel = "stable") {
+  const channel = normalizeDesktopReleaseChannel(requestedChannel) || "stable";
+  const isStable = channel === "stable";
+  const latest = version(
+    input.latest || input.version || (isStable ? process.env.HEYKASA_DESKTOP_LATEST_VERSION : ""),
+    "1.0.0",
+  );
+  const minimum = version(
+    input.minimum || (isStable ? process.env.HEYKASA_DESKTOP_MINIMUM_VERSION : ""),
+    "1.0.0",
+  );
+  const downloadUrl = httpsUrl(
+    input.downloadUrl || (isStable ? process.env.HEYKASA_DESKTOP_DOWNLOAD_URL : ""),
+  );
+  const releaseNotesUrl = httpsUrl(
+    input.releaseNotesUrl || (isStable ? process.env.HEYKASA_DESKTOP_RELEASE_NOTES_URL : ""),
+  );
+  const installerSha512 = sha512(
+    input.sha512 || (isStable ? process.env.HEYKASA_DESKTOP_SHA512 : ""),
+  );
+  const rolloutEnv = isStable ? String(process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT ?? "").trim() : "";
+  const updateRolloutPercent = rolloutEnv
+    ? percentage(rolloutEnv, 100)
+    : percentage(input.updateRolloutPercent, 100);
 
   return {
     formatVersion: 1,
@@ -43,6 +77,8 @@ function normalizeManifest(input = {}) {
     releaseNotesUrl,
     publishedAt: typeof input.publishedAt === "string" ? input.publishedAt.slice(0, 40) : "",
     sizeBytes: Number.isSafeInteger(input.sizeBytes) && input.sizeBytes > 0 ? input.sizeBytes : null,
+    sha512: installerSha512,
+    updateRolloutPercent,
     published: Boolean(downloadUrl),
   };
 }
@@ -69,15 +105,30 @@ function verifiedRemotePayload(envelope) {
   return envelope.payload;
 }
 
-function configuredManifestUrl() {
-  const explicit = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
-  if (explicit) return explicit;
-  return desktopStableManifestUrl(process.env.HEYKASA_DESKTOP_BLOB_BASE_URL);
+function requestedChannel(request) {
+  if (!request?.url) return "stable";
+  try {
+    return normalizeDesktopReleaseChannel(new URL(request.url).searchParams.get("channel")) || "stable";
+  } catch {
+    return "stable";
+  }
 }
 
-async function loadManifest() {
-  const manifestUrl = configuredManifestUrl();
-  if (!manifestUrl) return normalizeManifest();
+function configuredManifestUrl(channel) {
+  if (channel === "stable") {
+    const explicit = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
+    if (explicit) return explicit;
+  }
+  return desktopReleaseFileUrl(
+    process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
+    channel,
+    "release-manifest.json",
+  );
+}
+
+async function loadManifest(channel) {
+  const manifestUrl = configuredManifestUrl(channel);
+  if (!manifestUrl) return normalizeManifest({}, channel);
 
   try {
     const response = await fetch(manifestUrl, {
@@ -86,22 +137,25 @@ async function loadManifest() {
     });
     if (!response.ok) throw new Error(`Desktop manifest returned ${response.status}.`);
     const envelope = await response.json();
-    return normalizeManifest(verifiedRemotePayload(envelope));
+    const payload = verifiedRemotePayload(envelope);
+    if ((normalizeDesktopReleaseChannel(payload?.channel) || "stable") !== channel) {
+      throw new Error("Desktop manifest channel does not match the requested channel.");
+    }
+    return normalizeManifest(payload, channel);
   } catch (error) {
     console.error(JSON.stringify({
       level: "error",
       msg: "desktop_manifest_fetch_failed",
+      channel,
       error: error instanceof Error ? error.message : String(error),
     }));
-    // Fail closed to the server-owned fallback configuration. A public remote
-    // manifest can never choose a download link or minimum version unless its
-    // payload was signed by the release pipeline.
-    return normalizeManifest();
+    return normalizeManifest({}, channel);
   }
 }
 
-export async function GET() {
-  const manifest = await loadManifest();
+export async function GET(request) {
+  const channel = requestedChannel(request);
+  const manifest = await loadManifest(channel);
   return Response.json(manifest, {
     headers: {
       "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=900",

@@ -76,7 +76,7 @@ async function installFixtures(page) {
   });
 }
 
-test("YouTube embed stays sanitized even when old account data requested captions", async ({ page }) => {
+test("YouTube embed stays sanitized while honoring enabled captions", async ({ page }) => {
   await installFixtures(page);
   await page.goto("/search", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("player-dock")).toBeVisible();
@@ -85,7 +85,7 @@ test("YouTube embed stays sanitized even when old account data requested caption
   await expect.poll(() => page.evaluate(() => window.__ytPlayerVars.length)).toBeGreaterThan(0);
   const vars = await page.evaluate(() => window.__ytPlayerVars[0]);
   expect(vars).toMatchObject({
-    cc_load_policy: "0",
+    cc_load_policy: "1",
     controls: "0",
     disablekb: "1",
     enablejsapi: "1",
@@ -95,7 +95,7 @@ test("YouTube embed stays sanitized even when old account data requested caption
     playsinline: "1",
     rel: "0",
   });
-  await expect.poll(() => page.evaluate(() => window.__ytCaptionCalls.some(([action, name]) => action === "unload" && name === "captions"))).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__ytCaptionCalls.some(([action, name]) => action === "load" && name === "captions"))).toBe(true);
 
   const deck = page.getByTestId("youtube-decks");
   await expect(deck).not.toHaveAttribute("data-kasa-end-guard", "true");

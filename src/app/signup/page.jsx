@@ -2,7 +2,7 @@
 
 import { setProgress } from "@/redux/features/loadingBarSlice";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
@@ -12,6 +12,7 @@ import GradientText from "@/components/ReactBits/GradientText";
 import AuthMessage from "@/components/AuthMessage";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { GOOGLE_SIGN_IN_ENABLED } from "@/utils/siteConfig";
+import { getHeyKasaDesktopApi } from "@/utils/desktopEnvironment";
 import { AUTH_CODES, validateEmail, validatePassword } from "@/utils/authErrors";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
@@ -36,6 +37,23 @@ const SignupPage = () => {
     }
   };
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    const api = getHeyKasaDesktopApi();
+    if (!api?.auth?.onStatus) return undefined;
+    const onStatus = (next) => {
+      if (next?.state !== "error") return;
+      setGoogleSubmitting(false);
+      setRetryAction("google");
+      setFormError({
+        title: "Desktop sign-in failed",
+        message: next.detail || "HeyKasa could not finish the desktop sign-in. Start the Google sign-in again.",
+        retryable: true,
+      });
+    };
+    void api.auth.getStatus?.().then(onStatus).catch(() => {});
+    return api.auth.onStatus(onStatus);
+  }, []);
 
   const submitAccount = async () => {
     if (submitting || googleSubmitting) return;
@@ -102,6 +120,14 @@ const SignupPage = () => {
     setFormError(null);
     setRetryAction(null);
     try {
+      const desktopApi = getHeyKasaDesktopApi();
+      if (desktopApi?.auth?.start) {
+        const result = await desktopApi.auth.start();
+        if (result?.state === "error") throw new Error(result.detail || "Desktop sign-in could not start.");
+        toast("Continue sign-in in your browser, then return to HeyKasa.");
+        return;
+      }
+
       const result = await signIn("google", {
         callbackUrl: "/",
         redirect: false,

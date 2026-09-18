@@ -1,6 +1,6 @@
 {
   "name": "heykasa-desktop",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Secure Windows desktop shell for HeyKasa",
   "author": "HeyKasa",
@@ -10,12 +10,14 @@
     "start": "electron .",
     "test": "node --test test/*.test.mjs",
     "pack": "electron-builder --dir --win --x64",
-    "dist": "electron-builder --win nsis --x64"
+    "dist": "electron-builder --win nsis --x64",
+    "publish-release": "node scripts/publish-release.mjs"
   },
   "dependencies": {
     "electron-updater": "6.8.9"
   },
   "devDependencies": {
+    "@vercel/blob": "2.8.0",
     "electron": "44.4.1",
     "electron-builder": "26.15.3"
   },
@@ -24,6 +26,15 @@
     "productName": "HeyKasa",
     "artifactName": "HeyKasa-Setup-${version}-${arch}.${ext}",
     "asar": true,
+    "electronUpdaterCompatibility": ">=2.16",
+    "protocols": [
+      {
+        "name": "HeyKasa",
+        "schemes": [
+          "heykasa"
+        ]
+      }
+    ],
     "directories": {
       "output": "dist"
     },
@@ -38,6 +49,8 @@
       }
     ],
     "win": {
+      "verifyUpdateCodeSignature": true,
+      "requestedExecutionLevel": "asInvoker",
       "target": [
         {
           "target": "nsis",
@@ -56,6 +69,21 @@
       "shortcutName": "HeyKasa",
       "deleteAppDataOnUninstall": false
     },
-    "publish": null
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://haykasa.vercel.app/api/desktop/update/stable"
+      }
+    ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "loadBrowserProcessSpecificV8Snapshot": false,
+      "grantFileProtocolExtraPrivileges": false
+    }
   }
 }

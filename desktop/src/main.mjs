@@ -5,6 +5,7 @@ import {
   BrowserWindow,
   ipcMain,
   Menu,
+  net,
   powerMonitor,
   session,
   shell,
@@ -16,8 +17,18 @@ import {
   PRODUCT_NAME,
   desktopAppUrl,
 } from "./config.mjs";
+import {
+  buildDesktopAuthorizeUrl,
+  createDesktopAuthAttempt,
+  desktopAuthAttemptExpired,
+  isMatchingDesktopAuthState,
+  normalizeDesktopSessionExchange,
+  parseDesktopAuthDeepLink,
+} from "./authFlow.mjs";
 import { DiscordIpcClient } from "./discord/ipcClient.mjs";
+import { NativeLogger } from "./nativeLogger.mjs";
 import { NativeStore } from "./nativeStore.mjs";
+import { DesktopPolicy, effectiveUpdateRolloutPercent } from "./policy.mjs";
 import {
   assertTrustedIpcEvent,
   buildTrustedOrigins,
@@ -30,6 +41,12 @@ import { DesktopUpdater } from "./updater.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
 const PROTOCOL = "heykasa";
+const DESKTOP_PARTITION = "persist:heykasa";
+const CAPABILITY_POLICY = Object.freeze({
+  authV1: "auth",
+  discordPresenceV1: "discord",
+  updaterV1: "updater",
+});
 const appUrl = desktopAppUrl({
   isPackaged: app.isPackaged,
   overrideUrl: process.env.HEYKASA_DESKTOP_URL || "",
@@ -38,15 +55,55 @@ const trustedOrigins = buildTrustedOrigins({ appUrl, isPackaged: app.isPackaged 
 
 let mainWindow = null;
 let store = null;
+let logger = null;
 let updater = null;
+let policy = null;
 let tray = null;
 let quitting = false;
+let startupCompleted = false;
+let safeMode = false;
+let authAttempt = null;
+let authStatus = { state: "idle", detail: "" };
 const discord = new DiscordIpcClient();
 
 function resourceIconPath() {
   return app.isPackaged
     ? path.join(process.resourcesPath, "icon.png")
     : path.resolve(__dirname, "../../public/icon-256x256.png");
+}
+
+function desktopSession() {
+  return session.fromPartition(DESKTOP_PARTITION);
+}
+
+function policyFeature(name) {
+  return policy?.feature(name) !== false;
+}
+
+function runtimeFeature(name) {
+  if (safeMode && (name === "discord" || name === "updater")) return false;
+  return policyFeature(name);
+}
+
+function effectiveCapabilities() {
+  return DESKTOP_CAPABILITIES.filter((capability) => {
+    const feature = CAPABILITY_POLICY[capability];
+    return !feature || runtimeFeature(feature);
+  });
+}
+
+function featureDisabledMessage(feature) {
+  if (safeMode && (feature === "discord" || feature === "updater")) {
+    return "HeyKasa Desktop is running in safe mode after repeated crashes. Nonessential native integrations are temporarily disabled.";
+  }
+  const snapshot = policy?.snapshot();
+  if (snapshot?.maintenance && snapshot.maintenanceMessage) return snapshot.maintenanceMessage;
+  const labels = {
+    auth: "Desktop sign-in",
+    discord: "Discord Rich Presence",
+    updater: "Desktop updates",
+  };
+  return `${labels[feature] || "This desktop feature"} is temporarily disabled.`;
 }
 
 function focusMainWindow() {
@@ -56,12 +113,113 @@ function focusMainWindow() {
   mainWindow.focus();
 }
 
-function handleDeepLink(value) {
+function canMessageRenderer() {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  return isTrustedRendererUrl(mainWindow.webContents.getURL(), trustedOrigins);
+}
+
+function sendAuthStatus(status) {
+  if (canMessageRenderer()) mainWindow.webContents.send("heykasa:auth:status-changed", status);
+}
+
+function setAuthStatus(state, detail = "") {
+  authStatus = {
+    state,
+    detail: typeof detail === "string" ? detail.slice(0, 240) : "",
+  };
+  logger?.info("auth_status", { state: authStatus.state });
+  sendAuthStatus({ ...authStatus });
+  return { ...authStatus };
+}
+
+async function startDesktopAuth() {
+  if (!runtimeFeature("auth")) return setAuthStatus("disabled", featureDisabledMessage("auth"));
+  authAttempt = createDesktopAuthAttempt();
+  const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, authAttempt);
+  setAuthStatus("waiting", "Complete sign-in in your browser, then return to HeyKasa.");
+  try {
+    await shell.openExternal(authorizeUrl);
+  } catch (error) {
+    authAttempt = null;
+    return setAuthStatus("error", error instanceof Error ? error.message : "Could not open the sign-in browser.");
+  }
+  return { ...authStatus };
+}
+
+async function exchangeDesktopAuth(value) {
+  if (!runtimeFeature("auth")) {
+    authAttempt = null;
+    setAuthStatus("disabled", featureDisabledMessage("auth"));
+    return false;
+  }
+  const deepLink = parseDesktopAuthDeepLink(value);
+  if (!deepLink || !authAttempt || desktopAuthAttemptExpired(authAttempt)
+    || !isMatchingDesktopAuthState(authAttempt, deepLink.state)) {
+    authAttempt = null;
+    setAuthStatus("error", "This desktop sign-in request is invalid or expired. Start sign-in again.");
+    return false;
+  }
+
+  setAuthStatus("exchanging", "Finishing desktop sign-in…");
+  try {
+    const response = await net.fetch(new URL("/api/desktop/auth/exchange", appUrl).href, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Cache-Control": "no-store",
+      },
+      body: JSON.stringify({
+        code: deepLink.code,
+        state: deepLink.state,
+        verifier: authAttempt.verifier,
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error || `Desktop sign-in failed with status ${response.status}.`);
+    }
+    const exchange = normalizeDesktopSessionExchange(payload);
+    if (!exchange) throw new Error("Desktop sign-in returned an invalid session.");
+
+    const ses = desktopSession();
+    const origin = new URL(appUrl).origin;
+    const secure = origin.startsWith("https://");
+    await ses.cookies.set({
+      url: `${origin}/`,
+      name: exchange.cookieName,
+      value: exchange.sessionToken,
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      expirationDate: exchange.expiresAt,
+    });
+    const otherCookie = exchange.cookieName === "__Secure-next-auth.session-token"
+      ? "next-auth.session-token"
+      : "__Secure-next-auth.session-token";
+    await ses.cookies.remove(`${origin}/`, otherCookie).catch(() => {});
+
+    authAttempt = null;
+    setAuthStatus("authenticated", "Desktop sign-in completed.");
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      await mainWindow.loadURL(appUrl, { extraHeaders: "Cache-Control: no-cache\n" });
+    }
+    focusMainWindow();
+    return true;
+  } catch (error) {
+    authAttempt = null;
+    logger?.error("auth_exchange_failed", { error: error instanceof Error ? error.message : "unknown" });
+    setAuthStatus("error", error instanceof Error ? error.message : "Desktop sign-in could not be completed.");
+    focusMainWindow();
+    return false;
+  }
+}
+
+async function handleDeepLink(value) {
   if (!isSafeHeyKasaDeepLink(value)) return false;
-  // Deep-link command handling is intentionally conservative in v1. The
-  // protocol can focus the running app, but auth/open payloads are not trusted
-  // until the one-time server exchange is implemented.
-  focusMainWindow();
+  const url = new URL(value);
+  if (url.hostname === "auth") await exchangeDesktopAuth(value);
+  else focusMainWindow();
   return true;
 }
 
@@ -81,12 +239,12 @@ function registerSingleInstance() {
   }
   app.on("second-instance", (_event, argv) => {
     const deepLink = argv.find((value) => String(value || "").startsWith(`${PROTOCOL}://`));
-    if (deepLink) handleDeepLink(deepLink);
+    if (deepLink) void handleDeepLink(deepLink);
     focusMainWindow();
   });
   app.on("open-url", (event, url) => {
     event.preventDefault();
-    handleDeepLink(url);
+    void handleDeepLink(url);
   });
   return true;
 }
@@ -132,21 +290,34 @@ async function showOfflineScreen(window) {
   try {
     await window.loadFile(path.join(__dirname, "offline.html"));
   } catch {
-    // If even the bundled recovery page cannot load there is no useful renderer
-    // action left; the next application launch will retry production.
+    logger?.error("offline_screen_failed");
   }
 }
 
 async function loadApplication(window) {
   try {
     await window.loadURL(appUrl, { extraHeaders: "Cache-Control: no-cache\n" });
-  } catch {
+  } catch (error) {
+    logger?.warn("renderer_load_failed", { error: error instanceof Error ? error.message : "unknown" });
     await showOfflineScreen(window);
   }
 }
 
+async function enterSafeMode() {
+  if (safeMode) return;
+  safeMode = true;
+  logger?.warn("safe_mode_entered", {
+    crashStreak: store?.get("crashStreak") || 0,
+    rendererCrashCount: store?.get("rendererCrashCount") || 0,
+  });
+  updateTrayMenu();
+  await discord.clearActivity().catch(() => {});
+  discord.disconnect();
+  updater?.dispose();
+}
+
 async function createMainWindow() {
-  const ses = session.fromPartition("persist:heykasa");
+  const ses = desktopSession();
   configureSession(ses);
   await clearDesktopWebCaches(ses);
 
@@ -162,7 +333,7 @@ async function createMainWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
-      partition: "persist:heykasa",
+      partition: DESKTOP_PARTITION,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -180,8 +351,9 @@ async function createMainWindow() {
     event.preventDefault();
     window.hide();
   });
-  window.webContents.on("did-fail-load", (_event, errorCode, _description, _validatedUrl, isMainFrame) => {
+  window.webContents.on("did-fail-load", (_event, errorCode, description, _validatedUrl, isMainFrame) => {
     if (!isMainFrame || errorCode === -3) return;
+    logger?.warn("renderer_navigation_failed", { errorCode, description });
     void showOfflineScreen(window);
   });
   window.webContents.on("render-process-gone", (_event, details) => {
@@ -191,6 +363,12 @@ async function createMainWindow() {
       reason: details?.reason || "unknown",
       exitCode: details?.exitCode,
     }));
+    logger?.error("renderer_crash", {
+      reason: details?.reason || "unknown",
+      exitCode: details?.exitCode,
+    });
+    const crashState = store?.recordRendererCrash();
+    if (crashState?.safeMode) void enterSafeMode();
     void showOfflineScreen(window);
   });
   window.on("closed", () => {
@@ -202,10 +380,8 @@ async function createMainWindow() {
   return window;
 }
 
-function createTray() {
-  if (tray && !tray.isDestroyed()) return tray;
-  tray = new Tray(resourceIconPath());
-  tray.setToolTip(PRODUCT_NAME);
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: "Open HeyKasa",
@@ -213,6 +389,7 @@ function createTray() {
     },
     {
       label: "Check for updates",
+      enabled: runtimeFeature("updater"),
       click: () => void updater?.checkNow({ manual: true }),
     },
     { type: "separator" },
@@ -224,6 +401,13 @@ function createTray() {
       },
     },
   ]));
+}
+
+function createTray() {
+  if (tray && !tray.isDestroyed()) return tray;
+  tray = new Tray(resourceIconPath());
+  tray.setToolTip(PRODUCT_NAME);
+  updateTrayMenu();
   tray.on("click", () => focusMainWindow());
   return tray;
 }
@@ -249,21 +433,64 @@ function setDesktopPreference(key, value) {
     throw new Error("Unsupported desktop preference.");
   }
 
+  logger?.info("desktop_preference_changed", { key });
   if (key === "autoUpdate" || key === "updateChannel") updater?.preferencesChanged();
   return desktopPreferences();
 }
 
 function sendUpdateStatus(status) {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  const currentUrl = mainWindow.webContents.getURL();
-  if (!isTrustedRendererUrl(currentUrl, trustedOrigins)) return;
-  mainWindow.webContents.send("heykasa:updates:status-changed", status);
+  if (["checking", "available", "ready", "up-to-date", "error", "disabled"].includes(status?.state)) {
+    logger?.info("update_status", {
+      state: status.state,
+      version: status.version || "",
+    });
+  }
+  if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", status);
+}
+
+async function applyPolicy(snapshot) {
+  logger?.info("desktop_policy", {
+    maintenance: snapshot?.maintenance === true,
+    auth: snapshot?.features?.auth !== false,
+    discord: snapshot?.features?.discord !== false,
+    updater: snapshot?.features?.updater !== false,
+  });
+  updateTrayMenu();
+  if (snapshot?.maintenance || snapshot?.features?.auth === false) {
+    authAttempt = null;
+    setAuthStatus("disabled", featureDisabledMessage("auth"));
+  } else if (authStatus.state === "disabled") {
+    setAuthStatus("idle", "");
+  }
+
+  if (!runtimeFeature("discord")) {
+    await discord.clearActivity().catch(() => {});
+    discord.disconnect();
+  }
+
+  if (!runtimeFeature("updater")) {
+    updater?.dispose();
+  } else if (updater) {
+    updater.start();
+  }
+}
+
+function requireRuntimeFeature(feature) {
+  if (!runtimeFeature(feature)) throw new Error(featureDisabledMessage(feature));
 }
 
 function secureHandle(channel, handler) {
   ipcMain.handle(channel, async (event, ...args) => {
     assertTrustedIpcEvent(event, trustedOrigins);
-    return handler(...args);
+    try {
+      return await handler(...args);
+    } catch (error) {
+      logger?.error("native_ipc_failed", {
+        channel,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      throw error;
+    }
   });
 }
 
@@ -272,17 +499,24 @@ function registerIpcHandlers() {
     productName: PRODUCT_NAME,
     desktopVersion: app.getVersion(),
     apiVersion: DESKTOP_API_VERSION,
-    capabilities: [...DESKTOP_CAPABILITIES],
+    capabilities: effectiveCapabilities(),
     platform: process.platform,
     arch: process.arch,
     packaged: app.isPackaged,
+    safeMode,
+    policy: policy?.snapshot() || null,
   }));
 
+  secureHandle("heykasa:auth:start", () => startDesktopAuth());
+  secureHandle("heykasa:auth:status", () => ({ ...authStatus }));
+
   secureHandle("heykasa:discord:set-activity", async (activity) => {
+    requireRuntimeFeature("discord");
     await discord.setActivity(activity);
     return { connected: discord.connected };
   });
   secureHandle("heykasa:discord:clear", async () => {
+    if (!runtimeFeature("discord")) return { connected: false };
     await discord.clearActivity();
     return { connected: discord.connected };
   });
@@ -292,13 +526,22 @@ function registerIpcHandlers() {
     return { connected: false };
   });
   secureHandle("heykasa:discord:status", () => ({
-    connected: discord.connected,
+    connected: runtimeFeature("discord") && discord.connected,
     previouslyConnected: discord.everConnected,
+    enabled: runtimeFeature("discord"),
   }));
 
-  secureHandle("heykasa:updates:status", () => updater?.getStatus() || { state: "idle" });
-  secureHandle("heykasa:updates:check", () => updater?.checkNow({ manual: true }) || { state: "disabled" });
+  secureHandle("heykasa:updates:status", () => (
+    runtimeFeature("updater")
+      ? updater?.getStatus() || { state: "idle" }
+      : { state: "disabled", detail: featureDisabledMessage("updater") }
+  ));
+  secureHandle("heykasa:updates:check", () => {
+    requireRuntimeFeature("updater");
+    return updater?.checkNow({ manual: true }) || { state: "disabled" };
+  });
   secureHandle("heykasa:updates:install", async () => {
+    requireRuntimeFeature("updater");
     await updater?.installReadyUpdate();
     return { ok: true };
   });
@@ -310,14 +553,34 @@ function registerIpcHandlers() {
     const next = enabled === true;
     app.setLoginItemSettings({ openAtLogin: next, openAsHidden: false });
     store.set("autoLaunch", next);
+    logger?.info("auto_launch_changed", { enabled: next });
     return { enabled: app.getLoginItemSettings().openAtLogin === true };
   });
 
   secureHandle("heykasa:preferences:get", () => desktopPreferences());
   secureHandle("heykasa:preferences:set", (key, value) => setDesktopPreference(key, value));
+  secureHandle("heykasa:diagnostics:get", () => ({
+    safeMode,
+    crashStreak: store?.get("crashStreak") || 0,
+    rendererCrashCount: store?.get("rendererCrashCount") || 0,
+    policy: policy?.snapshot() || null,
+    update: updater?.getStatus() || null,
+    discord: {
+      enabled: runtimeFeature("discord"),
+      connected: runtimeFeature("discord") && discord.connected,
+      previouslyConnected: discord.everConnected,
+    },
+    logs: logger?.tail(100) || [],
+  }));
+  secureHandle("heykasa:diagnostics:clear-logs", () => {
+    logger?.clear();
+    logger?.info("diagnostic_logs_cleared");
+    return { ok: true };
+  });
 }
 
 async function shutdownNativeIntegrations() {
+  policy?.dispose();
   updater?.dispose();
   await discord.clearActivity().catch(() => {});
   discord.disconnect();
@@ -330,20 +593,51 @@ if (registerSingleInstance()) {
 
   app.whenReady().then(async () => {
     app.setAppUserModelId(APP_USER_MODEL_ID);
-    store = new NativeStore(app.getPath("userData"));
-    // The OS is authoritative. Keep the local preference aligned if Windows
-    // changed the login item outside HeyKasa.
+    const userDataDir = app.getPath("userData");
+    store = new NativeStore(userDataDir);
+    logger = new NativeLogger(userDataDir);
+    const startState = store.recordStart();
+    safeMode = startState.safeMode;
+    logger.info("desktop_start", {
+      version: app.getVersion(),
+      packaged: app.isPackaged,
+      safeMode,
+      crashStreak: startState.crashStreak,
+      platform: process.platform,
+      arch: process.arch,
+    });
     const actualAutoLaunch = app.getLoginItemSettings().openAtLogin === true;
     if (store.get("autoLaunch") !== actualAutoLaunch) store.set("autoLaunch", actualAutoLaunch);
 
-    updater = new DesktopUpdater({ app, store, onStatus: sendUpdateStatus });
+    policy = new DesktopPolicy({
+      url: new URL("/api/desktop/policy", appUrl).href,
+      fetchImpl: (url, options) => net.fetch(url, options),
+      onChange: (snapshot) => void applyPolicy(snapshot),
+    });
+    await policy.refresh();
+
+    updater = new DesktopUpdater({
+      app,
+      store,
+      onStatus: sendUpdateStatus,
+      rolloutPercent: () => effectiveUpdateRolloutPercent(policy?.snapshot()),
+    });
     registerIpcHandlers();
     await createMainWindow();
     createTray();
-    updater.start();
+    if (runtimeFeature("updater")) updater.start();
+    policy.start();
+    startupCompleted = true;
+    logger.info("desktop_ready", { safeMode });
 
     powerMonitor.on("resume", () => {
-      if (updater && store.get("autoUpdate") !== false) void updater.checkNow();
+      logger?.info("system_resume");
+      void policy?.refresh();
+      if (runtimeFeature("updater") && updater && store.get("autoUpdate") !== false) void updater.checkNow();
+      if (authAttempt && desktopAuthAttemptExpired(authAttempt)) {
+        authAttempt = null;
+        setAuthStatus("idle", "");
+      }
     });
 
     app.on("activate", () => {
@@ -351,6 +645,7 @@ if (registerSingleInstance()) {
       else focusMainWindow();
     });
   }).catch((error) => {
+    logger?.error("desktop_start_failed", { error: error instanceof Error ? error.message : "unknown" });
     console.error(`[HeyKasa Desktop] ${error instanceof Error ? error.stack || error.message : error}`);
     app.quit();
   });
@@ -361,6 +656,8 @@ if (registerSingleInstance()) {
 
   app.on("before-quit", () => {
     quitting = true;
+    logger?.info("desktop_exit", { clean: startupCompleted });
+    if (startupCompleted) store?.recordCleanExit();
     void shutdownNativeIntegrations();
   });
 }

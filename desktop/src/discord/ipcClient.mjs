@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import net from "node:net";
 import path from "node:path";
 
-export const DISCORD_CLIENT_ID = process.env.HEYKASA_DISCORD_CLIENT_ID || "1550162988407857252";
+export const DISCORD_CLIENT_ID = "1550162988407857252";
 
 const IPC_HANDSHAKE = 0;
 const IPC_FRAME = 1;
