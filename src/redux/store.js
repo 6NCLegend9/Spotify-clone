@@ -41,12 +41,11 @@ const languagePersistedReducer = persistReducer(
 
 const settingsPersistedReducer = persistReducer(
   persistConfig("settings", {
-    version: 3,
+    version: 4,
     migrate: (state) =>
       Promise.resolve({
         ...(state && typeof state === "object" ? state : {}),
         keyboardShortcuts: state?.keyboardShortcuts !== false,
-        captions: false,
       }),
   }),
   settingsReducer

@@ -43,10 +43,6 @@ const settingsSlice = createSlice({
   reducers: {
     updateSetting: (state, action) => {
       const { key, value } = action.payload;
-      if (key === "captions") {
-        state.captions = false;
-        return;
-      }
       if (key === "discordPresence") {
         const enabled = value === true;
         state.discordPresence = enabled;
@@ -74,7 +70,6 @@ const settingsSlice = createSlice({
         owner: action.payload,
         masterVolume: state.masterVolume,
         keyboardShortcuts: state.keyboardShortcuts,
-        captions: false,
       };
     },
     hydrateSettings: (state, action) => {
@@ -94,7 +89,6 @@ const settingsSlice = createSlice({
           payload.keyboardShortcuts !== undefined
             ? payload.keyboardShortcuts !== false
             : state.keyboardShortcuts !== false,
-        captions: false,
         // Old accounts may have inherited the previous true-by-default value.
         // Do not treat that historical value as explicit permission.
         discordPresenceConsent: consent,

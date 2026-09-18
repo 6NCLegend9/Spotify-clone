@@ -44,18 +44,6 @@ function setEndScreenMask(active: boolean) {
   else delete host.dataset.kasaEndGuard;
 }
 
-function disableYouTubeCaptions() {
-  if (typeof document === "undefined") return;
-  const command = JSON.stringify({ event: "command", func: "unloadModule", args: ["captions"] });
-  document.querySelectorAll<HTMLIFrameElement>('[data-testid="youtube-decks"] iframe').forEach((frame) => {
-    try {
-      frame.contentWindow?.postMessage(command, "*");
-    } catch {
-      // The player can be between iframe generations during a track handoff.
-    }
-  });
-}
-
 export default function PlayerDock(props: PlayerDockProps) {
   const [queueOpen, setQueueOpen] = useState(false);
   const presentationRef = useRef<MediaPresentationHandle>(null);
@@ -73,22 +61,6 @@ export default function PlayerDock(props: PlayerDockProps) {
   useEffect(() => {
     setEndScreenMask(false);
     return () => setEndScreenMask(false);
-  }, [props.track.id]);
-
-  useEffect(() => {
-    const host = youtubeDeckHost();
-    disableYouTubeCaptions();
-
-    const observer = host && typeof MutationObserver !== "undefined"
-      ? new MutationObserver(() => disableYouTubeCaptions())
-      : null;
-    observer?.observe(host!, { childList: true, subtree: true });
-
-    const interval = window.setInterval(disableYouTubeCaptions, 1200);
-    return () => {
-      observer?.disconnect();
-      window.clearInterval(interval);
-    };
   }, [props.track.id]);
 
   useEffect(() => {
