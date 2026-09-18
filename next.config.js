@@ -103,9 +103,10 @@ const nextConfig = {
         ],
       },
       {
-        // Keep the rest of the app unframed. Negative lookahead so embed
-        // routes do not inherit frame-ancestors 'self' or X-Frame-Options.
-        source: "/((?!embed/).*)",
+        // Embed routes set x-kasa-embed in middleware so they keep frame-ancestors *.
+        // Avoid regex lookarounds here; Vercel compiles these sources with path-to-regexp.
+        source: "/:path*",
+        missing: [{ type: "header", key: "x-kasa-embed" }],
         headers: securityHeaders(),
       },
       {

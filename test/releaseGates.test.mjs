@@ -18,6 +18,17 @@ function sourceFiles(directory) {
   });
 }
 
+test("Vercel builds the Next.js app on Node 22", () => {
+  const pkg = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8"));
+  const vercel = JSON.parse(readFileSync(join(projectRoot, "vercel.json"), "utf8"));
+  assert.equal(pkg.engines.node, "22.x");
+  assert.equal(vercel.framework, "nextjs");
+  assert.equal(vercel.installCommand, "npm ci");
+  assert.equal(vercel.buildCommand, "npm run build");
+  assert.equal(vercel.git?.deploymentEnabled?.main, true);
+  assert.equal(vercel.git?.deploymentEnabled?.["desktop-app-development"], false);
+});
+
 test("generated service worker is not tracked", () => {
   let tracked;
   try {
