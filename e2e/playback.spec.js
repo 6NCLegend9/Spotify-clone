@@ -298,9 +298,18 @@ test("video expansion fits desktop and mobile without replacing the media host",
     expect(outside, label).toEqual([]);
   };
 
+  const revealControls = async () => {
+    if (await expanded.getAttribute("data-controls") === "visible") return;
+    const box = await page.getByTestId("youtube-decks").boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(expanded).toHaveAttribute("data-controls", "visible");
+  };
+
   await page.keyboard.press("v");
   await assertExpandedLayout("initial viewport");
   await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
+  await revealControls();
   await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
   await expect(dock).toBeVisible();
 
@@ -320,6 +329,7 @@ test("video expansion fits desktop and mobile without replacing the media host",
       await expect(page.locator(".app-tabbar")).toHaveAttribute("inert", "");
     }
     await page.screenshot({ path: testInfo.outputPath(`expanded-${viewport.width}x${viewport.height}.png`) });
+    await revealControls();
     await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
   }
 

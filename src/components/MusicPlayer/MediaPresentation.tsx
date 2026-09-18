@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Settings2, Video } from "lucide-react";
-import type { PointerEvent as ReactPointerEvent, TouchEvent } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent } from "react";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
@@ -86,7 +86,6 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const overlayRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const gestureRef = useRef<{ x: number; y: number } | null>(null);
-  const mediaPointerRef = useRef<{ pointerId: number; x: number; y: number; controlsVisibleAtStart: boolean } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const controlsVisibleRef = useRef(true);
   const canVideo = Boolean(props.onVideo);
@@ -301,23 +300,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     if (dy > 72 && Math.abs(dx) < 40) close();
     else if (!props.disabled && Math.abs(dx) > 72 && Math.abs(dy) < 40) { if (dx < 0) props.onNext(); else props.onPrevious(); }
   };
-  const startMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
+  const toggleMediaControls = (event: ReactMouseEvent<HTMLElement>) => {
     if (!expanded || (event.target as HTMLElement).closest("button, a, input, select")) return;
-    mediaPointerRef.current = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      controlsVisibleAtStart: controlsVisibleRef.current,
-    };
-    try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
-  };
-  const endMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
-    const start = mediaPointerRef.current;
-    mediaPointerRef.current = null;
-    if (!expanded || !start || start.pointerId !== event.pointerId) return;
-    const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-    if (distance <= 14) toggleTheaterControls(start.controlsVisibleAtStart);
-    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch {}
+    toggleTheaterControls();
   };
   const moveMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
     if (expanded && event.pointerType === "mouse" && !controlsVisibleRef.current) showTheaterControls();
@@ -360,7 +345,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     <div className={`${styles.body} ${expanded ? styles.expandedBody : ""} ${view !== "player" ? styles.utilityBody : ""}`}>
       {view === "player" ? <>
         <div ref={anchorRef} onTouchStart={startGesture} onTouchEnd={endGesture}
-          onPointerDown={startMediaPointer} onPointerUp={endMediaPointer} onPointerMove={moveMediaPointer}
+          onClick={toggleMediaControls} onPointerMove={moveMediaPointer}
           className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
           {!showingVideo && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
@@ -386,7 +371,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     {mediaHost && showingVideo && (!mobile || overlay) && createPortal(<>
       <div className={styles.gestureSurface} aria-hidden="true"
         onTouchStart={startGesture} onTouchEnd={endGesture}
-        onPointerDown={startMediaPointer} onPointerUp={endMediaPointer} onPointerMove={moveMediaPointer} />
+        onClick={toggleMediaControls} onPointerMove={moveMediaPointer} />
       {!expanded && <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
     </>, mediaHost)}
     <span hidden data-kasa-media-view={overlay ? (expanded ? "expanded" : "drawer") : showingVideo ? "video" : "audio"} />
