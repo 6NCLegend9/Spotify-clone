@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DesktopPolicy,
+  effectiveUpdateRolloutPercent,
   installationEligibleForRollout,
   installationRolloutBucket,
   sanitizeDesktopPolicy,
@@ -77,4 +78,12 @@ test("installation rollout bucket is stable and respects percentage boundaries",
   assert.equal(installationEligibleForRollout(installationId, 0), false);
   assert.equal(installationEligibleForRollout(installationId, bucket), false);
   assert.equal(installationEligibleForRollout(installationId, bucket + 1), true);
+});
+
+
+test("update rollout fails closed until a valid policy has loaded", () => {
+  assert.equal(effectiveUpdateRolloutPercent(null), 0);
+  assert.equal(effectiveUpdateRolloutPercent({ updatedAt: 0, updateRolloutPercent: 75 }), 0);
+  assert.equal(effectiveUpdateRolloutPercent({ updatedAt: Date.now(), updateRolloutPercent: 25.4 }), 25);
+  assert.equal(effectiveUpdateRolloutPercent({ updatedAt: Date.now(), updateRolloutPercent: 250 }), 100);
 });

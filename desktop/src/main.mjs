@@ -28,7 +28,7 @@ import {
 import { DiscordIpcClient } from "./discord/ipcClient.mjs";
 import { NativeLogger } from "./nativeLogger.mjs";
 import { NativeStore } from "./nativeStore.mjs";
-import { DesktopPolicy } from "./policy.mjs";
+import { DesktopPolicy, effectiveUpdateRolloutPercent } from "./policy.mjs";
 import {
   assertTrustedIpcEvent,
   buildTrustedOrigins,
@@ -616,7 +616,12 @@ if (registerSingleInstance()) {
     });
     await policy.refresh();
 
-    updater = new DesktopUpdater({ app, store, onStatus: sendUpdateStatus });
+    updater = new DesktopUpdater({
+      app,
+      store,
+      onStatus: sendUpdateStatus,
+      rolloutPercent: () => effectiveUpdateRolloutPercent(policy?.snapshot()),
+    });
     registerIpcHandlers();
     await createMainWindow();
     createTray();

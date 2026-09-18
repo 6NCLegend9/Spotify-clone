@@ -27,21 +27,12 @@ function httpsUrl(value) {
   }
 }
 
-function normalizedGate(value) {
-  if (value === false) return { allowed: false, detail: "This desktop release is not available to this installation yet." };
-  if (!value || typeof value !== "object") return { allowed: true, detail: "" };
-  return {
-    allowed: value.allowed !== false,
-    detail: typeof value.detail === "string" ? value.detail.slice(0, 240) : "",
-  };
-}
-
 export class DesktopUpdater {
-  constructor({ app, store, onStatus = () => {}, canCheckRelease = () => ({ allowed: true }) }) {
+  constructor({ app, store, onStatus = () => {}, rolloutPercent = () => 0 }) {
     this.app = app;
     this.store = store;
     this.onStatus = onStatus;
-    this.canCheckRelease = canCheckRelease;
+    this.getRolloutPercent = rolloutPercent;
     this.status = { state: "idle", version: app.getVersion(), progress: 0, detail: "" };
     this.started = false;
     this.initialTimer = null;
@@ -156,21 +147,19 @@ export class DesktopUpdater {
     return manifest;
   }
 
-  async rolloutGate({ manual = false } = {}) {
-    try {
-      return normalizedGate(await this.canCheckRelease({ manual, channel: this.channel() }));
-    } catch {
-      return { allowed: false, detail: "Desktop update eligibility could not be verified. HeyKasa will try again later." };
-    }
-  }
-
   manifestRolloutAllows(manifest) {
     if (this.channel() !== "stable") return true;
     if (versionOlderThan(this.app.getVersion(), manifest?.minimum)) return true;
     if ((Number(manifest?.desktopApiVersion) || 0) > DESKTOP_API_VERSION) return true;
+    let percent = 0;
+    try {
+      percent = this.getRolloutPercent();
+    } catch {
+      percent = 0;
+    }
     return installationEligibleForRollout(
       this.store.get("installationId"),
-      manifest?.updateRolloutPercent ?? 100,
+      percent,
     );
   }
 
@@ -182,16 +171,6 @@ export class DesktopUpdater {
     if (this.status.state === "ready") return this.getStatus();
     if (this.store.get("autoUpdate") === false && !manual) {
       this.emit({ state: "disabled", detail: "Automatic updates are turned off." });
-      return this.getStatus();
-    }
-
-    const gate = await this.rolloutGate({ manual });
-    if (!gate.allowed) {
-      this.emit({
-        state: "deferred",
-        progress: 0,
-        detail: gate.detail || "The current release is rolling out gradually. HeyKasa will check again automatically.",
-      });
       return this.getStatus();
     }
 

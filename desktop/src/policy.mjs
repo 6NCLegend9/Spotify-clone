@@ -52,6 +52,11 @@ export function installationEligibleForRollout(installationId, percent) {
   return installationRolloutBucket(installationId) < bounded;
 }
 
+export function effectiveUpdateRolloutPercent(snapshot) {
+  if (!snapshot || !Number.isFinite(snapshot.updatedAt) || snapshot.updatedAt <= 0) return 0;
+  return rolloutPercent(snapshot.updateRolloutPercent);
+}
+
 export class DesktopPolicy {
   constructor({ url, fetchImpl = globalThis.fetch, onChange = () => {} }) {
     this.url = String(url || "");
