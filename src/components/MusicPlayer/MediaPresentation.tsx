@@ -86,8 +86,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const overlayRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const gestureRef = useRef<{ x: number; y: number } | null>(null);
-  const mediaPointerRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const mediaPointerRef = useRef<{ pointerId: number; x: number; y: number; controlsVisibleAtStart: boolean } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
+  const controlsVisibleRef = useRef(true);
   const canVideo = Boolean(props.onVideo);
   const canLyrics = Boolean(props.onLyrics);
   const overlay = expanded || drawer;
@@ -101,24 +102,28 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, []);
   const showTheaterControls = useCallback(() => {
     if (!expanded || view !== "player") return;
+    controlsVisibleRef.current = true;
     setControlsVisible(true);
     clearControlsTimer();
     controlsTimerRef.current = window.setTimeout(() => {
       controlsTimerRef.current = null;
+      controlsVisibleRef.current = false;
       setControlsVisible(false);
     }, THEATER_CONTROLS_HIDE_MS);
   }, [clearControlsTimer, expanded, view]);
-  const toggleTheaterControls = useCallback(() => {
+  const toggleTheaterControls = useCallback((visibleAtPointerDown = controlsVisibleRef.current) => {
     if (!expanded || view !== "player") return;
     clearControlsTimer();
-    setControlsVisible((current) => {
-      if (current) return false;
+    const next = !visibleAtPointerDown;
+    controlsVisibleRef.current = next;
+    setControlsVisible(next);
+    if (next) {
       controlsTimerRef.current = window.setTimeout(() => {
         controlsTimerRef.current = null;
+        controlsVisibleRef.current = false;
         setControlsVisible(false);
       }, THEATER_CONTROLS_HIDE_MS);
-      return true;
-    });
+    }
   }, [clearControlsTimer, expanded, view]);
 
   const persistVideoMode = useCallback((next: boolean) => {
@@ -180,6 +185,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       return clearControlsTimer;
     }
     clearControlsTimer();
+    controlsVisibleRef.current = true;
     setControlsVisible(true);
     return undefined;
   }, [clearControlsTimer, expanded, props.track.id, showTheaterControls, view]);
@@ -297,7 +303,12 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   };
   const startMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
     if (!expanded || (event.target as HTMLElement).closest("button, a, input, select")) return;
-    mediaPointerRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    mediaPointerRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      controlsVisibleAtStart: controlsVisibleRef.current,
+    };
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
   };
   const endMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
@@ -305,11 +316,11 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     mediaPointerRef.current = null;
     if (!expanded || !start || start.pointerId !== event.pointerId) return;
     const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
-    if (distance <= 14) toggleTheaterControls();
+    if (distance <= 14) toggleTheaterControls(start.controlsVisibleAtStart);
     try { event.currentTarget.releasePointerCapture(event.pointerId); } catch {}
   };
   const moveMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
-    if (expanded && event.pointerType === "mouse" && !controlsVisible) showTheaterControls();
+    if (expanded && event.pointerType === "mouse" && !controlsVisibleRef.current) showTheaterControls();
   };
   const modeButton = canVideo ? <button type="button" className={styles.modeButton}
     onClick={() => persistVideoMode(!video)}

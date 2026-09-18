@@ -281,7 +281,6 @@ function YouTubePlayer() {
   const chromeLockedRef = useRef(false);
   const chromeIdleTimerRef = useRef(0);
   const chromeHideGenRef = useRef(0);
-  const chromePointerWakeRef = useRef(0);
   const bumpExpandedChromeRef = useRef(() => {});
   const userPausedRef = useRef(false);
   const pageHiddenWhilePlayingRef = useRef(false);
@@ -2874,12 +2873,7 @@ function YouTubePlayer() {
       togglePhoneImmersive();
       return;
     }
-    const wokeFromPointerMove = (
-      chromePointerWakeRef.current > 0
-      && performance.now() - chromePointerWakeRef.current < 500
-    );
-    chromePointerWakeRef.current = 0;
-    if (chromeVisibleRef.current && !wokeFromPointerMove) enterIdleChrome();
+    if (chromeVisible) enterIdleChrome();
     else bumpExpandedChrome({ reveal: true });
   };
   const toggleShuffle = () => {
@@ -3003,10 +2997,7 @@ function YouTubePlayer() {
             className={`absolute inset-0 z-[16] border-0 bg-transparent ${fullscreen && !chromeVisible && !phoneSheet ? "cursor-none" : ""}`}
             onPointerMove={(event) => {
               event.stopPropagation();
-              if (!phoneSheet && event.pointerType !== "touch") {
-                if (!chromeVisibleRef.current) chromePointerWakeRef.current = performance.now();
-                bumpExpandedChrome();
-              }
+              if (!phoneSheet && event.pointerType !== "touch") bumpExpandedChrome();
             }}
             onPointerDown={(event) => {
               event.stopPropagation();
