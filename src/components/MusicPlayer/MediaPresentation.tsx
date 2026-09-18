@@ -193,7 +193,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: expanded && showingVideo } }));
-    return () => window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: false } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: false } }));
+    };
   }, [expanded, showingVideo]);
 
   const hasOtherDialog = useCallback(() => Array.from(document.querySelectorAll<HTMLElement>('dialog[open], [role="dialog"][aria-modal="true"]'))
