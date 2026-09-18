@@ -62,6 +62,7 @@ export class DesktopUpdater {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.autoRunAppAfterInstall = true;
+    autoUpdater.disableWebInstaller = true;
     autoUpdater.allowDowngrade = false;
 
     autoUpdater.on("checking-for-update", () => this.emit({ state: "checking", progress: 0 }));
@@ -131,6 +132,10 @@ export class DesktopUpdater {
     if (!url) return false;
     const releaseChannel = this.channel();
     autoUpdater.channel = "latest";
+    // electron-updater enables downgrades when the channel is assigned. Reset
+    // the flag immediately so switching release channels cannot install an
+    // older binary.
+    autoUpdater.allowDowngrade = false;
     autoUpdater.allowPrerelease = releaseChannel !== "stable";
     autoUpdater.setFeedURL({ provider: "generic", url, channel: "latest" });
     return true;
