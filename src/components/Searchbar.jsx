@@ -28,7 +28,6 @@ const Searchbar = () => {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [songs, setSongs] = useState([]);
-  const [recentSongs, setRecentSongs] = useState([]);
   const [recentQueries, setRecentQueries] = useState([]);
   const [recentLoading, setRecentLoading] = useState(false);
   const inputId = useId();
@@ -84,18 +83,9 @@ const Searchbar = () => {
     recentsLoadedAtRef.current = now;
     setRecentLoading(true);
     try {
-      const [historyResult, searchesResult] = await Promise.allSettled([
-        requestJson("/api/history"),
-        requestJson("/api/searches"),
-      ]);
-      if (historyResult.status === "fulfilled") {
-        const history = Array.isArray(historyResult.value?.data) ? historyResult.value.data : [];
-        setRecentSongs(history.filter((song) => song?.id && (song?.title || song?.name)).slice(0, 6));
-      }
-      if (searchesResult.status === "fulfilled") {
-        const searches = Array.isArray(searchesResult.value?.data) ? searchesResult.value.data : [];
-        setRecentQueries(searches.filter((query) => typeof query === "string" && query.trim()).slice(0, 5));
-      }
+      const data = await requestJson("/api/searches");
+      const searches = Array.isArray(data?.data) ? data.data : [];
+      setRecentQueries(searches.filter((query) => typeof query === "string" && query.trim()).slice(0, 8));
     } finally {
       setRecentLoading(false);
     }
@@ -131,11 +121,8 @@ const Searchbar = () => {
 
   const items = useMemo(() => {
     if (searchTerm.trim()) return songs.map((song) => ({ type: "song", key: `song-${song.id}`, song }));
-    return [
-      ...recentSongs.map((song) => ({ type: "recent-song", key: `recent-song-${song.id}`, song })),
-      ...recentQueries.map((query, index) => ({ type: "recent-query", key: `recent-query-${index}-${query}`, query })),
-    ];
-  }, [searchTerm, songs, recentSongs, recentQueries]);
+    return recentQueries.map((query, index) => ({ type: "recent-query", key: `recent-query-${index}-${query}`, query }));
+  }, [searchTerm, songs, recentQueries]);
 
   const go = (query) => {
     const next = String(query || "").trim();
@@ -294,12 +281,12 @@ const Searchbar = () => {
         </Link>
       </div>
       {suggestionsVisible ? (
-        <ul id={listboxId} role="listbox" aria-label={showRecentState ? "Recent searches and songs" : "Search suggestions"} className="search-suggest">
+        <ul id={listboxId} role="listbox" aria-label={showRecentState ? "Recent searches" : "Search suggestions"} className="search-suggest">
           {showRecentState && recentLoading && items.length === 0 ? (
             <li role="presentation" className="px-4 py-3 text-sm text-[#b3b3b3]">Loading recents…</li>
           ) : null}
           {showRecentState && !recentLoading && items.length === 0 ? (
-            <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Your recent songs and searches will appear here.</li>
+            <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Your recent searches will appear here.</li>
           ) : null}
           {!showRecentState && searchTerm.trim().length < 2 ? (
             <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Type at least 2 characters to search.</li>
@@ -328,7 +315,7 @@ const Searchbar = () => {
                 </span>
               </button>
               <AddToQueueButton track={item.song} className="z-[90]" />
-              <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">{item.type === "recent-song" ? "Recent" : "Song"}</span>
+              <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
             </li>
           ))}
         </ul>
@@ -339,7 +326,7 @@ const Searchbar = () => {
             ? `${items.length} suggestions available. Use the up and down arrow keys to review them.`
             : "No suggestions yet. Press Enter to see full results."
           : showRecentState && items.length > 0
-            ? `${items.length} recent items available.`
+            ? `${items.length} recent searches available.`
             : ""}
       </p>
     </form>
