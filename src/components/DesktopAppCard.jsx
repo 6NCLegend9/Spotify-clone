@@ -287,9 +287,9 @@ export default function DesktopAppCard() {
                   ? manifest.portable
                     ? "Portable fallback from the last successful Windows build. Download the ZIP, extract it, then run the app executable. GitHub may ask the repository owner to sign in before downloading."
                     : manifest.signed === false
-                      ? "Public Windows preview build. Windows may show a publisher warning until the production signing certificate is configured."
-                      : "Signed desktop release. Updates are handled by the installed app after setup."
-                  : "The Windows build is being prepared. This card will enable the download as soon as a public installer is available."}
+                      ? "Windows installer. Open the downloaded file to install HayKasa, add Start Menu and desktop shortcuts, and launch it like a normal app. Windows may show a publisher warning until the production signing certificate is configured."
+                      : "Signed desktop installer. Open the downloaded file to install HayKasa. Updates are handled by the app after setup."
+                  : "The Windows installer is being prepared. This card will enable the download as soon as it is available."}
               </p>
             </div>
             {manifest?.published && manifest.downloadUrl ? (
@@ -297,12 +297,13 @@ export default function DesktopAppCard() {
                 href={manifest.downloadUrl}
                 className="btn-primary min-h-11 shrink-0 gap-2 px-4"
                 rel="noopener noreferrer"
+                {...(manifest.portable ? {} : { download: "HayKasa-Setup-x64.exe" })}
               >
-                <FiDownload aria-hidden="true" /> {manifest.portable ? "Download portable build" : manifest.signed === false ? "Download Windows preview" : "Download for Windows"}
+                <FiDownload aria-hidden="true" /> {manifest.portable ? "Download portable build" : "Download for Windows"}
               </a>
             ) : (
               <button type="button" disabled className="btn-primary min-h-11 shrink-0 gap-2 px-4 opacity-50">
-                <FiDownload aria-hidden="true" /> Preparing Windows build
+                <FiDownload aria-hidden="true" /> Preparing Windows installer
               </button>
             )}
           </div>

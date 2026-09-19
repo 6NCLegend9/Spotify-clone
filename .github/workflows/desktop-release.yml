@@ -63,7 +63,7 @@ jobs:
         run: npm run audit:production
 
       - name: Test desktop server contract
-        run: node --test test/desktopAuth.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs
+        run: node --test test/desktopAuth.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs
 
       - name: Typecheck web integration
         run: npm run typecheck

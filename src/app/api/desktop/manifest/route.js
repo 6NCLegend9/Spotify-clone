@@ -1,5 +1,11 @@
 import crypto from "node:crypto";
 import {
+  DESKTOP_INSTALLER_APP_PATH,
+  DESKTOP_INSTALLER_NOTES_URL,
+  desktopAppDownloadUrl,
+  findLocalDesktopInstaller,
+} from "../../../../utils/desktopInstaller.mjs";
+import {
   desktopReleaseFileUrl,
   normalizeDesktopReleaseChannel,
 } from "../../../../utils/desktopRelease.mjs";
@@ -8,8 +14,6 @@ export const runtime = "nodejs";
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
-const PORTABLE_FALLBACK_URL = "https://github.com/6NCLegend9/Spotify-clone/suites/95871463986/artifacts/10569826844";
-const PORTABLE_FALLBACK_NOTES_URL = "https://github.com/6NCLegend9/Spotify-clone/actions/runs/35398551370";
 function httpsUrl(value) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text) return "";
@@ -49,7 +53,7 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
     input.minimum || (isStable ? process.env.HEYKASA_DESKTOP_MINIMUM_VERSION : ""),
     "1.0.0",
   );
-  const downloadUrl = httpsUrl(
+  const downloadUrl = desktopAppDownloadUrl(
     input.downloadUrl || (isStable ? process.env.HEYKASA_DESKTOP_DOWNLOAD_URL : ""),
   );
   const releaseNotesUrl = httpsUrl(
@@ -186,19 +190,18 @@ async function loadManifest(channel) {
   if (configured.published || channel !== "stable") return configured;
   const preview = await loadInternalPreview();
   if (preview) return preview;
-  if (process.env.VERCEL_ENV === "production") {
-    return normalizeManifest({
-      latest: configured.latest,
-      minimum: configured.minimum,
-      recommended: configured.recommended,
-      downloadUrl: PORTABLE_FALLBACK_URL,
-      releaseNotesUrl: PORTABLE_FALLBACK_NOTES_URL,
-      signed: false,
-      portable: true,
-      source: "github-actions-portable",
-    }, channel);
-  }
-  return configured;
+  const localInstaller = findLocalDesktopInstaller();
+  return normalizeManifest({
+    latest: configured.latest,
+    minimum: configured.minimum,
+    recommended: configured.recommended,
+    downloadUrl: DESKTOP_INSTALLER_APP_PATH,
+    releaseNotesUrl: DESKTOP_INSTALLER_NOTES_URL,
+    sizeBytes: localInstaller?.sizeBytes,
+    signed: false,
+    portable: false,
+    source: "nsis-installer",
+  }, channel);
 }
 
 export async function GET(request) {

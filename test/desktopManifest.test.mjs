@@ -11,6 +11,8 @@ const originalEnv = {
   download: process.env.HEYKASA_DESKTOP_DOWNLOAD_URL,
   sha512: process.env.HEYKASA_DESKTOP_SHA512,
   rollout: process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT,
+  blob: process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
+  vercelEnv: process.env.VERCEL_ENV,
 };
 
 const { GET } = await import("../src/app/api/desktop/manifest/route.js");
@@ -25,6 +27,8 @@ function restoreEnvironment() {
     HEYKASA_DESKTOP_DOWNLOAD_URL: originalEnv.download,
     HEYKASA_DESKTOP_SHA512: originalEnv.sha512,
     HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT: originalEnv.rollout,
+    HEYKASA_DESKTOP_BLOB_BASE_URL: originalEnv.blob,
+    VERCEL_ENV: originalEnv.vercelEnv,
   })) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -112,6 +116,7 @@ test("desktop manifest rejects an unsigned or modified remote payload", async ()
   process.env.HEYKASA_DESKTOP_LATEST_VERSION = "1.0.0";
   delete process.env.HEYKASA_DESKTOP_DOWNLOAD_URL;
   delete process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT;
+  delete process.env.HEYKASA_DESKTOP_BLOB_BASE_URL;
   globalThis.fetch = async () => new Response(JSON.stringify({
     payload: {
       latest: "99.0.0",
@@ -126,6 +131,23 @@ test("desktop manifest rejects an unsigned or modified remote payload", async ()
   assert.equal(result.latest, "1.0.0");
   assert.equal(result.minimum, "1.0.0");
   assert.equal(result.updateRolloutPercent, 100);
-  assert.equal(result.published, false);
-  assert.equal(result.downloadUrl, "");
+  assert.equal(result.published, true);
+  assert.equal(result.portable, false);
+  assert.equal(result.downloadUrl, "/api/desktop/download");
+  assert.equal(result.downloadUrl.includes("evil.example"), false);
+});
+
+test("stable channel uses the Windows installer fallback", async () => {
+  delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
+  delete process.env.HEYKASA_DESKTOP_DOWNLOAD_URL;
+  delete process.env.HEYKASA_DESKTOP_BLOB_BASE_URL;
+  delete process.env.VERCEL_ENV;
+
+  const response = await GET(new Request("http://localhost:3000/api/desktop/manifest"));
+  const result = await response.json();
+  assert.equal(result.published, true);
+  assert.equal(result.portable, false);
+  assert.equal(result.signed, false);
+  assert.equal(result.source, "nsis-installer");
+  assert.equal(result.downloadUrl, "/api/desktop/download");
 });

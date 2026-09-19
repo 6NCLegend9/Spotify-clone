@@ -20,7 +20,9 @@ on:
       - "src/models/DesktopAuthGrant.js"
       - "src/utils/desktopAuth.mjs"
       - "src/utils/desktopEnvironment.js"
+      - "src/utils/desktopInstaller.mjs"
       - "test/desktopAuth.test.mjs"
+      - "test/desktopInstaller.test.mjs"
       - "test/desktopManifest.test.mjs"
       - "test/desktopPolicy.test.mjs"
       - ".github/workflows/desktop-ci.yml"
@@ -44,7 +46,9 @@ on:
       - "src/models/DesktopAuthGrant.js"
       - "src/utils/desktopAuth.mjs"
       - "src/utils/desktopEnvironment.js"
+      - "src/utils/desktopInstaller.mjs"
       - "test/desktopAuth.test.mjs"
+      - "test/desktopInstaller.test.mjs"
       - "test/desktopManifest.test.mjs"
       - "test/desktopPolicy.test.mjs"
       - ".github/workflows/desktop-ci.yml"
@@ -69,16 +73,17 @@ jobs:
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
       - name: Test desktop web contract
-        run: node --test test/desktopAuth.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs
+        run: node --test test/desktopAuth.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs
 
   windows-desktop:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: desktop
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -90,17 +95,48 @@ jobs:
         run: npm test
       - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
-      - name: Package unsigned CI build
-        run: npm run pack
-      - name: Verify packaged executable
+      - name: Build unsigned Windows installer
+        run: npm run dist
+      - name: Verify Windows installer
         shell: pwsh
         run: |
+          $installer = Get-ChildItem -Path dist -Filter "HayKasa-Setup-*-x64.exe" | Select-Object -First 1
+          if (-not $installer) { throw "HayKasa-Setup installer was not produced" }
+          Copy-Item $installer.FullName (Join-Path $installer.DirectoryName "HayKasa-Setup-x64.exe")
           $exe = Get-ChildItem -Path dist -Recurse -Filter "HayKasa.exe" | Select-Object -First 1
           if (-not $exe) { throw "HayKasa.exe was not produced" }
-          Write-Host "Packaged executable: $($exe.FullName)"
+          Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
+      - name: Publish installer to Vercel Blob
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:BLOB_READ_WRITE_TOKEN)) {
+            Write-Host "Skipping Vercel Blob publish; BLOB_READ_WRITE_TOKEN is not configured."
+            exit 0
+          }
+          npm run publish-installer
       - uses: actions/upload-artifact@v4
         with:
           name: heykasa-desktop-windows-${{ github.sha }}
-          path: desktop/dist/win-unpacked/
+          path: desktop/dist/HayKasa-Setup-x64.exe
           if-no-files-found: error
           retention-days: 7
+
+  publish-installer:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: windows-desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: heykasa-desktop-windows-${{ github.sha }}
+          path: installer
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-latest
+          name: HayKasa Desktop for Windows
+          prerelease: true
+          files: installer/HayKasa-Setup-x64.exe

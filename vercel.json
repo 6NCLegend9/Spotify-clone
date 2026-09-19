@@ -13,5 +13,12 @@
     "src/app/api/**/*.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/HayKasa-Setup-x64.exe",
+      "destination": "/api/desktop/download",
+      "permanent": false
+    }
+  ]
 }
