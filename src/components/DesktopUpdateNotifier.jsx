@@ -32,7 +32,6 @@ export default function DesktopUpdateNotifier() {
       if (!active || status?.state !== "ready") return;
       const version = typeof status.version === "string" ? status.version.trim() : "";
       if (!version || alreadyNotified(version)) return;
-      rememberNotification(version);
 
       toast((entry) => (
         <div className="flex max-w-sm items-center gap-4">
@@ -45,6 +44,7 @@ export default function DesktopUpdateNotifier() {
               type="button"
               className="rounded-full bg-[#00e6e6] px-3 py-2 text-xs font-bold text-[#041017]"
               onClick={() => {
+                rememberNotification(version);
                 toast.dismiss(entry.id);
                 void api.updates.install().catch(() => {});
               }}
@@ -54,13 +54,19 @@ export default function DesktopUpdateNotifier() {
             <button
               type="button"
               className="px-3 py-1 text-xs font-semibold text-[#b5c1cc]"
-              onClick={() => toast.dismiss(entry.id)}
+              onClick={() => {
+                rememberNotification(version);
+                toast.dismiss(entry.id);
+              }}
             >
               Later
             </button>
           </div>
         </div>
-      ), { duration: 30_000 });
+      ), {
+        id: `desktop-update-${version}`,
+        duration: Infinity,
+      });
     };
 
     void api.updates.getStatus?.().then(showReady).catch(() => {});

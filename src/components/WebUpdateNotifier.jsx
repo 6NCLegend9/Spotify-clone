@@ -43,18 +43,30 @@ export default function WebUpdateNotifier() {
               <p className="text-sm font-semibold text-white">A new HayKasa version is ready</p>
               <p className="mt-1 text-xs leading-5 text-[#b5c1cc]">Reload when you&apos;re ready. Playback is not interrupted automatically.</p>
             </div>
-            <button
-              type="button"
-              className="shrink-0 rounded-full bg-[#00e6e6] px-3 py-2 text-xs font-bold text-[#041017]"
-              onClick={() => {
-                toast.dismiss(entry.id);
-                window.location.reload();
-              }}
-            >
-              Reload
-            </button>
+            <div className="flex shrink-0 flex-col gap-2">
+              <button
+                type="button"
+                className="rounded-full bg-[#00e6e6] px-3 py-2 text-xs font-bold text-[#041017]"
+                onClick={() => {
+                  toast.dismiss(entry.id);
+                  window.location.reload();
+                }}
+              >
+                Reload
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1 text-xs font-semibold text-[#b5c1cc]"
+                onClick={() => toast.dismiss(entry.id)}
+              >
+                Later
+              </button>
+            </div>
           </div>
-        ), { duration: 20_000 });
+        ), {
+          id: `web-update-${currentBuild}`,
+          duration: Infinity,
+        });
       } catch {
         // An update check must never interfere with playback or navigation.
       }

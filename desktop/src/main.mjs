@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   net,
+  Notification,
   powerMonitor,
   session,
   shell,
@@ -72,6 +73,7 @@ const discord = new DiscordIpcClient();
 let miniWindow = null;
 let miniUserHidden = false;
 let playbackState = sanitizePlaybackState(null);
+let lastNativeUpdateNotificationVersion = "";
 
 function resourceIconPath() {
   return app.isPackaged
@@ -635,6 +637,32 @@ function setDesktopPreference(key, value) {
   return desktopPreferences();
 }
 
+function showNativeUpdateNotification(status) {
+  if (status?.state !== "ready" || process.platform !== "win32" || !Notification.isSupported()) return;
+  const version = String(status.version || "").trim();
+  const key = version || "ready";
+  if (lastNativeUpdateNotificationVersion === key) return;
+  lastNativeUpdateNotificationVersion = key;
+
+  try {
+    const notification = new Notification({
+      title: version ? `HayKasa Desktop ${version} is ready` : "HayKasa Desktop update is ready",
+      body: "The update finished downloading. Open HayKasa to restart and install it.",
+      icon: resourceIconPath(),
+      silent: false,
+    });
+    notification.on("click", () => {
+      showMainWindow();
+      if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", status);
+    });
+    notification.show();
+  } catch (error) {
+    logger?.warn("native_update_notification_failed", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
 function sendUpdateStatus(status) {
   if (["checking", "available", "ready", "up-to-date", "error", "disabled"].includes(status?.state)) {
     logger?.info("update_status", {
@@ -642,6 +670,7 @@ function sendUpdateStatus(status) {
       version: status.version || "",
     });
   }
+  showNativeUpdateNotification(status);
   if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", status);
 }
 

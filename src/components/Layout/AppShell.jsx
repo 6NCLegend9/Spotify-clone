@@ -353,6 +353,10 @@ export default function AppShell({ children }) {
       </JamProvider>
       <Toaster
         position="top-center"
+        containerStyle={{
+          zIndex: 2147483647,
+          top: "max(12px, env(safe-area-inset-top, 0px))",
+        }}
         toastOptions={{
           duration: 4500,
           ariaProps: {
