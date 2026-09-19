@@ -280,31 +280,28 @@ function AccountSettings({ owner, status }) {
           </div>
           <p className="mb-4 text-xs text-gray-400">Shape the tone of your music. Pick a preset or drag a band to fine-tune it.</p>
           <SelectControl label="Preset" value={settings.eqPreset} options={eqPresetOptions} onChange={(value) => set("eqPreset", value)} />
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {EQ_BAND_FREQS.map((frequency, index) => {
-              const gain = Number(eqBands[index] || 0);
-              return (
-                <label key={frequency} className="block text-sm text-gray-300">
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span>{formatBandFrequency(frequency)}</span>
+          <div className="mt-5 overflow-x-auto pb-2" aria-label="Six-band equalizer">
+            <div className="relative grid min-w-[660px] grid-cols-6 gap-3 rounded-lg border border-white/10 bg-black/15 px-4 py-5">
+              <span aria-hidden="true" className="pointer-events-none absolute left-4 right-4 top-1/2 border-t border-white/15" />
+              {EQ_BAND_FREQS.map((frequency, index) => {
+                const gain = Number(eqBands[index] || 0);
+                return (
+                  <label key={frequency} className="relative z-10 flex min-h-[280px] flex-col items-center text-sm text-gray-300">
+                    <span className="text-[10px] text-gray-500">+{EQ_GAIN_LIMIT} dB</span>
+                    <input type="range" min={-EQ_GAIN_LIMIT} max={EQ_GAIN_LIMIT} step="1" value={gain}
+                      aria-label={`${formatBandFrequency(frequency)} gain`} aria-orientation="vertical"
+                      aria-valuetext={`${gain > 0 ? "plus " : ""}${gain} decibels`}
+                      onChange={(event) => setBand(index, Number(event.target.value))}
+                      className="my-3 h-44 w-8 accent-[#00e6e6]" style={{ writingMode: "vertical-lr", direction: "rtl" }} />
                     <span className="text-xs tabular-nums text-[#00e6e6]">{gain > 0 ? `+${gain}` : gain} dB</span>
-                  </span>
-                  <input
-                    type="range"
-                    min={-EQ_GAIN_LIMIT}
-                    max={EQ_GAIN_LIMIT}
-                    step="1"
-                    value={gain}
-                    aria-label={`${formatBandFrequency(frequency)} gain`}
-                    aria-valuetext={`${gain > 0 ? "plus " : ""}${gain} decibels`}
-                    onChange={(event) => setBand(index, Number(event.target.value))}
-                    className="mt-3 h-8 w-full accent-[#00e6e6]"
-                  />
-                </label>
-              );
-            })}
+                    <span className="mt-2 font-semibold text-white">{formatBandFrequency(frequency)}</span>
+                    <span className="mt-1 text-[10px] text-gray-500">−{EQ_GAIN_LIMIT} dB</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
-          <p className="mt-4 text-xs text-[#9aa8b5]">Full band-by-band tone shaping applies to tracks played through HeyKasa&apos;s own audio player. YouTube-sourced tracks play inside YouTube&apos;s protected player, so there your preset is applied as an overall loudness adjustment rather than per-band tone.</p>
+          <p className="mt-4 text-xs text-[#9aa8b5]">Six-band tone shaping applies to tracks played through HeyKasa&apos;s own audio player. YouTube protects its embedded audio path, so frequency controls are unavailable there; the selected curve is reduced to an overall loudness adjustment.</p>
         </section>
       )}
 

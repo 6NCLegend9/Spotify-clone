@@ -1,4 +1,5 @@
 import Link from "next/link";
+import HorizontalRail from "@/components/HorizontalRail";
 
 const HOT_PLAYLISTS = [
   {
@@ -109,7 +110,7 @@ const VIBE_PLAYLISTS = [
 ];
 
 function playlistHref(query) {
-  return `/search/${encodeURIComponent(query)}`;
+  return `/search/${encodeURIComponent(query)}?type=playlist`;
 }
 
 export default function BrowseAll() {
@@ -126,15 +127,15 @@ export default function BrowseAll() {
       <section aria-labelledby="hot-now-title">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Updated for right now</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">PLAYLIST DISCOVERY</p>
             <h2 id="hot-now-title" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Hot playlists
+              Playlist picks
             </h2>
           </div>
-          <span className="hidden text-sm text-muted sm:block">Tap a mix and discover what is moving</span>
+          <span className="hidden text-sm text-muted sm:block">Browse matching playlists, then choose what to play</span>
         </div>
 
-        <div className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-3">
+        <HorizontalRail label="playlist picks" className="-mx-1 px-1">
           {HOT_PLAYLISTS.map((playlist, index) => (
             <Link
               key={playlist.id}
@@ -162,7 +163,7 @@ export default function BrowseAll() {
               <span className="sr-only">Playlist {index + 1} of {HOT_PLAYLISTS.length}</span>
             </Link>
           ))}
-        </div>
+        </HorizontalRail>
       </section>
 
       <section className="mt-10 pb-10" aria-labelledby="vibe-title">

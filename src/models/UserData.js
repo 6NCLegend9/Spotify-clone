@@ -100,7 +100,7 @@ const fileSchema = new mongoose.Schema(
         },
         settings: {
             eqPreset: { type: String, default: "Flat / Neutral" },
-            eqBands: { type: [Number], default: [0, 0, 0, 0, 0] },
+            eqBands: { type: [Number], default: [0, 0, 0, 0, 0, 0], validate: (bands) => bands.length === 6 },
             dataSaver: { type: Boolean, default: false },
             audioOnly: { type: Boolean, default: false },
             videoQuality: { type: String, enum: ["auto", "720p", "1080p", "audio-only"], default: "auto" },
