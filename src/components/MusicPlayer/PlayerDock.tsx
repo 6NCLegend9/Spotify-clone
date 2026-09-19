@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { CircleStop, ListMusic, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { ListMusic, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 import type { PlayerDockProps } from "./player.types";
 import PlayerTimeline from "./PlayerTimeline";
@@ -89,7 +89,6 @@ export default function PlayerDock(props: PlayerDockProps) {
         <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
       </div>
       <div className={styles.tools}>
-        {props.onOneMore && <PlayerIconButton label={props.oneMoreArmed ? "Cancel one more song" : "One more song"} active={props.oneMoreArmed} onClick={props.onOneMore}><CircleStop size={18} /></PlayerIconButton>}
         {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={openLyrics}><Mic2 size={18} /></PlayerIconButton>}
         <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={19} /></PlayerIconButton>
         <div className={styles.volume}>{props.volume}</div>

@@ -7,12 +7,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
-import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
-import { searchGenres, searchQueryForGenre } from "@/utils/genres";
 import { cleanArtist, cleanTitle } from "@/utils/text";
+
+function songSearchQuery(song) {
+  return [
+    cleanTitle(song?.title || song?.name || ""),
+    cleanArtist(song?.channel || song?.artist || song?.author || ""),
+  ].filter(Boolean).join(" ").trim();
+}
 
 const Searchbar = () => {
   const dispatch = useDispatch();
@@ -23,9 +28,13 @@ const Searchbar = () => {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [songs, setSongs] = useState([]);
+  const [recentSongs, setRecentSongs] = useState([]);
+  const [recentQueries, setRecentQueries] = useState([]);
+  const [recentLoading, setRecentLoading] = useState(false);
   const inputId = useId();
   const listboxId = useId();
   const abortRef = useRef(null);
+  const recentsLoadedAtRef = useRef(0);
   const inputRef = useRef(null);
   const clusterRef = useRef(null);
 
@@ -54,10 +63,28 @@ const Searchbar = () => {
     return () => window.removeEventListener("heykasa:open-search", onOpenSearch);
   }, []);
 
-  const genreMatches = useMemo(
-    () => (searchTerm.trim().length >= 2 ? searchGenres(searchTerm, { limit: 4 }) : []),
-    [searchTerm],
-  );
+  const loadRecents = async () => {
+    const now = Date.now();
+    if (recentLoading || now - recentsLoadedAtRef.current < 15_000) return;
+    recentsLoadedAtRef.current = now;
+    setRecentLoading(true);
+    try {
+      const [historyResult, searchesResult] = await Promise.allSettled([
+        requestJson("/api/history"),
+        requestJson("/api/searches"),
+      ]);
+      if (historyResult.status === "fulfilled") {
+        const history = Array.isArray(historyResult.value?.data) ? historyResult.value.data : [];
+        setRecentSongs(history.filter((song) => song?.id && (song?.title || song?.name)).slice(0, 6));
+      }
+      if (searchesResult.status === "fulfilled") {
+        const searches = Array.isArray(searchesResult.value?.data) ? searchesResult.value.data : [];
+        setRecentQueries(searches.filter((query) => typeof query === "string" && query.trim()).slice(0, 5));
+      }
+    } finally {
+      setRecentLoading(false);
+    }
+  };
 
   useEffect(() => {
     const term = searchTerm.trim();
@@ -75,33 +102,39 @@ const Searchbar = () => {
           fallbackTitle: "Search unavailable",
           fallbackMessage: "We couldn’t load suggestions.",
         });
-        const list = Array.isArray(data?.results) ? data.results.slice(0, 5) : [];
+        const list = Array.isArray(data?.results) ? data.results.slice(0, 7) : [];
         if (!controller.signal.aborted) setSongs(list);
       } catch {
-        // Suggestions are optional; full search remains available.
+        if (!controller.signal.aborted) setSongs([]);
       }
-    }, 300);
+    }, 250);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
   }, [searchTerm, open]);
 
-  const items = useMemo(
-    () => [
-      ...songs.map((song) => ({ type: "song", key: `song-${song.id}`, song })),
-      ...genreMatches.map((match) => ({ type: "genre", key: `genre-${match.id}-${match.matchLabel}`, match })),
-    ],
-    [songs, genreMatches],
-  );
+  const items = useMemo(() => {
+    if (searchTerm.trim()) return songs.map((song) => ({ type: "song", key: `song-${song.id}`, song }));
+    return [
+      ...recentSongs.map((song) => ({ type: "recent-song", key: `recent-song-${song.id}`, song })),
+      ...recentQueries.map((query, index) => ({ type: "recent-query", key: `recent-query-${index}-${query}`, query })),
+    ];
+  }, [searchTerm, songs, recentSongs, recentQueries]);
 
   const go = (query) => {
     const next = String(query || "").trim();
     if (!next) return;
+    setSearchTerm(next);
     setOpen(false);
     setActiveIndex(-1);
     dispatch(setIsTyping(false));
     router.push(`/search/${encodeURIComponent(next)}`);
+  };
+
+  const searchSong = (song) => {
+    const query = songSearchQuery(song);
+    if (query) go(query);
   };
 
   const handleSubmit = (event) => {
@@ -109,50 +142,18 @@ const Searchbar = () => {
     go(searchTerm);
   };
 
-  const chooseGenre = (match) => {
-    const query = searchQueryForGenre(match);
-    setSearchTerm(query);
-    go(query);
-  };
-
-  const playSong = (song) => {
-    if (!song?.id) return;
-    const artist = cleanArtist(song.channel);
-    const title = cleanTitle(song.title);
-    const seedQuery = song.seedQuery || song.genre || [artist, title].filter(Boolean).join(" ");
-    const radioTrack = {
-      ...song,
-      channel: artist || song.channel,
-      seedQuery,
-      genre: song.genre || artist || seedQuery,
-    };
-    dispatch(startYoutubePlayback({
-      queue: [radioTrack],
-      track: radioTrack,
-      queueMode: "radio",
-      context: {
-        type: "search-radio",
-        id: song.id,
-        name: artist ? `${artist} Radio` : `${title || "Track"} Radio`,
-      },
-    }));
-    dispatch(playPause(true));
-    setOpen(false);
-    setActiveIndex(-1);
-    dispatch(setIsTyping(false));
-  };
-
   const selectItem = (item) => {
     if (!item) return;
-    if (item.type === "song") playSong(item.song);
-    else chooseGenre(item.match);
+    if (item.type === "recent-query") go(item.query);
+    else searchSong(item.song);
   };
 
-  const suggestionsVisible = open && items.length > 0;
+  const showRecentState = open && !searchTerm.trim();
+  const suggestionsVisible = open && (items.length > 0 || (showRecentState && recentLoading));
   const selectedIndex = activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
 
   useEffect(() => {
-    if (!suggestionsVisible) return undefined;
+    if (!open) return undefined;
     const dismiss = (event) => {
       const target = event.target;
       if (clusterRef.current?.contains(target)) return;
@@ -162,7 +163,7 @@ const Searchbar = () => {
     };
     document.addEventListener("pointerdown", dismiss);
     return () => document.removeEventListener("pointerdown", dismiss);
-  }, [suggestionsVisible]);
+  }, [open]);
 
   const closeAfterBlur = () => {
     const finish = () => {
@@ -211,10 +212,11 @@ const Searchbar = () => {
           onFocus={() => {
             dispatch(setIsTyping(true));
             setOpen(true);
+            void loadRecents();
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
-              if (suggestionsVisible) event.preventDefault();
+              if (open) event.preventDefault();
               setOpen(false);
               setActiveIndex(-1);
               return;
@@ -231,12 +233,12 @@ const Searchbar = () => {
               setActiveIndex((index) => index <= 0 ? items.length - 1 : index - 1);
               return;
             }
-            if (event.key === "Home" && suggestionsVisible) {
+            if (event.key === "Home" && suggestionsVisible && items.length > 0) {
               event.preventDefault();
               setActiveIndex(0);
               return;
             }
-            if (event.key === "End" && suggestionsVisible) {
+            if (event.key === "End" && suggestionsVisible && items.length > 0) {
               event.preventDefault();
               setActiveIndex(items.length - 1);
               return;
@@ -258,50 +260,44 @@ const Searchbar = () => {
         </Link>
       </div>
       {suggestionsVisible ? (
-        <ul id={listboxId} role="listbox" aria-label="Search suggestions" className="search-suggest">
-          {items.map((item, index) => item.type === "song" ? (
-            <li
-              key={item.key}
-              role="none"
-              onMouseMove={() => setActiveIndex(index)}
-              className={`flex w-full items-center gap-1 px-2 py-1 text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
-            >
-              <button
-                id={`${listboxId}-option-${index}`}
-                type="button"
-                role="option"
-                aria-selected={selectedIndex === index}
-                onClick={() => playSong(item.song)}
-                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-              >
-                <MediaImage src={item.song.thumbnail} size="mq" alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
+        <ul id={listboxId} role="listbox" aria-label={showRecentState ? "Recent searches and songs" : "Search suggestions"} className="search-suggest">
+          {showRecentState && recentLoading && items.length === 0 ? (
+            <li role="presentation" className="px-4 py-3 text-sm text-[#9aa8b5]">Loading recents…</li>
+          ) : null}
+          {items.map((item, index) => item.type === "recent-query" ? (
+            <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}>
+              <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => go(item.query)}
+                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
+                <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
+                <span className="min-w-0 flex-1 truncate">{item.query}</span>
+                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">Recent search</span>
+              </button>
+            </li>
+          ) : (
+            <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}
+              className={`flex w-full items-center gap-1 px-2 py-1 text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
+              <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => searchSong(item.song)}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
+                <MediaImage src={item.song.thumbnail || item.song?.image?.[1]?.url || item.song?.image?.[0]?.url} size="mq" alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate">{cleanTitle(item.song.title, "Song")}</span>
-                  <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanArtist(item.song.channel)}</span>
+                  <span className="block truncate">{cleanTitle(item.song.title || item.song.name, "Song")}</span>
+                  <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanArtist(item.song.channel || item.song.artist || item.song.author)}</span>
                 </span>
               </button>
               <AddToQueueButton track={item.song} className="z-[90]" />
-              <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
-            </li>
-          ) : (
-            <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}>
-              <button
-                id={`${listboxId}-option-${index}`}
-                type="button"
-                role="option"
-                aria-selected={selectedIndex === index}
-                onClick={() => chooseGenre(item.match)}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}
-              >
-                <span>{item.match.matchLabel}</span>
-                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">{item.match.matchType === "subgenre" ? `${item.match.name} sub-genre` : "Genre"}</span>
-              </button>
+              <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">{item.type === "recent-song" ? "Recent" : "Song"}</span>
             </li>
           ))}
         </ul>
       ) : null}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {open && searchTerm.trim().length >= 2 ? items.length > 0 ? `${items.length} suggestions available. Use the up and down arrow keys to review them.` : "No suggestions yet. Press Enter to see full results." : ""}
+        {open && searchTerm.trim().length >= 2
+          ? items.length > 0
+            ? `${items.length} suggestions available. Use the up and down arrow keys to review them.`
+            : "No suggestions yet. Press Enter to see full results."
+          : showRecentState && items.length > 0
+            ? `${items.length} recent items available.`
+            : ""}
       </p>
     </form>
   );

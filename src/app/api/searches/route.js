@@ -8,6 +8,19 @@ export const maxDuration = 15;
 
 const MAX_SEARCHES = 30;
 
+export async function GET(request) {
+  try {
+    const account = await getAuthenticatedAccount(request, { optional: true });
+    const searches = Array.isArray(account?.userData?.searches) ? account.userData.searches : [];
+    return NextResponse.json(
+      { success: true, data: searches.slice(-10).reverse() },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  } catch (error) {
+    return handleApiError(error, "get recent searches");
+  }
+}
+
 // Records a search term so recommendations.js has a real signal for brand-new
 // accounts that haven't played anything yet (previously this field was declared
 // in the schema but never written to).

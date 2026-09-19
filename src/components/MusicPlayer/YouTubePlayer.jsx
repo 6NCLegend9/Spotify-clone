@@ -22,7 +22,6 @@ import {
 } from "@/redux/features/playerSlice";
 import { createPlaylist } from "@/services/playlistApi";
 import useSleepTimer from "@/hooks/useSleepTimer";
-import SleepTimerControl from "./SleepTimerControl";
 import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
 const QueueEditor = dynamic(() => import("./QueueEditor"), { ssr: false });
@@ -225,7 +224,7 @@ function YouTubePlayer() {
   const isJamGuest = jam?.role === "guest" && Boolean(jam.code);
   const jamLocked = isJamGuest && jam?.hasAux !== true;
   const sleep = useSleepTimer({
-    owner: playbackOwner, trackId: videoId, enabled: !jam?.code,
+    owner: playbackOwner, trackId: videoId, enabled: false,
     onExpire: () => {
       userPausedRef.current = true;
       isPlayingRef.current = false;
@@ -3052,7 +3051,6 @@ function YouTubePlayer() {
       window.dispatchEvent(new Event("heykasa:playlists-changed"));
     } : undefined,
   };
-  const sleepControl = <SleepTimerControl timer={sleep.timer} onChange={sleep.change} disabled={Boolean(jam?.code)} />;
   const expandedChromePointer = {
     onPointerEnter: (event) => {
       if (event.pointerType !== "touch") pinExpandedChrome();
@@ -3225,7 +3223,6 @@ function YouTubePlayer() {
         volume={<PlayerVolume />} queue={safeQueue} onSelect={playQueueItem}
         onQueueEdit={queueControls.onQueueEdit} onQueueUndo={queueControls.onQueueUndo}
         canUndoQueue={queueControls.canUndoQueue} onSaveQueue={queueControls.onSaveQueue}
-        sleepControl={sleepControl}
         trackActions={<AddToPlaylistButton track={video} className="!h-12 !w-12" />}
         queueSearch={<div className="mb-4 border-b border-white/10 pb-4">
           <form onSubmit={handleAddSearch} className="flex gap-2">
@@ -3456,7 +3453,7 @@ function YouTubePlayer() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {sheetTab === "queue" ? (
-              <div className="px-4 pb-6"><QueueEditor {...queueControls} />{sleepControl}</div>
+              <div className="px-4 pb-6"><QueueEditor {...queueControls} /></div>
             ) : syncedLyrics === false ? (
               <p className="px-4 py-6 text-center text-sm text-gray-400">Live lyrics are turned off in Settings.</p>
             ) : (
@@ -3476,7 +3473,7 @@ function YouTubePlayer() {
         <div ref={queuePanelRef} className="yt-queue-panel">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <QueueEditor {...queueControls} />{sleepControl}
+            <QueueEditor {...queueControls} />
           </div>
         </div>
       )}

@@ -60,7 +60,7 @@ function validatedSettings(value) {
     } else if (key === "eqBands") {
       if (
         !Array.isArray(setting)
-        || setting.length !== 5
+        || ![5, 6].includes(setting.length)
         || setting.some((band) => !Number.isFinite(band) || band < -12 || band > 12)
       ) {
         invalidSetting("eqBands must contain five or six numbers between -12 and 12.");

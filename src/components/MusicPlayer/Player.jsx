@@ -1,15 +1,13 @@
 "use client";
 /* eslint-disable jsx-a11y/media-has-caption */
 import React, { useRef, useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import UserMessage from "@/components/UserMessage";
 import useAudioEq from "@/hooks/useAudioEq";
 import { bandsForPreset } from "@/utils/eqPresets";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 import useSleepTimer from "@/hooks/useSleepTimer";
-import SleepTimerControl from "./SleepTimerControl";
-import { playPause } from "@/redux/features/playerSlice";
 import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
 import { playNativeAudio } from "@/utils/nativeAudio.mjs";
@@ -28,15 +26,10 @@ const Player = ({
   handleNextSong,
   setSeekTime,
   appTime,
-  showTimer,
 }) => {
   const ref = useRef(null);
-  const dispatch = useDispatch();
   const owner = useSelector((state) => state.player.playbackOwner);
-  const sleep = useSleepTimer({ owner, trackId: activeSong?.id, onExpire: () => {
-    ref.current?.pause();
-    dispatch(playPause(false));
-  } });
+  const sleep = useSleepTimer({ owner, trackId: activeSong?.id, enabled: false });
   const checkSleep = sleep.check;
   const handlePlayPauseRef = useRef(handlePlayPause);
   const mediaActionsRef = useRef({});
@@ -260,7 +253,6 @@ const Player = ({
         }}
         onError={handleAudioError}
       />
-      {showTimer && <div className="w-full max-w-sm py-3" onClick={(event) => event.stopPropagation()}><SleepTimerControl timer={sleep.timer} onChange={sleep.change} /></div>}
       {playbackError ? (
         <div className="mt-2 w-full max-w-md" onClick={(event) => event.stopPropagation()}>
           <UserMessage

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NotFoundPlaybackGuard from "@/components/Layout/NotFoundPlaybackGuard";
 import { SITE_URL, SITE_NAME } from "@/utils/siteConfig";
 
 export const metadata = {
@@ -10,7 +11,9 @@ export const metadata = {
 
 const NotFound = () => {
   return (
-    <div className="page grid min-h-full place-items-center text-center text-white">
+    <>
+      <NotFoundPlaybackGuard />
+      <div className="page grid min-h-full place-items-center text-center text-white">
       <div>
         <p className="eyebrow">Error</p>
         <h1 className="mt-2 text-8xl font-black text-[#00e6e6]">404</h1>
@@ -23,7 +26,8 @@ const NotFound = () => {
           Back to Home
         </Link>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

@@ -560,7 +560,6 @@ const MusicPlayer = () => {
             />
             <Player
               activeSong={activeSong}
-              showTimer={fullScreen}
               volume={volume}
               isPlaying={isPlaying}
               seekTime={seekTime}

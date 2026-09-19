@@ -5,6 +5,7 @@
 :global(.app-shell[data-has-track="false"]):has(.navbar) { --mobile-player-h: 0px; }
 .navbar { margin: 0; border-radius: 0; background: rgb(2 8 19 / 65%); border: 0; box-shadow: none; min-height: 64px; padding: 8px 24px; gap: 16px; }
 .navbar :global(.search-field) { border: 1px solid var(--hairline-cyan); border-radius: 999px; background: rgb(7 18 29 / 90%); box-shadow: none; min-height: 42px; }
+.navbar :global(.navbar-search-cluster) { width: min(100%, 34rem); justify-self: center; }
 .navbar :global(.search-field):focus-within { border-color: var(--accent); }
 .history { display: none; align-items: center; gap: 8px; }
 .history button { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--navy-deep); color: var(--teal); }
@@ -107,7 +108,13 @@
 }
 @media (max-width: 767px) {
  :global(.app-shell):has(.navbar) { padding: 0; gap: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
- .navbar { min-height: 56px; padding: 8px 12px; gap: 8px; }
+ .navbar { min-height: 56px; padding: 8px 12px; gap: 8px; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: none; }
+ .navbar :global(.navbar-slot-start) { display: none; }
+ .navbar :global(.navbar-search-cluster) { grid-area: auto; width: 100%; max-width: none; justify-self: stretch; }
+ .navbar :global(.navbar-slot-end) { grid-area: auto; }
+ .navbar :global(.search-field) { min-height: 44px; height: 44px; }
+ .navbar :global(.search-split),
+ .navbar :global(.search-browse) { display: none; }
  .accountName { display: none; }
  :global(.app-shell[data-route="home"]):has(.navbar) .navbar { display: none; }
  :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 1; grid-row: 1; border: 0; border-radius: 0; }
