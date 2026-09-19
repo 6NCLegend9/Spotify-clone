@@ -20,7 +20,7 @@ test("leaving a Jam keeps the final Jam track paused instead of restoring stale 
 });
 
 test("settings provides separate current-device and all-device sign-out actions", () => {
-  assert.match(settingsSource, />Sign out this device</);
+  assert.match(settingsSource, /"Sign out this device"/);
   assert.match(settingsSource, /> Sign out all devices/);
   assert.match(settingsSource, /onClick=\{signOutThisDevice\}/);
 });
