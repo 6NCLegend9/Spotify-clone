@@ -3315,6 +3315,114 @@ details > summary {
   }
 }
 
+/* Settings EQ: rotated horizontal range so 0 dB is the geometric midpoint. */
+.eq-faders {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.eq-zero-line {
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  z-index: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-50%);
+}
+
+.eq-band {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.eq-fader-slot {
+  position: relative;
+  width: 2.75rem;
+  height: 11rem;
+}
+
+.eq-fader {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 11rem;
+  height: 2.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.eq-fader:focus {
+  outline: none;
+}
+
+.eq-fader:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.eq-fader::-webkit-slider-runnable-track {
+  height: 2.75rem;
+  background: linear-gradient(
+    to bottom,
+    transparent calc(50% - 1px),
+    rgba(255, 255, 255, 0.2) calc(50% - 1px),
+    rgba(255, 255, 255, 0.2) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
+
+.eq-fader::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 15px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.eq-fader::-moz-range-track {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 0;
+}
+
+.eq-fader::-moz-range-progress {
+  height: 2px;
+  background: transparent;
+  border: 0;
+}
+
+.eq-fader::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+@media (pointer: coarse) {
+  .eq-fader[type="range"] {
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
 
 /* Desktop three-pane shell: library | content | now playing */
 .right-panel-resizer,
