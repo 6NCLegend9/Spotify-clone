@@ -90,6 +90,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const gestureRef = useRef<{ x: number; y: number } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const controlsVisibleRef = useRef(true);
+  const controlsVisibleAtPointerDownRef = useRef(true);
   const canVideo = Boolean(props.onVideo);
   const canLyrics = Boolean(props.onLyrics);
   const overlay = expanded || drawer;
@@ -309,9 +310,12 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     if (dy > 72 && Math.abs(dx) < 40) close();
     else if (!props.disabled && Math.abs(dx) > 72 && Math.abs(dy) < 40) { if (dx < 0) props.onNext(); else props.onPrevious(); }
   };
+  const rememberControlsAtPointerDown = () => {
+    controlsVisibleAtPointerDownRef.current = controlsVisibleRef.current;
+  };
   const toggleMediaControls = (event: ReactMouseEvent<HTMLElement>) => {
     if (!expanded || (event.target as HTMLElement).closest("button, a, input, select")) return;
-    toggleTheaterControls();
+    toggleTheaterControls(controlsVisibleAtPointerDownRef.current);
   };
   const moveMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
     if (expanded && event.pointerType === "mouse" && !controlsVisibleRef.current) showTheaterControls();
@@ -364,7 +368,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     <div className={`${styles.body} ${expanded ? styles.expandedBody : ""} ${view !== "player" ? styles.utilityBody : ""}`}>
       {view === "player" ? <>
         <div ref={anchorRef} onTouchStart={startGesture} onTouchEnd={endGesture}
-          onClick={toggleMediaControls} onPointerMove={moveMediaPointer}
+          onPointerDown={rememberControlsAtPointerDown} onClick={toggleMediaControls} onPointerMove={moveMediaPointer}
           className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
           {!showingVideo && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
@@ -392,7 +396,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     {mediaHost && showingVideo && (!mobile || overlay) && createPortal(<>
       <div className={styles.gestureSurface} aria-hidden="true"
         onTouchStart={startGesture} onTouchEnd={endGesture}
-        onClick={toggleMediaControls} onPointerMove={moveMediaPointer} />
+        onPointerDown={rememberControlsAtPointerDown} onClick={toggleMediaControls} onPointerMove={moveMediaPointer} />
       {!expanded && <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
     </>, mediaHost)}
     <span hidden data-kasa-media-view={overlay ? (expanded ? "expanded" : "drawer") : showingVideo ? "video" : "audio"} />
