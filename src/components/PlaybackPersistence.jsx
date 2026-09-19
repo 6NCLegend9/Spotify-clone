@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useStore } from "react-redux";
 import { useSession } from "next-auth/react";
 import { useJam } from "@/components/Jam/JamProvider";
-import { restorePlayback } from "@/redux/features/playerSlice";
+import { playPause, restorePlayback } from "@/redux/features/playerSlice";
 import { readPlaybackSnapshot, writePlaybackSnapshot } from "@/utils/playbackSnapshot.mjs";
 import { accountOwner } from "@/utils/accountCache.mjs";
 
@@ -14,12 +14,21 @@ export default function PlaybackPersistence() {
   const jam = useJam();
   const owner = accountOwner(session, status);
   const inJam = Boolean(jam?.code);
+  const wasInJam = useRef(inJam);
 
   useEffect(() => {
+    const leavingJam = wasInJam.current && !inJam;
+    wasInJam.current = inJam;
     if (inJam) return undefined;
     let storage;
     try { storage = window.localStorage; } catch {}
-    store.dispatch(restorePlayback({ owner, snapshot: readPlaybackSnapshot(storage, owner) }));
+    if (leavingJam) {
+      const finalJamPlayback = store.getState().player;
+      store.dispatch(playPause(false));
+      if (owner) writePlaybackSnapshot(storage, owner, finalJamPlayback);
+    } else {
+      store.dispatch(restorePlayback({ owner, snapshot: readPlaybackSnapshot(storage, owner) }));
+    }
     if (!owner) return undefined;
     let timer;
     let pending = null;
