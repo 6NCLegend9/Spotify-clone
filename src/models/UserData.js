@@ -73,6 +73,11 @@ const fileSchema = new mongoose.Schema(
             type: [String],
             default: []
         },
+        seenNotificationIds: {
+            type: [String],
+            default: [],
+            validate: (values) => values.length <= 200,
+        },
         followedArtistsMeta: {
             type: [
                 {
@@ -121,6 +126,7 @@ const fileSchema = new mongoose.Schema(
             spatialAudio: { type: Boolean, default: false },
             discordPresence: { type: Boolean, default: false },
             discordPresenceConsent: { type: Boolean, default: false },
+            browserNotifications: { type: Boolean, default: false },
         },
     },
     { timestamps: true, toJSON: { flattenMaps: true } }

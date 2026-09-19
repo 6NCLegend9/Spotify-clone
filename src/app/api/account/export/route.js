@@ -59,6 +59,7 @@ export async function GET(request) {
             tags: userData.tags,
             followedArtists: userData.followedArtists,
             followedArtistsMeta: userData.followedArtistsMeta,
+            seenNotificationIds: userData.seenNotificationIds,
             genreIds: userData.genreIds,
             tagIds: userData.tagIds,
             likedPlaylists: userData.likedPlaylists,

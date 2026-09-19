@@ -13,6 +13,7 @@ import { CardGridSkeleton } from "@/components/Skeleton";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
+import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
 
 export default function ArtistProfile({ artistId, initialName = "" }) {
   const dispatch = useDispatch();
@@ -161,6 +162,7 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
       if (data?.success === true && Array.isArray(data.data)) {
         setFollowed(data.data.some((value) => value.toLowerCase() === artist.title.toLowerCase()));
       }
+      window.dispatchEvent(new Event(FOLLOWS_CHANGED_EVENT));
       toast.success(next ? "Followed" : "Unfollowed");
     } catch (followError) {
       setFollowed(!next);

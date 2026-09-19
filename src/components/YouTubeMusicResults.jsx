@@ -18,6 +18,7 @@ import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import { SITE_BRAND, SITE_NAME } from "@/utils/siteConfig";
+import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
 
 export default function YouTubeMusicResults({ query }) {
   const searchParams = useSearchParams();
@@ -118,6 +119,7 @@ export default function YouTubeMusicResults({ query }) {
         throw new Error("Follow update did not return usable data.");
       }
       setFollowedArtists(data.data);
+      window.dispatchEvent(new Event(FOLLOWS_CHANGED_EVENT));
       const successMessage =
         typeof data?.message === "string" && data.message.trim()
           ? data.message

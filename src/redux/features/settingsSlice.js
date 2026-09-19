@@ -31,6 +31,7 @@ const initialState = {
   spatialAudio: false,
   discordPresence: false,
   discordPresenceConsent: false,
+  browserNotifications: false,
   // Local-only monotonic token. It changes only after an explicit user action,
   // so a failed localhost/native connection stays quiet until the user retries.
   discordPresenceConnectRequest: 0,
@@ -94,6 +95,10 @@ const settingsSlice = createSlice({
         discordPresenceConsent: consent,
         discordPresence: consent && requestedPresence,
         discordPresenceConnectRequest: state.discordPresenceConnectRequest || 0,
+        browserNotifications:
+          typeof payload.browserNotifications === "boolean"
+            ? payload.browserNotifications
+            : state.browserNotifications === true,
       };
       next.eqBands = next.eqPreset && next.eqPreset !== "Custom" && EQ_PRESET_BANDS[next.eqPreset]
         ? EQ_PRESET_BANDS[next.eqPreset]

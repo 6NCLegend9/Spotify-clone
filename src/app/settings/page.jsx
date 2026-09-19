@@ -351,6 +351,22 @@ function AccountSettings({ owner, status }) {
           <Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} />
           <Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} />
           <Toggle
+            label="Browser notifications"
+            description="Alert you when artists you follow drop a new song, even if HayKasa is in another tab. Private session keeps these quiet."
+            checked={settings.browserNotifications === true}
+            onChange={(value) => {
+              void (async () => {
+                if (value && typeof Notification !== "undefined") {
+                  const permission = Notification.permission === "granted"
+                    ? "granted"
+                    : await Notification.requestPermission();
+                  if (permission !== "granted") return;
+                }
+                set("browserNotifications", value);
+              })();
+            }}
+          />
+          <Toggle
             label="Discord listening activity"
             description="Show the current song on your Discord profile. Discord desktop must be open on this computer."
             checked={settings.discordPresence !== false}

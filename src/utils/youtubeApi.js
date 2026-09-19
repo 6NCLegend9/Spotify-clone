@@ -162,6 +162,7 @@ function mapPlaylistItem(item) {
       channelTitle: itemChannel(item),
       videoOwnerChannelTitle: itemChannel(item),
       resourceId: { videoId },
+      publishedAt: textValue(item?.published) || "",
       thumbnails: { high: { url: bestThumbnail(item) } },
     },
     status: { privacyStatus: "public" },
@@ -820,6 +821,35 @@ export async function fetchYouTubeChannel(id, { name = "", maxResults = 50, page
     tracks,
     nextPageToken: uploads.nextPageToken || "",
   };
+}
+
+export async function fetchLatestChannelVideos(channelId, { name = "", maxResults = 3 } = {}) {
+  if (!/^UC[A-Za-z0-9_-]{20,24}$/.test(channelId)) return [];
+  const extras = {
+    channelId,
+    channel: name,
+    seedQuery: name,
+    genre: name,
+  };
+
+  const official = await fetchFromOfficialApi("search", {
+    part: "snippet",
+    type: "video",
+    channelId,
+    order: "date",
+    maxResults: String(maxResults),
+  });
+  const officialTracks = mapSearchItemsToTracks(official?.data?.items, extras);
+  if (officialTracks.length) return officialTracks.slice(0, maxResults);
+
+  const uploadsId = uploadsPlaylistId(channelId);
+  if (uploadsId) {
+    const page = await fetchPlaylistPages(uploadsId, extras, maxResults);
+    if (page.tracks.length) return page.tracks.slice(0, maxResults);
+  }
+
+  const innertube = await channelFromInnertube(channelId, Math.max(maxResults, 8));
+  return mapSearchItemsToTracks(innertube?.tracks, extras).slice(0, maxResults);
 }
 
 export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
