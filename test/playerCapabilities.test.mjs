@@ -36,6 +36,6 @@ test("expanded video keeps a pointer surface for revealing hidden controls", asy
   assert.match(css, /\.theater\[data-media="video"\]\s*\{[^}]*pointer-events:\s*auto/);
   assert.match(css, /\.theater\[data-media="video"\] \.expandedArt\s*\{[^}]*pointer-events:\s*auto/);
   assert.match(css, /\.gestureSurface\s*\{[^}]*pointer-events:\s*auto/);
-  assert.match(presentation, /controlsVisibleAtPointerDownRef\.current = controlsVisibleRef\.current/);
-  assert.match(presentation, /toggleTheaterControls\(controlsVisibleAtPointerDownRef\.current\)/);
+  assert.match(presentation, /controlsRevealedByPointerMoveRef\.current = true/);
+  assert.match(presentation, /if \(controlsRevealedByPointerMoveRef\.current\)/);
 });
