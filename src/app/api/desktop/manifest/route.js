@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
+const PORTABLE_FALLBACK_URL = "https://github.com/6NCLegend9/Spotify-clone/suites/95871463986/artifacts/10569826844";
+const PORTABLE_FALLBACK_NOTES_URL = "https://github.com/6NCLegend9/Spotify-clone/actions/runs/35398551370";
 function httpsUrl(value) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text) return "";
@@ -80,6 +82,7 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
     updateRolloutPercent,
     signed: input.signed !== false,
     source: typeof input.source === "string" ? input.source.slice(0, 40) : (downloadUrl ? "stable" : "none"),
+    portable: input.portable === true,
     published: Boolean(downloadUrl),
   };
 }
@@ -181,7 +184,21 @@ async function loadManifest(channel) {
   }
 
   if (configured.published || channel !== "stable") return configured;
-  return (await loadInternalPreview()) || configured;
+  const preview = await loadInternalPreview();
+  if (preview) return preview;
+  if (process.env.VERCEL_ENV === "production") {
+    return normalizeManifest({
+      latest: configured.latest,
+      minimum: configured.minimum,
+      recommended: configured.recommended,
+      downloadUrl: PORTABLE_FALLBACK_URL,
+      releaseNotesUrl: PORTABLE_FALLBACK_NOTES_URL,
+      signed: false,
+      portable: true,
+      source: "github-actions-portable",
+    }, channel);
+  }
+  return configured;
 }
 
 export async function GET(request) {

@@ -278,13 +278,17 @@ export default function DesktopAppCard() {
         <div className="mt-6 rounded-lg border border-white/10 bg-black/10 p-4 sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-gray-100">Windows x64 installer</p>
+              <p className="text-sm font-semibold text-gray-100">
+                {manifest?.portable ? "Windows x64 portable build" : "Windows x64 installer"}
+              </p>
               <p className="mt-1 text-xs text-[#9aa8b5]">{releaseLabel}</p>
               <p className="mt-2 text-xs leading-5 text-[#9aa8b5]">
                 {manifest?.published
-                  ? manifest.signed === false
-                    ? "Public Windows preview build. Windows may show a publisher warning until the production signing certificate is configured."
-                    : "Signed desktop release. Updates are handled by the installed app after setup."
+                  ? manifest.portable
+                    ? "Portable fallback from the last successful Windows build. Download the ZIP, extract it, then run the app executable. GitHub may ask the repository owner to sign in before downloading."
+                    : manifest.signed === false
+                      ? "Public Windows preview build. Windows may show a publisher warning until the production signing certificate is configured."
+                      : "Signed desktop release. Updates are handled by the installed app after setup."
                   : "The Windows build is being prepared. This card will enable the download as soon as a public installer is available."}
               </p>
             </div>
@@ -294,7 +298,7 @@ export default function DesktopAppCard() {
                 className="btn-primary min-h-11 shrink-0 gap-2 px-4"
                 rel="noopener noreferrer"
               >
-                <FiDownload aria-hidden="true" /> {manifest.signed === false ? "Download Windows preview" : "Download for Windows"}
+                <FiDownload aria-hidden="true" /> {manifest.portable ? "Download portable build" : manifest.signed === false ? "Download Windows preview" : "Download for Windows"}
               </a>
             ) : (
               <button type="button" disabled className="btn-primary min-h-11 shrink-0 gap-2 px-4 opacity-50">
