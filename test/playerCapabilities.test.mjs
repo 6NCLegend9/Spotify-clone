@@ -38,4 +38,5 @@ test("expanded video keeps a pointer surface for revealing hidden controls", asy
   assert.match(css, /\.gestureSurface\s*\{[^}]*pointer-events:\s*auto/);
   assert.match(presentation, /controlsRevealedByPointerMoveRef\.current = true/);
   assert.match(presentation, /if \(controlsRevealedByPointerMoveRef\.current\)/);
+  assert.match(presentation, /if \(!expanded \|\| event\.pointerType !== "mouse"\) return;[\s\S]*showTheaterControls\(\);/);
 });
