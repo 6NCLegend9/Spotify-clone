@@ -10,7 +10,7 @@ export default function JamInvite({ code }) {
       <h1 className="home-display mt-3">Jam {code}</h1>
       <p className="home-subtitle">{LISTEN_ON_HEYKASA}</p>
       <p className="mt-6 max-w-md text-sm leading-6 text-[#9aa8b5]">
-        Log in to join this live session. Music on HeyKasa stays free, with no ads.
+        Log in to join this live session. Music on HayKasa stays free, with no ads.
       </p>
       <Link
         href={loginPath(jamPath(code))}

@@ -48,7 +48,7 @@ export async function GET(request) {
       if (status === 400 || status === 404) {
         return apiError("NOT_FOUND", {
           title: "This playlist page is unavailable",
-          message: "Search for the playlist to open its songs in HeyKasa.",
+          message: "Search for the playlist to open its songs in HayKasa.",
         });
       }
       return apiError(upstreamCode(status), {
@@ -78,7 +78,7 @@ export async function GET(request) {
       if (!meta.ok || !Array.isArray(meta.data?.items) || meta.data.items.length === 0) {
         return apiError("NOT_FOUND", {
           title: "This playlist page is unavailable",
-          message: "Search for the playlist to open its songs in HeyKasa.",
+          message: "Search for the playlist to open its songs in HayKasa.",
         });
       }
     }

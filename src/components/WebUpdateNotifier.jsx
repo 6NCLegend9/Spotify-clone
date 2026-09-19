@@ -30,7 +30,7 @@ export default function WebUpdateNotifier() {
           retry: false,
           timeout: 8000,
           fallbackTitle: "Update check unavailable",
-          fallbackMessage: "Could not check for a newer HeyKasa web build.",
+          fallbackMessage: "Could not check for a newer HayKasa web build.",
         });
         const currentBuild = typeof result?.webVersion === "string" ? result.webVersion.trim() : "";
         if (!active || !currentBuild || currentBuild === "development" || currentBuild === loadedBuild
@@ -40,7 +40,7 @@ export default function WebUpdateNotifier() {
         toast((entry) => (
           <div className="flex max-w-sm items-center gap-4">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-white">A new HeyKasa version is ready</p>
+              <p className="text-sm font-semibold text-white">A new HayKasa version is ready</p>
               <p className="mt-1 text-xs leading-5 text-[#b5c1cc]">Reload when you&apos;re ready. Playback is not interrupted automatically.</p>
             </div>
             <button

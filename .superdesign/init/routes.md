@@ -1,4 +1,4 @@
-# HeyKasa routes
+# HayKasa routes
 
 Framework: Next.js 15 App Router. Shared chrome: `src/app/layout.js` → `AppShell` (sidebar, navbar, main, player dock, mobile tab bar). Auth pages use route-level layouts that still sit inside root layout.
 

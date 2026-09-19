@@ -56,7 +56,7 @@ export async function POST(request) {
         lightPillarUrl: getPublicAssetUrl("/email-light-pillar.png", request),
       });
       try {
-        await mailSender(user.email, "Verify your HeyKasa email", body);
+        await mailSender(user.email, "Verify your HayKasa email", body);
       } catch {
         await User.updateOne(
           { _id: user._id, verificationToken: tokenHash },

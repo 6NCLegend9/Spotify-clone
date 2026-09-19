@@ -6,7 +6,7 @@ import {
 } from "./siteConfig.js";
 import { isYoutubeVideoId } from "./youtubeComments.mjs";
 
-export const LISTEN_ON_HEYKASA = "Listen on HeyKasa";
+export const LISTEN_ON_HEYKASA = "Listen on HayKasa";
 
 const YTIMG =
   /^https:\/\/i(?:[0-9]+)?\.ytimg\.com\/(?:vi(?:_webp)?|an)\/[A-Za-z0-9_-]{11}\//i;

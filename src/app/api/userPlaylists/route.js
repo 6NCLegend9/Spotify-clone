@@ -275,7 +275,7 @@ export async function PATCH(req){
             const collaborator = await User.findOne({ email: collaboratorEmail });
             if (!collaborator) {
                 return apiError("NOT_FOUND", {
-                    message: "No HeyKasa account uses that email",
+                    message: "No HayKasa account uses that email",
                 });
             }
             if (collaborator._id.toString() === user._id.toString()) {

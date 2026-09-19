@@ -276,7 +276,7 @@ function AccountSettings({ owner, status }) {
           <SelectControl label="Volume normalization" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
           <Toggle label="Mono audio" checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
           <Toggle label="Spatial audio / Stereo expansion" description="Subtly widens the stereo field for immersive headphone listening." checked={settings.spatialAudio} onChange={(value) => set("spatialAudio", value)} />
-          <p className="mt-4 text-xs text-[#9aa8b5]">HeyKasa asks YouTube for the selected quality. The final audio and video quality depends on the uploaded source, browser, viewport, and connection. The player shows the video quality currently delivered.</p>
+          <p className="mt-4 text-xs text-[#9aa8b5]">HayKasa asks YouTube for the selected quality. The final audio and video quality depends on the uploaded source, browser, viewport, and connection. The player shows the video quality currently delivered.</p>
         </div>
       </section>
 
@@ -315,7 +315,7 @@ function AccountSettings({ owner, status }) {
               })}
             </div>
           </div>
-          <p className="mt-4 text-xs text-[#9aa8b5]">Six-band tone shaping applies to tracks played through HeyKasa&apos;s own audio player. YouTube protects its embedded audio path, so frequency controls are unavailable there; the selected curve is reduced to an overall loudness adjustment.</p>
+          <p className="mt-4 text-xs text-[#9aa8b5]">Six-band tone shaping applies to tracks played through HayKasa&apos;s own audio player. YouTube protects its embedded audio path, so frequency controls are unavailable there; the selected curve is reduced to an overall loudness adjustment.</p>
         </section>
       )}
 

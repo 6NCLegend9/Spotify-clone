@@ -32,7 +32,7 @@ export async function getHeyKasaDesktopInfo() {
     const info = await api.getInfo();
     if (!info || typeof info !== "object") return null;
     return {
-      productName: typeof info.productName === "string" ? info.productName : "HeyKasa",
+      productName: typeof info.productName === "string" ? info.productName : "HayKasa",
       desktopVersion: typeof info.desktopVersion === "string" ? info.desktopVersion : "",
       apiVersion: Number.isInteger(info.apiVersion) ? info.apiVersion : 0,
       capabilities: Array.isArray(info.capabilities)

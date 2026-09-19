@@ -2,8 +2,8 @@
   "name": "heykasa-desktop",
   "version": "1.0.0",
   "private": true,
-  "description": "Secure Windows desktop shell for HeyKasa",
-  "author": "HeyKasa",
+  "description": "Secure Windows desktop shell for HayKasa",
+  "author": "HayKasa",
   "type": "module",
   "main": "src/main.mjs",
   "scripts": {
@@ -23,13 +23,13 @@
   },
   "build": {
     "appId": "com.heykasa.desktop",
-    "productName": "HeyKasa",
-    "artifactName": "HeyKasa-Setup-${version}-${arch}.${ext}",
+    "productName": "HayKasa",
+    "artifactName": "HayKasa-Setup-${version}-${arch}.${ext}",
     "asar": true,
     "electronUpdaterCompatibility": ">=2.16",
     "protocols": [
       {
-        "name": "HeyKasa",
+        "name": "HayKasa",
         "schemes": [
           "heykasa"
         ]
@@ -66,7 +66,7 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "HeyKasa",
+      "shortcutName": "HayKasa",
       "deleteAppDataOnUninstall": false
     },
     "publish": [

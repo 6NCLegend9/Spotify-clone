@@ -16,10 +16,10 @@ export default async function Home({ searchParams }) {
 
   return (
     <div>
-      <section className="sr-only" aria-label="HeyKasa music streaming">
-        <h1>HeyKasa Music - Free Music Streaming and Playlists</h1>
+      <section className="sr-only" aria-label="HayKasa music streaming">
+        <h1>HayKasa Music - Free Music Streaming and Playlists</h1>
         <p>
-          HeyKasa is free, with no ads. Listen in one screen without an account.
+          HayKasa is free, with no ads. Listen in one screen without an account.
           Save, follow, and Jam after you sign in.
         </p>
         <ul>

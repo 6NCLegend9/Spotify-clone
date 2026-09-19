@@ -42,7 +42,7 @@ const syncHistoryEntry = (entry) => {
 };
 
 const SongsHistory = () => {
-  const { activeSong, youtubeVideo, playbackOwner, isPlaying } = useSelector((state) => state.player || {});
+  const { activeSong, youtubeVideo, playbackOwner, isPlaying, position } = useSelector((state) => state.player || {});
   const privateSession = useSelector((state) => state.settings.privateSession);
   const { data: session, status } = useSession();
   const owner = accountOwner(session, status);
@@ -54,9 +54,10 @@ const SongsHistory = () => {
     syncHistoryEntry(activeSong);
   }, [activeSong, canRecord, owner]);
 
-  // YouTube is the primary playback path now; without this, "Listen Again" never records real usage.
+  // Search activity is not listening history. Record YouTube only after
+  // playback has actually advanced for a few seconds.
   useEffect(() => {
-    if (!canRecord || !youtubeVideo?.id) return;
+    if (!canRecord || !youtubeVideo?.id || !Number.isFinite(position) || position < 5) return;
     const entry = {
       source: "youtube",
       id: youtubeVideo.id,
@@ -67,7 +68,7 @@ const SongsHistory = () => {
     if (!isValidEntry(entry)) return;
     pushHistoryEntry(entry, owner);
     syncHistoryEntry(entry);
-  }, [youtubeVideo, canRecord, owner]);
+  }, [youtubeVideo, canRecord, owner, position]);
 
   return null;
 }

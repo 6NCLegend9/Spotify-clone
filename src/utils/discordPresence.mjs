@@ -34,7 +34,7 @@ export function presenceTrack(player = {}) {
   const video = player.youtubeVideo;
   if (video?.id) {
     const title = clipPresenceText(video.title || "Unknown track");
-    const artist = clipPresenceText(video.channel || video.author || video.author_name || "HeyKasa");
+    const artist = clipPresenceText(video.channel || video.author || video.author_name || "HayKasa");
     return {
       id: String(video.id),
       title,
@@ -49,7 +49,7 @@ export function presenceTrack(player = {}) {
     return {
       id: String(song.id),
       title: clipPresenceText(song.name || song.title || "Unknown track"),
-      artist: clipPresenceText(song.primaryArtists || song.subtitle || song.author || "HeyKasa"),
+      artist: clipPresenceText(song.primaryArtists || song.subtitle || song.author || "HayKasa"),
       artwork: httpsAssetUrl(song.image || song.thumbnail),
       duration: Number(song.duration) || 0,
     };
@@ -66,7 +66,7 @@ export function buildDiscordActivity({
   track,
   playing = true,
   startedAt,
-  siteName = "HeyKasa",
+  siteName = "HayKasa",
   siteUrl = "",
   jamCode = "",
   partySize = 1,
@@ -110,7 +110,7 @@ export function buildDiscordActivity({
     const origin = buttonUrl.replace(/\/$/, "");
     activity.buttons = [
       { label: clipPresenceText(`Listen on ${siteName}`, MAX_BUTTON_LABEL), url: buttonUrl },
-      { label: clipPresenceText("Open HeyKasa", MAX_BUTTON_LABEL), url: `${origin}/open-desktop` },
+      { label: clipPresenceText("Open HayKasa", MAX_BUTTON_LABEL), url: `${origin}/open-desktop` },
     ];
   }
 

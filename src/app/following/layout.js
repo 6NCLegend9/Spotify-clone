@@ -1,6 +1,6 @@
 export const metadata = {
   title: "Following",
-  description: "Artists you follow on HeyKasa.",
+  description: "Artists you follow on HayKasa.",
 };
 
 export default function FollowingLayout({ children }) {

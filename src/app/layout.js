@@ -149,7 +149,7 @@ const jsonLd = {
       "@id": `${SITE_URL}/#website`,
       url: SITE_URL,
       name: SITE_NAME,
-      alternateName: ["HeyKasa Music", "HeyKasa App"],
+      alternateName: ["HayKasa Music", "HayKasa App"],
       description: DEFAULT_DESCRIPTION,
       inLanguage: "en-US",
       publisher: { "@id": `${SITE_URL}/#organization` },
@@ -168,7 +168,7 @@ const jsonLd = {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: SITE_NAME,
-      legalName: "HeyKasa Music",
+      legalName: "HayKasa Music",
       url: SITE_URL,
       logo: {
         "@type": "ImageObject",
@@ -187,7 +187,7 @@ const jsonLd = {
       "@type": "WebApplication",
       "@id": `${SITE_URL}/#webapp`,
       name: SITE_NAME,
-      alternateName: "HeyKasa Music",
+      alternateName: "HayKasa Music",
       description: DEFAULT_DESCRIPTION,
       url: SITE_URL,
       applicationCategory: "MusicApplication",
@@ -221,26 +221,26 @@ const jsonLd = {
       mainEntity: [
         {
           "@type": "Question",
-          name: "Is HeyKasa free to use?",
+          name: "Is HayKasa free to use?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Yes. HeyKasa is completely free. You can stream and download music, build playlists, and follow artists without paying anything.",
+            text: "Yes. HayKasa is completely free. You can stream and download music, build playlists, and follow artists without paying anything.",
           },
         },
         {
           "@type": "Question",
-          name: "Do I need to sign up to listen on HeyKasa?",
+          name: "Do I need to sign up to listen on HayKasa?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "You can stream music on HeyKasa without an account. Sign up to save favorites, follow artists, and Jam with friends.",
+            text: "You can stream music on HayKasa without an account. Sign up to save favorites, follow artists, and Jam with friends.",
           },
         },
         {
           "@type": "Question",
-          name: "What music is available on HeyKasa?",
+          name: "What music is available on HayKasa?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "HeyKasa offers English music, including popular and indie tracks.",
+            text: "HayKasa offers English music, including popular and indie tracks.",
           },
         },
       ],

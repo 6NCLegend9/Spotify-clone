@@ -62,7 +62,7 @@ function ownerDetails(playlist, currentUserId) {
   const ownedByUser = ownerId?.toString() === currentUserId;
   return {
     ownedByUser,
-    creator: ownedByUser ? "You" : playlist.user?.userName || "HeyKasa listener",
+    creator: ownedByUser ? "You" : playlist.user?.userName || "HayKasa listener",
   };
 }
 

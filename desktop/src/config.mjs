@@ -1,4 +1,4 @@
-export const PRODUCT_NAME = "HeyKasa";
+export const PRODUCT_NAME = "HayKasa";
 export const PRODUCTION_APP_URL = "https://haykasa.vercel.app";
 export const DESKTOP_API_VERSION = 1;
 export const DESKTOP_CAPABILITIES = Object.freeze([

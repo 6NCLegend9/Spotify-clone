@@ -8,6 +8,41 @@ export const runtime = "nodejs";
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
+const PREVIEW_RELEASE_API = "https://api.github.com/repos/6NCLegend9/Spotify-clone/releases/tags/desktop-preview";
+const PREVIEW_RELEASE_PAGE = "https://github.com/6NCLegend9/Spotify-clone/releases/tag/desktop-preview";
+
+async function loadPublicPreview(latest, minimum) {
+  try {
+    const response = await fetch(PREVIEW_RELEASE_API, {
+      headers: {
+        accept: "application/vnd.github+json",
+        "user-agent": "HayKasa-Desktop-Manifest",
+      },
+      next: { revalidate: 300 },
+    });
+    if (!response.ok) return null;
+    const release = await response.json();
+    const expectedName = `HayKasa-Setup-${latest}-x64.exe`;
+    const asset = Array.isArray(release?.assets)
+      ? release.assets.find((item) => item?.name === expectedName && typeof item?.browser_download_url === "string")
+      : null;
+    const downloadUrl = httpsUrl(asset?.browser_download_url);
+    if (!downloadUrl) return null;
+    return {
+      latest,
+      minimum,
+      recommended: latest,
+      downloadUrl,
+      releaseNotesUrl: httpsUrl(release?.html_url) || PREVIEW_RELEASE_PAGE,
+      sizeBytes: Number.isSafeInteger(asset?.size) && asset.size > 0 ? asset.size : null,
+      publishedAt: typeof release?.published_at === "string" ? release.published_at : "",
+      signed: false,
+      source: "github-preview",
+    };
+  } catch {
+    return null;
+  }
+}
 
 function httpsUrl(value) {
   const text = typeof value === "string" ? value.trim() : "";
@@ -79,6 +114,8 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
     sizeBytes: Number.isSafeInteger(input.sizeBytes) && input.sizeBytes > 0 ? input.sizeBytes : null,
     sha512: installerSha512,
     updateRolloutPercent,
+    signed: input.signed !== false,
+    source: typeof input.source === "string" ? input.source.slice(0, 40) : (downloadUrl ? "stable" : "none"),
     published: Boolean(downloadUrl),
   };
 }
@@ -128,7 +165,12 @@ function configuredManifestUrl(channel) {
 
 async function loadManifest(channel) {
   const manifestUrl = configuredManifestUrl(channel);
-  if (!manifestUrl) return normalizeManifest({}, channel);
+  if (!manifestUrl) {
+    const configured = normalizeManifest({}, channel);
+    if (configured.published || channel !== "stable") return configured;
+    const preview = await loadPublicPreview(configured.latest, configured.minimum);
+    return preview ? normalizeManifest(preview, channel) : configured;
+  }
 
   try {
     const response = await fetch(manifestUrl, {

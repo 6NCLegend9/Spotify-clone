@@ -56,7 +56,7 @@ const LoginPage = () => {
       setRetryAction("google");
       setFormError({
         title: "Desktop sign-in failed",
-        message: next.detail || "HeyKasa could not finish the desktop sign-in. Start the Google sign-in again.",
+        message: next.detail || "HayKasa could not finish the desktop sign-in. Start the Google sign-in again.",
         retryable: true,
       });
     };
@@ -153,7 +153,7 @@ const LoginPage = () => {
       if (desktopApi?.auth?.start) {
         const result = await desktopApi.auth.start();
         if (result?.state === "error") throw new Error(result.detail || "Desktop sign-in could not start.");
-        toast("Continue sign-in in your browser, then return to HeyKasa.");
+        toast("Continue sign-in in your browser, then return to HayKasa.");
         return;
       }
 

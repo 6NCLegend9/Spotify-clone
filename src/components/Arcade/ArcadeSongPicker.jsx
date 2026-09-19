@@ -144,12 +144,12 @@ export default function ArcadeSongPicker({
               ))}
             </ul>
           ) : (
-            <p className="text-[11px] text-[#9aa8b5]">Nothing queued yet. Play something in HeyKasa first, or load an audio file.</p>
+            <p className="text-[11px] text-[#9aa8b5]">Nothing queued yet. Play something in HayKasa first, or load an audio file.</p>
           )}
           <p className="mt-2 text-[11px] leading-5 text-[#9aa8b5]">
             {followLive
               ? "The chart stays locked to the song already playing. It does not restart."
-              : "The track loads into HeyKasa. Playback starts with the 3-2-1 countdown so tiles hit the line on the beat."}
+              : "The track loads into HayKasa. Playback starts with the 3-2-1 countdown so tiles hit the line on the beat."}
           </p>
         </>
       ) : (

@@ -50,7 +50,7 @@ export const DEFAULT_API_ERRORS = {
   BAD_GATEWAY: {
     status: 502,
     title: "Service unavailable",
-    message: "A service HeyKasa depends on is temporarily unavailable.",
+    message: "A service HayKasa depends on is temporarily unavailable.",
   },
   SERVICE_UNAVAILABLE: {
     status: 503,

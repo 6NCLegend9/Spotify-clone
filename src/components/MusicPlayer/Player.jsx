@@ -157,7 +157,7 @@ const Player = ({
     if (!("mediaSession" in navigator) || !(activeSong?.name || activeSong?.title)) return undefined;
 
     navigator.mediaSession.metadata = new window.MediaMetadata({
-      title: cleanTitle(activeSong.name || activeSong.title, "HeyKasa"),
+      title: cleanTitle(activeSong.name || activeSong.title, "HayKasa"),
       artist: artistName,
       album: albumName,
       artwork: artwork

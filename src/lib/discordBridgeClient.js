@@ -39,7 +39,7 @@ export default class DiscordBridgeClient {
       let settled = false;
       const socket = new WebSocket(BRIDGE_URL);
       const timer = window.setTimeout(() => {
-        finish(new Error("HeyKasa Discord Bridge did not answer."));
+        finish(new Error("HayKasa Discord Bridge did not answer."));
       }, CONNECT_TIMEOUT_MS);
 
       const finish = (error) => {
@@ -60,10 +60,10 @@ export default class DiscordBridgeClient {
 
       socket.onopen = () => finish();
       socket.onerror = () => finish(new Error(
-        "HeyKasa Discord Bridge is not running. Start desktop-bridge/start-windows.bat, then keep Discord Desktop open.",
+        "HayKasa Discord Bridge is not running. Start desktop-bridge/start-windows.bat, then keep Discord Desktop open.",
       ));
       socket.onclose = () => finish(new Error(
-        "HeyKasa Discord Bridge is not running. Start desktop-bridge/start-windows.bat, then keep Discord Desktop open.",
+        "HayKasa Discord Bridge is not running. Start desktop-bridge/start-windows.bat, then keep Discord Desktop open.",
       ));
     });
   }
@@ -90,7 +90,7 @@ export default class DiscordBridgeClient {
   handleClose(socket) {
     if (this.socket !== socket) return;
     this.socket = null;
-    const error = new Error("HeyKasa Discord Bridge disconnected.");
+    const error = new Error("HayKasa Discord Bridge disconnected.");
     this.pending.forEach((entry) => {
       window.clearTimeout(entry.timer);
       entry.reject(error);
@@ -103,12 +103,12 @@ export default class DiscordBridgeClient {
 
   async command(action, activity = null) {
     await this.ensureConnected();
-    if (!this.connected) throw new Error("HeyKasa Discord Bridge is not connected.");
+    if (!this.connected) throw new Error("HayKasa Discord Bridge is not connected.");
     const id = requestId();
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error("HeyKasa Discord Bridge did not answer in time."));
+        reject(new Error("HayKasa Discord Bridge did not answer in time."));
       }, COMMAND_TIMEOUT_MS);
       this.pending.set(id, { resolve, reject, timer });
       try {
@@ -130,7 +130,7 @@ export default class DiscordBridgeClient {
     this.socket = null;
     this.pending.forEach((entry) => {
       window.clearTimeout(entry.timer);
-      entry.reject(new Error("HeyKasa Discord Bridge disconnected."));
+      entry.reject(new Error("HayKasa Discord Bridge disconnected."));
     });
     this.pending.clear();
     if (socket && socket.readyState <= WebSocket.OPEN) {

@@ -14,7 +14,7 @@ test("Discord activity sanitizer keeps only bounded safe fields", () => {
     timestamps: { start: 1_700_000_000_000, end: -1 },
     assets: { large_image: "https://example.com/art.jpg", large_text: "Album" },
     buttons: [
-      { label: "Open HeyKasa", url: "https://haykasa.vercel.app" },
+      { label: "Open HayKasa", url: "https://haykasa.vercel.app" },
       { label: "Bad", url: "javascript:alert(1)" },
     ],
     ignored: "secret",
@@ -26,7 +26,7 @@ test("Discord activity sanitizer keeps only bounded safe fields", () => {
   assert.equal(activity.timestamps.start, 1_700_000_000);
   assert.equal("end" in activity.timestamps, false);
   assert.deepEqual(activity.buttons, [
-    { label: "Open HeyKasa", url: "https://haykasa.vercel.app" },
+    { label: "Open HayKasa", url: "https://haykasa.vercel.app" },
   ]);
   assert.equal("ignored" in activity, false);
 });
@@ -35,7 +35,7 @@ test("listen-along secrets replace buttons and keep a party id", () => {
   const activity = sanitizeActivity({
     details: "Song",
     state: "Artist",
-    buttons: [{ label: "Open HeyKasa", url: "https://haykasa.vercel.app" }],
+    buttons: [{ label: "Open HayKasa", url: "https://haykasa.vercel.app" }],
     party: { id: "jam-ABC234", size: [2, 50] },
     secrets: { join: "ABC234" },
     instance: true,

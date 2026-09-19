@@ -104,7 +104,7 @@ const Home = () => {
         <EmptyState
           eyebrow="Podcasts"
           title="Podcasts aren’t here yet"
-          message="HeyKasa is built for music right now. Switch back to All or Music to keep listening."
+          message="HayKasa is built for music right now. Switch back to All or Music to keep listening."
           actionLabel="Show all"
           onAction={() => setFilter("all")}
         />

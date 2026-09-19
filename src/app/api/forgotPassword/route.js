@@ -70,7 +70,7 @@ export async function POST(request) {
     try {
       await mailSender(
         user.email,
-        "Reset Password - HeyKasa",
+        "Reset Password - HayKasa",
         getResetPasswordTemplate(url, {
           logoUrl: getPublicAssetUrl("/icon-192x192.png", request),
           lightPillarUrl: getPublicAssetUrl("/email-light-pillar.png", request),

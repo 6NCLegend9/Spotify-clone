@@ -6,7 +6,7 @@ import {
   desktopAppUrl,
 } from "../src/config.mjs";
 
-test("unpackaged desktop loads the local HeyKasa origin by default", () => {
+test("unpackaged desktop loads the local HayKasa origin by default", () => {
   assert.equal(desktopAppUrl({ isPackaged: false }), LOCAL_DEV_APP_URL);
   assert.equal(desktopAppUrl({ isPackaged: false, overrideUrl: "" }), "http://localhost:3003");
 });

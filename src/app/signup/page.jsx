@@ -47,7 +47,7 @@ const SignupPage = () => {
       setRetryAction("google");
       setFormError({
         title: "Desktop sign-in failed",
-        message: next.detail || "HeyKasa could not finish the desktop sign-in. Start the Google sign-in again.",
+        message: next.detail || "HayKasa could not finish the desktop sign-in. Start the Google sign-in again.",
         retryable: true,
       });
     };
@@ -124,7 +124,7 @@ const SignupPage = () => {
       if (desktopApi?.auth?.start) {
         const result = await desktopApi.auth.start();
         if (result?.state === "error") throw new Error(result.detail || "Desktop sign-in could not start.");
-        toast("Continue sign-in in your browser, then return to HeyKasa.");
+        toast("Continue sign-in in your browser, then return to HayKasa.");
         return;
       }
 
@@ -184,7 +184,7 @@ const SignupPage = () => {
   return (
     <div className="page grid min-h-full place-items-center relative z-10">
       <div className="auth-card animate-fade-in backdrop-blur-md bg-white/[0.02]">
-        <p className="eyebrow">Join HeyKasa</p>
+        <p className="eyebrow">Join HayKasa</p>
         <h1 className="mt-2 text-3xl font-bold">
           <GradientText
             colors={["#00e6e6", "#ffffff", "#008080", "#00e6e6"]}

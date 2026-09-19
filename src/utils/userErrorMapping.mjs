@@ -22,7 +22,7 @@ export const USER_ERROR_CATALOG = {
   },
   NETWORK_ERROR: {
     title: "Connection interrupted",
-    message: "We couldn’t reach HeyKasa. Check your connection and try again.",
+    message: "We couldn’t reach HayKasa. Check your connection and try again.",
     retryable: true,
   },
   TIMEOUT: {

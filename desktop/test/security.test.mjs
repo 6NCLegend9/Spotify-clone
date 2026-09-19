@@ -10,7 +10,7 @@ import {
 } from "../src/security.mjs";
 import { PRODUCTION_APP_URL } from "../src/config.mjs";
 
-test("packaged desktop trusts only the production HeyKasa origin", () => {
+test("packaged desktop trusts only the production HayKasa origin", () => {
   const origins = buildTrustedOrigins({
     appUrl: "http://localhost:3000",
     isPackaged: true,
@@ -51,7 +51,7 @@ test("main-frame navigation stays on trusted origins; iframes may leave", () => 
   assert.equal(shouldAllowRendererNavigation("https://www.youtube.com/embed/abc", origins, { isMainFrame: false }), true);
 });
 
-test("deep links accept only reserved HeyKasa commands", () => {
+test("deep links accept only reserved HayKasa commands", () => {
   assert.equal(isSafeHeyKasaDeepLink("heykasa://open/song/abc"), true);
   assert.equal(isSafeHeyKasaDeepLink("heykasa://auth/callback?code=abc"), true);
   assert.equal(isSafeHeyKasaDeepLink("heykasa://shell/anything"), false);

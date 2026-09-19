@@ -1,6 +1,6 @@
-# HeyKasa Discord Bridge
+# HayKasa Discord Bridge
 
-HeyKasa's web player cannot rely on Discord's legacy browser WebSocket RPC for new Discord applications. This local bridge keeps the website isolated from Discord IPC while still allowing Rich Presence on Discord Desktop.
+HayKasa's web player cannot rely on Discord's legacy browser WebSocket RPC for new Discord applications. This local bridge keeps the website isolated from Discord IPC while still allowing Rich Presence on Discord Desktop.
 
 ## Windows quick start
 
@@ -36,6 +36,6 @@ It reports whether the bridge is running and whether it currently has an open Di
 ## Security
 
 - The bridge listens only on `127.0.0.1`; it is not exposed to the LAN or internet.
-- Browser WebSocket upgrades are accepted only from HeyKasa production and explicit local development origins.
+- Browser WebSocket upgrades are accepted only from HayKasa production and explicit local development origins.
 - No Discord client secret is stored in the bridge or sent to the browser.
-- The bridge clears Rich Presence shortly after the last HeyKasa browser connection closes.
+- The bridge clears Rich Presence shortly after the last HayKasa browser connection closes.

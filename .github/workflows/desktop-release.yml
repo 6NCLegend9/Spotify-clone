@@ -113,7 +113,7 @@ jobs:
           if ($package.build.appId -ne 'com.heykasa.desktop') { throw "Desktop appId changed unexpectedly" }
           if (-not ($package.build.protocols.schemes -contains 'heykasa')) { throw "heykasa:// protocol is not registered" }
           if ('${{ inputs.channel }}' -eq 'stable' -and '${{ github.ref_name }}' -ne 'main') { throw "Stable desktop releases must run from main" }
-          Write-Host "Preparing HeyKasa Desktop $($package.version) on $env:HEYKASA_DESKTOP_RELEASE_CHANNEL"
+          Write-Host "Preparing HayKasa Desktop $($package.version) on $env:HEYKASA_DESKTOP_RELEASE_CHANNEL"
 
       - name: Install desktop dependencies
         run: npm install --no-audit --no-fund
@@ -137,7 +137,7 @@ jobs:
       - name: Verify Authenticode signature
         shell: pwsh
         run: |
-          $installer = Get-ChildItem -Path dist -Filter 'HeyKasa-Setup-*-x64.exe' | Select-Object -First 1
+          $installer = Get-ChildItem -Path dist -Filter 'HayKasa-Setup-*-x64.exe' | Select-Object -First 1
           if (-not $installer) { throw "Signed installer was not produced" }
           $signature = Get-AuthenticodeSignature $installer.FullName
           if ($signature.Status -ne 'Valid') { throw "Installer signature is not valid: $($signature.Status)" }
@@ -151,7 +151,7 @@ jobs:
       - name: Release summary
         shell: pwsh
         run: |
-          "### HeyKasa Desktop release" >> $env:GITHUB_STEP_SUMMARY
+          "### HayKasa Desktop release" >> $env:GITHUB_STEP_SUMMARY
           "- Version: ${{ steps.publish.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
           "- Channel: ${{ steps.publish.outputs.channel }}" >> $env:GITHUB_STEP_SUMMARY
           "- Source ref: ${{ github.ref_name }}" >> $env:GITHUB_STEP_SUMMARY
@@ -165,7 +165,7 @@ jobs:
         with:
           name: heykasa-desktop-release-${{ steps.publish.outputs.version }}-${{ inputs.channel }}
           path: |
-            desktop/dist/HeyKasa-Setup-*-x64.exe
+            desktop/dist/HayKasa-Setup-*-x64.exe
             desktop/dist/*.blockmap
             desktop/dist/*.yml
             desktop/dist/heykasa-desktop-sbom.cdx.json

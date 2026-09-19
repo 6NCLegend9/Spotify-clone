@@ -1,6 +1,6 @@
-# HeyKasa
+# HayKasa
 
-HeyKasa is a responsive music discovery and playback application with search, playlists, favourites, queue management, and YouTube-backed playback.
+HayKasa is a responsive music discovery and playback application with search, playlists, favourites, queue management, and YouTube-backed playback.
 
 ## Requirements
 

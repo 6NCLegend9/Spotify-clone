@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { FiSearch } from "react-icons/fi";
+import { FiSearch, FiX } from "react-icons/fi";
 import { HiOutlineViewGrid, HiViewGrid } from "react-icons/hi";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -62,6 +62,21 @@ const Searchbar = () => {
     window.addEventListener("heykasa:open-search", onOpenSearch);
     return () => window.removeEventListener("heykasa:open-search", onOpenSearch);
   }, []);
+
+  useEffect(() => {
+    if (document.activeElement === inputRef.current) return;
+    if (pathname === "/search") {
+      setSearchTerm("");
+      return;
+    }
+    if (!pathname?.startsWith("/search/")) return;
+    const encoded = pathname.slice("/search/".length);
+    try {
+      setSearchTerm(decodeURIComponent(encoded.replace(/\+/g, " ")).trim());
+    } catch {
+      setSearchTerm("");
+    }
+  }, [pathname]);
 
   const loadRecents = async () => {
     const now = Date.now();
@@ -149,7 +164,7 @@ const Searchbar = () => {
   };
 
   const showRecentState = open && !searchTerm.trim();
-  const suggestionsVisible = open && (items.length > 0 || (showRecentState && recentLoading));
+  const suggestionsVisible = open;
   const selectedIndex = activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
 
   useEffect(() => {
@@ -254,6 +269,25 @@ const Searchbar = () => {
           }}
           className="search-field-input"
         />
+        {searchTerm ? (
+          <button
+            type="button"
+            className="search-clear"
+            aria-label="Clear search"
+            title="Clear search"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              setSearchTerm("");
+              setSongs([]);
+              setOpen(true);
+              setActiveIndex(-1);
+              void loadRecents();
+              inputRef.current?.focus();
+            }}
+          >
+            <FiX aria-hidden="true" />
+          </button>
+        ) : null}
         <span className="search-split" aria-hidden="true" />
         <Link href="/search" aria-label="Browse all" title="Browse all" aria-current={browseActive ? "page" : undefined} className={`search-browse ${browseActive ? "is-active" : ""}`}>
           {browseActive ? <HiViewGrid aria-hidden="true" /> : <HiOutlineViewGrid aria-hidden="true" />}
@@ -262,7 +296,16 @@ const Searchbar = () => {
       {suggestionsVisible ? (
         <ul id={listboxId} role="listbox" aria-label={showRecentState ? "Recent searches and songs" : "Search suggestions"} className="search-suggest">
           {showRecentState && recentLoading && items.length === 0 ? (
-            <li role="presentation" className="px-4 py-3 text-sm text-[#9aa8b5]">Loading recents…</li>
+            <li role="presentation" className="px-4 py-3 text-sm text-[#b3b3b3]">Loading recents…</li>
+          ) : null}
+          {showRecentState && !recentLoading && items.length === 0 ? (
+            <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Your recent songs and searches will appear here.</li>
+          ) : null}
+          {!showRecentState && searchTerm.trim().length < 2 ? (
+            <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Type at least 2 characters to search.</li>
+          ) : null}
+          {!showRecentState && searchTerm.trim().length >= 2 && !recentLoading && items.length === 0 ? (
+            <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">No suggestions yet. Press Enter to search.</li>
           ) : null}
           {items.map((item, index) => item.type === "recent-query" ? (
             <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}>

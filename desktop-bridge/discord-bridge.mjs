@@ -177,7 +177,7 @@ class DiscordIpcClient {
     for (const ipcPath of discordIpcPaths()) {
       try {
         await this.connectPipe(ipcPath);
-        console.log(`[HeyKasa Discord Bridge] Connected to ${ipcPath}`);
+        console.log(`[HayKasa Discord Bridge] Connected to ${ipcPath}`);
         return;
       } catch (error) {
         lastError = error;
@@ -495,7 +495,7 @@ export function createBridgeServer({
       });
       response.end(JSON.stringify({
         ok: true,
-        bridge: "HeyKasa Discord Bridge",
+        bridge: "HayKasa Discord Bridge",
         discordConnected: discord.connected,
         clientId,
       }));
@@ -593,12 +593,12 @@ export function createBridgeServer({
 async function main() {
   const bridge = createBridgeServer();
   await bridge.listen();
-  console.log(`[HeyKasa Discord Bridge] Listening on ws://${BRIDGE_HOST}:${BRIDGE_PORT}`);
-  console.log(`[HeyKasa Discord Bridge] Discord application ${DISCORD_CLIENT_ID}`);
-  console.log("[HeyKasa Discord Bridge] Keep this window open while using HeyKasa.");
+  console.log(`[HayKasa Discord Bridge] Listening on ws://${BRIDGE_HOST}:${BRIDGE_PORT}`);
+  console.log(`[HayKasa Discord Bridge] Discord application ${DISCORD_CLIENT_ID}`);
+  console.log("[HayKasa Discord Bridge] Keep this window open while using HayKasa.");
 
   const shutdown = async () => {
-    console.log("\n[HeyKasa Discord Bridge] Shutting down...");
+    console.log("\n[HayKasa Discord Bridge] Shutting down...");
     await bridge.close().catch(() => {});
     process.exit(0);
   };
@@ -610,7 +610,7 @@ const launchedDirectly = process.argv[1]
   && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (launchedDirectly) {
   main().catch((error) => {
-    console.error(`[HeyKasa Discord Bridge] ${error instanceof Error ? error.message : error}`);
+    console.error(`[HayKasa Discord Bridge] ${error instanceof Error ? error.message : error}`);
     process.exit(1);
   });
 }

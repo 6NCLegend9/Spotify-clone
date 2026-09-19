@@ -129,7 +129,7 @@ export default function JamController() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "HeyKasa Jam",
+          title: "HayKasa Jam",
           text: `Join my Jam with code ${jam.code}`,
           url: shareUrl,
         });
@@ -209,8 +209,8 @@ export default function JamController() {
       onPointerMove={updateFabDrag}
       onPointerUp={endFabDrag}
       onPointerCancel={endFabDrag}
-      aria-label="Open HeyKasa Jam"
-      title={fullScreen ? "Drag to move · tap to open Jam" : "Open HeyKasa Jam"}
+      aria-label="Open HayKasa Jam"
+      title={fullScreen ? "Drag to move · tap to open Jam" : "Open HayKasa Jam"}
       style={fullScreen && fabPos ? { left: fabPos.x, top: fabPos.y, right: "auto" } : undefined}
       className={`${
         fullScreen
@@ -232,14 +232,14 @@ export default function JamController() {
       <BottomSheet
         open={open}
         onClose={() => setOpen(false)}
-        label="HeyKasa Jam"
+        label="HayKasa Jam"
         className="jam-sheet"
         overlayClassName="jam-sheet-overlay"
       >
         <div className="flex items-center justify-between gap-3 text-lg font-semibold text-white">
           <span className="flex items-center gap-2">
             <FiRadio aria-hidden="true" className="text-[#00e6e6]" />
-            HeyKasa Jam
+            HayKasa Jam
           </span>
           <button
             type="button"

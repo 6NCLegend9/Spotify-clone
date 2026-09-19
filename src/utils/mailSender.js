@@ -55,7 +55,7 @@ const mailSender = async (email, title, body) => {
 
     try {
         return await getTransporter().sendMail({
-            from: `"HeyKasa" <${sender}>`,
+            from: `"HayKasa" <${sender}>`,
             to: recipient,
             subject: title,
             html: body,

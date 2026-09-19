@@ -71,7 +71,7 @@ const Navbar = () => {
   };
 
   return (
-    <header className={`app-navbar ${styles.navbar}`}>
+    <header className={`app-navbar ${styles.navbar} ${pathname?.startsWith("/search") ? styles.searchRoute : ""}`}>
       <div className="navbar-slot navbar-slot-start">
         <button type="button" onClick={() => setShowNav(true)} className="icon-btn h-11 w-11 shrink-0 md:hidden" aria-label="Open menu" aria-expanded={navModal} aria-controls="app-sidebar">
           <MdOutlineMenu aria-hidden="true" className="text-xl" />

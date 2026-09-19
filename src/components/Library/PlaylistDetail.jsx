@@ -232,7 +232,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     (user) => (user?._id || user)?.toString() === session?.user?.id,
   );
   const canEditTracks = isOwner || isCollaborator;
-  const ownerName = isLiked ? session?.user?.name || "You" : collection?.user?.userName || "HeyKasa listener";
+  const ownerName = isLiked ? session?.user?.name || "You" : collection?.user?.userName || "HayKasa listener";
   const ownerImage = isLiked ? session?.user?.image : collection?.user?.imageUrl;
   const title = isLiked ? "Liked Songs" : collection?.name || "Playlist";
   const typeLabel = isLiked

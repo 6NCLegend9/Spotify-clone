@@ -47,7 +47,7 @@ async function packageVersion() {
 async function releaseFiles(version) {
   const names = await fsp.readdir(distDir);
   const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const installerPattern = new RegExp(`^HeyKasa-Setup-${escapedVersion}-x64\\.exe$`, "i");
+  const installerPattern = new RegExp(`^HayKasa-Setup-${escapedVersion}-x64\\.exe$`, "i");
   const installer = names.find((name) => installerPattern.test(name));
   if (!installer) throw new Error(`Signed installer for ${version} was not found in desktop/dist.`);
 
@@ -95,7 +95,7 @@ function deriveBlobBaseUrl(uploadUrl, channel, filename) {
   const decodedSuffix = `/${channel}/${filename}`;
   if (url.pathname.endsWith(suffix)) url.pathname = url.pathname.slice(0, -suffix.length);
   else if (url.pathname.endsWith(decodedSuffix)) url.pathname = url.pathname.slice(0, -decodedSuffix.length);
-  else throw new Error("Could not derive the HeyKasa desktop Blob base URL from the uploaded installer.");
+  else throw new Error("Could not derive the HayKasa desktop Blob base URL from the uploaded installer.");
   return url.href.replace(/\/$/, "");
 }
 

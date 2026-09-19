@@ -471,7 +471,7 @@ export default function ArcadeStage() {
               <p className="mt-3 text-[11px] text-[#ffb648]">{startHint}</p>
             ) : null}
             {chartStatus !== "analyzing" && !trackLabel ? (
-              <p className="mt-3 text-[11px] text-[#ffb648]">Play a song in HeyKasa, or load a file, so the chart can lock to it.</p>
+              <p className="mt-3 text-[11px] text-[#ffb648]">Play a song in HayKasa, or load a file, so the chart can lock to it.</p>
             ) : null}
           </HowToPlayOverlay>
         ) : null}

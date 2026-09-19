@@ -8,7 +8,7 @@ export function validYouTubeIds(values = []) {
   return [...new Set(values.filter((value) => typeof value === "string" && YOUTUBE_ID_PATTERN.test(value)))];
 }
 
-const TRACK_CACHE_KEY = "HeyKasa-track-cache-v1";
+const TRACK_CACHE_KEY = "HayKasa-track-cache-v1";
 const TRACK_CACHE_TTL_MS = 30 * 60 * 1000;
 
 function readTrackCache() {

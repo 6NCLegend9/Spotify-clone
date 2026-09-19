@@ -101,7 +101,7 @@ function effectiveCapabilities() {
 
 function featureDisabledMessage(feature) {
   if (safeMode && (feature === "discord" || feature === "updater")) {
-    return "HeyKasa Desktop is running in safe mode after repeated crashes. Nonessential native integrations are temporarily disabled.";
+    return "HayKasa Desktop is running in safe mode after repeated crashes. Nonessential native integrations are temporarily disabled.";
   }
   const snapshot = policy?.snapshot();
   if (snapshot?.maintenance && snapshot.maintenanceMessage) return snapshot.maintenanceMessage;
@@ -155,7 +155,7 @@ async function startDesktopAuth() {
     authAttempt = null;
     return setAuthStatus("error", "Desktop sign-in URL is not allowed.");
   }
-  setAuthStatus("waiting", "Complete sign-in in your browser, then return to HeyKasa.");
+  setAuthStatus("waiting", "Complete sign-in in your browser, then return to HayKasa.");
   try {
     await shell.openExternal(authorizeUrl);
   } catch (error) {
@@ -581,7 +581,7 @@ function updateTrayMenu() {
     },
     { type: "separator" },
     {
-      label: "Open HeyKasa",
+      label: "Open HayKasa",
       click: () => focusMainWindow(),
     },
     {
@@ -591,7 +591,7 @@ function updateTrayMenu() {
     },
     { type: "separator" },
     {
-      label: "Quit HeyKasa",
+      label: "Quit HayKasa",
       click: () => {
         quitting = true;
         app.quit();
@@ -887,7 +887,7 @@ if (registerSingleInstance()) {
     });
   }).catch((error) => {
     logger?.error("desktop_start_failed", { error: error instanceof Error ? error.message : "unknown" });
-    console.error(`[HeyKasa Desktop] ${error instanceof Error ? error.stack || error.message : error}`);
+    console.error(`[HayKasa Desktop] ${error instanceof Error ? error.stack || error.message : error}`);
     app.quit();
   });
 

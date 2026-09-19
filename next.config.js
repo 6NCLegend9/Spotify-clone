@@ -15,11 +15,11 @@ if (!isProduction) {
   scriptSources.push("'unsafe-eval'");
 }
 
-// HeyKasa intentionally connects from the HTTPS web app to a loopback-only
+// HayKasa intentionally connects from the HTTPS web app to a loopback-only
 // WebSocket bridge for Discord Rich Presence. Do not add the CSP
 // `upgrade-insecure-requests` directive here: it rewrites that ws:// URL to
 // wss://, while the local bridge intentionally does not terminate TLS.
-// HSTS below still protects the public HeyKasa origin.
+// HSTS below still protects the public HayKasa origin.
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src ${scriptSources.join(" ")}`,

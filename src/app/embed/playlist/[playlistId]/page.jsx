@@ -67,7 +67,7 @@ export default async function EmbedPlaylistPage({ params }) {
           ))}
         </ol>
       ) : (
-        <p className="kasa-embed-empty">Open HeyKasa to play this playlist.</p>
+        <p className="kasa-embed-empty">Open HayKasa to play this playlist.</p>
       )}
     </main>
   );

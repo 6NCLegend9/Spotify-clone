@@ -95,8 +95,8 @@ jobs:
       - name: Verify packaged executable
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Path dist -Recurse -Filter "HeyKasa.exe" | Select-Object -First 1
-          if (-not $exe) { throw "HeyKasa.exe was not produced" }
+          $exe = Get-ChildItem -Path dist -Recurse -Filter "HayKasa.exe" | Select-Object -First 1
+          if (-not $exe) { throw "HayKasa.exe was not produced" }
           Write-Host "Packaged executable: $($exe.FullName)"
       - uses: actions/upload-artifact@v4
         with:

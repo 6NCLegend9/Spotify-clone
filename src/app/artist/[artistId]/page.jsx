@@ -18,7 +18,7 @@ export default function ArtistPage() {
         <EmptyState
           eyebrow="Artist"
           title="This artist page is unavailable"
-          message="Search for the artist to open their songs in HeyKasa."
+          message="Search for the artist to open their songs in HayKasa."
           href="/"
           actionLabel="Back to Home"
         />

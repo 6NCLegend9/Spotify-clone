@@ -93,7 +93,7 @@ export async function POST(request) {
         createdUser = result;
 
         const url = getAppLink(`/verify-email/${verificationToken}`, request);
-        const title = "Welcome to HeyKasa! Verify Your Email";
+        const title = "Welcome to HayKasa! Verify Your Email";
         const body = getVerificationEmailTemplate(userName, url, {
             logoUrl: getPublicAssetUrl("/icon-192x192.png", request),
             lightPillarUrl: getPublicAssetUrl("/email-light-pillar.png", request),

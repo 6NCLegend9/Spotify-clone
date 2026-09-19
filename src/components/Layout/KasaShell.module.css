@@ -3,10 +3,22 @@
 :global(body):has(.navbar) { font-family: Inter, Figtree, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 :global(.app-shell):has(.navbar) { --accent: #00e6e6; --teal: #64c9d7; --teal-mid: #22a6b3; --navy: #000814; --navy-deep: #020813; --navy-surface: #07121d; --navy-raised: #0b1722; --navy-panel: #101c28; --text: #ffffff; --muted: #9eb6c6; --hairline-cyan: rgb(34 166 179 / 24%); --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: var(--navy-deep); }
 :global(.app-shell[data-has-track="false"]):has(.navbar) { --mobile-player-h: 0px; }
-.navbar { margin: 0; border-radius: 0; background: rgb(2 8 19 / 65%); border: 0; box-shadow: none; min-height: 64px; padding: 8px 24px; gap: 16px; }
-.navbar :global(.search-field) { border: 1px solid var(--hairline-cyan); border-radius: 999px; background: rgb(7 18 29 / 90%); box-shadow: none; min-height: 42px; }
-.navbar :global(.navbar-search-cluster) { width: min(100%, 34rem); justify-self: center; }
-.navbar :global(.search-field):focus-within { border-color: var(--accent); }
+.navbar { margin: 0; border-radius: 0; background: rgb(2 8 19 / 65%); border: 0; box-shadow: none; min-height: 64px; padding: 8px 20px; gap: 12px; grid-template-columns: auto minmax(0, 544px) minmax(0, 1fr); }
+.navbar :global(.navbar-search-cluster) { width: 100%; max-width: 544px; justify-self: start; gap: 0; }
+.navbar :global(.search-field) { width: 100%; height: 48px; min-height: 48px; border: 1px solid transparent; border-radius: 999px; background: #242424; box-shadow: none; padding: 0 8px 0 14px; gap: 10px; }
+.navbar :global(.search-field:hover) { background: #2a2a2a; }
+.navbar :global(.search-field:focus-within) { border-color: #fff; background: #2a2a2a; box-shadow: none; }
+.navbar :global(.search-field.is-browse) { border-color: transparent; background: #242424; }
+.navbar :global(.search-field-icon) { color: #b3b3b3; width: 22px; height: 22px; }
+.navbar :global(.search-field-input) { color: #fff; font-size: 14px; font-weight: 500; }
+.navbar :global(.search-field-input::placeholder) { color: #b3b3b3; opacity: 1; }
+.navbar :global(.search-clear) { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border-radius: 50%; color: #b3b3b3; }
+.navbar :global(.search-clear:hover) { color: #fff; background: rgba(255,255,255,.08); }
+.navbar :global(.search-split) { height: 24px; background: #727272; }
+.navbar :global(.search-browse) { width: 38px; height: 38px; min-width: 38px; color: #b3b3b3; }
+.navbar :global(.search-browse:hover),
+.navbar :global(.search-browse.is-active) { color: #fff; background: transparent; }
+.navbar :global(.search-suggest) { margin-top: 8px; border: 0; border-radius: 8px; background: #282828; box-shadow: 0 16px 40px rgba(0,0,0,.55); }
 .history { display: none; align-items: center; gap: 8px; }
 .history button { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--navy-deep); color: var(--teal); }
 .history button:hover { color: var(--text); background: var(--navy-panel); }
@@ -115,6 +127,21 @@
  .navbar :global(.search-field) { min-height: 44px; height: 44px; }
  .navbar :global(.search-split),
  .navbar :global(.search-browse) { display: none; }
+
+ .searchRoute { min-height: 64px; padding: 8px 16px; grid-template-columns: minmax(0, 1fr); background: #121212; }
+ .searchRoute :global(.navbar-slot-start),
+ .searchRoute :global(.navbar-slot-end) { display: none; }
+ .searchRoute :global(.navbar-search-cluster) { width: 100%; max-width: none; }
+ .searchRoute :global(.search-field),
+ .searchRoute :global(.search-field:hover),
+ .searchRoute :global(.search-field:focus-within),
+ .searchRoute :global(.search-field.is-browse) { height: 48px; min-height: 48px; border: 0; border-radius: 6px; background: #fff; box-shadow: none; }
+ .searchRoute :global(.search-field-icon),
+ .searchRoute :global(.search-clear) { color: #121212; }
+ .searchRoute :global(.search-field-input) { color: #121212; font-size: 15px; font-weight: 700; }
+ .searchRoute :global(.search-field-input::placeholder) { color: #191414; opacity: 1; }
+ .searchRoute :global(.search-clear:hover) { color: #121212; background: rgba(0,0,0,.08); }
+ .searchRoute :global(.search-suggest) { position: fixed; top: calc(64px + env(safe-area-inset-top, 0px)); right: 0; bottom: calc(var(--mobile-player-h) + var(--mobile-tabbar-h)); left: 0; width: auto; max-height: none; margin: 0; border: 0; border-radius: 0; background: #121212; padding: 8px 8px 20px; box-shadow: none; }
  .accountName { display: none; }
  :global(.app-shell[data-route="home"]):has(.navbar) .navbar { display: none; }
  :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 1; grid-row: 1; border: 0; border-radius: 0; }

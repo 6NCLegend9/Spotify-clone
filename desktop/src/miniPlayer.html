@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; connect-src 'none'" />
-    <title>HeyKasa</title>
+    <title>HayKasa</title>
     <style>
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }
@@ -28,7 +28,7 @@
   <body>
     <button type="button" class="close" id="hide" aria-label="Hide controller">×</button>
     <div class="shell" id="root">
-      <p class="empty">Play a song in HeyKasa.</p>
+      <p class="empty">Play a song in HayKasa.</p>
     </div>
     <script>
       const api = window.heykasaMini;
@@ -41,14 +41,14 @@
       }
       function render(state = {}) {
         if (!state.hasTrack) {
-          root.innerHTML = '<p class="empty">Play a song in HeyKasa.</p>';
+          root.innerHTML = '<p class="empty">Play a song in HayKasa.</p>';
           return;
         }
         const art = /^https:\/\//.test(state.artwork || "")
           ? `<img src="${esc(state.artwork)}" alt="">`
           : `<div class="art" aria-hidden="true"></div>`;
         root.innerHTML = `${art}<div class="copy">
-          <button type="button" id="open" class="title" style="background:none;border:0;color:inherit;padding:0;text-align:left;cursor:pointer">${esc(state.title || "HeyKasa")}</button>
+          <button type="button" id="open" class="title" style="background:none;border:0;color:inherit;padding:0;text-align:left;cursor:pointer">${esc(state.title || "HayKasa")}</button>
           <p class="artist">${esc(state.artist || "")}</p>
           <div class="row">
             <button type="button" id="prev" class="ghost" ${state.canPrev ? "" : "disabled"}>Prev</button>

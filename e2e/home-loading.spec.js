@@ -11,8 +11,8 @@ test("server HTML has a nonblank startup state before JavaScript hydrates", asyn
   try {
     const page = await context.newPage();
     await page.goto("/search", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("status", { name: "Loading HeyKasa" })).toBeVisible();
-    await expect(page.getByAltText("HeyKasa")).toBeVisible();
+    await expect(page.getByRole("status", { name: "Loading HayKasa" })).toBeVisible();
+    await expect(page.getByAltText("HayKasa")).toBeVisible();
     expect(await page.content()).toContain("<noscript>JavaScript is required to play music.</noscript>");
   } finally {
     await context.close();
@@ -24,7 +24,7 @@ test("home never displays legacy account caches while account data is pending", 
   const pending = new Promise((resolve) => { releaseRequests = resolve; });
   await page.addInitScript(() => {
     const track = { id: "abcdefghijk", title: "Other account private track", channel: "Other account" };
-    sessionStorage.setItem("HeyKasa-home-recommendations-v2:authenticated", JSON.stringify({
+    sessionStorage.setItem("HayKasa-home-recommendations-v2:authenticated", JSON.stringify({
       sections: { trending: [track] }, mode: "personalized",
     }));
     localStorage.setItem("songHistory", JSON.stringify([track]));

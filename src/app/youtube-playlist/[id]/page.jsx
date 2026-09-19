@@ -96,7 +96,7 @@ export default function YouTubePlaylistPage() {
         <EmptyState
           eyebrow="Playlist"
           title={error?.title || "This playlist page is unavailable"}
-          message={error?.message || "Search for the playlist to open its songs in HeyKasa."}
+          message={error?.message || "Search for the playlist to open its songs in HayKasa."}
           href="/"
           actionLabel="Back to Home"
         />

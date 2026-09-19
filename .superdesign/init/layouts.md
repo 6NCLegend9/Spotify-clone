@@ -72,7 +72,7 @@ export default function AppShell({ children }) {
                 <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
                 <Link href="/accessibility" className="transition hover:text-white">Accessibility</Link>
               </div>
-              <p className="mt-4">&copy; {new Date().getFullYear()} HeyKasa Music. All rights reserved.</p>
+              <p className="mt-4">&copy; {new Date().getFullYear()} HayKasa Music. All rights reserved.</p>
             </footer>
           )}
         </div>

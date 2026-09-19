@@ -54,7 +54,7 @@ class UnsupportedDesktopDiscordClient {
   }
 
   async setActivity() {
-    throw new Error("This HeyKasa Desktop version does not support native Discord presence. Update the desktop app first.");
+    throw new Error("This HayKasa Desktop version does not support native Discord presence. Update the desktop app first.");
   }
 
   disconnect() {}
@@ -66,7 +66,7 @@ class BrowserDiscordUnavailableClient {
   }
 
   async setActivity() {
-    throw new Error("Discord Rich Presence requires HeyKasa Desktop. Install the Windows desktop app from Settings.");
+    throw new Error("Discord Rich Presence requires HayKasa Desktop. Install the Windows desktop app from Settings.");
   }
 
   disconnect() {}

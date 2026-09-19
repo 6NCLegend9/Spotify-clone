@@ -15,18 +15,18 @@ export function normalizeAppUrl(value, { allowHttp = false } = {}) {
 }
 
 export const SITE_URL = PRODUCTION_SITE_URL;
-export const SITE_NAME = "HeyKasa";
-export const SITE_BRAND = "HeyKasa Music";
+export const SITE_NAME = "HayKasa";
+export const SITE_BRAND = "HayKasa Music";
 export const SITE_TAGLINE = "Free Music Streaming";
 
 export const DEFAULT_TITLE = `${SITE_NAME} - ${SITE_TAGLINE}`;
 export const DEFAULT_DESCRIPTION =
-  "HeyKasa is a free music streaming platform. Listen songs in high quality. Stream music, build playlists, follow artists, and discover new releases - all without paywalls.";
+  "HayKasa is a free music streaming platform. Listen songs in high quality. Stream music, build playlists, follow artists, and discover new releases - all without paywalls.";
 
 export const DEFAULT_KEYWORDS = [
-  "HeyKasa",
-  "HeyKasa music",
-  "HeyKasa app",
+  "HayKasa",
+  "HayKasa music",
+  "HayKasa app",
   "music streaming",
   "free music streaming",
   "free music download",

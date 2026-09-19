@@ -33,7 +33,7 @@ export default function ResendVerificationPage() {
         <p className="eyebrow">Account verification</p>
         <h1 className="mt-2 text-3xl font-bold text-[var(--text)]">Send a new link</h1>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          Enter the email used for your HeyKasa account. The new link expires after one hour.
+          Enter the email used for your HayKasa account. The new link expires after one hour.
         </p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]" htmlFor="resend-email">

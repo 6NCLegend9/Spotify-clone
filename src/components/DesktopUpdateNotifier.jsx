@@ -37,8 +37,8 @@ export default function DesktopUpdateNotifier() {
       toast((entry) => (
         <div className="flex max-w-sm items-center gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-white">HeyKasa Desktop {version} is ready</p>
-            <p className="mt-1 text-xs leading-5 text-[#b5c1cc]">The signed update finished downloading. Restart now, or it will install when HeyKasa fully exits.</p>
+            <p className="text-sm font-semibold text-white">HayKasa Desktop {version} is ready</p>
+            <p className="mt-1 text-xs leading-5 text-[#b5c1cc]">The signed update finished downloading. Restart now, or it will install when HayKasa fully exits.</p>
           </div>
           <div className="flex shrink-0 flex-col gap-2">
             <button

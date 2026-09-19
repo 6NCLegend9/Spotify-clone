@@ -170,7 +170,7 @@ export default function AccessibilityPage() {
         <section className="border-b border-white/10 py-8" aria-labelledby="readable-errors">
           <h2 id="readable-errors" className="text-2xl font-bold">Readable errors</h2>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
-            Errors shown by HeyKasa use plain language instead of exposing internal codes. Important
+            Errors shown by HayKasa use plain language instead of exposing internal codes. Important
             errors are announced to assistive technology, and a Try again action is included when
             the failed operation can be safely repeated.
           </p>
@@ -181,7 +181,7 @@ export default function AccessibilityPage() {
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             The controls above can increase text size, increase color contrast, and reduce
             non-essential motion across the app. Your choices take effect immediately and are
-            saved locally when browser storage is available. HeyKasa also respects your operating system&apos;s
+            saved locally when browser storage is available. HayKasa also respects your operating system&apos;s
             <strong> prefers-reduced-motion</strong> setting even when the in-app toggle is off,
             including for decorative animated backgrounds.
           </p>

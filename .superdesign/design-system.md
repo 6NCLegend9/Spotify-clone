@@ -1,9 +1,9 @@
-# HeyKasa design system
+# HayKasa design system
 
-HeyKasa is a free dark music streaming web app. Visual identity is deep navy with a single electric cyan accent (`#00e6e6`). This language is **global** — Home, Library, Search, artist/playlist pages, Settings, auth, and the player all share the same recipes. Do not introduce Spotify green, extra brand colors, or light mode unless asked.
+HayKasa is a free dark music streaming web app. Visual identity is deep navy with a single electric cyan accent (`#00e6e6`). This language is **global** — Home, Library, Search, artist/playlist pages, Settings, auth, and the player all share the same recipes. Do not introduce Spotify green, extra brand colors, or light mode unless asked.
 
 ## Product
-- Name: HeyKasa / HeyKasa Music
+- Name: HayKasa / HayKasa Music
 - Tagline: Free Music Streaming
 - Logo: `src/assets/HayKasa-logo-removebg.png` (compact mark), `src/assets/HayKasa-banner-removebg.png` (wordmark). Always use the real lockup, never initials or a generic note icon in logo positions.
 - Live: https://haykasa.vercel.app
@@ -29,7 +29,7 @@ HeyKasa is a free dark music streaming web app. Visual identity is deep navy wit
 - Media art: **4px** radius everywhere
 - Cards / library tiles / shelves: transparent, hover fill, no cyan border or lift-glow
 - Filter chips: pill; **active is white on black**, inactive is white/8% — not cyan
-- Play FAB: cyan circle (`#00e6e6` on `#001014`) — HeyKasa stand-in for Spotify green
+- Play FAB: cyan circle (`#00e6e6` on `#001014`) — HayKasa stand-in for Spotify green
 - Icon buttons: 44×44 minimum; hover is white fill, not cyan glow
 - Sidebar 260px (16.25rem); collapsed ~84px
 - Top bar 64px desktop, 56px + safe-area mobile
@@ -59,7 +59,7 @@ Mobile: hamburger + compact brand in navbar, bottom tab bar (Home / Search / You
 
 ## Do not
 - Do not use Spotify green (`#1DB954` / `#1ed760`) — cyan is the brand play color
-- Do not replace HeyKasa logo with a music-note glyph or letter H
+- Do not replace HayKasa logo with a music-note glyph or letter H
 - Do not drop below 44px hit targets on controls
 - Do not invent a second accent color
 - Do not restyle a single page away from this system

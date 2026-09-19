@@ -22,7 +22,7 @@ function updateCopy(status) {
     case "available": return `Version ${status.version || ""} is available.`.trim();
     case "downloading": return `Downloading update… ${Math.round(status.progress || 0)}%`;
     case "ready": return `Version ${status.version || ""} is ready to install.`.trim();
-    case "up-to-date": return "HeyKasa Desktop is up to date.";
+    case "up-to-date": return "HayKasa Desktop is up to date.";
     case "deferred": return status.detail || "A newer version is rolling out gradually. This installation will update automatically when eligible.";
     case "error": return status.detail || "The update check failed. Your current version is still safe to use.";
     case "disabled": return status.detail || "Automatic updates are not available in this build yet.";
@@ -71,7 +71,7 @@ export default function DesktopAppCard() {
     const load = async () => {
       const manifestPromise = requestJson("/api/desktop/manifest", {
         fallbackTitle: "Desktop release information unavailable",
-        fallbackMessage: "Could not load the current HeyKasa Desktop release.",
+        fallbackMessage: "Could not load the current HayKasa Desktop release.",
       }).catch(() => null);
       const infoPromise = getHeyKasaDesktopInfo();
       const [nextManifest, nextInfo] = await Promise.all([manifestPromise, infoPromise]);
@@ -172,12 +172,12 @@ export default function DesktopAppCard() {
     <section className="mb-8 glass-panel rounded-xl p-5 sm:p-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="eyebrow mb-2 flex items-center gap-2"><FiMonitor aria-hidden="true" /> HeyKasa Desktop</p>
-          <h2 className="text-xl font-semibold">{isDesktop ? "Desktop app controls" : "Get HeyKasa for Windows"}</h2>
+          <p className="eyebrow mb-2 flex items-center gap-2"><FiMonitor aria-hidden="true" /> HayKasa Desktop</p>
+          <h2 className="text-xl font-semibold">{isDesktop ? "Desktop app controls" : "Get HayKasa for Windows"}</h2>
           <p className="mt-2 max-w-2xl text-xs leading-5 text-[#9aa8b5]">
             {isDesktop
-              ? "This window is running inside the secure HeyKasa desktop shell. Native Discord, Windows startup, tray behavior, and signed application updates are handled outside the browser sandbox."
-              : "Install the Windows app for native Discord Rich Presence and automatic desktop updates. The music experience still comes from the same HeyKasa account and Vercel web app."}
+              ? "This window is running inside the secure HayKasa desktop shell. Native Discord, Windows startup, tray behavior, and signed application updates are handled outside the browser sandbox."
+              : "Install the Windows app for native Discord Rich Presence and automatic desktop updates. The music experience still comes from the same HayKasa account and Vercel web app."}
           </p>
         </div>
         {isDesktop ? (
@@ -189,12 +189,12 @@ export default function DesktopAppCard() {
 
       {desktopInfo?.safeMode ? (
         <div className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-xs leading-5 text-amber-100">
-          HeyKasa Desktop started in safe mode after repeated crashes. Discord and automatic desktop updates are temporarily disabled for this run; the web music experience remains available.
+          HayKasa Desktop started in safe mode after repeated crashes. Discord and automatic desktop updates are temporarily disabled for this run; the web music experience remains available.
         </div>
       ) : null}
       {desktopInfo?.policy?.maintenance ? (
         <div className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-xs leading-5 text-amber-100">
-          {desktopInfo.policy.maintenanceMessage || "Some HeyKasa Desktop native features are temporarily unavailable for maintenance."}
+          {desktopInfo.policy.maintenanceMessage || "Some HayKasa Desktop native features are temporarily unavailable for maintenance."}
         </div>
       ) : null}
 
@@ -202,7 +202,7 @@ export default function DesktopAppCard() {
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <div className="rounded-lg border border-white/10 bg-black/10 p-4">
             <p className="text-xs uppercase tracking-[0.14em] text-[#778899]">Installed</p>
-            <p className="mt-1 text-lg font-semibold">HeyKasa {desktopInfo.desktopVersion || "Desktop"}</p>
+            <p className="mt-1 text-lg font-semibold">HayKasa {desktopInfo.desktopVersion || "Desktop"}</p>
             <p className="mt-1 text-xs text-[#9aa8b5]">
               {desktopInfo.platform || "Windows"} {desktopInfo.arch || ""} · Desktop API {desktopInfo.apiVersion || "—"}
             </p>
@@ -215,7 +215,7 @@ export default function DesktopAppCard() {
 
           {supportsStartup ? (
             <DesktopToggle
-              label="Start HeyKasa with Windows"
+              label="Start HayKasa with Windows"
               description="Launch the desktop app automatically after you sign in to Windows."
               checked={startupEnabled === true}
               disabled={startupEnabled === null || busy === "startup"}
@@ -226,7 +226,7 @@ export default function DesktopAppCard() {
           {supportsPreferences && supportsUpdater ? (
             <DesktopToggle
               label="Automatic desktop updates"
-              description="Check in the background and download signed HeyKasa Desktop updates automatically."
+              description="Check in the background and download signed HayKasa Desktop updates automatically."
               checked={preferences?.autoUpdate !== false}
               disabled={!preferences || busy === "autoUpdate"}
               onChange={(value) => void setPreference("autoUpdate", value)}
@@ -235,8 +235,8 @@ export default function DesktopAppCard() {
 
           {supportsPreferences && supportsTray ? (
             <DesktopToggle
-              label="Keep HeyKasa running in the system tray"
-              description="Closing the window hides HeyKasa instead of stopping playback and Discord presence. Use Quit HeyKasa from the tray to fully exit."
+              label="Keep HayKasa running in the system tray"
+              description="Closing the window hides HayKasa instead of stopping playback and Discord presence. Use Quit HayKasa from the tray to fully exit."
               checked={preferences?.closeToTray !== false}
               disabled={!preferences || busy === "closeToTray"}
               onChange={(value) => void setPreference("closeToTray", value)}
@@ -282,8 +282,10 @@ export default function DesktopAppCard() {
               <p className="mt-1 text-xs text-[#9aa8b5]">{releaseLabel}</p>
               <p className="mt-2 text-xs leading-5 text-[#9aa8b5]">
                 {manifest?.published
-                  ? "Signed desktop release. Updates are handled by the installed app after setup."
-                  : "The download slot is ready, but no signed public desktop build has been published yet."}
+                  ? manifest.signed === false
+                    ? "Public Windows preview build. Windows may show a publisher warning until the production signing certificate is configured."
+                    : "Signed desktop release. Updates are handled by the installed app after setup."
+                  : "The Windows build is being prepared. This card will enable the download as soon as a public installer is available."}
               </p>
             </div>
             {manifest?.published && manifest.downloadUrl ? (
@@ -292,11 +294,11 @@ export default function DesktopAppCard() {
                 className="btn-primary min-h-11 shrink-0 gap-2 px-4"
                 rel="noopener noreferrer"
               >
-                <FiDownload aria-hidden="true" /> Download for Windows
+                <FiDownload aria-hidden="true" /> {manifest.signed === false ? "Download Windows preview" : "Download for Windows"}
               </a>
             ) : (
               <button type="button" disabled className="btn-primary min-h-11 shrink-0 gap-2 px-4 opacity-50">
-                <FiDownload aria-hidden="true" /> Awaiting signed build
+                <FiDownload aria-hidden="true" /> Preparing Windows build
               </button>
             )}
           </div>

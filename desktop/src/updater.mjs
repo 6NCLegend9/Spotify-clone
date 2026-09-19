@@ -60,13 +60,13 @@ export class DesktopUpdater {
     autoUpdater.on("update-available", (info) => this.emit({
       state: "available",
       version: info?.version || "",
-      detail: "A newer HeyKasa Desktop version is available.",
+      detail: "A newer HayKasa Desktop version is available.",
     }));
     autoUpdater.on("update-not-available", () => this.emit({
       state: "up-to-date",
       version: this.app.getVersion(),
       progress: 0,
-      detail: "HeyKasa Desktop is up to date.",
+      detail: "HayKasa Desktop is up to date.",
     }));
     autoUpdater.on("download-progress", (progress) => this.emit({
       state: "downloading",
@@ -78,7 +78,7 @@ export class DesktopUpdater {
         state: "ready",
         version: info?.version || "",
         progress: 100,
-        detail: "Update downloaded. Restart HeyKasa to install it.",
+        detail: "Update downloaded. Restart HayKasa to install it.",
       });
     });
     autoUpdater.on("error", (error) => this.emit({
@@ -194,7 +194,7 @@ export class DesktopUpdater {
           state: "deferred",
           version: manifest.latest || this.app.getVersion(),
           progress: 0,
-          detail: "A newer HeyKasa Desktop release is rolling out gradually. This installation will update automatically when its rollout group becomes eligible.",
+          detail: "A newer HayKasa Desktop release is rolling out gradually. This installation will update automatically when its rollout group becomes eligible.",
         });
         return this.getStatus();
       }

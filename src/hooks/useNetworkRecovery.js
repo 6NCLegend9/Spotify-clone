@@ -14,7 +14,7 @@ export default function useNetworkRecovery() {
       if (!/loading chunk|chunkloaderror|dynamically imported module|moduleid is not a function/i.test(message)) return;
       recordDiagnostic("chunk_error", { code: "INTERNAL_ERROR" });
       toast((notification) => createElement("div", { className: "flex flex-wrap items-center gap-3" },
-        createElement("span", null, "Part of HeyKasa could not load. Reloading will stop playback."),
+        createElement("span", null, "Part of HayKasa could not load. Reloading will stop playback."),
         createElement("button", {
           type: "button",
           className: "inline-flex min-h-[44px] items-center gap-2 px-3",

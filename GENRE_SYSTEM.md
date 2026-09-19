@@ -1,4 +1,4 @@
-# HeyKasa Genre System
+# HayKasa Genre System
 
 This project uses MongoDB and Mongoose for music taxonomy. There is no admin role: the application seeds a shared, code-owned taxonomy, while user-created genres and tags are private to the user who created them. A private entry can affect that listener's recommendations without polluting the shared catalog.
 

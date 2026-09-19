@@ -39,12 +39,12 @@ export const getResetPasswordTemplate = (
     <div class="container">
         <img src="${safeLightPillarUrl}" alt="" role="presentation" width="600" height="156" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0; line-height: 100%; outline: none; text-decoration: none;">
         <div class="header">
-            <img src="${safeLogoUrl}" alt="HeyKasa Logo" width="40" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
-            <span class="logo" style="vertical-align: middle;">HeyKasa</span>
+            <img src="${safeLogoUrl}" alt="HayKasa Logo" width="40" height="40" style="vertical-align: middle; margin-right: 10px; border-radius: 8px;">
+            <span class="logo" style="vertical-align: middle;">HayKasa</span>
         </div>
         <div class="content">
             <h2>Reset Your Password</h2>
-            <p>We received a request to reset the password for your HeyKasa account. If you made this request, please click the button below to choose a new password.</p>
+            <p>We received a request to reset the password for your HayKasa account. If you made this request, please click the button below to choose a new password.</p>
             
             <div class="btn-container">
                 <a href="${safeUrl}" class="btn">Reset Password</a>
@@ -56,7 +56,7 @@ export const getResetPasswordTemplate = (
             <p class="link-text">${safeUrl}</p>
         </div>
         <div class="footer">
-             &copy; 2026 HeyKasa. All rights reserved.
+             &copy; 2026 HayKasa. All rights reserved.
         </div>
     </div>
 </body>

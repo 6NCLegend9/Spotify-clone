@@ -3,7 +3,7 @@
 ## BrandMark
 - Source: `src/components/Layout/BrandMark.jsx`
 - Category: layout
-- Description: HeyKasa lockup; compact logo vs banner wordmark, links home
+- Description: HayKasa lockup; compact logo vs banner wordmark, links home
 - Extractable props: compact (boolean, default: false)
 - Hardcoded: image assets, SITE_NAME alt, `/` href, brand-mark CSS classes
 

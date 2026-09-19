@@ -228,7 +228,7 @@ const MusicPlayer = () => {
       style.textContent = PIP_DOCUMENT_STYLES;
       pip.document.head.appendChild(style);
       const mount = pip.document.createElement("div");
-      mount.id = "HeyKasa-pip";
+      mount.id = "HayKasa-pip";
       mount.style.height = "100%";
       pip.document.body.appendChild(mount);
       pip.addEventListener("pagehide", () => {

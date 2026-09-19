@@ -10,7 +10,7 @@ import { getUserPlaylists } from "@/services/playlistApi";
 import { toUserError } from "@/utils/userError";
 import { accountOwner, readAccountCache, writeAccountCache } from "@/utils/accountCache.mjs";
 
-const HOME_CACHE_KEY = "HeyKasa-home-recommendations-v3";
+const HOME_CACHE_KEY = "HayKasa-home-recommendations-v3";
 const HOME_CACHE_TTL = 5 * 60_000;
 
 const normalizeHistory = (value) =>
@@ -142,7 +142,7 @@ export default function useHomeFeed() {
     setReleases([]);
     try {
       localStorage.removeItem("songHistory");
-      sessionStorage.removeItem("HeyKasa-home-recommendations-v2:authenticated");
+      sessionStorage.removeItem("HayKasa-home-recommendations-v2:authenticated");
     } catch {}
     if (!owner || owner === "guest") return undefined;
     try {

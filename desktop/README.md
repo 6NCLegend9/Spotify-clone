@@ -1,11 +1,11 @@
-# HeyKasa Desktop v1
+# HayKasa Desktop v1
 
-HeyKasa Desktop `1.0.0` is a hardened Electron shell around the production HeyKasa web application. The music product remains deployed by Next.js/Vercel; Electron adds a narrow set of Windows-native capabilities without exposing Node.js to the renderer.
+HayKasa Desktop `1.0.0` is a hardened Electron shell around the production HayKasa web application. The music product remains deployed by Next.js/Vercel; Electron adds a narrow set of Windows-native capabilities without exposing Node.js to the renderer.
 
 ## Runtime architecture
 
 ```text
-HeyKasa Desktop.exe
+HayKasa Desktop.exe
   ├─ Electron main process
   │   ├─ signed auto-updater
   │   ├─ Discord Desktop IPC
@@ -18,7 +18,7 @@ HeyKasa Desktop.exe
   ├─ context-isolated preload API
   │
   └─ https://haykasa.vercel.app
-      └─ the normal HeyKasa Next.js application
+      └─ the normal HayKasa Next.js application
 ```
 
 The desktop shell does not contain database credentials, GitHub credentials, signing credentials, Vercel write tokens, Google client secrets, NextAuth secrets, or other server-only material.
@@ -36,7 +36,7 @@ Electron enforces:
 - permission requests denied by default
 - IPC sender-origin verification on every privileged request
 - only the explicit preload methods under `window.heykasaDesktop`
-- navigation restricted to the trusted HeyKasa renderer origin
+- navigation restricted to the trusted HayKasa renderer origin
 - external HTTPS pages opened in the system browser
 - PWA service workers and Cache Storage cleared from the desktop partition at startup
 - single-instance execution
@@ -66,7 +66,7 @@ The web app checks capabilities instead of assuming that every installed desktop
 
 Desktop Rich Presence talks directly to Discord Desktop native IPC (`discord-ipc-0` through `discord-ipc-9`). The Electron desktop path does not use `ws://127.0.0.1:64650`.
 
-The old `desktop-bridge/` remains only as a browser-development/migration fallback. It is not required by HeyKasa Desktop.
+The old `desktop-bridge/` remains only as a browser-development/migration fallback. It is not required by HayKasa Desktop.
 
 Discord activity is sanitized before it reaches the native pipe. If richer payloads are rejected, the client falls back from buttons/assets to a minimal activity rather than crashing playback.
 
@@ -78,7 +78,7 @@ Flow:
 
 1. Electron generates a cryptographically random state and PKCE verifier/challenge.
 2. Electron opens `/api/desktop/auth/authorize` in the user's normal browser.
-3. The browser completes normal HeyKasa/Google authentication.
+3. The browser completes normal HayKasa/Google authentication.
 4. The server creates a short-lived, one-time desktop grant and redirects to `heykasa://auth`.
 5. Electron validates state and expiry and exchanges the one-time code plus PKCE verifier over HTTPS.
 6. The server consumes the grant atomically and returns a NextAuth session token to the Electron main process.
@@ -92,7 +92,7 @@ Desktop v1 separates web updates from native updates.
 
 ### Web changes
 
-Queue/player/search/UI changes are deployed through Vercel. The desktop window loads the production site and can notify the user when a newer web build is available. HeyKasa does not forcibly reload during playback.
+Queue/player/search/UI changes are deployed through Vercel. The desktop window loads the production site and can notify the user when a newer web build is available. HayKasa does not forcibly reload during playback.
 
 ### Native changes
 
@@ -106,7 +106,7 @@ The installed app:
 - rechecks after system resume
 - downloads eligible signed releases automatically
 - never allows automatic downgrade
-- installs a downloaded update when HeyKasa fully exits, or when the user selects Restart and update
+- installs a downloaded update when HayKasa fully exits, or when the user selects Restart and update
 
 The update endpoint is compiled into the signed app. A remotely loaded renderer cannot choose an arbitrary executable URL.
 
@@ -162,7 +162,7 @@ The web Support diagnostics panel can include a sanitized snapshot of desktop st
 
 ## Desktop preferences
 
-Machine-local preferences are deliberately separate from HeyKasa account settings:
+Machine-local preferences are deliberately separate from HayKasa account settings:
 
 - Start with Windows
 - automatic desktop updates

@@ -1,6 +1,6 @@
-# HeyKasa theme tokens
+# HayKasa theme tokens
 
-Product: HeyKasa Music. Dark-only streaming shell. Fonts: Poppins (UI) + Righteous (display). Accent is electric cyan on deep navy.
+Product: HayKasa Music. Dark-only streaming shell. Fonts: Poppins (UI) + Righteous (display). Accent is electric cyan on deep navy.
 
 ## Compact token summary
 

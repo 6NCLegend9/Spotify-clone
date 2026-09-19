@@ -7,7 +7,7 @@ const preferencesList = [
   {
     key: "largeText",
     title: "Larger text",
-    description: "Increase the base text size throughout HeyKasa.",
+    description: "Increase the base text size throughout HayKasa.",
   },
   {
     key: "highContrast",
@@ -43,7 +43,7 @@ export default function AccessibilityControls() {
             Display preferences
           </h2>
           <p className="mt-1 text-sm leading-6 text-[#c9d4de]">
-            These preferences apply across HeyKasa and are saved in this browser when storage is
+            These preferences apply across HayKasa and are saved in this browser when storage is
             available.
           </p>
         </div>

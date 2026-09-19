@@ -164,7 +164,7 @@ export class DiscordIpcClient {
       try {
         await this.connectPipe(ipcPath);
         this.everConnected = true;
-        console.info(`[HeyKasa Desktop] Discord IPC connected: ${ipcPath}`);
+        console.info(`[HayKasa Desktop] Discord IPC connected: ${ipcPath}`);
         return;
       } catch (error) {
         lastError = error;

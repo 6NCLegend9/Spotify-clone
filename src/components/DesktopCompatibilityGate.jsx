@@ -28,13 +28,13 @@ function compatibilityIssue(info, manifest) {
   if (requiredApi > installedApi) {
     return {
       type: "api",
-      message: `This website requires Desktop API ${requiredApi}, but HeyKasa Desktop ${info.desktopVersion || "this version"} provides API ${installedApi}.`,
+      message: `This website requires Desktop API ${requiredApi}, but HayKasa Desktop ${info.desktopVersion || "this version"} provides API ${installedApi}.`,
     };
   }
   if (isOlderThan(info.desktopVersion, manifest.minimum)) {
     return {
       type: "version",
-      message: `This HeyKasa Desktop version (${info.desktopVersion}) is older than the minimum supported version (${manifest.minimum}).`,
+      message: `This HayKasa Desktop version (${info.desktopVersion}) is older than the minimum supported version (${manifest.minimum}).`,
     };
   }
   return null;
@@ -93,7 +93,7 @@ export default function DesktopCompatibilityGate() {
   return (
     <div className="fixed inset-0 z-[10000] grid place-items-center bg-[#020913]/95 p-5 backdrop-blur-xl" role="alertdialog" aria-modal="true" aria-labelledby="desktop-update-required-title">
       <div className="w-full max-w-lg rounded-2xl border border-[#00e6e6]/25 bg-[#0a1725] p-6 shadow-2xl sm:p-8">
-        <p className="eyebrow mb-3">HeyKasa Desktop</p>
+        <p className="eyebrow mb-3">HayKasa Desktop</p>
         <h2 id="desktop-update-required-title" className="text-2xl font-bold">Desktop update required</h2>
         <p className="mt-3 text-sm leading-6 text-[#9aa8b5]">
           {state.issue.message} Update the desktop shell before continuing so the website and native security API stay compatible.
@@ -102,7 +102,7 @@ export default function DesktopCompatibilityGate() {
         <div className="mt-6 flex flex-wrap gap-3">
           <button type="button" onClick={checkUpdate} disabled={busy} className="btn-primary min-h-11 gap-2 px-4 disabled:opacity-50">
             <FiRefreshCw className={busy ? "animate-spin" : ""} aria-hidden="true" />
-            {busy ? "Checking…" : "Update HeyKasa"}
+            {busy ? "Checking…" : "Update HayKasa"}
           </button>
           {state.manifest.published && state.manifest.downloadUrl ? (
             <a href={state.manifest.downloadUrl} className="btn-ghost min-h-11 gap-2 px-4" rel="noopener noreferrer">
