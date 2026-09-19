@@ -145,6 +145,7 @@ function AccountSettings({ owner, status }) {
   const [saveError, setSaveError] = useState(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signingOutHere, setSigningOutHere] = useState(false);
   const [sessionError, setSessionError] = useState(null);
   const live = useRef(true);
   const savedTimerRef = useRef(null);
@@ -183,6 +184,19 @@ function AccountSettings({ owner, status }) {
       if (!live.current) return;
       setSaveState("error");
       setSaveError(settingsErrorDetails(error));
+    }
+  };
+
+  const signOutThisDevice = async () => {
+    if (signingOutHere || signingOut) return;
+    setSigningOutHere(true);
+    setSessionError(null);
+    try {
+      await signOut({ callbackUrl: "/login" });
+    } catch (error) {
+      if (!live.current) return;
+      setSessionError(userErrorDetails(error));
+      setSigningOutHere(false);
     }
   };
 
@@ -352,10 +366,34 @@ function AccountSettings({ owner, status }) {
 
       {status === "authenticated" && (
         <section className="mb-8 border-y border-[var(--hairline)] py-6">
-          <h2 className="mb-4 text-xl font-semibold">Sessions</h2>
-          <button type="button" className="btn-ghost min-h-12 gap-2 px-4" onClick={() => { setSessionError(null); setConfirmSignOut(true); }}>
-            <FiLogOut aria-hidden="true" /> Sign out all devices
-          </button>
+          <h2 className="mb-2 text-xl font-semibold">Sessions</h2>
+          <p className="mb-4 max-w-2xl text-xs leading-5 text-[var(--muted)]">
+            Sign out only this browser, or revoke every active session on your account.
+          </p>
+          {sessionError && !confirmSignOut && (
+            <div className="mb-4">
+              <UserMessage title={sessionError.title} message={sessionError.message} />
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="btn-primary min-h-12 gap-2 px-4"
+              disabled={signingOutHere || signingOut}
+              aria-busy={signingOutHere}
+              onClick={signOutThisDevice}
+            >
+              <FiLogOut aria-hidden="true" /> {signingOutHere ? "Signing out..." : "Sign out this device"}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost min-h-12 gap-2 px-4"
+              disabled={signingOutHere || signingOut}
+              onClick={() => { setSessionError(null); setConfirmSignOut(true); }}
+            >
+              <FiLogOut aria-hidden="true" /> Sign out all devices
+            </button>
+          </div>
           <AccessibleDialog open={confirmSignOut} onClose={() => setConfirmSignOut(false)} disableClose={signingOut}
             titleId="sign-out-devices-title" describedBy="sign-out-devices-description"
             panelClassName="w-full max-w-md rounded-lg border border-[var(--hairline)] bg-[var(--navy-surface)] p-6 text-[var(--text)]">
