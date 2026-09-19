@@ -322,10 +322,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     toggleTheaterControls();
   };
   const moveMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
-    if (expanded && event.pointerType === "mouse" && !controlsVisibleRef.current) {
-      controlsRevealedByPointerMoveRef.current = true;
-      showTheaterControls();
-    }
+    if (!expanded || event.pointerType !== "mouse") return;
+    if (!controlsVisibleRef.current) controlsRevealedByPointerMoveRef.current = true;
+    showTheaterControls();
   };
   const modeButton = canVideo ? <button type="button" className={styles.modeButton}
     onClick={() => persistVideoMode(!video)}
