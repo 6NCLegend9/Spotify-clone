@@ -49,7 +49,7 @@ async function releaseFiles(version) {
   const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const installerPattern = new RegExp(`^HayKasa-Setup-${escapedVersion}-x64\\.exe$`, "i");
   const installer = names.find((name) => installerPattern.test(name));
-  if (!installer) throw new Error(`Signed installer for ${version} was not found in desktop/dist.`);
+  if (!installer) throw new Error(`Installer for ${version} was not found in desktop/dist.`);
 
   const updateMetadata = names.find((name) => /^(latest|beta|alpha|internal)\.ya?ml$/i.test(name));
   if (!updateMetadata) throw new Error("electron-builder update metadata was not found in desktop/dist.");

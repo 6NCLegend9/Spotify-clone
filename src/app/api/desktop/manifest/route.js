@@ -8,42 +8,6 @@ export const runtime = "nodejs";
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
-const PREVIEW_RELEASE_API = "https://api.github.com/repos/6NCLegend9/Spotify-clone/releases/tags/desktop-preview";
-const PREVIEW_RELEASE_PAGE = "https://github.com/6NCLegend9/Spotify-clone/releases/tag/desktop-preview";
-
-async function loadPublicPreview(latest, minimum) {
-  try {
-    const response = await fetch(PREVIEW_RELEASE_API, {
-      headers: {
-        accept: "application/vnd.github+json",
-        "user-agent": "HayKasa-Desktop-Manifest",
-      },
-      next: { revalidate: 300 },
-    });
-    if (!response.ok) return null;
-    const release = await response.json();
-    const expectedName = `HayKasa-Setup-${latest}-x64.exe`;
-    const asset = Array.isArray(release?.assets)
-      ? release.assets.find((item) => item?.name === expectedName && typeof item?.browser_download_url === "string")
-      : null;
-    const downloadUrl = httpsUrl(asset?.browser_download_url);
-    if (!downloadUrl) return null;
-    return {
-      latest,
-      minimum,
-      recommended: latest,
-      downloadUrl,
-      releaseNotesUrl: httpsUrl(release?.html_url) || PREVIEW_RELEASE_PAGE,
-      sizeBytes: Number.isSafeInteger(asset?.size) && asset.size > 0 ? asset.size : null,
-      publishedAt: typeof release?.published_at === "string" ? release.published_at : "",
-      signed: false,
-      source: "github-preview",
-    };
-  } catch {
-    return null;
-  }
-}
-
 function httpsUrl(value) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text) return "";
@@ -163,36 +127,61 @@ function configuredManifestUrl(channel) {
   );
 }
 
-async function loadManifest(channel) {
-  const manifestUrl = configuredManifestUrl(channel);
-  if (!manifestUrl) {
-    const configured = normalizeManifest({}, channel);
-    if (configured.published || channel !== "stable") return configured;
-    const preview = await loadPublicPreview(configured.latest, configured.minimum);
-    return preview ? normalizeManifest(preview, channel) : configured;
+async function fetchVerifiedManifest(manifestUrl, expectedChannel) {
+  if (!manifestUrl) return null;
+  const response = await fetch(manifestUrl, {
+    headers: { accept: "application/json" },
+    next: { revalidate: 300 },
+  });
+  if (!response.ok) throw new Error(`Desktop manifest returned ${response.status}.`);
+  const envelope = await response.json();
+  const payload = verifiedRemotePayload(envelope);
+  if ((normalizeDesktopReleaseChannel(payload?.channel) || "stable") !== expectedChannel) {
+    throw new Error("Desktop manifest channel does not match the expected channel.");
   }
+  return payload;
+}
 
+async function loadInternalPreview() {
+  const previewUrl = configuredManifestUrl("internal");
+  if (!previewUrl) return null;
   try {
-    const response = await fetch(manifestUrl, {
-      headers: { accept: "application/json" },
-      next: { revalidate: 300 },
-    });
-    if (!response.ok) throw new Error(`Desktop manifest returned ${response.status}.`);
-    const envelope = await response.json();
-    const payload = verifiedRemotePayload(envelope);
-    if ((normalizeDesktopReleaseChannel(payload?.channel) || "stable") !== channel) {
-      throw new Error("Desktop manifest channel does not match the requested channel.");
-    }
-    return normalizeManifest(payload, channel);
+    const payload = await fetchVerifiedManifest(previewUrl, "internal");
+    return normalizeManifest({
+      ...payload,
+      signed: false,
+      source: "internal-preview",
+    }, "stable");
   } catch (error) {
     console.error(JSON.stringify({
       level: "error",
-      msg: "desktop_manifest_fetch_failed",
-      channel,
+      msg: "desktop_preview_manifest_fetch_failed",
       error: error instanceof Error ? error.message : String(error),
     }));
-    return normalizeManifest({}, channel);
+    return null;
   }
+}
+
+async function loadManifest(channel) {
+  const configured = normalizeManifest({}, channel);
+  const manifestUrl = configuredManifestUrl(channel);
+
+  if (manifestUrl) {
+    try {
+      const payload = await fetchVerifiedManifest(manifestUrl, channel);
+      return normalizeManifest(payload, channel);
+    } catch (error) {
+      console.error(JSON.stringify({
+        level: "error",
+        msg: "desktop_manifest_fetch_failed",
+        channel,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  if (configured.published || channel !== "stable") return configured;
+  return (await loadInternalPreview()) || configured;
 }
 
 export async function GET(request) {
