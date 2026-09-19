@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import UserData from "@/models/UserData";
-import { EQ_PRESET_BANDS } from "@/utils/eqPresets";
+import { EQ_PRESET_BANDS, migrateEqBands } from "@/utils/eqPresets";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
   ApiRouteError,
@@ -63,8 +63,10 @@ function validatedSettings(value) {
         || setting.length !== 5
         || setting.some((band) => !Number.isFinite(band) || band < -12 || band > 12)
       ) {
-        invalidSetting("eqBands must contain five numbers between -12 and 12.");
+        invalidSetting("eqBands must contain five or six numbers between -12 and 12.");
       }
+      settings[key] = migrateEqBands(setting);
+      continue;
     } else if (
       key === "masterVolume"
       && (!Number.isFinite(setting) || setting < 0 || setting > 1)

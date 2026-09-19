@@ -7,6 +7,7 @@ import playerReducer from "./features/playerSlice";
 import loadingBarReducer from "./features/loadingBarSlice";
 import languagesReducer from "./features/languagesSlice";
 import settingsReducer from "./features/settingsSlice";
+import { migrateEqBands } from "@/utils/eqPresets";
 
 const createNoopStorage = () => {
   return {
@@ -41,11 +42,12 @@ const languagePersistedReducer = persistReducer(
 
 const settingsPersistedReducer = persistReducer(
   persistConfig("settings", {
-    version: 4,
+    version: 5,
     migrate: (state) =>
       Promise.resolve({
         ...(state && typeof state === "object" ? state : {}),
         keyboardShortcuts: state?.keyboardShortcuts !== false,
+        eqBands: migrateEqBands(state?.eqBands),
       }),
   }),
   settingsReducer

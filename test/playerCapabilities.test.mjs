@@ -29,7 +29,14 @@ test("sleep timer UI is wired to the persistent timer controller", async () => {
 });
 
 test("expanded video keeps a pointer surface for revealing hidden controls", async () => {
-  const css = await read("src/components/MusicPlayer/mediaPresentation.module.css");
+  const [css, presentation] = await Promise.all([
+    read("src/components/MusicPlayer/mediaPresentation.module.css"),
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+  ]);
   assert.match(css, /\.theater\[data-media="video"\]\s*\{[^}]*pointer-events:\s*auto/);
   assert.match(css, /\.theater\[data-media="video"\] \.expandedArt\s*\{[^}]*pointer-events:\s*auto/);
+  assert.match(css, /\.gestureSurface\s*\{[^}]*pointer-events:\s*auto/);
+  assert.match(presentation, /controlsRevealedByPointerMoveRef\.current = true/);
+  assert.match(presentation, /if \(controlsRevealedByPointerMoveRef\.current\)/);
+  assert.match(presentation, /if \(!expanded \|\| event\.pointerType !== "mouse"\) return;[\s\S]*showTheaterControls\(\);/);
 });

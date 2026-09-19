@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { EQ_PRESET_BANDS } from "@/utils/eqPresets";
+import { EQ_PRESET_BANDS, migrateEqBands } from "@/utils/eqPresets";
 
 export const EQ_PRESETS = [
   "Flat / Neutral", "Acoustic", "Bass Boost", "Bass Reducer", "Treble Boost", "Treble Reducer",
@@ -10,7 +10,7 @@ export const EQ_PRESETS = [
 
 const initialState = {
   eqPreset: "Flat / Neutral",
-  eqBands: [0, 0, 0, 0, 0],
+  eqBands: [0, 0, 0, 0, 0, 0],
   dataSaver: false,
   audioOnly: false,
   videoQuality: "auto",
@@ -60,7 +60,7 @@ const settingsSlice = createSlice({
       state.discordPresenceConnectRequest += 1;
     },
     updateEqBands: (state, action) => {
-      state.eqBands = action.payload;
+      state.eqBands = migrateEqBands(action.payload);
       state.eqPreset = "Custom";
     },
     setSettingsOwner: (state, action) => {
@@ -95,10 +95,9 @@ const settingsSlice = createSlice({
         discordPresence: consent && requestedPresence,
         discordPresenceConnectRequest: state.discordPresenceConnectRequest || 0,
       };
-      if (next.eqPreset && next.eqPreset !== "Custom" && EQ_PRESET_BANDS[next.eqPreset]) {
-        const bands = Array.isArray(next.eqBands) ? next.eqBands : [];
-        if (bands.every((value) => !value)) next.eqBands = EQ_PRESET_BANDS[next.eqPreset];
-      }
+      next.eqBands = next.eqPreset && next.eqPreset !== "Custom" && EQ_PRESET_BANDS[next.eqPreset]
+        ? EQ_PRESET_BANDS[next.eqPreset]
+        : migrateEqBands(next.eqBands);
       return next;
     },
   },

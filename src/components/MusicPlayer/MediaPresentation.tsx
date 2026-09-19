@@ -90,6 +90,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const gestureRef = useRef<{ x: number; y: number } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const controlsVisibleRef = useRef(true);
+  const controlsRevealedByPointerMoveRef = useRef(false);
   const canVideo = Boolean(props.onVideo);
   const canLyrics = Boolean(props.onLyrics);
   const overlay = expanded || drawer;
@@ -109,12 +110,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     controlsTimerRef.current = window.setTimeout(() => {
       controlsTimerRef.current = null;
       controlsVisibleRef.current = false;
+      controlsRevealedByPointerMoveRef.current = false;
       setControlsVisible(false);
     }, THEATER_CONTROLS_HIDE_MS);
   }, [clearControlsTimer, expanded, view]);
   const toggleTheaterControls = useCallback((visibleAtPointerDown = controlsVisibleRef.current) => {
     if (!expanded || view !== "player") return;
     clearControlsTimer();
+    controlsRevealedByPointerMoveRef.current = false;
     const next = !visibleAtPointerDown;
     controlsVisibleRef.current = next;
     setControlsVisible(next);
@@ -311,10 +314,17 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   };
   const toggleMediaControls = (event: ReactMouseEvent<HTMLElement>) => {
     if (!expanded || (event.target as HTMLElement).closest("button, a, input, select")) return;
+    if (controlsRevealedByPointerMoveRef.current) {
+      controlsRevealedByPointerMoveRef.current = false;
+      showTheaterControls();
+      return;
+    }
     toggleTheaterControls();
   };
   const moveMediaPointer = (event: ReactPointerEvent<HTMLElement>) => {
-    if (expanded && event.pointerType === "mouse" && !controlsVisibleRef.current) showTheaterControls();
+    if (!expanded || event.pointerType !== "mouse") return;
+    if (!controlsVisibleRef.current) controlsRevealedByPointerMoveRef.current = true;
+    showTheaterControls();
   };
   const modeButton = canVideo ? <button type="button" className={styles.modeButton}
     onClick={() => persistVideoMode(!video)}
