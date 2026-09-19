@@ -30,6 +30,9 @@ const GenrePreferences = dynamic(() => import("@/components/GenrePreferences"), 
 const FeedbackPreferences = dynamic(() => import("@/components/FeedbackPreferences"));
 const SupportDiagnostics = dynamic(() => import("@/components/SupportDiagnostics"));
 const ListeningInsights = dynamic(() => import("@/components/ListeningInsights"));
+const AppearanceSettings = dynamic(() => import("@/components/AppearanceSettings"), {
+  ssr: false,
+});
 
 function formatBandFrequency(frequency) {
   return frequency >= 1000 ? `${(frequency / 1000).toFixed(frequency % 1000 === 0 ? 0 : 1)} kHz` : `${frequency} Hz`;
@@ -267,6 +270,8 @@ function AccountSettings({ owner, status }) {
           />
         </div>
       ) : null}
+
+      <AppearanceSettings />
 
       <section className="mb-8 grid gap-8 lg:grid-cols-2">
         <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">

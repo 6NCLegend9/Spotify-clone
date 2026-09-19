@@ -7,6 +7,7 @@ import playerReducer from "./features/playerSlice";
 import loadingBarReducer from "./features/loadingBarSlice";
 import languagesReducer from "./features/languagesSlice";
 import settingsReducer from "./features/settingsSlice";
+import appearanceReducer from "./features/appearanceSlice";
 import { migrateEqBands } from "@/utils/eqPresets";
 
 const createNoopStorage = () => {
@@ -61,6 +62,7 @@ const combinedReducer = combineReducers({
   loadingBar: loadingBarReducer,
   languages: languagePersistedReducer,
   settings: settingsPersistedReducer,
+  appearance: appearanceReducer,
 });
 
 // Passing undefined state makes every slice fall back to its initial state.

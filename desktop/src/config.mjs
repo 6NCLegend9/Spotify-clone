@@ -6,6 +6,7 @@ export const DESKTOP_CAPABILITIES = Object.freeze([
   "updaterV1",
   "autoLaunchV1",
   "desktopPreferencesV1",
+  "appearanceProfilesV1",
   "trayV1",
   "diagnosticsV1",
   "authV1",

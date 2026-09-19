@@ -3,6 +3,7 @@ import "./globals.css";
 import "./motion.css";
 import SongsHistory from "@/components/SongsHistory";
 import SettingsSync from "@/components/SettingsSync";
+import AppearanceSync from "@/components/AppearanceSync";
 import LanguageSync from "@/components/LanguageSync";
 import Providers from "@/redux/Providers";
 import TopProgressBar from "@/components/topProgressBar/TopProgressBar";
@@ -281,6 +282,7 @@ export default function RootLayout({ children }) {
               <NavigationProgress />
               <SongsHistory />
               <SettingsSync />
+              <AppearanceSync />
               <LanguageSync />
               <AppShell>{children}</AppShell>
             </AuthProvider>

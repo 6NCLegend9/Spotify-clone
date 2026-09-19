@@ -1,13 +1,17 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   net,
   Notification,
   powerMonitor,
+  protocol,
   session,
   shell,
   Tray,
@@ -30,6 +34,17 @@ import {
 import { DiscordIpcClient } from "./discord/ipcClient.mjs";
 import { NativeLogger } from "./nativeLogger.mjs";
 import { NativeStore } from "./nativeStore.mjs";
+import {
+  AppearanceStore,
+  MAX_BACKGROUND_BYTES,
+  MAX_BACKGROUND_DIMENSION,
+  appearanceAssetId,
+} from "./appearanceStore.mjs";
+import {
+  accentFromBitmap,
+  foregroundForAccent,
+  isAllowedArtworkUrl,
+} from "./artworkPalette.mjs";
 import { DesktopPolicy, effectiveUpdateRolloutPercent } from "./policy.mjs";
 import {
   assertTrustedIpcEvent,
@@ -46,7 +61,9 @@ import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
 const PROTOCOL = "heykasa";
+const APPEARANCE_PROTOCOL = "heykasa-media";
 const DESKTOP_PARTITION = "persist:heykasa";
+const MINI_PARTITION = "temp:heykasa-mini";
 const CAPABILITY_POLICY = Object.freeze({
   authV1: "auth",
   discordPresenceV1: "discord",
@@ -60,6 +77,7 @@ const trustedOrigins = buildTrustedOrigins({ appUrl, isPackaged: app.isPackaged 
 
 let mainWindow = null;
 let store = null;
+let appearanceStore = null;
 let logger = null;
 let updater = null;
 let policy = null;
@@ -74,6 +92,21 @@ let miniWindow = null;
 let miniUserHidden = false;
 let playbackState = sanitizePlaybackState(null);
 let lastNativeUpdateNotificationVersion = "";
+let resolvedAccent = "#00e6e6";
+let appearanceGeneration = 0;
+const artworkAccentCache = new Map();
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: APPEARANCE_PROTOCOL,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: false,
+    },
+  },
+]);
 
 function resourceIconPath() {
   return app.isPackaged
@@ -83,6 +116,161 @@ function resourceIconPath() {
 
 function desktopSession() {
   return session.fromPartition(DESKTOP_PARTITION);
+}
+
+const appearanceProtocolSessions = new WeakSet();
+
+function installAppearanceProtocol(ses) {
+  if (!ses || appearanceProtocolSessions.has(ses)) return;
+  ses.protocol.handle(APPEARANCE_PROTOCOL, async (request) => {
+    const assetId = appearanceAssetId(request.url);
+    const file = appearanceStore?.assetPath(assetId) || "";
+    if (!assetId || !file) {
+      return new Response("Not found", { status: 404 });
+    }
+    try {
+      const bytes = await fs.promises.readFile(file);
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          "Content-Type": "image/jpeg",
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    } catch {
+      return new Response("Not found", { status: 404 });
+    }
+  });
+  appearanceProtocolSessions.add(ses);
+}
+
+function resolvedAppearance() {
+  const appearance = appearanceStore?.resolve() || null;
+  if (!appearance) return null;
+  return {
+    ...appearance,
+    resolvedAccent,
+    accentForeground: foregroundForAccent(resolvedAccent),
+  };
+}
+
+function broadcastAppearance() {
+  const appearance = resolvedAppearance();
+  if (!appearance) return;
+  if (canMessageRenderer()) mainWindow.webContents.send("heykasa:appearance:changed", appearance);
+  if (miniWindow && !miniWindow.isDestroyed()) {
+    miniWindow.webContents.send("heykasa:appearance:changed", appearance);
+  }
+}
+
+async function chooseBackgroundFile() {
+  const options = {
+    title: "Choose a HayKasa background",
+    properties: ["openFile"],
+    filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] }],
+  };
+  const result = mainWindow && !mainWindow.isDestroyed()
+    ? await dialog.showOpenDialog(mainWindow, options)
+    : await dialog.showOpenDialog(options);
+  if (result.canceled || !result.filePaths?.[0]) return { canceled: true };
+
+  const source = result.filePaths[0];
+  const extension = path.extname(source).toLowerCase();
+  if (![".png", ".jpg", ".jpeg", ".webp"].includes(extension)) {
+    throw new Error("Choose a PNG, JPEG, or WebP image.");
+  }
+  const stat = await fs.promises.stat(source);
+  if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_BACKGROUND_BYTES) {
+    throw new Error("Background images must be smaller than 20 MB.");
+  }
+  let image = nativeImage.createFromPath(source);
+  if (image.isEmpty()) throw new Error("HayKasa could not read that image.");
+  const size = image.getSize();
+  if (
+    size.width <= 0
+    || size.height <= 0
+    || size.width > MAX_BACKGROUND_DIMENSION
+    || size.height > MAX_BACKGROUND_DIMENSION
+  ) {
+    throw new Error("That image is too large. Choose one under 12,000 pixels per side.");
+  }
+
+  const scale = Math.min(1, 3840 / size.width, 2160 / size.height);
+  if (scale < 1) {
+    image = image.resize({
+      width: Math.max(1, Math.round(size.width * scale)),
+      height: Math.max(1, Math.round(size.height * scale)),
+      quality: "best",
+    });
+  }
+  const encoded = image.toJPEG(90);
+  if (!encoded.length || encoded.length > MAX_BACKGROUND_BYTES) {
+    throw new Error("HayKasa could not optimize that image.");
+  }
+
+  const id = crypto.randomUUID();
+  const storedFile = path.join(appearanceStore.backgroundsDirectory, `${id}.jpg`);
+  await fs.promises.mkdir(appearanceStore.backgroundsDirectory, { recursive: true });
+  const tempFile = `${storedFile}.tmp`;
+  try {
+    await fs.promises.writeFile(tempFile, encoded, { mode: 0o600 });
+    await fs.promises.rename(tempFile, storedFile);
+    const asset = appearanceStore.registerAsset({ id, fileName: path.basename(source) });
+    return {
+      canceled: false,
+      asset: {
+        id: asset.id,
+        fileName: asset.fileName,
+        url: `${APPEARANCE_PROTOCOL}://background/${asset.id}`,
+      },
+    };
+  } catch (error) {
+    await fs.promises.rm(tempFile, { force: true }).catch(() => {});
+    await fs.promises.rm(storedFile, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function accentFromArtwork(url) {
+  if (!isAllowedArtworkUrl(url)) return "";
+  if (artworkAccentCache.has(url)) return artworkAccentCache.get(url);
+  const response = await net.fetch(url, { signal: AbortSignal.timeout(8_000) });
+  if (!response.ok) throw new Error("Artwork was unavailable.");
+  const contentType = response.headers.get("content-type") || "";
+  const announcedSize = Number(response.headers.get("content-length") || 0);
+  if (!contentType.startsWith("image/") || announcedSize > 5 * 1024 * 1024) {
+    throw new Error("Artwork response was not a supported image.");
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error("Artwork image was too large.");
+  const image = nativeImage.createFromBuffer(bytes);
+  if (image.isEmpty()) throw new Error("Artwork could not be decoded.");
+  const sample = image.resize({ width: 32, height: 32, quality: "good" }).toBitmap();
+  const accent = accentFromBitmap(sample);
+  artworkAccentCache.set(url, accent);
+  if (artworkAccentCache.size > 80) artworkAccentCache.delete(artworkAccentCache.keys().next().value);
+  return accent;
+}
+
+async function refreshAppearanceAccent() {
+  const generation = ++appearanceGeneration;
+  const profile = appearanceStore?.activeProfile();
+  const fallback = profile?.accent?.fixedColor || "#00e6e6";
+  if (profile?.accent?.mode !== "album" || !playbackState.artwork) {
+    resolvedAccent = fallback;
+    broadcastAppearance();
+    return;
+  }
+  try {
+    const accent = await accentFromArtwork(playbackState.artwork);
+    if (generation !== appearanceGeneration) return;
+    resolvedAccent = accent || fallback;
+  } catch {
+    if (generation !== appearanceGeneration) return;
+    resolvedAccent = fallback;
+  }
+  broadcastAppearance();
 }
 
 function policyFeature(name) {
@@ -366,6 +554,7 @@ async function enterSafeMode() {
 async function createMainWindow() {
   const ses = desktopSession();
   configureSession(ses);
+  installAppearanceProtocol(ses);
   await clearDesktopWebCaches(ses);
 
   const window = new BrowserWindow({
@@ -462,6 +651,7 @@ function broadcastPlayback() {
       window.showInactive();
     }
   }
+  void refreshAppearanceAccent();
 }
 
 function positionMiniPlayer() {
@@ -476,6 +666,8 @@ function positionMiniPlayer() {
 
 function createMiniPlayer() {
   if (miniWindow && !miniWindow.isDestroyed()) return miniWindow;
+  const miniSession = session.fromPartition(MINI_PARTITION);
+  installAppearanceProtocol(miniSession);
   miniWindow = new BrowserWindow({
     width: 360,
     height: 148,
@@ -490,7 +682,7 @@ function createMiniPlayer() {
     backgroundColor: "#07111f",
     webPreferences: {
       preload: path.join(__dirname, "miniPreload.cjs"),
-      partition: "temp:heykasa-mini",
+      partition: MINI_PARTITION,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -507,6 +699,12 @@ function createMiniPlayer() {
   miniWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   miniWindow.on("closed", () => {
     miniWindow = null;
+  });
+  miniWindow.webContents.on("did-finish-load", () => {
+    if (!miniWindow || miniWindow.isDestroyed()) return;
+    miniWindow.webContents.send("heykasa:playback:state", playbackState);
+    const appearance = resolvedAppearance();
+    if (appearance) miniWindow.webContents.send("heykasa:appearance:changed", appearance);
   });
   void miniWindow.loadFile(path.join(__dirname, "miniPlayer.html"));
   return miniWindow;
@@ -789,6 +987,10 @@ function registerIpcHandlers() {
     hideMiniPlayer();
     return { ok: true };
   });
+  ipcMain.handle("heykasa:mini:appearance", (event) => {
+    assertMiniOrTrustedIpcEvent(event);
+    return resolvedAppearance();
+  });
 
   secureHandle("heykasa:updates:status", () => (
     runtimeFeature("updater")
@@ -818,6 +1020,52 @@ function registerIpcHandlers() {
 
   secureHandle("heykasa:preferences:get", () => desktopPreferences());
   secureHandle("heykasa:preferences:set", (key, value) => setDesktopPreference(key, value));
+  secureHandle("heykasa:appearance:get", () => resolvedAppearance());
+  secureHandle("heykasa:appearance:import-background", () => chooseBackgroundFile());
+  secureHandle("heykasa:appearance:discard-background", (assetId) => ({
+    discarded: appearanceStore.discardAsset(assetId),
+  }));
+  secureHandle("heykasa:appearance:save-profile", async (profile) => {
+    appearanceStore.saveProfile(profile);
+    await refreshAppearanceAccent();
+    return resolvedAppearance();
+  });
+  secureHandle("heykasa:appearance:activate", async (profileId) => {
+    appearanceStore.activate(profileId);
+    await refreshAppearanceAccent();
+    return resolvedAppearance();
+  });
+  secureHandle("heykasa:appearance:duplicate", async (profileId) => {
+    appearanceStore.duplicate(profileId);
+    await refreshAppearanceAccent();
+    return resolvedAppearance();
+  });
+  secureHandle("heykasa:appearance:delete", async (profileId) => {
+    appearanceStore.delete(profileId);
+    await refreshAppearanceAccent();
+    return resolvedAppearance();
+  });
+  secureHandle("heykasa:appearance:reset", async () => {
+    appearanceStore.reset();
+    await refreshAppearanceAccent();
+    return resolvedAppearance();
+  });
+  secureHandle("heykasa:appearance:relink", async (profileId) => {
+    const profile = appearanceStore.getAll().profiles.find((item) => item.id === String(profileId || ""));
+    if (!profile) throw new Error("Appearance profile not found.");
+    const imported = await chooseBackgroundFile();
+    if (imported.canceled) return { canceled: true, appearance: resolvedAppearance() };
+    appearanceStore.saveProfile({
+      ...profile,
+      background: {
+        ...profile.background,
+        assetId: imported.asset.id,
+        fileName: imported.asset.fileName,
+      },
+    });
+    await refreshAppearanceAccent();
+    return { canceled: false, appearance: resolvedAppearance() };
+  });
   secureHandle("heykasa:diagnostics:get", () => ({
     safeMode,
     crashStreak: store?.get("crashStreak") || 0,
@@ -865,6 +1113,8 @@ if (registerSingleInstance()) {
     configureSession(session.defaultSession);
     const userDataDir = app.getPath("userData");
     store = new NativeStore(userDataDir);
+    appearanceStore = new AppearanceStore(userDataDir);
+    resolvedAccent = appearanceStore.activeProfile()?.accent?.fixedColor || "#00e6e6";
     logger = new NativeLogger(userDataDir);
     const startState = store.recordStart();
     safeMode = startState.safeMode;

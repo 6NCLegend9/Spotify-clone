@@ -41,6 +41,25 @@ const VERTEX_SHADER = `
   }
 `;
 
+function parseColor(hex) {
+  const color = new THREE.Color(hex);
+  return new THREE.Vector3(color.r, color.g, color.b);
+}
+
+function applyLook(material, look) {
+  if (!material?.uniforms) return;
+  material.uniforms.uTopColor.value = parseColor(look.topColor);
+  material.uniforms.uBottomColor.value = parseColor(look.bottomColor);
+  material.uniforms.uIntensity.value = look.intensity;
+  material.uniforms.uGlowAmount.value = look.glowAmount;
+  material.uniforms.uPillarWidth.value = look.pillarWidth;
+  material.uniforms.uPillarHeight.value = look.pillarHeight;
+  material.uniforms.uNoiseIntensity.value = look.noiseIntensity;
+  const rotationRadians = (look.pillarRotation * Math.PI) / 180;
+  material.uniforms.uPillarRotCos.value = Math.cos(rotationRadians);
+  material.uniforms.uPillarRotSin.value = Math.sin(rotationRadians);
+}
+
 export default function LightPillar({
   topColor = "#00e6e6",
   bottomColor = "#156d7a",
@@ -58,10 +77,32 @@ export default function LightPillar({
   const rendererRef = useRef(null);
   const materialRef = useRef(null);
   const frameRef = useRef(null);
+  const rotationSpeedRef = useRef(rotationSpeed);
+  const lookRef = useRef({
+    topColor,
+    bottomColor,
+    intensity,
+    glowAmount,
+    pillarWidth,
+    pillarHeight,
+    noiseIntensity,
+    pillarRotation,
+  });
   const [webGLSupported, setWebGLSupported] = useState(true);
   const systemReduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { preferences } = useAccessibilityPreferences();
   const reduceMotion = systemReduceMotion || preferences.reducedMotion;
+  rotationSpeedRef.current = rotationSpeed;
+  lookRef.current = {
+    topColor,
+    bottomColor,
+    intensity,
+    glowAmount,
+    pillarWidth,
+    pillarHeight,
+    noiseIntensity,
+    pillarRotation,
+  };
 
   useEffect(() => {
     const canvas = document.createElement("canvas");
@@ -88,10 +129,7 @@ export default function LightPillar({
     const height = Math.max(1, container.clientHeight);
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const parseColor = (hex) => {
-      const color = new THREE.Color(hex);
-      return new THREE.Vector3(color.r, color.g, color.b);
-    };
+    const look = lookRef.current;
 
     const fragmentShader = `
       precision ${settings.precision} float;
@@ -209,24 +247,23 @@ export default function LightPillar({
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const rotationRadians = (pillarRotation * Math.PI) / 180;
     const material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader,
       uniforms: {
         uTime: { value: 0 },
         uResolution: { value: new THREE.Vector2(width, height) },
-        uTopColor: { value: parseColor(topColor) },
-        uBottomColor: { value: parseColor(bottomColor) },
-        uIntensity: { value: intensity },
-        uGlowAmount: { value: glowAmount },
-        uPillarWidth: { value: pillarWidth },
-        uPillarHeight: { value: pillarHeight },
-        uNoiseIntensity: { value: noiseIntensity },
+        uTopColor: { value: parseColor(look.topColor) },
+        uBottomColor: { value: parseColor(look.bottomColor) },
+        uIntensity: { value: look.intensity },
+        uGlowAmount: { value: look.glowAmount },
+        uPillarWidth: { value: look.pillarWidth },
+        uPillarHeight: { value: look.pillarHeight },
+        uNoiseIntensity: { value: look.noiseIntensity },
         uRotCos: { value: 1 },
         uRotSin: { value: 0 },
-        uPillarRotCos: { value: Math.cos(rotationRadians) },
-        uPillarRotSin: { value: Math.sin(rotationRadians) },
+        uPillarRotCos: { value: 1 },
+        uPillarRotSin: { value: 0 },
         uWaveSin: { value: Math.sin(0.4) },
         uWaveCos: { value: Math.cos(0.4) },
       },
@@ -235,6 +272,7 @@ export default function LightPillar({
       depthTest: false,
     });
     materialRef.current = material;
+    applyLook(material, look);
 
     const geometry = new THREE.PlaneGeometry(2, 2);
     scene.add(new THREE.Mesh(geometry, material));
@@ -246,7 +284,7 @@ export default function LightPillar({
       if (!rendererRef.current || !materialRef.current) return;
       const delta = now - lastFrame;
       if (delta >= frameInterval) {
-        elapsed += 0.016 * rotationSpeed;
+        elapsed += 0.016 * rotationSpeedRef.current;
         material.uniforms.uTime.value = elapsed;
         material.uniforms.uRotCos.value = Math.cos(elapsed * 0.3);
         material.uniforms.uRotSin.value = Math.sin(elapsed * 0.3);
@@ -311,6 +349,10 @@ export default function LightPillar({
       rendererRef.current = null;
       materialRef.current = null;
     };
+  }, [quality, reduceMotion, webGLSupported]);
+
+  useEffect(() => {
+    applyLook(materialRef.current, lookRef.current);
   }, [
     bottomColor,
     glowAmount,
@@ -319,11 +361,7 @@ export default function LightPillar({
     pillarHeight,
     pillarRotation,
     pillarWidth,
-    quality,
-    reduceMotion,
-    rotationSpeed,
     topColor,
-    webGLSupported,
   ]);
 
   return (

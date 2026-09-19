@@ -79,7 +79,9 @@ const Navbar = () => {
         <button type="button" onClick={goBack} disabled={!historyState.canBack} className="icon-btn h-11 w-11 shrink-0 md:hidden disabled:cursor-not-allowed disabled:opacity-35" aria-label="Go back" title="Go back">
           <FiChevronLeft aria-hidden="true" size={22} />
         </button>
-        <BrandMark compact className="hidden shrink-0 sm:flex md:hidden" />
+        <div className="hidden shrink-0 sm:flex md:hidden">
+          <BrandMark compact />
+        </div>
         <div className={styles.history} aria-label="Navigation history">
           <button type="button" onClick={goBack} disabled={!historyState.canBack} aria-label="Go back" title="Go back"><FiChevronLeft size={20} /></button>
           <button type="button" onClick={goForward} disabled={!historyState.canForward} aria-label="Go forward" title="Go forward"><FiChevronRight size={20} /></button>
@@ -92,7 +94,7 @@ const Navbar = () => {
         <Searchbar />
       </div>
       <div className="navbar-slot navbar-slot-end">
-        <Link href="/arcade" className={`icon-btn h-11 w-11 shrink-0 ${canUseArcade(session?.user?.email) ? "" : "hidden"}`} aria-label="Open Beat Arcade" title="Beat Arcade"><MdSportsEsports aria-hidden="true" className="text-xl" /></Link>
+        <Link href="/arcade" className={`icon-btn h-11 w-11 shrink-0 ${canUseArcade(session?.user?.email) ? "max-lg:hidden" : "hidden"}`} aria-label="Open Beat Arcade" title="Beat Arcade"><MdSportsEsports aria-hidden="true" className="text-xl" /></Link>
         <UpdatesBell />
         {status === "authenticated" ? (
           <Link href="/settings" aria-label={`Open settings for ${userName}`} title="Open settings" className={styles.account}>
@@ -100,7 +102,7 @@ const Navbar = () => {
             <span className={styles.accountName}>{userName}</span>
           </Link>
         ) : status === "unauthenticated" ? (
-          <Link href="/login" prefetch className="btn-primary h-8 px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm">Log in</Link>
+          <Link href="/login" prefetch className="btn-primary h-8 shrink-0 whitespace-nowrap px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm">Log in</Link>
         ) : <span className="h-8 w-8 animate-pulse rounded-full bg-white/10 sm:h-10 sm:w-10" role="status" aria-label="Loading account" />}
       </div>
     </header>

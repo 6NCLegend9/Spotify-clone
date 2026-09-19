@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FiSearch, FiX } from "react-icons/fi";
 import { HiOutlineViewGrid, HiViewGrid } from "react-icons/hi";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
 import { cleanArtist, cleanTitle } from "@/utils/text";
+import useMediaQuery from "@/hooks/useMediaQuery";
 
 function songSearchQuery(song) {
   return [
@@ -36,6 +38,9 @@ const Searchbar = () => {
   const recentsLoadedAtRef = useRef(0);
   const inputRef = useRef(null);
   const clusterRef = useRef(null);
+  const [compactPlaceholder, setCompactPlaceholder] = useState(false);
+  const [overlayBox, setOverlayBox] = useState({ top: 64, bottom: 0 });
+  const overlaySuggestions = useMediaQuery("(max-width: 767px)");
 
   useEffect(() => {
     const onKey = (event) => {
@@ -60,6 +65,17 @@ const Searchbar = () => {
     };
     window.addEventListener("heykasa:open-search", onOpenSearch);
     return () => window.removeEventListener("heykasa:open-search", onOpenSearch);
+  }, []);
+
+  useEffect(() => {
+    const node = inputRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect?.width || 0;
+      setCompactPlaceholder(width > 0 && width < 196);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -154,12 +170,40 @@ const Searchbar = () => {
   const suggestionsVisible = open;
   const selectedIndex = activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
 
+  const isSearchUi = (node) => {
+    if (!(node instanceof Element)) return false;
+    return Boolean(
+      clusterRef.current?.contains(node)
+      || node.closest("[data-search-suggest='true']")
+      || node.closest('[data-track-actions-portal="true"]'),
+    );
+  };
+
+  useLayoutEffect(() => {
+    if (!open || !overlaySuggestions) return undefined;
+    const syncBox = () => {
+      const nav = document.querySelector(".app-navbar");
+      const chrome = document.querySelector(".app-tabbar") || document.querySelector(".app-player");
+      const top = nav?.getBoundingClientRect().bottom;
+      const chromeTop = chrome?.getBoundingClientRect().top;
+      setOverlayBox({
+        top: Number.isFinite(top) ? Math.round(top) : 64,
+        bottom: Number.isFinite(chromeTop) ? Math.max(0, Math.round(window.innerHeight - chromeTop)) : 0,
+      });
+    };
+    syncBox();
+    window.addEventListener("resize", syncBox);
+    window.visualViewport?.addEventListener("resize", syncBox);
+    return () => {
+      window.removeEventListener("resize", syncBox);
+      window.visualViewport?.removeEventListener("resize", syncBox);
+    };
+  }, [open, overlaySuggestions]);
+
   useEffect(() => {
     if (!open) return undefined;
     const dismiss = (event) => {
-      const target = event.target;
-      if (clusterRef.current?.contains(target)) return;
-      if (target instanceof Element && target.closest('[data-track-actions-portal="true"]')) return;
+      if (isSearchUi(event.target)) return;
       setOpen(false);
       setActiveIndex(-1);
     };
@@ -173,7 +217,7 @@ const Searchbar = () => {
         window.setTimeout(finish, 100);
         return;
       }
-      if (clusterRef.current?.contains(document.activeElement)) return;
+      if (isSearchUi(document.activeElement)) return;
       setOpen(false);
       setActiveIndex(-1);
     };
@@ -198,7 +242,7 @@ const Searchbar = () => {
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck="false"
-          placeholder="What do you want to play?"
+          placeholder={compactPlaceholder ? "Search" : "What do you want to play?"}
           value={searchTerm}
           role="combobox"
           aria-autocomplete="list"
@@ -280,46 +324,60 @@ const Searchbar = () => {
           {browseActive ? <HiViewGrid aria-hidden="true" /> : <HiOutlineViewGrid aria-hidden="true" />}
         </Link>
       </div>
-      {suggestionsVisible ? (
-        <ul id={listboxId} role="listbox" aria-label={showRecentState ? "Recent searches" : "Search suggestions"} className="search-suggest">
-          {showRecentState && recentLoading && items.length === 0 ? (
-            <li role="presentation" className="px-4 py-3 text-sm text-[#b3b3b3]">Loading recents…</li>
-          ) : null}
-          {showRecentState && !recentLoading && items.length === 0 ? (
-            <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Your recent searches will appear here.</li>
-          ) : null}
-          {!showRecentState && searchTerm.trim().length < 2 ? (
-            <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Type at least 2 characters to search.</li>
-          ) : null}
-          {!showRecentState && searchTerm.trim().length >= 2 && !recentLoading && items.length === 0 ? (
-            <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">No suggestions yet. Press Enter to search.</li>
-          ) : null}
-          {items.map((item, index) => item.type === "recent-query" ? (
-            <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}>
-              <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => go(item.query)}
-                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
-                <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
-                <span className="min-w-0 flex-1 truncate">{item.query}</span>
-                <span className="text-[10px] uppercase tracking-wide text-[#9aa8b5]">Recent search</span>
-              </button>
-            </li>
-          ) : (
-            <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}
-              className={`flex w-full items-center gap-1 px-2 py-1 text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
-              <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => searchSong(item.song)}
-                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
-                <MediaImage src={item.song.thumbnail || item.song?.image?.[1]?.url || item.song?.image?.[0]?.url} size="mq" alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{cleanTitle(item.song.title || item.song.name, "Song")}</span>
-                  <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanArtist(item.song.channel || item.song.artist || item.song.author)}</span>
-                </span>
-              </button>
-              <AddToQueueButton track={item.song} className="z-[90]" />
-              <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {(() => {
+        if (!suggestionsVisible) return null;
+        const list = (
+          <ul
+            id={listboxId}
+            role="listbox"
+            data-search-suggest="true"
+            aria-label={showRecentState ? "Recent searches" : "Search suggestions"}
+            className={`search-suggest${overlaySuggestions ? " search-suggest--overlay" : ""}`}
+            style={overlaySuggestions ? { top: overlayBox.top, bottom: overlayBox.bottom } : undefined}
+          >
+            {showRecentState && recentLoading && items.length === 0 ? (
+              <li role="presentation" className="px-4 py-3 text-sm text-[#b3b3b3]">Loading recents…</li>
+            ) : null}
+            {showRecentState && !recentLoading && items.length === 0 ? (
+              <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Your recent searches will appear here.</li>
+            ) : null}
+            {!showRecentState && searchTerm.trim().length < 2 ? (
+              <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Type at least 2 characters to search.</li>
+            ) : null}
+            {!showRecentState && searchTerm.trim().length >= 2 && !recentLoading && items.length === 0 ? (
+              <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">No suggestions yet. Press Enter to search.</li>
+            ) : null}
+            {items.map((item, index) => item.type === "recent-query" ? (
+              <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}>
+                <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => go(item.query)}
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
+                  <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
+                  <span className="min-w-0 flex-1 truncate">{item.query}</span>
+                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-[#9aa8b5]">Recent search</span>
+                </button>
+              </li>
+            ) : (
+              <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}
+                className={`flex w-full items-center gap-1 px-2 py-1 text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
+                <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => searchSong(item.song)}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
+                  <MediaImage src={item.song.thumbnail || item.song?.image?.[1]?.url || item.song?.image?.[0]?.url} size="mq" alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{cleanTitle(item.song.title || item.song.name, "Song")}</span>
+                    <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanArtist(item.song.channel || item.song.artist || item.song.author)}</span>
+                  </span>
+                </button>
+                <AddToQueueButton track={item.song} className="z-[90]" />
+                <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
+              </li>
+            ))}
+          </ul>
+        );
+        if (overlaySuggestions && typeof document !== "undefined") {
+          return createPortal(list, document.body);
+        }
+        return list;
+      })()}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {open && searchTerm.trim().length >= 2
           ? items.length > 0

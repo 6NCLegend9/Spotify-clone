@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { FiSettings } from "react-icons/fi";
+import { useSelector } from "react-redux";
 import { useNav } from "../Layout/AppShell";
+import { selectEffectiveAppearance } from "@/redux/features/appearanceSlice";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -21,6 +23,17 @@ export default function HomeHeader({ filter, onFilter }) {
   const { setShowNav, navModal } = useNav();
   const [imageFailed, setImageFailed] = useState(false);
   const [hello, setHello] = useState("Welcome");
+  const appearance = useSelector(selectEffectiveAppearance);
+  const homeAppearance = appearance?.activeProfile?.home;
+  const customMessage = homeAppearance?.visible === true
+    ? String(homeAppearance.message || "").trim()
+    : "";
+  const homeSize = ["small", "medium", "large"].includes(homeAppearance?.size)
+    ? homeAppearance.size
+    : "medium";
+  const homeAlign = ["left", "center", "right"].includes(homeAppearance?.align)
+    ? homeAppearance.align
+    : "left";
   const userName = typeof session?.user?.name === "string" && session.user.name.trim() ? session.user.name.trim() : "Account";
   const rawImageUrl = session?.user?.image || session?.user?.imageUrl;
   const imageUrl = typeof rawImageUrl === "string" ? rawImageUrl : "";
@@ -44,8 +57,10 @@ export default function HomeHeader({ filter, onFilter }) {
         {href ? <Link href={href} aria-label={label} title={label} className="ml-auto grid h-11 w-11 shrink-0 place-items-center text-[var(--teal)] md:hidden"><FiSettings size={22} /></Link> : <span className="ml-auto h-8 w-8 animate-pulse rounded-full bg-white/10 md:hidden" role="status" aria-label={label} />}
       </div>
       <div className="home-header-row">
-        <div className="home-title-copy">
-          <h1 className="home-display">{guest ? "Free. No ads. Jam." : hello}</h1>
+        <div className={`home-title-copy appearance-home-text--${homeAlign}`}>
+          <h1 className={`home-display ${customMessage ? `appearance-home-text--${homeSize}` : ""}`}>
+            {customMessage || (guest ? "Free. No ads. Jam." : hello)}
+          </h1>
           <p className="home-subtitle">
             {guest
               ? "Listen now. Save, follow, and Jam when you make an account."

@@ -39,6 +39,18 @@ const api = Object.freeze({
     get: () => ipcRenderer.invoke("heykasa:preferences:get"),
     set: (key, value) => ipcRenderer.invoke("heykasa:preferences:set", key, value),
   }),
+  appearance: Object.freeze({
+    get: () => ipcRenderer.invoke("heykasa:appearance:get"),
+    importBackground: () => ipcRenderer.invoke("heykasa:appearance:import-background"),
+    discardBackground: (assetId) => ipcRenderer.invoke("heykasa:appearance:discard-background", assetId),
+    saveProfile: (profile) => ipcRenderer.invoke("heykasa:appearance:save-profile", profile),
+    activate: (profileId) => ipcRenderer.invoke("heykasa:appearance:activate", profileId),
+    duplicate: (profileId) => ipcRenderer.invoke("heykasa:appearance:duplicate", profileId),
+    delete: (profileId) => ipcRenderer.invoke("heykasa:appearance:delete", profileId),
+    reset: () => ipcRenderer.invoke("heykasa:appearance:reset"),
+    relink: (profileId) => ipcRenderer.invoke("heykasa:appearance:relink", profileId),
+    onChanged: (listener) => subscribe("heykasa:appearance:changed", listener),
+  }),
   diagnostics: Object.freeze({
     get: () => ipcRenderer.invoke("heykasa:diagnostics:get"),
     clearLogs: () => ipcRenderer.invoke("heykasa:diagnostics:clear-logs"),

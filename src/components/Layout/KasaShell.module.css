@@ -1,16 +1,18 @@
 /* Opt-in shell skin. Every rule is scoped to this navbar's mounted application.
    Existing authentication, settings, data and media-controller modules stay intact. */
 :global(body):has(.navbar) { font-family: Inter, Figtree, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-:global(.app-shell):has(.navbar) { --accent: #00e6e6; --teal: #64c9d7; --teal-mid: #22a6b3; --navy: #000814; --navy-deep: #020813; --navy-surface: #07121d; --navy-raised: #0b1722; --navy-panel: #101c28; --text: #ffffff; --muted: #9eb6c6; --hairline-cyan: rgb(34 166 179 / 24%); --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: var(--navy-deep); }
+:global(.app-shell):has(.navbar) { --accent: var(--appearance-accent, #00e6e6); --play-ink: var(--appearance-play-ink, #001014); --teal: #64c9d7; --teal-mid: #22a6b3; --navy: #000814; --navy-deep: #020813; --navy-surface: #07121d; --navy-raised: #0b1722; --navy-panel: #101c28; --text: #ffffff; --muted: #9eb6c6; --hairline-cyan: rgb(34 166 179 / 24%); --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: var(--navy-deep); }
 :global(.app-shell[data-has-track="false"]):has(.navbar) { --mobile-player-h: 0px; }
-.navbar { margin: 0; border-radius: 0; background: rgb(2 8 19 / 65%); border: 0; box-shadow: none; min-height: 64px; padding: 8px 20px; gap: 12px; grid-template-columns: auto minmax(0, 544px) minmax(0, 1fr); }
-.navbar :global(.navbar-search-cluster) { width: 100%; max-width: 544px; justify-self: start; gap: 0; }
+.navbar { margin: 0; border-radius: 0; background: rgb(2 8 19 / 65%); border: 0; box-shadow: none; min-height: 64px; padding: 8px 20px; gap: 12px; grid-template-columns: auto minmax(0, 1fr) auto; min-width: 0; }
+.navbar :global(.navbar-search-cluster) { width: 100%; max-width: 544px; min-width: 0; justify-self: stretch; gap: 0; }
+.navbar :global(.navbar-slot-start),
+.navbar :global(.navbar-slot-end) { flex-shrink: 0; flex-wrap: nowrap; min-width: max-content; }
 .navbar :global(.search-field) { width: 100%; height: 48px; min-height: 48px; border: 1px solid transparent; border-radius: 999px; background: #242424; box-shadow: none; padding: 0 8px 0 14px; gap: 10px; }
 .navbar :global(.search-field:hover) { background: #2a2a2a; }
 .navbar :global(.search-field:focus-within) { border-color: #fff; background: #2a2a2a; box-shadow: none; }
 .navbar :global(.search-field.is-browse) { border-color: transparent; background: #242424; }
 .navbar :global(.search-field-icon) { color: #b3b3b3; width: 22px; height: 22px; }
-.navbar :global(.search-field-input) { color: #fff; font-size: 14px; font-weight: 500; }
+.navbar :global(.search-field-input) { color: #fff; font-size: 14px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .navbar :global(.search-field-input::placeholder) { color: #b3b3b3; opacity: 1; }
 .navbar :global(.search-clear) { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border-radius: 50%; color: #b3b3b3; }
 .navbar :global(.search-clear:hover) { color: #fff; background: rgba(255,255,255,.08); }
@@ -97,9 +99,16 @@
 :global(.app-shell):has(.navbar) :global(.home-feature-card) { border: 1px solid var(--hairline-cyan); background: var(--navy-raised); border-radius: 12px; box-shadow: none; }
 :global(.app-shell):has(.navbar) :global(.home-feature-art) { border-radius: 8px; }
 
+@media (max-width: 1179px) {
+ .accountName { display: none; }
+}
+@media (min-width: 768px) and (max-width: 1099px) {
+ .navbar { padding: 8px 12px; gap: 8px; }
+}
 @media (min-width: 768px) {
  .history { display: flex; }
- .navbar :global(.nav-home-btn) { display: none; }
+ .navbar :global(.nav-home-btn),
+ .navbar :global(.brand-mark) { display: none; }
  :global(.app-shell):has(.navbar) { display: grid; grid-template-columns: min(var(--sidebar-live-w, 260px), 32vw) 8px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 90px; gap: 8px 0; padding: 8px 8px 0; }
  :global(.app-shell.is-sidebar-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr); }
  :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: relative; inset: auto; grid-column: 1; grid-row: 1; width: 100%; height: 100%; transform: none; min-height: 0; }
@@ -141,7 +150,6 @@
  .searchRoute :global(.search-field-input) { color: #121212; font-size: 15px; font-weight: 700; }
  .searchRoute :global(.search-field-input::placeholder) { color: #191414; opacity: 1; }
  .searchRoute :global(.search-clear:hover) { color: #121212; background: rgba(0,0,0,.08); }
- .searchRoute :global(.search-suggest) { position: fixed; top: calc(64px + env(safe-area-inset-top, 0px)); right: 0; bottom: calc(var(--mobile-player-h) + var(--mobile-tabbar-h)); left: 0; width: auto; max-height: none; margin: 0; border: 0; border-radius: 0; background: #121212; padding: 8px 8px 20px; box-shadow: none; }
  .accountName { display: none; }
  :global(.app-shell[data-route="home"]):has(.navbar) .navbar { display: none; }
  :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 1; grid-row: 1; border: 0; border-radius: 0; }
@@ -157,4 +165,4 @@
  :global(.app-shell):has(.navbar) :global(.app-tabbar) { grid-row: 3; grid-column: 1; }
 }
 /* Preserve user accessibility overrides rather than overwriting their palette. */
-:global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) { --accent: #6affff; --teal: #a7ffff; --teal-mid: #6affff; --navy: #000; --navy-deep: #000; --navy-surface: #000; --navy-raised: #000; --navy-panel: #000; --text: #fff; --muted: #fff; --hairline-cyan: #fff; }
+:global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) { --accent: #6affff; --play-ink: #000; --teal: #a7ffff; --teal-mid: #6affff; --navy: #000; --navy-deep: #000; --navy-surface: #000; --navy-raised: #000; --navy-panel: #000; --text: #fff; --muted: #fff; --hairline-cyan: #fff; }

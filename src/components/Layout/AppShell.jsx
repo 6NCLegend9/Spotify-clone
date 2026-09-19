@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -22,6 +22,8 @@ import useScrollPerformance from "@/hooks/useScrollPerformance";
 import usePointerTilt from "@/hooks/usePointerTilt";
 import PlaybackPersistence from "@/components/PlaybackPersistence";
 import DiscordPresenceSync from "@/components/DiscordPresenceSync";
+import AppearanceBackdrop from "@/components/AppearanceBackdrop";
+import { selectAccentForeground, selectResolvedAccent } from "@/redux/features/appearanceSlice";
 import { isAuthPath } from "@/utils/authPaths.mjs";
 import { isEmbedPath } from "@/utils/embedPaths.mjs";
 
@@ -35,15 +37,38 @@ const LightPillar = dynamic(
   { ssr: false },
 );
 
-const HomeBackdropRotator = dynamic(
-  () => import("@/components/Homepage/HomeBackdropRotator"),
-  { ssr: false },
-);
-
 const JamController = dynamic(
   () => import("@/components/Jam/JamController"),
   { ssr: false },
 );
+
+function AppearanceScene() {
+  const resolvedAccent = useSelector(selectResolvedAccent);
+  const accentForeground = useSelector(selectAccentForeground);
+
+  useLayoutEffect(() => {
+    const root = document.querySelector(".app-shell");
+    if (!root) return;
+    root.style.setProperty("--appearance-accent", resolvedAccent);
+    root.style.setProperty("--appearance-play-ink", accentForeground);
+  }, [accentForeground, resolvedAccent]);
+
+  return (
+    <LightPillar
+      className="app-ghost-fibers"
+      topColor={resolvedAccent}
+      bottomColor={resolvedAccent}
+      intensity={0.52}
+      rotationSpeed={0.1}
+      glowAmount={0.003}
+      pillarWidth={3.2}
+      pillarHeight={0.42}
+      noiseIntensity={0.14}
+      pillarRotation={10}
+      quality="medium"
+    />
+  );
+}
 
 const NavContext = createContext(null);
 
@@ -291,20 +316,8 @@ export default function AppShell({ children }) {
           onClick={() => setShowNav(false)}
         />
         <div className="app-stage" inert={navModal}>
-          <LightPillar
-            className="app-ghost-fibers"
-            topColor="#00e6e6"
-            bottomColor="#176b55"
-            intensity={0.52}
-            rotationSpeed={0.1}
-            glowAmount={0.003}
-            pillarWidth={3.2}
-            pillarHeight={0.42}
-            noiseIntensity={0.14}
-            pillarRotation={10}
-            quality="medium"
-          />
-          {pathname === "/" ? <HomeBackdropRotator /> : null}
+          <AppearanceScene />
+          <AppearanceBackdrop isHome={pathname === "/"} />
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Atmosphere />
           <Navbar />

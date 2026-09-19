@@ -15,4 +15,8 @@ contextBridge.exposeInMainWorld("heykasaMini", Object.freeze({
   openMain: () => ipcRenderer.invoke("heykasa:mini:open"),
   hide: () => ipcRenderer.invoke("heykasa:mini:hide"),
   onState: (listener) => subscribe("heykasa:playback:state", listener),
+  appearance: Object.freeze({
+    get: () => ipcRenderer.invoke("heykasa:mini:appearance"),
+    onChanged: (listener) => subscribe("heykasa:appearance:changed", listener),
+  }),
 }));
