@@ -299,10 +299,13 @@ test("video expansion fits desktop and mobile without replacing the media host",
   };
 
   const revealControls = async () => {
-    if (await expanded.getAttribute("data-controls") === "visible") return;
     const box = await page.getByTestId("youtube-decks").boundingBox();
     expect(box).not.toBeNull();
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    await page.mouse.move(center.x, center.y);
+    if (await expanded.getAttribute("data-controls") !== "visible") {
+      await page.mouse.click(center.x, center.y);
+    }
     await expect(expanded).toHaveAttribute("data-controls", "visible");
   };
 
