@@ -1113,6 +1113,10 @@ function YouTubePlayer() {
           ) {
             if (isPageHidden()) {
               markBackgroundPlayback();
+              // Keep foreground-resume intent, but report the actual paused
+              // engine state to the UI and notification controls.
+              if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+              dispatch(playPause(false));
               return;
             }
             clearActiveBufferTimers();
@@ -2804,17 +2808,22 @@ function YouTubePlayer() {
     setAction("play", () => {
       if (isJamGuestRef.current || sleep.check()) return;
       userPausedRef.current = false;
+      if (isPageHidden()) {
+        // The YouTube engine resumes when the page is visible. Do not claim
+        // playback started while resumePlayer deliberately defers that call.
+        markBackgroundPlayback();
+        return;
+      }
       dispatch(playPause(true));
       resumePlayer(getActivePlayer());
     });
     setAction("pause", () => {
       if (isJamGuestRef.current) return;
-      if (isPageHidden()) {
-        markBackgroundPlayback();
-        return;
-      }
+      // A notification/headset Pause is explicit user intent even when hidden.
       userPausedRef.current = true;
       pageHiddenWhilePlayingRef.current = false;
+      clearActiveBufferTimers();
+      navigator.mediaSession.playbackState = "paused";
       dispatch(playPause(false));
       getActivePlayer()?.pauseVideo?.();
     });
@@ -3527,4 +3536,3 @@ function YouTubePlayer() {
 }
 
 export default React.memo(YouTubePlayer);
-

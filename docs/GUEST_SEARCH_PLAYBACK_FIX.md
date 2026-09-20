@@ -59,3 +59,26 @@ whose playback rights cover the app's users.
 References:
 - https://developers.google.com/youtube/iframe_api_reference#onError
 - https://developers.google.com/youtube/v3/docs/search/list
+
+## Mobile background playback follow-up
+
+The Android screenshot confirms that Chrome exposes Media Session controls;
+it does not prove that the underlying YouTube stream keeps playing when hidden.
+Inspection found that the YouTube notification Pause handler returned early
+while hidden, and hidden engine PAUSED events left the app marked as playing.
+The follow-up fixes both state/control bugs. Explicit Pause clears automatic
+foreground-resume intent. A notification Play while hidden keeps the existing
+deferred-foreground behavior without falsely changing the notification to playing.
+
+Actual extracted Media Session callbacks passed local hidden Pause/Play probes.
+The existing browser regression now covers hidden Pause, no automatic resume
+after explicit Pause, and honest state for deferred Play; that browser test has
+not been run locally. Real Android/iOS background testing remains outstanding.
+
+This does not enable continuous YouTube background playback. YouTube Developer
+Policies III.I.9 prohibit background players. The existing native audio path has
+direct audio-element Media Session controls, but enabling the same background
+experience for the online catalog requires an authorized direct media source.
+Closing the tab or force-stopping the browser cannot be kept alive by webpage code.
+
+- https://developers.google.com/youtube/terms/developer-policies#i.-additional-prohibitions

@@ -123,6 +123,37 @@ test("lock-screen play reaches the engine even when playback state is already pl
   await page.evaluate(() => window.__mediaActions.play());
   await expect.poll(() => page.evaluate(() => window.__enginePlayCalls)).toBeGreaterThan(resumedCalls);
   await expect(page.locator('#player button[aria-label="Pause"]:visible').first()).toBeVisible();
+
+  // OS controls run while the page is hidden, unlike in-page controls.
+  const hiddenPause = await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    const before = window.__enginePauseCalls;
+    window.__mediaActions.pause();
+    return { calls: window.__enginePauseCalls - before, state: navigator.mediaSession.playbackState };
+  });
+  expect(hiddenPause.calls).toBeGreaterThan(0);
+  expect(hiddenPause.state).toBe("paused");
+  await expect(page.locator('#player button[aria-label="Play"]:visible').first()).toBeVisible();
+  const foregroundCalls = await page.evaluate(() => {
+    const before = window.__enginePlayCalls;
+    delete document.visibilityState;
+    document.dispatchEvent(new Event("visibilitychange"));
+    return window.__enginePlayCalls - before;
+  });
+  expect(foregroundCalls).toBe(0); // Explicit Pause must survive returning to the app.
+
+  const hiddenPlay = await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    window.__mediaActions.play();
+    return navigator.mediaSession.playbackState;
+  });
+  expect(hiddenPlay).toBe("paused"); // Deferred YouTube playback must not claim it started.
+  await page.evaluate(() => {
+    delete document.visibilityState;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator('#player button[aria-label="Pause"]:visible').first()).toBeVisible();
 });
 
 test("chunk errors show a dismissible notice without reloading", async ({ page }) => {
