@@ -23,7 +23,7 @@ const pushHistoryEntry = (entry, owner) => {
       : [];
     const updatedHistory = safeHistory
       .filter((song) => String(song.id) !== String(entry.id))
-      .slice(0, 8);
+      .slice(0, 99);
     writeAccountCache(window.localStorage, "heykasa:history:v1", owner, [entry, ...updatedHistory]);
   } catch {
     // Listening history is best-effort when browser storage is blocked or corrupt.
