@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { youtubePlaybackError } from "@/utils/youtubePlaybackError.mjs";
 import PlayerDock from "./PlayerDock";
 import { nextQueueTrack, shuffleUpcoming } from "@/utils/playerQueue.mjs";
 import { useDispatch, useSelector } from "react-redux";
@@ -68,15 +70,6 @@ const safeMediaTime = (value) => {
 const formatTime = (seconds) => {
   const value = Math.floor(safeMediaTime(seconds));
   return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
-};
-
-const playerErrorMessage = (code) => {
-  if (code === 2) return "YouTube could not load this video.";
-  if (code === 5) return "This video could not play in your browser.";
-  if (code === 100) return "This video is no longer available.";
-  if (code === 101 || code === 150) return "This video cannot be played outside YouTube.";
-  if (code === 153) return "YouTube could not verify this player.";
-  return "YouTube playback failed.";
 };
 
 const otherDeck = (key) => (key === "A" ? "B" : "A");
@@ -1120,6 +1113,10 @@ function YouTubePlayer() {
           ) {
             if (isPageHidden()) {
               markBackgroundPlayback();
+              // Keep foreground-resume intent, but report the actual paused
+              // engine state to the UI and notification controls.
+              if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+              dispatch(playPause(false));
               return;
             }
             clearActiveBufferTimers();
@@ -1262,7 +1259,7 @@ function YouTubePlayer() {
             trackChangeUntilRef.current = 0;
             setPlayerError({
               kind: "playback",
-              message: playerErrorMessage(event.data),
+              ...youtubePlaybackError(event.data),
             });
             dispatch(playPause(false));
           } else {
@@ -2811,17 +2808,22 @@ function YouTubePlayer() {
     setAction("play", () => {
       if (isJamGuestRef.current || sleep.check()) return;
       userPausedRef.current = false;
+      if (isPageHidden()) {
+        // The YouTube engine resumes when the page is visible. Do not claim
+        // playback started while resumePlayer deliberately defers that call.
+        markBackgroundPlayback();
+        return;
+      }
       dispatch(playPause(true));
       resumePlayer(getActivePlayer());
     });
     setAction("pause", () => {
       if (isJamGuestRef.current) return;
-      if (isPageHidden()) {
-        markBackgroundPlayback();
-        return;
-      }
+      // A notification/headset Pause is explicit user intent even when hidden.
       userPausedRef.current = true;
       pageHiddenWhilePlayingRef.current = false;
+      clearActiveBufferTimers();
+      navigator.mediaSession.playbackState = "paused";
       dispatch(playPause(false));
       getActivePlayer()?.pauseVideo?.();
     });
@@ -3185,11 +3187,13 @@ function YouTubePlayer() {
             aria-atomic="true"
           >
             <p className="text-xs font-medium text-white">{playerError.message}</p>
+            {playerError.detail && <p className="mt-1 text-xs text-gray-300">{playerError.detail}</p>}
             {playerError.kind === "autoplay" && (
               <p className="mt-1 text-[11px] text-gray-300">You may need to allow autoplay in your browser settings.</p>
             )}
             <div className="mt-3 flex flex-wrap justify-center gap-2">
-              <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#00e6e6] px-3 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>
+              {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#00e6e6] px-3 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>}
+              <Link href={`/search/${encodeURIComponent(`${video.title || ""} ${video.channel || ""}`.trim().slice(0, 100))}`} className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white">Search other versions</Link>
               <button type="button" onClick={handleSkipPlaybackFailure} disabled={jamLocked} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
               <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-[#00e6e6] hover:bg-white/20">Open YouTube</a>
             </div>
@@ -3204,11 +3208,13 @@ function YouTubePlayer() {
           aria-atomic="true"
         >
           <p className="text-sm font-medium text-white">{playerError.message}</p>
+          {playerError.detail && <p className="mt-1 text-xs text-gray-300">{playerError.detail}</p>}
           {playerError.kind === "autoplay" && (
             <p className="mt-1 text-xs text-gray-300">You may need to allow autoplay in your browser settings.</p>
           )}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#00e6e6] px-3 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>
+            {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#00e6e6] px-3 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>}
+            <Link href={`/search/${encodeURIComponent(`${video.title || ""} ${video.channel || ""}`.trim().slice(0, 100))}`} className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white">Search other versions</Link>
             <button type="button" onClick={handleSkipPlaybackFailure} disabled={jamLocked} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
             <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-[#00e6e6] hover:bg-white/20">Open YouTube</a>
           </div>
@@ -3530,4 +3536,3 @@ function YouTubePlayer() {
 }
 
 export default React.memo(YouTubePlayer);
-

@@ -1,5 +1,6 @@
 import { Innertube, Log, UniversalCache } from "youtubei.js";
 import { cleanTitle } from "./text.js";
+import { firstSuccessfulSearch } from "./youtubeSearchFallback.mjs";
 import { logServerDiagnostic } from "./diagnostics.mjs";
 import { isYoutubeVideoId, sanitizeYoutubeComments } from "./youtubeComments.mjs";
 import { videoIdsMentionedInText } from "./commentVideoIds.mjs";
@@ -146,7 +147,7 @@ function mapSearchResult(item, type) {
       thumbnails: { high: { url: bestThumbnail(item) } },
     },
     status: {
-      embeddable: true,
+      // Search metadata does not prove that embedding is permitted.
       privacyStatus: "public",
     },
   };
@@ -223,7 +224,7 @@ function syntheticVideo(id, extra = {}) {
       duration: extra.duration || "PT0S",
     },
     status: {
-      embeddable: true,
+      // oEmbed metadata does not prove playback availability for this viewer.
       privacyStatus: "public",
     },
   };
@@ -344,7 +345,7 @@ function mapVideoRenderer(renderer) {
       publishedAt: runsText(renderer.publishedTimeText),
       thumbnails: { high: { url: thumbnailUrl(renderer.thumbnail || renderer) } },
     },
-    status: { embeddable: true, privacyStatus: "public" },
+    status: { privacyStatus: "public" },
   };
 }
 
@@ -404,7 +405,7 @@ function mapLockupView(view, type) {
       publishedAt: "",
       thumbnails: { high: { url: thumbnailUrl({ thumbnails: image }) } },
     },
-    status: { embeddable: true, privacyStatus: "public" },
+    status: { privacyStatus: "public" },
   };
   if (type === "playlist" && id.length > 11) {
     return { ...mapped, id: { playlistId: id } };
@@ -866,8 +867,10 @@ export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
     );
     if (endpoint === "search") {
       const type = params.type === "playlist" ? "playlist" : "video";
-      const httpResult = await searchViaInnerTubeHttp(params.q || "", type, maxResults);
-      if (httpResult) return httpResult;
+      return await firstSuccessfulSearch([
+        () => searchViaInnerTubeHttp(params.q || "", type, maxResults),
+        () => fetchFromInnertube(endpoint, params),
+      ]);
     }
     if (endpoint === "videos" && params.chart === "mostPopular") {
       const httpResult = await searchViaInnerTubeHttp("top songs this week", "video", maxResults);

@@ -45,6 +45,7 @@ export default function YouTubeMusicResults({ query }) {
   const { status } = useSession();
   const [loading, setLoading] = useState(false);
   const [songError, setSongError] = useState(null);
+  const [searchSource, setSearchSource] = useState("");
   const [searchRetryKey, setSearchRetryKey] = useState(0);
   const [loadingPlaylistId, setLoadingPlaylistId] = useState(null);
   const [extrasLoaded, setExtrasLoaded] = useState(false);
@@ -160,6 +161,7 @@ export default function YouTubeMusicResults({ query }) {
       setPageError(null);
       setLoadingMore(false);
       setSongError(null);
+      setSearchSource("");
       setArtists([]);
       setAlbums([]);
       setExtrasLoaded(false);
@@ -179,6 +181,7 @@ export default function YouTubeMusicResults({ query }) {
         );
         if (cancelled) return;
         const list = Array.isArray(data?.results) ? data.results : [];
+        setSearchSource(data?.source || "");
         if (resultType === "video") setResults(list);
         else if (resultType === "channel") setArtists(list);
         else setAlbums(list);
@@ -361,7 +364,7 @@ export default function YouTubeMusicResults({ query }) {
             Play on {SITE_NAME}
           </h2>
         </div>
-        <span className="hidden text-xs text-gray-400 sm:block">Official videos and audio</span>
+        <span className="hidden text-xs text-gray-400 sm:block">Videos and audio from YouTube</span>
       </div>
 
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-[var(--hairline)] pb-4">
@@ -385,6 +388,11 @@ export default function YouTubeMusicResults({ query }) {
       </div>
 
       {loading && <CardGridSkeleton count={6} aspect="aspect-video" />}
+      {!loading && !songError && resultType === "video" && searchSource === "fallback" && results.length > 0 && (
+        <p className="mb-4 text-sm text-gray-400" role="status">
+          YouTube may restrict playback of some results or ask you to sign in on YouTube. HayKasa guest mode does not remove those restrictions.
+        </p>
+      )}
       {!loading && songError && (
         <UserMessage
           title={songError.title}
