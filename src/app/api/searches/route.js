@@ -59,3 +59,17 @@ export async function POST(request) {
     return handleApiError(e, "record search");
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { userData } = await getAuthenticatedAccount(request);
+    const body = await readRequestJson(request).catch(() => ({}));
+    const term = typeof body?.term === "string" ? body.term.trim() : "";
+    const existing = Array.isArray(userData.searches) ? userData.searches : [];
+    userData.searches = term ? existing.filter((value) => value.toLowerCase() !== term.toLowerCase()) : [];
+    await userData.save();
+    return NextResponse.json({ success: true, message: term ? "Search removed" : "Search history cleared", data: userData.searches });
+  } catch (e) {
+    return handleApiError(e, "delete recent search");
+  }
+}
