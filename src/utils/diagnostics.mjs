@@ -1,6 +1,6 @@
 const records = [];
 const EVENTS = new Set(["request", "api_error", "render_error", "chunk_error", "provider", "session_lookup", "playback_state", "playback_error"]);
-const CODES = new Set(["OK", "NETWORK_ERROR", "TIMEOUT", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "RATE_LIMITED", "VALIDATION_ERROR", "INTERNAL_ERROR", "PLAYBACK_ERROR", "playing", "paused", "buffering", "ended"]);
+const CODES = new Set(["OK", "CIRCUIT_OPEN", "CANCELLED", "NETWORK_ERROR", "TIMEOUT", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "RATE_LIMITED", "VALIDATION_ERROR", "INTERNAL_ERROR", "PLAYBACK_ERROR", "playing", "paused", "buffering", "ended"]);
 const ROUTES = new Set(["settings", "language", "favourite", "history", "recommendations", "userInfo", "userPlaylists", "playEvent", "youtube-search", "youtube-videos", "youtube-playlist", "youtube-channel", "youtube-captions", "lyrics", "notInterested", "snoozedTracks", "genres", "tags", "followedArtists"]);
 
 export function diagnosticRoute(value) {
@@ -20,6 +20,8 @@ export function diagnosticRecord(event, details = {}, now = Date.now()) {
   if (Number.isFinite(details.durationMs)) record.durationMs = Math.min(600_000, Math.max(0, Math.round(details.durationMs)));
   if (Number.isInteger(details.status) && details.status >= 100 && details.status <= 599) record.status = details.status;
   if (typeof details.requestId === "string" && /^[a-f0-9-]{36}$/i.test(details.requestId)) record.requestId = details.requestId;
+  if (["hit", "miss", "bypass", "coalesced"].includes(details.cache)) record.cache = details.cache;
+  if (Number.isInteger(details.attempts) && details.attempts >= 1 && details.attempts <= 3) record.attempts = details.attempts;
   return record;
 }
 
