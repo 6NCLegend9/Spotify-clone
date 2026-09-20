@@ -10,6 +10,7 @@ import {
   readRequestJson,
 } from "@/utils/apiResponse";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import JamRoom from "@/models/JamRoom";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -17,7 +18,7 @@ export const maxDuration = 30;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 30;
 // A YouTube search costs 100 quota units, so the room shares one pool per seed set.
-const MAX_SEEDS_PER_REQUEST = 6;
+const MAX_SEEDS_PER_REQUEST = 4;
 const MAX_OWNERS_PER_SEED = 12;
 const RESULTS_PER_SEED = 8;
 
@@ -129,10 +130,10 @@ async function searchSeed(seed) {
 
 export async function POST(request) {
   try {
-    const { email } = await getAuthenticatedAccount(request);
+    const { user, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`crowd-radio:${email}`, {
       windowMs: 5 * 60_000,
-      max: 20,
+      max: 8,
     });
     if (rateLimit.limited) {
       return apiError("RATE_LIMITED", {
@@ -147,6 +148,15 @@ export async function POST(request) {
       throw new ApiRouteError("VALIDATION_ERROR", { message: "A valid room code is required." });
     }
     const seeds = validatedSeeds(body?.seeds);
+    const room = await JamRoom.findOne({
+      code,
+      closed: false,
+      expiresAt: { $gt: new Date() },
+      members: String(user._id),
+    }).select("_id").lean();
+    if (!room) {
+      throw new ApiRouteError("NOT_FOUND", { message: "This Jam is no longer available." });
+    }
 
     const key = cacheKey(code, seeds);
     const cached = readCache(key);

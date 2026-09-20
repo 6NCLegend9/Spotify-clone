@@ -300,6 +300,21 @@ async function mapWithConcurrency(values, concurrency, mapper) {
 
 let officialApiCooldownUntil = 0;
 let officialQuotaWarned = false;
+const OFFICIAL_SEARCH_WINDOW_MS = 60_000;
+const OFFICIAL_SEARCH_MAX_PER_WINDOW = 15;
+let officialSearchWindowStart = 0;
+let officialSearchCount = 0;
+
+function allowOfficialSearch() {
+  const now = Date.now();
+  if (now - officialSearchWindowStart >= OFFICIAL_SEARCH_WINDOW_MS) {
+    officialSearchWindowStart = now;
+    officialSearchCount = 0;
+  }
+  if (officialSearchCount >= OFFICIAL_SEARCH_MAX_PER_WINDOW) return false;
+  officialSearchCount += 1;
+  return true;
+}
 
 function officialApiAvailable() {
   return Date.now() >= officialApiCooldownUntil && Boolean(youtubeApiKey());
@@ -513,6 +528,7 @@ export async function searchYouTubeChannels(query) {
 async function fetchFromOfficialApi(endpoint, params, fetchOptions) {
   const key = youtubeApiKey();
   if (!key || Date.now() < officialApiCooldownUntil) return null;
+  if (endpoint === "search" && !allowOfficialSearch()) return null;
 
   try {
     const query = new URLSearchParams();

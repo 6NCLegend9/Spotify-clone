@@ -316,12 +316,43 @@ test("library and detail endpoints enforce privacy after a public playlist becom
   response = await libraryRoute.GET(request("/api/userPlaylists"));
   assert.deepEqual((await response.json()).data.playlists, []);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
-  assert.equal((await songsRoute.GET(request(`/api/userPlaylists/songs?playlist=${playlistId}`))).status, 403);
-  assert.equal((await likeRoute.POST(request("/api/userPlaylists/like", "POST", { playlistId }))).status, 403);
+  assert.equal((await songsRoute.GET(request(`/api/userPlaylists/songs?playlist=${playlistId}`))).status, 404);
+  assert.equal((await likeRoute.POST(request("/api/userPlaylists/like", "POST", { playlistId }))).status, 404);
   state.playlists[0].collaborators = [readerId];
   assert.equal((await songsRoute.GET(request(`/api/userPlaylists/songs?playlist=${playlistId}`))).status, 200);
   state.token = null;
-  assert.equal((await songsRoute.GET(request(`/api/userPlaylists/songs?playlist=${playlistId}`))).status, 401);
+  assert.equal((await songsRoute.GET(request(`/api/userPlaylists/songs?playlist=${playlistId}`))).status, 404);
+});
+
+test("missing and private playlists return the same not-found contract", async () => {
+  const missingId = "eeeeeeeeeeeeeeeeeeeeeeee";
+  state.token = sessionIdentity(state.users[1]);
+  const missing = await songsRoute.GET(request(`/api/userPlaylists/songs?playlist=${missingId}`));
+  state.playlists[0].visibility = "private";
+  const hidden = await songsRoute.GET(request(`/api/userPlaylists/songs?playlist=${playlistId}`));
+  assert.equal(missing.status, 404);
+  assert.equal(hidden.status, 404);
+  const missingBody = await missing.json();
+  const hiddenBody = await hidden.json();
+  assert.equal(missingBody.code, hiddenBody.code);
+  assert.equal(missingBody.message, hiddenBody.message);
+  assert.equal((await likeRoute.POST(request("/api/userPlaylists/like", "POST", { playlistId: missingId }))).status, 404);
+});
+
+test("collaborator invites do not reveal whether an email is registered", async () => {
+  const unknown = await libraryRoute.PATCH(request("/api/userPlaylists", "PATCH", {
+    playlistId, action: "addCollaborator", email: "nobody@example.test",
+  }));
+  const known = await libraryRoute.PATCH(request("/api/userPlaylists", "PATCH", {
+    playlistId, action: "addCollaborator", email: "reader@example.test",
+  }));
+  assert.equal(unknown.status, 200);
+  assert.equal(known.status, 200);
+  const unknownBody = await unknown.json();
+  const knownBody = await known.json();
+  assert.equal(unknownBody.message, knownBody.message);
+  assert.match(unknownBody.message, /HayKasa account/);
+  assert.equal(state.playlists[0].collaborators.map(String).includes(readerId), true);
 });
 
 test("database errors fail closed without refreshing or mutating account state", async () => {

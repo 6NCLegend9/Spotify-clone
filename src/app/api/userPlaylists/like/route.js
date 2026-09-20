@@ -42,20 +42,17 @@ export async function POST(req) {
     }
 
     const playlist = await Playlist.findById(playlistId);
-    if (!playlist) {
-      return apiError("NOT_FOUND", { message: "This playlist could not be found." });
-    }
-
     if (!canViewPlaylist(playlist, user)) {
-      return apiError("FORBIDDEN", { message: "This playlist is private." });
+      return apiError("NOT_FOUND", { message: "This playlist is unavailable." });
     }
 
     let serialized;
     await User.db.transaction(async (session) => {
       const current = await Playlist.findById(playlistId).session(session);
       const profile = await UserData.findById(userData._id).session(session);
-      if (!current || !profile) throw new ApiRouteError("NOT_FOUND");
-      if (!canViewPlaylist(current, user)) throw new ApiRouteError("FORBIDDEN");
+      if (!current || !profile || !canViewPlaylist(current, user)) {
+        throw new ApiRouteError("NOT_FOUND", { message: "This playlist is unavailable." });
+      }
       const present = (current.likedBy || []).some((id) => String(id) === String(user._id));
       const liked = body.liked ?? !present;
       const likedPlaylists = boundedMembership(profile.likedPlaylists, current._id, liked, MAX_LIKED_PLAYLISTS);

@@ -4,12 +4,14 @@ import { isRateLimited } from "@/utils/rateLimit";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 import UserData from "@/models/UserData";
 import { mutateDocument } from "@/utils/documentMutation.mjs";
+import { allowlistedMediaUrl } from "@/utils/mediaUrl.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const MAX_HISTORY_ENTRIES = 100;
+const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function DELETE(request) {
   try {
@@ -23,7 +25,7 @@ export async function DELETE(request) {
     const updated = await mutateDocument(UserData, userData._id, (current) => ({
       songHistory: (Array.isArray(current.songHistory) ? current.songHistory : []).filter((track) => track?.id !== body.id).slice(0, MAX_HISTORY_ENTRIES),
     }));
-    return NextResponse.json({ success: true, data: updated.songHistory }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ success: true, data: updated.songHistory }, { headers: NO_STORE });
   } catch (error) { return handleApiError(error, "delete history entry"); }
 }
 
@@ -35,7 +37,7 @@ export async function GET(request) {
       success: true,
       message: "History found",
       data: (userData.songHistory || []).slice(0, MAX_HISTORY_ENTRIES),
-    }, { headers: { "Cache-Control": "private, no-store" } });
+    }, { headers: NO_STORE });
   } catch (e) {
     return handleApiError(e, "get history");
   }
@@ -65,7 +67,7 @@ export async function POST(request) {
           playedAt: new Date().toISOString(),
           title: clip(raw.title, 200),
           channel: clip(raw.channel, 120),
-          thumbnail: clip(raw.thumbnail, 500),
+          thumbnail: allowlistedMediaUrl(raw.thumbnail),
         }
       : null;
     if (!entry || !YOUTUBE_ID_PATTERN.test(entry.id)) {
@@ -79,14 +81,14 @@ export async function POST(request) {
         success: true,
         message: "Private session enabled; history not updated",
         data: (userData.songHistory || []).slice(0, MAX_HISTORY_ENTRIES),
-      });
+      }, { headers: NO_STORE });
     }
     const updated = await mutateDocument(UserData, userData._id, (current) => {
       if (current.settings?.privateSession) return null;
       const existing = Array.isArray(current.songHistory) ? current.songHistory : [];
       return { songHistory: [entry, ...existing.filter((song) => song?.id !== entry.id)].slice(0, MAX_HISTORY_ENTRIES) };
     }, { "settings.privateSession": { $ne: true } });
-    return NextResponse.json({ success: true, message: "History updated", data: updated.songHistory }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ success: true, message: "History updated", data: updated.songHistory }, { headers: NO_STORE });
   } catch (e) {
     return handleApiError(e, "update history");
   }

@@ -126,16 +126,8 @@ export async function GET(req){
         await dbConnect();
         const user = await resolveUser(req, false);
         const playlist = await Playlist.findById(playlistID);
-        if (!playlist) {
-            return apiError("NOT_FOUND", { message: "Playlist not found" });
-        }
         if (!canViewPlaylist(playlist, user)) {
-            const code = user ? "FORBIDDEN" : "UNAUTHORIZED";
-            return apiError(code, {
-                message: user
-                    ? "This playlist is private. Ask the owner for access."
-                    : "User not logged in",
-            });
+            return apiError("NOT_FOUND", { message: "This playlist is unavailable." });
         }
         await playlist.populate("user", "userName imageUrl");
         await playlist.populate("collaborators", "userName imageUrl");
@@ -145,7 +137,7 @@ export async function GET(req){
                 message: "Songs of playlist",
                 data: serializePlaylist(playlist, user?._id)
             },
-            { status: 200 }
+            { headers: { "Cache-Control": "private, no-store" } },
         );
     } catch (e) {
         return handleApiError(e, "get playlist songs");

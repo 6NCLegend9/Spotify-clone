@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const MAX_SEARCHES = 30;
+const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function DELETE(request) {
   try {
@@ -21,7 +22,7 @@ export async function DELETE(request) {
       return apiError("VALIDATION_ERROR", { message: "A valid search term is required" });
     }
     const updated = await mutateDocument(UserData, userData._id, (current) => ({ searches: removeSearchTerm(current.searches, body.term) }));
-    return NextResponse.json({ success: true, data: updated.searches.slice(-10).reverse() }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ success: true, data: updated.searches.slice(-10).reverse() }, { headers: NO_STORE });
   } catch (error) { return handleApiError(error, "delete recent search"); }
 }
 
@@ -31,7 +32,7 @@ export async function GET(request) {
     const searches = Array.isArray(account?.userData?.searches) ? account.userData.searches : [];
     return NextResponse.json(
       { success: true, data: searches.slice(-10).reverse() },
-      { headers: { "Cache-Control": "private, no-store" } },
+      { headers: NO_STORE },
     );
   } catch (error) {
     return handleApiError(error, "get recent searches");
@@ -65,13 +66,13 @@ export async function POST(request) {
         success: true,
         message: "Private session enabled; search not recorded",
         data: userData.searches || [],
-      });
+      }, { headers: NO_STORE });
     }
     const updated = await mutateDocument(UserData, userData._id, (current) => {
       if (current.settings?.privateSession) return null;
       return { searches: [...removeSearchTerm(current.searches, term), term].slice(-MAX_SEARCHES) };
     }, { "settings.privateSession": { $ne: true } });
-    return NextResponse.json({ success: true, message: "Search recorded", data: updated.searches }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ success: true, message: "Search recorded", data: updated.searches }, { headers: NO_STORE });
   } catch (e) {
     return handleApiError(e, "record search");
   }

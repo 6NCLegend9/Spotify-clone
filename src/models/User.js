@@ -65,5 +65,8 @@ const fileSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+fileSchema.index({ resetPasswordToken: 1 }, { sparse: true });
+fileSchema.index({ verificationToken: 1 }, { sparse: true });
+
 export default mongoose.models.user ||
   mongoose.model("user", fileSchema, "user");

@@ -2,6 +2,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FiMoreHorizontal } from "react-icons/fi";
+import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
 
 export default function ItemMenu({ label = "Item options", actions = [], className = "" }) {
   const [open, setOpen] = useState(false);
@@ -9,21 +10,39 @@ export default function ItemMenu({ label = "Item options", actions = [], classNa
   const [error, setError] = useState("");
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const trigger = useRef(null), menu = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const rect = trigger.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPosition(placeAnchoredMenu({
+        trigger: rect,
+        menuHeight: menu.current?.offsetHeight || 200,
+        menuWidth: menu.current?.offsetWidth || 240,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      }));
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, error]);
+
   useLayoutEffect(() => {
     if (!open) return;
-    const rect = trigger.current?.getBoundingClientRect();
-    if (!rect) return;
-    const height = menu.current?.offsetHeight || 200;
-    setPosition({ left: Math.max(8, Math.min(rect.right - 240, window.innerWidth - 248)), top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - height - 8)) });
     menu.current?.querySelector("button:not(:disabled)")?.focus();
   }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const outside = (event) => { if (!menu.current?.contains(event.target) && !trigger.current?.contains(event.target)) setOpen(false); };
-    const close = () => setOpen(false);
     document.addEventListener("pointerdown", outside);
-    window.addEventListener("resize", close);
-    return () => { document.removeEventListener("pointerdown", outside); window.removeEventListener("resize", close); };
+    return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
   const close = () => { setOpen(false); trigger.current?.focus(); };
   return <>

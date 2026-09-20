@@ -64,4 +64,7 @@ const fileSchema = new mongoose.Schema(
   { timestamps: true, optimisticConcurrency: true, toJSON: { flattenMaps: true } }
 );
 
+fileSchema.index({ user: 1, updatedAt: -1 });
+fileSchema.index({ collaborators: 1 });
+
 export default mongoose.models.playlist || mongoose.model("playlist", fileSchema, "playlist");

@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import { allowlistedMediaUrl } from "@/utils/mediaUrl.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const MAX_FOLLOWED_ARTISTS = 100;
+const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function GET(request) {
   try {
@@ -16,7 +18,7 @@ export async function GET(request) {
       message: "Followed artists found",
       data: userData.followedArtists || [],
       artists: userData.followedArtistsMeta || [],
-    });
+    }, { headers: NO_STORE });
   } catch (e) {
     return handleApiError(e, "get followed artists");
   }
@@ -40,7 +42,7 @@ export async function POST(request) {
     const body = await readRequestJson(request);
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
     const channelId = typeof body.channelId === "string" ? body.channelId.trim().slice(0, 48) : "";
-    const thumbnail = typeof body.thumbnail === "string" ? body.thumbnail.trim().slice(0, 500) : "";
+    const thumbnail = allowlistedMediaUrl(body.thumbnail);
     if (!name) {
       return apiError("VALIDATION_ERROR", { message: "An artist name is required" });
     }
@@ -66,7 +68,7 @@ export async function POST(request) {
       message: alreadyFollowing ? "Unfollowed" : "Followed",
       data: userData.followedArtists,
       artists: userData.followedArtistsMeta,
-    });
+    }, { headers: NO_STORE });
   } catch (e) {
     return handleApiError(e, "update followed artist");
   }
@@ -91,7 +93,7 @@ export async function PATCH(request) {
     const body = await readRequestJson(request);
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
     const channelId = typeof body.channelId === "string" ? body.channelId.trim().slice(0, 48) : "";
-    const thumbnail = typeof body.thumbnail === "string" ? body.thumbnail.trim().slice(0, 500) : "";
+    const thumbnail = allowlistedMediaUrl(body.thumbnail);
     if (!name) {
       return apiError("VALIDATION_ERROR", { message: "An artist name is required" });
     }
@@ -119,7 +121,7 @@ export async function PATCH(request) {
       message: "Updated",
       data: userData.followedArtists,
       artists: userData.followedArtistsMeta,
-    });
+    }, { headers: NO_STORE });
   } catch (e) {
     return handleApiError(e, "backfill followed artist");
   }

@@ -65,9 +65,20 @@ test('history caps at 100 and moves a replayed song to the front', async () => {
   assert.equal(document.songHistory.length, 100); assert.equal(new Set(document.songHistory.map(x => x.id)).size, 100);
   assert.ok(document.songHistory[0].playedAt);
 });
+test('history stores only allowlisted artwork hosts', async () => {
+  const allowed = 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg';
+  assert.equal((await history.POST(request({ entry: { id: 'abcdefghijk', title: 'One', thumbnail: 'https://images.unsplash.com/photo-x' } }, 'POST'))).status, 200);
+  assert.equal(document.songHistory[0].thumbnail, '');
+  assert.equal((await history.POST(request({ entry: { id: 'abcdefghijk', title: 'One', thumbnail: allowed } }, 'POST'))).status, 200);
+  assert.equal(document.songHistory[0].thumbnail, allowed);
+});
 test('private sessions do not record history or searches', async () => {
   document.settings.privateSession = true;
-  await history.POST(request({ entry: { id: 'abcdefghijk', title: 'One' } }, 'POST'));
-  await searches.POST(request({ term: 'Private' }, 'POST'));
+  const historyResponse = await history.POST(request({ entry: { id: 'abcdefghijk', title: 'One' } }, 'POST'));
+  const searchResponse = await searches.POST(request({ term: 'Private' }, 'POST'));
+  assert.equal(historyResponse.status, 200);
+  assert.equal(searchResponse.status, 200);
+  assert.equal(historyResponse.headers.get('cache-control'), 'private, no-store');
+  assert.equal(searchResponse.headers.get('cache-control'), 'private, no-store');
   assert.equal(writes, 0);
 });

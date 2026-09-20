@@ -278,25 +278,21 @@ export async function PATCH(req){
                 });
             }
             const collaborator = await User.findOne({ email: collaboratorEmail });
-            if (!collaborator) {
-                return apiError("NOT_FOUND", {
-                    message: "No HayKasa account uses that email",
-                });
-            }
-            if (collaborator._id.toString() === user._id.toString()) {
+            if (collaborator && collaborator._id.toString() === user._id.toString()) {
                 return apiError("VALIDATION_ERROR", {
                     message: "You already own this playlist",
                 });
             }
-            const alreadyCollaborating = playlist.collaborators.some(
-                (id) => id.toString() === collaborator._id.toString(),
+            const alreadyCollaborating = Boolean(
+                collaborator
+                && playlist.collaborators.some((id) => id.toString() === collaborator._id.toString()),
             );
             if (!alreadyCollaborating && playlist.collaborators.length >= MAX_COLLABORATORS) {
                 return apiError("VALIDATION_ERROR", {
                     message: `A playlist can have up to ${MAX_COLLABORATORS} collaborators`,
                 });
             }
-            if (!alreadyCollaborating) {
+            if (collaborator && !alreadyCollaborating) {
                 playlist.collaborators.push(collaborator._id);
             }
         } else {
@@ -310,7 +306,9 @@ export async function PATCH(req){
         await playlist.populate("collaborators", "userName imageUrl");
         return NextResponse.json({
             success: true,
-            message: action === "addCollaborator" ? "Collaborator added" : "Playlist updated",
+            message: action === "addCollaborator"
+                ? "If that email has a HayKasa account, they now have access."
+                : "Playlist updated",
             data: { playlist: serializePlaylist(playlist, user._id) }
         });
     } catch (e) {

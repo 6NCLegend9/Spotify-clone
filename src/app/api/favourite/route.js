@@ -14,6 +14,7 @@ export const maxDuration = 15;
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const MAX_FAVOURITES = 500;
+const NO_STORE = { "Cache-Control": "private, no-store" };
 
 function favouritePayload(userData) {
     const json = typeof userData?.toJSON === "function" ? userData.toJSON() : userData;
@@ -32,7 +33,8 @@ export async function GET(req){
                 success: true,
                 message: "User Data found",
                 data: favouritePayload(userData),
-            }
+            },
+            { headers: NO_STORE },
         );
 
     } catch (e) {
@@ -74,7 +76,8 @@ export async function POST(request) {
                 success: true,
                 message: "Favourites updated",
                 data: favouritePayload(updated),
-            }
+            },
+            { headers: NO_STORE },
         );
 
     } catch (e) {

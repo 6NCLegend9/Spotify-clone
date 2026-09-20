@@ -141,7 +141,7 @@ function uniqueSongs(videos) {
 
 export async function GET(request) {
   try {
-    const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 20 });
+    const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 12 });
     if (rateLimit.limited) {
       return apiError("RATE_LIMITED", {
         retryAfter: rateLimit.retryAfter,
@@ -247,6 +247,13 @@ export async function GET(request) {
             privateSession: profile.settings?.privateSession ?? false,
           }
         : null,
+    }, {
+      headers: profile
+        ? { "Cache-Control": "private, no-store" }
+        : {
+            "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
+            Vary: "Cookie",
+          },
     });
   } catch (error) {
     return handleApiError(error, "Load recommendations");

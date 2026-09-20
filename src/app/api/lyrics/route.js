@@ -149,9 +149,17 @@ export async function GET(request) {
         live: false,
         lines: [],
         plain: null,
+      }, {
+        headers: {
+          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+        },
       });
     }
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    });
   } catch (error) {
     return handleApiError(error, "Load lyrics");
   }

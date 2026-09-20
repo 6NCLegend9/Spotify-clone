@@ -16,6 +16,7 @@ import {
 import { addSongToPlaylist, getUserPlaylists } from "@/services/playlistApi";
 import { loginPath } from "@/utils/appOrigin.mjs";
 import { toUserError } from "@/utils/userError";
+import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
 
 const MENU_WIDTH = 224;
 const ACTIONS_HEIGHT = 156;
@@ -48,13 +49,14 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
     const place = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const estimatedHeight = menuRef.current?.getBoundingClientRect().height || (view === "playlists" ? PLAYLISTS_HEIGHT : ACTIONS_HEIGHT);
-      const left = Math.max(8, Math.min(window.innerWidth - MENU_WIDTH - 8, rect.right - MENU_WIDTH));
-      const below = rect.bottom + 6;
-      const top = below + estimatedHeight <= window.innerHeight - 8
-        ? below
-        : Math.max(8, rect.top - estimatedHeight - 6);
-      setPosition({ top, left });
+      setPosition(placeAnchoredMenu({
+        trigger: rect,
+        menuHeight: menuRef.current?.getBoundingClientRect().height || (view === "playlists" ? PLAYLISTS_HEIGHT : ACTIONS_HEIGHT),
+        menuWidth: MENU_WIDTH,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        gap: 6,
+      }));
     };
     const close = (event) => {
       if (rootRef.current?.contains(event.target) || menuRef.current?.contains(event.target)) return;

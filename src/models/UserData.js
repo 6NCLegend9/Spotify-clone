@@ -132,4 +132,7 @@ const fileSchema = new mongoose.Schema(
     { timestamps: true, toJSON: { flattenMaps: true } }
 );
 
+fileSchema.index({ playlists: 1 });
+fileSchema.index({ likedPlaylists: 1 });
+
 export default mongoose.models.userData || mongoose.model("userData", fileSchema, "userData");

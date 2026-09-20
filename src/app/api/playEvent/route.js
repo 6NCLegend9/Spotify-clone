@@ -45,7 +45,7 @@ export async function POST(request) {
         success: true,
         message: "Private session enabled; play event not recorded",
         data: userData[field] || [],
-      });
+      }, { headers: { "Cache-Control": "private, no-store" } });
     }
     const observation = body.eventId ? insightEvent(body) : null;
     if (observation && body.owner !== `account:${user._id}`) return apiError("UNAUTHORIZED");

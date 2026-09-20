@@ -54,7 +54,7 @@ async function searchResponse(request) {
     const { query, type, order, duration, pageToken, requireOfficial } = readSearchOptions(new URL(request.url).searchParams);
     const radioDiscovery = isRadioDiscoveryQuery(query, type, order);
 
-    const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 30 });
+    const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 15 });
     if (rateLimit.limited) {
       return apiError("RATE_LIMITED", {
         retryAfter: rateLimit.retryAfter,
@@ -131,7 +131,7 @@ async function searchResponse(request) {
       { results: responseResults, source: source || "fallback", nextPageToken: typeof data?.nextPageToken === "string" ? data.nextPageToken : "" },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+          "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
         },
       },
     );

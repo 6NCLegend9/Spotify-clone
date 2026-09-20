@@ -390,7 +390,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
       if (response.data?.playlist) setCollection(response.data.playlist);
       setCollaboratorEmail("");
       setShowCollaborator(false);
-      toast.success("Collaborator added");
+      toast.success("If they have a HayKasa account, they now have access.");
     } else {
       reportMutationError(response, {
         title: "Collaborator not added",
