@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
-const MAX_HISTORY_ENTRIES = 20;
+const MAX_HISTORY_ENTRIES = 100;
 
 // Fetch the signed-in user's server-synced listening history.
 export async function GET(request) {
@@ -72,5 +72,21 @@ export async function POST(request) {
     return NextResponse.json({ success: true, message: "History updated", data: updated.songHistory }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     return handleApiError(e, "update history");
+  }
+}
+
+// Remove one item from listening history, or clear all history when id is omitted.
+export async function DELETE(request) {
+  try {
+    const { userData } = await getAuthenticatedAccount(request);
+    const body = await readRequestJson(request).catch(() => ({}));
+    const id = typeof body?.id === "string" ? body.id.trim() : "";
+    const updated = await mutateDocument(UserData, userData._id, (current) => {
+      const existing = Array.isArray(current.songHistory) ? current.songHistory : [];
+      return { songHistory: id ? existing.filter((song) => song?.id !== id) : [] };
+    });
+    return NextResponse.json({ success: true, message: id ? "History item removed" : "History cleared", data: updated.songHistory }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (e) {
+    return handleApiError(e, "delete history");
   }
 }
