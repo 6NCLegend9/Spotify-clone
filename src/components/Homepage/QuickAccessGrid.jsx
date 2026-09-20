@@ -1,5 +1,7 @@
 "use client";
 
+import ContextMenuTarget from "@/components/ContextMenuTarget";
+import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
 import { BsPlayFill } from "react-icons/bs";
@@ -20,7 +22,7 @@ function QuickCard({ children, className = "", playing, ...props }) {
       {...props}
     >
       {children}
-      {playing ? <FxEq /> : (
+      {playing ? <span className="home-quick-indicator"><FxEq /></span> : (
         <span className="home-quick-play">
           <BsPlayFill aria-hidden="true" className="text-lg" />
         </span>
@@ -51,23 +53,26 @@ export default function QuickAccessGrid({ items }) {
 
         if (item.type === "playlist") {
           return (
-            <QuickCard key={`playlist-${item.playlist._id}`} href={`/library/playlist/${item.playlist._id}`} aria-label={`Open playlist ${item.playlist.name}`}>
+            <ContextMenuTarget key={`playlist-${item.playlist._id}`} className="home-quick-item">
+            <QuickCard href={`/library/playlist/${item.playlist._id}`} aria-label={`Open playlist ${item.playlist.name}`}>
               <span className="h-16 w-16 shrink-0 overflow-hidden">
-                <PlaylistCover playlist={item.playlist} className="h-16 w-16" />
+                <PlaylistCover playlist={item.playlist} className="h-full w-full" />
               </span>
-              <span className="home-quick-title line-clamp-2">{item.playlist.name}</span>
+              <span className="home-quick-title line-clamp-2" title={item.playlist.name}>{item.playlist.name}</span>
             </QuickCard>
+            <PlaylistItemMenu playlist={item.playlist} className="home-quick-menu" />
+            </ContextMenuTarget>
           );
         }
 
         const title = cleanTitle(item.title || item.name, "Track");
         const playing = youtubeVideo?.id === item.id || activeSong?.id === item.id;
         return (
-          <div key={`${item.source || "track"}-${item.id}`} className="group relative min-w-0">
+          <ContextMenuTarget key={`${item.source || "track"}-${item.id}`} className="home-quick-item group relative min-w-0">
             <QuickCard
               playing={playing}
               aria-label={`Play ${title}`}
-              className="w-full pr-10"
+              className="w-full"
               onClick={() => playHomeTracks(dispatch, item.queue || [item], item.queueIndex || 0)}
             >
               {item.thumbnail || item.image ? (
@@ -82,12 +87,13 @@ export default function QuickAccessGrid({ items }) {
                   <BsPlayFill aria-hidden="true" className="text-xl" />
                 </span>
               )}
-              <span className="home-quick-title min-w-0 line-clamp-2">{title}</span>
+              <span className="home-quick-title min-w-0 line-clamp-2" title={title}>{title}</span>
             </QuickCard>
-            <AddToQueueButton track={item} className="absolute right-1 top-1/2 z-20 -translate-y-1/2 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
-          </div>
+            <AddToQueueButton track={item} className="home-quick-menu" />
+          </ContextMenuTarget>
         );
       })}
     </div>
   );
 }
+

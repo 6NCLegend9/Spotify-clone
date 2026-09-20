@@ -1,3 +1,6 @@
+import UserData from "@/models/UserData";
+import { mutateDocument } from "@/utils/documentMutation.mjs";
+import { removeSearchTerm } from "@/utils/recentActivity.mjs";
 import { NextResponse } from "next/server";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
@@ -7,6 +10,20 @@ export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const MAX_SEARCHES = 30;
+
+export async function DELETE(request) {
+  try {
+    const { userData, email } = await getAuthenticatedAccount(request);
+    const limit = await isRateLimited(`search-history:${email}`, { windowMs: 60_000, max: 60 });
+    if (limit.limited) return apiError("RATE_LIMITED", { retryAfter: limit.retryAfter });
+    const body = await readRequestJson(request);
+    if (typeof body.term !== "string" || !body.term.trim() || body.term.length > 100) {
+      return apiError("VALIDATION_ERROR", { message: "A valid search term is required" });
+    }
+    const updated = await mutateDocument(UserData, userData._id, (current) => ({ searches: removeSearchTerm(current.searches, body.term) }));
+    return NextResponse.json({ success: true, data: updated.searches.slice(-10).reverse() }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) { return handleApiError(error, "delete recent search"); }
+}
 
 export async function GET(request) {
   try {
@@ -50,26 +67,12 @@ export async function POST(request) {
         data: userData.searches || [],
       });
     }
-    const existing = Array.isArray(userData.searches) ? userData.searches : [];
-    const deduped = existing.filter((value) => value.toLowerCase() !== term.toLowerCase());
-    userData.searches = [...deduped, term].slice(-MAX_SEARCHES);
-    await userData.save();
-    return NextResponse.json({ success: true, message: "Search recorded", data: userData.searches });
+    const updated = await mutateDocument(UserData, userData._id, (current) => {
+      if (current.settings?.privateSession) return null;
+      return { searches: [...removeSearchTerm(current.searches, term), term].slice(-MAX_SEARCHES) };
+    }, { "settings.privateSession": { $ne: true } });
+    return NextResponse.json({ success: true, message: "Search recorded", data: updated.searches }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     return handleApiError(e, "record search");
-  }
-}
-
-export async function DELETE(request) {
-  try {
-    const { userData } = await getAuthenticatedAccount(request);
-    const body = await readRequestJson(request).catch(() => ({}));
-    const term = typeof body?.term === "string" ? body.term.trim() : "";
-    const existing = Array.isArray(userData.searches) ? userData.searches : [];
-    userData.searches = term ? existing.filter((value) => value.toLowerCase() !== term.toLowerCase()) : [];
-    await userData.save();
-    return NextResponse.json({ success: true, message: term ? "Search removed" : "Search history cleared", data: userData.searches });
-  } catch (e) {
-    return handleApiError(e, "delete recent search");
   }
 }

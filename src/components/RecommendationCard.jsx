@@ -1,4 +1,5 @@
 "use client";
+import ContextMenuTarget from "@/components/ContextMenuTarget";
 
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -148,18 +149,11 @@ export default function RecommendationCard({ video, queue }) {
 
   if (dismissed) return null;
 
-  const handleContextMenu = showMenu
-    ? (event) => {
-        event.preventDefault();
-        setMenuOpen(true);
-      }
-    : undefined;
-
   const title = cleanTitle(video.title);
   const channel = cleanArtist(video.channel);
 
   return (
-    <article className="card group relative w-full text-left" onContextMenu={handleContextMenu}>
+    <ContextMenuTarget as="article" className="card group relative w-full text-left">
       <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black">
         <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03] group-active:scale-[0.98]" />
         <PlayFab />
@@ -168,6 +162,7 @@ export default function RecommendationCard({ video, queue }) {
         <div className="absolute right-2 top-2 z-20">
           <button
             type="button"
+            data-item-menu-trigger
             aria-label="More options"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
@@ -211,6 +206,7 @@ export default function RecommendationCard({ video, queue }) {
         </div>
         <p className="mt-2 text-[11px] text-[#00e6e6]">{video.reason}</p>
       </button>
-    </article>
+    </ContextMenuTarget>
   );
 }
+

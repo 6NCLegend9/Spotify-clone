@@ -27,6 +27,7 @@ const Sidebar = () => {
   const links = [
     ["Home", "/", FiHome],
     ["Your Library", "/library", FiDisc],
+    ["Recently Played", "/recently-played", FiDisc],
     ["Liked Songs", "/library/liked", FiHeart],
     ["Following", "/following", FiUsers],
     ...(canUseArcade(session?.user?.email) ? [["Beat Arcade", "/arcade", MdSportsEsports]] : []),
@@ -69,3 +70,4 @@ const Sidebar = () => {
   );
 };
 export default Sidebar;
+

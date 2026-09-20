@@ -1,5 +1,6 @@
 "use client";
 
+import ContextMenuTarget from "@/components/ContextMenuTarget";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
@@ -427,7 +428,7 @@ export default function YouTubeMusicResults({ query }) {
             dispatch(playPause(true));
           };
           return (
-          <article key={video.id} className="card group text-left">
+          <ContextMenuTarget as="article" key={video.id} className="card group text-left">
             <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black">
               <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
               <PlayFab />
@@ -453,7 +454,7 @@ export default function YouTubeMusicResults({ query }) {
               <AddToQueueButton track={video} className="text-gray-400 hover:text-white" />
               </div>
             </div>
-          </article>
+          </ContextMenuTarget>
           );
         })}
       </div>}
@@ -578,3 +579,4 @@ export default function YouTubeMusicResults({ query }) {
     </section>
   );
 }
+

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ContextMenuTarget from "@/components/ContextMenuTarget";
+import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
@@ -95,7 +97,7 @@ function CollectionCover({ item }) {
 
 function GridItem({ item }) {
   return (
-    <div className="library-tile group relative min-w-0">
+    <ContextMenuTarget className="library-tile group relative min-w-0">
       <Link href={item.href} className="block focus-visible:outline-none">
         <div className="overflow-hidden rounded-[4px] shadow-xl">
           <CollectionCover item={item} />
@@ -113,13 +115,14 @@ function GridItem({ item }) {
           <LikePlaylistButton playlist={item} className="bg-black/50 backdrop-blur" />
         </div>
       ) : null}
-    </div>
+      {item.type === "playlist" && <PlaylistItemMenu playlist={item} className="absolute bottom-2 right-2 bg-black/60" />}
+    </ContextMenuTarget>
   );
 }
 
 function ListItem({ item }) {
   return (
-    <div className="group grid min-h-[76px] grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-2 transition duration-200 ease-out hover:bg-white/[0.07] sm:grid-cols-[64px_minmax(0,1fr)_minmax(150px,0.6fr)_auto]">
+    <ContextMenuTarget className="group grid min-h-[76px] grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-2 transition duration-200 ease-out hover:bg-white/[0.07] sm:grid-cols-[64px_minmax(0,1fr)_minmax(150px,0.6fr)_auto]">
       <Link href={item.href} className="contents">
         <div className="overflow-hidden rounded-[4px]"><CollectionCover item={item} /></div>
         <div className="min-w-0">
@@ -128,8 +131,8 @@ function ListItem({ item }) {
         </div>
         <p className="hidden truncate text-xs text-gray-400 sm:block">{item.updatedLabel}</p>
       </Link>
-      {item.type === "playlist" ? <LikePlaylistButton playlist={item} /> : <CollectionBadges item={item} />}
-    </div>
+      {item.type === "playlist" ? <div className="flex"><LikePlaylistButton playlist={item} /><PlaylistItemMenu playlist={item} /></div> : <CollectionBadges item={item} />}
+    </ContextMenuTarget>
   );
 }
 
@@ -492,3 +495,4 @@ function AccountLibraryView({ session, status, owner }) {
     </main>
   );
 }
+

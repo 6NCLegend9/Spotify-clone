@@ -2,10 +2,13 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import ContextMenuTarget from "@/components/ContextMenuTarget";
+import ItemMenu from "@/components/ItemMenu";
 import { FiSearch, FiX } from "react-icons/fi";
 import { HiOutlineViewGrid, HiViewGrid } from "react-icons/hi";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import MediaImage from "@/components/MediaImage";
@@ -22,6 +25,11 @@ function songSearchQuery(song) {
 }
 
 const Searchbar = () => {
+  const { data: session, status } = useSession();
+  return <AccountSearchbar key={session?.user?.id || session?.user?.email || status} />;
+};
+
+const AccountSearchbar = () => {
   const dispatch = useDispatch();
   const router = useRouter();
   const pathname = usePathname();
@@ -93,6 +101,13 @@ const Searchbar = () => {
     }
   }, [pathname]);
 
+  const removeRecent = async (term) => {
+    await requestJson("/api/searches", { method: "DELETE", body: { term } });
+    setRecentQueries((queries) => queries.filter((value) => value.toLowerCase() !== term.toLowerCase()));
+    setActiveIndex(-1);
+    recentsLoadedAtRef.current = 0;
+  };
+
   const loadRecents = async () => {
     const now = Date.now();
     if (recentLoading || now - recentsLoadedAtRef.current < 15_000) return;
@@ -150,13 +165,6 @@ const Searchbar = () => {
     router.push(`/search/${encodeURIComponent(next)}`);
   };
 
-  const removeRecent = async (event, query) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setRecentQueries((items) => items.filter((item) => item !== query));
-    try { await requestJson("/api/searches", { method: "DELETE", body: { term: query } }); } catch { recentsLoadedAtRef.current = 0; void loadRecents(); }
-  };
-
   const searchSong = (song) => {
     const query = songSearchQuery(song);
     if (query) go(query);
@@ -182,7 +190,8 @@ const Searchbar = () => {
     return Boolean(
       clusterRef.current?.contains(node)
       || node.closest("[data-search-suggest='true']")
-      || node.closest('[data-track-actions-portal="true"]'),
+      || node.closest('[data-track-actions-portal="true"]')
+      || node.closest('[data-item-actions-menu="true"]'),
     );
   };
 
@@ -220,7 +229,7 @@ const Searchbar = () => {
 
   const closeAfterBlur = () => {
     const finish = () => {
-      if (document.querySelector('[data-track-actions-portal="true"]')) {
+      if (document.querySelector('[data-track-actions-portal="true"], [data-item-actions-menu="true"]')) {
         window.setTimeout(finish, 100);
         return;
       }
@@ -355,16 +364,19 @@ const Searchbar = () => {
               <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">No suggestions yet. Press Enter to search.</li>
             ) : null}
             {items.map((item, index) => item.type === "recent-query" ? (
-              <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)} onContextMenu={(event) => removeRecent(event, item.query)}>
+              <ContextMenuTarget as="li" key={item.key} role="none" className="flex items-center" onMouseMove={() => setActiveIndex(index)}>
                 <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => go(item.query)}
                   className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
                   <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
                   <span className="min-w-0 flex-1 truncate">{item.query}</span>
-                  <button type="button" aria-label={`Remove ${item.query} from recent searches`} title="Remove recent search" onClick={(event) => removeRecent(event, item.query)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#9aa8b5] hover:bg-white/10 hover:text-white"><FiX aria-hidden="true" /></button>
                 </button>
-              </li>
+                <ItemMenu label={`Options for search ${item.query}`} actions={[
+                  { label: "Search again", onSelect: () => go(item.query) },
+                  { label: "Delete search", destructive: true, onSelect: () => removeRecent(item.query) },
+                ]} />
+              </ContextMenuTarget>
             ) : (
-              <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}
+              <ContextMenuTarget as="li" key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}
                 className={`flex w-full items-center gap-1 px-2 py-1 text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
                 <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => searchSong(item.song)}
                   className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
@@ -376,7 +388,7 @@ const Searchbar = () => {
                 </button>
                 <AddToQueueButton track={item.song} className="z-[90]" />
                 <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
-              </li>
+              </ContextMenuTarget>
             ))}
           </ul>
         );
@@ -399,3 +411,4 @@ const Searchbar = () => {
 };
 
 export default Searchbar;
+
