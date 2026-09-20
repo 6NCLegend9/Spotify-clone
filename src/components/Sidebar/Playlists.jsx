@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { FaPlus } from "react-icons/fa";
-import { MdPlaylistPlay, MdOutlineDeleteOutline } from "react-icons/md";
-import { PiDotsThreeVerticalBold } from "react-icons/pi";
+import { MdPlaylistPlay } from "react-icons/md";
+import ContextMenuTarget from "@/components/ContextMenuTarget";
+import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
 import PlaylistModal from "./PlaylistModal";
-import { deletePlaylist, getUserPlaylists } from "@/services/playlistApi";
+import { getUserPlaylists } from "@/services/playlistApi";
 import { useNav } from "../Layout/AppShell";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { toUserError } from "@/utils/userError";
-import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import PlaylistCover from "@/components/PlaylistCover";
@@ -26,20 +26,12 @@ const AccountPlaylists = ({ owner, status }) => {
   const { setShowNav } = useNav();
   const cached = cachedPlaylists?.owner === owner && Date.now() - cachedPlaylists.savedAt < 300_000
     ? cachedPlaylists.data : null;
-  const live = useRef(true);
   const [show, setShow] = useState(false);
   const [playlists, setPlaylists] = useState(() => cached ?? []);
-  const [showMenu, setShowMenu] = useState(false);
   const [loading, setLoading] = useState(() => cached === null);
   const [error, setError] = useState(null);
-  const [deleteError, setDeleteError] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    live.current = true;
-    return () => { live.current = false; };
-  }, []);
 
   useEffect(() => {
     if (status === "loading") {
@@ -90,34 +82,6 @@ const AccountPlaylists = ({ owner, status }) => {
     };
   }, [refreshKey, status, owner]);
 
-  const handleDelete = async (id) => {
-    if (deletingId) return;
-    const previousPlaylists = playlists;
-    setDeleteError(null);
-    setDeletingId(id);
-    const nextPlaylists = previousPlaylists.filter((playlist) => playlist._id !== id);
-    cachedPlaylists = { owner, data: nextPlaylists, savedAt: Date.now() };
-    setPlaylists(nextPlaylists);
-    const res = await deletePlaylist(id);
-    if (!live.current) return;
-    setDeletingId(null);
-    if (res?.success === true) {
-      toast.success("Playlist deleted");
-    } else {
-      cachedPlaylists = { owner, data: previousPlaylists, savedAt: Date.now() };
-      setPlaylists(previousPlaylists);
-      const normalized = toUserError(res);
-      const userError = normalized.code === "UNAUTHORIZED"
-        ? normalized
-        : toUserError(res, {
-          title: "Playlist not deleted",
-          message: "We couldn’t delete that playlist. Please try again.",
-        });
-      setDeleteError(userError);
-      toast.error(userError.message);
-    }
-  };
-
   return (
     <>
       <div className="flex items-center justify-between px-2 py-2">
@@ -127,23 +91,18 @@ const AccountPlaylists = ({ owner, status }) => {
       <div className="flex min-h-0 flex-col">
         {loading ? <p className="px-2 py-3 text-xs text-[var(--muted)]">Loading playlists…</p> : null}
         {!loading && error ? <div className="px-2 py-2"><UserMessage compact title={error.title} message={error.message} onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined} href={error.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
-        {!loading && !error && deleteError ? <div className="px-2 py-2"><UserMessage compact title={deleteError.title} message={deleteError.message} href={deleteError.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
         {!loading && !error && playlists.length === 0 ? <div className="px-2 py-2"><EmptyState title="No playlists yet" message="Create one to keep songs together." actionLabel="Create playlist" onAction={() => setShow(true)} /></div> : null}
         {!loading && !error && <LibraryList playlists={playlists}>{(playlist) => (
-          <div key={playlist._id} className="group flex items-center justify-between rounded-lg pr-1 hover:bg-[var(--navy-panel)]">
+          <ContextMenuTarget key={playlist._id} className="group flex items-center justify-between rounded-lg pr-1 hover:bg-[var(--navy-panel)]">
             <Link href={`/library/playlist/${playlist._id}`} onClick={() => setShowNav(false)} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
               <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md"><PlaylistCover playlist={playlist} className="h-full w-full" /></span>
               <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">{playlist.name}</span><span className="mt-1 block truncate text-xs text-[var(--teal)]">Playlist</span></span>
             </Link>
-            <div className="relative">
-              <button type="button" aria-label={`Playlist options for ${playlist.name}`} onClick={() => setShowMenu(playlist._id)} className="grid h-9 w-9 place-items-center text-[var(--muted)] hover:text-white"><PiDotsThreeVerticalBold size={18} /></button>
-              {showMenu === playlist._id && <button type="button" disabled={deletingId === playlist._id} onClick={() => { setShowMenu(false); handleDelete(playlist._id); }} className="absolute right-0 top-8 z-50 flex items-center gap-1 rounded-lg border border-white/10 bg-[var(--navy-raised)] px-3 py-2 text-xs text-white shadow-xl hover:bg-[var(--navy-panel)]">Delete <MdOutlineDeleteOutline size={14} /></button>}
-            </div>
-          </div>
+            <PlaylistItemMenu playlist={playlist} />
+          </ContextMenuTarget>
         )}</LibraryList>}
       </div>
       <PlaylistModal show={show} setShow={setShow} onCreated={() => setRefreshKey((value) => value + 1)} />
-      {showMenu && <button type="button" aria-label="Close playlist options" onClick={() => setShowMenu(false)} className="fixed inset-0 z-30 cursor-default" />}
     </>
   );
 };
@@ -153,3 +112,4 @@ const Playlists = () => {
   return <AccountPlaylists key={owner || status} owner={owner} status={status} />;
 };
 export default Playlists;
+

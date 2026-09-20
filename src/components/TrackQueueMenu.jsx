@@ -21,7 +21,7 @@ const MENU_WIDTH = 224;
 const ACTIONS_HEIGHT = 156;
 const PLAYLISTS_HEIGHT = 320;
 
-export default function TrackQueueMenu({ track, className = "", buttonLabel = "Track options" }) {
+export default function TrackQueueMenu({ track, className = "", buttonLabel = "Track options", onRemove, removeLabel = "Remove" }) {
   const dispatch = useDispatch();
   const router = useRouter();
   const { status } = useSession();
@@ -48,7 +48,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
     const place = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const estimatedHeight = view === "playlists" ? PLAYLISTS_HEIGHT : ACTIONS_HEIGHT;
+      const estimatedHeight = menuRef.current?.getBoundingClientRect().height || (view === "playlists" ? PLAYLISTS_HEIGHT : ACTIONS_HEIGHT);
       const left = Math.max(8, Math.min(window.innerWidth - MENU_WIDTH - 8, rect.right - MENU_WIDTH));
       const below = rect.bottom + 6;
       const top = below + estimatedHeight <= window.innerHeight - 8
@@ -61,6 +61,14 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       closeMenu();
     };
     const key = (event) => {
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) && menuRef.current?.contains(document.activeElement)) {
+        event.preventDefault();
+        const items = [...menuRef.current.querySelectorAll('[role="menuitem"]:not(:disabled)')];
+        const index = items.indexOf(document.activeElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+        items[next]?.focus(); return;
+      }
+      if (event.key === "Tab") { closeMenu(); return; }
       if (event.key !== "Escape") return;
       if (view === "playlists") {
         setView("actions");
@@ -70,6 +78,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       buttonRef.current?.focus();
     };
     place();
+    menuRef.current?.querySelector('[role="menuitem"]:not(:disabled)')?.focus();
     document.addEventListener("pointerdown", close, true);
     document.addEventListener("keydown", key, true);
     window.addEventListener("resize", place);
@@ -185,11 +194,13 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       role="menu"
       aria-label={`Actions for ${track.title || "track"}`}
       style={{ position: "fixed", top: position.top, left: position.left, width: MENU_WIDTH }}
-      className="z-[9999] max-h-[min(360px,calc(100vh-16px))] overflow-hidden rounded-lg border border-[var(--hairline-cyan)] bg-[var(--navy-raised)] p-1.5 text-left text-sm text-white shadow-2xl"
+      className="z-[9999] max-h-[min(360px,calc(100vh-16px))] overflow-y-auto rounded-lg border border-[var(--hairline-cyan)] bg-[var(--navy-raised)] p-1.5 text-left text-sm text-white shadow-2xl"
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >
+      <p className="break-words px-3 py-2 text-xs font-semibold text-gray-400">{track.title || track.name || "Track"}</p>
       {view === "actions" ? <>
+        {onRemove && <button type="button" role="menuitem" className={`${actionClass} text-red-300`} onClick={async (event) => { event.preventDefault(); event.stopPropagation(); try { await onRemove(); closeMenu(); } catch (error) { toast.error(error?.message || "Could not remove this item."); } }}>{removeLabel}</button>}
         <button type="button" role="menuitem" onClick={playNext} className={actionClass}>
           <FiPlayCircle aria-hidden="true" className="text-[var(--accent)]" />
           <span className="flex-1">Play next</span>
@@ -242,6 +253,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
     >
       <button
         ref={buttonRef}
+        data-item-menu-trigger
         type="button"
         aria-label={buttonLabel}
         title={buttonLabel}
@@ -265,3 +277,4 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
     </span>
   );
 }
+

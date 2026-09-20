@@ -235,7 +235,12 @@ export async function PATCH(req){
             });
         }
 
-        if (action === "pinned") {
+        if (action === "name") {
+            if (typeof value !== "string" || !value.trim() || value.trim().length > 80) {
+                return apiError("VALIDATION_ERROR", { message: "A playlist name between 1 and 80 characters is required" });
+            }
+            playlist.name = value.trim();
+        } else if (action === "pinned") {
             if (typeof value !== "boolean") {
                 return apiError("VALIDATION_ERROR", { message: "Pinned must be true or false" });
             }

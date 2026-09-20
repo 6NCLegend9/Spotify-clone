@@ -1,76 +1,39 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useSession } from 'next-auth/react';
 import { requestJson } from '@/services/http';
 import { accountOwner, readAccountCache, writeAccountCache } from '@/utils/accountCache.mjs';
+import { HISTORY_CACHE, HISTORY_CHANGED, prependHistory } from '@/utils/recentActivity.mjs';
 
-const isValidEntry = (entry) =>
-  entry &&
-  typeof entry === "object" &&
-  ((typeof entry.id === "string" && entry.id.trim()) ||
-    (typeof entry.id === "number" && Number.isFinite(entry.id))) &&
-  ((typeof entry.name === "string" && entry.name.trim()) ||
-    (typeof entry.title === "string" && entry.title.trim()));
-
-const pushHistoryEntry = (entry, owner) => {
-  if (!isValidEntry(entry)) return;
-
-  try {
-    const parsedSongHistory = readAccountCache(window.localStorage, "heykasa:history:v1", owner, 30 * 86400_000);
-    const safeHistory = Array.isArray(parsedSongHistory)
-      ? parsedSongHistory.filter(isValidEntry)
-      : [];
-    const updatedHistory = safeHistory
-      .filter((song) => String(song.id) !== String(entry.id))
-      .slice(0, 99);
-    writeAccountCache(window.localStorage, "heykasa:history:v1", owner, [entry, ...updatedHistory]);
-  } catch {
-    // Listening history is best-effort when browser storage is blocked or corrupt.
-  }
-};
-
-// Best-effort sync to the server so history follows the signed-in account.
-// Guests never persist listening history locally or on the server.
-const syncHistoryEntry = (entry) => {
-  void requestJson("/api/history", {
-    method: "POST",
-    body: { entry },
-    fallbackTitle: "Listening history couldn’t sync",
-    fallbackMessage: "This play may only appear in this browser.",
-  }).catch(() => {});
-};
-
-const SongsHistory = () => {
+export default function SongsHistory() {
   const { activeSong, youtubeVideo, playbackOwner, isPlaying, position } = useSelector((state) => state.player || {});
   const privateSession = useSelector((state) => state.settings.privateSession);
   const { data: session, status } = useSession();
   const owner = accountOwner(session, status);
-  const canRecord = status === "authenticated" && owner && owner === playbackOwner && isPlaying && !privateSession;
+  const recorded = useRef(null);
+  const previous = useRef({ key: null, position: 0 });
+  const track = youtubeVideo?.id ? youtubeVideo : activeSong;
+  const key = `${owner}:${youtubeVideo?.id ? 'youtube' : 'audio'}:${track?.id || ''}`;
 
   useEffect(() => {
-    if (!canRecord || !isValidEntry(activeSong)) return;
-    pushHistoryEntry(activeSong, owner);
-    syncHistoryEntry(activeSong);
-  }, [activeSong, canRecord, owner]);
-
-  // Search activity is not listening history. Record YouTube only after
-  // playback has actually advanced for a few seconds.
-  useEffect(() => {
-    if (!canRecord || !youtubeVideo?.id || !Number.isFinite(position) || position < 5) return;
-    const entry = {
-      source: "youtube",
-      id: youtubeVideo.id,
-      title: youtubeVideo.title,
-      channel: youtubeVideo.channel,
-      thumbnail: youtubeVideo.thumbnail,
-    };
-    if (!isValidEntry(entry)) return;
-    pushHistoryEntry(entry, owner);
-    syncHistoryEntry(entry);
-  }, [youtubeVideo, canRecord, owner, position]);
-
+    if (previous.current.key !== key || (position < 5 && previous.current.position >= 5)) recorded.current = null;
+    previous.current = { key, position };
+    if (status !== 'authenticated' || !owner || owner !== playbackOwner || !isPlaying || privateSession || !track?.id || !(track.title || track.name)) return;
+    if (youtubeVideo?.id && (!Number.isFinite(position) || position < 5)) return;
+    if (recorded.current === key) return;
+    recorded.current = key;
+    const entry = youtubeVideo?.id ? {
+      source: 'youtube', id: track.id, title: track.title, channel: track.channel,
+      thumbnail: track.thumbnail, playedAt: new Date().toISOString(),
+    } : { ...track, playedAt: new Date().toISOString() };
+    try {
+      const history = readAccountCache(localStorage, HISTORY_CACHE, owner, 30 * 86400_000);
+      writeAccountCache(localStorage, HISTORY_CACHE, owner, prependHistory(history, entry));
+    } catch {}
+    window.dispatchEvent(new CustomEvent(HISTORY_CHANGED, { detail: { owner, entry } }));
+    // The server history API accepts YouTube IDs. Local file history stays local.
+    if (youtubeVideo?.id) void requestJson('/api/history', { method: 'POST', body: { entry } }).catch(() => {});
+  }, [key, owner, playbackOwner, position, isPlaying, privateSession, status, track, youtubeVideo?.id]);
   return null;
 }
-
-export default SongsHistory

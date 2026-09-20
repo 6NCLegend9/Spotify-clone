@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import ContextMenuTarget from "@/components/ContextMenuTarget";
 import Link from "next/link";
 import { useDispatch } from "react-redux";
 import { BsPlayFill } from "react-icons/bs";
@@ -61,7 +62,7 @@ export function HomeSquareCard({ video, queue }) {
   const play = () => playHomeTracks(dispatch, list, index >= 0 ? index : 0);
 
   return (
-    <div className="home-shelf-card group relative w-full text-left">
+    <ContextMenuTarget className="home-shelf-card group relative w-full text-left">
       <button type="button" onClick={play} aria-label={`Play ${title}`} className="block w-full text-left">
         <span className="home-square">
           <MediaImage src={cover} size="hq" alt="" className="h-full w-full object-cover" />
@@ -74,7 +75,7 @@ export function HomeSquareCard({ video, queue }) {
         {subtitle ? <span className="home-shelf-subtitle">{subtitle}</span> : null}
       </button>
       <AddToQueueButton track={video} className="absolute right-1 top-1 z-20 rounded-full bg-[var(--navy-deep)]/90 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
-    </div>
+    </ContextMenuTarget>
   );
 }
 
@@ -105,3 +106,4 @@ export function TrackRail({ title, videos, seeAllHref }) {
     </HomeRail>
   );
 }
+

@@ -1,5 +1,6 @@
 "use client";
 
+import { HISTORY_CHANGED, prependHistory } from "@/utils/recentActivity.mjs";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
@@ -152,6 +153,7 @@ export default function useHomeFeed() {
     const controller = new AbortController();
     let cancelled = false;
 
+    const pendingHistoryChanges = [];
     const loadHistory = async () => {
       try {
         const json = await requestJson("/api/history", {
@@ -159,7 +161,11 @@ export default function useHomeFeed() {
           fallbackTitle: "Listen Again couldn’t sync",
           fallbackMessage: "Your saved listening history is still available on this device.",
         });
-        const syncedHistory = normalizeHistory(json?.data);
+        let syncedHistory = normalizeHistory(json?.data);
+        for (const change of pendingHistoryChanges) {
+          if (change.entry) syncedHistory = prependHistory(syncedHistory, change.entry);
+          if (change.removedId) syncedHistory = syncedHistory.filter((track) => track.id !== change.removedId);
+        }
         if (!cancelled && json?.success) {
           setHistory(syncedHistory);
           if (!privateSession) {
@@ -220,12 +226,20 @@ export default function useHomeFeed() {
         }
       }).catch(() => {});
     };
+    const onHistoryChanged = (event) => {
+      if (event.detail?.owner !== owner) return;
+      pendingHistoryChanges.push(event.detail);
+      if (event.detail.entry) setHistory((current) => prependHistory(current, event.detail.entry));
+      if (event.detail.removedId) setHistory((current) => current.filter((track) => track.id !== event.detail.removedId));
+    };
+    window.addEventListener(HISTORY_CHANGED, onHistoryChanged);
     window.addEventListener("heykasa:playlists-changed", onPlaylistsChanged);
 
     return () => {
       cancelled = true;
       controller.abort();
       window.removeEventListener("heykasa:playlists-changed", onPlaylistsChanged);
+      window.removeEventListener(HISTORY_CHANGED, onHistoryChanged);
     };
   }, [retryKey, owner, privateSession]);
 
@@ -263,3 +277,4 @@ export default function useHomeFeed() {
       0,
   };
 }
+
