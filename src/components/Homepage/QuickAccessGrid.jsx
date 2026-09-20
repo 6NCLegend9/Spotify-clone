@@ -67,7 +67,7 @@ export default function QuickAccessGrid({ items }) {
             <QuickCard
               playing={playing}
               aria-label={`Play ${title}`}
-              className="w-full pr-12"
+              className="w-full pr-10"
               onClick={() => playHomeTracks(dispatch, item.queue || [item], item.queueIndex || 0)}
             >
               {item.thumbnail || item.image ? (
@@ -82,7 +82,7 @@ export default function QuickAccessGrid({ items }) {
                   <BsPlayFill aria-hidden="true" className="text-xl" />
                 </span>
               )}
-              <span className="home-quick-title line-clamp-2">{title}</span>
+              <span className="home-quick-title min-w-0 line-clamp-2">{title}</span>
             </QuickCard>
             <AddToQueueButton track={item} className="absolute right-1 top-1/2 z-20 -translate-y-1/2 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
           </div>

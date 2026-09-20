@@ -140,7 +140,7 @@ const Home = () => {
           {!loading && (
             <TrackRail
               title="Recently Played"
-              seeAllHref="/library"
+              seeAllHref="/recently-played"
               videos={history.map((song) => ({
                 ...song,
                 title: song.title || song.name,

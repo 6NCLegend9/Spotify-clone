@@ -150,6 +150,13 @@ const Searchbar = () => {
     router.push(`/search/${encodeURIComponent(next)}`);
   };
 
+  const removeRecent = async (event, query) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setRecentQueries((items) => items.filter((item) => item !== query));
+    try { await requestJson("/api/searches", { method: "DELETE", body: { term: query } }); } catch { recentsLoadedAtRef.current = 0; void loadRecents(); }
+  };
+
   const searchSong = (song) => {
     const query = songSearchQuery(song);
     if (query) go(query);
@@ -348,12 +355,12 @@ const Searchbar = () => {
               <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">No suggestions yet. Press Enter to search.</li>
             ) : null}
             {items.map((item, index) => item.type === "recent-query" ? (
-              <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}>
+              <li key={item.key} role="none" onMouseMove={() => setActiveIndex(index)} onContextMenu={(event) => removeRecent(event, item.query)}>
                 <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => go(item.query)}
                   className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
                   <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
                   <span className="min-w-0 flex-1 truncate">{item.query}</span>
-                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-[#9aa8b5]">Recent search</span>
+                  <button type="button" aria-label={`Remove ${item.query} from recent searches`} title="Remove recent search" onClick={(event) => removeRecent(event, item.query)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#9aa8b5] hover:bg-white/10 hover:text-white"><FiX aria-hidden="true" /></button>
                 </button>
               </li>
             ) : (
