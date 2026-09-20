@@ -37,14 +37,17 @@ export function sanitizeMusicSearchQuery(query) {
 }
 
 export function buildOfficialMusicQuery(query) {
-  const base = sanitizeMusicSearchQuery(query)
-    .replace(/\b(?:official\s+music\s+video|official\s+video|official\s+audio)\b/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  // YouTube Data API supports | as an OR operator in q. Keep a single request so
-  // pagination and quota behavior stay predictable while still biasing toward the
-  // two canonical release types users expect from a music app.
-  return `${base || sanitizeMusicSearchQuery(query)} official music video|official audio`;
+  // Preserve the requested song, language and version. Provider-specific OR
+  // syntax and forced English release labels change what the user searched for.
+  // Prefer official sources only when ranking equally relevant results below.
+  return sanitizeMusicSearchQuery(query);
+}
+
+function queryCoverage(result, query) {
+  const requested = new Set(words(query));
+  const candidate = new Set(words(`${result?.title || ""} ${result?.channel || ""}`));
+  if (!requested.size) return 0;
+  return [...requested].filter((word) => candidate.has(word)).length / requested.size;
 }
 
 export function officialMusicScore(result, query) {
@@ -65,7 +68,7 @@ export function officialMusicScore(result, query) {
     if (pattern.test(title)) score += points;
   }
   for (const [pattern, points] of NEGATIVE_PATTERNS) {
-    if (pattern.test(haystack)) score += points;
+    if (pattern.test(haystack) && !pattern.test(query)) score += points;
   }
 
   if (queryWords.size) {
@@ -81,7 +84,7 @@ export function officialMusicScore(result, query) {
 
 export function rankOfficialMusicResults(results, query) {
   return (Array.isArray(results) ? results : [])
-    .map((result, index) => ({ result, index, score: officialMusicScore(result, query) }))
-    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .map((result, index) => ({ result, index, coverage: queryCoverage(result, query), score: officialMusicScore(result, query) }))
+    .sort((left, right) => right.coverage - left.coverage || right.score - left.score || left.index - right.index)
     .map(({ result }) => result);
 }

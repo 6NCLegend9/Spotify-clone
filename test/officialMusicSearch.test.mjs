@@ -7,12 +7,24 @@ import {
   sanitizeMusicSearchQuery,
 } from "../src/utils/officialMusicSearch.mjs";
 
-test("sanitizes and builds one official music query", () => {
+test("sanitizes a music query without rewriting the requested version", () => {
   assert.equal(sanitizeMusicSearchQuery("  Omarion\nPost To Be  "), "Omarion Post To Be");
   assert.equal(
     buildOfficialMusicQuery("Omarion Post To Be Official Music Video"),
-    "Omarion Post To Be official music video|official audio",
+    "Omarion Post To Be Official Music Video",
   );
+});
+
+test("preserves non-English searches and explicitly requested versions", () => {
+  for (const query of ["אדיר גץ", "አስቴር አወቀ", "Adele Hello live", "Hello karaoke"]) {
+    assert.equal(buildOfficialMusicQuery(query), query);
+  }
+});
+
+test("the requested song outranks a less relevant upload with official branding", () => {
+  const song = { title: "Adele - Hello", channel: "Adele" };
+  const unrelated = { title: "Adele - Easy On Me (Official Music Video)", channel: "AdeleVEVO" };
+  assert.deepEqual(rankOfficialMusicResults([unrelated, song], "Adele Hello"), [song, unrelated]);
 });
 
 test("official sources outrank covers and lyric uploads", () => {
