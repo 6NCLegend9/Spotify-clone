@@ -1,7 +1,9 @@
+import { createProviderTransport } from "./providerTransport.mjs";
+import { reportProvider } from "./providerRequestContext.mjs";
+import { cachedYoutubeRead } from "./providerCache.js";
 import { Innertube, Log, UniversalCache } from "youtubei.js";
 import { cleanTitle } from "./text.js";
 import { firstSuccessfulSearch } from "./youtubeSearchFallback.mjs";
-import { logServerDiagnostic } from "./diagnostics.mjs";
 import { isYoutubeVideoId, sanitizeYoutubeComments } from "./youtubeComments.mjs";
 import { videoIdsMentionedInText } from "./commentVideoIds.mjs";
 import {
@@ -49,18 +51,10 @@ export function hasYouTubeApiKey() {
   return true;
 }
 
-async function timedFetch(input, init = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch(input, {
-      ...init,
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-}
+const timedFetch = createProviderTransport({
+  timeoutMs: REQUEST_TIMEOUT_MS,
+  report: reportProvider,
+});
 
 async function getInnertube() {
   if (!innertubePromise) {
@@ -269,7 +263,6 @@ async function fetchOEmbedVideo(id) {
     );
     if (!response.ok) {
       const fallback = syntheticVideo(id);
-      cacheVideo(id, fallback);
       return fallback;
     }
     const data = await response.json();
@@ -284,7 +277,6 @@ async function fetchOEmbedVideo(id) {
     return value;
   } catch (error) {
     const fallback = syntheticVideo(id);
-    cacheVideo(id, fallback);
     return fallback;
   }
 }
@@ -507,6 +499,15 @@ export async function searchChannelsViaInnertube(query, maxResults = 12) {
   } catch {
     return { ok: false, status: 502, data: null };
   }
+}
+
+export async function searchYouTubeChannels(query) {
+  const params = { part: "snippet", type: "channel", q: query, maxResults: "12" };
+  return cachedYoutubeRead("search", params, {}, async () => {
+    const official = await fetchFromOfficialApi("search", params, { next: { revalidate: 3600 } });
+    if (official?.ok && official.data?.items?.length) return { ...official, source: "official" };
+    return searchChannelsViaInnertube(query, 12);
+  });
 }
 
 async function fetchFromOfficialApi(endpoint, params, fetchOptions) {
@@ -853,7 +854,11 @@ export async function fetchLatestChannelVideos(channelId, { name = "", maxResult
   return mapSearchItemsToTracks(innertube?.tracks, extras).slice(0, maxResults);
 }
 
-export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
+export async function youtubeFetch(endpoint, params = {}, fetchOptions = {}) {
+  return cachedYoutubeRead(endpoint, params, fetchOptions, () => youtubeFetchUncached(endpoint, params, fetchOptions));
+}
+
+async function youtubeFetchUncached(endpoint, params, fetchOptions) {
   const started = performance.now();
   try {
     const { requireOfficial = false, ...requestOptions } = fetchOptions;
@@ -890,10 +895,10 @@ export async function youtubeFetch(endpoint, params, fetchOptions = {}) {
 
     return await fetchFromInnertube(endpoint, params);
   } catch (error) {
-    logServerDiagnostic("provider", { code: "INTERNAL_ERROR" });
+    reportProvider({ code: "INTERNAL_ERROR" });
     return { ok: false, status: 502, data: null };
   } finally {
-    logServerDiagnostic("provider", { durationMs: performance.now() - started });
+    reportProvider({ durationMs: performance.now() - started });
   }
 }
 

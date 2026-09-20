@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
+import { withProviderRequest } from "@/utils/providerRequestContext.mjs";
+import { logServerDiagnostic } from "@/utils/diagnostics.mjs";
 import { NextResponse } from "next/server";
-import { hasYouTubeApiKey, youtubeFetch, searchChannelsViaInnertube } from "@/utils/youtubeApi";
+import { hasYouTubeApiKey, youtubeFetch, searchYouTubeChannels } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { readSearchOptions } from "@/utils/searchOptions.mjs";
@@ -35,34 +38,18 @@ function trackScopedDiscoverySeed(track) {
   };
 }
 
-async function searchChannels(query) {
-  const key = (process.env.YOUTUBE_API_KEY || "").trim();
-  if (key) {
-    const params = new URLSearchParams({
-      part: "snippet",
-      type: "channel",
-      maxResults: "12",
-      q: query,
-      key,
-    });
-    try {
-      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`, {
-        next: { revalidate: 3600 },
-        signal: AbortSignal.timeout(6_000),
-      });
-      const data = await response.json().catch(() => null);
-      const items = Array.isArray(data?.items) ? data.items : [];
-      if (response.ok && items.length > 0) {
-        return { ok: true, status: response.status, data };
-      }
-    } catch {
-      // Fall through to the no-key Innertube lookup below.
-    }
-  }
-  return searchChannelsViaInnertube(query, 12);
+export async function GET(request) {
+  const requestId = randomUUID();
+  const started = performance.now();
+  return withProviderRequest(requestId, async () => {
+    const response = await searchResponse(request);
+    response.headers.set("X-Request-Id", requestId);
+    logServerDiagnostic("request", { requestId, route: "/api/youtube-search", status: response.status, durationMs: performance.now() - started });
+    return response;
+  });
 }
 
-export async function GET(request) {
+async function searchResponse(request) {
   try {
     const { query, type, order, duration, pageToken, requireOfficial } = readSearchOptions(new URL(request.url).searchParams);
     const radioDiscovery = isRadioDiscoveryQuery(query, type, order);
@@ -100,7 +87,7 @@ export async function GET(request) {
     }
 
     const { ok, status, data, source } = type === "channel" && !requireOfficial
-      ? await searchChannels(query)
+      ? await searchYouTubeChannels(query)
       : await youtubeFetch("search", params, { next: { revalidate: 3600 }, requireOfficial });
 
     if (!ok) {
