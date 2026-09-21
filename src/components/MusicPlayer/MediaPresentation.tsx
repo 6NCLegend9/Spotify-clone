@@ -5,8 +5,8 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSelector } from "react-redux";
-import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Settings2, Video } from "lucide-react";
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent } from "react";
+import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Pause, Play, Settings2, Video } from "lucide-react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent, CSSProperties } from "react";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
@@ -69,6 +69,12 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [mobile, setMobile] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [compactHeader, setCompactHeader] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | null>(null);
   const [video, setVideo] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -85,7 +91,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const anchorRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const gestureRef = useRef<{ x: number; y: number } | null>(null);
+  const gestureRef = useRef<{ x: number; y: number; pull: boolean } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const controlsVisibleRef = useRef(true);
   const controlsRevealedByPointerMoveRef = useRef(false);
@@ -140,9 +146,27 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     if (!returnFocusRef.current) returnFocusRef.current = document.activeElement as HTMLElement | null;
   }, []);
   const dismiss = useCallback(() => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+    setClosing(false); setEntering(false); setDragY(0); setCompactHeader(false);
     setDrawer(false); setExpanded(false); setView("player");
   }, []);
+  const collapseSheet = useCallback(() => {
+    if (!mobile || expanded || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { dismiss(); return; }
+    if (closeTimer.current !== null) return;
+    setEntering(false); setClosing(true);
+    closeTimer.current = window.setTimeout(dismiss, 260);
+  }, [mobile, expanded, dismiss]);
+  useEffect(() => {
+    if (!entering) return;
+    const timer = window.setTimeout(() => setEntering(false), 420);
+    return () => window.clearTimeout(timer);
+  }, [entering]);
+  useEffect(() => () => { if (closeTimer.current !== null) window.clearTimeout(closeTimer.current); }, []);
   const open = useCallback(() => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+    setClosing(false); setEntering(true); setDragY(0); setCompactHeader(false);
     rememberFocus(); setView("player"); setExpanded(false); setDrawer(true);
   }, [rememberFocus]);
   const openExpanded = useCallback(() => {
@@ -157,10 +181,10 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     dismiss(); onQueue();
   }, [dismiss, onQueue]);
   const close = useCallback(() => {
-    if (view !== "player") setView("player");
-    else if (expanded) setExpanded(false);
-    else dismiss();
-  }, [view, expanded, dismiss]);
+    if (view !== "player") { setDragY(0); setView("player"); }
+    else if (expanded) { setDragY(0); setExpanded(false); }
+    else collapseSheet();
+  }, [view, expanded, collapseSheet]);
   const closeRef = useRef(close);
   closeRef.current = close;
   useImperativeHandle(ref, () => ({ open, dismiss, expand: openExpanded, showLyrics: openLyrics }), [open, dismiss, openExpanded, openLyrics]);
@@ -229,6 +253,8 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   useEffect(() => {
     if (!overlay) return;
     const previousFocus = returnFocusRef.current || document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    if (mobile) document.body.style.overflow = "hidden";
     const background = Array.from(document.querySelectorAll<HTMLElement>(".app-sidebar, .app-stage, .now-playing-panel, .app-tabbar, .sidebar-resizer, .right-panel-resizer"));
     const previousInert = background.map((element) => element.inert);
     background.forEach((element) => { element.inert = true; });
@@ -249,6 +275,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     };
     document.addEventListener("keydown", onKey, true);
     return () => {
+      if (mobile) document.body.style.overflow = previousOverflow;
       background.forEach((element, index) => { element.inert = previousInert[index]; });
       document.removeEventListener("keydown", onKey, true);
       if (previousFocus?.isConnected) previousFocus.focus();
@@ -298,18 +325,45 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     };
   }, [mediaHost, showingVideo, overlay, mobile, drawer, expanded, view, slot]);
 
+  useEffect(() => {
+    if (!mobile || !drawer || expanded || !mediaHost || !showingVideo) return;
+    let frame = 0;
+    const until = performance.now() + 450;
+    const follow = () => {
+      positionMediaViewport(mediaHost, anchorRef.current, showingVideo, expanded);
+      if (performance.now() < until) frame = requestAnimationFrame(follow);
+    };
+    frame = requestAnimationFrame(follow);
+    return () => cancelAnimationFrame(frame);
+  }, [mobile, drawer, expanded, mediaHost, showingVideo, closing, dragY]);
+
   const startGesture = (event: TouchEvent<HTMLElement>) => {
-    if (!mobile || (event.target as HTMLElement).closest("button, a, input, select")) return;
+    gestureRef.current = null;
+    if (!mobile || closing || event.touches.length !== 1 || (event.target as HTMLElement).closest("button, a, input, select")) return;
     const touch = event.touches[0];
-    gestureRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    const handle = Boolean((event.target as HTMLElement).closest('[data-sheet-handle]'));
+    gestureRef.current = { x: touch.clientX, y: touch.clientY, pull: handle || (scrollRef.current?.scrollTop || 0) <= 0 };
+  };
+  const moveGesture = (event: TouchEvent<HTMLElement>) => {
+    const start = gestureRef.current;
+    if (!start || event.touches.length !== 1) { gestureRef.current = null; setDragY(0); return; }
+    const touch = event.touches[0];
+    const dx = touch.clientX - start.x, dy = touch.clientY - start.y;
+    if (start.pull && !expanded && dy > 8 && dy > Math.abs(dx) * 1.5) { setEntering(false); setDragY(Math.min(dy * .85, window.innerHeight * .65)); }
   };
   const endGesture = (event: TouchEvent<HTMLElement>) => {
     const start = gestureRef.current; const touch = event.changedTouches[0]; gestureRef.current = null;
-    if (!start || !touch || !mobile) return;
+    if (!start || !touch || !mobile) { setDragY(0); return; }
     const dx = touch.clientX - start.x; const dy = touch.clientY - start.y;
-    if (dy > 72 && Math.abs(dx) < 40) close();
-    else if (!props.disabled && Math.abs(dx) > 72 && Math.abs(dy) < 40) { if (dx < 0) props.onNext(); else props.onPrevious(); }
+    if (start.pull && dy > 100 && Math.abs(dx) < 50) close();
+    else {
+      setDragY(0);
+      if (!props.disabled && Math.abs(dx) > 72 && Math.abs(dy) < 40) {
+        if (dx < 0 && !props.nextDisabled) props.onNext(); else if (dx > 0) props.onPrevious();
+      }
+    }
   };
+  const cancelGesture = () => { gestureRef.current = null; setDragY(0); };
   const toggleMediaControls = (event: ReactMouseEvent<HTMLElement>) => {
     if (!expanded || (event.target as HTMLElement).closest("button, a, input, select")) return;
     if (controlsRevealedByPointerMoveRef.current) {
@@ -352,16 +406,19 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     </div>
   </div>;
   const content = <>
-    {overlay && <header className={`${styles.overlayHeader} ${expanded ? styles.theaterChrome : ""}`} onTouchStart={startGesture} onTouchEnd={endGesture}>
+    {overlay && <header className={`${styles.overlayHeader} ${expanded ? styles.theaterChrome : ""} ${mobile && !expanded && compactHeader && view === "player" ? styles.compactHeader : ""}`} onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture} data-sheet-handle>
       <PlayerIconButton label={view !== "player" ? "Back to player" : expanded ? (showingVideo ? "Collapse video" : "Collapse player") : "Close player"} onClick={close}>{expanded ? <Minimize2 size={21} /> : <ChevronDown size={25} />}</PlayerIconButton>
-      <span className={styles.source}><small>{sourceLabel}</small><strong>{sourceName}</strong></span>
-      {expanded ? <div className={styles.topTools}>{modeButton}
+      <span className={styles.source}><small>{mobile && compactHeader && !expanded && view === "player" ? props.track.channel || "NOW PLAYING" : sourceLabel}</small><strong>{mobile && compactHeader && !expanded && view === "player" ? props.track.title : sourceName}</strong></span>
+      {mobile && compactHeader && !expanded && view === "player" ? <PlayerIconButton label={props.playing ? "Pause" : "Play"} disabled={props.disabled} onClick={props.onPlayPause}>{props.playing ? <Pause size={21} /> : <Play size={21} />}</PlayerIconButton> : expanded ? <div className={styles.topTools}>{modeButton}
         <Link href="/settings" onClick={dismiss} aria-label="Video quality settings" className={styles.modeButton}><Settings2 size={17} /><span>Quality settings</span></Link>
       </div> : <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={21} /></PlayerIconButton>}
     </header>}
-    <div className={`${styles.body} ${expanded ? styles.expandedBody : ""} ${view !== "player" ? styles.utilityBody : ""}`}>
+    <div ref={scrollRef} data-testid="mobile-player-scroll" onScroll={(event) => {
+      const artHeight = anchorRef.current?.offsetHeight || 250;
+      setCompactHeader(event.currentTarget.scrollTop > artHeight + 50);
+    }} className={`${styles.body} ${expanded ? styles.expandedBody : ""} ${view !== "player" ? styles.utilityBody : ""}`}>
       {view === "player" ? <>
-        <div ref={anchorRef} onTouchStart={startGesture} onTouchEnd={endGesture}
+        <div ref={anchorRef} onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture}
           onClick={toggleMediaControls} onPointerMove={moveMediaPointer}
           className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
           {!showingVideo && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
@@ -370,12 +427,28 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
         {!expanded && <>
           <div className={styles.mediaTools}>{modeButton}</div>{metadata}
           {mobile && mobileTransport}
-          <section className={styles.queue} aria-label="Next in queue"><header><h3>Next in queue</h3><button type="button" onClick={openQueue}>Show all</button></header>
+          {mobile && canLyrics && <section className={styles.detailCard} aria-label="Lyrics">
+            <div><h3>Lyrics</h3><Mic2 size={20} /></div>
+            <p>Follow the words as the song plays.</p>
+            <button type="button" onClick={openLyrics}>Open live lyrics</button>
+          </section>}
+          <section className={styles.queue} aria-label="Next in queue"><header><h3>{mobile ? "Up next" : "Next in queue"}</h3><button type="button" onClick={openQueue}>Show all</button></header>
             {upcoming.length ? upcoming.map((track, index) => <button type="button" key={track.queueEntryId || `${track.id}-${index}`} disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueRow}>
               <img src={track.thumbnail || "/icon-192x192.png"} alt="" width={44} height={44} />
               <span><strong>{track.title}</strong><small>{track.channel}</small></span>
             </button>) : <p className={styles.empty}>Your queue is empty.</p>}
           </section>
+          {mobile && props.track.channel && <section className={styles.detailCard} aria-label="Explore artist">
+            <div><h3>Explore {props.track.channel}</h3><Music2 size={20} /></div>
+            <p>Find more music from this artist.</p>
+            <Link href={`/search/${encodeURIComponent(props.track.channel)}`} onClick={dismiss}>Explore music</Link>
+          </section>}
+          {mobile && <section className={styles.detailCard} aria-label="Track information">
+            <h3>Track information</h3><dl><dt>Title</dt><dd>{props.track.title}</dd>
+            {props.track.channel && <><dt>Artist / channel</dt><dd>{props.track.channel}</dd></>}
+            {playbackContext?.name && <><dt>Playing from</dt><dd>{playbackContext.name}</dd></>}
+            </dl>
+          </section>}
         </>}
       </> : <section className={styles.lyrics} aria-label="Live lyrics">
         {metadata}<SyncedLyrics title={props.track.title} artist={props.track.channel || ""} duration={props.duration} currentTime={props.position} onSeek={props.disabled ? undefined : props.onSeek} />
@@ -387,7 +460,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   return <>
     {mediaHost && showingVideo && (!mobile || overlay) && createPortal(<>
       <div className={styles.gestureSurface} aria-hidden="true"
-        onTouchStart={startGesture} onTouchEnd={endGesture}
+        onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture}
         onClick={toggleMediaControls} onPointerMove={moveMediaPointer} />
       {!expanded && <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
     </>, mediaHost)}
@@ -398,11 +471,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       onClick={(event) => event.stopPropagation()}
       onPointerMove={(event) => { if (expanded && event.pointerType === "mouse") showTheaterControls(); }}
       onFocusCapture={() => { if (expanded) showTheaterControls(); }}
-      className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer}`} data-testid="kasa-media-overlay" data-view={view}
+      className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer} ${mobile && !expanded ? styles.mobileSheet : ""} ${closing ? styles.sheetClosing : ""} ${entering ? styles.sheetEntering : ""}`}
+      style={mobile && !expanded ? { "--sheet-drag": `${dragY}px` } as CSSProperties : undefined}
+      data-dragging={dragY > 0 && !closing ? "true" : undefined}
+      data-state={closing ? "closing" : "open"} data-testid="kasa-media-overlay" data-view={view}
       data-controls={expanded ? (controlsVisible ? "visible" : "hidden") : undefined}
       data-media={expanded ? (showingVideo ? "video" : "audio") : undefined}>
       {content}
-      {!expanded && <div className={styles.dismissHandle} onTouchStart={startGesture} onTouchEnd={endGesture}><span /></div>}
+      {!expanded && <div data-sheet-handle className={styles.dismissHandle} onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture}><span /></div>}
     </section>, document.body)}
   </>;
 });

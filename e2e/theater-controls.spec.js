@@ -72,3 +72,45 @@ test("expanded media hides chrome on tap/idle and preserves the selected media m
   const drawer = page.getByRole("dialog", { name: "Now playing" });
   await expect(drawer.getByRole("button", { name: "Switch to video", exact: true })).toBeVisible();
 });
+
+test.describe("mobile Now Playing sheet", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const owner = "account:theater-user";
+      const track = { id: "abcdefghijk", title: "Mobile player verification", channel: "Test Artist" };
+      localStorage.setItem("heykasa.media.presentation", "audio");
+      localStorage.setItem("heykasa:playback:v1:account%3Atheater-user", JSON.stringify({ version: 3, owner, savedAt: Date.now(), youtubeVideo: track, youtubeQueue: [track, { id: "lmnopqrstuv", title: "Up next fixture" }], position: 42, queueMode: "radio" }));
+    });
+  });
+
+  test("scrolls into details and collapses without remounting the video deck", async ({ page }) => {
+    await page.goto("/search", { waitUntil: "domcontentloaded" });
+    const trigger = page.getByRole("button", { name: /^Expand player:/ });
+    await trigger.click();
+    const sheet = page.getByRole("dialog", { name: "Now playing", exact: true });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Up next", exact: true })).toBeAttached();
+    const host = await page.getByTestId("youtube-decks").elementHandle();
+    await sheet.getByTestId("mobile-player-scroll").evaluate(element => { element.scrollTop = 650; });
+    await expect(sheet.locator("header").first().getByRole("button", { name: /^(Play|Pause)$/ })).toBeVisible();
+    await expect(sheet.getByRole("region", { name: "Track information" })).toBeAttached();
+    await sheet.getByRole("button", { name: "Close player", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(await host.evaluate(element => element === document.querySelector('[data-testid="youtube-decks"]'))).toBe(true);
+    await expect(trigger).toBeFocused();
+  });
+
+  test("respects reduced motion and permits reopening immediately", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/search", { waitUntil: "domcontentloaded" });
+    const trigger = page.getByRole("button", { name: /^Expand player:/ });
+    await trigger.click();
+    const sheet = page.getByRole("dialog", { name: "Now playing", exact: true });
+    await expect(sheet).toHaveCSS("animation-name", "none");
+    await sheet.getByRole("button", { name: "Close player", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    await trigger.click();
+    await expect(sheet).toBeVisible();
+  });
+});

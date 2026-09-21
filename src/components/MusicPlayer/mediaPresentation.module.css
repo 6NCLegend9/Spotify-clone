@@ -109,3 +109,61 @@
 .expandButton { position: absolute; top: 8px; right: 8px; z-index: 30; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--hairline-cyan); border-radius: 8px; background: rgb(2 8 19 / 82%); color: var(--text); backdrop-filter: blur(10px); }
 .expandButton:hover { color: var(--accent); background: var(--navy-panel); }
 .expandButton:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+
+/* Mobile PiP opens into a scrollable Now Playing sheet. The media engine stays mounted. */
+.overlay.mobileSheet {
+  inset: 0; height: 100dvh; max-height: 100dvh;
+  border-radius: 22px 22px 0 0;
+  background: radial-gradient(ellipse at 20% 0%, #215363 0, #13323f 30%, #09151e 66%);
+  transform: translate3d(0, var(--sheet-drag, 0px), 0);
+  transition: transform 240ms cubic-bezier(.22, 1, .36, 1);
+  animation: none;
+  isolation: isolate;
+}
+.mobileSheet .overlayHeader {
+  position: relative; z-index: 3; min-height: calc(68px + env(safe-area-inset-top, 0px));
+  padding-top: max(18px, env(safe-area-inset-top, 0px));
+  background: transparent; transition: background-color 180ms ease, box-shadow 180ms ease;
+  touch-action: none;
+}
+.mobileSheet .source { text-align: center; }
+.mobileSheet .source small { font-size: 9px; letter-spacing: .12em; color: #b2ced5; }
+.mobileSheet .source strong { font-size: 12px; }
+.mobileSheet .compactHeader { background: #12303c; box-shadow: 0 6px 20px rgb(0 0 0 / 16%); }
+.mobileSheet .compactHeader .source { text-align: left; }
+.mobileSheet .compactHeader .source strong { font-size: 13px; }
+.mobileSheet .body {
+  flex: 1; width: 100%; min-height: 0; margin: 0;
+  padding: 12px max(20px, env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+  overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.mobileSheet .body::-webkit-scrollbar { display: none; }
+.mobileSheet .art { max-width: min(100%, 440px); border: 0; border-radius: 10px; box-shadow: 0 18px 48px rgb(0 0 0 / 25%); }
+.mobileSheet .metadata { margin: 16px 0 12px; }
+.mobileSheet .metadata h2 { font-size: clamp(20px, 5.8vw, 28px); line-height: 1.24; }
+.mobileSheet .metadata p { font-size: 14px; color: #bdd0d5; }
+.mobileSheet .mediaTools { margin: 16px 0 0; }
+.mobileSheet .mobileTransport { gap: 12px; margin-bottom: 28px; }
+.mobileSheet .queue, .detailCard { margin: 16px 0; padding: 16px; border: 1px solid rgb(255 255 255 / 7%); border-radius: 16px; background: rgb(255 255 255 / 6%); }
+.mobileSheet .queue h3, .detailCard h3 { margin: 0; font-size: 15px; font-weight: 750; line-height: 1.4; }
+.mobileSheet .queueRow { min-height: 64px; }
+.mobileSheet .queueRow strong { font-size: 13px; }
+.detailCard > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.detailCard > p { margin: 12px 0; font-size: 14px; line-height: 1.5; color: #bdd0d5; }
+.detailCard > button, .detailCard > a { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; padding: 8px 16px; border: 1px solid rgb(255 255 255 / 30%); border-radius: 999px; font-size: 12px; font-weight: 700; }
+.detailCard dl { margin: 16px 0 0; }
+.detailCard dt { margin-top: 14px; color: #a5bfc8; font-size: 11px; }
+.detailCard dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.5; }
+.mobileSheet.sheetEntering { animation: sheetEnter 380ms cubic-bezier(.22, 1, .36, 1) both; }
+.mobileSheet[data-dragging="true"] { animation: none; transition: none; }
+.mobileSheet.sheetClosing { pointer-events: none; animation: sheetExit 240ms cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes sheetEnter { from { transform: translate3d(0, 100%, 0); border-radius: 28px 28px 0 0; } to { transform: translate3d(0, 0, 0); } }
+@keyframes sheetExit { from { transform: translate3d(0, var(--sheet-drag, 0px), 0); } to { transform: translate3d(0, 100%, 0); } }
+@media (orientation: landscape) and (max-height: 600px) {
+  .mobileSheet .art { max-width: 300px; }
+  .mobileSheet .body { padding-inline: max(24px, env(safe-area-inset-left, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay.mobileSheet, .mobileSheet.sheetEntering, .mobileSheet.sheetClosing, .mobileSheet .overlayHeader { animation: none; transition: none; }
+}
