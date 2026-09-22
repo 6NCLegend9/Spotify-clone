@@ -258,11 +258,11 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
                 </span>
                 {track.queueSource === "user" && <span className="shrink-0 rounded-full border border-[var(--hairline-cyan)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--teal)]">Queued</span>}
               </button>
-              <TrackQueueMenu
+              {!props.disabled && <TrackQueueMenu
                 track={track}
                 onRemove={movable ? () => { props.onQueueEdit?.({ kind: "remove", index }); setMessage(`${track.title} removed. Undo is available.`); } : undefined}
                 removeLabel="Remove from queue"
-              />
+              />}
             </ContextMenuTarget>
             {movable && <PlayerIconButton label={`Remove ${track.title} from queue`} disabled={props.disabled} onClick={() => { props.onQueueEdit?.({ kind: "remove", index }); setMessage(`${track.title} removed. Undo is available.`); }}><Trash2 size={18} /></PlayerIconButton>}
           </div>

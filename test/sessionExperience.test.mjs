@@ -11,14 +11,12 @@ const settingsSource = readFileSync(
   "utf8",
 );
 
-test("entering a Jam freezes the listener queue; leaving restores that pre-Jam snapshot", () => {
+test("leaving a Jam keeps the final Jam track paused instead of restoring stale playback", () => {
   assert.match(persistenceSource, /const leavingJam = wasInJam\.current && !inJam/);
-  assert.match(persistenceSource, /const enteringJam = !wasInJam\.current && inJam/);
-  assert.match(persistenceSource, /preJamOwner/);
-  assert.match(persistenceSource, /if \(enteringJam && owner && storage\)/);
-  assert.match(persistenceSource, /writePlaybackSnapshot\(storage, preJamOwner\(owner\), store\.getState\(\)\.player\)/);
-  assert.match(persistenceSource, /restorePlayback\(\{ owner, snapshot: preJam \}\)/);
-  assert.doesNotMatch(persistenceSource, /writePlaybackSnapshot\(storage, owner, finalJamPlayback\)/);
+  assert.match(
+    persistenceSource,
+    /if \(leavingJam\) \{[\s\S]*store\.dispatch\(playPause\(false\)\)[\s\S]*writePlaybackSnapshot\(storage, owner, finalJamPlayback\)[\s\S]*\} else \{[\s\S]*restorePlayback/,
+  );
 });
 
 test("settings provides separate current-device and all-device sign-out actions", () => {

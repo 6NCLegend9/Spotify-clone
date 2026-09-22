@@ -62,33 +62,27 @@ export function youtubePlaybackFailurePolicy(input = {}) {
   const sameIdAttempts = Math.max(0, Number(input.sameIdAttempts) || 0);
   const alternateAttempts = Math.max(0, Number(input.alternateAttempts) || 0);
   const raw = input.code;
-  const isStall = raw === "stall" || raw === "preview";
+  const isStall = raw === "stall";
   const base = isStall
     ? {
         code: raw,
         canRetry: true,
-        message: "This video stopped buffering. Trying another upload or the next track.",
-        detail: "YouTube stalled before the song could play reliably.",
+        message: "This video stopped buffering.",
+        detail: "Retry playback, or search for another version of this song.",
       }
     : youtubePlaybackError(raw);
+  const error = { kind: "playback", ...base };
 
-  // Embedding / unavailable: never retry the same id automatically.
-  if (!isStall && base.canRetry === false) {
-    if (alternateAttempts >= MAX_ALTERNATE_ATTEMPTS) {
-      return { action: /** @type {PlaybackFailureAction} */ ("skipQueue"), error: { kind: "playback", ...base } };
-    }
-    return { action: /** @type {PlaybackFailureAction} */ ("tryAlternate"), error: { kind: "playback", ...base } };
+  // Embed blocks never recover on the same id, and stalls were already
+  // reloaded twice by buffer recovery before reaching this policy.
+  const retryable = !isStall && base.canRetry !== false;
+  if (retryable && sameIdAttempts < MAX_SAME_ID_RETRIES) {
+    return { action: /** @type {PlaybackFailureAction} */ ("retrySame"), error };
   }
-
-  if (sameIdAttempts < MAX_SAME_ID_RETRIES) {
-    return { action: /** @type {PlaybackFailureAction} */ ("retrySame"), error: { kind: "playback", ...base, canRetry: true } };
-  }
-
   if (alternateAttempts < MAX_ALTERNATE_ATTEMPTS) {
-    return { action: /** @type {PlaybackFailureAction} */ ("tryAlternate"), error: { kind: "playback", ...base } };
+    return { action: /** @type {PlaybackFailureAction} */ ("tryAlternate"), error };
   }
-
-  return { action: /** @type {PlaybackFailureAction} */ ("skipQueue"), error: { kind: "playback", ...base, canRetry: false } };
+  return { action: /** @type {PlaybackFailureAction} */ ("skipQueue"), error };
 }
 
 export function alternateSearchQuery(track) {

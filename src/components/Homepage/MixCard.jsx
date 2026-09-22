@@ -109,31 +109,29 @@ export default function MixCard({ mix }) {
         <span className="home-mix-bar" style={{ background: palette.bar || "#00e6e6" }} />
         <span className="line-clamp-2">{mix.title}</span>
       </span>
-      <span className="home-square-play max-md:hidden">
-        <BsPlayFill aria-hidden="true" className="text-xl" />
-      </span>
     </>
   );
 
   if (playlistHref) {
     return (
       <div
-        className="home-mix group relative w-full text-left"
+        className="home-mix group w-full text-left"
         style={{ background: mixBackground(palette) }}
       >
+        {face}
+        {/* Rendered after the face so the title and logo layers cannot swallow clicks. */}
         <button
           type="button"
           onClick={() => router.push(playlistHref)}
           aria-label={`Open playlist ${mix.title}`}
-          className="absolute inset-0 z-[1]"
+          className="absolute inset-0 z-[2]"
         />
-        {face}
         <button
           type="button"
           onClick={playMix}
           disabled={busy}
           aria-label={`Play ${mix.title}`}
-          className="home-square-play relative z-[2] disabled:opacity-70"
+          className="home-square-play focus-visible:opacity-100 disabled:opacity-70"
         >
           <BsPlayFill aria-hidden="true" className="text-xl" />
         </button>
@@ -151,6 +149,9 @@ export default function MixCard({ mix }) {
       style={{ background: mixBackground(palette) }}
     >
       {face}
+      <span className="home-square-play max-md:hidden">
+        <BsPlayFill aria-hidden="true" className="text-xl" />
+      </span>
     </button>
   );
 }

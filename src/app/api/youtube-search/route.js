@@ -99,28 +99,22 @@ async function searchResponse(request) {
     const results = (Array.isArray(data?.items) ? data.items : [])
       .filter((item) => type !== "video" || item?.status?.embeddable !== false)
       .filter((item) => item?.id?.videoId || item?.id?.channelId || item?.id?.playlistId)
-      .map((item) => {
-        const playability = type === "video"
-          ? ((item?.status?.embeddable === true || source === "official") ? "confirmed" : "unverified")
-          : "n/a";
-        return {
-          id: item.id.videoId || item.id.channelId || item.id.playlistId,
-          type,
-          title: cleanTitle(item.snippet?.title || ""),
-          channel: cleanTitle(item.snippet?.channelTitle || ""),
-          channelId: item.snippet?.channelId || item.id?.channelId || "",
-          description: cleanTitle(item.snippet?.description || ""),
-          publishedAt: item.snippet?.publishedAt || "",
-          thumbnail:
-            item.snippet?.thumbnails?.high?.url
-            || item.snippet?.thumbnails?.medium?.url
-            || item.snippet?.thumbnails?.default?.url
-            || "",
-          seedQuery: query,
-          genre: query,
-          playability,
-        };
-      });
+      .map((item) => ({
+        id: item.id.videoId || item.id.channelId || item.id.playlistId,
+        type,
+        title: cleanTitle(item.snippet?.title || ""),
+        channel: cleanTitle(item.snippet?.channelTitle || ""),
+        channelId: item.snippet?.channelId || item.id?.channelId || "",
+        description: cleanTitle(item.snippet?.description || ""),
+        publishedAt: item.snippet?.publishedAt || "",
+        thumbnail:
+          item.snippet?.thumbnails?.high?.url
+          || item.snippet?.thumbnails?.medium?.url
+          || item.snippet?.thumbnails?.default?.url
+          || "",
+        seedQuery: query,
+        genre: query,
+      }));
 
     const rankedResults = type === "video" && order === "relevance"
       ? rankOfficialMusicResults(results, query)
@@ -133,20 +127,11 @@ async function searchResponse(request) {
       }).map(trackScopedDiscoverySeed)
       : rankedResults;
 
-    const cacheControl = source === "official"
-      ? "public, s-maxage=900, stale-while-revalidate=3600"
-      : "public, s-maxage=120, stale-while-revalidate=600";
-
     return NextResponse.json(
-      {
-        results: responseResults,
-        source: source || "fallback",
-        playabilityConfirmed: source === "official",
-        nextPageToken: typeof data?.nextPageToken === "string" ? data.nextPageToken : "",
-      },
+      { results: responseResults, source: source || "fallback", nextPageToken: typeof data?.nextPageToken === "string" ? data.nextPageToken : "" },
       {
         headers: {
-          "Cache-Control": cacheControl,
+          "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
         },
       },
     );

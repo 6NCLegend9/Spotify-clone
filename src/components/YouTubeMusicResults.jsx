@@ -406,7 +406,7 @@ export default function YouTubeMusicResults({ query }) {
         <EmptyState
           eyebrow="Search"
           title="No music found"
-          message={`No matching songs for “${query}”. Results are ranked for relevance; playback is confirmed when YouTube marks a video embeddable.`}
+          message={`We couldn’t find playable ${SITE_BRAND} results for “${query}”. Try another search.`}
           href="/"
           actionLabel="Start another search"
         />

@@ -72,6 +72,9 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       }
       if (event.key === "Tab") { closeMenu(); return; }
       if (event.key !== "Escape") return;
+      // Consume Escape so a parent dialog (e.g. the queue) does not close too.
+      event.preventDefault();
+      event.stopPropagation();
       if (view === "playlists") {
         setView("actions");
         return;
