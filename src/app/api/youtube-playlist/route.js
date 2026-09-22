@@ -4,6 +4,8 @@ import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { apiError, handleApiError } from "@/utils/apiResponse";
 
+const PAGE_TOKEN_PATTERN = /^[A-Za-z0-9_=-]{1,512}$/;
+
 const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,64}$/;
 
 export const runtime = "nodejs";
@@ -36,10 +38,16 @@ export async function GET(request) {
       return apiError("VALIDATION_ERROR", { message: "A valid playlist id is required." });
     }
 
+    const pageToken = request.nextUrl.searchParams.get("pageToken") || "";
+    if (pageToken && !PAGE_TOKEN_PATTERN.test(pageToken)) {
+      return apiError("VALIDATION_ERROR", { message: "A valid page token is required." });
+    }
+
     const params = {
       part: "snippet,status",
       playlistId,
-      maxResults: "25",
+      maxResults: "50",
+      ...(pageToken ? { pageToken } : {}),
     };
 
     const { ok, status, data } = await youtubeFetch("playlistItems", params, { next: { revalidate: 900 } });
@@ -69,22 +77,35 @@ export async function GET(request) {
           "",
       }));
 
-    if (!tracks.length) {
+    // Direct/shared links need authoritative metadata, even without URL hints.
+    // Later pages keep the first page's metadata and avoid another upstream call.
+    let playlist = null;
+    if (!pageToken) {
       const meta = await youtubeFetch("playlists", {
-        part: "id",
+        part: "snippet,contentDetails",
         id: playlistId,
         maxResults: "1",
       }, { next: { revalidate: 900 } });
-      if (!meta.ok || !Array.isArray(meta.data?.items) || meta.data.items.length === 0) {
+      if (!meta.ok) {
+        return apiError(upstreamCode(meta.status), { message: "This playlist could not be loaded." });
+      }
+      const item = meta.data?.items?.[0];
+      if (!item) {
         return apiError("NOT_FOUND", {
           title: "This playlist page is unavailable",
-          message: "Search for the playlist to open its songs in HayKasa.",
+          message: "The playlist may be private or may have been removed.",
         });
       }
+      playlist = {
+        id: playlistId,
+        title: cleanTitle(item.snippet?.title || "Playlist"),
+        channel: cleanTitle(item.snippet?.channelTitle || ""),
+        thumbnail: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || "",
+      };
     }
 
     return NextResponse.json(
-      { tracks },
+      { tracks, playlist, nextPageToken: data?.nextPageToken || "" },
       {
         headers: {
           "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
@@ -95,4 +116,5 @@ export async function GET(request) {
     return handleApiError(error, "YouTube playlist");
   }
 }
+
 

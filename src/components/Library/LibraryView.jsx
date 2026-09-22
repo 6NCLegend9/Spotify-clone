@@ -5,8 +5,6 @@ import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useDispatch } from "react-redux";
-import toast from "react-hot-toast";
 import {
   FiChevronDown,
   FiGrid,
@@ -19,16 +17,14 @@ import {
 } from "react-icons/fi";
 import { BsPinAngleFill } from "react-icons/bs";
 import PlaylistModal from "@/components/Sidebar/PlaylistModal";
+import RecommendationPlaylistCard from "@/components/RecommendationPlaylistCard";
 import PlaylistCover from "@/components/PlaylistCover";
 import LikePlaylistButton from "@/components/LikePlaylistButton";
-import MediaImage from "@/components/MediaImage";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import { cleanTitle } from "@/utils/text";
 import { getUserPlaylists } from "@/services/playlistApi";
-import { requestJson } from "@/services/http";
-import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import {
   getFavouriteLibrary,
   getPublicLibrary,
@@ -137,48 +133,6 @@ function ListItem({ item }) {
 }
 
 function GuestLibrary({ playlists, loading, error, onRetry }) {
-  const dispatch = useDispatch();
-  const [loadingId, setLoadingId] = useState(null);
-
-  const playPlaylist = async (playlist) => {
-    if (loadingId) return;
-    setLoadingId(playlist.id);
-    try {
-      const data = await requestJson(`/api/youtube-playlist?id=${encodeURIComponent(playlist.id)}`, {
-        fallbackTitle: "Playlist unavailable",
-        fallbackMessage: "We couldn’t load this playlist. Please try again.",
-      });
-      const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
-      if (tracks.length === 0) {
-        toast.error("This playlist has no playable videos.");
-        return;
-      }
-      const seeded = tracks.map((track) => ({
-        ...track,
-        seedQuery: playlist.title,
-        genre: playlist.title,
-      }));
-      dispatch(startYoutubePlayback({
-        queue: seeded,
-        track: seeded[0],
-        queueMode: "collection",
-        autoExtend: false,
-        context: {
-          type: "playlist",
-          id: String(playlist.id),
-          name: playlist.title || "Playlist",
-        },
-      }));
-    } catch (playError) {
-      toast.error(toUserError(playError, {
-        title: "Playlist unavailable",
-        message: "We couldn’t load this playlist. Please try again.",
-      }).message);
-    } finally {
-      setLoadingId(null);
-    }
-  };
-
   return (
     <>
       <section className="glass-panel mt-2 flex flex-col gap-5 rounded-2xl px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
@@ -217,19 +171,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
         {!loading && !error && playlists.length > 0 && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
             {playlists.map((playlist) => (
-            <button
-              key={playlist.id}
-              type="button"
-              onClick={() => playPlaylist(playlist)}
-              disabled={loadingId === playlist.id}
-              className="library-tile group min-w-0 text-left disabled:opacity-60"
-            >
-              <MediaImage src={playlist.thumbnail} size="hq" alt="" className="aspect-square w-full rounded-[4px] object-cover" />
-              <div className="mt-4 min-w-0">
-                <h3 className="line-clamp-2 text-sm font-bold text-white">{cleanTitle(playlist.title, "Untitled playlist")}</h3>
-                <p className="mt-2 truncate text-xs text-gray-400">{loadingId === playlist.id ? "Loading..." : playlist.channel}</p>
-              </div>
-            </button>
+              <RecommendationPlaylistCard key={playlist.id} playlist={playlist} />
             ))}
           </div>
         )}
