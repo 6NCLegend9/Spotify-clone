@@ -90,7 +90,13 @@
  .theater .expandedTransport .mobileTransport { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; width: min(100%, 980px); }
  .theater .expandedTransport .mobileExtras { display: none; }
 }
-@media (max-width: 400px) { .drawer .body { padding-left: 16px; padding-right: 16px; } .metadata h2 { font-size: 22px; } }
+@media (max-width: 400px) {
+ .drawer .body { padding-left: 16px; padding-right: 16px; }
+ .metadata h2 { font-size: 22px; }
+ /* Keep theater actions inside very narrow viewports. The text remains
+    available through aria-label while the icon preserves the action. */
+ .theater .topTools .modeButton { width: 44px; min-width: 44px; padding: 0; gap: 0; font-size: 0; }
+}
 @media (prefers-reduced-motion: reduce) {
  .theater .overlayHeader, .theater .expandedTransport { transition: none; }
 }
