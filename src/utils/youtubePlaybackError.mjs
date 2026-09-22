@@ -1,3 +1,14 @@
+export const MAX_SAME_ID_RETRIES = 2;
+export const MAX_ALTERNATE_ATTEMPTS = 3;
+
+/**
+ * @typedef {"retrySame" | "tryAlternate" | "skipQueue" | "fatalUI"} PlaybackFailureAction
+ */
+
+/**
+ * Map a YouTube IFrame error code (or synthetic stall token) to user copy and
+ * whether a same-id manual retry is useful.
+ */
 export function youtubePlaybackError(value) {
   const code = Number(value);
   if (code === 101 || code === 150) {
@@ -21,4 +32,67 @@ export function youtubePlaybackError(value) {
       : code === 5 ? "This video could not play in your browser." : "YouTube playback failed.",
     detail: "If YouTube asks you to sign in or confirm you are not a bot, open the video on YouTube. Signing in to HayKasa does not sign you in to YouTube.",
   };
+}
+
+/**
+ * Decide the next automatic recovery step for a playback failure.
+ * Caps same-id retries and alternate uploads so we never loop forever.
+ *
+ * @param {{
+ *   code?: number | string | null,
+ *   kind?: string | null,
+ *   sameIdAttempts?: number,
+ *   alternateAttempts?: number,
+ * }} input
+ */
+export function youtubePlaybackFailurePolicy(input = {}) {
+  const kind = input.kind || "playback";
+  if (kind === "autoplay") {
+    return {
+      action: /** @type {PlaybackFailureAction} */ ("fatalUI"),
+      error: {
+        kind: "autoplay",
+        canRetry: true,
+        message: "Your browser blocked autoplay. Select Retry to start playback.",
+        detail: "",
+      },
+    };
+  }
+
+  const sameIdAttempts = Math.max(0, Number(input.sameIdAttempts) || 0);
+  const alternateAttempts = Math.max(0, Number(input.alternateAttempts) || 0);
+  const raw = input.code;
+  const isStall = raw === "stall" || raw === "preview";
+  const base = isStall
+    ? {
+        code: raw,
+        canRetry: true,
+        message: "This video stopped buffering. Trying another upload or the next track.",
+        detail: "YouTube stalled before the song could play reliably.",
+      }
+    : youtubePlaybackError(raw);
+
+  // Embedding / unavailable: never retry the same id automatically.
+  if (!isStall && base.canRetry === false) {
+    if (alternateAttempts >= MAX_ALTERNATE_ATTEMPTS) {
+      return { action: /** @type {PlaybackFailureAction} */ ("skipQueue"), error: { kind: "playback", ...base } };
+    }
+    return { action: /** @type {PlaybackFailureAction} */ ("tryAlternate"), error: { kind: "playback", ...base } };
+  }
+
+  if (sameIdAttempts < MAX_SAME_ID_RETRIES) {
+    return { action: /** @type {PlaybackFailureAction} */ ("retrySame"), error: { kind: "playback", ...base, canRetry: true } };
+  }
+
+  if (alternateAttempts < MAX_ALTERNATE_ATTEMPTS) {
+    return { action: /** @type {PlaybackFailureAction} */ ("tryAlternate"), error: { kind: "playback", ...base } };
+  }
+
+  return { action: /** @type {PlaybackFailureAction} */ ("skipQueue"), error: { kind: "playback", ...base, canRetry: false } };
+}
+
+export function alternateSearchQuery(track) {
+  const title = String(track?.title || "").trim();
+  const channel = String(track?.channel || track?.author || "").trim();
+  return [title, channel].filter(Boolean).join(" ").slice(0, 100) || "music";
 }

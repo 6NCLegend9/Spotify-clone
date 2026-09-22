@@ -1186,7 +1186,7 @@ select:-webkit-autofill {
     overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
+    touch-action: pan-x pan-y;
     cursor: grab;
     padding-bottom: 0.35rem;
     scrollbar-width: none;

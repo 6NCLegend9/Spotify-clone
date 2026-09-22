@@ -330,8 +330,8 @@ const MusicPlayer = () => {
   });
 
   useMediaSession({
-    enabled: canControl,
-    bindActions: false,
+    enabled: canControl && !youtubeVideo,
+    bindActions: true,
     isPlaying,
     seekOffset: 10,
     metadata: youtubeVideo

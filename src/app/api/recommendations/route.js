@@ -78,8 +78,11 @@ async function searchYouTube(query, reason, extra = {}) {
   const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
   if (!ok) return [];
   const videos = (Array.isArray(data?.items) ? data.items : [])
-    .filter((item) => item?.id?.videoId)
-    .map((item) => normalizeVideo(item, reason, extra));
+    .filter((item) => item?.id?.videoId && item?.status?.embeddable !== false)
+    .map((item) => normalizeVideo(item, reason, {
+      ...extra,
+      playability: item?.status?.embeddable === true ? "confirmed" : "unverified",
+    }));
   return rankOfficialMusicResults(videos, query).slice(0, 8);
 }
 

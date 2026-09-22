@@ -141,8 +141,9 @@ function mapSearchResult(item, type) {
       thumbnails: { high: { url: bestThumbnail(item) } },
     },
     status: {
-      // Search metadata does not prove that embedding is permitted.
+      // Innertube/search metadata does not prove embedding is permitted.
       privacyStatus: "public",
+      embeddable: null,
     },
   };
 }
@@ -220,6 +221,7 @@ function syntheticVideo(id, extra = {}) {
     status: {
       // oEmbed metadata does not prove playback availability for this viewer.
       privacyStatus: "public",
+      embeddable: null,
     },
   };
 }

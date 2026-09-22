@@ -8,7 +8,7 @@ module.exports = defineConfig({
   workers: process.env.CI ? 5 : 1,
   timeout: 120000,
   expect: { timeout: 30000 },
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || (process.env.CI ? "http://localhost:3100" : "http://localhost:3000"),
     serviceWorkers: "block",

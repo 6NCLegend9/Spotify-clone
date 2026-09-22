@@ -13,7 +13,7 @@ function isYoutubeTrack(track) {
   return Boolean(track.channel || track.thumbnail);
 }
 
-export function playHomeTracks(dispatch, tracks, startIndex = 0) {
+export function playHomeTracks(dispatch, tracks, startIndex = 0, options = {}) {
   const list = (Array.isArray(tracks) ? tracks : []).filter((track) => track?.id);
   if (!list.length) return;
 
@@ -22,6 +22,21 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0) {
     const artist = cleanArtist(start.channel);
     const title = cleanTitle(start.title || start.name);
     const seedQuery = start.seedQuery || start.genre || [artist, title].filter(Boolean).join(" ");
+    const collection = options.queueMode === "collection" || options.autoExtend === false;
+    const queue = collection
+      ? list.map((track) => {
+          const trackArtist = cleanArtist(track.channel);
+          const trackTitle = cleanTitle(track.title || track.name);
+          const trackSeed = track.seedQuery || track.genre || seedQuery
+            || [trackArtist, trackTitle].filter(Boolean).join(" ");
+          return {
+            ...track,
+            channel: trackArtist || track.channel,
+            seedQuery: trackSeed,
+            genre: track.genre || trackArtist || trackSeed,
+          };
+        })
+      : null;
     const radioTrack = {
       ...start,
       channel: artist || start.channel,
@@ -29,14 +44,21 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0) {
       genre: start.genre || artist || seedQuery,
     };
     dispatch(startYoutubePlayback({
-      queue: [radioTrack],
-      track: radioTrack,
-      queueMode: "radio",
-      context: {
-        type: "radio",
-        id: String(start.id),
-        name: artist ? `${artist} Radio` : `${title || "Track"} Radio`,
-      },
+      queue: collection ? queue : [radioTrack],
+      track: collection ? queue[list.indexOf(start)] || queue[0] : radioTrack,
+      queueMode: collection ? "collection" : "radio",
+      autoExtend: collection ? false : undefined,
+      context: options.context || (collection
+        ? {
+            type: "playlist",
+            id: String(options.playlistId || start.id),
+            name: options.playlistName || title || "Playlist",
+          }
+        : {
+            type: "radio",
+            id: String(start.id),
+            name: artist ? `${artist} Radio` : `${title || "Track"} Radio`,
+          }),
     }));
     return;
   }

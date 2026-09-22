@@ -8,6 +8,12 @@ import { playPause, restorePlayback } from "@/redux/features/playerSlice";
 import { readPlaybackSnapshot, writePlaybackSnapshot } from "@/utils/playbackSnapshot.mjs";
 import { accountOwner } from "@/utils/accountCache.mjs";
 
+const PRE_JAM_SUFFIX = ":pre-jam";
+
+function preJamOwner(owner) {
+  return owner ? `${owner}${PRE_JAM_SUFFIX}` : null;
+}
+
 export default function PlaybackPersistence() {
   const store = useStore();
   const { data: session, status } = useSession();
@@ -18,17 +24,32 @@ export default function PlaybackPersistence() {
 
   useEffect(() => {
     const leavingJam = wasInJam.current && !inJam;
+    const enteringJam = !wasInJam.current && inJam;
     wasInJam.current = inJam;
-    if (inJam) return undefined;
     let storage;
     try { storage = window.localStorage; } catch {}
+
+    // Freeze the listener's own queue before Jam overwrites it.
+    if (enteringJam && owner && storage) {
+      writePlaybackSnapshot(storage, preJamOwner(owner), store.getState().player);
+      return undefined;
+    }
+
+    if (inJam) return undefined;
+
     if (leavingJam) {
-      const finalJamPlayback = store.getState().player;
       store.dispatch(playPause(false));
-      if (owner) writePlaybackSnapshot(storage, owner, finalJamPlayback);
+      const preJam = owner ? readPlaybackSnapshot(storage, preJamOwner(owner)) : null;
+      if (preJam) {
+        store.dispatch(restorePlayback({ owner, snapshot: preJam }));
+        try { storage?.removeItem?.(`heykasa:playback:v1:${encodeURIComponent(preJamOwner(owner))}`); } catch {}
+      } else if (owner) {
+        store.dispatch(restorePlayback({ owner, snapshot: readPlaybackSnapshot(storage, owner) }));
+      }
     } else {
       store.dispatch(restorePlayback({ owner, snapshot: readPlaybackSnapshot(storage, owner) }));
     }
+
     if (!owner) return undefined;
     let timer;
     let pending = null;

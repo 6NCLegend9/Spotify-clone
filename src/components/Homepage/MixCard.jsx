@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDispatch } from "react-redux";
+import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
 import { BsPlayFill } from "react-icons/bs";
@@ -13,10 +14,18 @@ import { toUserError } from "@/utils/userError";
 
 export default function MixCard({ mix }) {
   const dispatch = useDispatch();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const palette = mix.palette || {};
+  const playlistHref = mix.playlistId
+    ? `/youtube-playlist/${encodeURIComponent(mix.playlistId)}?${new URLSearchParams({
+        name: mix.title || "Playlist",
+      })}`
+    : "";
 
-  const playMix = async () => {
+  const playMix = async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
     if (busy) return;
     setBusy(true);
     try {
@@ -46,6 +55,12 @@ export default function MixCard({ mix }) {
             genre: mix.title,
           })),
           0,
+          {
+            queueMode: "collection",
+            autoExtend: false,
+            playlistId: mix.playlistId,
+            playlistName: mix.title,
+          },
         );
         return;
       }
@@ -77,15 +92,8 @@ export default function MixCard({ mix }) {
     }
   };
 
-  return (
-    <button
-      type="button"
-      onClick={playMix}
-      disabled={busy}
-      aria-label={`Play ${mix.title}`}
-      className="home-mix group w-full text-left disabled:opacity-70"
-      style={{ background: mixBackground(palette) }}
-    >
+  const face = (
+    <>
       <span className="home-mix-pattern" aria-hidden="true" />
       {mix.stamp ? (
         <span className="home-mix-stamp" aria-hidden="true">
@@ -104,6 +112,45 @@ export default function MixCard({ mix }) {
       <span className="home-square-play max-md:hidden">
         <BsPlayFill aria-hidden="true" className="text-xl" />
       </span>
+    </>
+  );
+
+  if (playlistHref) {
+    return (
+      <div
+        className="home-mix group relative w-full text-left"
+        style={{ background: mixBackground(palette) }}
+      >
+        <button
+          type="button"
+          onClick={() => router.push(playlistHref)}
+          aria-label={`Open playlist ${mix.title}`}
+          className="absolute inset-0 z-[1]"
+        />
+        {face}
+        <button
+          type="button"
+          onClick={playMix}
+          disabled={busy}
+          aria-label={`Play ${mix.title}`}
+          className="home-square-play relative z-[2] disabled:opacity-70"
+        >
+          <BsPlayFill aria-hidden="true" className="text-xl" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={playMix}
+      disabled={busy}
+      aria-label={`Play ${mix.title}`}
+      className="home-mix group w-full text-left disabled:opacity-70"
+      style={{ background: mixBackground(palette) }}
+    >
+      {face}
     </button>
   );
 }

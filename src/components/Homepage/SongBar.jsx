@@ -1,12 +1,23 @@
+"use client";
+
+import { useState } from "react";
+import { useDispatch } from "react-redux";
+import Link from "next/link";
+import { toast } from "react-hot-toast";
 import { FaPlayCircle } from "react-icons/fa";
-import { useEffect, useState } from "react";
-import getPixels from "get-pixels";
-import { extractColors } from "extract-colors";
 import MediaImage from "@/components/MediaImage";
+import { requestJson } from "@/services/http";
+import { playHomeTracks } from "@/utils/playHome";
+import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 
-const SongBar = ({ playlist, i }) => {
-  const [cardColor, setCardColor] = useState([]);
+/**
+ * In-app playlist row: opens `/youtube-playlist/[id]` and can play the first
+ * 100 tracks through the shared playlist API (never external YouTube).
+ */
+export default function SongBar({ playlist, i }) {
+  const dispatch = useDispatch();
+  const [busy, setBusy] = useState(false);
   const rawTitle = playlist?.title || playlist?.name;
   const title = cleanTitle(rawTitle, "Untitled playlist");
   const rawCoverSrc =
@@ -16,87 +27,109 @@ const SongBar = ({ playlist, i }) => {
     playlist?.image?.[2]?.link ||
     playlist?.image?.[0]?.url ||
     playlist?.image?.[0]?.link ||
+    playlist?.thumbnail ||
     "";
   const coverSrc = typeof rawCoverSrc === "string" ? rawCoverSrc : "";
   const language = typeof playlist?.language === "string" ? playlist.language : "";
-  const Wrapper = playlist?.id ? "a" : "div";
+  const playlistId = playlist?.id ? String(playlist.id) : "";
+  const href = playlistId
+    ? `/youtube-playlist/${encodeURIComponent(playlistId)}?${new URLSearchParams({
+        name: title,
+      })}`
+    : "";
 
-  useEffect(() => {
-    setCardColor([]);
-    if (!coverSrc) return undefined;
-    let cancelled = false;
-    getPixels(coverSrc, (err, pixels) => {
-      if (!err && pixels?.data) {
-        const data = [...pixels.data];
-        const width = Math.round(Math.sqrt(data.length / 4));
-        const height = width;
-
-        extractColors({ data, width, height })
-          .then((colors) => {
-            if (!cancelled && Array.isArray(colors)) setCardColor(colors);
-          })
-          .catch(() => {});
+  const playPlaylist = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!playlistId || busy) return;
+    setBusy(true);
+    try {
+      const data = await requestJson(
+        `/api/youtube-playlist?id=${encodeURIComponent(playlistId)}`,
+        {
+          fallbackCode: "PLAYBACK_ERROR",
+          fallbackTitle: "Playlist unavailable",
+          fallbackMessage: "We couldn’t load this playlist. Please try again.",
+        },
+      );
+      const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
+      if (!tracks.length) {
+        toast.error("This playlist has no playable videos.");
+        return;
       }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [coverSrc]);
+      playHomeTracks(
+        dispatch,
+        tracks.map((track) => ({
+          ...track,
+          seedQuery: title,
+          genre: title,
+        })),
+        0,
+        {
+          queueMode: "collection",
+          autoExtend: false,
+          playlistId,
+          playlistName: title,
+        },
+      );
+    } catch (error) {
+      toast.error(toUserError(error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const hasGradient = cardColor.length >= 3;
+  const body = (
+    <div
+      className={`group mb-2 flex w-full flex-row items-center rounded-lg bg-opacity-20 p-4 py-2 ${
+        playlistId ? "cursor-pointer hover:bg-white/[0.06]" : "opacity-60"
+      }`}
+    >
+      {Number.isInteger(i) ? (
+        <span className="mr-3 text-base font-extrabold text-white" aria-hidden="true">
+          {i + 1}.
+        </span>
+      ) : null}
+      <div className="flex flex-1 flex-row items-center justify-between">
+        <MediaImage
+          width={80}
+          height={80}
+          alt=""
+          src={coverSrc}
+          className="h-20 w-20 rounded-lg object-cover"
+        />
+        <div className="mx-3 flex flex-1 flex-col justify-center">
+          <p className="w-40 truncate text-base font-semibold text-white lg:text-xl md:w-full">
+            {title}
+          </p>
+          {language ? (
+            <p className="mt-1 text-sm capitalize text-gray-300 md:text-base">{language}</p>
+          ) : null}
+        </div>
+      </div>
+      {playlistId ? (
+        <button
+          type="button"
+          aria-label={`Play ${title}`}
+          disabled={busy}
+          onClick={playPlaylist}
+          className="rounded-full p-1 text-gray-300 transition hover:text-[#00e6e6] disabled:opacity-50"
+        >
+          <FaPlayCircle aria-hidden="true" size={35} className="transform transition-all duration-300 ease-in-out group-hover:scale-125" />
+        </button>
+      ) : (
+        <FaPlayCircle aria-hidden="true" size={35} className="text-gray-500" />
+      )}
+    </div>
+  );
+
+  if (!href) {
+    return <div aria-label={`${title} is unavailable`}>{body}</div>;
+  }
 
   return (
-    <Wrapper
-      {...(playlist?.id
-        ? {
-            href: `https://www.youtube.com/playlist?list=${encodeURIComponent(playlist.id)}`,
-            rel: "noopener noreferrer",
-            target: "_blank",
-          }
-        : {})}
-      {...(!playlist?.id ? { "aria-label": `${title} is unavailable` } : {})}
-    >
-      <div
-        className={`w-full flex flex-row items-center group bg-opacity-20 py-2 p-4 rounded-lg mb-2 ${
-          playlist?.id ? "cursor-pointer" : ""
-        }`}
-        style={{
-          background: hasGradient
-            ? `linear-gradient(90deg, rgba(${cardColor[0].red}, ${cardColor[0].green}, ${cardColor[0].blue}, 0.2) 0%, rgba(${cardColor[1].red}, ${cardColor[1].green}, ${cardColor[1].blue}, 0.3) 5%,
-                rgba(${cardColor[2].red}, ${cardColor[2].green}, ${cardColor[2].blue}, 0.2) 100%)`
-            : undefined,
-        }}
-      >
-        {Number.isInteger(i) ? (
-          <span className="mr-3 text-base font-extrabold text-white" aria-hidden="true">
-            {i + 1}.
-          </span>
-        ) : null}
-        <div className="flex-1 flex flex-row justify-between items-center">
-          <MediaImage
-            width={80}
-            height={80}
-            alt={`${title} cover`}
-            src={coverSrc}
-            className="h-20 w-20 rounded-lg object-cover"
-          />
-          <div className="flex-1 flex flex-col justify-center mx-3">
-            <p className="font-semibold text-base w-40 lg:text-xl text-white truncate md:w-full">
-              {title}
-            </p>
-            {language ? (
-              <p className="mt-1 text-sm capitalize text-gray-300 md:text-base">{language}</p>
-            ) : null}
-          </div>
-        </div>
-        <FaPlayCircle
-          aria-hidden="true"
-          size={35}
-          className="text-gray-300 group-hover:scale-125 transform transition-all duration-300 ease-in-out"
-        />
-      </div>
-    </Wrapper>
+    <Link href={href} prefetch={false} aria-label={`Open playlist ${title}`}>
+      {body}
+    </Link>
   );
-};
-
-export default SongBar;
+}

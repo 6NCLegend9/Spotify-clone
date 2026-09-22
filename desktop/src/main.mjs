@@ -631,10 +631,17 @@ function sendPlaybackCommand(command) {
 }
 
 function broadcastPlayback() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setTitle(
+      playbackState.hasTrack
+        ? `${[playbackState.title, playbackState.artist].filter(Boolean).join(" — ") || PRODUCT_NAME} · HayKasa`
+        : PRODUCT_NAME,
+    );
+  }
   if (tray && !tray.isDestroyed()) {
     tray.setToolTip(
       playbackState.hasTrack
-        ? `${playbackState.playing ? "Playing" : "Paused"} · ${playbackState.title || PRODUCT_NAME}`
+        ? `${playbackState.playing ? "Playing" : "Paused"} · ${[playbackState.title, playbackState.artist].filter(Boolean).join(" — ") || PRODUCT_NAME}`
         : PRODUCT_NAME,
     );
   }
@@ -760,7 +767,7 @@ function updateTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: playbackState.hasTrack
-        ? `${playbackState.playing ? "Playing" : "Paused"} · ${playbackState.title || "Now playing"}`
+        ? `${playbackState.playing ? "Playing" : "Paused"} · ${[playbackState.title, playbackState.artist].filter(Boolean).join(" — ") || "Now playing"}`
         : "Nothing playing",
       enabled: false,
     },
