@@ -499,7 +499,10 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     {!mobile && !overlay && slot && createPortal(<section className={styles.panel} aria-label="Current track media" onClick={(event) => event.stopPropagation()}>{content}</section>, slot)}
     {overlay && typeof document !== "undefined" && createPortal(<section ref={overlayRef} role="dialog" aria-modal={mobile ? true : undefined}
       aria-label={expanded ? (showingVideo ? "Expanded video" : "Expanded audio") : "Now playing"} tabIndex={-1}
-      onClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (expanded) toggleMediaControls(event);
+      }}
       onPointerMove={(event) => { if (expanded && event.pointerType === "mouse") showTheaterControls(); }}
       onFocusCapture={() => { if (expanded) showTheaterControls(); }}
       className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer} ${mobile && !expanded ? styles.mobileSheet : ""} ${closing ? styles.sheetClosing : ""} ${entering ? styles.sheetEntering : ""}`}
