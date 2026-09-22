@@ -723,25 +723,40 @@ function toggleMiniPlayer() {
   window.show();
 }
 
+function thumbarIcon(kind) {
+  // Windows thumbar buttons require bitmap icons. Draw the transport glyphs
+  // into a tiny SVG and convert them to a native image so Previous, Play/Pause
+  // and Next no longer all reuse the HayKasa application logo.
+  const paths = {
+    previous: '<path fill="white" d="M3 3h2v10H3V3Zm10 1v8L6 8l7-4Z"/>',
+    play: '<path fill="white" d="M5 3.5v9l8-4.5-8-4.5Z"/>',
+    pause: '<path fill="white" d="M4 3h3v10H4V3Zm5 0h3v10H9V3Z"/>',
+    next: '<path fill="white" d="M11 3h2v10h-2V3ZM3 4l7 4-7 4V4Z"/>',
+  };
+  const body = paths[kind] || paths.play;
+  return nativeImage.createFromDataURL(
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">${body}</svg>`)}`,
+  ).resize({ width: 16, height: 16 });
+}
+
 function updateThumbar() {
   if (!mainWindow || mainWindow.isDestroyed() || process.platform !== "win32") return;
-  const icon = nativeImage.createFromPath(resourceIconPath()).resize({ width: 16, height: 16 });
   mainWindow.setThumbarButtons([
     {
       tooltip: "Previous",
-      icon,
+      icon: thumbarIcon("previous"),
       flags: playbackState.canPrev ? [] : ["disabled"],
       click: () => sendPlaybackCommand("prev"),
     },
     {
       tooltip: playbackState.playing ? "Pause" : "Play",
-      icon,
+      icon: thumbarIcon(playbackState.playing ? "pause" : "play"),
       flags: playbackState.canPlay ? [] : ["disabled"],
       click: () => sendPlaybackCommand("play-pause"),
     },
     {
-      tooltip: "Skip",
-      icon,
+      tooltip: "Next",
+      icon: thumbarIcon("next"),
       flags: playbackState.canSkip ? [] : ["disabled"],
       click: () => sendPlaybackCommand("skip"),
     },
