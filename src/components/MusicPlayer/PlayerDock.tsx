@@ -64,11 +64,12 @@ export default function PlayerDock(props: PlayerDockProps) {
   }, [props.track.id]);
 
   useEffect(() => {
-    const remaining = props.duration - props.position;
     const shouldMask =
       props.duration > 8
-      && remaining >= 0
-      && remaining <= END_SCREEN_MASK_SECONDS;
+      && props.position >= props.duration - END_SCREEN_MASK_SECONDS;
+    // Keep the mask active after the reported duration too. YouTube can keep
+    // rendering its end screen while its clock briefly reports a value beyond
+    // duration; seeking back below the guard window clears it again.
     setEndScreenMask(shouldMask);
   }, [props.duration, props.position, props.track.id]);
 
