@@ -63,7 +63,7 @@
 /* The iframe must stay below KASA's controls. The transparent theater shell lets
    the real video show through while only its chrome remains interactive. */
 .theater[data-media="video"] { background: transparent; pointer-events: auto; }
-.theater[data-media="video"] .expandedArt { background: transparent; pointer-events: auto; }
+.theater[data-media="video"] .expandedArt { background: transparent; pointer-events: none; }
 .theater[data-media="video"] .theaterChrome { pointer-events: auto; }
 .theater[data-controls="hidden"] .overlayHeader { opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-12px); }
 .theater[data-controls="hidden"] .expandedTransport { opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(12px); }
@@ -112,7 +112,7 @@
 .viewport[data-testid="youtube-decks"] :global(iframe) { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-width: 0 !important; min-height: 0 !important; max-width: 100% !important; max-height: 100% !important; transform: none !important; border: 0; }
 .viewport :global(.yt-chrome-mask), .viewport :global([data-testid="video-tap-target"]) { display: none !important; }
 .gestureSurface { position: absolute; inset: 0; z-index: 20; pointer-events: auto; touch-action: pan-y; cursor: pointer; }
-.expandButton { position: absolute; top: 8px; right: 8px; z-index: 30; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--hairline-cyan); border-radius: 8px; background: rgb(2 8 19 / 82%); color: var(--text); backdrop-filter: blur(10px); }
+.expandButton { position: absolute; top: 8px; right: 8px; z-index: 50; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--hairline-cyan); border-radius: 8px; background: rgb(2 8 19 / 82%); color: var(--text); backdrop-filter: blur(10px); }
 .expandButton:hover { color: var(--accent); background: var(--navy-panel); }
 .expandButton:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 

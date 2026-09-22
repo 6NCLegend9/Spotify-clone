@@ -2774,6 +2774,7 @@ function YouTubePlayer() {
         if (player.isMuted?.()) player.unMute?.();
         else player.mute?.();
       } else if (event.key === "f" || event.key === "F" || event.key === "v" || event.key === "V") {
+        if (mediaTheater || document.querySelector("[data-testid=\"kasa-media-overlay\"]")) return;
         if (!dataSaver && !audioOnly) toggleExpanded();
       } else if (event.key === "j" || event.key === "J") {
         seekBy(-10);

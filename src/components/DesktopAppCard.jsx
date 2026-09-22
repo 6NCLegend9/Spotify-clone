@@ -286,6 +286,8 @@ export default function DesktopAppCard() {
                 {manifest?.published
                   ? manifest.portable
                     ? "Portable fallback from the last successful Windows build. Download the ZIP, extract it, then run the app executable. GitHub may ask the repository owner to sign in before downloading."
+                    : manifest.source === "github-fallback"
+                      ? "Windows installer from the latest GitHub release. Open the downloaded file to install HayKasa. GitHub may ask you to sign in before downloading."
                     : manifest.signed === false
                       ? "Windows installer. Open the downloaded file to install HayKasa, add Start Menu and desktop shortcuts, and launch it like a normal app. Windows may show a publisher warning until the production signing certificate is configured."
                       : "Signed desktop installer. Open the downloaded file to install HayKasa. Updates are handled by the app after setup."

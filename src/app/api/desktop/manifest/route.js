@@ -200,7 +200,7 @@ async function loadManifest(channel) {
     sizeBytes: localInstaller?.sizeBytes,
     signed: false,
     portable: false,
-    source: "nsis-installer",
+    source: localInstaller ? "nsis-installer" : "github-fallback",
   }, channel);
 }
 

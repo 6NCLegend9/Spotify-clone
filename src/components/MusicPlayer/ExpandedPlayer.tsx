@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef } from "react";
 import { ChevronDown } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton } from "./PlayerDock";
 import QueueEditor from "./QueueEditor";
@@ -20,26 +21,15 @@ export default function ExpandedPlayer(props: PlayerDockProps & { onClose: () =>
     onClose();
   }, [onClose]);
 
+  useFocusTrap({ enabled: true, onClose: closeQueue, containerRef: panelRef });
+
   useEffect(() => {
-    const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    panelRef.current?.focus();
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      closeQueue();
-    };
-
-    document.addEventListener("keydown", handleEscape, true);
     return () => {
-      document.removeEventListener("keydown", handleEscape, true);
       document.body.style.overflow = previousOverflow;
-      if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [closeQueue]);
+  }, []);
 
   if (typeof document === "undefined") return null;
 

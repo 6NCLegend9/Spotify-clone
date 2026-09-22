@@ -242,17 +242,21 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     const onKey = (event: KeyboardEvent) => {
       if (!shortcutsEnabled || event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || hasOtherDialog()) return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest('input, textarea, select, [contenteditable="true"], button, a, [role="menuitem"], [role="tab"]')) return;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       const key = event.key.toLowerCase();
       if ((key === "f" || key === "v") && canVideo) {
+        // Always stop this key so YouTubePlayer cannot open legacy fullscreen
+        // over an open KASA overlay. Still toggle theater from the dock.
         event.preventDefault(); event.stopImmediatePropagation();
         if (expanded) close();
-        else {
+        else if (!overlay) {
           // V is an explicit video command. F expands the currently selected
           // Audio/Video mode without changing the user's persisted preference.
           if (key === "v") persistVideoMode(true);
           openExpanded();
         }
+      } else if (target?.closest("button, a, [role='menuitem'], [role='tab']")) {
+        return;
       } else if (key === "t" && canLyrics) {
         event.preventDefault(); event.stopImmediatePropagation();
         if (view === "lyrics") close(); else openLyrics();
@@ -260,7 +264,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
-  }, [shortcutsEnabled, canVideo, canLyrics, expanded, view, close, openExpanded, openLyrics, hasOtherDialog, persistVideoMode]);
+  }, [shortcutsEnabled, canVideo, canLyrics, expanded, overlay, view, close, openExpanded, openLyrics, hasOtherDialog, persistVideoMode]);
 
   useEffect(() => {
     if (!overlay) return;
@@ -311,7 +315,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     region.classList.add(styles.presentationRegion);
     // In theater the live cross-origin iframe sits just below the transparent KASA
     // overlay so header/transport controls remain clickable over the video.
-    region.style.setProperty("z-index", expanded && showingVideo ? "69" : overlay ? "80" : "30");
+    region.style.setProperty("z-index", overlay ? "69" : "30");
     // Establish the fixed containing block once, before the first measurement.
     for (const [name, value] of Object.entries({ display: "block", position: "fixed", inset: "auto", margin: "0", transform: "none", "min-height": "0", "max-height": "none", overflow: "hidden", "z-index": "1", left: "0px", top: "0px" })) {
       host.style.setProperty(name, value, "important");
@@ -348,15 +352,15 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     if (mobile && drawer && !expanded) request(350);
     window.addEventListener("resize", resize);
     window.addEventListener("scroll", schedule, true);
-    window.visualViewport?.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("scroll", schedule);
+    window.visualViewport?.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("scroll", resize);
     return () => {
       scheduleViewport.current = null;
       cancelAnimationFrame(frame); observer.disconnect();
       window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", schedule, true);
-      window.visualViewport?.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("scroll", schedule);
+      window.visualViewport?.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("scroll", resize);
       saved.forEach(([name, value, priority]) => { if (value) host.style.setProperty(name, value, priority); else host.style.removeProperty(name); });
       if (oldZ[0]) region.style.setProperty("z-index", oldZ[0], oldZ[1]); else region.style.removeProperty("z-index");
       if (oldHidden === null) host.removeAttribute("aria-hidden"); else host.setAttribute("aria-hidden", oldHidden);
@@ -450,7 +454,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     }} className={`${styles.body} ${expanded ? styles.expandedBody : ""} ${view !== "player" ? styles.utilityBody : ""}`}>
       {view === "player" ? <>
         <div ref={anchorRef} onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture}
-          onClick={toggleMediaControls} onPointerMove={moveMediaPointer}
+          onPointerMove={expanded ? undefined : moveMediaPointer}
           className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
           {!showingVideo && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
@@ -490,9 +494,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
 
   return <>
     {mediaHost && showingVideo && (!mobile || overlay) && createPortal(<>
-      <div className={styles.gestureSurface} aria-hidden="true"
+      {!expanded && <div className={styles.gestureSurface} aria-hidden="true"
         onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture}
-        onClick={toggleMediaControls} onPointerMove={moveMediaPointer} />
+        onClick={toggleMediaControls} onPointerMove={moveMediaPointer} />}
       {!expanded && <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
     </>, mediaHost)}
     <span hidden data-kasa-media-view={overlay ? (expanded ? "expanded" : "drawer") : showingVideo ? "video" : "audio"} />
@@ -503,7 +507,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
         event.stopPropagation();
         if (expanded) toggleMediaControls(event);
       }}
-      onPointerMove={(event) => { if (expanded && event.pointerType === "mouse") showTheaterControls(); }}
+      onPointerMove={moveMediaPointer}
       onFocusCapture={() => { if (expanded) showTheaterControls(); }}
       className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer} ${mobile && !expanded ? styles.mobileSheet : ""} ${closing ? styles.sheetClosing : ""} ${entering ? styles.sheetEntering : ""}`}
       data-state={closing ? "closing" : "open"} data-testid="kasa-media-overlay" data-view={view}
