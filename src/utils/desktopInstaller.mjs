@@ -5,6 +5,8 @@ import { desktopReleaseFileUrl } from "./desktopRelease.mjs";
 export const DESKTOP_INSTALLER_APP_PATH = "/api/desktop/download";
 export const DESKTOP_INSTALLER_PUBLIC_NAME = "HayKasa-Setup-x64.exe";
 export const DESKTOP_INSTALLER_NOTES_URL = "";
+export const DESKTOP_INSTALLER_GITHUB_FALLBACK =
+  "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-latest/HayKasa-Setup-x64.exe";
 
 const INSTALLER_FILE = /^HayKasa-Setup-(?:[\w.-]+-)?x64\.exe$/i;
 
@@ -52,7 +54,8 @@ export function hostedDesktopInstallerUrl(downloadEnv, blobBaseEnv) {
       // Server env is trusted only after it looks like a public installer URL.
     }
   }
-  return desktopReleaseFileUrl(blobBaseEnv, "stable", DESKTOP_INSTALLER_PUBLIC_NAME);
+  return desktopReleaseFileUrl(blobBaseEnv, "stable", DESKTOP_INSTALLER_PUBLIC_NAME)
+    || DESKTOP_INSTALLER_GITHUB_FALLBACK;
 }
 
 export function desktopAppDownloadUrl(value) {

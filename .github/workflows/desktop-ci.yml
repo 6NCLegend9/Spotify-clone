@@ -1,7 +1,10 @@
 name: Desktop CI
 
 on:
+  workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - "desktop/**"
       - "src/app/api/desktop/**"
@@ -71,7 +74,7 @@ jobs:
         with:
           node-version: 22.x
       - name: Install web dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Test desktop web contract
         run: node --test test/desktopAuth.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs
 
@@ -90,7 +93,7 @@ jobs:
         with:
           node-version: 22.x
       - name: Install desktop dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Test native boundary
         run: npm test
       - name: Audit runtime dependencies
@@ -111,10 +114,19 @@ jobs:
         shell: pwsh
         run: |
           if ([string]::IsNullOrWhiteSpace($env:BLOB_READ_WRITE_TOKEN)) {
-            Write-Host "Skipping Vercel Blob publish; BLOB_READ_WRITE_TOKEN is not configured."
-            exit 0
+            throw "BLOB_READ_WRITE_TOKEN is required to publish the public Windows installer."
           }
           npm run publish-installer
+
+      - name: Verify public installer URL
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          $response = Invoke-WebRequest -Uri "https://haykasa.vercel.app/api/desktop/download" -Method Head -MaximumRedirection 5
+          if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 400) {
+            throw "Public desktop download endpoint returned HTTP $($response.StatusCode)"
+          }
+          Write-Host "Public installer endpoint is reachable."
       - uses: actions/upload-artifact@v4
         with:
           name: heykasa-desktop-windows-${{ github.sha }}
