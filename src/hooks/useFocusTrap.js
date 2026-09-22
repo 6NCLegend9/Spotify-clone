@@ -2,6 +2,9 @@
 
 import { useEffect, useRef } from "react";
 
+// Closing sheets can overlap an opening dialog for a few animation frames.
+const traps = [];
+
 const FOCUSABLE_SELECTOR = [
   "a[href]",
   "button:not([disabled])",
@@ -45,13 +48,18 @@ export function useFocusTrap({
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
+    const container = containerRef.current;
+    const trap = { containerRef, returnFocus: previousFocusRef.current };
+    traps.push(trap);
 
     const frame = window.requestAnimationFrame(() => {
+      if (traps[traps.length - 1] !== trap) return;
       const first = getFocusableElements(containerRef.current)[0];
       (first || containerRef.current)?.focus?.();
     });
 
     const handleKeyDown = (event) => {
+      if (traps[traps.length - 1] !== trap) return;
       if (event.key === "Escape") {
         const onCloseNow = onCloseRef.current;
         if (!onCloseNow) return;
@@ -83,7 +91,13 @@ export function useFocusTrap({
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
-      if (restoreFocusRef.current) previousFocusRef.current?.focus?.();
+      const wasTop = traps[traps.length - 1] === trap;
+      const index = traps.indexOf(trap);
+      if (index !== -1) traps.splice(index, 1);
+      for (const pending of traps) {
+        if (container?.contains(pending.returnFocus)) pending.returnFocus = trap.returnFocus;
+      }
+      if (wasTop && restoreFocusRef.current && trap.returnFocus?.isConnected) trap.returnFocus.focus();
     };
   }, [containerRef, enabled]);
 }

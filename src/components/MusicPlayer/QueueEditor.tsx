@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { GripVertical, ListX, Save, Trash2, Undo2 } from "lucide-react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import type { PlayerDockProps } from "./player.types";
@@ -15,7 +15,12 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
   const [message, setMessage] = useState("");
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dropSlot, setDropSlot] = useState<number | null>(null);
-  const [dragPoint, setDragPoint] = useState<Point | null>(null);
+  const dragPoint = useRef<Point | null>(null);
+  const ghostRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef(0);
+  const geometryRef = useRef<{ rows: { index: number; top: number; bottom: number }[]; scroller: HTMLElement | null; top: number; bottom: number; dirty: boolean }>({ rows: [], scroller: null, top: 0, bottom: 0, dirty: true });
+  const previousRows = useRef(new Map<string, number>());
+  const rowAnimations = useRef<Animation[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const slotRef = useRef<number | null>(null);
@@ -37,32 +42,82 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
     setDropSlot(next);
   };
 
-  const slotAtPoint = (clientY: number) => {
-    const rows = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-queue-index]") || [])
-      .filter((row) => Number(row.dataset.queueIndex) >= boundary);
-    if (!rows.length) return boundary;
-    for (const row of rows) {
-      const index = Number(row.dataset.queueIndex);
-      const rect = row.getBoundingClientRect();
-      if (clientY < rect.top + rect.height / 2) return index;
-      if (clientY <= rect.bottom) return index + 1;
-    }
-    return props.queue.length;
+  const measureRows = () => {
+    const geometry = geometryRef.current;
+    geometry.rows = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-queue-index]") || [])
+      .filter((row) => Number(row.dataset.queueIndex) >= boundary)
+      .map((row) => { const rect = row.getBoundingClientRect(); return { index: Number(row.dataset.queueIndex), top: rect.top, bottom: rect.bottom }; });
+    const rect = geometry.scroller?.getBoundingClientRect();
+    geometry.top = rect?.top || 0; geometry.bottom = rect?.bottom || 0;
+    geometry.dirty = false;
   };
 
-  const autoScroll = (clientY: number) => {
-    let node = rootRef.current?.parentElement || null;
-    while (node) {
-      const style = getComputedStyle(node);
-      if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight) break;
-      node = node.parentElement;
+  const slotAtPoint = (clientY: number) => {
+    for (const row of geometryRef.current.rows) {
+      if (clientY < (row.top + row.bottom) / 2) return row.index;
+      if (clientY <= row.bottom) return row.index + 1;
     }
-    if (!node) return;
-    const rect = node.getBoundingClientRect();
-    const edge = Math.min(72, rect.height / 4);
-    if (clientY < rect.top + edge) node.scrollBy({ top: -18, behavior: "auto" });
-    else if (clientY > rect.bottom - edge) node.scrollBy({ top: 18, behavior: "auto" });
+    return geometryRef.current.rows.length ? props.queue.length : boundary;
   };
+
+  const paintDrag = () => {
+    frameRef.current = 0;
+    const point = dragPoint.current;
+    if (!point || !dragRef.current) return;
+    const geometry = geometryRef.current;
+    if (geometry.dirty) measureRows();
+    const slot = slotAtPoint(point.y);
+    if (slotRef.current !== slot) setTargetSlot(slot);
+    if (ghostRef.current) ghostRef.current.style.transform = `translate3d(${point.x + 14}px, ${point.y + 14}px, 0)`;
+    const node = geometry.scroller;
+    const edge = Math.min(72, (geometry.bottom - geometry.top) / 4);
+    const delta = point.y < geometry.top + edge ? -12 : point.y > geometry.bottom - edge ? 12 : 0;
+    if (node && delta) {
+      const before = node.scrollTop;
+      node.scrollTop += delta;
+      if (node.scrollTop !== before) {
+        geometry.dirty = true;
+        frameRef.current = requestAnimationFrame(paintDrag);
+      }
+    }
+  };
+
+  const scheduleDrag = () => { if (!frameRef.current) frameRef.current = requestAnimationFrame(paintDrag); };
+
+  useEffect(() => {
+    const invalidate = () => { geometryRef.current.dirty = true; };
+    window.addEventListener("scroll", invalidate, true);
+    window.addEventListener("resize", invalidate);
+    const observer = new ResizeObserver(invalidate);
+    if (rootRef.current) observer.observe(rootRef.current);
+    return () => {
+      cancelAnimationFrame(frameRef.current);
+      window.removeEventListener("scroll", invalidate, true);
+      window.removeEventListener("resize", invalidate);
+      observer.disconnect();
+      rowAnimations.current.forEach((animation) => animation.cancel());
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    // FLIP only when queue contents change, never on pointer movement.
+    rowAnimations.current.forEach((animation) => animation.cancel());
+    rowAnimations.current = [];
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      || document.documentElement.dataset.a11yReducedMotion === "true";
+    const next = new Map<string, number>();
+    const rows = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-queue-key]") || []);
+    const positions = rows.map((row) => ({ row, key: row.dataset.queueKey!, top: row.offsetTop }));
+    for (const { row, key, top } of positions) {
+      next.set(key, top);
+      const oldTop = previousRows.current.get(key);
+      if (!reduced && !dragRef.current && oldTop !== undefined && oldTop !== top && row.animate) {
+        rowAnimations.current.push(row.animate([{ transform: `translateY(${oldTop - top}px)` }, { transform: "translateY(0)" }], { duration: 200, easing: "ease-out" }));
+      }
+    }
+    previousRows.current = next;
+    geometryRef.current.dirty = true;
+  }, [props.queue]);
 
   const slotToFinalIndex = (fromIndex: number, slot: number) => {
     const shifted = slot > fromIndex ? slot - 1 : slot;
@@ -72,12 +127,13 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
   const finishDrag = (fromIndex: number) => {
     const slot = slotRef.current ?? fromIndex;
     const toIndex = slotToFinalIndex(fromIndex, slot);
-    if (toIndex !== fromIndex) props.onQueueEdit?.({ kind: "reorder", index: fromIndex, toIndex });
+    if (toIndex !== fromIndex) { props.onQueueEdit?.({ kind: "reorder", index: fromIndex, toIndex }); setMessage("Queue reordered. Undo is available."); }
     dragRef.current = null;
     slotRef.current = null;
     setDraggingIndex(null);
     setDropSlot(null);
-    setDragPoint(null);
+    dragPoint.current = null;
+    cancelAnimationFrame(frameRef.current); frameRef.current = 0;
   };
 
   const cancelDrag = () => {
@@ -85,8 +141,16 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
     slotRef.current = null;
     setDraggingIndex(null);
     setDropSlot(null);
-    setDragPoint(null);
+    dragPoint.current = null;
+    cancelAnimationFrame(frameRef.current); frameRef.current = 0;
   };
+
+  useEffect(() => {
+    // A track change or a remote queue update invalidates captured row indices.
+    dragRef.current = null; slotRef.current = null; dragPoint.current = null;
+    cancelAnimationFrame(frameRef.current); frameRef.current = 0;
+    setDraggingIndex(null); setDropSlot(null);
+  }, [props.queue, props.disabled, boundary]);
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>, index: number) => {
     if (!canReorder(index) || !event.isPrimary || event.button !== 0) return;
@@ -96,7 +160,15 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
     slotRef.current = index;
     setDraggingIndex(index);
     setDropSlot(index);
-    setDragPoint({ x: event.clientX, y: event.clientY });
+    dragPoint.current = { x: event.clientX, y: event.clientY };
+    rowAnimations.current.forEach((animation) => animation.cancel());
+    let node = rootRef.current?.parentElement || null;
+    while (node) {
+      if (/(auto|scroll)/.test(getComputedStyle(node).overflowY) && node.scrollHeight > node.clientHeight) break;
+      node = node.parentElement;
+    }
+    geometryRef.current.scroller = node;
+    measureRows(); scheduleDrag();
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
@@ -104,15 +176,17 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
-    setDragPoint({ x: event.clientX, y: event.clientY });
-    setTargetSlot(slotAtPoint(event.clientY));
-    autoScroll(event.clientY);
+    dragPoint.current = { x: event.clientX, y: event.clientY };
+    scheduleDrag();
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
+    // Flush the final pointer position even when release precedes the next frame.
+    if (geometryRef.current.dirty) measureRows();
+    setTargetSlot(slotAtPoint(event.clientY));
     finishDrag(drag.index);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
@@ -138,8 +212,8 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
         {upcomingCount} upcoming{explicitCount > 0 ? ` · ${explicitCount} added by you` : ""}
       </p>
       <div className="flex">
-        <PlayerIconButton label="Undo queue edit" disabled={props.disabled || !props.canUndoQueue} onClick={props.onQueueUndo}><Undo2 size={20} /></PlayerIconButton>
-        <PlayerIconButton label="Clear added tracks" disabled={props.disabled || explicitCount === 0} onClick={() => props.onQueueEdit?.({ kind: "clear" })}><ListX size={20} /></PlayerIconButton>
+        <PlayerIconButton label="Undo queue edit" disabled={props.disabled || !props.canUndoQueue} onClick={() => { props.onQueueUndo?.(); setMessage("Queue edit undone."); }}><Undo2 size={20} /></PlayerIconButton>
+        <PlayerIconButton label="Clear added tracks" disabled={props.disabled || explicitCount === 0} onClick={() => { props.onQueueEdit?.({ kind: "clear" }); setMessage("Added tracks cleared. Undo is available."); }}><ListX size={20} /></PlayerIconButton>
       </div>
     </div>
     <ol className="space-y-2" aria-label="Playback queue">
@@ -151,6 +225,7 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
         const showAfter = draggingIndex !== null && index === props.queue.length - 1 && dropSlot === props.queue.length;
         return <li
           key={track.queueEntryId || `${track.id}-${index}`}
+          data-queue-key={track.queueEntryId || `${track.id}-${index}`}
           data-track-id={track.id}
           data-queue-entry-id={track.queueEntryId || undefined}
           data-queue-index={index}
@@ -180,16 +255,17 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
               </span>
               {track.queueSource === "user" && <span className="shrink-0 rounded-full border border-[var(--hairline-cyan)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--teal)]">Queued</span>}
             </button>
-            {movable && <PlayerIconButton label={`Remove ${track.title} from queue`} disabled={props.disabled} onClick={() => props.onQueueEdit?.({ kind: "remove", index })}><Trash2 size={18} /></PlayerIconButton>}
+            {movable && <PlayerIconButton label={`Remove ${track.title} from queue`} disabled={props.disabled} onClick={() => { props.onQueueEdit?.({ kind: "remove", index }); setMessage(`${track.title} removed. Undo is available.`); }}><Trash2 size={18} /></PlayerIconButton>}
           </div>
         </li>;
       })}
     </ol>
 
-    {draggedTrack && dragPoint && <div
+    {draggedTrack && <div
+      ref={ghostRef}
       aria-hidden="true"
       className="pointer-events-none fixed z-[140] flex w-[min(330px,calc(100vw-32px))] items-center gap-3 rounded-lg border border-[var(--accent)] bg-[var(--navy-raised)] p-2 shadow-2xl"
-      style={{ left: dragPoint.x + 14, top: dragPoint.y + 14 }}
+      style={{ left: 0, top: 0, transform: `translate3d(${(dragPoint.current?.x || 0) + 14}px, ${(dragPoint.current?.y || 0) + 14}px, 0)` }}
     >
       <GripVertical size={18} className="shrink-0 text-[var(--accent)]" />
       <img src={draggedTrack.thumbnail || "/icon-192x192.png"} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-[4px] object-cover" />

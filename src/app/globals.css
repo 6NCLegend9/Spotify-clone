@@ -26,6 +26,7 @@
   --muted: #9aa8b5;
   --motion-fast: 180ms;
   --motion-ui: 220ms;
+  --motion-sheet: 300ms;
   --motion-zoom: 560ms;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
@@ -67,7 +68,6 @@ html.is-scrolling .glass-panel {
 
 html.is-scrolling .home-mix,
 html.is-scrolling .library-tile,
-html.is-scrolling .browse-tile,
 html.is-scrolling .nav-home-btn,
 html.is-scrolling .search-field {
   transition: none;
@@ -89,8 +89,6 @@ html.is-scrolling .home-feature-card::after,
 html.is-scrolling .home-feature-play::before,
 html.is-scrolling .home-feature-play::after,
 html.is-scrolling .player-dock::after,
-html.is-scrolling .browse-tile-art,
-html.is-scrolling .browse-tile::after,
 html.is-scrolling .library-tile::after,
 html.is-scrolling .card::after,
 html.is-scrolling .btn-primary::after,
@@ -1590,26 +1588,6 @@ select:-webkit-autofill {
     gap: 0.85rem;
   }
 
-  .browse-tile {
-    position: relative;
-    display: block;
-    aspect-ratio: 1;
-    overflow: hidden;
-    border-radius: 0.75rem;
-    padding: 1rem;
-    color: #fff;
-    text-decoration: none;
-    isolation: isolate;
-    content-visibility: auto;
-    contain-intrinsic-size: 0 180px;
-    transition: transform var(--motion-fast) var(--motion-ease);
-  }
-
-  .browse-tile:hover,
-  .browse-tile:focus-visible {
-    transform: scale(1.03);
-  }
-
   .browse-tile-title {
     position: relative;
     z-index: 1;
@@ -1617,23 +1595,6 @@ select:-webkit-autofill {
     font-size: 1.15rem;
     font-weight: 800;
     line-height: 1.2;
-  }
-
-  .browse-tile-art {
-    position: absolute;
-    right: -8%;
-    bottom: -6%;
-    z-index: 0;
-    display: grid;
-    width: 46%;
-    aspect-ratio: 1;
-    place-items: center;
-    border-radius: var(--radius-art);
-    background: rgba(0, 8, 20, 0.28);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
-    transform: rotate(25deg);
-    font-size: 1.7rem;
-    font-weight: 800;
   }
 
   .create-action {
@@ -3960,7 +3921,6 @@ body {
 .home-shelf-card,
 .home-square,
 .library-tile,
-.browse-tile,
 .card,
 .glass-panel {
   border: 1px solid var(--premium-border);
@@ -3978,7 +3938,6 @@ body {
 .home-shelf-card:hover,
 .home-square:hover,
 .library-tile:hover,
-.browse-tile:hover,
 .card:hover {
   transform: translateY(-4px);
   border-color: var(--premium-border-hover);
@@ -3999,14 +3958,12 @@ body {
 }
 
 .home-rail img,
-.library-tile img,
-.browse-tile img {
+.library-tile img {
   transition: transform 420ms cubic-bezier(.2,.8,.2,1), filter 250ms ease;
 }
 
 .home-rail-card:hover img,
-.library-tile:hover img,
-.browse-tile:hover img {
+.library-tile:hover img {
   transform: scale(1.035);
   filter: saturate(1.08) contrast(1.03);
 }
@@ -4073,8 +4030,7 @@ body {
   .home-feature-card,
   .home-shelf-card,
   .home-square,
-  .library-tile,
-  .browse-tile {
+  .library-tile {
     border-radius: 14px;
   }
 }
@@ -4086,7 +4042,6 @@ body {
   .home-shelf-card,
   .home-square,
   .library-tile,
-  .browse-tile,
   .card,
   .home-rail img {
     transition: none;
@@ -4191,3 +4146,4 @@ body {
 }
 
 [data-context-target] { -webkit-touch-callout: none; }
+
