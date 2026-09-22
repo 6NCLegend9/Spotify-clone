@@ -116,7 +116,7 @@
   border-radius: 22px 22px 0 0;
   background: radial-gradient(ellipse at 20% 0%, #215363 0, #13323f 30%, #09151e 66%);
   transform: translate3d(0, var(--sheet-drag, 0px), 0);
-  transition: transform 240ms cubic-bezier(.22, 1, .36, 1);
+  transition: transform var(--motion-ui, 220ms) cubic-bezier(.22, 1, .36, 1);
   animation: none;
   isolation: isolate;
 }
@@ -155,7 +155,7 @@
 .detailCard dl { margin: 16px 0 0; }
 .detailCard dt { margin-top: 14px; color: #a5bfc8; font-size: 11px; }
 .detailCard dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.5; }
-.mobileSheet.sheetEntering { animation: sheetEnter 380ms cubic-bezier(.22, 1, .36, 1) both; }
+.mobileSheet.sheetEntering { animation: sheetEnter var(--motion-sheet, 300ms) cubic-bezier(.22, 1, .36, 1) both; }
 .mobileSheet[data-dragging="true"] { animation: none; transition: none; }
 .mobileSheet.sheetClosing { pointer-events: none; animation: sheetExit 240ms cubic-bezier(.4, 0, 1, 1) both; }
 @keyframes sheetEnter { from { transform: translate3d(0, 100%, 0); border-radius: 28px 28px 0 0; } to { transform: translate3d(0, 0, 0); } }
@@ -167,3 +167,4 @@
 @media (prefers-reduced-motion: reduce) {
   .overlay.mobileSheet, .mobileSheet.sheetEntering, .mobileSheet.sheetClosing, .mobileSheet .overlayHeader { animation: none; transition: none; }
 }
+

@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Pause, Play, Settings2, Video } from "lucide-react";
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent, CSSProperties } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent } from "react";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
@@ -26,40 +26,41 @@ export interface MediaPresentationHandle {
   showLyrics: () => void;
 }
 
-export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | null, showingVideo: boolean, expanded: boolean) {
-  const rect = anchor?.getBoundingClientRect();
+function clippingParents(anchor: HTMLElement | null) {
+  const parents: HTMLElement[] = [];
+  for (let parent = anchor?.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+    const style = getComputedStyle(parent);
+    if (/(auto|scroll|hidden|clip)/.test(style.overflowY + style.overflowX)) parents.push(parent);
+  }
+  return parents;
+}
+
+export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | null, showingVideo: boolean, expanded: boolean, clips = showingVideo ? clippingParents(anchor) : []) {
+  // Read geometry together, before changing the live iframe host. Its fixed origin
+  // can be shifted by a transformed ancestor; account for its existing offset.
+  const rect = showingVideo ? anchor?.getBoundingClientRect() : undefined;
   const visible = showingVideo && Boolean(rect && rect.width > 0 && rect.height > 0 && anchor?.getClientRects().length);
-  host.style.setProperty("display", "block", "important");
-  host.style.setProperty("position", "fixed", "important");
-  host.style.setProperty("inset", "auto", "important");
-  host.style.setProperty("margin", "0", "important");
-  host.style.setProperty("transform", "none", "important");
-  host.style.setProperty("width", `${visible ? rect!.width : 320}px`, "important");
-  host.style.setProperty("height", `${visible ? rect!.height : 180}px`, "important");
-  host.style.setProperty("min-height", "0", "important");
-  host.style.setProperty("max-height", "none", "important");
-  host.style.setProperty("left", "0px", "important");
-  host.style.setProperty("top", "0px", "important");
-  const origin = host.getBoundingClientRect();
-  host.style.setProperty("left", `${visible ? rect!.left - origin.left : -10000}px`, "important");
-  host.style.setProperty("top", `${visible ? rect!.top - origin.top : -10000}px`, "important");
-  host.style.setProperty("opacity", visible ? "1" : "0", "important");
-  host.style.setProperty("pointer-events", visible ? "auto" : "none", "important");
-  host.style.setProperty("border-radius", expanded ? "0" : "12px", "important");
-  host.style.setProperty("overflow", "hidden", "important");
-  host.style.setProperty("z-index", "1", "important");
+  const hostRect = visible ? host.getBoundingClientRect() : { left: 0, top: 0 };
+  const originX = hostRect.left - (parseFloat(host.style.left) || 0);
+  const originY = hostRect.top - (parseFloat(host.style.top) || 0);
+  let top = 0; let bottom = window.innerHeight; let left = 0; let right = window.innerWidth;
+  if (visible) for (const parent of clips) {
+    const box = parent.getBoundingClientRect();
+    top = Math.max(top, box.top); bottom = Math.min(bottom, box.bottom);
+    left = Math.max(left, box.left); right = Math.min(right, box.right);
+  }
+  const values: Record<string, string> = {
+    width: `${visible ? rect!.width : 320}px`, height: `${visible ? rect!.height : 180}px`,
+    left: `${visible ? rect!.left - originX : -10000}px`, top: `${visible ? rect!.top - originY : -10000}px`,
+    opacity: visible ? "1" : "0", "pointer-events": visible ? "auto" : "none",
+    "border-radius": expanded ? "0" : "12px",
+    "clip-path": visible ? `inset(${Math.max(0, top - rect!.top)}px ${Math.max(0, rect!.right - right)}px ${Math.max(0, rect!.bottom - bottom)}px ${Math.max(0, left - rect!.left)}px)` : "none",
+  };
+  for (const [name, value] of Object.entries(values)) {
+    if (host.style.getPropertyValue(name) !== value) host.style.setProperty(name, value, "important");
+  }
   host.setAttribute("aria-hidden", visible ? "false" : "true");
   host.inert = !visible;
-  let top = 0; let bottom = window.innerHeight; let left = 0; let right = window.innerWidth;
-  for (let parent = anchor?.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
-    const computed = getComputedStyle(parent);
-    if (/(auto|scroll|hidden|clip)/.test(computed.overflowY + computed.overflowX)) {
-      const box = parent.getBoundingClientRect();
-      top = Math.max(top, box.top); bottom = Math.min(bottom, box.bottom);
-      left = Math.max(left, box.left); right = Math.min(right, box.right);
-    }
-  }
-  host.style.setProperty("clip-path", visible ? `inset(${Math.max(0, top - rect!.top)}px ${Math.max(0, rect!.right - right)}px ${Math.max(0, rect!.bottom - bottom)}px ${Math.max(0, left - rect!.left)}px)` : "none", "important");
 }
 
 /** One presentation owner. It never recreates decks or invokes legacy view callbacks. */
@@ -71,7 +72,18 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const [drawer, setDrawer] = useState(false);
   const [closing, setClosing] = useState(false);
   const [entering, setEntering] = useState(false);
-  const [dragY, setDragY] = useState(0);
+  const dragY = useRef(0);
+  const scheduleViewport = useRef<((duration?: number) => void) | null>(null);
+  const fallbackFrame = useRef(0);
+  const setDragY = useCallback((value: number) => {
+    dragY.current = value;
+    if (scheduleViewport.current) scheduleViewport.current(300);
+    else if (!fallbackFrame.current) fallbackFrame.current = requestAnimationFrame(() => {
+      fallbackFrame.current = 0;
+      overlayRef.current?.style.setProperty("--sheet-drag", `${dragY.current}px`);
+      if (overlayRef.current) overlayRef.current.dataset.dragging = dragY.current > 0 ? "true" : "false";
+    });
+  }, []);
   const [compactHeader, setCompactHeader] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
@@ -150,25 +162,25 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     closeTimer.current = null;
     setClosing(false); setEntering(false); setDragY(0); setCompactHeader(false);
     setDrawer(false); setExpanded(false); setView("player");
-  }, []);
+  }, [setDragY]);
   const collapseSheet = useCallback(() => {
-    if (!mobile || expanded || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { dismiss(); return; }
+    if (!mobile || expanded || window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.a11yReducedMotion === "true") { dismiss(); return; }
     if (closeTimer.current !== null) return;
     setEntering(false); setClosing(true);
     closeTimer.current = window.setTimeout(dismiss, 260);
   }, [mobile, expanded, dismiss]);
   useEffect(() => {
     if (!entering) return;
-    const timer = window.setTimeout(() => setEntering(false), 420);
+    const timer = window.setTimeout(() => setEntering(false), 320);
     return () => window.clearTimeout(timer);
   }, [entering]);
-  useEffect(() => () => { if (closeTimer.current !== null) window.clearTimeout(closeTimer.current); }, []);
+  useEffect(() => () => { if (closeTimer.current !== null) window.clearTimeout(closeTimer.current); cancelAnimationFrame(fallbackFrame.current); }, []);
   const open = useCallback(() => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
     setClosing(false); setEntering(true); setDragY(0); setCompactHeader(false);
     rememberFocus(); setView("player"); setExpanded(false); setDrawer(true);
-  }, [rememberFocus]);
+  }, [rememberFocus, setDragY]);
   const openExpanded = useCallback(() => {
     if (!canVideo) { open(); return; }
     rememberFocus(); setView("player"); setExpanded(true);
@@ -184,7 +196,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     if (view !== "player") { setDragY(0); setView("player"); }
     else if (expanded) { setDragY(0); setExpanded(false); }
     else collapseSheet();
-  }, [view, expanded, collapseSheet]);
+  }, [view, expanded, collapseSheet, setDragY]);
   const closeRef = useRef(close);
   closeRef.current = close;
   useImperativeHandle(ref, () => ({ open, dismiss, expand: openExpanded, showLyrics: openLyrics }), [open, dismiss, openExpanded, openLyrics]);
@@ -300,21 +312,45 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     // In theater the live cross-origin iframe sits just below the transparent KASA
     // overlay so header/transport controls remain clickable over the video.
     region.style.setProperty("z-index", expanded && showingVideo ? "69" : overlay ? "80" : "30");
+    // Establish the fixed containing block once, before the first measurement.
+    for (const [name, value] of Object.entries({ display: "block", position: "fixed", inset: "auto", margin: "0", transform: "none", "min-height": "0", "max-height": "none", overflow: "hidden", "z-index": "1", left: "0px", top: "0px" })) {
+      host.style.setProperty(name, value, "important");
+    }
     let frame = 0;
-    const place = () => { frame = 0; positionMediaViewport(host, anchorRef.current, showingVideo, expanded); };
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(place); };
-    const observer = new ResizeObserver(schedule);
+    let until = 0;
+    let clips = clippingParents(anchorRef.current);
+    const place = () => {
+      frame = 0;
+      const sheet = overlayRef.current;
+      if (sheet) {
+        const offset = `${dragY.current}px`;
+        if (sheet.style.getPropertyValue("--sheet-drag") !== offset) sheet.style.setProperty("--sheet-drag", offset);
+        sheet.dataset.dragging = dragY.current > 0 ? "true" : "false";
+      }
+      positionMediaViewport(host, anchorRef.current, showingVideo, expanded, clips);
+      if (performance.now() < until) frame = requestAnimationFrame(place);
+    };
+    const request = (duration = 0) => {
+      until = Math.max(until, performance.now() + (showingVideo ? duration : 0));
+      if (!frame) frame = requestAnimationFrame(place);
+    };
+    cancelAnimationFrame(fallbackFrame.current); fallbackFrame.current = 0;
+    scheduleViewport.current = request;
+    const schedule = () => request();
+    const resize = () => { clips = clippingParents(anchorRef.current); request(); };
+    const observer = new ResizeObserver(resize);
     if (anchorRef.current) observer.observe(anchorRef.current);
     if (slot) observer.observe(slot);
     observer.observe(document.documentElement);
-    place();
-    window.addEventListener("resize", schedule);
+    request(mobile && drawer && !expanded ? 350 : 0);
+    window.addEventListener("resize", resize);
     window.addEventListener("scroll", schedule, true);
     window.visualViewport?.addEventListener("resize", schedule);
     window.visualViewport?.addEventListener("scroll", schedule);
     return () => {
+      scheduleViewport.current = null;
       cancelAnimationFrame(frame); observer.disconnect();
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", schedule, true);
       window.visualViewport?.removeEventListener("resize", schedule);
       window.visualViewport?.removeEventListener("scroll", schedule);
@@ -326,16 +362,8 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [mediaHost, showingVideo, overlay, mobile, drawer, expanded, view, slot]);
 
   useEffect(() => {
-    if (!mobile || !drawer || expanded || !mediaHost || !showingVideo) return;
-    let frame = 0;
-    const until = performance.now() + 450;
-    const follow = () => {
-      positionMediaViewport(mediaHost, anchorRef.current, showingVideo, expanded);
-      if (performance.now() < until) frame = requestAnimationFrame(follow);
-    };
-    frame = requestAnimationFrame(follow);
-    return () => cancelAnimationFrame(frame);
-  }, [mobile, drawer, expanded, mediaHost, showingVideo, closing, dragY]);
+    if (mobile && drawer && !expanded) scheduleViewport.current?.(350);
+  }, [mobile, drawer, expanded, closing, entering]);
 
   const startGesture = (event: TouchEvent<HTMLElement>) => {
     gestureRef.current = null;
@@ -349,7 +377,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     if (!start || event.touches.length !== 1) { gestureRef.current = null; setDragY(0); return; }
     const touch = event.touches[0];
     const dx = touch.clientX - start.x, dy = touch.clientY - start.y;
-    if (start.pull && !expanded && dy > 8 && dy > Math.abs(dx) * 1.5) { setEntering(false); setDragY(Math.min(dy * .85, window.innerHeight * .65)); }
+    if (start.pull && !expanded && dy > 8 && dy > Math.abs(dx) * 1.5) { if (entering) setEntering(false); setDragY(Math.min(dy * .85, window.innerHeight * .65)); }
   };
   const endGesture = (event: TouchEvent<HTMLElement>) => {
     const start = gestureRef.current; const touch = event.changedTouches[0]; gestureRef.current = null;
@@ -472,8 +500,6 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       onPointerMove={(event) => { if (expanded && event.pointerType === "mouse") showTheaterControls(); }}
       onFocusCapture={() => { if (expanded) showTheaterControls(); }}
       className={`${styles.overlay} ${expanded ? styles.theater : styles.drawer} ${mobile && !expanded ? styles.mobileSheet : ""} ${closing ? styles.sheetClosing : ""} ${entering ? styles.sheetEntering : ""}`}
-      style={mobile && !expanded ? { "--sheet-drag": `${dragY}px` } as CSSProperties : undefined}
-      data-dragging={dragY > 0 && !closing ? "true" : undefined}
       data-state={closing ? "closing" : "open"} data-testid="kasa-media-overlay" data-view={view}
       data-controls={expanded ? (controlsVisible ? "visible" : "hidden") : undefined}
       data-media={expanded ? (showingVideo ? "video" : "audio") : undefined}>

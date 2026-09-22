@@ -1,0 +1,20 @@
+.panel.panel {
+  transform: translate3d(0, var(--sheet-offset, 0px), 0);
+  transition: transform var(--motion-ui, 220ms) var(--motion-ease, ease-out);
+  animation: sheetIn var(--motion-sheet, 300ms) var(--motion-ease, ease-out);
+}
+.panel[data-dragging="true"] { animation: none; transition: none; }
+.panel[data-dragging="false"] { animation: none; }
+.panel[data-state="closing"] {
+  animation: sheetOut var(--motion-ui, 220ms) ease-in both;
+  pointer-events: none;
+}
+.backdrop { animation: fadeIn var(--motion-ui, 220ms) ease-out both; }
+.backdrop[data-state="closing"] { animation: fadeOut var(--motion-ui, 220ms) ease-in both; }
+@keyframes sheetIn { from { opacity: 0; transform: translate3d(0, 32px, 0); } }
+@keyframes sheetOut { to { opacity: 0; transform: translate3d(0, calc(var(--sheet-offset, 0px) + 48px), 0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .panel.panel, .backdrop { animation: none; transition: none; }
+}
