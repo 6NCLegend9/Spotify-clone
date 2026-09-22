@@ -342,7 +342,10 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     if (anchorRef.current) observer.observe(anchorRef.current);
     if (slot) observer.observe(slot);
     observer.observe(document.documentElement);
-    request(mobile && drawer && !expanded ? 350 : 0);
+    // Position synchronously on mount/state changes so the live media host is
+    // already aligned before tests or users can interact with the theater.
+    place();
+    if (mobile && drawer && !expanded) request(350);
     window.addEventListener("resize", resize);
     window.addEventListener("scroll", schedule, true);
     window.visualViewport?.addEventListener("resize", schedule);
