@@ -3,6 +3,8 @@ name: Desktop CI
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - "desktop/**"
       - "src/app/api/desktop/**"
