@@ -643,13 +643,11 @@ function broadcastPlayback() {
   if (miniWindow && !miniWindow.isDestroyed()) {
     miniWindow.webContents.send("heykasa:playback:state", playbackState);
   }
-  if (playbackState.hasTrack && !miniUserHidden) {
-    const window = createMiniPlayer();
-    if (!window.isVisible()) {
-      positionMiniPlayer();
-      window.webContents.send("heykasa:playback:state", playbackState);
-      window.showInactive();
-    }
+  // Keep the optional mini player in sync only when the user has explicitly
+  // opened it from the tray. Starting playback must never create a second
+  // always-on-top HayKasa window over the main application.
+  if (miniWindow && !miniWindow.isDestroyed()) {
+    miniWindow.webContents.send("heykasa:playback:state", playbackState);
   }
   void refreshAppearanceAccent();
 }
