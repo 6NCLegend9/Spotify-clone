@@ -175,7 +175,7 @@ export class DesktopUpdater {
     }
 
     if (!this.configureFeed()) {
-      this.emit({ state: "disabled", detail: "The signed desktop update feed is not configured." });
+      this.emit({ state: "disabled", detail: "The desktop update feed is not configured." });
       return this.getStatus();
     }
 
@@ -186,6 +186,13 @@ export class DesktopUpdater {
         this.emit({
           state: "disabled",
           detail: `No ${this.channel()} desktop release has been published yet.`,
+        });
+        return this.getStatus();
+      }
+      if (this.channel() !== "internal" && manifest.signed !== true) {
+        this.emit({
+          state: "disabled",
+          detail: `The ${this.channel()} desktop release is not code-signed and will not be installed automatically.`,
         });
         return this.getStatus();
       }
@@ -235,7 +242,7 @@ export class DesktopUpdater {
       return;
     }
     if (!this.configuredFeedUrl() || !this.configuredManifestUrl()) {
-      this.emit({ state: "disabled", detail: "The signed desktop update feed is not configured." });
+      this.emit({ state: "disabled", detail: "The desktop update feed is not configured." });
       return;
     }
 

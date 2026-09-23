@@ -1,54 +1,34 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  desktopGithubReleaseFileUrl,
-  desktopGithubReleasePageUrl,
-  desktopGithubReleaseTag,
+  desktopBlobBaseUrl,
   desktopReleaseFileUrl,
-  firstReachableDesktopUrl,
+  desktopStableManifestUrl,
+  normalizeDesktopReleaseChannel,
 } from "../src/utils/desktopRelease.mjs";
 
-test("desktop GitHub fallback maps stable and internal channels to fixed release tags", () => {
-  assert.equal(desktopGithubReleaseTag("stable"), "desktop-latest");
-  assert.equal(desktopGithubReleaseTag("internal"), "desktop-preview");
-  assert.equal(desktopGithubReleaseTag("beta"), "");
+test("desktop release URLs are restricted to public Vercel Blob storage", () => {
   assert.equal(
-    desktopGithubReleaseFileUrl("stable", "latest.yml"),
-    "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-latest/latest.yml",
+    desktopReleaseFileUrl(
+      "https://abc123.public.blob.vercel-storage.com/desktop",
+      "stable",
+      "latest.yml",
+    ),
+    "https://abc123.public.blob.vercel-storage.com/desktop/stable/latest.yml",
   );
   assert.equal(
-    desktopGithubReleaseFileUrl("internal", "release-manifest.json"),
-    "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-preview/release-manifest.json",
+    desktopStableManifestUrl("https://abc123.public.blob.vercel-storage.com/desktop"),
+    "https://abc123.public.blob.vercel-storage.com/desktop/stable/release-manifest.json",
   );
-  assert.equal(
-    desktopGithubReleasePageUrl("stable"),
-    "https://github.com/6NCLegend9/Spotify-clone/releases/tag/desktop-latest",
-  );
+  assert.equal(desktopReleaseFileUrl("https://not-blob.example.com", "stable", "latest.yml"), "");
+  assert.equal(desktopReleaseFileUrl("https://abc123.public.blob.vercel-storage.com", "stable", "../latest.yml"), "");
 });
 
-test("desktop release URLs reject unsupported channels and unsafe filenames", () => {
-  assert.equal(desktopGithubReleaseFileUrl("stable", "../latest.yml"), "");
-  assert.equal(desktopGithubReleaseFileUrl("beta", "latest.yml"), "");
-  assert.equal(desktopGithubReleaseFileUrl("unknown", "latest.yml"), "");
-  assert.equal(
-    desktopReleaseFileUrl("https://not-blob.example.com", "stable", "latest.yml"),
-    "",
-  );
-});
-
-
-test("desktop release probing falls through a stale Blob URL to GitHub", async () => {
-  const calls = [];
-  const result = await firstReachableDesktopUrl(
-    ["https://blob.example/missing", "https://github.com/release/latest.yml"],
-    async (url) => {
-      calls.push(url);
-      return new Response(null, { status: url.includes("missing") ? 404 : 302 });
-    },
-  );
-  assert.equal(result, "https://github.com/release/latest.yml");
-  assert.deepEqual(calls, [
-    "https://blob.example/missing",
-    "https://github.com/release/latest.yml",
-  ]);
+test("desktop release channel and Blob base validation reject unsafe values", () => {
+  assert.equal(normalizeDesktopReleaseChannel("stable"), "stable");
+  assert.equal(normalizeDesktopReleaseChannel("internal"), "internal");
+  assert.equal(normalizeDesktopReleaseChannel("unknown"), "");
+  assert.equal(desktopBlobBaseUrl("https://abc123.public.blob.vercel-storage.com/desktop/"), "https://abc123.public.blob.vercel-storage.com/desktop");
+  assert.equal(desktopBlobBaseUrl("https://user:pass@abc123.public.blob.vercel-storage.com"), "");
+  assert.equal(desktopBlobBaseUrl("http://abc123.public.blob.vercel-storage.com"), "");
 });

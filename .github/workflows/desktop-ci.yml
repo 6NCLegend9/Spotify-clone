@@ -117,54 +117,13 @@ jobs:
           $exe = Get-ChildItem -Path dist -Recurse -Filter "HayKasa.exe" | Select-Object -First 1
           if (-not $exe) { throw "HayKasa.exe was not produced" }
           Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
-      - name: Prepare GitHub update bundle
-        env:
-          HEYKASA_DESKTOP_RELEASE_CHANNEL: stable
-          HEYKASA_DESKTOP_MINIMUM_VERSION: "1.0.0"
-        run: npm run prepare-github-release
       - uses: actions/upload-artifact@v4
         with:
           name: heykasa-desktop-windows-${{ github.sha }}
           path: |
             desktop/dist/HayKasa-Setup-*-x64.exe
-            desktop/dist/HayKasa-Setup-x64.exe
             desktop/dist/latest.yml
             desktop/dist/*.blockmap
-            desktop/dist/release-manifest.json
           if-no-files-found: error
           retention-days: 7
 
-  publish-installer:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: windows-desktop
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: heykasa-desktop-windows-${{ github.sha }}
-          path: installer
-      - name: Publish GitHub updater fallback
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: desktop-latest
-          name: HayKasa Desktop Development Channel
-          prerelease: true
-          target_commitish: ${{ github.sha }}
-          fail_on_unmatched_files: true
-          files: |
-            installer/HayKasa-Setup-*-x64.exe
-            installer/HayKasa-Setup-x64.exe
-            installer/latest.yml
-            installer/*.blockmap
-            installer/release-manifest.json
-      - name: Verify GitHub updater fallback
-        shell: bash
-        run: |
-          set -euo pipefail
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/desktop-latest"
-          for file in release-manifest.json latest.yml HayKasa-Setup-x64.exe; do
-            curl --fail --location --retry 8 --retry-delay 2 --retry-all-errors --silent --show-error -o /dev/null "$base/$file"
-          done

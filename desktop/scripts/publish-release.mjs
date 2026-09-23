@@ -146,6 +146,8 @@ const payload = {
   publishedAt: new Date().toISOString(),
   sizeBytes: installerStat.size,
   sha512: installerSha512,
+  signed: true,
+  source: "vercel-blob",
 };
 const signature = crypto
   .createHmac("sha256", manifestSecret)

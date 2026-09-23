@@ -175,6 +175,11 @@ jobs:
         run: npm test
       - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
+      - name: Validate release version monotonicity
+        env:
+          HEYKASA_DESKTOP_REQUESTED_VERSION: ${{ inputs.version }}
+          HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ inputs.minimum_version }}
+        run: node scripts/validate-release-version.mjs
       - name: Stamp signed release version
         shell: pwsh
         run: npm version "${{ inputs.version }}" --no-git-tag-version

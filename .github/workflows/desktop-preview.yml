@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build-preview:
-    name: Build public Windows preview
+    name: Build Windows preview
     runs-on: windows-latest
     timeout-minutes: 35
     defaults:
@@ -45,50 +45,13 @@ jobs:
         run: npm version "1.1.${{ github.run_number }}-internal" --no-git-tag-version
       - name: Build unsigned Windows installer
         run: npm run dist
-      - name: Prepare internal update bundle
-        run: npm run prepare-github-release
       - uses: actions/upload-artifact@v4
         with:
           name: haykasa-desktop-preview-${{ github.sha }}
           path: |
             desktop/dist/HayKasa-Setup-*-x64.exe
-            desktop/dist/HayKasa-Setup-x64.exe
             desktop/dist/latest.yml
             desktop/dist/*.blockmap
-            desktop/dist/release-manifest.json
           if-no-files-found: error
           retention-days: 14
 
-  publish-preview:
-    needs: build-preview
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: haykasa-desktop-preview-${{ github.sha }}
-          path: installer
-      - name: Publish public internal updater feed
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: desktop-preview
-          name: HayKasa Desktop Internal Preview
-          prerelease: true
-          target_commitish: ${{ github.sha }}
-          fail_on_unmatched_files: true
-          files: |
-            installer/HayKasa-Setup-*-x64.exe
-            installer/HayKasa-Setup-x64.exe
-            installer/latest.yml
-            installer/*.blockmap
-            installer/release-manifest.json
-      - name: Verify internal updater feed
-        shell: bash
-        run: |
-          set -euo pipefail
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/desktop-preview"
-          for file in release-manifest.json latest.yml HayKasa-Setup-x64.exe; do
-            curl --fail --location --retry 8 --retry-delay 2 --retry-all-errors --silent --show-error -o /dev/null "$base/$file"
-          done

@@ -12,8 +12,7 @@
     "pack": "electron-builder --dir --win --x64",
     "dist": "electron-builder --win nsis --x64",
     "publish-release": "node scripts/publish-release.mjs",
-    "publish-installer": "node scripts/publish-installer.mjs",
-    "prepare-github-release": "node scripts/prepare-github-release.mjs"
+    "publish-installer": "node scripts/publish-installer.mjs"
   },
   "dependencies": {
     "electron-updater": "6.8.9"

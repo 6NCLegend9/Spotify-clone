@@ -5,7 +5,6 @@ import path from "node:path";
 import test from "node:test";
 import {
   DESKTOP_INSTALLER_APP_PATH,
-  DESKTOP_INSTALLER_GITHUB_FALLBACK,
   DESKTOP_INSTALLER_PUBLIC_NAME,
   desktopAppDownloadUrl,
   findLocalDesktopInstaller,
@@ -27,8 +26,8 @@ test("hosted installer URL prefers a public HTTPS exe and otherwise uses Vercel 
     hostedDesktopInstallerUrl("https://downloads.example.com/HayKasa-Setup-x64.exe"),
     "https://downloads.example.com/HayKasa-Setup-x64.exe",
   );
-  assert.equal(hostedDesktopInstallerUrl("https://downloads.example.com/HayKasa.zip"), DESKTOP_INSTALLER_GITHUB_FALLBACK);
-  assert.equal(hostedDesktopInstallerUrl(""), DESKTOP_INSTALLER_GITHUB_FALLBACK);
+  assert.equal(hostedDesktopInstallerUrl("https://downloads.example.com/HayKasa.zip"), "");
+  assert.equal(hostedDesktopInstallerUrl(""), "");
   assert.equal(
     hostedDesktopInstallerUrl(
       "",
