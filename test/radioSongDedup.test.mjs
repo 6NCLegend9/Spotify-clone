@@ -35,7 +35,7 @@ test("canonical song identity collapses alternate uploads of the same recording"
   });
 });
 
-test("radio auto-extension rejects alternate uploads but keeps different artists with the same title", () => {
+test("radio auto-extension rejects alternate uploads and repeated seed-artist tracks", () => {
   let state = reducer(undefined, startYoutubePlayback({ track: seed, queue: [seed] }));
   state = reducer(state, appendToQueue([
     ...variants,
@@ -49,8 +49,6 @@ test("radio auto-extension rejects alternate uploads but keeps different artists
     state.youtubeQueue.map((track) => canonicalSongIdentity(track)),
     [
       "don toliver|lose my mind",
-      "don toliver|no idea",
-      "don toliver|after party",
       "brett eldredge|lose my mind",
       "partynextdoor|lose my mind",
     ],
@@ -59,14 +57,15 @@ test("radio auto-extension rejects alternate uploads but keeps different artists
 });
 
 test("stale controller fallback cannot advance to a rejected alternate upload", () => {
+  const differentArtist = { id: "othertrack3", title: "Brett Eldredge - Lose My Mind (Official Music Video)", channel: "Brett Eldredge" };
   let state = reducer(undefined, startYoutubePlayback({ track: seed, queue: [seed] }));
-  state = reducer(state, appendToQueue([variants[0], noIdea]));
-  assert.deepEqual(state.youtubeQueue.map((track) => track.id), [seed.id, noIdea.id]);
+  state = reducer(state, appendToQueue([variants[0], noIdea, differentArtist]));
+  assert.deepEqual(state.youtubeQueue.map((track) => track.id), [seed.id, differentArtist.id]);
 
   // The controller can still hold the pre-filtered first candidate for one tick.
   state = reducer(state, setYoutubeVideo(variants[0]));
-  assert.equal(state.youtubeVideo.id, noIdea.id);
-  assert.equal(canonicalSongIdentity(state.youtubeVideo), "don toliver|no idea");
+  assert.equal(state.youtubeVideo.id, differentArtist.id);
+  assert.equal(canonicalSongIdentity(state.youtubeVideo), "brett eldredge|lose my mind");
 });
 
 test("finite playlist queues keep explicit order even when titles repeat", () => {
