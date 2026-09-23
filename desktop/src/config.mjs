@@ -12,9 +12,9 @@ export const DESKTOP_CAPABILITIES = Object.freeze([
   "authV1",
 ]);
 
-// The signed installer never receives a Vercel Blob write token or a raw
-// storage hostname. It checks the production manifest first, then uses this
-// same-origin read-only proxy for electron-updater metadata and binaries.
+// The packaged client receives no GitHub write credentials, release signing
+// secrets, or artifact-origin configuration. It checks the production manifest
+// first, then uses the stable same-origin compatibility API for updater files.
 export const UPDATE_MANIFEST_URL = `${PRODUCTION_APP_URL}/api/desktop/manifest`;
 export const UPDATE_FEED_BASE_URL = `${PRODUCTION_APP_URL}/api/desktop/update`;
 
