@@ -54,7 +54,7 @@ test("search suggestions play directly without navigating away", async ({ page }
 
   const mobileProject = testInfo.project.name.startsWith("mobile-");
   if (mobileProject) {
-    await page.getByRole("link", { name: "Search", exact: true }).click();
+    await page.locator("nav.app-tabbar").getByRole("link", { name: "Search", exact: true }).click();
     await expect(page).toHaveURL(/\/search$/);
   }
 
