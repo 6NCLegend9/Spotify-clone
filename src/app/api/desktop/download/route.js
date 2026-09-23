@@ -5,16 +5,13 @@ import {
   findLocalDesktopInstaller,
   hostedDesktopInstallerUrl,
 } from "../../../../utils/desktopInstaller.mjs";
+import {
+  desktopReleaseBundle,
+  fetchDesktopGithubRelease,
+} from "../../../../utils/desktopRelease.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function resolveHostedInstaller() {
-  return hostedDesktopInstallerUrl(
-    process.env.HEYKASA_DESKTOP_DOWNLOAD_URL,
-    process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
-  );
-}
 
 function localInstallerHeaders(local) {
   return {
@@ -26,6 +23,22 @@ function localInstallerHeaders(local) {
   };
 }
 
+async function hostedInstaller() {
+  const configured = hostedDesktopInstallerUrl(process.env.HEYKASA_DESKTOP_DOWNLOAD_URL);
+  if (configured) return configured;
+  try {
+    const release = await fetchDesktopGithubRelease("stable");
+    return desktopReleaseBundle(release, "stable")?.installerUrl || "";
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      msg: "desktop_download_release_lookup_failed",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return "";
+  }
+}
+
 export async function GET() {
   const local = findLocalDesktopInstaller();
   if (local) {
@@ -34,11 +47,11 @@ export async function GET() {
     });
   }
 
-  const hosted = resolveHostedInstaller();
+  const hosted = await hostedInstaller();
   if (hosted) return Response.redirect(hosted, 302);
   return Response.json({
     title: "Installer unavailable",
-    message: "The Windows installer has not been published to Vercel Blob yet.",
+    message: "The signed Windows installer has not been published to GitHub Releases yet.",
   }, { status: 404 });
 }
 
@@ -46,7 +59,7 @@ export async function HEAD() {
   const local = findLocalDesktopInstaller();
   if (local) return new Response(null, { headers: localInstallerHeaders(local) });
 
-  const hosted = resolveHostedInstaller();
+  const hosted = await hostedInstaller();
   if (hosted) return Response.redirect(hosted, 302);
   return new Response(null, { status: 404 });
 }
