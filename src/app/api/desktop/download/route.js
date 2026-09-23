@@ -1,10 +1,12 @@
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import {
+  DESKTOP_INSTALLER_GITHUB_FALLBACK,
   DESKTOP_INSTALLER_PUBLIC_NAME,
   findLocalDesktopInstaller,
   hostedDesktopInstallerUrl,
 } from "../../../../utils/desktopInstaller.mjs";
+import { firstReachableDesktopUrl } from "../../../../utils/desktopRelease.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +37,11 @@ export async function GET() {
   }
 
   const hosted = resolveHostedInstaller();
-  if (hosted) return Response.redirect(hosted, 302);
+  const target = await firstReachableDesktopUrl([
+    hosted,
+    hosted === DESKTOP_INSTALLER_GITHUB_FALLBACK ? "" : DESKTOP_INSTALLER_GITHUB_FALLBACK,
+  ]);
+  if (target) return Response.redirect(target, 302);
   return Response.json({
     title: "Installer unavailable",
     message: "The Windows installer has not been published to Vercel Blob yet.",
@@ -47,6 +53,10 @@ export async function HEAD() {
   if (local) return new Response(null, { headers: localInstallerHeaders(local) });
 
   const hosted = resolveHostedInstaller();
-  if (hosted) return Response.redirect(hosted, 302);
+  const target = await firstReachableDesktopUrl([
+    hosted,
+    hosted === DESKTOP_INSTALLER_GITHUB_FALLBACK ? "" : DESKTOP_INSTALLER_GITHUB_FALLBACK,
+  ]);
+  if (target) return Response.redirect(target, 302);
   return new Response(null, { status: 404 });
 }

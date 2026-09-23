@@ -5,6 +5,7 @@ import {
   desktopGithubReleasePageUrl,
   desktopGithubReleaseTag,
   desktopReleaseFileUrl,
+  firstReachableDesktopUrl,
 } from "../src/utils/desktopRelease.mjs";
 
 test("desktop GitHub fallback maps stable and internal channels to fixed release tags", () => {
@@ -33,4 +34,21 @@ test("desktop release URLs reject unsupported channels and unsafe filenames", ()
     desktopReleaseFileUrl("https://not-blob.example.com", "stable", "latest.yml"),
     "",
   );
+});
+
+
+test("desktop release probing falls through a stale Blob URL to GitHub", async () => {
+  const calls = [];
+  const result = await firstReachableDesktopUrl(
+    ["https://blob.example/missing", "https://github.com/release/latest.yml"],
+    async (url) => {
+      calls.push(url);
+      return new Response(null, { status: url.includes("missing") ? 404 : 302 });
+    },
+  );
+  assert.equal(result, "https://github.com/release/latest.yml");
+  assert.deepEqual(calls, [
+    "https://blob.example/missing",
+    "https://github.com/release/latest.yml",
+  ]);
 });

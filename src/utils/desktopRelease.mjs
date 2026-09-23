@@ -53,3 +53,22 @@ export function desktopGithubReleasePageUrl(channelValue) {
   const tag = desktopGithubReleaseTag(channelValue);
   return tag ? `${GITHUB_RELEASE_ROOT}/tag/${encodeURIComponent(tag)}` : "";
 }
+
+export async function firstReachableDesktopUrl(urls, fetchImpl = globalThis.fetch) {
+  if (typeof fetchImpl !== "function") return "";
+  for (const candidate of Array.isArray(urls) ? urls : []) {
+    const url = String(candidate || "").trim();
+    if (!url) continue;
+    try {
+      const response = await fetchImpl(url, {
+        method: "HEAD",
+        redirect: "manual",
+        cache: "no-store",
+      });
+      if (response?.ok || (response?.status >= 300 && response?.status < 400)) return url;
+    } catch {
+      // Try the next server-owned fallback.
+    }
+  }
+  return "";
+}
