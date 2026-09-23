@@ -162,7 +162,7 @@ const Home = () => {
           {!loading && (
             <MixRail
               title={isPersonalized ? "Mixes for you" : "Made for you"}
-              seeAllHref="/search"
+              seeAllHref="/mix"
               mixes={categoryMixes}
             />
           )}
@@ -183,9 +183,9 @@ const Home = () => {
             />
           )}
 
-          {!loading && <MixRail title={soundtrackTitle} mixes={moodMixes} seeAllHref="/search" />}
+          {!loading && <MixRail title={soundtrackTitle} mixes={moodMixes} seeAllHref="/mix" />}
 
-          {!loading && <MixRail title="Featured Playlists" mixes={playlistMixes} seeAllHref="/search" />}
+          {!loading && <MixRail title="Featured Playlists" mixes={playlistMixes} seeAllHref="/search/popular%20music?type=playlist" />}
 
           {!loading &&
             genreSections.map((section) => (
@@ -212,3 +212,4 @@ const Home = () => {
 };
 
 export default Home;
+

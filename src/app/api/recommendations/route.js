@@ -10,7 +10,7 @@ import {
   resolveGenrePreferences,
   resolveRecommendationPlan,
 } from "@/utils/recommendationSeeds.mjs";
-import { buildOfficialMusicQuery, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
+import { buildOfficialMusicQuery, filterMusicPlaybackResults, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
 import { canonicalSongIdentity } from "@/utils/songIdentity.mjs";
 import {
   ApiRouteError,
@@ -80,7 +80,7 @@ async function searchYouTube(query, reason, extra = {}) {
   const videos = (Array.isArray(data?.items) ? data.items : [])
     .filter((item) => item?.id?.videoId)
     .map((item) => normalizeVideo(item, reason, extra));
-  return rankOfficialMusicResults(videos, query).slice(0, 8);
+  return rankOfficialMusicResults(filterMusicPlaybackResults(videos, query), query).slice(0, 8);
 }
 
 async function getPopularMusic() {
@@ -93,7 +93,7 @@ async function getPopularMusic() {
   };
   const { ok, data } = await youtubeFetch("videos", params, { next: { revalidate: 900 } });
   if (!ok) return [];
-  return (Array.isArray(data?.items) ? data.items : [])
+  const videos = (Array.isArray(data?.items) ? data.items : [])
     .filter(
       (item) =>
         item?.id &&
@@ -101,6 +101,7 @@ async function getPopularMusic() {
         item?.status?.privacyStatus === "public",
     )
     .map((item) => normalizeVideo(item, "Trending on YouTube"));
+  return filterMusicPlaybackResults(videos, "popular music");
 }
 
 async function searchPlaylists(query) {

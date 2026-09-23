@@ -5,24 +5,19 @@ import { createPortal } from "react-dom";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import ItemMenu from "@/components/ItemMenu";
 import { FiSearch, FiX } from "react-icons/fi";
+import { BsPlayFill } from "react-icons/bs";
 import { HiOutlineViewGrid, HiViewGrid } from "react-icons/hi";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
+import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import useMediaQuery from "@/hooks/useMediaQuery";
-
-function songSearchQuery(song) {
-  return [
-    cleanTitle(song?.title || song?.name || ""),
-    cleanArtist(song?.channel || song?.artist || song?.author || ""),
-  ].filter(Boolean).join(" ").trim();
-}
 
 const Searchbar = () => {
   const { data: session, status } = useSession();
@@ -165,9 +160,23 @@ const AccountSearchbar = () => {
     router.push(`/search/${encodeURIComponent(next)}`);
   };
 
-  const searchSong = (song) => {
-    const query = songSearchQuery(song);
-    if (query) go(query);
+  const playSong = (song) => {
+    if (!song?.id) return;
+    const title = cleanTitle(song.title || song.name, "Song");
+    const artist = cleanArtist(song.channel || song.artist || song.author);
+    const seedQuery = song.seedQuery || song.genre || [artist, title].filter(Boolean).join(" ");
+    const track = {
+      ...song,
+      title,
+      channel: artist || song.channel,
+      seedQuery,
+      genre: song.genre || artist || seedQuery,
+    };
+    dispatch(startYoutubePlayback({ queue: [track], track }));
+    dispatch(playPause(true));
+    setOpen(false);
+    setActiveIndex(-1);
+    dispatch(setIsTyping(false));
   };
 
   const handleSubmit = (event) => {
@@ -178,7 +187,7 @@ const AccountSearchbar = () => {
   const selectItem = (item) => {
     if (!item) return;
     if (item.type === "recent-query") go(item.query);
-    else searchSong(item.song);
+    else playSong(item.song);
   };
 
   const showRecentState = open && !searchTerm.trim();
@@ -378,9 +387,24 @@ const AccountSearchbar = () => {
             ) : (
               <ContextMenuTarget as="li" key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}
                 className={`flex w-full items-center gap-1 px-2 py-1 text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
-                <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => searchSong(item.song)}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
-                  <MediaImage src={item.song.thumbnail || item.song?.image?.[1]?.url || item.song?.image?.[0]?.url} size="mq" alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                <button
+                  id={`${listboxId}-option-${index}`}
+                  type="button"
+                  role="option"
+                  aria-label={`Play ${cleanTitle(item.song.title || item.song.name, "Song")}`}
+                  aria-selected={selectedIndex === index}
+                  onClick={() => playSong(item.song)}
+                  className="group/search-song flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+                >
+                  <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded">
+                    <MediaImage src={item.song.thumbnail || item.song?.image?.[1]?.url || item.song?.image?.[0]?.url} size="mq" alt="" className="h-10 w-10 object-cover" />
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/55 text-lg text-white md:group-hover/search-song:flex"
+                    >
+                      <BsPlayFill />
+                    </span>
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{cleanTitle(item.song.title || item.song.name, "Song")}</span>
                     <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanArtist(item.song.channel || item.song.artist || item.song.author)}</span>

@@ -18,6 +18,40 @@ const NEGATIVE_PATTERNS = [
   [/\blive\b/i, -35],
 ];
 
+const NON_MUSIC_TITLE_PATTERNS = [
+  /\breaction(?:s|\s+video)?\b/i,
+  /\breacts?\s+to\b/i,
+  /\bpress\s+conference\b/i,
+  /\binterview\b/i,
+  /\bpodcast\b/i,
+  /\breview\b/i,
+  /\bbreakdown\b/i,
+  /\bexplained\b/i,
+  /\bdocumentary\b/i,
+  /\bbehind\s+the\s+scenes\b/i,
+  /\bmaking\s+of\b/i,
+  /\b(?:official\s+)?trailer\b/i,
+  /\bteaser\b/i,
+  /\bannouncement\b/i,
+  /\bvlog\b/i,
+  /\bchallenge\b/i,
+  /\btutorial\b/i,
+  /\bcommentary\b/i,
+  /\bfirst\s+listen\b/i,
+  /\bstream\s+highlights?\b/i,
+  /#shorts?\b/i,
+];
+
+const DERIVATIVE_VERSION_PATTERNS = [
+  [/\bcover\b/i, /\bcover\b/i],
+  [/\bkaraoke\b/i, /\bkaraoke\b/i],
+  [/\bnightcore\b/i, /\bnightcore\b/i],
+  [/\bslowed\b/i, /\bslowed\b/i],
+  [/\breverb\b/i, /\breverb\b/i],
+  [/\b8d\b/i, /\b8d\b/i],
+  [/\bsped\s*up\b/i, /\bsped\s*up\b/i],
+];
+
 function words(value) {
   return String(value || "")
     .normalize("NFC")
@@ -41,6 +75,21 @@ export function buildOfficialMusicQuery(query) {
   // syntax and forced English release labels change what the user searched for.
   // Prefer official sources only when ranking equally relevant results below.
   return sanitizeMusicSearchQuery(query);
+}
+
+export function isMusicPlaybackCandidate(result, query = "") {
+  const title = String(result?.title || result?.name || "").trim();
+  if (!title) return false;
+  if (NON_MUSIC_TITLE_PATTERNS.some((pattern) => pattern.test(title))) return false;
+  const requested = String(query || "");
+  for (const [candidatePattern, requestedPattern] of DERIVATIVE_VERSION_PATTERNS) {
+    if (candidatePattern.test(title) && !requestedPattern.test(requested)) return false;
+  }
+  return true;
+}
+
+export function filterMusicPlaybackResults(results, query = "") {
+  return (Array.isArray(results) ? results : []).filter((result) => isMusicPlaybackCandidate(result, query));
 }
 
 function queryCoverage(result, query) {
@@ -83,7 +132,7 @@ export function officialMusicScore(result, query) {
 }
 
 export function rankOfficialMusicResults(results, query) {
-  return (Array.isArray(results) ? results : [])
+  return filterMusicPlaybackResults(results, query)
     .map((result, index) => ({ result, index, coverage: queryCoverage(result, query), score: officialMusicScore(result, query) }))
     .sort((left, right) => right.coverage - left.coverage || right.score - left.score || left.index - right.index)
     .map(({ result }) => result);

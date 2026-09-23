@@ -3,6 +3,7 @@ import { decodeTrackFields } from '../../utils/text.js';
 import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
 import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity } from '../../utils/songIdentity.mjs';
+import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
 
 const initialState = {
   currentSongs: [],
@@ -35,8 +36,16 @@ function normalizeContext(value) {
   return { type: type || 'unknown', ...(id ? { id } : {}), ...(name ? { name } : {}) };
 }
 
-function trackScopedRadioSeed(rawTrack) {
+function decodePlayableYoutubeTrack(rawTrack) {
   const track = decodeTrackFields(rawTrack);
+  if (!track?.id) return null;
+  const query = [track.seedQuery, track.genre]
+    .find((value) => typeof value === 'string' && value.trim()) || '';
+  return isMusicPlaybackCandidate(track, query) ? track : null;
+}
+
+function trackScopedRadioSeed(rawTrack) {
+  const track = decodePlayableYoutubeTrack(rawTrack);
   if (!track?.id) return track;
 
   const title = typeof track.title === 'string' && track.title.trim()
@@ -71,7 +80,7 @@ function syncLegacyQueueMode(state) {
 }
 
 function nextQueueEntry(state, rawTrack, source = 'context') {
-  const decoded = decodeTrackFields(rawTrack);
+  const decoded = decodePlayableYoutubeTrack(rawTrack);
   if (!decoded?.id) return null;
   state.queueSequence += 1;
   return {
@@ -82,7 +91,7 @@ function nextQueueEntry(state, rawTrack, source = 'context') {
 }
 
 function normalizeQueueEntry(state, rawTrack, source = 'context') {
-  const decoded = decodeTrackFields(rawTrack);
+  const decoded = decodePlayableYoutubeTrack(rawTrack);
   if (!decoded?.id) return null;
   if (decoded.queueEntryId) {
     return {
@@ -120,13 +129,27 @@ const playerSlice = createSlice({
     restorePlayback: (_state, action) => {
       const snapshot = normalizePlaybackSnapshot(action.payload?.snapshot);
       const queueMode = snapshot.queueMode || (snapshot.queueManualEnd ? 'collection' : 'radio');
+      const youtubeVideo = decodePlayableYoutubeTrack(snapshot.youtubeVideo);
+      const youtubeQueue = (Array.isArray(snapshot.youtubeQueue) ? snapshot.youtubeQueue : [])
+        .map((track) => decodePlayableYoutubeTrack(track))
+        .filter(Boolean);
+      if (youtubeVideo?.id && !youtubeQueue.some((track) => track.id === youtubeVideo.id)) {
+        youtubeQueue.unshift(youtubeVideo);
+      }
       return {
         ...initialState,
         ...snapshot,
+        youtubeVideo,
+        youtubeQueue,
+        userQueue: youtubeQueue.filter((track) => track?.queueSource === 'user' && track.id !== youtubeVideo?.id),
+        history: (Array.isArray(snapshot.history) ? snapshot.history : [])
+          .map((track) => decodePlayableYoutubeTrack(track))
+          .filter(Boolean),
+        isPlaying: youtubeVideo?.id || snapshot.activeSong?.id ? snapshot.isPlaying : false,
         queueMode,
         queueManualEnd: queueMode === 'collection',
         playbackOwner: action.payload?.owner || null,
-        restorePosition: snapshot.youtubeVideo ? snapshot.position : null,
+        restorePosition: youtubeVideo ? snapshot.position : null,
       };
     },
 
@@ -180,7 +203,8 @@ const playerSlice = createSlice({
       state.queueUndo = null;
       state.position = 0;
       state.restorePosition = null;
-      let nextVideo = decodeTrackFields(action.payload);
+      let nextVideo = decodePlayableYoutubeTrack(action.payload);
+      if (!nextVideo?.id) return;
 
       if (nextVideo?.id && state.youtubeVideo?.id && state.queueMode === 'radio'
         && !state.youtubeQueue.some((item) => item?.id === nextVideo.id)
@@ -214,7 +238,7 @@ const playerSlice = createSlice({
     // Swap a failed upload for another recording of the same song without
     // treating it as a user skip into history.
     replaceCurrentYoutubeTrack: (state, action) => {
-      const replacement = decodeTrackFields(action.payload);
+      const replacement = decodePlayableYoutubeTrack(action.payload);
       if (!replacement?.id || !state.youtubeVideo?.id) return;
       if (replacement.id === state.youtubeVideo.id) return;
 
@@ -285,7 +309,7 @@ const playerSlice = createSlice({
       const queueMode = action.payload?.queueMode === 'collection' || action.payload?.autoExtend === false
         ? 'collection'
         : 'radio';
-      let rawTrack = decodeTrackFields(action.payload?.track);
+      let rawTrack = decodePlayableYoutubeTrack(action.payload?.track);
       if (!rawTrack?.id) return;
       if (queueMode === 'radio') rawTrack = trackScopedRadioSeed(rawTrack);
 
@@ -295,8 +319,9 @@ const playerSlice = createSlice({
       const rawQueue = Array.isArray(action.payload?.queue) ? action.payload.queue : [];
       let queue = rawQueue
         .map((item) => {
-          const decoded = decodeTrackFields(item);
-          if (queueMode === 'radio' && decoded?.id === rawTrack.id) {
+          const decoded = decodePlayableYoutubeTrack(item);
+          if (!decoded?.id) return null;
+          if (queueMode === 'radio' && decoded.id === rawTrack.id) {
             return nextQueueEntry(state, trackScopedRadioSeed({ ...decoded, ...rawTrack }), 'context');
           }
           return nextQueueEntry(state, decoded, 'context');
@@ -381,7 +406,7 @@ const playerSlice = createSlice({
       );
 
       tracks.forEach((track) => {
-        const decoded = decodeTrackFields(track);
+        const decoded = decodePlayableYoutubeTrack(track);
         if (!decoded?.id || existingIds.has(decoded.id)) return;
         const songIdentity = radioMode ? canonicalSongIdentity(decoded) : '';
         if (radioMode && songIdentity && existingSongIdentities.has(songIdentity)) return;
@@ -395,7 +420,7 @@ const playerSlice = createSlice({
     },
 
     playNextToQueue: (state, action) => {
-      const incoming = decodeTrackFields(action.payload);
+      const incoming = decodePlayableYoutubeTrack(action.payload);
       if (!incoming?.id) return;
 
       // Playing the current recording "next" is a no-op rather than an accidental duplicate.

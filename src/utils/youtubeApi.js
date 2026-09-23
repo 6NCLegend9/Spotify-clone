@@ -3,6 +3,7 @@ import { reportProvider } from "./providerRequestContext.mjs";
 import { cachedYoutubeRead } from "./providerCache.js";
 import { Innertube, Log, UniversalCache } from "youtubei.js";
 import { cleanTitle } from "./text.js";
+import { filterMusicPlaybackResults } from "./officialMusicSearch.mjs";
 import { firstSuccessfulSearch } from "./youtubeSearchFallback.mjs";
 import { isYoutubeVideoId, sanitizeYoutubeComments } from "./youtubeComments.mjs";
 import { videoIdsMentionedInText } from "./commentVideoIds.mjs";
@@ -773,7 +774,7 @@ export async function fetchYouTubeChannel(id, { name = "", maxResults = 50, page
     }, maxResults, pageToken);
     return {
       artist: artist || { id, title: name || "Artist", description: "", thumbnail: "" },
-      tracks: page.tracks,
+      tracks: filterMusicPlaybackResults(page.tracks, name),
       nextPageToken: page.nextPageToken,
     };
   }
@@ -817,13 +818,13 @@ export async function fetchYouTubeChannel(id, { name = "", maxResults = 50, page
   extras.seedQuery = artist?.title || name;
   extras.genre = artist?.title || name;
 
-  const tracks = mergeTracks([
+  const tracks = filterMusicPlaybackResults(mergeTracks([
     mapSearchItemsToTracks(popular?.data?.items, extras),
     uploads.tracks,
     mapSearchItemsToTracks(audioSearch?.data?.items, extras),
     mapSearchItemsToTracks(songsSearch?.data?.items, extras),
     mapSearchItemsToTracks(innertubeChannel?.tracks, extras),
-  ]);
+  ]), name);
 
   if (!artist) {
     artist = {
@@ -857,17 +858,24 @@ export async function fetchLatestChannelVideos(channelId, { name = "", maxResult
     order: "date",
     maxResults: String(maxResults),
   });
-  const officialTracks = mapSearchItemsToTracks(official?.data?.items, extras);
+  const officialTracks = filterMusicPlaybackResults(
+    mapSearchItemsToTracks(official?.data?.items, extras),
+    name,
+  );
   if (officialTracks.length) return officialTracks.slice(0, maxResults);
 
   const uploadsId = uploadsPlaylistId(channelId);
   if (uploadsId) {
     const page = await fetchPlaylistPages(uploadsId, extras, maxResults);
-    if (page.tracks.length) return page.tracks.slice(0, maxResults);
+    const uploadTracks = filterMusicPlaybackResults(page.tracks, name);
+    if (uploadTracks.length) return uploadTracks.slice(0, maxResults);
   }
 
   const innertube = await channelFromInnertube(channelId, Math.max(maxResults, 8));
-  return mapSearchItemsToTracks(innertube?.tracks, extras).slice(0, maxResults);
+  return filterMusicPlaybackResults(
+    mapSearchItemsToTracks(innertube?.tracks, extras),
+    name,
+  ).slice(0, maxResults);
 }
 
 export async function youtubeFetch(endpoint, params = {}, fetchOptions = {}) {
@@ -1050,7 +1058,7 @@ export async function fetchChannelAlsoPlayed(channelId, { name = "", seedIds = [
     }
     if (mentioned.length >= 8) break;
   }
-  return fetchYoutubeTracksByIds(mentioned);
+  return filterMusicPlaybackResults(await fetchYoutubeTracksByIds(mentioned), name);
 }
 
 async function captionLinesFromTrack(track) {
