@@ -2452,7 +2452,7 @@ function YouTubePlayer() {
         setOneMorePrefetch(null);
       });
     return () => { active = false; };
-  }, [isJamGuest, oneMoreArmed, queueManualEnd, video?.id, video?.title]);
+  }, [isJamGuest, oneMoreArmed, playbackContext?.id, playbackContext?.name, playbackContext?.type, queueManualEnd, video]);
 
   useEffect(() => {
     if (!dataSaver && !audioOnly) return undefined;
