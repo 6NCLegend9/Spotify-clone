@@ -226,7 +226,7 @@ export default function DesktopAppCard() {
           {supportsPreferences && supportsUpdater ? (
             <DesktopToggle
               label="Automatic desktop updates"
-              description="Check in the background and download eligible HayKasa Desktop updates automatically. Signed production releases are preferred when available."
+              description="Check in the background and download eligible HayKasa Desktop updates automatically. Stable and beta releases must be code-signed before HayKasa will install them."
               checked={preferences?.autoUpdate !== false}
               disabled={!preferences || busy === "autoUpdate"}
               onChange={(value) => void setPreference("autoUpdate", value)}
