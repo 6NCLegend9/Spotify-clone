@@ -631,10 +631,17 @@ function sendPlaybackCommand(command) {
 }
 
 function broadcastPlayback() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setTitle(
+      playbackState.hasTrack
+        ? `${[playbackState.title, playbackState.artist].filter(Boolean).join(" — ") || PRODUCT_NAME} · HayKasa`
+        : PRODUCT_NAME,
+    );
+  }
   if (tray && !tray.isDestroyed()) {
     tray.setToolTip(
       playbackState.hasTrack
-        ? `${playbackState.playing ? "Playing" : "Paused"} · ${playbackState.title || PRODUCT_NAME}`
+        ? `${playbackState.playing ? "Playing" : "Paused"} · ${[playbackState.title, playbackState.artist].filter(Boolean).join(" — ") || PRODUCT_NAME}`
         : PRODUCT_NAME,
     );
   }
@@ -643,12 +650,8 @@ function broadcastPlayback() {
   if (miniWindow && !miniWindow.isDestroyed()) {
     miniWindow.webContents.send("heykasa:playback:state", playbackState);
   }
-  // Keep the optional mini player in sync only when the user has explicitly
-  // opened it from the tray. Starting playback must never create a second
+  // The mini player is opt-in. Starting playback must not create another
   // always-on-top HayKasa window over the main application.
-  if (miniWindow && !miniWindow.isDestroyed()) {
-    miniWindow.webContents.send("heykasa:playback:state", playbackState);
-  }
   void refreshAppearanceAccent();
 }
 
@@ -722,9 +725,6 @@ function toggleMiniPlayer() {
 }
 
 function thumbarIcon(kind) {
-  // Windows thumbar buttons require bitmap icons. Draw the transport glyphs
-  // into a tiny SVG and convert them to a native image so Previous, Play/Pause
-  // and Next no longer all reuse the HayKasa application logo.
   const paths = {
     previous: '<path fill="white" d="M3 3h2v10H3V3Zm10 1v8L6 8l7-4Z"/>',
     play: '<path fill="white" d="M5 3.5v9l8-4.5-8-4.5Z"/>',
@@ -773,7 +773,7 @@ function updateTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: playbackState.hasTrack
-        ? `${playbackState.playing ? "Playing" : "Paused"} · ${playbackState.title || "Now playing"}`
+        ? `${playbackState.playing ? "Playing" : "Paused"} · ${[playbackState.title, playbackState.artist].filter(Boolean).join(" — ") || "Now playing"}`
         : "Nothing playing",
       enabled: false,
     },

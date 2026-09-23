@@ -47,6 +47,19 @@ test("search filters persist in the URL and pagination deduplicates results", as
   await page.screenshot({ path: testInfo.outputPath("search-controls.png") });
 });
 
+test("search suggestions play directly without navigating away", async ({ page }) => {
+  const track = { id: "abcdefghijk", title: "6WA", channel: "BigXthaPlug", thumbnail: "/icon-192x192.png" };
+  await page.route("**/api/youtube-search?**", (route) => route.fulfill({ json: { results: [track] } }));
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const search = page.getByRole("combobox", { name: "Search songs, artists, playlists, and genres", exact: true });
+  await search.fill("6wa");
+  const suggestion = page.getByRole("option", { name: "Play 6WA", exact: true });
+  await expect(suggestion).toBeVisible();
+  await suggestion.click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("#player")).toContainText("6WA");
+});
+
 test("saved feedback can be restored from Settings", async ({ page }) => {
   const restored = [];
   await page.route(/\/api\/(notInterested|snoozedTracks)$/, (route) => {

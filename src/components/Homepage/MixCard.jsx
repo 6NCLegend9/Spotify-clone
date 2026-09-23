@@ -9,8 +9,8 @@ import { BsPlayFill } from "react-icons/bs";
 import logo from "@/assets/HayKasa-logo-removebg.png";
 import { requestJson } from "@/services/http";
 import { mixBackground } from "@/utils/homeMixes";
-import { startYoutubePlayback } from "@/redux/features/playerSlice";
-import { collectionPlayback, discoveryPlaylistHref } from "@/utils/discoveryPlaylist.mjs";
+import { playHomeTracks } from "@/utils/playHome";
+import { discoveryPlaylistHref } from "@/utils/discoveryPlaylist.mjs";
 import { toUserError } from "@/utils/userError";
 
 export default function MixCard({ mix }) {
@@ -18,23 +18,55 @@ export default function MixCard({ mix }) {
   const [busy, setBusy] = useState(false);
   const palette = mix.palette || {};
 
-  const playMix = async () => {
+  const playMix = async (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
     if (busy) return;
     setBusy(true);
     try {
       let tracks = mix.tracks;
       if (!tracks?.length) {
-        const data = await requestJson(mix.playlistId
-          ? `/api/youtube-playlist?id=${encodeURIComponent(mix.playlistId)}`
-          : `/api/youtube-search?type=video&q=${encodeURIComponent(mix.query || mix.title)}`, {
-          fallbackTitle: "Playlist unavailable",
-          fallbackMessage: "We couldn’t load this playlist. Please try again.",
-        });
+        const data = await requestJson(
+          mix.playlistId
+            ? `/api/youtube-playlist?id=${encodeURIComponent(mix.playlistId)}`
+            : `/api/youtube-search?type=video&q=${encodeURIComponent(mix.query || mix.title)}`,
+          {
+            fallbackCode: "PLAYBACK_ERROR",
+            fallbackTitle: mix.playlistId ? "Playlist unavailable" : "Mix unavailable",
+            fallbackMessage: mix.playlistId
+              ? "We couldn’t load this playlist. Please try again."
+              : "We couldn’t load this mix. Please try again.",
+          },
+        );
         tracks = mix.playlistId ? data?.tracks : data?.results;
       }
-      const playback = collectionPlayback(mix, tracks);
-      if (!playback) return toast.error("This playlist has no playable tracks right now.");
-      dispatch(startYoutubePlayback(playback));
+
+      const playable = Array.isArray(tracks) ? tracks : [];
+      if (!playable.length) {
+        toast.error("This playlist has no playable tracks right now.");
+        return;
+      }
+
+      playHomeTracks(
+        dispatch,
+        playable.map((track) => ({
+          ...track,
+          seedQuery: track.seedQuery || mix.query || mix.title,
+          genre: track.genre || mix.title,
+        })),
+        0,
+        {
+          queueMode: "collection",
+          autoExtend: false,
+          playlistId: mix.playlistId || mix.id,
+          playlistName: mix.title,
+          context: {
+            type: "playlist",
+            id: String(mix.playlistId || mix.id),
+            name: mix.title || "Playlist",
+          },
+        },
+      );
     } catch (error) {
       toast.error(toUserError(error).message);
     } finally {
@@ -47,7 +79,11 @@ export default function MixCard({ mix }) {
       className="home-mix group w-full text-left"
       style={{ background: mixBackground(palette) }}
     >
-      <Link href={discoveryPlaylistHref(mix)} aria-label={`Open playlist ${mix.title}`} className="absolute inset-0 z-[3] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" />
+      <Link
+        href={discoveryPlaylistHref(mix)}
+        aria-label={`Open playlist ${mix.title}`}
+        className="absolute inset-0 z-[3] rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+      />
       <span className="home-mix-pattern" aria-hidden="true" />
       {mix.stamp ? (
         <span className="home-mix-stamp" aria-hidden="true">
@@ -63,10 +99,15 @@ export default function MixCard({ mix }) {
         <span className="home-mix-bar" style={{ background: palette.bar || "#00e6e6" }} />
         <span className="line-clamp-2">{mix.title}</span>
       </span>
-      <button type="button" onClick={playMix} disabled={busy} aria-label={`Play ${mix.title}`} className="home-square-play !z-[4] !opacity-100 disabled:opacity-50">
+      <button
+        type="button"
+        onClick={playMix}
+        disabled={busy}
+        aria-label={`Play ${mix.title}`}
+        className="play-fab is-on !z-[4] disabled:opacity-50"
+      >
         <BsPlayFill aria-hidden="true" className="text-xl" />
       </button>
     </div>
   );
 }
-

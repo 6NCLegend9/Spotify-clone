@@ -42,3 +42,9 @@ test("ranking is stable when candidates have the same score", () => {
   const second = { id: "b", title: "Unknown", channel: "Unknown" };
   assert.deepEqual(rankOfficialMusicResults([first, second], "different query"), [first, second]);
 });
+
+test("buildOfficialMusicQuery never appends junk official tokens", () => {
+  assert.equal(buildOfficialMusicQuery("Hello"), "Hello");
+  assert.equal(buildOfficialMusicQuery("Hello official"), "Hello official");
+  assert.ok(!buildOfficialMusicQuery("Shape of You").toLowerCase().endsWith(" music video"));
+});

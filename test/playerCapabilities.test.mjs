@@ -28,15 +28,38 @@ test("sleep timer UI is wired to the persistent timer controller", async () => {
   assert.match(control, /value="60"/);
 });
 
-test("expanded video keeps a pointer surface for revealing hidden controls", async () => {
+test("expanded video lets the overlay own taps so hide/show cannot cancel itself", async () => {
   const [css, presentation] = await Promise.all([
     read("src/components/MusicPlayer/mediaPresentation.module.css"),
     read("src/components/MusicPlayer/MediaPresentation.tsx"),
   ]);
   assert.match(css, /\.theater\[data-media="video"\]\s*\{[^}]*pointer-events:\s*auto/);
-  assert.match(css, /\.theater\[data-media="video"\] \.expandedArt\s*\{[^}]*pointer-events:\s*auto/);
-  assert.match(css, /\.gestureSurface\s*\{[^}]*pointer-events:\s*auto/);
+  assert.match(css, /\.theater\[data-media="video"\] \.expandedArt\s*\{[^}]*pointer-events:\s*none/);
+  assert.match(css, /\.theaterChrome\s*\{[^}]*pointer-events:\s*auto/);
+  assert.match(presentation, /\{!expanded && <div className=\{styles\.gestureSurface\}/);
+  assert.match(presentation, /onPointerMove=\{moveMediaPointer\}/);
   assert.match(presentation, /controlsRevealedByPointerMoveRef\.current = true/);
   assert.match(presentation, /if \(controlsRevealedByPointerMoveRef\.current\)/);
   assert.match(presentation, /if \(!expanded \|\| event\.pointerType !== "mouse"\) return;[\s\S]*showTheaterControls\(\);/);
+});
+
+test("legacy F/V fullscreen stays off while a KASA overlay is open", async () => {
+  const player = await read("src/components/MusicPlayer/YouTubePlayer.jsx");
+  assert.match(player, /kasa-media-overlay/);
+  assert.match(player, /mediaTheater \|\| document\.querySelector/);
+});
+
+test("queue overlay traps keyboard focus", async () => {
+  const queue = await read("src/components/MusicPlayer/ExpandedPlayer.tsx");
+  assert.match(queue, /useFocusTrap/);
+  assert.match(queue, /enabled:\s*true/);
+});
+
+test("end-guard mask does not cover the expand control", async () => {
+  const [sanitizer, css] = await Promise.all([
+    read("src/components/MusicPlayer/youtubeSanitizer.module.css"),
+    read("src/components/MusicPlayer/mediaPresentation.module.css"),
+  ]);
+  assert.match(sanitizer, /\[data-kasa-end-guard="true"\]\)::after\s*\{[^}]*pointer-events:\s*none/);
+  assert.match(css, /\.expandButton\s*\{[^}]*z-index:\s*50/);
 });

@@ -211,6 +211,44 @@ const playerSlice = createSlice({
       syncUserQueue(state);
     },
 
+    // Swap a failed upload for another recording of the same song without
+    // treating it as a user skip into history.
+    replaceCurrentYoutubeTrack: (state, action) => {
+      const replacement = decodeTrackFields(action.payload);
+      if (!replacement?.id || !state.youtubeVideo?.id) return;
+      if (replacement.id === state.youtubeVideo.id) return;
+
+      state.queueUndo = null;
+      state.position = 0;
+      state.restorePosition = null;
+      const current = state.youtubeVideo;
+      const currentIndex = state.youtubeQueue.findIndex((item) => sameOccurrence(item, current)
+        || item?.id === current.id);
+      const nextEntry = nextQueueEntry(
+        state,
+        {
+          ...replacement,
+          queueEntryId: current.queueEntryId,
+          queueSource: current.queueSource || 'context',
+        },
+        current.queueSource === 'user' ? 'user' : 'context',
+      );
+      if (!nextEntry) return;
+      // Preserve the failed row's queue identity so membership/mode stay stable.
+      nextEntry.queueEntryId = current.queueEntryId || nextEntry.queueEntryId;
+      if (currentIndex >= 0) {
+        state.youtubeQueue[currentIndex] = nextEntry;
+      } else {
+        state.youtubeQueue.unshift(nextEntry);
+      }
+      state.youtubeVideo = nextEntry;
+      state.activeSong = {};
+      state.currentSongs = [];
+      state.isActive = false;
+      state.isPlaying = true;
+      syncUserQueue(state);
+    },
+
     playPreviousFromHistory: (state) => {
       const previous = state.history.pop();
       if (!previous?.id) return;
@@ -426,6 +464,7 @@ export const {
   prevSong,
   playPause,
   setYoutubeVideo,
+  replaceCurrentYoutubeTrack,
   playPreviousFromHistory,
   setYoutubeQueue,
   startYoutubePlayback,

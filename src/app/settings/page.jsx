@@ -297,7 +297,7 @@ function AccountSettings({ owner, status }) {
               Reset to flat
             </button>
           </div>
-          <p className="mb-4 text-xs text-gray-400">Shape the tone of your music. Pick a preset or drag a band to fine-tune it.</p>
+          <p className="mb-4 text-xs text-gray-400">Presets and faders apply true multi-band EQ on HayKasa&apos;s native audio path. YouTube embeds only receive a loudness tilt derived from the selected curve.</p>
           <SelectControl label="Preset" value={settings.eqPreset} options={eqPresetOptions} onChange={(value) => set("eqPreset", value)} />
           <div className="mt-5 overflow-x-auto pb-2" aria-label="Six-band equalizer">
             <div className="min-w-[660px] rounded-lg border border-white/10 bg-black/15 px-4 py-5">

@@ -391,7 +391,7 @@ export default function YouTubeMusicResults({ query }) {
       {loading && <CardGridSkeleton count={6} aspect="aspect-video" />}
       {!loading && !songError && resultType === "video" && searchSource === "fallback" && results.length > 0 && (
         <p className="mb-4 text-sm text-gray-400" role="status">
-          YouTube may restrict playback of some results or ask you to sign in on YouTube. HayKasa guest mode does not remove those restrictions.
+          These results are unverified for in-app playback. Some may fail here even when they work on YouTube. HayKasa will try another upload or skip automatically.
         </p>
       )}
       {!loading && songError && (

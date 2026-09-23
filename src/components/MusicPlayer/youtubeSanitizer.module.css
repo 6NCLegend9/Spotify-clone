@@ -68,7 +68,7 @@
   inset: 0;
   height: auto;
   z-index: 40;
-  pointer-events: auto;
+  pointer-events: none;
   background:
     radial-gradient(circle at 50% 46%, rgb(0 230 230 / 8%), transparent 34%),
     #000;
