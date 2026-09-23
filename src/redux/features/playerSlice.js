@@ -188,7 +188,7 @@ const playerSlice = createSlice({
           .filter(Boolean),
         playbackContext: normalizeContext(snapshot.playbackContext)
           || (queueMode === 'radio' ? radioOriginContext(youtubeQueue[0] || youtubeVideo) : null),
-        isPlaying: youtubeVideo?.id || snapshot.activeSong?.id ? snapshot.isPlaying : false,
+        isPlaying: youtubeVideo?.id || snapshot.activeSong?.id ? snapshot.isPlaying === true : false,
         queueMode,
         queueManualEnd: queueMode === 'collection',
         playbackOwner: action.payload?.owner || null,

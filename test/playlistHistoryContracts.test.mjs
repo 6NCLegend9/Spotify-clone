@@ -15,8 +15,10 @@ test("youtube playlist API paginates up to 100 playable tracks", () => {
 
 test("featured playlist cards open in-app and play the whole playlist as a collection", () => {
   const source = readFileSync(join(root, "src/components/Homepage/MixCard.jsx"), "utf8");
+  const hrefSource = readFileSync(join(root, "src/utils/discoveryPlaylist.mjs"), "utf8");
   assert.doesNotMatch(source, /youtube\.com\/playlist/);
-  assert.match(source, /\/youtube-playlist\/\$\{encodeURIComponent\(mix\.playlistId\)\}/);
+  assert.match(source, /discoveryPlaylistHref\(mix\)/);
+  assert.match(hrefSource, /\/youtube-playlist\//);
   assert.match(source, /queueMode: "collection"/);
 });
 

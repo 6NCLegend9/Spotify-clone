@@ -67,5 +67,5 @@ test("music playback filter rejects reaction, press conference and editorial vid
 test("derivative versions only pass when explicitly requested", () => {
   const slowed = { id: "slow", title: "6WA (Slowed + Reverb)", channel: "Uploader" };
   assert.equal(isMusicPlaybackCandidate(slowed, "6wa"), false);
-  assert.equal(isMusicPlaybackCandidate(slowed, "6wa slowed"), true);
+  assert.equal(isMusicPlaybackCandidate(slowed, "6wa slowed reverb"), true);
 });

@@ -5,10 +5,10 @@ import { readFile } from 'node:fs/promises';
 // Exercise the real route with isolated upstream responses; no YouTube credentials.
 const source = (await readFile(new URL('../src/app/api/youtube-playlist/route.js', import.meta.url), 'utf8'))
   .replace(/^import .*;\n/gm, '');
-const makeRoute = new Function('NextResponse', 'hasYouTubeApiKey', 'youtubeFetch', 'cleanTitle', 'getClientKey', 'isRateLimited', 'apiError', 'handleApiError',
+const makeRoute = new Function('NextResponse', 'hasYouTubeApiKey', 'youtubeFetch', 'cleanTitle', 'filterMusicPlaybackResults', 'getClientKey', 'isRateLimited', 'apiError', 'handleApiError',
   source.replace(/export /g, '') + '\nreturn GET;');
 function routeFor(upstream) {
-  return makeRoute({ json: Response.json }, () => true, upstream, x => x, () => 'fixture', async () => ({ limited: false }),
+  return makeRoute({ json: Response.json }, () => true, upstream, x => x, tracks => tracks, () => 'fixture', async () => ({ limited: false }),
     (code, detail) => Response.json({ code, ...detail }, { status: code === 'VALIDATION_ERROR' ? 400 : 404 }),
     () => Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 }));
 }
