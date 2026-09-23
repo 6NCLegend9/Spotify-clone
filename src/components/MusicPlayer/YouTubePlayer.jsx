@@ -6,7 +6,6 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   alternateSearchQuery,
-  youtubePlaybackError,
   youtubePlaybackFailurePolicy,
 } from "@/utils/youtubePlaybackError.mjs";
 import PlayerDock from "./PlayerDock";
@@ -493,16 +492,7 @@ function YouTubePlayer() {
     if (want && id && id !== want) return false;
     const endedAt = player.getCurrentTime?.() || 0;
     const endedDur = player.getDuration?.() || 0;
-    if (!(endedDur > 8 && endedAt >= endedDur - 1.1)) return false;
-    // A failed preview that fires ENDED early must not count as completion.
-    const recovery = activeRecoveryRef.current;
-    const started = activeTrackStartedRef.current;
-    const listenedMs = started.videoId === (id || want) && started.startedAt
-      ? performance.now() - started.startedAt
-      : 0;
-    const heardMost = endedDur > 0 && endedAt >= endedDur * 0.55;
-    const hadHealthy = Boolean(recovery.healthySince) || (recovery.attempts === 0 && listenedMs >= 20000);
-    return heardMost || hadHealthy || listenedMs >= 45000;
+    return endedDur > 8 && endedAt >= endedDur - 1.1;
   };
 
   const applyPlaybackVolume = (player, ratio = 1) => {
@@ -946,7 +936,7 @@ function YouTubePlayer() {
     preloadingRef.current = null;
     destroyDeck(failedKey);
     if (waiting?.incomingKey === failedKey && waiting.nextVideo) {
-      hardSwitchOnDeck(waiting.outgoingKey, waiting.nextVideo, { recordCompletion: false });
+      hardSwitchOnDeck(waiting.outgoingKey, waiting.nextVideo);
       return;
     }
     const outgoing = getActivePlayer();
@@ -977,12 +967,16 @@ function YouTubePlayer() {
   };
 
   const handlePlaybackFailure = async ({ code = null, kind = "playback" } = {}) => {
-    if (isJamGuestRef.current) {
-      setPlayerError({
-        kind: "playback",
-        ...youtubePlaybackError(code),
-      });
+    // userPausedRef stops the PAUSED handler from auto-resuming into the same failure.
+    const stopWithError = (error) => {
+      userPausedRef.current = true;
+      trackChangeUntilRef.current = 0;
+      setPlayerError(error);
       dispatch(playPause(false));
+    };
+    // Jam guests follow the host's queue, so they surface the error instead of swapping tracks.
+    if (isJamGuestRef.current || kind === "autoplay") {
+      stopWithError(youtubePlaybackFailurePolicy({ code, kind }).error);
       return;
     }
     const current = videoRef.current;
@@ -1012,14 +1006,6 @@ function YouTubePlayer() {
         sameIdAttempts: sameIdRetryRef.current.attempts,
         alternateAttempts: alternateAttemptRef.current.attempts,
       });
-
-      if (policy.action === "fatalUI") {
-        userPausedRef.current = true;
-        trackChangeUntilRef.current = 0;
-        setPlayerError(policy.error);
-        dispatch(playPause(false));
-        return;
-      }
 
       if (policy.action === "retrySame") {
         sameIdRetryRef.current = {
@@ -1057,13 +1043,19 @@ function YouTubePlayer() {
         }
       }
 
-      // skipQueue or alternate exhausted / not found
+      // skipQueue, or no alternate upload was found.
       alternateAttemptRef.current.rejectedIds.add(current.id);
       setPlayerError(null);
-      toast.error(policy.error?.message || "Couldn’t play this song. Skipping.");
-      userPausedRef.current = false;
       markExpectPlaying();
-      void playNextOrContinueRef.current?.(false);
+      const advanced = await playNextOrContinueRef.current?.(false, { avoidId: current.id });
+      if (advanced === false) {
+        getActivePlayer()?.pauseVideo?.();
+        stopWithError(policy.error);
+        return;
+      }
+      if (advanced === true) {
+        toast.error(`${policy.error?.message || "Couldn’t play this song."} Skipped to the next track.`);
+      }
     } finally {
       if (failureResolveRef.current === current.id) failureResolveRef.current = null;
     }
@@ -1275,16 +1267,6 @@ function YouTubePlayer() {
             if (isRealTrackEnd(event.target)) insights.finish("completed");
             if (isRealTrackEnd(event.target) && sleep.check(videoRef.current?.id)) return;
             if (!isRealTrackEnd(event.target)) {
-              const recovery = activeRecoveryRef.current;
-              const started = activeTrackStartedRef.current;
-              const listenedMs = started.videoId === videoRef.current?.id && started.startedAt
-                ? performance.now() - started.startedAt
-                : 0;
-              const neverHealthy = !recovery.healthySince && listenedMs < 45000;
-              if (neverHealthy && !isJamGuestRef.current) {
-                void handlePlaybackFailureRef.current?.({ code: "preview", kind: "playback" });
-                return;
-              }
               const target = seekGuardRef.current.target ?? event.target.getCurrentTime?.() ?? 0;
               const want = videoRef.current?.id;
               if (want && playerVideoId(event.target) && playerVideoId(event.target) !== want) {
@@ -2235,7 +2217,9 @@ function YouTubePlayer() {
     dispatch(playPause(true));
   };
 
-  const playNextOrContinue = async (completed = false) => {
+  // Resolves true when playback moved on, false when nothing else can play.
+  // avoidId keeps a failed track from being replayed into an error loop.
+  const playNextOrContinue = async (completed = false, { avoidId = null } = {}) => {
     if (sleep.check(completed ? videoRef.current?.id : undefined)) return;
     if (isJamGuestRef.current) {
       dispatch(playPause(false));
@@ -2270,32 +2254,35 @@ function YouTubePlayer() {
     const immediate = getNextVideo();
     if (immediate) {
       if (immediate.id === current?.id) {
+        if (avoidId && avoidId === current?.id) return false;
         replayCurrent();
-        return;
+        return true;
       }
       dispatch(setYoutubeVideo(immediate));
-      return;
+      return true;
     }
     if (manualEndRef.current) {
       userPausedRef.current = true;
       trackChangeUntilRef.current = 0;
       getActivePlayer()?.pauseVideo?.();
       dispatch(playPause(false));
-      return;
+      return false;
     }
     const extras = await extendQueueRef.current();
     const next = getNextVideo() || extras[0];
-    if (next) {
+    if (next && next.id !== avoidId) {
       dispatch(setYoutubeVideo(next));
-      return;
+      return true;
     }
     const list = Array.isArray(queueRef.current) ? queueRef.current : [];
     const fallback = list.find((item) => item?.id && item.id !== current?.id) || list[0];
     if (fallback && fallback.id !== current?.id) {
       dispatch(setYoutubeVideo(fallback));
-      return;
+      return true;
     }
+    if (avoidId) return false;
     replayCurrent();
+    return true;
   };
   playNextOrContinueRef.current = playNextOrContinue;
 

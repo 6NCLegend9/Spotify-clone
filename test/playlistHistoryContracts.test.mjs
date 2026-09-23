@@ -13,11 +13,11 @@ test("youtube playlist API paginates up to 100 playable tracks", () => {
   assert.match(source, /maxResults: String\(Math\.min\(50/);
 });
 
-test("SongBar opens playlists in-app instead of external YouTube", () => {
-  const source = readFileSync(join(root, "src/components/Homepage/SongBar.jsx"), "utf8");
+test("featured playlist cards open in-app and play the whole playlist as a collection", () => {
+  const source = readFileSync(join(root, "src/components/Homepage/MixCard.jsx"), "utf8");
   assert.doesNotMatch(source, /youtube\.com\/playlist/);
-  assert.match(source, /\/youtube-playlist\//);
-  assert.match(source, /\/api\/youtube-playlist/);
+  assert.match(source, /\/youtube-playlist\/\$\{encodeURIComponent\(mix\.playlistId\)\}/);
+  assert.match(source, /queueMode: "collection"/);
 });
 
 test("recently played surfaces route to /recently-played", () => {

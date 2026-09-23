@@ -42,11 +42,15 @@ test("failure policy: transient errors retry same id before alternate", () => {
     "tryAlternate",
   );
   assert.equal(
-    youtubePlaybackFailurePolicy({
-      code: "stall",
-      sameIdAttempts: MAX_SAME_ID_RETRIES,
-      alternateAttempts: MAX_ALTERNATE_ATTEMPTS,
-    }).action,
+    youtubePlaybackFailurePolicy({ code: 5, sameIdAttempts: MAX_SAME_ID_RETRIES, alternateAttempts: MAX_ALTERNATE_ATTEMPTS }).error.canRetry,
+    true,
+  );
+});
+
+test("failure policy: stalls skip same-id retries because buffer recovery already reloaded", () => {
+  assert.equal(youtubePlaybackFailurePolicy({ code: "stall", sameIdAttempts: 0, alternateAttempts: 0 }).action, "tryAlternate");
+  assert.equal(
+    youtubePlaybackFailurePolicy({ code: "stall", sameIdAttempts: 0, alternateAttempts: MAX_ALTERNATE_ATTEMPTS }).action,
     "skipQueue",
   );
 });
