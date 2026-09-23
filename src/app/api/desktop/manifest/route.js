@@ -6,7 +6,9 @@ import {
   findLocalDesktopInstaller,
 } from "../../../../utils/desktopInstaller.mjs";
 import {
-  desktopReleaseFileUrl,
+  desktopGithubReleaseDownloadUrl,
+  desktopReleaseBundle,
+  fetchDesktopGithubRelease,
   normalizeDesktopReleaseChannel,
 } from "../../../../utils/desktopRelease.mjs";
 
@@ -14,6 +16,7 @@ export const runtime = "nodejs";
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
+
 function httpsUrl(value) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text) return "";
@@ -123,15 +126,8 @@ function requestedChannel(request) {
 }
 
 function configuredManifestUrl(channel) {
-  if (channel === "stable") {
-    const explicit = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
-    if (explicit) return explicit;
-  }
-  return desktopReleaseFileUrl(
-    process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
-    channel,
-    "release-manifest.json",
-  );
+  if (channel !== "stable") return "";
+  return httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
 }
 
 async function fetchVerifiedManifest(manifestUrl, expectedChannel) {
@@ -149,6 +145,54 @@ async function fetchVerifiedManifest(manifestUrl, expectedChannel) {
   return payload;
 }
 
+async function githubReleaseManifest(channel) {
+  const release = await fetchDesktopGithubRelease(channel);
+  const bundle = desktopReleaseBundle(release, channel);
+  if (!bundle) {
+    if (!release) return null;
+    throw new Error("The selected GitHub desktop release is missing required updater assets.");
+  }
+
+  const manifestUrl = desktopGithubReleaseDownloadUrl(bundle.tag, bundle.manifestFile);
+  const response = await fetch(manifestUrl, {
+    headers: { accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`GitHub desktop manifest returned ${response.status}.`);
+  const envelope = await response.json();
+  const payload = channel === "internal"
+    ? envelope?.payload
+    : verifiedRemotePayload(envelope);
+
+  if (!payload || typeof payload !== "object") throw new Error("GitHub desktop manifest payload is invalid.");
+  if (normalizeDesktopReleaseChannel(payload.channel) !== channel) {
+    throw new Error("GitHub desktop manifest channel mismatch.");
+  }
+  if (String(payload.latest || "").trim() !== bundle.version) {
+    throw new Error("GitHub desktop manifest version does not match the release assets.");
+  }
+  if (desktopAppDownloadUrl(payload.downloadUrl) !== bundle.installerUrl) {
+    throw new Error("GitHub desktop manifest installer URL does not match the release bundle.");
+  }
+  if (!sha512(payload.sha512)) throw new Error("GitHub desktop manifest is missing a valid installer SHA-512.");
+  if (!Number.isSafeInteger(payload.sizeBytes) || payload.sizeBytes <= 0) {
+    throw new Error("GitHub desktop manifest is missing a valid installer size.");
+  }
+  if (channel === "internal" && payload.signed === true) {
+    throw new Error("Internal desktop previews must not claim to be signed releases.");
+  }
+  if (channel !== "internal" && payload.signed !== true) {
+    throw new Error("Stable and beta desktop releases must be signed.");
+  }
+
+  return normalizeManifest({
+    ...payload,
+    downloadUrl: bundle.installerUrl,
+    source: "github-release",
+    signed: channel !== "internal",
+  }, channel);
+}
+
 async function loadManifest(channel) {
   const configured = normalizeManifest({}, channel);
   const manifestUrl = configuredManifestUrl(channel);
@@ -159,16 +203,28 @@ async function loadManifest(channel) {
       return normalizeManifest({
         ...payload,
         signed: true,
-        source: "vercel-blob",
+        source: "configured-signed-manifest",
       }, channel);
     } catch (error) {
       console.error(JSON.stringify({
         level: "error",
-        msg: "desktop_manifest_fetch_failed",
+        msg: "desktop_manifest_override_fetch_failed",
         channel,
         error: error instanceof Error ? error.message : String(error),
       }));
     }
+  }
+
+  try {
+    const release = await githubReleaseManifest(channel);
+    if (release) return release;
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      msg: "desktop_github_release_fetch_failed",
+      channel,
+      error: error instanceof Error ? error.message : String(error),
+    }));
   }
 
   if (configured.published || channel !== "stable") return configured;
