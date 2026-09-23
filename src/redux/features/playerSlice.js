@@ -4,6 +4,7 @@ import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
 import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity } from '../../utils/songIdentity.mjs';
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
+import { normalizeRadioArtist } from '../../utils/radioSeed.mjs';
 
 const initialState = {
   currentSongs: [],
@@ -61,18 +62,55 @@ function trackScopedRadioSeed(rawTrack) {
     track.author_name,
   ].find((value) => typeof value === 'string' && value.trim())?.trim() || '';
   const inheritedSeed = typeof track.seedQuery === 'string' ? track.seedQuery.trim() : '';
-  const seedQuery = title ? `${title} similar songs` : inheritedSeed || artist;
-  const discoveryQuery = title ? `${title} radio mix` : inheritedSeed || '';
+  const inheritedGenre = typeof track.genre === 'string' ? track.genre.trim() : '';
+  const seedQuery = inheritedSeed || [artist, title].filter(Boolean).join(' ');
 
   return {
     ...track,
     ...(artist ? { channel: artist } : {}),
     ...(seedQuery ? { seedQuery } : {}),
-    // Radio discovery describes the selected recording, never the search rail
-    // and never an artist-only query. Candidate diversification happens in the
-    // radio discovery layer rather than deleting valid queue entries here.
-    genre: discoveryQuery,
+    ...(inheritedGenre ? { genre: inheritedGenre } : {}),
   };
+}
+
+function radioOriginContext(track) {
+  if (!track?.id) return null;
+  const artist = typeof track.channel === 'string' ? track.channel.trim() : '';
+  const title = typeof track.title === 'string' ? track.title.trim() : '';
+  const seed = typeof track.seedQuery === 'string' ? track.seedQuery.trim() : '';
+  return {
+    type: 'radio',
+    id: String(track.id),
+    name: seed || [artist, title].filter(Boolean).join(' ') || 'Radio',
+  };
+}
+
+function pruneAutomaticRadioUpcoming(queue, current) {
+  const list = Array.isArray(queue) ? queue : [];
+  if (!current?.id || list.length < 2) return list;
+  const currentIndex = list.findIndex((item) => sameOccurrence(item, current) || item?.id === current.id);
+  if (currentIndex < 0) return list;
+
+  const head = list.slice(0, currentIndex + 1);
+  const upcoming = list.slice(currentIndex + 1);
+  const currentArtist = normalizeRadioArtist(current.channel || current.artist || '');
+  const seenAutoArtists = new Set();
+  const next = [];
+
+  for (const entry of upcoming) {
+    if (!entry?.id) continue;
+    const artist = normalizeRadioArtist(entry.channel || entry.artist || '');
+    if (entry.queueSource === 'user') {
+      next.push(entry);
+      continue;
+    }
+    if (artist && currentArtist && artist === currentArtist) continue;
+    if (artist && seenAutoArtists.has(artist)) continue;
+    if (artist) seenAutoArtists.add(artist);
+    next.push(entry);
+  }
+
+  return [...head, ...next];
 }
 
 function syncLegacyQueueMode(state) {
@@ -130,11 +168,14 @@ const playerSlice = createSlice({
       const snapshot = normalizePlaybackSnapshot(action.payload?.snapshot);
       const queueMode = snapshot.queueMode || (snapshot.queueManualEnd ? 'collection' : 'radio');
       const youtubeVideo = decodePlayableYoutubeTrack(snapshot.youtubeVideo);
-      const youtubeQueue = (Array.isArray(snapshot.youtubeQueue) ? snapshot.youtubeQueue : [])
+      let youtubeQueue = (Array.isArray(snapshot.youtubeQueue) ? snapshot.youtubeQueue : [])
         .map((track) => decodePlayableYoutubeTrack(track))
         .filter(Boolean);
       if (youtubeVideo?.id && !youtubeQueue.some((track) => track.id === youtubeVideo.id)) {
         youtubeQueue.unshift(youtubeVideo);
+      }
+      if (queueMode === 'radio' && youtubeVideo?.id) {
+        youtubeQueue = pruneAutomaticRadioUpcoming(youtubeQueue, youtubeVideo);
       }
       return {
         ...initialState,
@@ -145,7 +186,9 @@ const playerSlice = createSlice({
         history: (Array.isArray(snapshot.history) ? snapshot.history : [])
           .map((track) => decodePlayableYoutubeTrack(track))
           .filter(Boolean),
-        isPlaying: youtubeVideo?.id || snapshot.activeSong?.id ? snapshot.isPlaying : false,
+        playbackContext: normalizeContext(snapshot.playbackContext)
+          || (queueMode === 'radio' ? radioOriginContext(youtubeQueue[0] || youtubeVideo) : null),
+        isPlaying: youtubeVideo?.id || snapshot.activeSong?.id ? snapshot.isPlaying === true : false,
         queueMode,
         queueManualEnd: queueMode === 'collection',
         playbackOwner: action.payload?.owner || null,
@@ -224,6 +267,9 @@ const playerSlice = createSlice({
       const queuedOccurrence = state.youtubeQueue.find((item) => sameOccurrence(item, nextVideo))
         || state.youtubeQueue.find((item) => item?.id === nextVideo?.id);
       state.youtubeVideo = queuedOccurrence || nextVideo;
+      if (state.queueMode === 'radio' && state.youtubeVideo?.id) {
+        state.youtubeQueue = pruneAutomaticRadioUpcoming(state.youtubeQueue, state.youtubeVideo);
+      }
       if (state.youtubeVideo) {
         state.activeSong = {};
         state.currentSongs = [];
@@ -337,7 +383,8 @@ const playerSlice = createSlice({
       state.queueUndo = null;
       state.queueMode = queueMode;
       syncLegacyQueueMode(state);
-      state.playbackContext = normalizeContext(action.payload?.context);
+      state.playbackContext = normalizeContext(action.payload?.context)
+        || (queueMode === 'radio' ? radioOriginContext(rawTrack) : null);
       state.userQueue = [];
       state.youtubeQueue = queue;
       state.youtubeVideo = track;
@@ -417,6 +464,9 @@ const playerSlice = createSlice({
         existingIds.add(entry.id);
         if (songIdentity) existingSongIdentities.add(songIdentity);
       });
+      if (radioMode && state.youtubeVideo?.id) {
+        state.youtubeQueue = pruneAutomaticRadioUpcoming(state.youtubeQueue, state.youtubeVideo);
+      }
     },
 
     playNextToQueue: (state, action) => {

@@ -13,6 +13,60 @@ export function normalizeRadioArtist(value) {
     .trim();
 }
 
+function radioText(value, max = 120) {
+  return String(value || "")
+    .normalize("NFC")
+    .replace(/[\u0000-\u001f\u007f|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+function radioTitle(value) {
+  return radioText(value)
+    .replace(/\s*[\(\[][^)\]]*(?:official|audio|video|lyrics?|visuali[sz]er|4k|hd)[^)\]]*[\)\]]\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function buildRadioDiscoveryQueries(
+  track,
+  {
+    originTrack = null,
+    contextName = "",
+    limit = 4,
+  } = {},
+) {
+  const origin = originTrack?.id ? originTrack : track;
+  const originTitle = radioTitle(origin?.title || origin?.name || "");
+  const originArtist = radioText(origin?.channel || origin?.artist || "", 80);
+  const originSeed = radioText(origin?.seedQuery || contextName || "");
+  const originGenre = radioText(origin?.genre || "");
+  const currentTitle = radioTitle(track?.title || track?.name || "");
+
+  const candidates = [
+    originTitle && originArtist ? `${originTitle} ${originArtist} similar songs` : "",
+    originSeed ? `${originSeed} similar songs` : "",
+    originGenre && normalizeRadioArtist(originGenre) !== normalizeRadioArtist(originSeed)
+      ? `${originGenre} similar music`
+      : "",
+    originArtist ? `${originArtist} similar artists songs` : "",
+    currentTitle && currentTitle !== originTitle ? `${currentTitle} similar songs` : "",
+  ];
+
+  const seen = new Set();
+  const queries = [];
+  for (const candidate of candidates) {
+    const value = radioText(candidate);
+    const key = value.toLowerCase();
+    if (!value || seen.has(key)) continue;
+    seen.add(key);
+    queries.push(value);
+    if (queries.length >= Math.max(1, Math.min(6, Number(limit) || 4))) break;
+  }
+  return queries;
+}
+
 export function buildRadioSeedQuery({ id, artist = "" } = {}) {
   const videoId = String(id || "").trim();
   if (!VIDEO_ID_PATTERN.test(videoId)) return "";
@@ -40,6 +94,7 @@ export function diversifyRadioTracks(
   tracks,
   {
     seedArtist = "",
+    excludeArtists = [],
     limit = 24,
     maxPerArtist = 2,
     maxSeedArtist = 1,
@@ -47,11 +102,18 @@ export function diversifyRadioTracks(
   } = {},
 ) {
   const sourceArtist = normalizeRadioArtist(seedArtist);
+  const excluded = new Set(
+    (Array.isArray(excludeArtists) ? excludeArtists : [])
+      .map((artist) => normalizeRadioArtist(artist))
+      .filter(Boolean),
+  );
   const unique = [];
   const seenIds = new Set();
   for (const track of Array.isArray(tracks) ? tracks : []) {
     const id = String(track?.id || "").trim();
     if (!VIDEO_ID_PATTERN.test(id) || seenIds.has(id)) continue;
+    const artist = normalizeRadioArtist(track?.channel || track?.artist || "");
+    if (artist && excluded.has(artist)) continue;
     seenIds.add(id);
     unique.push(track);
   }

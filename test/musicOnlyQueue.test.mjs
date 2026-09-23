@@ -37,3 +37,23 @@ test("restored playback purges non-music rows from an older persisted queue", ()
   assert.deepEqual(state.youtubeQueue.map((item) => item.id), [song.id]);
   assert.deepEqual(state.history.map((item) => item.id), [song.id]);
 });
+
+
+test("radio playback preserves the original search seed and prunes repeated automatic artists", () => {
+  const sameArtist = { id: "nopqrstuvwx", title: "BigXthaPlug - Another Song (Official Audio)", channel: "BigXthaPlug", seedQuery: "6wa" };
+  const artistB = { id: "opqrstuvwxy", title: "Artist B - Song One (Official Audio)", channel: "Artist B", seedQuery: "6wa" };
+  const artistB2 = { id: "pqrstuvwxyz", title: "Artist B - Song Two (Official Audio)", channel: "Artist B", seedQuery: "6wa" };
+  const artistC = { id: "qrstuvwxyza", title: "Artist C - Song (Official Audio)", channel: "Artist C", seedQuery: "6wa" };
+
+  let state = reducer(undefined, startYoutubePlayback({ queue: [song], track: song, queueMode: "radio" }));
+  assert.equal(state.youtubeVideo.seedQuery, "6wa");
+  assert.equal(state.playbackContext.id, song.id);
+  assert.equal(state.playbackContext.name, "6wa");
+
+  state = reducer(state, appendToQueue([sameArtist, artistB, artistB2, artistC]));
+  assert.deepEqual(state.youtubeQueue.map((item) => item.id), [song.id, artistB.id, artistC.id]);
+
+  state = reducer(state, addToQueue(sameArtist));
+  assert.equal(state.youtubeQueue.at(-1).id, sameArtist.id);
+  assert.equal(state.youtubeQueue.at(-1).queueSource, "user");
+});
