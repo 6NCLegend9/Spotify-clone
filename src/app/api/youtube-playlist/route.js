@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
+import { filterMusicPlaybackResults } from "@/utils/officialMusicSearch.mjs";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { apiError, handleApiError } from "@/utils/apiResponse";
 
@@ -18,18 +19,20 @@ function upstreamCode(status) {
 }
 
 function mapPlaylistTracks(items) {
-  return (Array.isArray(items) ? items : [])
+  const tracks = (Array.isArray(items) ? items : [])
     .filter((item) => item?.snippet?.resourceId?.videoId && item?.status?.privacyStatus === "public")
     .map((item) => ({
       id: item.snippet.resourceId.videoId,
       title: cleanTitle(item.snippet.title || ""),
       channel: cleanTitle(item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle || ""),
+      description: cleanTitle(item.snippet.description || ""),
       thumbnail:
         item.snippet.thumbnails?.high?.url ||
         item.snippet.thumbnails?.medium?.url ||
         item.snippet.thumbnails?.default?.url ||
         "",
     }));
+  return filterMusicPlaybackResults(tracks);
 }
 
 function mergeTracks(previous, incoming) {

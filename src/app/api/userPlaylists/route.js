@@ -21,6 +21,7 @@ import {
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 import { youtubeFetch } from "@/utils/youtubeApi";
 import { canViewPlaylist, libraryPlaylistFilter } from "@/utils/playlistAccess.mjs";
+import { filterMusicPlaybackResults } from "@/utils/officialMusicSearch.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -75,9 +76,16 @@ async function fetchGenreSongIds(category, limit) {
     for (const result of results) {
         if (result.status !== "fulfilled" || !result.value?.ok) continue;
         const items = Array.isArray(result.value.data?.items) ? result.value.data.items : [];
-        for (const item of items) {
-            const id = item?.id?.videoId;
-            if (id && YOUTUBE_ID_PATTERN.test(id)) ids.add(id);
+        const candidates = items
+            .filter((item) => item?.id?.videoId)
+            .map((item) => ({
+                id: item.id.videoId,
+                title: item.snippet?.title || "",
+                channel: item.snippet?.channelTitle || "",
+                description: item.snippet?.description || "",
+            }));
+        for (const item of filterMusicPlaybackResults(candidates, category)) {
+            if (YOUTUBE_ID_PATTERN.test(item.id)) ids.add(item.id);
         }
     }
     return shuffle([...ids]).slice(0, limit);

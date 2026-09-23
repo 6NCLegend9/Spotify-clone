@@ -309,6 +309,7 @@ function hideMiniPlayer() {
 
 function showMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  hideMiniPlayer();
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
@@ -798,6 +799,13 @@ function updateTrayMenu() {
       click: () => focusMainWindow(),
     },
     {
+      label: miniWindow && !miniWindow.isDestroyed() && miniWindow.isVisible()
+        ? "Hide mini player"
+        : "Show mini player",
+      enabled: playbackState.hasTrack,
+      click: () => toggleMiniPlayer(),
+    },
+    {
       label: "Check for updates",
       enabled: runtimeFeature("updater"),
       click: () => void updater?.checkNow({ manual: true }),
@@ -818,7 +826,7 @@ function createTray() {
   tray = new Tray(resourceIconPath());
   tray.setToolTip(PRODUCT_NAME);
   updateTrayMenu();
-  tray.on("click", () => toggleMiniPlayer());
+  tray.on("click", () => focusMainWindow());
   return tray;
 }
 

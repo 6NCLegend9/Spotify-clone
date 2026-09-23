@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { youtubeFetch } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
+import { buildOfficialMusicQuery, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
 import { isJamCode, normalizeJamCode } from "@/utils/jam.mjs";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
@@ -114,7 +115,7 @@ async function searchSeed(seed) {
       videoEmbeddable: "true",
       videoSyndicated: "true",
       maxResults: String(RESULTS_PER_SEED),
-      q: `${seed.term} ${suffix}`,
+      q: buildOfficialMusicQuery(`${seed.term} ${suffix}`),
     },
     { next: { revalidate: 3600 } },
   );
@@ -123,9 +124,10 @@ async function searchSeed(seed) {
     error.status = status;
     throw error;
   }
-  return (Array.isArray(data?.items) ? data.items : [])
+  const tracks = (Array.isArray(data?.items) ? data.items : [])
     .filter((item) => item?.id?.videoId)
     .map((item) => normalizeVideo(item, seed));
+  return rankOfficialMusicResults(tracks, seed.term);
 }
 
 export async function POST(request) {

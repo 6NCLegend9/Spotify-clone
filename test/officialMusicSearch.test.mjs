@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildOfficialMusicQuery,
+  filterMusicPlaybackResults,
+  isMusicPlaybackCandidate,
   officialMusicScore,
   rankOfficialMusicResults,
   sanitizeMusicSearchQuery,
@@ -34,7 +36,8 @@ test("official sources outrank covers and lyric uploads", () => {
   const cover = { title: "Post To Be cover lyrics", channel: "Random Karaoke" };
   assert.ok(officialMusicScore(vevo, query) > officialMusicScore(cover, query));
   assert.ok(officialMusicScore(topic, query) > officialMusicScore(cover, query));
-  assert.deepEqual(rankOfficialMusicResults([cover, topic, vevo], query), [vevo, topic, cover]);
+  assert.deepEqual(rankOfficialMusicResults([cover, topic, vevo], query), [vevo, topic]);
+  assert.equal(isMusicPlaybackCandidate(cover, "Post To Be cover"), true);
 });
 
 test("ranking is stable when candidates have the same score", () => {
@@ -47,4 +50,22 @@ test("buildOfficialMusicQuery never appends junk official tokens", () => {
   assert.equal(buildOfficialMusicQuery("Hello"), "Hello");
   assert.equal(buildOfficialMusicQuery("Hello official"), "Hello official");
   assert.ok(!buildOfficialMusicQuery("Shape of You").toLowerCase().endsWith(" music video"));
+});
+
+
+test("music playback filter rejects reaction, press conference and editorial videos", () => {
+  const candidates = [
+    { id: "song", title: "BigXthaPlug - 6WA (Official Visualizer)", channel: "BigXthaPlug" },
+    { id: "audio", title: "6WA", channel: "BigXthaPlug - Topic" },
+    { id: "press", title: "6WA Press Conference | Official Mixtape Announcement", channel: "BigXthaPlug" },
+    { id: "reaction", title: "Rapper Reacts To BigXthaPlug - 6WA", channel: "Reaction Channel" },
+    { id: "interview", title: "BigXthaPlug Interview About 6WA", channel: "Media" },
+  ];
+  assert.deepEqual(filterMusicPlaybackResults(candidates, "6wa").map((item) => item.id), ["song", "audio"]);
+});
+
+test("derivative versions only pass when explicitly requested", () => {
+  const slowed = { id: "slow", title: "6WA (Slowed + Reverb)", channel: "Uploader" };
+  assert.equal(isMusicPlaybackCandidate(slowed, "6wa"), false);
+  assert.equal(isMusicPlaybackCandidate(slowed, "6wa slowed"), true);
 });

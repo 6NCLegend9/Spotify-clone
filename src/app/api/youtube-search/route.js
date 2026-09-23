@@ -6,7 +6,7 @@ import { hasYouTubeApiKey, youtubeFetch, searchYouTubeChannels } from "@/utils/y
 import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { readSearchOptions } from "@/utils/searchOptions.mjs";
-import { buildOfficialMusicQuery, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
+import { buildOfficialMusicQuery, filterMusicPlaybackResults, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
 import { diversifyRadioTracks } from "@/utils/radioSeed.mjs";
 import {
   apiError,
@@ -116,9 +116,10 @@ async function searchResponse(request) {
         genre: query,
       }));
 
+    const playbackResults = type === "video" ? filterMusicPlaybackResults(results, query) : results;
     const rankedResults = type === "video" && order === "relevance"
-      ? rankOfficialMusicResults(results, query)
-      : results;
+      ? rankOfficialMusicResults(playbackResults, query)
+      : playbackResults;
     const responseResults = radioDiscovery
       ? diversifyRadioTracks(rankedResults, {
         limit: 20,
