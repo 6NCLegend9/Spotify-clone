@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diversifyRadioTracks, normalizeRadioArtist } from "../src/utils/radioSeed.mjs";
+import { buildRadioDiscoveryQueries, diversifyRadioTracks, normalizeRadioArtist } from "../src/utils/radioSeed.mjs";
 
 const track = (id, channel, title) => ({ id, channel, title });
 
@@ -54,4 +54,49 @@ test("radio diversification removes duplicate video IDs without treating an arti
     "EEEEEEEEEE2",
     "FFFFFFFFFF1",
   ].sort());
+});
+
+
+test("radio discovery stays anchored to the origin song instead of asking for more seed-artist songs", () => {
+  const origin = {
+    id: "GGGGGGGGGG1",
+    title: "BigXthaPlug - 6WA (Official Visualizer)",
+    channel: "BigXthaPlug",
+    seedQuery: "6wa",
+    genre: "Hip-Hop",
+  };
+  const current = {
+    id: "HHHHHHHHHH1",
+    title: "A Different Song (Official Music Video)",
+    channel: "Different Artist",
+    seedQuery: "6wa",
+    genre: "Hip-Hop",
+  };
+  const queries = buildRadioDiscoveryQueries(current, {
+    originTrack: origin,
+    contextName: "6wa",
+    limit: 5,
+  });
+  assert.ok(queries.some((query) => /6WA.*BigXthaPlug.*similar songs/i.test(query)));
+  assert.ok(queries.some((query) => /Hip-Hop similar music/i.test(query)));
+  assert.ok(queries.some((query) => /BigXthaPlug similar artists songs/i.test(query)));
+  assert.ok(!queries.some((query) => /^BigXthaPlug (?:songs|mix)$/i.test(query)));
+});
+
+test("radio diversification can exclude artists already waiting in the queue", () => {
+  const result = diversifyRadioTracks([
+    track("IIIIIIIIII1", "Seed Artist", "Seed extra"),
+    track("JJJJJJJJJJ1", "Queued Artist", "Queued duplicate"),
+    track("KKKKKKKKKK1", "Artist K", "K one"),
+    track("LLLLLLLLLL1", "Artist L", "L one"),
+    track("MMMMMMMMMM1", "Artist K", "K two"),
+  ], {
+    seedArtist: "Seed Artist",
+    excludeArtists: ["Queued Artist"],
+    maxSeedArtist: 0,
+    maxPerArtist: 1,
+    artistGap: 4,
+    limit: 10,
+  });
+  assert.deepEqual(result.map((item) => item.channel), ["Artist K", "Artist L"]);
 });

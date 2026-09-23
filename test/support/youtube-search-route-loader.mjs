@@ -9,7 +9,12 @@ const mocks = {
   "@/utils/youtubeApi": `export const hasYouTubeApiKey = () => true;
     export const youtubeFetch = async () => ({
       ok: true, status: 200, source: "official",
-      data: { items: [{ id: { videoId: "abcdefghijk" }, snippet: { title: "Hello", channelTitle: "Adele", description: "", publishedAt: "", thumbnails: {} } }] }
+      data: { items: [
+        { id: { videoId: "abcdefghijk" }, snippet: { title: "Hello (Official Video)", channelTitle: "Adele", description: "", publishedAt: "", thumbnails: {} } },
+        { id: { videoId: "bcdefghijkl" }, snippet: { title: "Stay With Me (Official Video)", channelTitle: "Sam Smith", description: "", publishedAt: "", thumbnails: {} } },
+        { id: { videoId: "cdefghijklm" }, snippet: { title: "All I Ask (Official Audio)", channelTitle: "Adele", description: "", publishedAt: "", thumbnails: {} } },
+        { id: { videoId: "defghijklmn" }, snippet: { title: "Someone You Loved (Official Video)", channelTitle: "Lewis Capaldi", description: "", publishedAt: "", thumbnails: {} } }
+      ] }
     });
     export const searchYouTubeChannels = async () => ({ ok: true, status: 200, source: "official", data: { items: [] } });`,
 };

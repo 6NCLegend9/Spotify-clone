@@ -36,3 +36,11 @@ test("anchored menus sit below the trigger and flip above when they would overfl
   assert.equal(flipped.top, 336);
   assert.ok(flipped.top + 160 <= 600);
 });
+
+
+test("radio discovery excludes the seed artist and returns different artists", async () => {
+  const response = await GET(new Request("http://localhost/api/youtube-search?q=Hello+Adele+similar+songs&type=video&seedArtist=Adele"));
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(body.results.map((item) => item.channel), ["Sam Smith", "Lewis Capaldi"]);
+});

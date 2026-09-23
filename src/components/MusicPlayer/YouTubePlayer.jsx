@@ -57,6 +57,7 @@ import {
 } from "@/utils/jam.mjs";
 import { decodeTrackFields } from "@/utils/text";
 import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
+import { buildRadioDiscoveryQueries, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
 const CaptionKaraoke = dynamic(() => import("./CaptionKaraoke"), { ssr: false });
 const OneMoreSongCard = dynamic(() => import("./OneMoreSongCard"), { ssr: false });
@@ -173,7 +174,7 @@ function YouTubePlayer() {
   repeatRef.current = repeat;
   const { status } = useSession();
   const jam = useJam();
-  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner, queueUndo, queueManualEnd, queueMode } = useSelector(
+  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner, queueUndo, queueManualEnd, queueMode, playbackContext } = useSelector(
     (state) => state.player,
   );
   const video = useMemo(() => decodeTrackFields(rawVideo), [rawVideo]);
@@ -2135,64 +2136,71 @@ function YouTubePlayer() {
     try {
       const current = videoRef.current;
       const list = Array.isArray(queueRef.current) ? queueRef.current : [];
-      const existingIds = new Set(list.map((item) => item.id));
-      const titleSeed = String(current?.title || "")
-        .replace(/\s*[\(\[][^)\]]*[\)\]]/g, "")
-        .replace(/\s*(official|audio|video|lyrics|hd|4k)\s*/gi, " ")
-        .trim();
-      const seeds = [...new Set([
-        current?.seedQuery,
-        current?.genre,
-        current?.channel ? `${current.channel} songs` : "",
-        current?.channel ? `${current.channel} mix` : "",
-        titleSeed ? `${titleSeed} radio` : "",
-        "popular music mix",
-      ].filter(Boolean))].slice(0, 3);
+      if (!current?.id) return [];
+
+      const origin = (
+        playbackContext?.type === "radio" && playbackContext?.id
+          ? list.find((item) => item?.id === playbackContext.id)
+          : null
+      ) || list[0] || current;
+      const originArtist = String(origin?.channel || origin?.artist || current?.channel || "").trim();
+      const originSeed = String(
+        origin?.seedQuery
+        || playbackContext?.name
+        || origin?.genre
+        || current?.seedQuery
+        || current?.genre
+        || "",
+      ).trim();
+      const originGenre = String(origin?.genre || current?.genre || "").trim();
+      const seeds = buildRadioDiscoveryQueries(current, {
+        originTrack: origin,
+        contextName: playbackContext?.name || originSeed,
+        limit: 4,
+      });
+      if (!seeds.length) return [];
+
+      const currentIndex = list.findIndex((item) => item?.id === current.id);
+      const upcoming = currentIndex >= 0 ? list.slice(currentIndex + 1) : [];
+      const excludedArtists = upcoming
+        .map((item) => item?.channel || item?.artist || "")
+        .filter(Boolean);
+      const existingIds = new Set(list.map((item) => item?.id).filter(Boolean));
 
       const searches = await Promise.all(
-        seeds.map((seed) =>
-          requestJson(`/api/youtube-search?type=video&q=${encodeURIComponent(seed)}`, {
+        seeds.map((seed) => {
+          const params = new URLSearchParams({ type: "video", q: seed });
+          if (originArtist) params.set("seedArtist", originArtist);
+          return requestJson(`/api/youtube-search?${params}`, {
             fallbackTitle: "Queue search is temporarily unavailable",
             fallbackMessage: "We couldn’t find more tracks right now.",
-          }).catch(() => null),
-        ),
+          }).catch(() => null);
+        }),
       );
 
-      const extras = [];
-      const remember = (item) => {
-        if (!item?.id || existingIds.has(item.id)) return;
-        existingIds.add(item.id);
-        extras.push({
-          ...item,
-          seedQuery: current?.seedQuery || current?.genre || current?.channel || item.channel,
-          genre: current?.genre || item.genre,
-        });
-      };
-
+      const pool = [];
+      const seenCandidates = new Set();
       for (const data of searches) {
-        for (const item of Array.isArray(data?.results) ? data.results : []) remember(item);
-      }
-
-      if (extras.length < 6) {
-        try {
-          const rec = await requestJson("/api/recommendations", {
-            fallbackTitle: "Queue search is temporarily unavailable",
-            fallbackMessage: "We couldn’t find more tracks right now.",
+        for (const item of Array.isArray(data?.results) ? data.results : []) {
+          if (!item?.id || existingIds.has(item.id) || seenCandidates.has(item.id)) continue;
+          seenCandidates.add(item.id);
+          pool.push({
+            ...item,
+            seedQuery: originSeed || item.seedQuery || current?.seedQuery || item.channel,
+            genre: originGenre || item.genre || "",
           });
-          const sections = rec?.sections || {};
-          const recVideos = [
-            ...(sections.trending || []),
-            ...(sections.charts || []),
-            ...(sections.newReleases || []),
-            ...((sections.genres || []).flatMap((group) => group.videos || [])),
-          ];
-          recVideos.forEach(remember);
-        } catch {
-          // Radio fallback below still keeps playback going.
         }
       }
 
-      const nextTracks = extras.slice(0, 16);
+      const nextTracks = diversifyRadioTracks(pool, {
+        seedArtist: originArtist,
+        excludeArtists: excludedArtists,
+        limit: 16,
+        maxPerArtist: 1,
+        maxSeedArtist: 0,
+        artistGap: 4,
+      });
+
       if (manualEndRef.current || current?.id !== videoRef.current?.id) return [];
       if (nextTracks.length > 0) {
         dispatch(appendToQueue(nextTracks));
@@ -2411,8 +2419,21 @@ function YouTubePlayer() {
       return undefined;
     }
     let active = true;
-    const seed = `${String(video.title || "").replace(/\s*[\(\[][^)\]]*[\)\]]/g, " ").trim()} similar songs`.trim();
-    requestJson(`/api/youtube-search?type=video&q=${encodeURIComponent(seed || "popular music mix")}`, {
+    const list = Array.isArray(queueRef.current) ? queueRef.current : [];
+    const origin = (
+      playbackContext?.type === "radio" && playbackContext?.id
+        ? list.find((item) => item?.id === playbackContext.id)
+        : null
+    ) || list[0] || video;
+    const [seed = "popular music mix"] = buildRadioDiscoveryQueries(video, {
+      originTrack: origin,
+      contextName: playbackContext?.name || origin?.seedQuery || "",
+      limit: 1,
+    });
+    const oneMoreParams = new URLSearchParams({ type: "video", q: seed });
+    const seedArtist = String(origin?.channel || origin?.artist || "").trim();
+    if (seedArtist) oneMoreParams.set("seedArtist", seedArtist);
+    requestJson(`/api/youtube-search?${oneMoreParams}`, {
       fallbackTitle: "Related song unavailable",
       fallbackMessage: "We couldn’t find a last song to suggest.",
     })

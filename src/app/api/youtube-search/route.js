@@ -25,17 +25,7 @@ function upstreamCode(status) {
 function isRadioDiscoveryQuery(query, type, order) {
   return type === "video"
     && order === "relevance"
-    && /\b(?:similar songs|radio mix)\s*$/i.test(String(query || ""));
-}
-
-function trackScopedDiscoverySeed(track) {
-  const title = String(track?.title || "").trim();
-  if (!title) return track;
-  return {
-    ...track,
-    seedQuery: `${title} similar songs`,
-    genre: `${title} radio mix`,
-  };
+    && /\b(?:similar songs|radio mix|similar music|similar artists(?: songs)?)\s*$/i.test(String(query || ""));
 }
 
 export async function GET(request) {
@@ -51,8 +41,15 @@ export async function GET(request) {
 
 async function searchResponse(request) {
   try {
-    const { query, type, order, duration, pageToken, requireOfficial } = readSearchOptions(new URL(request.url).searchParams);
+    const url = new URL(request.url);
+    const { query, type, order, duration, pageToken, requireOfficial } = readSearchOptions(url.searchParams);
     const radioDiscovery = isRadioDiscoveryQuery(query, type, order);
+    const seedArtist = String(url.searchParams.get("seedArtist") || "")
+      .normalize("NFC")
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 100);
 
     const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 15 });
     if (rateLimit.limited) {
@@ -122,10 +119,12 @@ async function searchResponse(request) {
       : playbackResults;
     const responseResults = radioDiscovery
       ? diversifyRadioTracks(rankedResults, {
+        seedArtist,
         limit: 20,
-        maxPerArtist: 2,
-        artistGap: 2,
-      }).map(trackScopedDiscoverySeed)
+        maxPerArtist: 1,
+        maxSeedArtist: seedArtist ? 0 : 1,
+        artistGap: 3,
+      })
       : rankedResults;
 
     return NextResponse.json(
