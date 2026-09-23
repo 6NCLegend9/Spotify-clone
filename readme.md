@@ -17,13 +17,13 @@
 
 HayKasa combines a Next.js music application with YouTube-backed discovery/playback, personal libraries, queue controls, account-aware recommendations, synchronized lyrics/captions, Jam sessions, and a hardened Windows desktop shell.
 
-## Product views
-
-These product captures are generated from the repository's Playwright browser suite, so they represent the UI exercised by CI rather than mock marketing screens.
+## Product preview
 
 <div align="center">
-  <img src="./docs/assets/readme/haykasa-product.webp" alt="HayKasa desktop search, queue, and mobile playlist views" width="100%" />
+  <img src="./public/haykasa-og.png" alt="HayKasa product preview" width="100%" />
 </div>
+
+The README uses a clean repository-owned HayKasa preview instead of a compressed screenshot collage. Product behavior is verified separately by the Playwright browser suite across desktop and mobile projects.
 
 ## What HayKasa includes
 
