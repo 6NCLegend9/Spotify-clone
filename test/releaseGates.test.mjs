@@ -18,6 +18,8 @@ function sourceFiles(directory) {
   });
 }
 
+function joinRoot(path) { return join(projectRoot, path); }
+
 test("Vercel builds the Next.js app on Node 22", () => {
   const pkg = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8"));
   const vercel = JSON.parse(readFileSync(join(projectRoot, "vercel.json"), "utf8"));
@@ -74,34 +76,45 @@ test("public discovery does not advertise private libraries or fabricated freshn
   assert.match(searchMetadata, /robots: \{ index: false, follow: true \}/);
 });
 
-function joinRoot(path) { return join(projectRoot, path); }
-
-
-test("desktop CI builds update artifacts but never publishes a private GitHub updater feed", () => {
+test("desktop CI builds update artifacts but never publishes an end-user release", () => {
   const workflow = readFileSync(join(projectRoot, ".github/workflows/desktop-ci.yml"), "utf8");
   assert.match(workflow, /Stamp main-channel update version/);
   assert.match(workflow, /desktop\/dist\/latest\.yml/);
-  assert.doesNotMatch(workflow, /tag_name:\s*desktop-latest/);
-  assert.doesNotMatch(workflow, /prepare-github-release/);
+  assert.doesNotMatch(workflow, /softprops\/action-gh-release/);
   assert.doesNotMatch(workflow, /BLOB_READ_WRITE_TOKEN/);
 });
 
-test("desktop preview is an artifact build and does not pretend private GitHub releases are public", () => {
+test("desktop preview remains an unsigned Actions artifact", () => {
   const preview = readFileSync(join(projectRoot, ".github/workflows/desktop-preview.yml"), "utf8");
   assert.doesNotMatch(preview, /environment:\s*desktop-release/);
-  assert.doesNotMatch(preview, /tag_name:\s*desktop-preview/);
-  assert.doesNotMatch(preview, /prepare-github-release/);
+  assert.doesNotMatch(preview, /softprops\/action-gh-release/);
   assert.match(preview, /desktop\/dist\/latest\.yml/);
 });
 
-test("manual desktop release isolates signing secrets and enforces a version preflight", () => {
+test("manual desktop release publishes complete GitHub Release bundles without Vercel Blob", () => {
   const release = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
+  const desktopPackage = JSON.parse(readFileSync(join(projectRoot, "desktop/package.json"), "utf8"));
+
+  assert.equal(desktopPackage.scripts["prepare-github-release"], "node scripts/prepare-github-release.mjs");
   assert.match(release, /internal-release:/);
   assert.match(release, /signed-release:/);
+  assert.match(release, /publish-signed:/);
   assert.match(release, /if: inputs\.channel != 'internal'/);
   assert.match(release, /environment: desktop-release/);
   assert.match(release, /HEYKASA_WINDOWS_CSC_LINK/);
+  assert.match(release, /HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET/);
   assert.match(release, /Validate release version monotonicity/);
   assert.match(release, /validate-release-version\.mjs/);
-  assert.match(release, /Publish immutable release and update metadata/);
+  assert.match(release, /npm run prepare-github-release/);
+  assert.match(release, /softprops\/action-gh-release@v2/);
+  assert.match(release, /desktop-v\$\{\{ inputs\.version \}\}/);
+  assert.match(release, /desktop-beta-v\$\{\{ inputs\.version \}\}/);
+  assert.match(release, /desktop-internal-v\$\{\{ inputs\.version \}\}/);
+  assert.match(release, /release\/latest\.yml/);
+  assert.match(release, /release\/\*\.blockmap/);
+  assert.match(release, /release\/release-manifest\.json/);
+  assert.match(release, /Verify Authenticode signature/);
+  assert.match(release, /Verify public GitHub release bundle/);
+  assert.doesNotMatch(release, /BLOB_READ_WRITE_TOKEN/);
+  assert.doesNotMatch(release, /Publish immutable release and update metadata/);
 });
