@@ -80,6 +80,9 @@ test("desktop CI builds update artifacts but never publishes an end-user release
   const workflow = readFileSync(join(projectRoot, ".github/workflows/desktop-ci.yml"), "utf8");
   assert.match(workflow, /Stamp main-channel update version/);
   assert.match(workflow, /desktop\/dist\/latest\.yml/);
+  assert.match(workflow, /Validate GitHub release bundle preparation/);
+  assert.match(workflow, /npm run prepare-github-release/);
+  assert.match(workflow, /desktop\/dist\/release-manifest\.json/);
   assert.doesNotMatch(workflow, /softprops\/action-gh-release/);
   assert.doesNotMatch(workflow, /BLOB_READ_WRITE_TOKEN/);
 });
