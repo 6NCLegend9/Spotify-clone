@@ -13,6 +13,7 @@ const originalEnv = {
   rollout: process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT,
   blob: process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
   vercelEnv: process.env.VERCEL_ENV,
+  githubFallback: process.env.HEYKASA_DESKTOP_GITHUB_FALLBACK_ENABLED,
 };
 
 const { GET } = await import("../src/app/api/desktop/manifest/route.js");
@@ -29,6 +30,7 @@ function restoreEnvironment() {
     HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT: originalEnv.rollout,
     HEYKASA_DESKTOP_BLOB_BASE_URL: originalEnv.blob,
     VERCEL_ENV: originalEnv.vercelEnv,
+    HEYKASA_DESKTOP_GITHUB_FALLBACK_ENABLED: originalEnv.githubFallback,
   })) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -150,4 +152,74 @@ test("stable channel uses the Windows installer fallback", async () => {
   assert.equal(result.signed, false);
   assert.ok(result.source === "github-fallback" || result.source === "nsis-installer");
   assert.equal(result.downloadUrl, "/api/desktop/download");
+});
+
+
+test("production manifest serves the GitHub release fallback when signed storage is not configured", async () => {
+  delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
+  delete process.env.HEYKASA_DESKTOP_DOWNLOAD_URL;
+  delete process.env.HEYKASA_DESKTOP_BLOB_BASE_URL;
+  delete process.env.HEYKASA_DESKTOP_SHA512;
+  process.env.VERCEL_ENV = "production";
+  process.env.HEYKASA_DESKTOP_GITHUB_FALLBACK_ENABLED = "true";
+
+  const sha512 = `${"C".repeat(86)}==`;
+  globalThis.fetch = async (url) => {
+    assert.equal(
+      String(url),
+      "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-latest/release-manifest.json",
+    );
+    return Response.json({
+      latest: "1.0.42",
+      minimum: "1.0.0",
+      recommended: "1.0.42",
+      desktopApiVersion: 1,
+      channel: "stable",
+      platform: "win32",
+      arch: "x64",
+      sizeBytes: 123456,
+      sha512,
+    });
+  };
+
+  const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=stable"));
+  const result = await response.json();
+  assert.equal(result.published, true);
+  assert.equal(result.latest, "1.0.42");
+  assert.equal(result.signed, false);
+  assert.equal(result.source, "github-release");
+  assert.equal(result.sha512, sha512);
+  assert.equal(
+    result.downloadUrl,
+    "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-latest/HayKasa-Setup-1.0.42-x64.exe",
+  );
+});
+
+test("internal manifest uses the separate desktop-preview release feed", async () => {
+  delete process.env.HEYKASA_DESKTOP_BLOB_BASE_URL;
+  process.env.VERCEL_ENV = "production";
+  process.env.HEYKASA_DESKTOP_GITHUB_FALLBACK_ENABLED = "true";
+  const sha512 = `${"D".repeat(86)}==`;
+  globalThis.fetch = async (url) => {
+    assert.equal(
+      String(url),
+      "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-preview/release-manifest.json",
+    );
+    return Response.json({
+      latest: "1.1.77-internal",
+      minimum: "1.0.0",
+      channel: "internal",
+      sha512,
+    });
+  };
+
+  const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=internal"));
+  const result = await response.json();
+  assert.equal(result.channel, "internal");
+  assert.equal(result.latest, "1.1.77-internal");
+  assert.equal(result.source, "github-release");
+  assert.equal(
+    result.downloadUrl,
+    "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-preview/HayKasa-Setup-1.1.77-internal-x64.exe",
+  );
 });

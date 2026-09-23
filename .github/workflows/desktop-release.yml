@@ -12,6 +12,11 @@ on:
           - internal
           - beta
           - stable
+      version:
+        description: Desktop version to publish; must be newer than the installed version
+        required: true
+        default: "1.1.0"
+        type: string
       minimum_version:
         description: Minimum supported desktop version
         required: true
@@ -48,30 +53,92 @@ jobs:
             echo "Stable desktop releases must run from main. Current ref: ${{ github.ref_name }}" >&2
             exit 1
           fi
-
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
           cache: npm
-
       - name: Install web dependencies
         run: npm ci
-
       - name: Audit web runtime dependencies
         run: npm run audit:production
-
       - name: Test desktop server contract
-        run: node --test test/desktopAuth.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs
-
+        run: node --test test/desktopAuth.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs test/desktopRelease.test.mjs
       - name: Typecheck web integration
         run: npm run typecheck
-
       - name: Build production web application
         run: npm run build
 
-  release:
+  internal-release:
+    if: inputs.channel == 'internal'
+    needs: web-gate
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: desktop
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      HEYKASA_DESKTOP_RELEASE_CHANNEL: internal
+      HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ inputs.minimum_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Install desktop dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Test native boundary
+        run: npm test
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Stamp internal release version
+        shell: pwsh
+        run: npm version "${{ inputs.version }}" --no-git-tag-version
+      - name: Build internal Windows installer
+        run: npm run dist
+      - name: Prepare internal update bundle
+        run: npm run prepare-github-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heykasa-desktop-internal-${{ inputs.version }}
+          path: |
+            desktop/dist/HayKasa-Setup-*-x64.exe
+            desktop/dist/HayKasa-Setup-x64.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
+            desktop/dist/release-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-internal:
+    if: inputs.channel == 'internal'
+    needs: internal-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: heykasa-desktop-internal-${{ inputs.version }}
+          path: installer
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-preview
+          name: HayKasa Desktop Internal Preview
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          fail_on_unmatched_files: true
+          files: |
+            installer/HayKasa-Setup-*-x64.exe
+            installer/HayKasa-Setup-x64.exe
+            installer/latest.yml
+            installer/*.blockmap
+            installer/release-manifest.json
+
+  signed-release:
+    if: inputs.channel != 'internal'
     needs: web-gate
     runs-on: windows-latest
     timeout-minutes: 45
@@ -89,12 +156,10 @@ jobs:
       HEYKASA_DESKTOP_RELEASE_NOTES_URL: ${{ inputs.release_notes_url }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-
-      - name: Validate release secrets
+      - name: Validate signed release secrets
         shell: pwsh
         run: |
           $missing = @()
@@ -104,7 +169,15 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET)) { $missing += "HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET" }
           if ($missing.Count -gt 0) { throw "Missing release secrets: $($missing -join ', ')" }
           if ($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET.Length -lt 32) { throw "Manifest HMAC secret must be at least 32 characters" }
-
+      - name: Install desktop dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Test native boundary
+        run: npm test
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Stamp signed release version
+        shell: pwsh
+        run: npm version "${{ inputs.version }}" --no-git-tag-version
       - name: Verify v1 package metadata
         shell: pwsh
         run: |
@@ -112,28 +185,15 @@ jobs:
           if ($package.version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') { throw "Invalid desktop version" }
           if ($package.build.appId -ne 'com.heykasa.desktop') { throw "Desktop appId changed unexpectedly" }
           if (-not ($package.build.protocols.schemes -contains 'heykasa')) { throw "heykasa:// protocol is not registered" }
-          if ('${{ inputs.channel }}' -eq 'stable' -and '${{ github.ref_name }}' -ne 'main') { throw "Stable desktop releases must run from main" }
           Write-Host "Preparing HayKasa Desktop $($package.version) on $env:HEYKASA_DESKTOP_RELEASE_CHANNEL"
-
-      - name: Install desktop dependencies
-        run: npm install --no-audit --no-fund
-
-      - name: Test native boundary
-        run: npm test
-
-      - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
-
       - name: Build signed Windows installer
         run: npm run dist
-
       - name: Generate runtime SBOM
         shell: pwsh
         run: |
           npm sbom --omit=dev --sbom-format=cyclonedx | Out-File -FilePath dist/heykasa-desktop-sbom.cdx.json -Encoding utf8
           $sbom = Get-Content dist/heykasa-desktop-sbom.cdx.json -Raw | ConvertFrom-Json
           if ($sbom.bomFormat -ne 'CycloneDX') { throw "Desktop SBOM generation failed" }
-
       - name: Verify Authenticode signature
         shell: pwsh
         run: |
@@ -143,15 +203,13 @@ jobs:
           if ($signature.Status -ne 'Valid') { throw "Installer signature is not valid: $($signature.Status)" }
           if ([string]::IsNullOrWhiteSpace($signature.SignerCertificate.Subject)) { throw "Installer signer identity is missing" }
           Write-Host "Signed by: $($signature.SignerCertificate.Subject)"
-
       - name: Publish immutable release and update metadata
         id: publish
         run: npm run publish-release
-
       - name: Release summary
         shell: pwsh
         run: |
-          "### HayKasa Desktop release" >> $env:GITHUB_STEP_SUMMARY
+          "### HayKasa Desktop signed release" >> $env:GITHUB_STEP_SUMMARY
           "- Version: ${{ steps.publish.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
           "- Channel: ${{ steps.publish.outputs.channel }}" >> $env:GITHUB_STEP_SUMMARY
           "- Source ref: ${{ github.ref_name }}" >> $env:GITHUB_STEP_SUMMARY
@@ -159,8 +217,6 @@ jobs:
           "- Installer: ${{ steps.publish.outputs.installer_url }}" >> $env:GITHUB_STEP_SUMMARY
           "- SHA-512: ${{ steps.publish.outputs.sha512 }}" >> $env:GITHUB_STEP_SUMMARY
           "- Blob base URL: ${{ steps.publish.outputs.blob_base_url }}" >> $env:GITHUB_STEP_SUMMARY
-          "- SBOM: heykasa-desktop-sbom.cdx.json" >> $env:GITHUB_STEP_SUMMARY
-
       - uses: actions/upload-artifact@v4
         with:
           name: heykasa-desktop-release-${{ steps.publish.outputs.version }}-${{ inputs.channel }}

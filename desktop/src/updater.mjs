@@ -179,13 +179,13 @@ export class DesktopUpdater {
       return this.getStatus();
     }
 
-    this.emit({ state: "checking", progress: 0, detail: "Checking the signed desktop release channel." });
+    this.emit({ state: "checking", progress: 0, detail: "Checking the desktop release channel." });
     try {
       const manifest = await this.releaseManifest();
       if (manifest.published !== true || !httpsUrl(manifest.downloadUrl)) {
         this.emit({
           state: "disabled",
-          detail: `No signed ${this.channel()} desktop release has been published yet.`,
+          detail: `No ${this.channel()} desktop release has been published yet.`,
         });
         return this.getStatus();
       }

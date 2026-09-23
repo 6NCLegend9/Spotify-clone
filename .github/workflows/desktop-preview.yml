@@ -22,49 +22,73 @@ jobs:
     name: Build public Windows preview
     runs-on: windows-latest
     timeout-minutes: 35
-    environment: desktop-release
     defaults:
       run:
         working-directory: desktop
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-      HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: ${{ secrets.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET }}
       HEYKASA_DESKTOP_RELEASE_CHANNEL: internal
       HEYKASA_DESKTOP_MINIMUM_VERSION: "1.0.0"
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-
-      - name: Validate preview publishing secrets
-        shell: pwsh
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:BLOB_READ_WRITE_TOKEN)) { throw "BLOB_READ_WRITE_TOKEN is required" }
-          if ([string]::IsNullOrWhiteSpace($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET)) { throw "HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET is required" }
-          if ($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET.Length -lt 32) { throw "Manifest HMAC secret must be at least 32 characters" }
-
-      - name: Stamp preview version
-        shell: pwsh
-        run: npm version "1.0.0-preview.${{ github.run_number }}" --no-git-tag-version
-
       - name: Install desktop dependencies
-        run: npm install --no-audit --no-fund
-
+        run: npm ci --no-audit --no-fund
       - name: Test native boundary
         run: npm test
-
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Stamp preview version
+        shell: pwsh
+        run: npm version "1.1.${{ github.run_number }}-internal" --no-git-tag-version
       - name: Build unsigned Windows installer
         run: npm run dist
-
-      - name: Publish public preview to Vercel Blob
-        run: npm run publish-release
-
+      - name: Prepare internal update bundle
+        run: npm run prepare-github-release
       - uses: actions/upload-artifact@v4
         with:
-          name: haykasa-desktop-preview
-          path: desktop/dist/HayKasa-Setup-*-x64.exe
+          name: haykasa-desktop-preview-${{ github.sha }}
+          path: |
+            desktop/dist/HayKasa-Setup-*-x64.exe
+            desktop/dist/HayKasa-Setup-x64.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
+            desktop/dist/release-manifest.json
           if-no-files-found: error
           retention-days: 14
+
+  publish-preview:
+    needs: build-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: haykasa-desktop-preview-${{ github.sha }}
+          path: installer
+      - name: Publish public internal updater feed
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-preview
+          name: HayKasa Desktop Internal Preview
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          fail_on_unmatched_files: true
+          files: |
+            installer/HayKasa-Setup-*-x64.exe
+            installer/HayKasa-Setup-x64.exe
+            installer/latest.yml
+            installer/*.blockmap
+            installer/release-manifest.json
+      - name: Verify internal updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/desktop-preview"
+          for file in release-manifest.json latest.yml HayKasa-Setup-x64.exe; do
+            curl --fail --location --retry 8 --retry-delay 2 --retry-all-errors --silent --show-error -o /dev/null "$base/$file"
+          done

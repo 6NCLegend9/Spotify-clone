@@ -1,4 +1,4 @@
-import { desktopReleaseFileUrl } from "@/utils/desktopRelease.mjs";
+import { desktopGithubReleaseFileUrl, desktopReleaseFileUrl } from "@/utils/desktopRelease.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export async function GET(_request, context) {
     process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
     params?.channel,
     params?.file,
-  );
+  ) || desktopGithubReleaseFileUrl(params?.channel, params?.file);
 
   if (!target) {
     return new Response("Desktop update artifact not found.", {

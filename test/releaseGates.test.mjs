@@ -75,3 +75,32 @@ test("public discovery does not advertise private libraries or fabricated freshn
 });
 
 function joinRoot(path) { return join(projectRoot, path); }
+
+
+test("desktop CI publishes an updater-capable GitHub fallback without Blob secrets", () => {
+  const workflow = readFileSync(join(projectRoot, ".github/workflows/desktop-ci.yml"), "utf8");
+  assert.match(workflow, /Stamp main-channel update version/);
+  assert.match(workflow, /npm run prepare-github-release/);
+  assert.match(workflow, /tag_name: desktop-latest/);
+  assert.match(workflow, /installer\/latest\.yml/);
+  assert.match(workflow, /installer\/release-manifest\.json/);
+  assert.doesNotMatch(workflow, /BLOB_READ_WRITE_TOKEN/);
+});
+
+test("desktop preview no longer consumes the protected desktop-release environment", () => {
+  const preview = readFileSync(join(projectRoot, ".github/workflows/desktop-preview.yml"), "utf8");
+  assert.doesNotMatch(preview, /environment:\s*desktop-release/);
+  assert.doesNotMatch(preview, /BLOB_READ_WRITE_TOKEN|HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET/);
+  assert.match(preview, /tag_name: desktop-preview/);
+  assert.match(preview, /npm run prepare-github-release/);
+});
+
+test("manual desktop release keeps signing secrets isolated to beta and stable", () => {
+  const release = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
+  assert.match(release, /internal-release:/);
+  assert.match(release, /signed-release:/);
+  assert.match(release, /if: inputs\.channel != 'internal'/);
+  assert.match(release, /environment: desktop-release/);
+  assert.match(release, /HEYKASA_WINDOWS_CSC_LINK/);
+  assert.match(release, /Stamp signed release version/);
+});

@@ -6,6 +6,8 @@ import {
   findLocalDesktopInstaller,
 } from "../../../../utils/desktopInstaller.mjs";
 import {
+  desktopGithubReleaseFileUrl,
+  desktopGithubReleasePageUrl,
   desktopReleaseFileUrl,
   normalizeDesktopReleaseChannel,
 } from "../../../../utils/desktopRelease.mjs";
@@ -149,20 +151,51 @@ async function fetchVerifiedManifest(manifestUrl, expectedChannel) {
   return payload;
 }
 
-async function loadInternalPreview() {
-  const previewUrl = configuredManifestUrl("internal");
-  if (!previewUrl) return null;
+function githubFallbackEnabled() {
+  const raw = String(process.env.HEYKASA_DESKTOP_GITHUB_FALLBACK_ENABLED ?? "").trim().toLowerCase();
+  if (raw) return !["0", "false", "off", "disabled"].includes(raw);
+  return process.env.VERCEL_ENV === "production";
+}
+
+async function loadGithubFallback(channel) {
+  if (!githubFallbackEnabled()) return null;
+  const manifestUrl = desktopGithubReleaseFileUrl(channel, "release-manifest.json");
+  if (!manifestUrl) return null;
+
   try {
-    const payload = await fetchVerifiedManifest(previewUrl, "internal");
+    const response = await fetch(manifestUrl, {
+      headers: { accept: "application/json" },
+      next: { revalidate: 60 },
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const rawVersion = typeof payload?.latest === "string" ? payload.latest.trim() : "";
+    const rawChannel = normalizeDesktopReleaseChannel(payload?.channel);
+    const installerSha512 = sha512(payload?.sha512);
+    if (!SEMVER.test(rawVersion) || rawChannel !== channel || !installerSha512) {
+      throw new Error("GitHub desktop fallback manifest is invalid.");
+    }
+
+    const downloadUrl = desktopGithubReleaseFileUrl(
+      channel,
+      `HayKasa-Setup-${rawVersion}-x64.exe`,
+    );
+    if (!downloadUrl) return null;
+
     return normalizeManifest({
       ...payload,
+      latest: rawVersion,
+      downloadUrl,
+      releaseNotesUrl: desktopGithubReleasePageUrl(channel),
+      sha512: installerSha512,
       signed: false,
-      source: "internal-preview",
-    }, "stable");
+      source: "github-release",
+    }, channel);
   } catch (error) {
     console.error(JSON.stringify({
       level: "error",
-      msg: "desktop_preview_manifest_fetch_failed",
+      msg: "desktop_github_fallback_manifest_fetch_failed",
+      channel,
       error: error instanceof Error ? error.message : String(error),
     }));
     return null;
@@ -187,9 +220,12 @@ async function loadManifest(channel) {
     }
   }
 
-  if (configured.published || channel !== "stable") return configured;
-  const preview = await loadInternalPreview();
-  if (preview) return preview;
+  if (configured.published) return configured;
+
+  const githubFallback = await loadGithubFallback(channel);
+  if (githubFallback) return githubFallback;
+
+  if (channel !== "stable") return configured;
   const localInstaller = findLocalDesktopInstaller();
   return normalizeManifest({
     latest: configured.latest,
