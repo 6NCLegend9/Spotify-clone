@@ -21,20 +21,14 @@ test("desktop app download URL allows the local installer route and HTTPS instal
   assert.equal(desktopAppDownloadUrl("https://user:pass@evil.example/HayKasa-Setup-x64.exe"), "");
 });
 
-test("hosted installer URL prefers a public HTTPS exe and otherwise uses Vercel Blob", () => {
+test("hosted installer override accepts only a public HTTPS executable", () => {
   assert.equal(
     hostedDesktopInstallerUrl("https://downloads.example.com/HayKasa-Setup-x64.exe"),
     "https://downloads.example.com/HayKasa-Setup-x64.exe",
   );
   assert.equal(hostedDesktopInstallerUrl("https://downloads.example.com/HayKasa.zip"), "");
+  assert.equal(hostedDesktopInstallerUrl("http://downloads.example.com/HayKasa-Setup-x64.exe"), "");
   assert.equal(hostedDesktopInstallerUrl(""), "");
-  assert.equal(
-    hostedDesktopInstallerUrl(
-      "",
-      "https://abc123.public.blob.vercel-storage.com/desktop",
-    ),
-    "https://abc123.public.blob.vercel-storage.com/desktop/stable/HayKasa-Setup-x64.exe",
-  );
 });
 
 test("local installer lookup stays inside desktop/dist and prefers the stable Setup name", () => {
