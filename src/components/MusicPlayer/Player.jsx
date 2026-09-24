@@ -15,7 +15,6 @@ import { playNativeAudio } from "@/utils/nativeAudio.mjs";
 const Player = ({
   activeSong,
   isPlaying,
-  volume,
   seekTime,
   onEnded,
   onTimeUpdate,
@@ -219,9 +218,9 @@ const Player = ({
 
   useEffect(() => {
     if (ref.current) {
-      ref.current.volume = volume * (Number.isFinite(masterVolume) ? masterVolume : 1);
+      ref.current.volume = Number.isFinite(masterVolume) ? masterVolume : 1;
     }
-  }, [volume, masterVolume]);
+  }, [masterVolume]);
   // updates audio element only on seekTime change (and not on each rerender):
   useEffect(() => {
     if (ref.current) {
