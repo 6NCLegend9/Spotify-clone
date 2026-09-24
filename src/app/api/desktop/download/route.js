@@ -1,15 +1,12 @@
-import {
-  desktopReleaseBundle,
-  fetchDesktopGithubRelease,
-} from "../../../../utils/desktopRelease.mjs";
+import { fetchVerifiedDesktopGithubRelease } from "../../../../utils/desktopReleaseTrust.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function signedStableInstaller() {
   try {
-    const release = await fetchDesktopGithubRelease("stable");
-    return desktopReleaseBundle(release, "stable")?.installerUrl || "";
+    const verified = await fetchVerifiedDesktopGithubRelease("stable");
+    return verified?.bundle?.installerUrl || "";
   } catch (error) {
     console.error(JSON.stringify({
       level: "error",
