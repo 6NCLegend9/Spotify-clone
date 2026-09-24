@@ -94,3 +94,15 @@ test("native EQ applies headroom before its safety limiter", async () => {
   const hook = await read("src/hooks/useAudioEq.js");
   assert.match(hook, /normalizationGain\(normalization\)\s*\*\s*eqHeadroomGain\(bands\)/);
 });
+
+
+test("native EQ preamp is placed before the peak limiter in the signal graph", async () => {
+  const hook = await read("src/hooks/useAudioEq.js");
+  assert.match(
+    hook,
+    /filters\[filters\.length - 1\]\.connect\(gain\);[\s\S]*gain\.connect\(compressor\);/,
+  );
+  assert.match(hook, /graph = \{[^}]*compressor[^}]*\}/s);
+  assert.match(hook, /graph\.compressor\.disconnect\(\);/);
+  assert.match(hook, /graph\.compressor\.connect\(graph\.splitter\);/);
+});
