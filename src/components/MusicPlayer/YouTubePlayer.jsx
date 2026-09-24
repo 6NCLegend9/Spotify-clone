@@ -497,7 +497,7 @@ function YouTubePlayer() {
   };
 
   const applyPlaybackVolume = (player, ratio = 1) => {
-    const master = Number.isFinite(masterVolume) ? masterVolume : 0.85;
+    const master = Number.isFinite(masterVolume) ? masterVolume : 1;
     player?.setVolume?.(Math.round(playbackVolume * master * ratio));
   };
 
@@ -3435,7 +3435,7 @@ function YouTubePlayer() {
           </div>
         )}
       </div>}
-      {<div className={phoneSheet ? "yt-phone-chrome-transport" : `yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pb-6 pt-2" : "absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[min(96vw,880px)] flex-col items-center gap-1 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-10"}`} {...(!phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={!phoneSheet && !chromeVisible} {...expandedChromePointer}>
+      {<div className={phoneSheet ? "yt-phone-chrome-transport" : `yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pb-6 pt-2" : "absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[min(96vw,880px)] flex-col items-center gap-1 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-10"}`} {...(!phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={!phoneSheet && !chromeVisible} {...expandedChromePointer}>
         <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "yt-dock-transport"}>
         {fullscreen && !phoneSheet && !compactFullscreen && !isShortViewport && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
           <div className={fullscreen ? "flex max-w-full flex-wrap items-center justify-center gap-1 rounded-lg bg-[var(--glass-strong)] px-1 py-2 backdrop-blur sm:px-3" : "contents"}>
