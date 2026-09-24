@@ -40,12 +40,16 @@ export function bandsForPreset(preset, customBands = FLAT_BANDS) {
 export function normalizationGain(mode) {
   if (mode === "quiet") return 0.72;
   if (mode === "loud") return 1.08;
-  return 0.92;
+  return 1;
 }
-export function eqLoudnessGain(bands = []) {
-  const avg = bands.reduce((sum, value) => sum + Number(value || 0), 0) / Math.max(bands.length, 1);
-  return Math.min(1.18, Math.max(0.55, 1 + avg / 28));
+export function eqHeadroomGain(bands = []) {
+  const maxBoostDb = Math.max(0, ...migrateEqBands(bands));
+  return 10 ** (-maxBoostDb / 20);
 }
 export function youtubePlaybackVolume(bands, mode) {
-  return Math.round(Math.min(100, Math.max(8, 100 * eqLoudnessGain(bands) * normalizationGain(mode))));
+  // YouTube's cross-origin IFrame audio cannot be processed by HayKasa's
+  // Web Audio EQ graph. Preserve the legacy signature, but never fake EQ by
+  // changing the whole-track volume when a user moves frequency bands.
+  void bands;
+  return Math.round(Math.min(100, Math.max(8, 100 * normalizationGain(mode))));
 }

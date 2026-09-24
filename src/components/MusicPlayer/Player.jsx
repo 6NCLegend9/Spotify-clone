@@ -15,7 +15,6 @@ import { playNativeAudio } from "@/utils/nativeAudio.mjs";
 const Player = ({
   activeSong,
   isPlaying,
-  volume,
   seekTime,
   onEnded,
   onTimeUpdate,
@@ -34,7 +33,7 @@ const Player = ({
   const handlePlayPauseRef = useRef(handlePlayPause);
   const mediaActionsRef = useRef({});
   const [playbackError, setPlaybackError] = useState(null);
-  const { eqPreset, eqBands, normalization, monoAudio, spatialAudio, masterVolume, privateSession, listeningInsights, owner: settingsOwner } = useSelector((state) => state.settings);
+  const { eqPreset, eqBands, normalization, monoAudio, masterVolume, privateSession, listeningInsights, owner: settingsOwner } = useSelector((state) => state.settings);
   const insights = useListeningInsights({ owner, trackId: activeSong?.id,
     enabled: settingsOwner === owner && listeningInsights === true && !privateSession,
     getSample: () => ({ position: ref.current?.currentTime, playing: ref.current && !ref.current.paused && !ref.current.ended }),
@@ -43,7 +42,6 @@ const Player = ({
     bands: bandsForPreset(eqPreset, eqBands),
     normalization,
     monoAudio,
-    spatialAudio,
   });
   const audioSource =
     activeSong?.downloadUrl?.[4]?.url ||
@@ -220,9 +218,9 @@ const Player = ({
 
   useEffect(() => {
     if (ref.current) {
-      ref.current.volume = volume * (Number.isFinite(masterVolume) ? masterVolume : 0.85);
+      ref.current.volume = Number.isFinite(masterVolume) ? masterVolume : 1;
     }
-  }, [volume, masterVolume]);
+  }, [masterVolume]);
   // updates audio element only on seekTime change (and not on each rerender):
   useEffect(() => {
     if (ref.current) {

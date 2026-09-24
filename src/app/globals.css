@@ -2536,17 +2536,6 @@ select:-webkit-autofill {
   height: 100% !important;
 }
 
-.yt-crop-frame--hd720 {
-  --yt-frame-width: 1280px;
-  --yt-frame-height: 720px;
-}
-
-.yt-crop-frame--hd1080,
-.yt-crop-frame--highres {
-  --yt-frame-width: 1920px;
-  --yt-frame-height: 1080px;
-}
-
 .yt-crop-frame iframe {
   position: absolute;
   top: 50%;
