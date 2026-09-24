@@ -106,3 +106,46 @@ test("native EQ preamp is placed before the peak limiter in the signal graph", a
   assert.match(hook, /graph\.compressor\.disconnect\(\);/);
   assert.match(hook, /graph\.compressor\.connect\(graph\.splitter\);/);
 });
+
+
+test("native EQ applies preamp headroom before the safety limiter in the graph", async () => {
+  const hook = await read("src/hooks/useAudioEq.js");
+  const filterToPreamp = hook.indexOf("filters[filters.length - 1].connect(preamp)");
+  const preampToLimiter = hook.indexOf("preamp.connect(compressor)");
+  const limiterToOutput = hook.indexOf("compressor.connect(splitter)");
+
+  assert.ok(filterToPreamp >= 0, "EQ filters should feed a preamp node");
+  assert.ok(preampToLimiter > filterToPreamp, "preamp attenuation should happen before the limiter");
+  assert.ok(limiterToOutput > preampToLimiter, "limiter should feed the output routing");
+});
+
+test("YouTube playback does not call unsupported quality forcing APIs", async () => {
+  const player = await read("src/components/MusicPlayer/YouTubePlayer.jsx");
+
+  assert.doesNotMatch(player, /setPlaybackQuality/);
+  assert.doesNotMatch(player, /getPlaybackQuality/);
+  assert.doesNotMatch(player, /\bvq:\s*/);
+  assert.doesNotMatch(player, /requestYouTubeQuality/);
+  assert.match(player, /onPlaybackQualityChange/);
+});
+
+test("audio settings describe real controls instead of unsupported quality or LUFS claims", async () => {
+  const settings = await read("src/app/settings/page.jsx");
+
+  assert.doesNotMatch(settings, /Audio quality preference/);
+  assert.doesNotMatch(settings, /Video quality preference/);
+  assert.doesNotMatch(settings, /LUFS/);
+  assert.doesNotMatch(settings, /asks YouTube for the selected quality/);
+  assert.match(settings, /Playback level/);
+  assert.match(settings, /YouTube chooses stream quality automatically/);
+});
+
+test("native audio does not fake stereo widening by panning the whole mix", async () => {
+  const [hook, settings] = await Promise.all([
+    read("src/hooks/useAudioEq.js"),
+    read("src/app/settings/page.jsx"),
+  ]);
+
+  assert.doesNotMatch(hook, /createStereoPanner/);
+  assert.doesNotMatch(settings, /Spatial audio \/ Stereo expansion/);
+});
