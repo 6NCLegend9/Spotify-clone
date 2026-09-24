@@ -95,7 +95,7 @@ function mockGithubRelease(channel, version, envelope, releaseOverrides = {}) {
   };
 }
 
-test("desktop manifest uses server-owned fallback configuration when no GitHub release exists", async () => {
+test("desktop manifest does not advertise unsigned stable fallback configuration", async () => {
   delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
   process.env.HEYKASA_DESKTOP_LATEST_VERSION = "1.2.3";
   process.env.HEYKASA_DESKTOP_MINIMUM_VERSION = "1.1.0";
@@ -108,11 +108,12 @@ test("desktop manifest uses server-owned fallback configuration when no GitHub r
   const payload = await response.json();
   assert.equal(payload.latest, "1.2.3");
   assert.equal(payload.minimum, "1.1.0");
-  assert.equal(payload.published, true);
-  assert.equal(payload.downloadUrl, "https://downloads.example.com/HayKasa-Setup.exe");
-  assert.equal(payload.sha512, `${"A".repeat(86)}==`);
+  assert.equal(payload.published, false);
+  assert.equal(payload.downloadUrl, "");
+  assert.equal(payload.sha512, "");
   assert.equal(payload.updateRolloutPercent, 25);
   assert.equal(payload.signed, false);
+  assert.equal(payload.source, "none");
 });
 
 test("complete signed GitHub stable releases become the compatibility manifest", async () => {
