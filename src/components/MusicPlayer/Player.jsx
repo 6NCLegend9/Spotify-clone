@@ -220,7 +220,7 @@ const Player = ({
 
   useEffect(() => {
     if (ref.current) {
-      ref.current.volume = volume * (Number.isFinite(masterVolume) ? masterVolume : 0.85);
+      ref.current.volume = volume * (Number.isFinite(masterVolume) ? masterVolume : 1);
     }
   }, [volume, masterVolume]);
   // updates audio element only on seekTime change (and not on each rerender):
