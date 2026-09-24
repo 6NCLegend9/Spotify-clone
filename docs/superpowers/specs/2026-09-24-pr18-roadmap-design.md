@@ -288,6 +288,7 @@ YouTube diagnostics must be intentionally more limited:
 
 - Playback engine: `YouTube IFrame`
 - Provider media quality: `Provider managed`
+- Last quality-change event: e.g. `720p`, only when `onPlaybackQualityChange` has actually fired; this is an observed event, not a requested/forced quality setting and not an audio bitrate measurement
 - Audio bitrate: `Unavailable via YouTube IFrame API`
 - Audio analyser: `Unavailable — cross-origin provider playback`
 - EQ: `Unavailable for YouTube media` unless a future provider path genuinely routes samples through Web Audio
@@ -332,6 +333,7 @@ Example YouTube panel:
 ```text
 Playback Engine      YouTube IFrame
 Media Quality        Provider managed
+Last Quality Event   720p (only if reported)
 Audio Bitrate        Unavailable
 Audio Analyzer       Unavailable (provider iframe)
 EQ                    Unavailable for YouTube
@@ -364,7 +366,7 @@ Required regression coverage:
 ### Truthfulness
 - YouTube never claims FFT/analyser availability;
 - YouTube never claims a known audio bitrate;
-- YouTube never claims a delivered video resolution from unsupported APIs;
+- YouTube never treats a quality-change event as a forced/requested quality setting or an audio bitrate measurement;
 - Beat Arcade marks estimated/generated charts;
 - analyzed local audio marks audio-analyzed charts;
 - legacy quality/spatial settings no longer appear as active capabilities.
