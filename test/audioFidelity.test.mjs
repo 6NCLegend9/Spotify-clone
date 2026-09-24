@@ -149,3 +149,19 @@ test("native audio does not fake stereo widening by panning the whole mix", asyn
   assert.doesNotMatch(hook, /createStereoPanner/);
   assert.doesNotMatch(settings, /Spatial audio \/ Stereo expansion/);
 });
+
+
+test("native and YouTube playback share one master-volume authority", async () => {
+  const [shell, player] = await Promise.all([
+    read("src/components/MusicPlayer/index.jsx"),
+    read("src/components/MusicPlayer/Player.jsx"),
+  ]);
+
+  assert.doesNotMatch(shell, /const \[volume, setVolume\] = useState\(/);
+  assert.doesNotMatch(shell, /volume=\{volume\}/);
+  assert.doesNotMatch(player, /volume\s*\*\s*\(Number\.isFinite\(masterVolume\)/);
+  assert.match(
+    player,
+    /ref\.current\.volume\s*=\s*Number\.isFinite\(masterVolume\)\s*\?\s*masterVolume\s*:\s*1/,
+  );
+});
