@@ -105,13 +105,24 @@ export function officialMusicScore(result, query) {
   const description = String(result?.description || "");
   const haystack = `${title} ${channel} ${description}`;
   const normalizedChannel = channel.toLowerCase().trim();
+  const requested = String(query || "");
+  const wantsVideo = /\b(?:music\s+video|video|mv)\b/i.test(requested);
   const queryWords = new Set(words(query));
   const candidateWords = new Set(words(`${title} ${channel}`));
   let score = 0;
 
+  const isTopic = /\s-\s*topic$/i.test(channel) || /\btopic$/i.test(normalizedChannel);
+  const isOfficialAudio = /\bofficial\s+audio\b/i.test(title);
+
   if (/\bvevo\b/i.test(channel) || /vevo$/i.test(normalizedChannel)) score += 130;
-  if (/\s-\s*topic$/i.test(channel) || /\btopic$/i.test(normalizedChannel)) score += 125;
+  if (isTopic) score += 125;
   if (/\bofficial\b/i.test(channel)) score += 80;
+
+  // For a plain song query, prefer the label/artist master-style upload over
+  // a music-video encode when both match equally well. Respect an explicit
+  // request for a video rather than forcing the audio-first preference.
+  if (!wantsVideo && isTopic) score += 115;
+  if (!wantsVideo && isOfficialAudio) score += 90;
 
   for (const [pattern, points] of POSITIVE_TITLE_PATTERNS) {
     if (pattern.test(title)) score += points;
