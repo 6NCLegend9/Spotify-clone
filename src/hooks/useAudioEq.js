@@ -34,6 +34,14 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio, 
         return filter;
       });
       const compressor = context.createDynamicsCompressor();
+      // Browser defaults (-24 dB threshold, soft knee, 12:1 ratio) behave like
+      // heavy mastering compression. HayKasa only needs peak protection after
+      // EQ, so keep normal musical dynamics intact and catch near-clipping peaks.
+      compressor.threshold.value = -1;
+      compressor.knee.value = 0;
+      compressor.ratio.value = 20;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.08;
       const gain = context.createGain();
       const splitter = context.createChannelSplitter(2);
       const merger = context.createChannelMerger(2);
