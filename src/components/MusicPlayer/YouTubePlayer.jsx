@@ -45,7 +45,7 @@ import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { requestJson } from "@/services/http";
 import { useIsPhoneViewport, useMediaQuery } from "@/hooks/useMediaQuery";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
-import { bandsForPreset, youtubePlaybackVolume } from "@/utils/eqPresets";
+import { youtubePlaybackVolume } from "@/utils/eqPresets";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import {
   DESKTOP_PREV_EVENT,
@@ -159,8 +159,6 @@ function YouTubePlayer() {
     dataSaver,
     audioOnly: audioOnlyToggle,
     videoQuality,
-    eqPreset,
-    eqBands,
     normalization,
     syncedLyrics,
     pictureInPicture,
@@ -182,7 +180,7 @@ function YouTubePlayer() {
   const isPhoneRef = useRef(isPhone);
   isPhoneRef.current = isPhone;
   const videoId = video?.id || "";
-  const playbackVolume = youtubePlaybackVolume(bandsForPreset(eqPreset, eqBands), normalization);
+  const playbackVolume = youtubePlaybackVolume(undefined, normalization);
   // Preserve the old audio-only sentinel for accounts that saved it before the
   // unsupported YouTube quality controls were removed from the UI.
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
