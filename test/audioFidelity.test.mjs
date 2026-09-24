@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import {
+import * as eqPresets from "../src/utils/eqPresets.js";
+
+const {
   EQ_PRESET_BANDS,
   normalizationGain,
   youtubePlaybackVolume,
-} from "../src/utils/eqPresets.js";
+} = eqPresets;
 import { rankOfficialMusicResults } from "../src/utils/officialMusicSearch.mjs";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
@@ -78,4 +80,17 @@ test("explicit video searches still prefer the official music video", () => {
 
   const ranked = rankOfficialMusicResults(results, "Example Song video");
   assert.equal(ranked[0]?.id, "video000001");
+});
+
+
+test("positive native EQ boosts reserve preamp headroom before the limiter", () => {
+  assert.equal(typeof eqPresets.eqHeadroomGain, "function");
+  assert.equal(eqPresets.eqHeadroomGain([0, 0, 0, 0, 0, 0]), 1);
+  assert.ok(Math.abs(eqPresets.eqHeadroomGain([6, 0, 0, 0, 0, 0]) - (10 ** (-6 / 20))) < 0.005);
+  assert.ok(Math.abs(eqPresets.eqHeadroomGain([8, 5, 0, 0, 0, 0]) - (10 ** (-8 / 20))) < 0.005);
+});
+
+test("native EQ applies headroom before its safety limiter", async () => {
+  const hook = await read("src/hooks/useAudioEq.js");
+  assert.match(hook, /normalizationGain\(normalization\)\s*\*\s*eqHeadroomGain\(bands\)/);
 });
