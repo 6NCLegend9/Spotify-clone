@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
+import { desktopReleaseTag } from "../src/utils/desktopRelease.mjs";
 
 const originalFetch = globalThis.fetch;
 const originalEnv = {
@@ -11,8 +12,6 @@ const originalEnv = {
   download: process.env.HEYKASA_DESKTOP_DOWNLOAD_URL,
   sha512: process.env.HEYKASA_DESKTOP_SHA512,
   rollout: process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT,
-  blob: process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
-  vercelEnv: process.env.VERCEL_ENV,
 };
 
 const { GET } = await import("../src/app/api/desktop/manifest/route.js");
@@ -27,8 +26,6 @@ function restoreEnvironment() {
     HEYKASA_DESKTOP_DOWNLOAD_URL: originalEnv.download,
     HEYKASA_DESKTOP_SHA512: originalEnv.sha512,
     HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT: originalEnv.rollout,
-    HEYKASA_DESKTOP_BLOB_BASE_URL: originalEnv.blob,
-    VERCEL_ENV: originalEnv.vercelEnv,
   })) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -37,117 +34,163 @@ function restoreEnvironment() {
 
 test.afterEach(restoreEnvironment);
 
-test("desktop manifest uses server-owned fallback configuration", async () => {
+function releaseFixture(channel, version, overrides = {}) {
+  const tag = desktopReleaseTag(channel, version);
+  const installer = `HayKasa-Setup-${version}-x64.exe`;
+  return {
+    draft: false,
+    prerelease: channel !== "stable",
+    tag_name: tag,
+    published_at: "2026-09-23T12:00:00Z",
+    assets: [
+      { name: "latest.yml" },
+      { name: "release-manifest.json" },
+      { name: installer },
+      { name: `${installer}.blockmap` },
+    ],
+    ...overrides,
+  };
+}
+
+function releasePayload(channel, version, overrides = {}) {
+  const tag = desktopReleaseTag(channel, version);
+  return {
+    latest: version,
+    minimum: "1.0.0",
+    recommended: version,
+    desktopApiVersion: 1,
+    channel,
+    platform: "win32",
+    arch: "x64",
+    downloadUrl: `https://github.com/6NCLegend9/Spotify-clone/releases/download/${tag}/HayKasa-Setup-${version}-x64.exe`,
+    releaseNotesUrl: "",
+    publishedAt: "2026-09-23T12:00:00.000Z",
+    sizeBytes: 123456,
+    sha512: `${"B".repeat(86)}==`,
+    updateRolloutPercent: 100,
+    signed: channel !== "internal",
+    source: "github-release",
+    ...overrides,
+  };
+}
+
+function signedEnvelope(payload, secret) {
+  return {
+    payload,
+    signature: crypto.createHmac("sha256", secret).update(JSON.stringify(payload), "utf8").digest("base64url"),
+  };
+}
+
+function mockGithubRelease(channel, version, envelope, releaseOverrides = {}) {
+  const release = releaseFixture(channel, version, releaseOverrides);
+  globalThis.fetch = async (url) => {
+    const text = String(url);
+    if (text.includes("api.github.com/repos/6NCLegend9/Spotify-clone/releases")) {
+      return new Response(JSON.stringify([release]), { status: 200 });
+    }
+    if (text.endsWith("/release-manifest.json")) {
+      return new Response(JSON.stringify(envelope), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    throw new Error(`Unexpected fetch: ${text}`);
+  };
+}
+
+test("desktop manifest does not advertise unsigned stable fallback configuration", async () => {
   delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
   process.env.HEYKASA_DESKTOP_LATEST_VERSION = "1.2.3";
   process.env.HEYKASA_DESKTOP_MINIMUM_VERSION = "1.1.0";
-  process.env.HEYKASA_DESKTOP_DOWNLOAD_URL = "https://downloads.example.com/HeyKasa-Setup.exe";
+  process.env.HEYKASA_DESKTOP_DOWNLOAD_URL = "https://downloads.example.com/HayKasa-Setup.exe";
   process.env.HEYKASA_DESKTOP_SHA512 = `${"A".repeat(86)}==`;
   process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT = "25";
+  globalThis.fetch = async () => new Response("[]", { status: 200 });
 
-  const response = await GET();
+  const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=stable"));
   const payload = await response.json();
   assert.equal(payload.latest, "1.2.3");
   assert.equal(payload.minimum, "1.1.0");
-  assert.equal(payload.published, true);
-  assert.equal(payload.downloadUrl, "https://downloads.example.com/HeyKasa-Setup.exe");
-  assert.equal(payload.sha512, `${"A".repeat(86)}==`);
+  assert.equal(payload.published, false);
+  assert.equal(payload.downloadUrl, "");
+  assert.equal(payload.sha512, "");
   assert.equal(payload.updateRolloutPercent, 25);
+  assert.equal(payload.signed, false);
+  assert.equal(payload.source, "none");
 });
 
-test("stable rollout environment overrides signed release percentage", async () => {
+test("complete signed GitHub stable releases become the compatibility manifest", async () => {
   const secret = "desktop-manifest-test-secret-32-bytes-minimum";
-  const payload = {
-    latest: "2.0.0",
-    minimum: "1.5.0",
-    recommended: "2.0.0",
-    desktopApiVersion: 2,
-    channel: "stable",
-    downloadUrl: "https://downloads.example.com/HeyKasa-Setup-2.0.0.exe",
-    sha512: `${"B".repeat(86)}==`,
-    updateRolloutPercent: 100,
-  };
-  const signature = crypto.createHmac("sha256", secret).update(JSON.stringify(payload), "utf8").digest("base64url");
-  process.env.HEYKASA_DESKTOP_MANIFEST_URL = "https://downloads.example.com/manifest.json";
+  const payload = releasePayload("stable", "2.0.0", { updateRolloutPercent: 40 });
+  process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = secret;
+  delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
+  delete process.env.HEYKASA_DESKTOP_DOWNLOAD_URL;
+  delete process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT;
+  mockGithubRelease("stable", "2.0.0", signedEnvelope(payload, secret));
+
+  const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=stable"));
+  const result = await response.json();
+  assert.equal(result.latest, "2.0.0");
+  assert.equal(result.minimum, "1.0.0");
+  assert.equal(result.sha512, `${"B".repeat(86)}==`);
+  assert.equal(result.updateRolloutPercent, 40);
+  assert.equal(result.published, true);
+  assert.equal(result.signed, true);
+  assert.equal(result.source, "github-release");
+  assert.match(result.downloadUrl, /github\.com\/6NCLegend9\/Spotify-clone\/releases\/download\/desktop-v2\.0\.0/);
+});
+
+test("stable rollout environment overrides the signed GitHub release percentage", async () => {
+  const secret = "desktop-manifest-test-secret-32-bytes-minimum";
+  const payload = releasePayload("stable", "2.0.0", { updateRolloutPercent: 100 });
   process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = secret;
   process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT = "10";
-  globalThis.fetch = async () => new Response(JSON.stringify({ payload, signature }), { status: 200 });
+  mockGithubRelease("stable", "2.0.0", signedEnvelope(payload, secret));
 
   const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=stable"));
   const result = await response.json();
   assert.equal(result.updateRolloutPercent, 10);
 });
 
-test("desktop manifest accepts a correctly signed remote payload", async () => {
-  const secret = "desktop-manifest-test-secret-32-bytes-minimum";
-  const payload = {
-    latest: "2.0.0",
-    minimum: "1.5.0",
-    recommended: "2.0.0",
-    desktopApiVersion: 2,
-    channel: "stable",
-    downloadUrl: "https://downloads.example.com/HeyKasa-Setup-2.0.0.exe",
-    sha512: `${"B".repeat(86)}==`,
-    updateRolloutPercent: 40,
-  };
-  const signature = crypto.createHmac("sha256", secret).update(JSON.stringify(payload), "utf8").digest("base64url");
-
-  process.env.HEYKASA_DESKTOP_MANIFEST_URL = "https://downloads.example.com/manifest.json";
-  process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = secret;
+test("tampered GitHub release manifests fail closed", async () => {
+  process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = "desktop-manifest-test-secret-32-bytes-minimum";
+  delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
+  delete process.env.HEYKASA_DESKTOP_DOWNLOAD_URL;
+  delete process.env.HEYKASA_DESKTOP_LATEST_VERSION;
   delete process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT;
-  globalThis.fetch = async () => new Response(JSON.stringify({ payload, signature }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
+  mockGithubRelease("stable", "2.0.0", {
+    payload: releasePayload("stable", "2.0.0", { downloadUrl: "https://evil.example/fake.exe" }),
+    signature: "A".repeat(43),
   });
 
   const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=stable"));
   const result = await response.json();
-  assert.equal(result.latest, "2.0.0");
-  assert.equal(result.minimum, "1.5.0");
-  assert.equal(result.desktopApiVersion, 2);
-  assert.equal(result.sha512, `${"B".repeat(86)}==`);
-  assert.equal(result.updateRolloutPercent, 40);
-  assert.equal(result.published, true);
+  assert.equal(result.latest, "1.0.0");
+  assert.equal(result.published, false);
+  assert.equal(result.signed, false);
+  assert.equal(result.downloadUrl, "");
 });
 
-test("desktop manifest rejects an unsigned or modified remote payload", async () => {
-  process.env.HEYKASA_DESKTOP_MANIFEST_URL = "https://downloads.example.com/manifest.json";
-  process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = "desktop-manifest-test-secret-32-bytes-minimum";
-  process.env.HEYKASA_DESKTOP_LATEST_VERSION = "1.0.0";
-  delete process.env.HEYKASA_DESKTOP_DOWNLOAD_URL;
-  delete process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT;
-  delete process.env.HEYKASA_DESKTOP_BLOB_BASE_URL;
-  globalThis.fetch = async () => new Response(JSON.stringify({
-    payload: {
-      latest: "99.0.0",
-      minimum: "99.0.0",
-      downloadUrl: "https://evil.example/fake.exe",
-    },
-    signature: "A".repeat(43),
-  }), { status: 200 });
+test("incomplete GitHub releases are never advertised", async () => {
+  const secret = "desktop-manifest-test-secret-32-bytes-minimum";
+  const payload = releasePayload("stable", "2.0.0");
+  process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = secret;
+  mockGithubRelease("stable", "2.0.0", signedEnvelope(payload, secret), {
+    assets: releaseFixture("stable", "2.0.0").assets.filter((asset) => !asset.name.endsWith(".blockmap")),
+  });
 
   const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=stable"));
   const result = await response.json();
-  assert.equal(result.latest, "1.0.0");
-  assert.equal(result.minimum, "1.0.0");
-  assert.equal(result.updateRolloutPercent, 100);
-  assert.equal(result.published, true);
-  assert.equal(result.portable, false);
-  assert.equal(result.downloadUrl, "/api/desktop/download");
-  assert.equal(result.downloadUrl.includes("evil.example"), false);
+  assert.equal(result.published, false);
+  assert.equal(result.signed, false);
 });
 
-test("stable channel uses the Windows installer fallback", async () => {
-  delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
-  delete process.env.HEYKASA_DESKTOP_DOWNLOAD_URL;
-  delete process.env.HEYKASA_DESKTOP_BLOB_BASE_URL;
-  delete process.env.VERCEL_ENV;
+test("internal GitHub previews stay explicitly unsigned", async () => {
+  const payload = releasePayload("internal", "2.1.0-internal.4", { signed: false });
+  delete process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET;
+  mockGithubRelease("internal", "2.1.0-internal.4", { payload, signature: "" });
 
-  const response = await GET(new Request("http://localhost:3000/api/desktop/manifest"));
+  const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=internal"));
   const result = await response.json();
+  assert.equal(result.latest, "2.1.0-internal.4");
   assert.equal(result.published, true);
-  assert.equal(result.portable, false);
   assert.equal(result.signed, false);
-  assert.ok(result.source === "github-fallback" || result.source === "nsis-installer");
-  assert.equal(result.downloadUrl, "/api/desktop/download");
+  assert.equal(result.source, "github-release");
 });

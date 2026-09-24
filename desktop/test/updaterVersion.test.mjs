@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-import { semanticVersionParts, versionOlderThan } from "../src/version.mjs";
+import { compareReleaseVersions, semanticVersionParts, versionOlderThan } from "../src/version.mjs";
 
 test("desktop updater compares semantic versions for mandatory upgrades", () => {
   assert.deepEqual(semanticVersionParts("1.2.3"), [1, 2, 3]);
@@ -28,4 +28,21 @@ test("desktop updater source keeps downgrade and web-installer protections expli
   assert.ok(channelAssignment >= 0);
   assert.ok(downgradeReset > channelAssignment);
   assert.ok(feedAssignment > downgradeReset);
+});
+
+
+test("release version comparison respects prerelease ordering", () => {
+  assert.equal(compareReleaseVersions("1.1.0", "1.0.9"), 1);
+  assert.equal(compareReleaseVersions("1.1.0-beta.2", "1.1.0-beta.1"), 1);
+  assert.equal(compareReleaseVersions("1.1.0", "1.1.0-beta.9"), 1);
+  assert.equal(compareReleaseVersions("1.1.0", "1.1.0"), 0);
+  assert.equal(compareReleaseVersions("1.0.9", "1.1.0"), -1);
+  assert.equal(compareReleaseVersions("bad", "1.1.0"), null);
+});
+
+
+test("stable and beta updater paths require a signed manifest before auto-update", () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../src/updater.mjs"), "utf8");
+  assert.match(source, /this\.channel\(\) !== "internal" && manifest\.signed !== true/);
+  assert.match(source, /will not be installed automatically/);
 });

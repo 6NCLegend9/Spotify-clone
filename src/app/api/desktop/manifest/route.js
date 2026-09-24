@@ -1,19 +1,19 @@
-import crypto from "node:crypto";
 import {
-  DESKTOP_INSTALLER_APP_PATH,
-  DESKTOP_INSTALLER_NOTES_URL,
   desktopAppDownloadUrl,
-  findLocalDesktopInstaller,
 } from "../../../../utils/desktopInstaller.mjs";
 import {
-  desktopReleaseFileUrl,
   normalizeDesktopReleaseChannel,
 } from "../../../../utils/desktopRelease.mjs";
+import {
+  fetchVerifiedDesktopGithubRelease,
+  verifyDesktopReleaseEnvelope,
+} from "../../../../utils/desktopReleaseTrust.mjs";
 
 export const runtime = "nodejs";
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
+
 function httpsUrl(value) {
   const text = typeof value === "string" ? value.trim() : "";
   if (!text) return "";
@@ -84,33 +84,11 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
     sizeBytes: Number.isSafeInteger(input.sizeBytes) && input.sizeBytes > 0 ? input.sizeBytes : null,
     sha512: installerSha512,
     updateRolloutPercent,
-    signed: input.signed !== false,
-    source: typeof input.source === "string" ? input.source.slice(0, 40) : (downloadUrl ? "stable" : "none"),
+    signed: input.signed === true,
+    source: typeof input.source === "string" ? input.source.slice(0, 40) : (downloadUrl ? "configured" : "none"),
     portable: input.portable === true,
     published: Boolean(downloadUrl),
   };
-}
-
-function verifiedRemotePayload(envelope) {
-  const secret = String(process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET || "");
-  if (secret.length < 32) throw new Error("Desktop manifest verification is not configured.");
-  if (!envelope || typeof envelope !== "object" || !envelope.payload || typeof envelope.payload !== "object") {
-    throw new Error("Desktop manifest envelope is invalid.");
-  }
-  const signature = typeof envelope.signature === "string" ? envelope.signature.trim() : "";
-  if (!/^[A-Za-z0-9_-]{43}$/.test(signature)) throw new Error("Desktop manifest signature is invalid.");
-
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(JSON.stringify(envelope.payload), "utf8")
-    .digest("base64url");
-  const expectedBytes = Buffer.from(expected, "utf8");
-  const receivedBytes = Buffer.from(signature, "utf8");
-  if (expectedBytes.length !== receivedBytes.length
-    || !crypto.timingSafeEqual(expectedBytes, receivedBytes)) {
-    throw new Error("Desktop manifest signature verification failed.");
-  }
-  return envelope.payload;
 }
 
 function requestedChannel(request) {
@@ -123,15 +101,8 @@ function requestedChannel(request) {
 }
 
 function configuredManifestUrl(channel) {
-  if (channel === "stable") {
-    const explicit = httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
-    if (explicit) return explicit;
-  }
-  return desktopReleaseFileUrl(
-    process.env.HEYKASA_DESKTOP_BLOB_BASE_URL,
-    channel,
-    "release-manifest.json",
-  );
+  if (channel !== "stable") return "";
+  return httpsUrl(process.env.HEYKASA_DESKTOP_MANIFEST_URL);
 }
 
 async function fetchVerifiedManifest(manifestUrl, expectedChannel) {
@@ -142,31 +113,27 @@ async function fetchVerifiedManifest(manifestUrl, expectedChannel) {
   });
   if (!response.ok) throw new Error(`Desktop manifest returned ${response.status}.`);
   const envelope = await response.json();
-  const payload = verifiedRemotePayload(envelope);
+  const payload = verifyDesktopReleaseEnvelope(
+    envelope,
+    process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET,
+  );
   if ((normalizeDesktopReleaseChannel(payload?.channel) || "stable") !== expectedChannel) {
     throw new Error("Desktop manifest channel does not match the expected channel.");
   }
   return payload;
 }
 
-async function loadInternalPreview() {
-  const previewUrl = configuredManifestUrl("internal");
-  if (!previewUrl) return null;
-  try {
-    const payload = await fetchVerifiedManifest(previewUrl, "internal");
-    return normalizeManifest({
-      ...payload,
-      signed: false,
-      source: "internal-preview",
-    }, "stable");
-  } catch (error) {
-    console.error(JSON.stringify({
-      level: "error",
-      msg: "desktop_preview_manifest_fetch_failed",
-      error: error instanceof Error ? error.message : String(error),
-    }));
-    return null;
-  }
+async function githubReleaseManifest(channel) {
+  const verified = await fetchVerifiedDesktopGithubRelease(channel);
+  if (!verified) return null;
+
+  const { bundle, payload } = verified;
+  return normalizeManifest({
+    ...payload,
+    downloadUrl: bundle.installerUrl,
+    source: "github-release",
+    signed: channel !== "internal",
+  }, channel);
 }
 
 async function loadManifest(channel) {
@@ -176,32 +143,48 @@ async function loadManifest(channel) {
   if (manifestUrl) {
     try {
       const payload = await fetchVerifiedManifest(manifestUrl, channel);
-      return normalizeManifest(payload, channel);
+      return normalizeManifest({
+        ...payload,
+        signed: true,
+        source: "configured-signed-manifest",
+      }, channel);
     } catch (error) {
       console.error(JSON.stringify({
         level: "error",
-        msg: "desktop_manifest_fetch_failed",
+        msg: "desktop_manifest_override_fetch_failed",
         channel,
         error: error instanceof Error ? error.message : String(error),
       }));
     }
   }
 
-  if (configured.published || channel !== "stable") return configured;
-  const preview = await loadInternalPreview();
-  if (preview) return preview;
-  const localInstaller = findLocalDesktopInstaller();
-  return normalizeManifest({
-    latest: configured.latest,
-    minimum: configured.minimum,
-    recommended: configured.recommended,
-    downloadUrl: DESKTOP_INSTALLER_APP_PATH,
-    releaseNotesUrl: DESKTOP_INSTALLER_NOTES_URL,
-    sizeBytes: localInstaller?.sizeBytes,
-    signed: false,
-    portable: false,
-    source: localInstaller ? "nsis-installer" : "github-fallback",
-  }, channel);
+  try {
+    const release = await githubReleaseManifest(channel);
+    if (release) return release;
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      msg: "desktop_github_release_fetch_failed",
+      channel,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+
+  if (channel === "stable") {
+    return {
+      ...configured,
+      downloadUrl: "",
+      releaseNotesUrl: "",
+      sizeBytes: null,
+      sha512: "",
+      signed: false,
+      source: "none",
+      portable: false,
+      published: false,
+    };
+  }
+
+  return configured;
 }
 
 export async function GET(request) {

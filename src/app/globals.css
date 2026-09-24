@@ -3391,7 +3391,7 @@ details > summary {
   display: none;
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 1360px) {
   .app-shell {
     --right-panel: var(--right-panel-live-w, 20rem);
     grid-template-columns: var(--rail) minmax(0, 1fr) var(--right-panel);
@@ -3520,6 +3520,102 @@ details > summary {
   }
 }
 
+
+
+/* Desktop window resizing: keep the center content usable while the native
+   Electron window moves through compact and wide layouts. */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .app-shell {
+    --rail: var(--sidebar-collapsed-w);
+    grid-template-columns: var(--sidebar-collapsed-w) minmax(0, 1fr);
+  }
+
+  .app-sidebar .sidebar-head {
+    justify-content: center;
+    padding-inline: 0.3rem;
+  }
+
+  .app-sidebar .sidebar-brand {
+    justify-content: center;
+    gap: 0.2rem;
+  }
+
+  .app-sidebar .sidebar-head .brand-mark,
+  .app-sidebar .brand-mark-lockup {
+    width: 1.85rem;
+    height: 1.85rem;
+    max-width: 1.85rem;
+  }
+
+  .app-sidebar .brand-mark-lockup {
+    object-fit: cover;
+    object-position: 50% 30%;
+  }
+
+  .app-sidebar .sidebar-head-actions {
+    margin-left: 0;
+  }
+
+  .app-sidebar .nav-link {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  .app-sidebar .nav-link span {
+    display: none;
+  }
+
+  .sidebar-resizer {
+    display: none;
+  }
+
+  .app-navbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .navbar-slot-end {
+    min-width: 0;
+  }
+
+  .navbar-slot-end > :not(:last-child) {
+    flex-shrink: 1;
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1359px) {
+  .app-shell {
+    --right-panel: 0px;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+  }
+
+  .now-playing-panel,
+  .right-panel-resizer {
+    display: none !important;
+  }
+
+  .app-stage {
+    grid-column: 2;
+  }
+}
+
+@media (max-height: 620px) and (min-width: 768px) {
+  .app-navbar {
+    min-height: 3.25rem;
+  }
+
+  .page,
+  .page-home {
+    padding-top: 0.75rem;
+    padding-bottom: 2rem;
+  }
+
+  .player-dock:not(.player-dock--full) {
+    max-height: 9.5rem;
+  }
+}
 
 /* Keep expanded playback anchored to the visible viewport in every browser.
    Applying fullscreen positioning to the shell slot avoids a mobile layout

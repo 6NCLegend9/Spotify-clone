@@ -11,6 +11,7 @@
     "test": "node --test test/*.test.mjs",
     "pack": "electron-builder --dir --win --x64",
     "dist": "electron-builder --win nsis --x64",
+    "prepare-github-release": "node scripts/prepare-github-release.mjs",
     "publish-release": "node scripts/publish-release.mjs",
     "publish-installer": "node scripts/publish-installer.mjs"
   },

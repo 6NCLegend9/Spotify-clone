@@ -1,12 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { desktopReleaseFileUrl } from "./desktopRelease.mjs";
 
 export const DESKTOP_INSTALLER_APP_PATH = "/api/desktop/download";
 export const DESKTOP_INSTALLER_PUBLIC_NAME = "HayKasa-Setup-x64.exe";
 export const DESKTOP_INSTALLER_NOTES_URL = "";
-export const DESKTOP_INSTALLER_GITHUB_FALLBACK =
-  "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-latest/HayKasa-Setup-x64.exe";
 
 const INSTALLER_FILE = /^HayKasa-Setup-(?:[\w.-]+-)?x64\.exe$/i;
 
@@ -42,20 +39,18 @@ export function findLocalDesktopInstaller(cwd = process.cwd()) {
   }
 }
 
-export function hostedDesktopInstallerUrl(downloadEnv, blobBaseEnv) {
+export function hostedDesktopInstallerUrl(downloadEnv) {
   const text = typeof downloadEnv === "string" ? downloadEnv.trim() : "";
-  if (text) {
-    try {
-      const url = new URL(text);
-      if (url.protocol === "https:" && !url.username && !url.password && url.pathname.toLowerCase().endsWith(".exe")) {
-        return url.href;
-      }
-    } catch {
-      // Server env is trusted only after it looks like a public installer URL.
+  if (!text) return "";
+  try {
+    const url = new URL(text);
+    if (url.protocol !== "https:" || url.username || url.password || !url.pathname.toLowerCase().endsWith(".exe")) {
+      return "";
     }
+    return url.href;
+  } catch {
+    return "";
   }
-  return desktopReleaseFileUrl(blobBaseEnv, "stable", DESKTOP_INSTALLER_PUBLIC_NAME)
-    || DESKTOP_INSTALLER_GITHUB_FALLBACK;
 }
 
 export function desktopAppDownloadUrl(value) {

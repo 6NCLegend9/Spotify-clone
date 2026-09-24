@@ -175,17 +175,24 @@ export class DesktopUpdater {
     }
 
     if (!this.configureFeed()) {
-      this.emit({ state: "disabled", detail: "The signed desktop update feed is not configured." });
+      this.emit({ state: "disabled", detail: "The desktop update feed is not configured." });
       return this.getStatus();
     }
 
-    this.emit({ state: "checking", progress: 0, detail: "Checking the signed desktop release channel." });
+    this.emit({ state: "checking", progress: 0, detail: "Checking the desktop release channel." });
     try {
       const manifest = await this.releaseManifest();
       if (manifest.published !== true || !httpsUrl(manifest.downloadUrl)) {
         this.emit({
           state: "disabled",
-          detail: `No signed ${this.channel()} desktop release has been published yet.`,
+          detail: `No ${this.channel()} desktop release has been published yet.`,
+        });
+        return this.getStatus();
+      }
+      if (this.channel() !== "internal" && manifest.signed !== true) {
+        this.emit({
+          state: "disabled",
+          detail: `The ${this.channel()} desktop release is not code-signed and will not be installed automatically.`,
         });
         return this.getStatus();
       }
@@ -235,7 +242,7 @@ export class DesktopUpdater {
       return;
     }
     if (!this.configuredFeedUrl() || !this.configuredManifestUrl()) {
-      this.emit({ state: "disabled", detail: "The signed desktop update feed is not configured." });
+      this.emit({ state: "disabled", detail: "The desktop update feed is not configured." });
       return;
     }
 
