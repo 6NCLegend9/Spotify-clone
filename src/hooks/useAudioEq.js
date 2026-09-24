@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { EQ_BAND_FREQS, normalizationGain } from "@/utils/eqPresets";
+import { EQ_BAND_FREQS, eqHeadroomGain, normalizationGain } from "@/utils/eqPresets";
 import { resumeAudioContext } from "@/utils/nativeAudio.mjs";
 
 export default function useAudioEq(audioRef, { bands, normalization, monoAudio, spatialAudio }) {
@@ -91,7 +91,7 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio, 
     graph.filters.forEach((filter, index) => {
       filter.gain.value = Number(bands?.[index] || 0);
     });
-    graph.gain.gain.value = normalizationGain(normalization);
+    graph.gain.gain.value = normalizationGain(normalization) * eqHeadroomGain(bands);
 
     if (graph.panner) {
       graph.panner.pan.value = spatialAudio ? 0.05 : 0;
