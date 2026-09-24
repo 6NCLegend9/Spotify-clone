@@ -63,7 +63,7 @@ jobs:
       - name: Audit web runtime dependencies
         run: npm run audit:production
       - name: Test desktop server contract
-        run: node --test test/desktopAuth.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs test/desktopRelease.test.mjs
+        run: node --test test/desktopAuth.test.mjs test/desktopDownload.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs test/desktopRelease.test.mjs
       - name: Typecheck web integration
         run: npm run typecheck
       - name: Build production web application
