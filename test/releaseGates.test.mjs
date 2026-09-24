@@ -121,3 +121,23 @@ test("manual desktop release publishes complete GitHub Release bundles without V
   assert.doesNotMatch(release, /BLOB_READ_WRITE_TOKEN/);
   assert.doesNotMatch(release, /Publish immutable release and update metadata/);
 });
+
+
+test("public desktop download fails closed to the signed stable GitHub release", () => {
+  const route = readFileSync(join(projectRoot, "src/app/api/desktop/download/route.js"), "utf8");
+  assert.match(route, /fetchDesktopGithubRelease\("stable"\)/);
+  assert.match(route, /desktopReleaseBundle\(release, "stable"\)/);
+  assert.doesNotMatch(route, /findLocalDesktopInstaller/);
+  assert.doesNotMatch(route, /HEYKASA_DESKTOP_DOWNLOAD_URL/);
+});
+
+test("desktop window can traverse responsive breakpoints without crushing content", () => {
+  const main = readFileSync(join(projectRoot, "desktop/src/main.mjs"), "utf8");
+  const css = readFileSync(join(projectRoot, "src/app/globals.css"), "utf8");
+
+  assert.match(main, /minWidth:\s*640/);
+  assert.match(main, /minHeight:\s*520/);
+  assert.match(css, /min-width:\s*768px\) and \(max-width:\s*1099px/);
+  assert.match(css, /min-width:\s*1100px\) and \(max-width:\s*1359px/);
+  assert.match(css, /@media \(min-width:\s*1360px\)/);
+});
