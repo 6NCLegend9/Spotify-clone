@@ -561,8 +561,8 @@ async function createMainWindow() {
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 920,
-    minHeight: 640,
+    minWidth: 640,
+    minHeight: 520,
     show: false,
     backgroundColor: "#07111f",
     title: PRODUCT_NAME,

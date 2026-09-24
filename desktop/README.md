@@ -1,6 +1,6 @@
-# HayKasa Desktop v1
+# HayKasa Desktop
 
-HayKasa Desktop `1.0.0` is a hardened Electron shell around the production HayKasa web application. The music product remains deployed by Next.js/Vercel; Electron adds a narrow set of Windows-native capabilities without exposing Node.js to the renderer.
+HayKasa Desktop is the hardened Windows/Electron shell for the production HayKasa web application. The music product remains a Next.js application deployed on Vercel; Electron adds a deliberately narrow native boundary for updates, Discord presence, startup/tray behavior, authentication handoff, appearance settings, and local diagnostics.
 
 ## Runtime architecture
 
@@ -18,10 +18,10 @@ HayKasa Desktop.exe
   ├─ context-isolated preload API
   │
   └─ https://haykasa.vercel.app
-      └─ the normal HayKasa Next.js application
+      └─ normal HayKasa Next.js application
 ```
 
-The desktop shell does not contain database credentials, GitHub credentials, signing credentials, Vercel write tokens, Google client secrets, NextAuth secrets, or other server-only material.
+The desktop bundle does not contain database credentials, GitHub credentials, Windows signing credentials, NextAuth secrets, Google client secrets, or other server-only material.
 
 ## Security boundary
 
@@ -34,104 +34,127 @@ Electron enforces:
 - renderer sandbox enabled
 - `webSecurity: true`
 - permission requests denied by default
-- IPC sender-origin verification on every privileged request
-- only the explicit preload methods under `window.heykasaDesktop`
-- navigation restricted to the trusted HayKasa renderer origin
+- IPC sender-origin verification for privileged requests
+- an explicit preload capability surface under `window.heykasaDesktop`
+- main-frame navigation restricted to the trusted HayKasa origin
 - external HTTPS pages opened in the system browser
-- PWA service workers and Cache Storage cleared from the desktop partition at startup
-- single-instance execution
-- production Electron fuses disable `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS`, and CLI inspector flags
-- cookie encryption enabled for the persistent desktop session
-- embedded ASAR integrity validation with `onlyLoadAppFromAsar`
-- stable `com.heykasa.desktop` Windows app ID
-- stable `heykasa://` protocol registration
+- production devtools disabled
+- production Electron fuses that disable `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS`, and CLI inspector flags
+- cookie encryption, embedded ASAR integrity validation, and `onlyLoadAppFromAsar`
+- stable `com.heykasa.desktop` Windows app ID and `heykasa://` protocol
 
 The renderer never receives unrestricted filesystem, shell, process, registry, PowerShell, Node.js, or arbitrary IPC access.
 
-## Native API v1
+## Native API
 
-The exposed capability contract currently includes:
+The current desktop capability contract includes:
 
 - `discordPresenceV1`
 - `updaterV1`
 - `autoLaunchV1`
 - `desktopPreferencesV1`
+- `appearanceProfilesV1`
 - `trayV1`
 - `diagnosticsV1`
 - `authV1`
 
-The web app checks capabilities instead of assuming that every installed desktop version supports every native feature.
-
-## Discord Rich Presence
-
-Desktop Rich Presence talks directly to Discord Desktop native IPC (`discord-ipc-0` through `discord-ipc-9`). The Electron desktop path does not use `ws://127.0.0.1:64650`.
-
-The old `desktop-bridge/` remains only as a browser-development/migration fallback. It is not required by HayKasa Desktop.
-
-Discord activity is sanitized before it reaches the native pipe. If richer payloads are rejected, the client falls back from buttons/assets to a minimal activity rather than crashing playback.
+The web app capability-checks the installed shell instead of assuming every native version exposes every feature.
 
 ## Desktop authentication
 
-Google authentication uses the system browser rather than an embedded Google login window.
+Google authentication runs in the system browser rather than an embedded login window.
 
-Flow:
+1. Electron creates a random state and PKCE verifier/challenge.
+2. Electron opens `/api/desktop/auth/authorize` in the user's browser.
+3. The browser completes normal HayKasa authentication.
+4. The server returns a short-lived one-time `heykasa://auth` grant.
+5. Electron verifies state and expiry, then exchanges the code and PKCE verifier over HTTPS.
+6. The server atomically consumes the grant and returns the NextAuth session token to the Electron main process.
+7. Electron writes the HTTP-only session cookie into the isolated desktop partition and reloads HayKasa.
 
-1. Electron generates a cryptographically random state and PKCE verifier/challenge.
-2. Electron opens `/api/desktop/auth/authorize` in the user's normal browser.
-3. The browser completes normal HayKasa/Google authentication.
-4. The server creates a short-lived, one-time desktop grant and redirects to `heykasa://auth`.
-5. Electron validates state and expiry and exchanges the one-time code plus PKCE verifier over HTTPS.
-6. The server consumes the grant atomically and returns a NextAuth session token to the Electron main process.
-7. Electron writes the HTTP-only session cookie into `persist:heykasa` and reloads the web application.
-
-The session token never passes through renderer JavaScript.
+The session token does not pass through renderer JavaScript.
 
 ## Automatic updates
 
-Desktop v1 separates web updates from native updates.
+Web deployments and native desktop releases are intentionally separate.
 
 ### Web changes
 
-Queue/player/search/UI changes are deployed through Vercel. The desktop window loads the production site and can notify the user when a newer web build is available. HayKasa does not forcibly reload during playback.
+UI, search, queue, playback, and other web changes deploy through Vercel. The desktop shell loads the production app, so web releases do not require a new Windows installer.
 
 ### Native changes
 
-Electron/Discord/updater/native changes are distributed as signed Windows releases.
+Native Electron changes use a compatibility API backed by public GitHub Releases:
 
-The installed app:
+```text
+Installed HayKasa Desktop
+        |
+        +--> https://haykasa.vercel.app/api/desktop/manifest
+        |
+        +--> https://haykasa.vercel.app/api/desktop/update/<channel>/latest.yml
+        |          |
+        |          +--> validated public GitHub Release asset
+        |
+        +--> electron-updater
+                   |
+                   +--> Authenticode verification for stable/beta
+```
 
-- checks a server-owned release manifest first
-- checks for updates after a randomized startup delay
-- checks again every six hours
+Keeping the Vercel endpoints stable is important: already-installed clients are compiled with those URLs. The server can change the artifact origin to GitHub Releases without requiring old clients to know a new feed URL first.
+
+### Release channels
+
+- **stable** — immutable tag `desktop-vX.Y.Z`, non-prerelease, signed, and published only from `main`.
+- **beta** — immutable tag `desktop-beta-vX.Y.Z[-prerelease]`, GitHub prerelease, signed.
+- **internal** — immutable tag `desktop-internal-vX.Y.Z[-prerelease]`, GitHub prerelease, unsigned test build.
+
+A valid release bundle must contain all of the following:
+
+```text
+latest.yml
+HayKasa-Setup-X.Y.Z-x64.exe
+HayKasa-Setup-X.Y.Z-x64.exe.blockmap
+release-manifest.json
+```
+
+Signed stable/beta releases also publish a CycloneDX runtime SBOM.
+
+The compatibility API rejects incomplete bundles rather than falling back to a lone EXE.
+
+### Release-manifest trust
+
+Stable and beta `release-manifest.json` files are HMAC-authenticated by the protected release workflow. The Vercel compatibility API verifies that signature and then verifies that the signed version, channel, installer URL, SHA-512, and size match the selected GitHub Release bundle.
+
+The HMAC does not replace Windows Authenticode. It protects server-side release metadata; the packaged application still keeps `verifyUpdateCodeSignature: true` so Windows installer authenticity remains the final native-code trust boundary.
+
+Internal previews explicitly remain unsigned and are never reported as stable/beta signed releases.
+
+### Updater behavior
+
+The installed application:
+
+- checks the server-owned manifest before calling `electron-updater`
+- checks after a randomized startup delay and again every six hours
 - rechecks after system resume
-- downloads eligible signed releases automatically
-- never allows automatic downgrade
-- installs a downloaded update when HayKasa fully exits, or when the user selects Restart and update
+- downloads eligible releases automatically
+- keeps automatic downgrade disabled
+- disables web-installer updates
+- installs a downloaded update on full exit or when the user chooses Restart and update
+- refuses stable/beta auto-update when the release manifest does not say `signed: true`
 
-The update endpoint is compiled into the signed app. A remotely loaded renderer cannot choose an arbitrary executable URL.
+The renderer cannot provide an arbitrary executable URL to the native updater.
 
 ## Staged rollout
 
-Stable desktop updates support deterministic percentage rollout.
+Stable updates support deterministic percentage rollout using a local installation UUID and a stable `0-99` bucket.
 
-Each installation gets one random local installation UUID. That UUID is hashed into a stable `0-99` bucket and is not exposed to the renderer or support report.
-
-`HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT` controls stable eligibility:
-
-- `0` - no stable installation downloads the new release
-- `5` - approximately 5% of installations are eligible
-- `25` - approximately 25%
-- `100` - full rollout
-
-A client outside the current rollout enters the updater `deferred` state and checks again later. Manual update checks do not bypass the rollout gate.
-
-Internal and beta channels are separate release channels and are not constrained by the stable percentage gate.
+`HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT` controls stable eligibility. A client outside the current rollout enters the updater `deferred` state and checks again later. Manual checks do not bypass the rollout gate.
 
 ## Runtime kill switches
 
-`/api/desktop/policy` provides operational controls for native capabilities.
+`/api/desktop/policy` can remotely disable native capabilities without shipping another executable.
 
-Supported production environment controls:
+Supported production controls include:
 
 - `HEYKASA_DESKTOP_ENABLED`
 - `HEYKASA_DESKTOP_AUTH_ENABLED`
@@ -140,37 +163,13 @@ Supported production environment controls:
 - `HEYKASA_DESKTOP_MAINTENANCE_MESSAGE`
 - `HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT`
 
-The app refreshes policy periodically and after resume. If Discord is remotely disabled, the current activity is cleared and the pipe is disconnected. If the updater is disabled, scheduled checks stop. Authentication can also be disabled without shipping a new executable.
+A transient policy fetch failure keeps the last accepted policy instead of silently re-enabling a disabled feature.
 
-A temporary policy fetch failure keeps the most recently accepted native policy instead of silently re-enabling a feature that was disabled.
+## Crash recovery and diagnostics
 
-## Crash recovery and safe mode
+Desktop settings and JSONL logs are stored under Electron's user-data directory. Repeated startup/renderer crashes can put the next session into safe mode, which keeps the web app and authentication available while disabling nonessential updater/Discord integrations for that run.
 
-Desktop settings are stored locally under Electron's user-data directory.
-
-The shell tracks clean exits, startup crash streaks, and renderer crashes. Repeated crashes put the next/current session in safe mode. Safe mode keeps the web music application and authentication available, while disabling nonessential Discord and updater integrations for that run.
-
-A successful clean exit clears the crash streak so a recovered application does not remain permanently stuck in safe mode.
-
-## Diagnostics
-
-Desktop logs are local JSONL files under the Electron user-data `logs` directory. They rotate at approximately 2 MB.
-
-The logger intentionally redacts fields whose names indicate tokens, cookies, passwords, secrets, credentials, PKCE material, authorization values, or authentication codes. Logs are bounded and diagnostics failures never terminate the app.
-
-The web Support diagnostics panel can include a sanitized snapshot of desktop state and the most recent native log entries. It never includes the local installation UUID.
-
-## Desktop preferences
-
-Machine-local preferences are deliberately separate from HayKasa account settings:
-
-- Start with Windows
-- automatic desktop updates
-- close/minimize to system tray
-- update channel
-- crash/safe-mode state
-
-They are not synced to another computer through Redux/account settings.
+Diagnostic logging redacts token-, cookie-, password-, secret-, credential-, PKCE-, authorization-, and auth-code-shaped fields. Diagnostics failures do not terminate playback.
 
 ## Development
 
@@ -184,102 +183,75 @@ npm start
 
 Local renderer overrides are allowed only in unpackaged development builds and only for `localhost` / `127.0.0.1`.
 
-To create an unsigned Windows CI/development package:
+Create an unsigned package for development/CI:
 
 ```powershell
 npm run pack
 ```
 
-To create the normal installer:
+Build the normal NSIS installer:
 
 ```powershell
 npm run dist
 ```
 
-A production release must be code-signed; manually generated unsigned installers are not a stable release.
+Prepare the full GitHub Release bundle after a build:
 
-## CI
+```powershell
+$env:HEYKASA_DESKTOP_RELEASE_CHANNEL="internal"
+$env:HEYKASA_DESKTOP_MINIMUM_VERSION="1.0.0"
+npm run prepare-github-release
+```
 
-`.github/workflows/desktop-ci.yml` validates both sides of the boundary:
+Stable/beta preparation additionally requires `HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET`; stable/beta publication also requires a valid Windows signing certificate in the protected workflow.
 
-- server/Next.js desktop contract tests on Ubuntu
-- native desktop tests on Windows
-- production dependency audit
-- unsigned Windows packaging smoke test
-- executable artifact verification
+## CI and release workflow
 
-The workflow is path-filtered and uses `cancel-in-progress` so rapid development pushes do not leave every obsolete CI run executing.
+`.github/workflows/desktop-ci.yml` validates the server/desktop contract, native tests, runtime dependency audit, and Windows packaging. It uploads unsigned CI artifacts only; it does not publish an end-user update feed.
 
-## Signed release workflow
+`.github/workflows/desktop-preview.yml` is also an unsigned Actions-artifact smoke path.
 
-`.github/workflows/desktop-release.yml` is manual only.
+`.github/workflows/desktop-release.yml` is the manual publication workflow:
 
-Before the Windows release job can publish anything, the web gate must pass:
+1. run production web/runtime audits, desktop API tests, typecheck, and Next.js build;
+2. reject stable releases that are not dispatched from `main`;
+3. validate release-version monotonicity against the current compatibility manifest;
+4. build and test the Windows package;
+5. verify Authenticode for beta/stable;
+6. generate and validate the complete updater bundle;
+7. publish that bundle as an immutable public GitHub Release;
+8. fetch every required public release asset to verify publication.
 
-- production dependency audit
-- desktop API/auth/policy tests
-- TypeScript/Next.js type check
-- production Next.js build
-
-Stable releases are rejected unless the workflow runs from `main`. Internal/beta builds may be generated from a development ref for controlled testing.
-
-Required GitHub `desktop-release` environment secrets:
+Protected `desktop-release` environment secrets required for beta/stable:
 
 - `HEYKASA_WINDOWS_CSC_LINK`
 - `HEYKASA_WINDOWS_CSC_PASSWORD`
-- `BLOB_READ_WRITE_TOKEN`
 - `HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET`
 
-The HMAC secret must be at least 32 characters. None of these values are packaged into the app.
+Vercel Blob is not required for the normal public desktop update path.
 
-## Vercel production configuration required before v1 publication
+## Production configuration
 
-The web deployment that supports Desktop v1 needs the desktop endpoints and the following server environment configuration where applicable:
+The production Vercel deployment must expose the desktop API routes and share the same `HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET` used by the protected signed-release workflow.
 
-- `HEYKASA_DESKTOP_BLOB_BASE_URL` - public read-only Vercel Blob base URL
-- `HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET` - same manifest-verification secret used by the release workflow
-- optional `HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT`
-- optional desktop feature/maintenance switches listed above
+Optional operational configuration:
 
-`HEYKASA_DESKTOP_BLOB_BASE_URL` is validated to a public `*.public.blob.vercel-storage.com` origin before the update proxy redirects to it.
+- `HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT`
+- the desktop feature/maintenance switches listed above
+- `HEYKASA_DESKTOP_DOWNLOAD_URL` as an emergency explicit installer override
+- `HEYKASA_DESKTOP_MANIFEST_URL` as an emergency signed-manifest override
 
-## Release publication order
-
-The release script follows an atomic order:
-
-1. Build and sign the Windows installer.
-2. Verify the Authenticode signature in CI.
-3. Upload the versioned installer and blockmaps as immutable Blob objects.
-4. Verify the uploaded artifacts are reachable and have the expected size.
-5. Calculate installer SHA-512.
-6. Publish the HMAC-signed `release-manifest.json`.
-7. Publish normalized `latest.yml` last. This is the updater publication switch.
-
-Published version artifacts are immutable. A bad release is fixed by publishing a newer patch version; an existing installer is never silently replaced and automatic downgrade remains disabled.
-
-## Recommended v1 rollout
-
-1. Finish Desktop v1 code and make Desktop CI green.
-2. Merge the required web/desktop API code to `main`.
-3. Deploy and verify the production desktop API endpoints before distributing an installer.
-4. Configure the Blob base URL, signing secrets, HMAC secret, and release environment.
-5. Publish `internal` and test installation/auth/Discord/update/reboot behavior on a real Windows machine.
-6. Publish `beta` and repeat smoke testing.
-7. Publish `stable` with a low rollout percentage.
-8. Monitor diagnostics and increase stable rollout gradually to `100`.
-
-## Current development deployment state
-
-While Desktop v1 is being built on `desktop-app-development`, `vercel.json` disables Git deployments for that branch only. Other branches keep Vercel's normal deployment behavior, so merging to `main` will still produce the production deployment.
+If no valid signed GitHub stable release is available, the stable manifest stays unpublished instead of inventing or trusting an unsigned update.
 
 ## Release invariants
 
-1. Never ship server secrets, GitHub credentials, signing keys, database credentials, auth cookies, OAuth client secrets, or Vercel write tokens in the desktop bundle.
-2. Keep `com.heykasa.desktop` and `heykasa://` stable after the first public release.
-3. Do not publish unsigned Windows releases.
-4. Do not publish stable releases directly from a feature branch.
-5. Upload immutable binaries before mutable updater metadata.
-6. Never silently overwrite a published version.
+1. Never package server secrets, GitHub write credentials, signing keys, database credentials, auth cookies, or OAuth client secrets into the desktop app.
+2. Keep `com.heykasa.desktop`, `heykasa://`, and the Vercel compatibility endpoints stable after public release.
+3. Never present unsigned internal builds as signed production releases.
+4. Do not publish stable releases from a feature branch.
+5. Do not publish a release unless the metadata, installer, blockmap, and release manifest are all present.
+6. Never silently replace an immutable versioned beta/stable release.
 7. Never auto-downgrade an installed app.
-8. A renderer compromise must still be constrained by preload allowlists, IPC sender validation, payload validation, and operational kill switches.
-9. A failed updater, policy server, Discord client, or diagnostics path must not stop normal music playback.
+8. Keep Authenticode verification enabled for production updates.
+9. A renderer compromise must remain constrained by preload allowlists, IPC sender validation, payload validation, and operational kill switches.
+10. A failed updater, policy server, Discord client, or diagnostics path must not stop normal music playback.

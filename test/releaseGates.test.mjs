@@ -18,6 +18,8 @@ function sourceFiles(directory) {
   });
 }
 
+function joinRoot(path) { return join(projectRoot, path); }
+
 test("Vercel builds the Next.js app on Node 22", () => {
   const pkg = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8"));
   const vercel = JSON.parse(readFileSync(join(projectRoot, "vercel.json"), "utf8"));
@@ -74,4 +76,74 @@ test("public discovery does not advertise private libraries or fabricated freshn
   assert.match(searchMetadata, /robots: \{ index: false, follow: true \}/);
 });
 
-function joinRoot(path) { return join(projectRoot, path); }
+test("desktop CI builds update artifacts but never publishes an end-user release", () => {
+  const workflow = readFileSync(join(projectRoot, ".github/workflows/desktop-ci.yml"), "utf8");
+  assert.match(workflow, /Stamp main-channel update version/);
+  assert.match(workflow, /desktop\/dist\/latest\.yml/);
+  assert.match(workflow, /Validate GitHub release bundle preparation/);
+  assert.match(workflow, /npm run prepare-github-release/);
+  assert.match(workflow, /desktop\/dist\/release-manifest\.json/);
+  assert.doesNotMatch(workflow, /softprops\/action-gh-release/);
+  assert.doesNotMatch(workflow, /BLOB_READ_WRITE_TOKEN/);
+});
+
+test("desktop preview remains an unsigned Actions artifact", () => {
+  const preview = readFileSync(join(projectRoot, ".github/workflows/desktop-preview.yml"), "utf8");
+  assert.doesNotMatch(preview, /environment:\s*desktop-release/);
+  assert.doesNotMatch(preview, /softprops\/action-gh-release/);
+  assert.match(preview, /desktop\/dist\/latest\.yml/);
+});
+
+test("manual desktop release publishes complete GitHub Release bundles without Vercel Blob", () => {
+  const release = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
+  const desktopPackage = JSON.parse(readFileSync(join(projectRoot, "desktop/package.json"), "utf8"));
+
+  assert.equal(desktopPackage.scripts["prepare-github-release"], "node scripts/prepare-github-release.mjs");
+  assert.match(release, /internal-release:/);
+  assert.match(release, /signed-release:/);
+  assert.match(release, /publish-signed:/);
+  assert.match(release, /if: inputs\.channel != 'internal'/);
+  assert.match(release, /environment: desktop-release/);
+  assert.match(release, /HEYKASA_WINDOWS_CSC_LINK/);
+  assert.match(release, /HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET/);
+  assert.match(release, /Validate release version monotonicity/);
+  assert.match(release, /validate-release-version\.mjs/);
+  assert.match(release, /npm run prepare-github-release/);
+  assert.match(release, /softprops\/action-gh-release@v2/);
+  assert.match(release, /desktop-v\$\{\{ inputs\.version \}\}/);
+  assert.match(release, /desktop-beta-v\$\{\{ inputs\.version \}\}/);
+  assert.match(release, /desktop-internal-v\$\{\{ inputs\.version \}\}/);
+  assert.match(release, /release\/latest\.yml/);
+  assert.match(release, /release\/\*\.blockmap/);
+  assert.match(release, /release\/release-manifest\.json/);
+  assert.match(release, /Verify Authenticode signature/);
+  assert.match(release, /Verify public GitHub release bundle/);
+  assert.doesNotMatch(release, /BLOB_READ_WRITE_TOKEN/);
+  assert.doesNotMatch(release, /Publish immutable release and update metadata/);
+});
+
+
+test("public desktop download and updater assets share the trusted release verifier", () => {
+  const downloadRoute = readFileSync(join(projectRoot, "src/app/api/desktop/download/route.js"), "utf8");
+  const updateRoute = readFileSync(join(projectRoot, "src/app/api/desktop/update/[channel]/[file]/route.js"), "utf8");
+  const desktopCi = readFileSync(join(projectRoot, ".github/workflows/desktop-ci.yml"), "utf8");
+  const releaseWorkflow = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
+
+  assert.match(downloadRoute, /fetchVerifiedDesktopGithubRelease\("stable"\)/);
+  assert.match(updateRoute, /fetchVerifiedDesktopGithubRelease\(channel\)/);
+  assert.doesNotMatch(downloadRoute, /findLocalDesktopInstaller/);
+  assert.doesNotMatch(downloadRoute, /HEYKASA_DESKTOP_DOWNLOAD_URL/);
+  assert.match(desktopCi, /test\/desktopDownload\.test\.mjs/);
+  assert.match(releaseWorkflow, /test\/desktopDownload\.test\.mjs/);
+});
+
+test("desktop window can traverse responsive breakpoints without crushing content", () => {
+  const main = readFileSync(join(projectRoot, "desktop/src/main.mjs"), "utf8");
+  const css = readFileSync(join(projectRoot, "src/app/globals.css"), "utf8");
+
+  assert.match(main, /minWidth:\s*640/);
+  assert.match(main, /minHeight:\s*520/);
+  assert.match(css, /min-width:\s*768px\) and \(max-width:\s*1099px/);
+  assert.match(css, /min-width:\s*1100px\) and \(max-width:\s*1359px/);
+  assert.match(css, /@media \(min-width:\s*1360px\)/);
+});

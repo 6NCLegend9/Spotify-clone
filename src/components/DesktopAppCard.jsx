@@ -176,7 +176,7 @@ export default function DesktopAppCard() {
           <h2 className="text-xl font-semibold">{isDesktop ? "Desktop app controls" : "Get HayKasa for Windows"}</h2>
           <p className="mt-2 max-w-2xl text-xs leading-5 text-[#9aa8b5]">
             {isDesktop
-              ? "This window is running inside the secure HayKasa desktop shell. Native Discord, Windows startup, tray behavior, and signed application updates are handled outside the browser sandbox."
+              ? "This window is running inside the secure HayKasa desktop shell. Native Discord, Windows startup, tray behavior, and application updates are handled outside the browser sandbox."
               : "Install the Windows app for native Discord Rich Presence and automatic desktop updates. The music experience still comes from the same HayKasa account and Vercel web app."}
           </p>
         </div>
@@ -226,7 +226,7 @@ export default function DesktopAppCard() {
           {supportsPreferences && supportsUpdater ? (
             <DesktopToggle
               label="Automatic desktop updates"
-              description="Check in the background and download signed HayKasa Desktop updates automatically."
+              description="Check in the background and download eligible HayKasa Desktop updates automatically. Stable and beta releases must be code-signed before HayKasa will install them."
               checked={preferences?.autoUpdate !== false}
               disabled={!preferences || busy === "autoUpdate"}
               onChange={(value) => void setPreference("autoUpdate", value)}
