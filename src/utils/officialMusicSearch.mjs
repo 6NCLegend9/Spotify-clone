@@ -124,9 +124,11 @@ export function officialMusicScore(result, query) {
   if (!wantsVideo && isTopic) score += 115;
   if (!wantsVideo && isOfficialAudio) score += 90;
 
-  for (const [pattern, points] of POSITIVE_TITLE_PATTERNS) {
-    if (pattern.test(title)) score += points;
-  }
+  const positiveTitleScore = POSITIVE_TITLE_PATTERNS.reduce(
+    (best, [pattern, points]) => (pattern.test(title) ? Math.max(best, points) : best),
+    0,
+  );
+  score += positiveTitleScore;
   for (const [pattern, points] of NEGATIVE_PATTERNS) {
     if (pattern.test(haystack) && !pattern.test(query)) score += points;
   }
