@@ -228,13 +228,17 @@ async function loadManifest(channel) {
   // manifest or complete signed GitHub release, do not advertise an unsigned
   // local/configured installer to Windows users.
   if (channel === "stable") {
-    return normalizeManifest({
-      latest: configured.latest,
-      minimum: configured.minimum,
-      recommended: configured.recommended,
+    return {
+      ...configured,
+      downloadUrl: "",
+      releaseNotesUrl: "",
+      sizeBytes: null,
+      sha512: "",
       signed: false,
       source: "none",
-    }, channel);
+      portable: false,
+      published: false,
+    };
   }
 
   return configured;
