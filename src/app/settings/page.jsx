@@ -18,9 +18,7 @@ import { userErrorDetails } from "@/utils/userError";
 import AccessibleDialog from "@/components/AccessibleDialog";
 import { accountOwner } from "@/utils/accountCache.mjs";
 
-const qualityOptions = [["auto", "Automatic"], ["low", "Data saver"], ["normal", "Balanced"], ["high", "High quality"], ["very-high", "Best available"]];
-const normalizationOptions = [["quiet", "Quiet · -23 LUFS"], ["normal", "Normal · -14 LUFS"], ["loud", "Loud · -11 LUFS"]];
-const videoQualityOptions = [["auto", "Automatic"], ["720p", "Prefer 720p"], ["1080p", "Prefer 1080p"], ["audio-only", "Audio only"]];
+const normalizationOptions = [["quiet", "Quiet"], ["normal", "Original"], ["loud", "Loud"]];
 const eqPresetOptions = EQ_PRESETS.map((preset) => [preset, preset]);
 const EQ_GAIN_LIMIT = 12;
 
@@ -275,13 +273,12 @@ function AccountSettings({ owner, status }) {
 
       <section className="mb-8 grid gap-8 lg:grid-cols-2">
         <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">
-          <h2 className="mb-2 text-xl font-semibold">Audio quality</h2>
-          <SelectControl label="Audio quality preference" value={settings.streamingQuality} options={qualityOptions} onChange={(value) => set("streamingQuality", value)} />
-          <SelectControl label="Video quality preference" value={settings.videoQuality} options={videoQualityOptions} onChange={(value) => set("videoQuality", value)} />
-          <SelectControl label="Volume normalization" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
+          <h2 className="mb-2 text-xl font-semibold">Playback sound</h2>
+          <SelectControl label="Playback level" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
           <Toggle label="Mono audio" checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
-          <Toggle label="Spatial audio / Stereo expansion" description="Subtly widens the stereo field for immersive headphone listening." checked={settings.spatialAudio} onChange={(value) => set("spatialAudio", value)} />
-          <p className="mt-4 text-xs text-[#9aa8b5]">HayKasa asks YouTube for the selected quality. The final audio and video quality depends on the uploaded source, browser, viewport, and connection. The player shows the video quality currently delivered.</p>
+          <p className="mt-4 text-xs leading-5 text-[#9aa8b5]">
+            YouTube chooses stream quality automatically from the uploaded source, connection, device, and player conditions. HayKasa no longer shows unsupported quality controls; Audio-only and Data Saver remain under Playback &amp; data.
+          </p>
         </div>
       </section>
 
@@ -297,7 +294,7 @@ function AccountSettings({ owner, status }) {
               Reset to flat
             </button>
           </div>
-          <p className="mb-4 text-xs text-gray-400">Presets and faders apply true multi-band EQ on HayKasa&apos;s native audio path. YouTube embeds only receive a loudness tilt derived from the selected curve.</p>
+          <p className="mb-4 text-xs text-gray-400">Presets and faders apply true multi-band EQ only on HayKasa&apos;s native audio path. YouTube&apos;s embedded audio cannot be routed through HayKasa&apos;s Web Audio EQ.</p>
           <SelectControl label="Preset" value={settings.eqPreset} options={eqPresetOptions} onChange={(value) => set("eqPreset", value)} />
           <div className="mt-5 overflow-x-auto pb-2" aria-label="Six-band equalizer">
             <div className="min-w-[660px] rounded-lg border border-white/10 bg-black/15 px-4 py-5">
@@ -337,7 +334,7 @@ function AccountSettings({ owner, status }) {
               </div>
             </div>
           </div>
-          <p className="mt-4 text-xs text-[#9aa8b5]">Six-band tone shaping applies to tracks played through HayKasa&apos;s own audio player. YouTube protects its embedded audio path, so frequency controls are unavailable there; the selected curve is reduced to an overall loudness adjustment.</p>
+          <p className="mt-4 text-xs text-[#9aa8b5]">Positive EQ boosts reserve preamp headroom before the peak limiter so tone shaping does not turn into clipping or heavy compression. YouTube tracks keep their source balance unchanged.</p>
         </section>
       )}
 
