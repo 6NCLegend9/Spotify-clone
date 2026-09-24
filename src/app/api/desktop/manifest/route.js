@@ -1,9 +1,6 @@
 import crypto from "node:crypto";
 import {
-  DESKTOP_INSTALLER_APP_PATH,
-  DESKTOP_INSTALLER_NOTES_URL,
   desktopAppDownloadUrl,
-  findLocalDesktopInstaller,
 } from "../../../../utils/desktopInstaller.mjs";
 import {
   desktopGithubReleaseDownloadUrl,
@@ -227,22 +224,20 @@ async function loadManifest(channel) {
     }));
   }
 
-  if (configured.published || channel !== "stable") return configured;
+  // Public stable downloads fail closed: if there is no verified signed
+  // manifest or complete signed GitHub release, do not advertise an unsigned
+  // local/configured installer to Windows users.
+  if (channel === "stable") {
+    return normalizeManifest({
+      latest: configured.latest,
+      minimum: configured.minimum,
+      recommended: configured.recommended,
+      signed: false,
+      source: "none",
+    }, channel);
+  }
 
-  const localInstaller = findLocalDesktopInstaller();
-  if (!localInstaller) return configured;
-
-  return normalizeManifest({
-    latest: configured.latest,
-    minimum: configured.minimum,
-    recommended: configured.recommended,
-    downloadUrl: DESKTOP_INSTALLER_APP_PATH,
-    releaseNotesUrl: DESKTOP_INSTALLER_NOTES_URL,
-    sizeBytes: localInstaller.sizeBytes,
-    signed: false,
-    portable: false,
-    source: "local-installer",
-  }, channel);
+  return configured;
 }
 
 export async function GET(request) {
