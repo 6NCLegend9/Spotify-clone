@@ -34,7 +34,7 @@ const Player = ({
   const handlePlayPauseRef = useRef(handlePlayPause);
   const mediaActionsRef = useRef({});
   const [playbackError, setPlaybackError] = useState(null);
-  const { eqPreset, eqBands, normalization, monoAudio, spatialAudio, masterVolume, privateSession, listeningInsights, owner: settingsOwner } = useSelector((state) => state.settings);
+  const { eqPreset, eqBands, normalization, monoAudio, masterVolume, privateSession, listeningInsights, owner: settingsOwner } = useSelector((state) => state.settings);
   const insights = useListeningInsights({ owner, trackId: activeSong?.id,
     enabled: settingsOwner === owner && listeningInsights === true && !privateSession,
     getSample: () => ({ position: ref.current?.currentTime, playing: ref.current && !ref.current.paused && !ref.current.ended }),
@@ -43,7 +43,6 @@ const Player = ({
     bands: bandsForPreset(eqPreset, eqBands),
     normalization,
     monoAudio,
-    spatialAudio,
   });
   const audioSource =
     activeSong?.downloadUrl?.[4]?.url ||
