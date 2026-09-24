@@ -23,7 +23,7 @@ const initialState = {
   listeningInsights: false,
   syncedLyrics: true,
   pictureInPicture: true,
-  masterVolume: 0.85,
+  masterVolume: 1,
   keyboardShortcuts: true,
   captions: false,
   fadeEnabled: true,
