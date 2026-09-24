@@ -1,11 +1,10 @@
 import { DESKTOP_INSTALLER_PUBLIC_NAME } from "@/utils/desktopInstaller.mjs";
 import {
   desktopGithubReleaseDownloadUrl,
-  desktopReleaseBundle,
-  fetchDesktopGithubRelease,
   isSafeDesktopReleaseFile,
   normalizeDesktopReleaseChannel,
 } from "@/utils/desktopRelease.mjs";
+import { fetchVerifiedDesktopGithubRelease } from "@/utils/desktopReleaseTrust.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,8 +27,8 @@ export async function GET(_request, context) {
   if (!channel || !isSafeDesktopReleaseFile(file)) return notFound();
 
   try {
-    const release = await fetchDesktopGithubRelease(channel);
-    const bundle = desktopReleaseBundle(release, channel);
+    const verified = await fetchVerifiedDesktopGithubRelease(channel);
+    const bundle = verified?.bundle;
     if (!bundle) return notFound();
 
     if (file === DESKTOP_INSTALLER_PUBLIC_NAME) {
