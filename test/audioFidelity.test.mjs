@@ -100,7 +100,7 @@ test("native EQ preamp is placed before the peak limiter in the signal graph", a
   const hook = await read("src/hooks/useAudioEq.js");
   assert.match(
     hook,
-    /filters\[filters\.length - 1\]\.connect\(gain\);[\s\S]*gain\.connect\(compressor\);/,
+    /filters\[filters\.length - 1\]\.connect\(preamp\);[\s\S]*preamp\.connect\(compressor\);/,
   );
   assert.match(hook, /graph = \{[^}]*compressor[^}]*\}/s);
   assert.match(hook, /graph\.compressor\.disconnect\(\);/);
