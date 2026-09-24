@@ -123,12 +123,18 @@ test("manual desktop release publishes complete GitHub Release bundles without V
 });
 
 
-test("public desktop download fails closed to the signed stable GitHub release", () => {
-  const route = readFileSync(join(projectRoot, "src/app/api/desktop/download/route.js"), "utf8");
-  assert.match(route, /fetchDesktopGithubRelease\("stable"\)/);
-  assert.match(route, /desktopReleaseBundle\(release, "stable"\)/);
-  assert.doesNotMatch(route, /findLocalDesktopInstaller/);
-  assert.doesNotMatch(route, /HEYKASA_DESKTOP_DOWNLOAD_URL/);
+test("public desktop download and updater assets share the trusted release verifier", () => {
+  const downloadRoute = readFileSync(join(projectRoot, "src/app/api/desktop/download/route.js"), "utf8");
+  const updateRoute = readFileSync(join(projectRoot, "src/app/api/desktop/update/[channel]/[file]/route.js"), "utf8");
+  const desktopCi = readFileSync(join(projectRoot, ".github/workflows/desktop-ci.yml"), "utf8");
+  const releaseWorkflow = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
+
+  assert.match(downloadRoute, /fetchVerifiedDesktopGithubRelease\("stable"\)/);
+  assert.match(updateRoute, /fetchVerifiedDesktopGithubRelease\(channel\)/);
+  assert.doesNotMatch(downloadRoute, /findLocalDesktopInstaller/);
+  assert.doesNotMatch(downloadRoute, /HEYKASA_DESKTOP_DOWNLOAD_URL/);
+  assert.match(desktopCi, /test\/desktopDownload\.test\.mjs/);
+  assert.match(releaseWorkflow, /test\/desktopDownload\.test\.mjs/);
 });
 
 test("desktop window can traverse responsive breakpoints without crushing content", () => {
