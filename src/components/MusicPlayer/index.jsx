@@ -33,6 +33,7 @@ import useWakeLock from "@/hooks/useWakeLock";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 import { loginPath } from "@/utils/appOrigin.mjs";
+import { updateSetting } from "@/redux/features/settingsSlice";
 
 function getAverageImageColor(src) {
   return new Promise((resolve, reject) => {
@@ -93,13 +94,13 @@ const MusicPlayer = () => {
     dataSaver,
     audioOnly: audioOnlyToggle,
     videoQuality,
+    masterVolume,
   } = useSelector((state) => state.settings);
   const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
   const compactPlayback = audioOnly || dataSaver;
   const [duration, setDuration] = useState(0);
   const [seekTime, setSeekTime] = useState(0);
   const [appTime, setAppTime] = useState(0);
-  const [volume, setVolume] = useState(0.8);
 
   // Hold a screen wake lock while anything is playing so a listener's display
   // doesn't sleep mid-track. Releases on its own when playback stops.
@@ -116,7 +117,7 @@ const MusicPlayer = () => {
   const [bgColor, setBgColor] = useState();
   const pipWindowRef = useRef(null);
   const pipMountRef = useRef(null);
-  const lastVolumeRef = useRef(0.8);
+  const lastMasterVolumeRef = useRef(1);
   const [pipWindow, setPipWindow] = useState(null);
   const nativeTitle = cleanTitle(activeSong?.name || activeSong?.title || "");
   const nativeArtist = cleanTitle(
@@ -297,15 +298,17 @@ const MusicPlayer = () => {
   };
 
   const toggleMute = useCallback(() => {
-    setVolume((current) => {
-      const value = Number(current) || 0;
-      if (value > 0) {
-        lastVolumeRef.current = value;
-        return 0;
-      }
-      return lastVolumeRef.current > 0 ? lastVolumeRef.current : 0.8;
-    });
-  }, []);
+    const current = Number(masterVolume) || 0;
+    if (current > 0) {
+      lastMasterVolumeRef.current = current;
+      dispatch(updateSetting({ key: "masterVolume", value: 0 }));
+      return;
+    }
+    dispatch(updateSetting({
+      key: "masterVolume",
+      value: lastMasterVolumeRef.current > 0 ? lastMasterVolumeRef.current : 1,
+    }));
+  }, [dispatch, masterVolume]);
 
   const { handlePrevious, handleNext, seekRelative } = usePlayerTransport({
     currentTime: appTime,
@@ -560,7 +563,6 @@ const MusicPlayer = () => {
             />
             <Player
               activeSong={activeSong}
-              volume={volume}
               isPlaying={isPlaying}
               seekTime={seekTime}
               repeat={repeat}
@@ -599,15 +601,9 @@ const MusicPlayer = () => {
           <div className="flex items-center gap-2">
             <PlayerVolume />
             <VolumeBar
-            activeSong={activeSong}
-            bgColor={bgColor}
-            fullScreen={fullScreen}
-            value={volume}
-            min="0"
-            max="1"
-            onChange={(event) => setVolume(event.target.value)}
-            setVolume={setVolume}
-          />
+              activeSong={activeSong}
+              bgColor={bgColor}
+            />
           </div>
         </div>
       </div>}
