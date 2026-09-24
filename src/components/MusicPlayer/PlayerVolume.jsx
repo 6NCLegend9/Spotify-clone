@@ -8,7 +8,7 @@ import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 
 export default function PlayerVolume({ className = "" }) {
   const dispatch = useDispatch();
-  const volume = Number(useSelector((state) => state.settings.masterVolume) ?? 0.85);
+  const volume = Number(useSelector((state) => state.settings.masterVolume) ?? 1);
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const setVolume = (value) => dispatch(updateSetting({ key: "masterVolume", value }));
@@ -32,7 +32,7 @@ export default function PlayerVolume({ className = "" }) {
             setOpen((value) => !value);
             return;
           }
-          setVolume(volume === 0 ? 0.85 : 0);
+          setVolume(volume === 0 ? 1 : 0);
         }}
         className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-gray-200 hover:bg-white/10"
       >
