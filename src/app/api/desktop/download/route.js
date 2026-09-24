@@ -1,10 +1,3 @@
-import { createReadStream } from "node:fs";
-import { Readable } from "node:stream";
-import {
-  DESKTOP_INSTALLER_PUBLIC_NAME,
-  findLocalDesktopInstaller,
-  hostedDesktopInstallerUrl,
-} from "../../../../utils/desktopInstaller.mjs";
 import {
   desktopReleaseBundle,
   fetchDesktopGithubRelease,
@@ -13,19 +6,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function localInstallerHeaders(local) {
-  return {
-    "Content-Type": "application/octet-stream",
-    "Content-Disposition": `attachment; filename="${DESKTOP_INSTALLER_PUBLIC_NAME}"`,
-    "Content-Length": String(local.sizeBytes),
-    "Cache-Control": "private, no-store",
-    "X-Content-Type-Options": "nosniff",
-  };
-}
-
-async function hostedInstaller() {
-  const configured = hostedDesktopInstallerUrl(process.env.HEYKASA_DESKTOP_DOWNLOAD_URL);
-  if (configured) return configured;
+async function signedStableInstaller() {
   try {
     const release = await fetchDesktopGithubRelease("stable");
     return desktopReleaseBundle(release, "stable")?.installerUrl || "";
@@ -40,26 +21,29 @@ async function hostedInstaller() {
 }
 
 export async function GET() {
-  const local = findLocalDesktopInstaller();
-  if (local) {
-    return new Response(Readable.toWeb(createReadStream(local.filePath)), {
-      headers: localInstallerHeaders(local),
-    });
-  }
+  const installer = await signedStableInstaller();
+  if (installer) return Response.redirect(installer, 302);
 
-  const hosted = await hostedInstaller();
-  if (hosted) return Response.redirect(hosted, 302);
   return Response.json({
     title: "Installer unavailable",
-    message: "The signed Windows installer has not been published to GitHub Releases yet.",
-  }, { status: 404 });
+    message: "A signed HayKasa Windows installer has not been published yet.",
+  }, {
+    status: 404,
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 export async function HEAD() {
-  const local = findLocalDesktopInstaller();
-  if (local) return new Response(null, { headers: localInstallerHeaders(local) });
-
-  const hosted = await hostedInstaller();
-  if (hosted) return Response.redirect(hosted, 302);
-  return new Response(null, { status: 404 });
+  const installer = await signedStableInstaller();
+  if (installer) return Response.redirect(installer, 302);
+  return new Response(null, {
+    status: 404,
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
