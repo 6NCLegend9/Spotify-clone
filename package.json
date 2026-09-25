@@ -20,7 +20,9 @@
     "test:e2e": "playwright test",
     "typecheck": "next typegen && node node_modules/typescript/bin/tsc --noEmit --incremental false",
     "lint": "eslint src test e2e scripts playwright.config.js --ext .js,.jsx,.mjs,.ts,.tsx --no-cache --max-warnings=0",
-    "check": "npm test && npm run lint && npm run typecheck && npm run build"
+    "check": "npm test && npm run lint && npm run typecheck && npm run build",
+    "generate:desktop-contract": "node scripts/generate-desktop-contract.mjs",
+    "check:desktop-contract": "node scripts/generate-desktop-contract.mjs && git diff --exit-code -- src/generated/desktopContract.mjs desktop/src/generated/desktopContract.mjs"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

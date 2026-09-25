@@ -1,3 +1,7 @@
+import { KNOWN_DESKTOP_CAPABILITIES } from "../generated/desktopContract.mjs";
+
+const KNOWN_CAPABILITIES = new Set(KNOWN_DESKTOP_CAPABILITIES);
+
 export function getHeyKasaDesktopApi() {
   if (typeof window === "undefined") return null;
   const api = window.heykasaDesktop;
@@ -51,4 +55,9 @@ export async function getHeyKasaDesktopInfo() {
 
 export function hasDesktopCapability(info, capability) {
   return Boolean(info?.capabilities?.includes(capability));
+}
+
+
+export function isKnownDesktopCapability(capability) {
+  return KNOWN_CAPABILITIES.has(capability);
 }
