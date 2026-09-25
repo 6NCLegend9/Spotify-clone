@@ -11,6 +11,7 @@ import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
+import { resolveInitialMediaVideoMode, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
@@ -88,11 +89,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const scrollRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
   const [video, setVideo] = useState(() => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") return Boolean(props.onVideo);
     try {
-      return window.localStorage.getItem(MEDIA_MODE_KEY) === "video";
+      return resolveInitialMediaVideoMode(
+        window.localStorage.getItem(MEDIA_MODE_KEY),
+        Boolean(props.onVideo),
+      );
     } catch {
-      return false;
+      return Boolean(props.onVideo);
     }
   });
   const [expanded, setExpanded] = useState(false);
@@ -213,7 +217,17 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, []);
 
   useEffect(() => {
-    if (!canVideo && expanded) setExpanded(false);
+    if (!canVideo) {
+      if (expanded) setExpanded(false);
+      setVideo(false);
+    } else {
+      try {
+        const saved = window.localStorage.getItem(MEDIA_MODE_KEY);
+        if (saved !== "audio" && saved !== "video") setVideo(true);
+      } catch {
+        setVideo(true);
+      }
+    }
     if (!canLyrics && view === "lyrics") setView("player");
   }, [canVideo, canLyrics, expanded, view]);
 
@@ -331,7 +345,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
         if (sheet.style.getPropertyValue("--sheet-drag") !== offset) sheet.style.setProperty("--sheet-drag", offset);
         sheet.dataset.dragging = dragY.current > 0 ? "true" : "false";
       }
-      positionMediaViewport(host, anchorRef.current, showingVideo, expanded, clips);
+      const exposeLiveVideo = shouldExposeLiveVideoViewport({
+        showingVideo,
+        mobile,
+        entering,
+        closing,
+        dragY: dragY.current,
+      });
+      positionMediaViewport(host, anchorRef.current, exposeLiveVideo, expanded, clips);
       if (performance.now() < until) frame = requestAnimationFrame(place);
     };
     const request = (duration = 0) => {
@@ -366,7 +387,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       if (oldHidden === null) host.removeAttribute("aria-hidden"); else host.setAttribute("aria-hidden", oldHidden);
       host.inert = oldInert; host.classList.remove(styles.viewport); region.classList.remove(styles.presentationRegion);
     };
-  }, [mediaHost, showingVideo, overlay, mobile, drawer, expanded, view, slot]);
+  }, [mediaHost, showingVideo, overlay, mobile, drawer, expanded, view, slot, entering, closing]);
 
   useEffect(() => {
     if (mobile && drawer && !expanded) scheduleViewport.current?.(350);
