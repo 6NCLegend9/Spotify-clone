@@ -1,0 +1,80 @@
+name: Desktop Package CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "desktop/**"
+      - "contracts/**"
+      - "scripts/generate-desktop-contract.mjs"
+      - "src/generated/desktopContract.mjs"
+      - "src/app/api/desktop/**"
+      - "src/utils/desktop*.mjs"
+      - ".github/workflows/desktop-package-ci.yml"
+      - ".github/workflows/desktop-release.yml"
+  pull_request:
+    paths:
+      - "desktop/**"
+      - "contracts/**"
+      - "scripts/generate-desktop-contract.mjs"
+      - "src/generated/desktopContract.mjs"
+      - "src/app/api/desktop/**"
+      - "src/utils/desktop*.mjs"
+      - ".github/workflows/desktop-package-ci.yml"
+      - ".github/workflows/desktop-release.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-package-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      HEYKASA_DESKTOP_RELEASE_CHANNEL: internal
+      HEYKASA_DESKTOP_MINIMUM_VERSION: "1.0.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Validate canonical desktop contract
+        run: npm run check:desktop-contract
+      - name: Install desktop dependencies
+        run: npm --prefix desktop ci --no-audit --no-fund
+      - name: Test native boundary
+        run: npm --prefix desktop test
+      - name: Audit runtime dependencies
+        run: npm --prefix desktop audit --omit=dev --audit-level=high
+      - name: Stamp main-channel update version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm --prefix desktop version "1.0.${{ github.run_number }}" --no-git-tag-version
+      - name: Build unsigned Windows installer
+        run: npm --prefix desktop run dist
+      - name: Verify Windows installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path desktop/dist -Filter "HayKasa-Setup-*-x64.exe" | Select-Object -First 1
+          if (-not $installer) { throw "HayKasa-Setup installer was not produced" }
+          $exe = Get-ChildItem -Path desktop/dist -Recurse -Filter "HayKasa.exe" | Select-Object -First 1
+          if (-not $exe) { throw "HayKasa.exe was not produced" }
+          Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
+      - name: Validate GitHub release bundle preparation
+        run: npm --prefix desktop run prepare-github-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heykasa-desktop-windows-${{ github.sha }}
+          path: |
+            desktop/dist/HayKasa-Setup-*-x64.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
+            desktop/dist/release-manifest.json
+          if-no-files-found: error
+          retention-days: 7

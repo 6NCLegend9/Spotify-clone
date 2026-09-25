@@ -60,6 +60,8 @@ jobs:
           cache: npm
       - name: Install web dependencies
         run: npm ci
+      - name: Validate canonical desktop contract
+        run: npm run check:desktop-contract
       - name: Audit web runtime dependencies
         run: npm run audit:production
       - name: Test desktop server contract
