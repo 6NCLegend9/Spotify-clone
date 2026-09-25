@@ -16,7 +16,6 @@ import { resolveInitialMediaVideoMode, resolveInitialMobilePresentation, resolve
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
 const THEATER_CONTROLS_HIDE_MS = 6500;
-const MOBILE_PRESENTATION_QUERY = "(max-width: 767px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)";
 const MOBILE_MEDIA_QUERY = "(max-width: 767px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)";
 
 type View = "player" | "lyrics";
