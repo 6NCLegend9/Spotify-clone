@@ -45,7 +45,7 @@ export interface PlayerDockProps {
   pipActive: boolean;
   pipLabel: string;
   pipDisabled?: boolean;
-  onVideo?: () => void;
+  videoAvailable?: boolean;
   onLyrics?: () => void;
   onOneMore?: () => void;
   oneMoreArmed?: boolean;
