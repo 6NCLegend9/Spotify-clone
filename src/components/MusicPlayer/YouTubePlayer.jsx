@@ -2182,6 +2182,7 @@ function YouTubePlayer() {
       const nextTracks = diversifyRadioTracks(pool, {
         seedArtist: originArtist,
         excludeArtists: excludedArtists,
+        excludeTracks: list,
         limit: 16,
         maxPerArtist: 1,
         maxSeedArtist: 0,
