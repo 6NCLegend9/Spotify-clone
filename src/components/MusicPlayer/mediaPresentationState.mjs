@@ -17,3 +17,7 @@ export function shouldExposeLiveVideoViewport({
   if (entering || closing) return false;
   return !(Number(dragY) > 0);
 }
+
+export function resolveMediaVideoModeAfterCapabilityChange(storedValue, canVideo) {
+  return resolveInitialMediaVideoMode(storedValue, canVideo);
+}
