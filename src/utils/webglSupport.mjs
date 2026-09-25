@@ -3,9 +3,7 @@ export function canCreateWebGLContext(
 ) {
   try {
     const canvas = createCanvas();
-    const context =
-      canvas?.getContext?.("webgl") ||
-      canvas?.getContext?.("experimental-webgl");
+    const context = canvas?.getContext?.("webgl2");
     if (!context) return false;
     try {
       context.getExtension?.("WEBGL_lose_context")?.loseContext?.();
