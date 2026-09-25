@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ListMusic, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
@@ -37,6 +37,19 @@ export default function PlayerDock(props: PlayerDockProps) {
   }, []);
   const openPresentation = () => presentationRef.current?.open();
   const openLyrics = () => presentationRef.current?.showLyrics();
+
+  useEffect(() => {
+    const onPresentationCommand = (event: Event) => {
+      const command = (event as CustomEvent<{ command?: string }>).detail?.command;
+      if (command === "expand") presentationRef.current?.expand();
+      else if (command === "lyrics") presentationRef.current?.showLyrics();
+      else if (command === "open") presentationRef.current?.open();
+      else if (command === "dismiss") presentationRef.current?.dismiss();
+    };
+    window.addEventListener("heykasa:media-presentation-command", onPresentationCommand);
+    return () => window.removeEventListener("heykasa:media-presentation-command", onPresentationCommand);
+  }, []);
+
   const progress = props.duration > 0
     ? Math.min(100, Math.max(0, (props.position / props.duration) * 100))
     : 0;
