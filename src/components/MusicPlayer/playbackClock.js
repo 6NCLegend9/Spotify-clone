@@ -30,3 +30,23 @@ export function createPlaybackClockStore(initial = {}) {
     },
   };
 }
+
+export function publishPlaybackTick({
+  clock,
+  position,
+  duration,
+  now,
+  lastUiCommitAt = 0,
+  uiIntervalMs = 450,
+  commitPosition,
+} = {}) {
+  const snapshot = {
+    position: safe(position),
+    duration: safe(duration),
+  };
+  clock?.publish?.(snapshot);
+  const timestamp = Number.isFinite(Number(now)) ? Number(now) : 0;
+  if (timestamp - lastUiCommitAt < uiIntervalMs) return lastUiCommitAt;
+  commitPosition?.(snapshot.position);
+  return timestamp;
+}
