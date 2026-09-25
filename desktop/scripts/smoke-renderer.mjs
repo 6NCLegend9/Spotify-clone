@@ -26,23 +26,7 @@ const app = await electron.launch({
 });
 
 try {
-  const page = await app.firstWindow();
-  page.on("pageerror", (error) => errors.push(`page: ${error.message}`));
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
-  });
-
-  await page.waitForURL((url) => url.origin === origin, { timeout: 30_000 });
-  await page.waitForLoadState("domcontentloaded");
-
-  const bridge = await page.evaluate(() => ({
-    hasDesktop: typeof window.heykasaDesktop?.getInfo === "function",
-    hasNodeRequire: typeof window.require !== "undefined",
-  }));
-  assert.equal(bridge.hasDesktop, true, "Electron preload bridge should be available.");
-  assert.equal(bridge.hasNodeRequire, false, "Renderer must not expose Node require.");
-
-  await page.route("**/api/**", async (route) => {
+  await app.context().route("**/api/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     const headers = { "Cache-Control": "private, no-store" };
     if (pathname === "/api/auth/session") return route.fulfill({ headers, json: {} });
@@ -60,6 +44,22 @@ try {
       json: { success: true, data: [], genres: [], tree: [], personalGenres: [] },
     });
   });
+
+  const page = await app.firstWindow();
+  page.on("pageerror", (error) => errors.push(`page: ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(`console: ${message.text()}`);
+  });
+
+  await page.waitForURL((url) => url.origin === origin, { timeout: 30_000 });
+  await page.waitForLoadState("domcontentloaded");
+
+  const bridge = await page.evaluate(() => ({
+    hasDesktop: typeof window.heykasaDesktop?.getInfo === "function",
+    hasNodeRequire: typeof window.require !== "undefined",
+  }));
+  assert.equal(bridge.hasDesktop, true, "Electron preload bridge should be available.");
+  assert.equal(bridge.hasNodeRequire, false, "Renderer must not expose Node require.");
 
   await page.goto(`${origin}/search`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Browse all", exact: true }).waitFor();
