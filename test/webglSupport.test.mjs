@@ -3,8 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { canCreateWebGLContext } from "../src/utils/webglSupport.mjs";
 
-test("WebGL capability probe fails closed and releases a successful probe context", () => {
+test("WebGL capability probe requires WebGL 2, fails closed, and releases a successful probe context", () => {
   assert.equal(canCreateWebGLContext(() => ({ getContext: () => null })), false);
+
+  const webgl1Only = {
+    getContext(name) {
+      return name === "webgl" ? {} : null;
+    },
+  };
+  assert.equal(canCreateWebGLContext(() => webgl1Only), false);
 
   let released = 0;
   const context = {
@@ -15,7 +22,7 @@ test("WebGL capability probe fails closed and releases a successful probe contex
   };
   const canvas = {
     getContext(name) {
-      return name === "webgl" ? context : null;
+      return name === "webgl2" ? context : null;
     },
   };
 
