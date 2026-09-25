@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Pause, Play, Settings2, Video } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent } from "react";
 import type { PlayerDockProps } from "./player.types";
@@ -12,6 +12,7 @@ import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
 import { resolveInitialMediaVideoMode, resolveInitialMobilePresentation, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
+import { setFullScreen } from "@/redux/features/playerSlice";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
@@ -68,6 +69,7 @@ export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | n
 /** One presentation owner. It never recreates decks or invokes legacy view callbacks. */
 const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function MediaPresentation(props, ref) {
   const { onQueue } = props;
+  const dispatch = useDispatch();
   const [mediaHost, setMediaHost] = useState<HTMLElement | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [mobile, setMobile] = useState(() =>
@@ -94,14 +96,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const scrollRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
   const [video, setVideo] = useState(() => {
-    if (typeof window === "undefined") return Boolean(props.onVideo);
+    if (typeof window === "undefined") return props.videoAvailable === true;
     try {
       return resolveInitialMediaVideoMode(
         window.localStorage.getItem(MEDIA_MODE_KEY),
-        Boolean(props.onVideo),
+        props.videoAvailable === true,
       );
     } catch {
-      return Boolean(props.onVideo);
+      return props.videoAvailable === true;
     }
   });
   const [expanded, setExpanded] = useState(false);
@@ -116,7 +118,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const controlsTimerRef = useRef<number | null>(null);
   const controlsVisibleRef = useRef(true);
   const controlsRevealedByPointerMoveRef = useRef(false);
-  const canVideo = Boolean(props.onVideo);
+  const canVideo = props.videoAvailable === true;
   const canLyrics = Boolean(props.onLyrics);
   const overlay = expanded || drawer;
   const showingVideo = canVideo && video && view === "player";
@@ -250,11 +252,13 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [clearControlsTimer, expanded, props.track.id, showTheaterControls, view]);
 
   useEffect(() => {
+    dispatch(setFullScreen(expanded));
     window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: expanded && showingVideo } }));
     return () => {
+      dispatch(setFullScreen(false));
       window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: false } }));
     };
-  }, [expanded, showingVideo]);
+  }, [dispatch, expanded, showingVideo]);
 
   const hasOtherDialog = useCallback(() => Array.from(document.querySelectorAll<HTMLElement>('dialog[open], [role="dialog"][aria-modal="true"]'))
     .some((element) => element !== overlayRef.current && element.getClientRects().length > 0), []);
