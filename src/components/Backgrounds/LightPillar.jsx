@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { useAccessibilityPreferences } from "@/components/AccessibilityPreferences";
+import { canCreateWebGLContext } from "@/utils/webglSupport.mjs";
 
 const QUALITY_SETTINGS = {
   low: {
@@ -105,15 +106,12 @@ export default function LightPillar({
   };
 
   useEffect(() => {
-    const canvas = document.createElement("canvas");
-    const context =
-      canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    if (!context) setWebGLSupported(false);
-  }, []);
-
-  useEffect(() => {
     const container = containerRef.current;
     if (!container || !webGLSupported) return undefined;
+    if (!canCreateWebGLContext()) {
+      setWebGLSupported(false);
+      return undefined;
+    }
 
     const isMobile = window.matchMedia("(max-width: 767px)").matches;
     const isLowEnd =
