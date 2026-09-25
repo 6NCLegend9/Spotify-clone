@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   resolveInitialMediaVideoMode,
+  resolveMediaVideoModeAfterCapabilityChange,
   shouldExposeLiveVideoViewport,
 } from "../src/components/MusicPlayer/mediaPresentationState.mjs";
 
@@ -15,6 +16,13 @@ test("an explicit saved media preference still wins", () => {
   assert.equal(resolveInitialMediaVideoMode("video", true), true);
   assert.equal(resolveInitialMediaVideoMode("audio", true), false);
   assert.equal(resolveInitialMediaVideoMode("video", false), false);
+});
+
+
+test("video preference is restored after a temporary video capability loss", () => {
+  assert.equal(resolveMediaVideoModeAfterCapabilityChange("video", true), true);
+  assert.equal(resolveMediaVideoModeAfterCapabilityChange("audio", true), false);
+  assert.equal(resolveMediaVideoModeAfterCapabilityChange("video", false), false);
 });
 
 test("mobile video stays hidden while the sheet geometry is moving", () => {
