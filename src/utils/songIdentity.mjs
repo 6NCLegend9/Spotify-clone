@@ -96,3 +96,55 @@ export function canonicalSongIdentity(track) {
   }
   return artist ? `${artist}|${title}` : title;
 }
+
+
+function radioFamilyText(track) {
+  return normalize(
+    String(track?.title || track?.name || "")
+      .replace(/[_#]+/g, " ")
+      .replace(/[–—]/g, " - ")
+      .replace(/\((?:[^)]*\b(?:official|video|audio|lyrics?|visuali[sz]er|slowed|sped\s*up|reverb|remix|edit|version|4k|uhd|hd)\b[^)]*)\)/gi, " ")
+      .replace(/\[(?:[^\]]*\b(?:official|video|audio|lyrics?|visuali[sz]er|slowed|sped\s*up|reverb|remix|edit|version|4k|uhd|hd)\b[^\]]*)\]/gi, " "),
+  );
+}
+
+function distinctiveRadioTitle(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  const words = text.split(/\s+/).filter(Boolean);
+  return words.length >= 2 && text.length >= 8;
+}
+
+/**
+ * Radio-only duplicate guard.
+ *
+ * canonicalSongIdentity intentionally includes the artist so unrelated songs
+ * sharing a title remain separate. Radio discovery needs a second, stricter
+ * guard: different YouTube uploaders often publish the same recording under
+ * variant titles such as "slowed", "edit", "phonk", or "official video".
+ */
+export function sameRadioSongFamily(left, right) {
+  if (!left || !right) return false;
+
+  const leftCanonical = canonicalSongTitle(left);
+  const rightCanonical = canonicalSongTitle(right);
+  if (
+    leftCanonical
+    && rightCanonical
+    && leftCanonical === rightCanonical
+    && distinctiveRadioTitle(leftCanonical)
+  ) {
+    return true;
+  }
+
+  const leftRaw = radioFamilyText(left);
+  const rightRaw = radioFamilyText(right);
+  if (!distinctiveRadioTitle(leftRaw) || !distinctiveRadioTitle(rightRaw)) return false;
+  if (leftRaw === rightRaw) return true;
+
+  const [shorter, longer] = leftRaw.length <= rightRaw.length
+    ? [leftRaw, rightRaw]
+    : [rightRaw, leftRaw];
+
+  return longer.startsWith(`${shorter} `);
+}
