@@ -86,6 +86,7 @@ test("MediaPresentation is the only interactive video presentation owner", async
   assert.match(dock, /heykasa:media-presentation-command/);
   assert.match(dock, /presentationRef\.current\?\.expand\(\)/);
   assert.match(presentation, /const canVideo = props\.videoAvailable === true/);
+  assert.match(presentation, /dispatch\(setFullScreen\(expanded\)\)/);
   assert.doesNotMatch(player, /onVideo=\{videoVisible \? toggleExpanded/);
   assert.match(player, /videoAvailable=\{videoVisible\}/);
   assert.doesNotMatch(player, /const \[expanded, setExpanded\] = useState/);
