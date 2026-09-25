@@ -18,7 +18,6 @@ import {
   setYoutubeVideo,
   replaceCurrentYoutubeTrack,
   setYoutubeQueue,
-  setFullScreen,
   addToQueue,
   appendToQueue,
   setPlaybackPosition,
@@ -75,6 +74,13 @@ const handleThumbError = (event) => {
 const safeMediaTime = (value) => {
   const next = Number(value);
   return Number.isFinite(next) && next >= 0 ? next : 0;
+};
+
+const requestMediaPresentation = (command) => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("heykasa:media-presentation-command", {
+    detail: { command },
+  }));
 };
 
 const formatTime = (seconds) => {
@@ -251,7 +257,7 @@ function YouTubePlayer() {
   const queuePanelRef = useRef(null);
   const lyricsPanelRef = useRef(null);
   const sheetRef = useRef(null);
-  const [expanded, setExpanded] = useState(false);
+  const expanded = false;
   const [immersive, setImmersive] = useState(false);
   const immersiveRef = useRef(false);
   const toggleExpandedRef = useRef(() => {});
@@ -2445,14 +2451,12 @@ function YouTubePlayer() {
 
   useEffect(() => {
     if (!dataSaver && !audioOnly) return undefined;
-    setExpanded(false);
     setImmersive(false);
     immersiveRef.current = false;
     pendingLyricsSheetRef.current = false;
     setMobileSheet(false);
     setShowLyrics(false);
     setShowQueue(false);
-    dispatch(setFullScreen(false));
     return undefined;
   }, [dataSaver, audioOnly, dispatch]);
 
@@ -2827,22 +2831,7 @@ function YouTubePlayer() {
 
   const toggleLyrics = () => {
     if (syncedLyrics === false) return;
-    if (isPhoneRef.current) {
-      if (expandLockRef.current && !expanded) return;
-      if (!expanded) {
-        pendingLyricsSheetRef.current = true;
-        toggleExpandedRef.current();
-        return;
-      }
-      if (mobileSheet && sheetTab === "lyrics") {
-        setMobileSheet(false);
-        return;
-      }
-      setSheetTab("lyrics");
-      setMobileSheet(true);
-      return;
-    }
-    setShowLyrics((value) => !value);
+    requestMediaPresentation("lyrics");
   };
 
   const seekBy = (amount) => {
@@ -3074,37 +3063,8 @@ function YouTubePlayer() {
 
   const toggleExpanded = () => {
     if (dataSaver || audioOnly) return;
-    if (expandLockRef.current) return;
-    const next = !expanded;
-    expandLockRef.current = true;
-    window.setTimeout(() => {
-      expandLockRef.current = false;
-    }, 1500);
-    immersiveRef.current = false;
-    setImmersive(false);
-    if (next) {
-      if (pendingLyricsSheetRef.current) {
-        pendingLyricsSheetRef.current = false;
-        setSheetTab("lyrics");
-        setMobileSheet(true);
-      } else {
-        setMobileSheet(false);
-      }
-    } else {
-      pendingLyricsSheetRef.current = false;
-      setMobileSheet(false);
-      setShowLyrics(false);
-      setShowQueue(false);
-    }
-    setExpanded(next);
-    dispatch(setFullScreen(next));
-    if (next) closePictureInPicture();
-    window.requestAnimationFrame(() => {
-      const player = getActivePlayer();
-      player?.unMute?.();
-      applyPlaybackVolume(player);
-      if (isPlaying) player?.playVideo?.();
-    });
+    closePictureInPicture();
+    requestMediaPresentation("expand");
   };
   toggleExpandedRef.current = toggleExpanded;
 
@@ -3373,7 +3333,7 @@ function YouTubePlayer() {
         onPip={togglePictureInPicture} pipActive={Boolean(pipWindow || pipFloat)}
         pipLabel={videoVisible ? "Picture in picture unavailable" : typeof window !== "undefined" && window.documentPictureInPicture?.requestWindow ? "Picture in picture controls" : "Floating player"}
         pipDisabled={pictureInPicture === false || videoVisible}
-        onVideo={videoVisible ? toggleExpanded : undefined}
+        videoAvailable={videoVisible}
         onLyrics={syncedLyrics !== false ? toggleLyrics : undefined}
         onOneMore={!isJamGuest && queueMode !== "collection" && !queueManualEnd && !repeat ? () => {
           setOneMoreArmed((value) => {
