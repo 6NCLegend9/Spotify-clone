@@ -11,7 +11,7 @@ import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
-import { resolveInitialMediaVideoMode, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
+import { resolveInitialMediaVideoMode, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
@@ -222,8 +222,10 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       setVideo(false);
     } else {
       try {
-        const saved = window.localStorage.getItem(MEDIA_MODE_KEY);
-        if (saved !== "audio" && saved !== "video") setVideo(true);
+        setVideo(resolveMediaVideoModeAfterCapabilityChange(
+          window.localStorage.getItem(MEDIA_MODE_KEY),
+          true,
+        ));
       } catch {
         setVideo(true);
       }
