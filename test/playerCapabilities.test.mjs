@@ -71,3 +71,22 @@ test("video stays visible through the final seconds instead of activating an end
   assert.doesNotMatch(dock, /END_SCREEN_MASK_SECONDS|kasaEndGuard|data-kasa-end-guard/);
   assert.doesNotMatch(sanitizer, /data-kasa-end-guard/);
 });
+
+
+test("MediaPresentation is the only interactive video presentation owner", async () => {
+  const [dock, types, player, presentation] = await Promise.all([
+    read("src/components/MusicPlayer/PlayerDock.tsx"),
+    read("src/components/MusicPlayer/player.types.ts"),
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+  ]);
+
+  assert.match(types, /videoAvailable\?:\s*boolean/);
+  assert.doesNotMatch(types, /onVideo\?:\s*\(\)\s*=>\s*void/);
+  assert.match(dock, /heykasa:media-presentation-command/);
+  assert.match(dock, /presentationRef\.current\?\.expand\(\)/);
+  assert.match(presentation, /const canVideo = props\.videoAvailable === true/);
+  assert.doesNotMatch(player, /onVideo=\{videoVisible \? toggleExpanded/);
+  assert.match(player, /videoAvailable=\{videoVisible\}/);
+  assert.doesNotMatch(player, /setExpanded\(next\)/);
+});
