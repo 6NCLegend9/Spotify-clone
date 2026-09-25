@@ -2511,8 +2511,8 @@ select:-webkit-autofill {
   position: fixed !important;
   left: -10000px !important;
   top: 0 !important;
-  width: 2px !important;
-  height: 2px !important;
+  width: 200px !important;
+  height: 200px !important;
   overflow: hidden !important;
   opacity: 0;
   pointer-events: none;
@@ -2521,10 +2521,10 @@ select:-webkit-autofill {
 
 .yt-audio-stage .yt-crop-frame,
 .yt-audio-stage .yt-crop-frame iframe {
-  min-width: 0 !important;
-  min-height: 0 !important;
-  width: 2px !important;
-  height: 2px !important;
+  min-width: 200px !important;
+  min-height: 200px !important;
+  width: 200px !important;
+  height: 200px !important;
   transform: none !important;
 }
 
