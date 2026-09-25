@@ -4232,3 +4232,9 @@ body {
 
 [data-context-target] { -webkit-touch-callout: none; }
 
+
+
+.playlist-track-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 66px;
+}
