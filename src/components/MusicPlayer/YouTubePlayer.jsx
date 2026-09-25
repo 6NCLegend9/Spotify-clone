@@ -60,7 +60,9 @@ import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
 import { buildRadioDiscoveryQueries, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
 import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
+import useWakeLock from "@/hooks/useWakeLock";
 import { shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
+import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
 const ClockedCaptionKaraoke = dynamic(() => import("./ClockedCaptionKaraoke"), { ssr: false });
 const OneMoreSongCard = dynamic(() => import("./OneMoreSongCard"), { ssr: false });
 
@@ -275,6 +277,8 @@ function YouTubePlayer() {
   const [oneMoreSuggestion, setOneMoreSuggestion] = useState(null);
   const [oneMorePrefetch, setOneMorePrefetch] = useState(null);
   const [mediaTheater, setMediaTheater] = useState(false);
+  const videoVisible = !dataSaver && !audioOnly;
+  useWakeLock(shouldHoldPlaybackWakeLock({ isPlaying, mediaTheater, videoVisible }));
   const oneMoreArmedRef = useRef(false);
   const oneMoreSuggestionRef = useRef(null);
   const oneMorePrefetchRef = useRef(null);
@@ -3064,7 +3068,6 @@ function YouTubePlayer() {
 
   if (!video?.id) return null;
 
-  const videoVisible = !dataSaver && !audioOnly;
   const deliveredQualityLabel = YOUTUBE_QUALITY_LABELS[deliveredVideoQuality] || "";
   const outgoingOpacity = 1 - fadeProgress;
   const incomingOpacity = fadeProgress;
