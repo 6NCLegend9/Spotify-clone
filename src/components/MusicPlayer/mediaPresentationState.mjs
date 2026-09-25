@@ -1,3 +1,7 @@
+export function resolveInitialMobilePresentation(matches) {
+  return matches === true;
+}
+
 export function resolveInitialMediaVideoMode(storedValue, canVideo) {
   if (!canVideo) return false;
   if (storedValue === "audio") return false;
