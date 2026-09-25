@@ -126,16 +126,9 @@ function distinctiveRadioTitle(value) {
 export function sameRadioSongFamily(left, right) {
   if (!left || !right) return false;
 
-  const leftCanonical = canonicalSongTitle(left);
-  const rightCanonical = canonicalSongTitle(right);
-  if (
-    leftCanonical
-    && rightCanonical
-    && leftCanonical === rightCanonical
-    && distinctiveRadioTitle(leftCanonical)
-  ) {
-    return true;
-  }
+  const leftIdentity = canonicalSongIdentity(left);
+  const rightIdentity = canonicalSongIdentity(right);
+  if (leftIdentity && rightIdentity && leftIdentity === rightIdentity) return true;
 
   const leftRaw = radioFamilyText(left);
   const rightRaw = radioFamilyText(right);
