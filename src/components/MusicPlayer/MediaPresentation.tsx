@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -322,7 +322,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
 
   useEffect(() => { if (overlay) overlayRef.current?.focus(); }, [view, expanded, overlay]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const host = mediaHost;
     const region = host?.closest<HTMLElement>(".app-player");
     const boundary = host?.closest<HTMLElement>(".player-dock");
