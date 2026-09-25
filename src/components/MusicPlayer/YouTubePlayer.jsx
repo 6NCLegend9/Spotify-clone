@@ -36,8 +36,8 @@ import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRot
 import { MdOutlineLyrics } from "react-icons/md";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
-const SyncedLyrics = dynamic(() => import("@/components/MusicPlayer/SyncedLyrics"), { ssr: false });
-const PictureInPictureWindow = dynamic(() => import("@/components/MusicPlayer/PictureInPictureWindow"), { ssr: false });
+const ClockedSyncedLyrics = dynamic(() => import("./ClockedSyncedLyrics"), { ssr: false });
+const ClockedPictureInPictureWindow = dynamic(() => import("./ClockedPictureInPictureWindow"), { ssr: false });
 const FloatingPlayer = dynamic(() => import("./FloatingPlayer"), { ssr: false });
 import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
 import { useJam } from "@/components/Jam/JamProvider";
@@ -58,8 +58,9 @@ import {
 import { decodeTrackFields } from "@/utils/text";
 import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
 import { buildRadioDiscoveryQueries, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
+import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
-const CaptionKaraoke = dynamic(() => import("./CaptionKaraoke"), { ssr: false });
+const ClockedCaptionKaraoke = dynamic(() => import("./ClockedCaptionKaraoke"), { ssr: false });
 const OneMoreSongCard = dynamic(() => import("./OneMoreSongCard"), { ssr: false });
 
 const handleThumbError = (event) => {
@@ -234,6 +235,12 @@ function YouTubePlayer() {
   const lastJamPlaybackReportRef = useRef(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const playbackClockRef = useRef(null);
+  if (!playbackClockRef.current) playbackClockRef.current = createPlaybackClockStore();
+  const playbackClock = playbackClockRef.current;
+  const lastUiClockCommitRef = useRef(0);
+  const durationRef = useRef(0);
+  durationRef.current = duration;
   const [apiReady, setApiReady] = useState(false);
   const [deliveredVideoQuality, setDeliveredVideoQuality] = useState("");
   const [showQueue, setShowQueue] = useState(false);
@@ -342,6 +349,31 @@ function YouTubePlayer() {
   isJamGuestRef.current = isJamGuest;
   jamRef.current = jam;
   chromeLockedRef.current = Boolean(playerError || mobileSheet);
+
+  const syncPlaybackClock = (position, nextDuration, { commitUi = true } = {}) => {
+    const nextPosition = safeMediaTime(position);
+    const safeDuration = safeMediaTime(nextDuration);
+    playbackClock.publish({ position: nextPosition, duration: safeDuration });
+    durationRef.current = safeDuration;
+    if (commitUi) {
+      lastUiClockCommitRef.current = performance.now();
+      setCurrentTime(nextPosition);
+      setDuration(safeDuration);
+    }
+  };
+
+  const syncPlaybackDuration = (nextDuration) => {
+    const safeDuration = safeMediaTime(nextDuration);
+    playbackClock.publish({
+      position: playbackClock.read().position,
+      duration: safeDuration,
+    });
+    if (durationRef.current !== safeDuration) {
+      durationRef.current = safeDuration;
+      setDuration(safeDuration);
+    }
+  };
+
   const lyricsQuery = useSyncedLyrics({
     title: video?.title || "",
     artist: video?.channel || "",
@@ -1048,8 +1080,7 @@ function YouTubePlayer() {
     preloadRetryAtRef.current = 0;
     resetActiveRecovery(nextVideo.id);
     handledVideoIdRef.current = nextVideo.id;
-    setCurrentTime(0);
-    setDuration(0);
+    syncPlaybackClock(0, 0);
     setDeliveredVideoQuality("");
     markExpectPlaying();
     player.unMute?.();
@@ -1119,8 +1150,7 @@ function YouTubePlayer() {
             );
           }
           if (key === activeDeckRef.current) {
-            setDuration(safeMediaTime(event.target.getDuration()));
-          } else {
+            syncPlaybackDuration(event.target.getDuration());
           }
           event.target.mute();
           applyYouTubeCaptions(event.target, captionsEnabled && !karaokeHasLinesRef.current);
@@ -1386,8 +1416,7 @@ function YouTubePlayer() {
     preloadedIdRef.current = null;
     preloadingRef.current = null;
     preloadRetryAtRef.current = 0;
-    setCurrentTime(0);
-    setDuration(safeMediaTime(incomingPlayer?.getDuration?.()));
+    syncPlaybackClock(0, incomingPlayer?.getDuration?.());
     dispatch(playPause(true));
     dispatch(setYoutubeVideo(nextVideo));
     return true;
@@ -1748,8 +1777,7 @@ function YouTubePlayer() {
       activeDeckRef.current = "A";
       setActiveDeck("A");
       userPausedRef.current = true;
-      setCurrentTime(restorePosition);
-      setDuration(0);
+      syncPlaybackClock(restorePosition, 0);
       setPlayerError(null);
       mountDeck("A", video.id, {
         title: video.title,
@@ -1841,8 +1869,7 @@ function YouTubePlayer() {
         idle.playVideo?.();
         destroyDeck(outgoingKey);
         setPlayerError(null);
-        setCurrentTime(safeMediaTime(idle.getCurrentTime?.()));
-        setDuration(safeMediaTime(idle.getDuration?.()));
+        syncPlaybackClock(idle.getCurrentTime?.(), idle.getDuration?.());
         dispatch(playPause(true));
         return true;
       };
@@ -1878,8 +1905,7 @@ function YouTubePlayer() {
     seekGuardRef.current = { seeking: false, until: 0, target: null, videoId: null };
     nearEndStreakRef.current = 0;
     setPlayerError(null);
-    setCurrentTime(0);
-    setDuration(0);
+    syncPlaybackClock(0, 0);
     setDeliveredVideoQuality("");
     dispatch(playPause(true));
     const existing = getActivePlayer();
@@ -2008,8 +2034,21 @@ function YouTubePlayer() {
           // Player is still buffering the seek.
         }
       }
-      setCurrentTime(safeMediaTime(seekPending ? guard.target : time));
-      if (safeMediaTime(dur) > 0) setDuration(safeMediaTime(dur));
+      const visibleTime = safeMediaTime(seekPending ? guard.target : time);
+      const visibleDuration = safeMediaTime(dur);
+      lastUiClockCommitRef.current = publishPlaybackTick({
+        clock: playbackClock,
+        position: visibleTime,
+        duration: visibleDuration,
+        now: performance.now(),
+        lastUiCommitAt: lastUiClockCommitRef.current,
+        uiIntervalMs: 450,
+        commitPosition: setCurrentTime,
+      });
+      if (visibleDuration > 0 && visibleDuration !== durationRef.current) {
+        durationRef.current = visibleDuration;
+        setDuration(visibleDuration);
+      }
       if (!guard.seeking && guard.target != null && Math.abs(time - guard.target) <= 1.25 && (!want || !id || id === want)) {
         guard.target = null;
       }
@@ -2519,7 +2558,7 @@ function YouTubePlayer() {
         ? videoRef.current.id
         : null;
     markSeek(time, dragging);
-    setCurrentTime(time);
+    syncPlaybackClock(time, dur);
     const want = videoRef.current?.id;
     try {
       const loadedId = playerVideoId(player);
@@ -2573,7 +2612,7 @@ function YouTubePlayer() {
       if (apiReady) mountDeck(activeDeckRef.current, current.id, { title: current.title });
       return;
     }
-    const resumeAt = Math.max(0, player.getCurrentTime?.() || currentTime || 0);
+    const resumeAt = Math.max(0, player.getCurrentTime?.() || playbackClock.read().position || 0);
     if (playerVideoId(player) !== current.id) {
       player.loadVideoById?.({ videoId: current.id, startSeconds: resumeAt });
     }
@@ -2647,7 +2686,7 @@ function YouTubePlayer() {
 
   const handlePrev = () => {
     if (isJamGuestRef.current) return;
-    if (currentTime > 3) {
+    if (playbackClock.read().position > 3) {
       seekOnCurrentTrack(0);
       return;
     }
@@ -2799,7 +2838,7 @@ function YouTubePlayer() {
   };
 
   const seekBy = (amount) => {
-    const base = seekGuardRef.current.target ?? currentTime;
+    const base = seekGuardRef.current.target ?? playbackClock.read().position;
     seekOnCurrentTrack(Math.max(0, base + amount));
   };
 
@@ -3175,11 +3214,10 @@ function YouTubePlayer() {
       >
         <FiX size={16} />
       </button>
-      <SyncedLyrics
+      <ClockedSyncedLyrics
+        clock={playbackClock}
         title={video.title}
         artist={video.channel}
-        duration={duration}
-        currentTime={currentTime}
         onSeek={seekOnCurrentTrack}
       />
     </div>
@@ -3219,7 +3257,7 @@ function YouTubePlayer() {
         ))}
         <div className="yt-chrome-mask" aria-hidden="true" />
         {karaokeSurface && captionsEnabled ? (
-          <CaptionKaraoke currentTime={currentTime} enabled={karaokeSurface && captionsEnabled} lines={karaokeLines} />
+          <ClockedCaptionKaraoke clock={playbackClock} enabled={karaokeSurface && captionsEnabled} lines={karaokeLines} />
         ) : null}
         {videoVisible && !pipFloat && !playerError && (
           <button
@@ -3553,11 +3591,10 @@ function YouTubePlayer() {
             ) : syncedLyrics === false ? (
               <p className="px-4 py-6 text-center text-sm text-gray-400">Live lyrics are turned off in Settings.</p>
             ) : (
-              <SyncedLyrics
+              <ClockedSyncedLyrics
+                clock={playbackClock}
                 title={video.title}
                 artist={video.channel}
-                duration={duration}
-                currentTime={currentTime}
                 onSeek={seekOnCurrentTrack}
                 className="h-full"
               />
@@ -3580,11 +3617,10 @@ function YouTubePlayer() {
         : null}
       {pipFloat && !videoVisible && <FloatingPlayer track={video} playing={isPlaying} disabled={isJamGuest} onPlayPause={handlePlayPause} onNext={() => handleNext()} onClose={closePictureInPicture} />}
       {pipWindow && pipMountRef.current && (
-        <PictureInPictureWindow
+        <ClockedPictureInPictureWindow
+          clock={playbackClock}
           container={pipMountRef.current}
           video={video}
-          currentTime={currentTime}
-          duration={duration}
           isPlaying={isPlaying}
           lines={lyricsQuery.lines}
           queue={upcoming}
