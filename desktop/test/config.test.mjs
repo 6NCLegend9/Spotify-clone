@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  DESKTOP_API_VERSION,
+  DESKTOP_CAPABILITIES,
   LOCAL_DEV_APP_URL,
   PRODUCTION_APP_URL,
   desktopAppUrl,
@@ -32,7 +34,6 @@ test("packaged desktop always uses the production origin", () => {
     PRODUCTION_APP_URL,
   );
 });
-
 
 test("desktop config exposes the canonical native API contract", () => {
   assert.equal(DESKTOP_API_VERSION, 1);
