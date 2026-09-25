@@ -81,3 +81,29 @@ test("finite playlist queues keep explicit order even when titles repeat", () =>
   assert.equal(state.youtubeQueue.length, 2);
   assert.equal(state.queueManualEnd, true);
 });
+test("radio rejects same-song families uploaded by different artists or channels", () => {
+  const montage = {
+    id: "montage0001",
+    title: "MONTAGEM ALQUIMIA",
+    channel: "MAFIA",
+    seedQuery: "montagem alquimia",
+  };
+  const sameSongVariants = [
+    { id: "montage0002", title: "MONTAGEM ALQUIMIA_SLOWED_H6", channel: "Black mafia 2.0", seedQuery: "montagem alquimia" },
+    { id: "montage0003", title: "MONTAGEM ALQUIMIA MAFIA 3#phonk #edit #montagem", channel: "YAMAXA707", seedQuery: "montagem alquimia" },
+    { id: "montage0004", title: "MONTAGEM ALQUIMIA — MAFIA", channel: "PHONK_AURA", seedQuery: "montagem alquimia" },
+    { id: "montage0005", title: "MONTAGEM ALQUIMIA PHONK#MAFIA#phonkmusic", channel: "CRNX-EDITZ", seedQuery: "montagem alquimia" },
+    { id: "montage0006", title: "MONTAGEM ALQUIMIA - (Official Music Video)", channel: "h6itam and 2 more", seedQuery: "montagem alquimia" },
+  ];
+  const relatedDifferentSong = {
+    id: "related0001",
+    title: "MONTAGEM TOMADA",
+    channel: "ATLXS",
+    seedQuery: "montagem alquimia",
+  };
+
+  let state = reducer(undefined, startYoutubePlayback({ track: montage, queue: [montage], queueMode: "radio" }));
+  state = reducer(state, appendToQueue([...sameSongVariants, relatedDifferentSong]));
+
+  assert.deepEqual(state.youtubeQueue.map((track) => track.id), [montage.id, relatedDifferentSong.id]);
+});
