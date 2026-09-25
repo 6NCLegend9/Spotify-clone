@@ -16,6 +16,12 @@ test("desktop exposes a shared-renderer Electron smoke command", async () => {
   assert.match(source, /\/search/);
   const routeIndex = source.indexOf('app.context().route("**/api/**"');
   const firstWindowIndex = source.indexOf("app.firstWindow()");
+  const controlledNavigationIndex = source.indexOf('await page.goto(`${origin}/search`');
+  const errorListenerIndex = source.indexOf('page.on("pageerror"');
+  const monitoredReloadIndex = source.indexOf("await page.reload(");
   assert.ok(routeIndex >= 0, "Electron smoke must install API interception on the app context.");
   assert.ok(routeIndex < firstWindowIndex, "API interception must be installed before the first renderer window can request data.");
+  assert.ok(controlledNavigationIndex >= 0, "Electron smoke must establish a controlled mocked renderer navigation.");
+  assert.ok(errorListenerIndex > controlledNavigationIndex, "Startup console noise must not pollute the monitored renderer pass.");
+  assert.ok(monitoredReloadIndex > errorListenerIndex, "Electron smoke must monitor a fresh reload after listeners are attached.");
 });
