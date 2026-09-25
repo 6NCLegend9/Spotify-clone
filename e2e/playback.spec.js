@@ -274,6 +274,75 @@ test("queue edits preserve playback, undo safely and save a playlist", async ({ 
   await expect(page.getByTestId("player-dock").getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
 });
 
+test("mobile video defaults on and exposes the live iframe only after sheet motion settles", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.removeItem("heykasa.media.presentation");
+    localStorage.setItem("persist:settings", JSON.stringify({
+      owner: JSON.stringify("account:test-a"),
+      audioOnly: "false",
+      dataSaver: "false",
+    }));
+    const track = { id: "abcdefghijk", title: "Mobile video stability", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1,
+      owner: "account:test-a",
+      savedAt: Date.now(),
+      youtubeVideo: track,
+      youtubeQueue: [track],
+      position: 42,
+    }));
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const dock = page.getByTestId("player-dock");
+  await expect(dock).toBeVisible();
+
+  await page.getByTestId("youtube-decks").evaluate((host) => {
+    const frame = document.createElement("iframe");
+    frame.title = "Mobile video stability frame";
+    frame.srcdoc = '<body style="margin:0;background:#168477;height:100vh"></body>';
+    host.querySelector(".yt-crop-frame").appendChild(frame);
+  });
+
+  await dock.getByRole("button", { name: "Expand player: Mobile video stability" }).click();
+  await expect(page.getByRole("dialog", { name: "Now playing" })).toBeVisible();
+
+  const moving = await page.getByTestId("youtube-decks").evaluate((host) => ({
+    hidden: host.getAttribute("aria-hidden"),
+    opacity: getComputedStyle(host).opacity,
+  }));
+  expect(moving.hidden).toBe("true");
+  expect(Number(moving.opacity)).toBe(0);
+
+  await page.waitForTimeout(380);
+
+  const settled = await page.getByTestId("youtube-decks").evaluate((host) => {
+    const rect = host.getBoundingClientRect();
+    return {
+      hidden: host.getAttribute("aria-hidden"),
+      opacity: getComputedStyle(host).opacity,
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: innerWidth,
+      viewportHeight: innerHeight,
+    };
+  });
+
+  expect(settled.hidden).toBe("false");
+  expect(Number(settled.opacity)).toBe(1);
+  expect(settled.width).toBeGreaterThan(200);
+  expect(settled.height).toBeGreaterThan(100);
+  expect(settled.left).toBeGreaterThanOrEqual(-1);
+  expect(settled.top).toBeGreaterThanOrEqual(-1);
+  expect(settled.right).toBeLessThanOrEqual(settled.viewportWidth + 1);
+  expect(settled.bottom).toBeLessThanOrEqual(settled.viewportHeight + 1);
+});
+
 test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
