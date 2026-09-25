@@ -2,9 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   resolveInitialMediaVideoMode,
+  resolveInitialMobilePresentation,
   resolveMediaVideoModeAfterCapabilityChange,
   shouldExposeLiveVideoViewport,
 } from "../src/components/MusicPlayer/mediaPresentationState.mjs";
+
+test("mobile presentation initializes from the current media query before effects run", () => {
+  assert.equal(resolveInitialMobilePresentation(true), true);
+  assert.equal(resolveInitialMobilePresentation(false), false);
+});
 
 test("video-capable playback defaults to video when the user has no saved media preference", () => {
   assert.equal(resolveInitialMediaVideoMode(null, true), true);
