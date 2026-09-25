@@ -46,11 +46,6 @@ try {
   });
 
   const page = await app.firstWindow();
-  page.on("pageerror", (error) => errors.push(`page: ${error.message}`));
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
-  });
-
   await page.waitForURL((url) => url.origin === origin, { timeout: 30_000 });
   await page.waitForLoadState("domcontentloaded");
 
@@ -61,7 +56,23 @@ try {
   assert.equal(bridge.hasDesktop, true, "Electron preload bridge should be available.");
   assert.equal(bridge.hasNodeRequire, false, "Renderer must not expose Node require.");
 
+  // The Electron main process may start its first navigation before Playwright
+  // can install routes on the BrowserContext. Establish one controlled mocked
+  // navigation first, then monitor a fresh reload so startup-only network noise
+  // cannot make this smoke test flaky.
   await page.goto(`${origin}/search`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Browse all", exact: true }).waitFor();
+  await page.getByRole("combobox", {
+    name: "Search songs, artists, playlists, and genres",
+    exact: true,
+  }).waitFor();
+
+  page.on("pageerror", (error) => errors.push(`page: ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(`console: ${message.text()}`);
+  });
+
+  await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Browse all", exact: true }).waitFor();
   await page.getByRole("combobox", {
     name: "Search songs, artists, playlists, and genres",
