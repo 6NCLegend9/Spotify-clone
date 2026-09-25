@@ -60,6 +60,7 @@ import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
 import { buildRadioDiscoveryQueries, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
 import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
+import { shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
 const ClockedCaptionKaraoke = dynamic(() => import("./ClockedCaptionKaraoke"), { ssr: false });
 const OneMoreSongCard = dynamic(() => import("./OneMoreSongCard"), { ssr: false });
 
@@ -412,9 +413,10 @@ function YouTubePlayer() {
     if (!userPausedRef.current) pageHiddenWhilePlayingRef.current = true;
   };
 
-  const resumePlayer = (player) => {
+  const resumePlayer = (player, { explicitUserAction = false } = {}) => {
     if (sleep.check()) return;
-    if (isPageHidden()) {
+    const hidden = isPageHidden();
+    if (shouldDeferYoutubeResume({ hidden, explicitUserAction })) {
       markBackgroundPlayback();
       return;
     }
@@ -423,6 +425,7 @@ function YouTubePlayer() {
       player.unMute?.();
       applyPlaybackVolume(player);
       player.playVideo();
+      if (hidden) pageHiddenWhilePlayingRef.current = true;
     } catch (error) {
       // Player may still be mounting the next video.
     }
@@ -2940,14 +2943,8 @@ function YouTubePlayer() {
     setAction("play", () => {
       if (isJamGuestRef.current || sleep.check()) return;
       userPausedRef.current = false;
-      if (isPageHidden()) {
-        // The YouTube engine resumes when the page is visible. Do not claim
-        // playback started while resumePlayer deliberately defers that call.
-        markBackgroundPlayback();
-        return;
-      }
       dispatch(playPause(true));
-      resumePlayer(getActivePlayer());
+      resumePlayer(getActivePlayer(), { explicitUserAction: true });
     });
     setAction("pause", () => {
       if (isJamGuestRef.current) return;
