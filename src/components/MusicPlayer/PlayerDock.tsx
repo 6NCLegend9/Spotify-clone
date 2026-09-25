@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ListMusic, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
@@ -12,10 +12,6 @@ import styles from "./playerDock.module.css";
 import sanitizerStyles from "./youtubeSanitizer.module.css";
 
 const ExpandedPlayer = dynamic(() => import("./ExpandedPlayer"), { ssr: false });
-// YouTube can paint creator end-screen elements several seconds before ENDED.
-// Hide the cross-origin frame during that final segment while its audio continues.
-const END_SCREEN_MASK_SECONDS = 8;
-
 export function PlayerIconButton({ label, active, children, className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean }) {
   return <button type="button" aria-label={label} title={label} aria-pressed={active}
     className={`${styles.iconButton} ${active ? styles.active : ""} ${className}`} {...props}>{children}</button>;
@@ -31,19 +27,6 @@ export function Transport(props: PlayerDockProps) {
   </div>;
 }
 
-function youtubeDeckHost() {
-  return typeof document === "undefined"
-    ? null
-    : document.querySelector<HTMLElement>('[data-testid="youtube-decks"]');
-}
-
-function setEndScreenMask(active: boolean) {
-  const host = youtubeDeckHost();
-  if (!host) return;
-  if (active) host.dataset.kasaEndGuard = "true";
-  else delete host.dataset.kasaEndGuard;
-}
-
 export default function PlayerDock(props: PlayerDockProps) {
   const [queueOpen, setQueueOpen] = useState(false);
   const presentationRef = useRef<MediaPresentationHandle>(null);
@@ -57,21 +40,6 @@ export default function PlayerDock(props: PlayerDockProps) {
   const progress = props.duration > 0
     ? Math.min(100, Math.max(0, (props.position / props.duration) * 100))
     : 0;
-
-  useEffect(() => {
-    setEndScreenMask(false);
-    return () => setEndScreenMask(false);
-  }, [props.track.id]);
-
-  useEffect(() => {
-    const shouldMask =
-      props.duration > 8
-      && props.position >= props.duration - END_SCREEN_MASK_SECONDS;
-    // Keep the mask active after the reported duration too. YouTube can keep
-    // rendering its end screen while its clock briefly reports a value beyond
-    // duration; seeking back below the guard window clears it again.
-    setEndScreenMask(shouldMask);
-  }, [props.duration, props.position, props.track.id]);
 
   return <>
     <div className={`${styles.dock} ${sanitizerStyles.scope}`} data-testid="player-dock">
