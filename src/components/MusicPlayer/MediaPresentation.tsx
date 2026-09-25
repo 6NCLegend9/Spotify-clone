@@ -11,11 +11,12 @@ import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
-import { resolveInitialMediaVideoMode, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
+import { resolveInitialMediaVideoMode, resolveInitialMobilePresentation, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
 const THEATER_CONTROLS_HIDE_MS = 6500;
+const MOBILE_MEDIA_QUERY = "(max-width: 767px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)";
 
 type View = "player" | "lyrics";
 type PlaybackContext = { type?: string; id?: string; name?: string } | null;
@@ -69,7 +70,11 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const { onQueue } = props;
   const [mediaHost, setMediaHost] = useState<HTMLElement | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  const [mobile, setMobile] = useState(false);
+  const [mobile, setMobile] = useState(() =>
+    resolveInitialMobilePresentation(
+      typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches,
+    ),
+  );
   const [drawer, setDrawer] = useState(false);
   const [closing, setClosing] = useState(false);
   const [entering, setEntering] = useState(false);
@@ -210,7 +215,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     setMediaHost(document.querySelector<HTMLElement>('[data-testid="youtube-decks"]'));
     // A rotated phone can be wider than the old 767px breakpoint. Keep coarse-pointer
     // phone/tablet layouts in mobile presentation mode so rotation does not drop controls.
-    const query = window.matchMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)");
+    const query = window.matchMedia(MOBILE_MEDIA_QUERY);
     const update = () => setMobile(query.matches);
     update(); query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
