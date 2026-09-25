@@ -14,4 +14,8 @@ test("desktop exposes a shared-renderer Electron smoke command", async () => {
   assert.match(source, /window\.heykasaDesktop/);
   assert.match(source, /window\.require/);
   assert.match(source, /\/search/);
+  const routeIndex = source.indexOf('app.context().route("**/api/**"');
+  const firstWindowIndex = source.indexOf("app.firstWindow()");
+  assert.ok(routeIndex >= 0, "Electron smoke must install API interception on the app context.");
+  assert.ok(routeIndex < firstWindowIndex, "API interception must be installed before the first renderer window can request data.");
 });
