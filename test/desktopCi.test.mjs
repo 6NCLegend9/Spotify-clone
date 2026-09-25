@@ -19,6 +19,6 @@ test("desktop package CI owns Windows packaging for native changes", () => {
   const workflow = readFileSync(path.join(root, ".github/workflows/desktop-package-ci.yml"), "utf8");
   assert.match(workflow, /- "desktop\/\*\*"/);
   assert.match(workflow, /runs-on: windows-latest/);
-  assert.match(workflow, /npm run dist/);
+  assert.match(workflow, /npm --prefix desktop run dist/);
   assert.match(workflow, /prepare-github-release/);
 });
