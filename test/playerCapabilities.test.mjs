@@ -88,5 +88,6 @@ test("MediaPresentation is the only interactive video presentation owner", async
   assert.match(presentation, /const canVideo = props\.videoAvailable === true/);
   assert.doesNotMatch(player, /onVideo=\{videoVisible \? toggleExpanded/);
   assert.match(player, /videoAvailable=\{videoVisible\}/);
+  assert.doesNotMatch(player, /const \[expanded, setExpanded\] = useState/);
   assert.doesNotMatch(player, /setExpanded\(next\)/);
 });
