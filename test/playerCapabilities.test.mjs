@@ -55,11 +55,19 @@ test("queue overlay traps keyboard focus", async () => {
   assert.match(queue, /enabled:\s*true/);
 });
 
-test("end-guard mask does not cover the expand control", async () => {
-  const [sanitizer, css] = await Promise.all([
+test("audio-focused YouTube mode keeps a supported iframe viewport", async () => {
+  const css = await read("src/app/globals.css");
+  assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*width:\s*2px/i);
+  assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*height:\s*2px/i);
+  assert.match(css, /\.yt-audio-stage\s*\{[^}]*width:\s*200px/i);
+  assert.match(css, /\.yt-audio-stage\s*\{[^}]*height:\s*200px/i);
+});
+
+test("video stays visible through the final seconds instead of activating an end-screen mask", async () => {
+  const [dock, sanitizer] = await Promise.all([
+    read("src/components/MusicPlayer/PlayerDock.tsx"),
     read("src/components/MusicPlayer/youtubeSanitizer.module.css"),
-    read("src/components/MusicPlayer/mediaPresentation.module.css"),
   ]);
-  assert.match(sanitizer, /\[data-kasa-end-guard="true"\]\)::after\s*\{[^}]*pointer-events:\s*none/);
-  assert.match(css, /\.expandButton\s*\{[^}]*z-index:\s*50/);
+  assert.doesNotMatch(dock, /END_SCREEN_MASK_SECONDS|kasaEndGuard|data-kasa-end-guard/);
+  assert.doesNotMatch(sanitizer, /data-kasa-end-guard/);
 });
