@@ -148,8 +148,7 @@ function YouTubePlayer() {
   );
   const {
     dataSaver,
-    audioOnly: audioOnlyToggle,
-    videoQuality,
+    audioOnly,
     normalization,
     syncedLyrics,
     pictureInPicture,
@@ -166,9 +165,6 @@ function YouTubePlayer() {
   const crossfadeSeconds = 0;
   const videoId = video?.id || "";
   const playbackVolume = youtubePlaybackVolume(undefined, normalization);
-  // Preserve the old audio-only sentinel for accounts that saved it before the
-  // unsupported YouTube quality controls were removed from the UI.
-  const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
   const captionsEnabled = captions !== false;
   const letterShortcutsEnabled = keyboardShortcuts !== false;
   const isJamGuest = jam?.role === "guest" && Boolean(jam.code);
