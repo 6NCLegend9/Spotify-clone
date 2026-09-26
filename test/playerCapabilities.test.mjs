@@ -101,3 +101,12 @@ test("MediaPresentation is the only interactive video presentation owner", async
   assert.doesNotMatch(player, /onFullscreenSwipeStart|onFullscreenSwipeEnd|toggleSheetTab/);
   assert.doesNotMatch(globals, /\.yt-video-expanded|\.yt-phone-(?:stage|video|chrome)|\.yt-expand-(?:stage|chrome)|\.yt-mobile-sheet|\.yt-queue-panel|\.lyrics-panel--expanded/);
 });
+
+
+test("presentation cleanup keeps playback-control refs declared and removes stale expand lock", async () => {
+  const player = await read("src/components/MusicPlayer/YouTubePlayer.jsx");
+  for (const refName of ["userPausedRef", "pageHiddenWhilePlayingRef", "trackChangeUntilRef"]) {
+    assert.match(player, new RegExp(`const ${refName} = useRef\\(`));
+  }
+  assert.doesNotMatch(player, /\bexpandLockRef\b/);
+});
