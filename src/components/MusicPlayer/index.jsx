@@ -91,11 +91,9 @@ const MusicPlayer = () => {
   const {
     pictureInPicture,
     dataSaver,
-    audioOnly: audioOnlyToggle,
-    videoQuality,
+    audioOnly,
     masterVolume,
   } = useSelector((state) => state.settings);
-  const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
   const compactPlayback = audioOnly || dataSaver;
   const [duration, setDuration] = useState(0);
   const [seekTime, setSeekTime] = useState(0);
