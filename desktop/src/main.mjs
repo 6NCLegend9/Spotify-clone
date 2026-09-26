@@ -603,7 +603,7 @@ async function createMainWindow() {
       navigateOnDragDrop: false,
       safeDialogs: true,
       devTools: !app.isPackaged,
-      backgroundThrottling: false,
+      backgroundThrottling: true,
       spellcheck: false,
     },
   });
