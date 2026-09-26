@@ -111,6 +111,19 @@ try {
   await sleep(500);
   const restored = await snapshot();
 
+  assert.equal(
+    hidden.visibilityState,
+    "hidden",
+    "The shared renderer must enter hidden visibility state when the Desktop window is hidden.",
+  );
+  assert.ok(
+    hidden.intervalTicks - visible.intervalTicks <= 15,
+    "Nonessential fast renderer timers must be throttled while the Desktop window is hidden.",
+  );
+  assert.ok(
+    hidden.animationFrames - visible.animationFrames <= 5,
+    "Animation frames must stop while the Desktop window is hidden.",
+  );
   assert.ok(
     hidden.commands.includes("play-pause"),
     "Hidden renderer must still receive explicit native playback commands.",
