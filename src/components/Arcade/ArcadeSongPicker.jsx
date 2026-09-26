@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import { FiActivity, FiClock, FiMusic, FiSearch, FiUpload } from "react-icons/fi";
 import { requestJson } from "@/services/http";
 import { cleanTitle } from "@/utils/text";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 
 /**
  * Files are decoded in the browser so the chart can use real onsets.
@@ -36,7 +37,7 @@ export default function ArcadeSongPicker({
     setSearching(true);
     const timer = window.setTimeout(async () => {
       try {
-        const data = await requestJson(`/api/youtube-search?type=video&q=${encodeURIComponent(term)}`, {
+        const data = await requestJson(buildYoutubeSearchUrl({ type: "video", q: term }, "interactive"), {
           signal: controller.signal,
           fallbackTitle: "Search unavailable",
           fallbackMessage: "We couldn't load results.",
