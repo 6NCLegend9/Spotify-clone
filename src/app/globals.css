@@ -2511,8 +2511,6 @@ select:-webkit-autofill {
   position: fixed !important;
   left: -10000px !important;
   top: 0 !important;
-  width: 200px !important;
-  height: 200px !important;
   overflow: hidden !important;
   opacity: 0;
   pointer-events: none;
@@ -2521,10 +2519,10 @@ select:-webkit-autofill {
 
 .yt-audio-stage .yt-crop-frame,
 .yt-audio-stage .yt-crop-frame iframe {
-  min-width: 200px !important;
-  min-height: 200px !important;
-  width: 200px !important;
-  height: 200px !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
   transform: none !important;
 }
 
