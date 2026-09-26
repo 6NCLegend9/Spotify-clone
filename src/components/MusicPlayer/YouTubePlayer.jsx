@@ -57,6 +57,7 @@ import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
 import useWakeLock from "@/hooks/useWakeLock";
 import { shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
 import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
+import { hiddenYoutubeViewportStyle, HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
 const ClockedCaptionKaraoke = dynamic(() => import("./ClockedCaptionKaraoke"), { ssr: false });
 const OneMoreSongCard = dynamic(() => import("./OneMoreSongCard"), { ssr: false });
 
@@ -2882,6 +2883,9 @@ function YouTubePlayer() {
     >
       <div
         data-testid="youtube-decks"
+        style={!videoVisible ? hiddenYoutubeViewportStyle() : undefined}
+        data-hidden-provider-width={!videoVisible ? HIDDEN_YOUTUBE_VIEWPORT.width : undefined}
+        data-hidden-provider-height={!videoVisible ? HIDDEN_YOUTUBE_VIEWPORT.height : undefined}
         className={pipFloat && videoVisible
           ? "yt-crop yt-pip-float yt-video-floating bg-black"
           : videoVisible
