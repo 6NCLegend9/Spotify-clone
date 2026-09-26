@@ -40,3 +40,13 @@ test("provider workflow is not blanket continue-on-error", () => {
   assert.doesNotMatch(workflow, /continue-on-error:\s*true/);
   assert.match(workflow, /youtubeProviderFailure\.mjs|youtube-provider\.spec\.js/);
 });
+
+
+test("real provider smoke exercises playback and captures provider player errors", () => {
+  const spec = fs.readFileSync(path.join(root, "e2e/youtube-provider.spec.js"), "utf8");
+  const player = fs.readFileSync(path.join(root, "src/components/MusicPlayer/YouTubePlayer.jsx"), "utf8");
+  assert.match(spec, /getByRole\("button",\s*\{\s*name:\s*"Play"/);
+  assert.match(spec, /Song progress/);
+  assert.match(spec, /heykasa:youtube-provider-error/);
+  assert.match(player, /heykasa:youtube-provider-error/);
+});
