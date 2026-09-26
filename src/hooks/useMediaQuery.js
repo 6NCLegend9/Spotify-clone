@@ -1,39 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import {
   PHONE_PORTRAIT_QUERY,
   PHONE_QUERY,
   initialMediaQueryMatch,
 } from "@/utils/responsivePolicy.mjs";
 
+const getServerSnapshot = () => false;
+const noopUnsubscribe = () => {};
+
 export function useMediaQuery(query) {
-  const [matches, setMatches] = useState(() =>
+  const getSnapshot = useCallback(() =>
     initialMediaQueryMatch(
       query,
       typeof window !== "undefined" && typeof window.matchMedia === "function"
         ? window.matchMedia.bind(window)
         : undefined,
-    ),
-  );
+    ), [query]);
 
-  useEffect(() => {
+  const subscribe = useCallback((notify) => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      setMatches(false);
-      return undefined;
+      return noopUnsubscribe;
     }
+
     const media = window.matchMedia(query);
-    const onChange = () => setMatches(media.matches === true);
-    onChange();
+    const onChange = () => notify();
     if (typeof media.addEventListener === "function") {
       media.addEventListener("change", onChange);
       return () => media.removeEventListener("change", onChange);
     }
+
     media.addListener?.(onChange);
     return () => media.removeListener?.(onChange);
   }, [query]);
 
-  return matches;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 export default useMediaQuery;
