@@ -1,10 +1,18 @@
 {
-  "version": 1,
+  "version": 2,
   "source": {
-    "workflowRunId": 36250029193,
-    "benchmarkJobId": 108426867433,
-    "headSha": "784179cab38ab74d857210e8aa62930bf03094de"
+    "workflowRunId": 36272664685,
+    "benchmarkJobId": 108489789256,
+    "headSha": "86a271fd6f07e0cee40333c0241aea7f65f68e17"
   },
+  "methodology": {
+    "samplesPerRoute": 5,
+    "isolatedContextPerSample": true,
+    "httpCacheEnabled": false,
+    "serviceWorkersEnabled": false,
+    "syntheticAPIs": true
+  },
+  "minimumSamplesPerSurface": 5,
   "relativeTolerance": 0.3,
   "absoluteFloors": {
     "usableMs": 100,
@@ -13,24 +21,24 @@
   },
   "metrics": {
     "/search@1440": {
-      "usableMs": 511,
-      "scriptBytes": 489712,
-      "longTasksMs": 535
+      "usableMs": 455,
+      "scriptBytes": 479366,
+      "longTasksMs": 124
     },
     "/library@1440": {
-      "usableMs": 313,
-      "scriptBytes": 502213,
-      "longTasksMs": 0
+      "usableMs": 424,
+      "scriptBytes": 485989,
+      "longTasksMs": 118
     },
     "/search@390": {
-      "usableMs": 343,
-      "scriptBytes": 489712,
-      "longTasksMs": 53
+      "usableMs": 412,
+      "scriptBytes": 490176,
+      "longTasksMs": 116
     },
     "/library@390": {
-      "usableMs": 265,
-      "scriptBytes": 495455,
-      "longTasksMs": 0
+      "usableMs": 409,
+      "scriptBytes": 497679,
+      "longTasksMs": 115
     }
   }
 }
