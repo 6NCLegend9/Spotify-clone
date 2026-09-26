@@ -16,6 +16,7 @@ import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
@@ -129,7 +130,7 @@ const AccountSearchbar = () => {
     abortRef.current = controller;
     const timer = window.setTimeout(async () => {
       try {
-        const data = await requestJson(`/api/youtube-search?type=video&q=${encodeURIComponent(term)}`, {
+        const data = await requestJson(buildYoutubeSearchUrl({ type: "video", q: term }, "interactive"), {
           signal: controller.signal,
           fallbackTitle: "Search unavailable",
           fallbackMessage: "We couldn’t load suggestions.",
