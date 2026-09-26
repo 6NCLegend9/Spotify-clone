@@ -11,19 +11,10 @@ const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 function yamlScalar(text, key) {
-  const match = String(text || "").match(new RegExp(`^${key}:\\s*["']?([^\\r\\n"']+)["']?\\s*import crypto from "node:crypto";
-import { desktopAppDownloadUrl } from "./desktopInstaller.mjs";
-import {
-  desktopGithubReleaseDownloadUrl,
-  desktopReleaseBundle,
-  fetchDesktopGithubRelease,
-  normalizeDesktopReleaseChannel,
-} from "./desktopRelease.mjs";
-
-, "m"));
+  const pattern = "^" + key + ":\\s*[\\\"\']?([^\\r\\n\\\"\']+)[\\\"\']?\\s*$";
+  const match = String(text || "").match(new RegExp(pattern, "m"));
   return match ? match[1].trim() : "";
 }
-
 function yamlFileEntry(text, fileName) {
   const lines = String(text || "").split(/\r?\n/);
   let inFiles = false;
