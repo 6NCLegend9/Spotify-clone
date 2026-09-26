@@ -56,3 +56,35 @@ export function playlistScrollOffsetForIndex({
 
   return clamp(centered, 0, Math.max(0, totalHeight - viewport));
 }
+
+
+export const PLAYLIST_SCROLL_MEMORY_LIMIT = 64;
+
+export function rememberPlaylistScrollOffset(
+  memory,
+  key,
+  offset,
+  { limit = PLAYLIST_SCROLL_MEMORY_LIMIT } = {},
+) {
+  if (!(memory instanceof Map)) return;
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey) return;
+  const normalizedLimit = Math.max(1, Math.floor(Number(limit) || PLAYLIST_SCROLL_MEMORY_LIMIT));
+  const normalizedOffset = Math.max(0, Number(offset) || 0);
+
+  if (memory.has(normalizedKey)) memory.delete(normalizedKey);
+  memory.set(normalizedKey, normalizedOffset);
+  while (memory.size > normalizedLimit) {
+    const oldest = memory.keys().next().value;
+    if (oldest === undefined) break;
+    memory.delete(oldest);
+  }
+}
+
+export function recallPlaylistScrollOffset(memory, key) {
+  if (!(memory instanceof Map)) return null;
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey || !memory.has(normalizedKey)) return null;
+  const value = Number(memory.get(normalizedKey));
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
