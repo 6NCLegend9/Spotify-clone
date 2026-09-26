@@ -22,6 +22,7 @@ test("aggregates route metrics by path and viewport", () => {
     usableMs: 330,
     scriptBytes: 485000,
     longTasksMs: 20,
+    sampleCount: 3,
   });
 });
 
@@ -94,5 +95,32 @@ test("a single noisy long-task sample cannot fail an otherwise stable route", ()
     usableMs: 453,
     scriptBytes: 491800,
     longTasksMs: 55,
+    sampleCount: 3,
   });
+});
+
+
+test("performance budget fails closed when a surface has too few samples", () => {
+  const baseline = {
+    minimumSamplesPerSurface: 5,
+    relativeTolerance: 0.3,
+    absoluteFloors: { usableMs: 100, scriptBytes: 50000, longTasksMs: 150 },
+    metrics: {
+      "/search@1440": { usableMs: 500, scriptBytes: 490000, longTasksMs: 50 },
+    },
+  };
+  const result = evaluatePerformanceBudget({
+    baseline,
+    current: {
+      "/search@1440": {
+        usableMs: 500,
+        scriptBytes: 490000,
+        longTasksMs: 50,
+        sampleCount: 3,
+      },
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.regressions[0].metric, "sampleCount");
+  assert.equal(result.regressions[0].minimum, 5);
 });
