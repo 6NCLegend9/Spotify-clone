@@ -27,6 +27,7 @@ export function aggregateNavigationMetrics(navigation) {
       usableMs: median(samples.map((sample) => sample.usableMs)),
       scriptBytes: median(samples.map((sample) => sample.scriptBytes)),
       longTasksMs: median(samples.map((sample) => Number(sample.longTasks) || 0)),
+      sampleCount: samples.length,
     };
   }
   return result;
@@ -42,6 +43,7 @@ function thresholdFor(baselineValue, relativeTolerance, absoluteFloor) {
 export function evaluatePerformanceBudget({ baseline, current }) {
   const relativeTolerance = Number(baseline?.relativeTolerance) || 0;
   const absoluteFloors = baseline?.absoluteFloors || {};
+  const minimumSamples = Math.max(0, Number(baseline?.minimumSamplesPerSurface) || 0);
   const regressions = [];
 
   for (const [surface, expected] of Object.entries(baseline?.metrics || {})) {
@@ -53,6 +55,16 @@ export function evaluatePerformanceBudget({ baseline, current }) {
         baseline: expected,
         current: null,
         threshold: null,
+      });
+      continue;
+    }
+
+    if (minimumSamples > 0 && Number(observed.sampleCount || 0) < minimumSamples) {
+      regressions.push({
+        surface,
+        metric: "sampleCount",
+        current: Number(observed.sampleCount || 0),
+        minimum: minimumSamples,
       });
       continue;
     }
