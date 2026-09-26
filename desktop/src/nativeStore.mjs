@@ -14,6 +14,7 @@ const DEFAULTS = Object.freeze({
   closeToTray: true,
   updateChannel: "stable",
   lastNotifiedVersion: "",
+  rendererCacheSchema: 0,
   lastStartAt: 0,
   lastCleanExitAt: 0,
   crashStreak: 0,
@@ -45,6 +46,7 @@ function sanitize(value) {
     lastNotifiedVersion: typeof input.lastNotifiedVersion === "string"
       ? input.lastNotifiedVersion.slice(0, 40)
       : "",
+    rendererCacheSchema: boundedCount(input.rendererCacheSchema, 1000),
     lastStartAt: finiteTimestamp(input.lastStartAt),
     lastCleanExitAt: finiteTimestamp(input.lastCleanExitAt),
     crashStreak: boundedCount(input.crashStreak, 20),
