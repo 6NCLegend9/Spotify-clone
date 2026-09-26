@@ -171,6 +171,9 @@ function YouTubePlayer() {
   const letterShortcutsEnabled = keyboardShortcuts !== false;
   const isJamGuest = jam?.role === "guest" && Boolean(jam.code);
   const jamLocked = isJamGuest && jam?.hasAux !== true;
+  const userPausedRef = useRef(false);
+  const pageHiddenWhilePlayingRef = useRef(false);
+  const trackChangeUntilRef = useRef(0);
   const sleep = useSleepTimer({
     owner: playbackOwner, trackId: videoId, enabled: false,
     onExpire: () => {
@@ -1181,7 +1184,6 @@ function YouTubePlayer() {
           if (
             event.data === window.YT.PlayerState.PAUSED &&
             !crossfadeInProgressRef.current &&
-            !expandLockRef.current &&
             !isSeekGuarded()
           ) {
             if (isPageHidden()) {
