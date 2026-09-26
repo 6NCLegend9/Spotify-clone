@@ -26,7 +26,7 @@ export function aggregateNavigationMetrics(navigation) {
     result[key] = {
       usableMs: median(samples.map((sample) => sample.usableMs)),
       scriptBytes: median(samples.map((sample) => sample.scriptBytes)),
-      longTasksMs: Math.max(0, ...samples.map((sample) => Number(sample.longTasks) || 0)),
+      longTasksMs: median(samples.map((sample) => Number(sample.longTasks) || 0)),
     };
   }
   return result;
