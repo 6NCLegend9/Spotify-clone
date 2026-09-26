@@ -50,3 +50,13 @@ test("real provider smoke exercises playback and captures provider player errors
   assert.match(spec, /heykasa:youtube-provider-error/);
   assert.match(player, /heykasa:youtube-provider-error/);
 });
+
+
+test("real provider smoke falls back when one video loses embed permission", () => {
+  const spec = fs.readFileSync(path.join(root, "e2e/youtube-provider.spec.js"), "utf8");
+  assert.match(spec, /PROVIDER_SMOKE_TRACKS/);
+  assert.match(spec, /aqz-KE-bpKQ/);
+  assert.match(spec, /jNQXAC9IVRw/);
+  assert.match(spec, /EMBED_RESTRICTION_CODES/);
+  assert.match(spec, /provider-smoke-index/);
+});
