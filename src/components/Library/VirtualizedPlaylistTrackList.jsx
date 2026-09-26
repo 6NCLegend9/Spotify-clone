@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import PlaylistTrackRow from "@/components/Library/PlaylistTrackRow";
 import {
   PLAYLIST_OVERSCAN,
@@ -28,7 +28,7 @@ export default function VirtualizedPlaylistTrackList({
   onRemove,
   scrollKey = "",
 }) {
-  const items = Array.isArray(tracks) ? tracks : [];
+  const items = useMemo(() => (Array.isArray(tracks) ? tracks : []), [tracks]);
   const virtualized = shouldVirtualizePlaylist(items.length);
   const containerRef = useRef(null);
   const restoredRef = useRef(false);
