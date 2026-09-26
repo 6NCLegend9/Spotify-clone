@@ -20,6 +20,7 @@ import {
 import {
   DESKTOP_API_VERSION,
   DESKTOP_CAPABILITIES,
+  DESKTOP_RENDERER_CACHE_SCHEMA,
   PRODUCT_NAME,
   desktopAppUrl,
 } from "./config.mjs";
@@ -57,6 +58,7 @@ import {
 } from "./security.mjs";
 import { DesktopUpdater } from "./updater.mjs";
 import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
+import { shouldResetRendererCache } from "./cachePolicy.mjs";
 import { isPackagedCiSmoke, runPackagedCiSmoke } from "./ciSmoke.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -471,13 +473,33 @@ function configureSession(ses) {
 
 async function clearDesktopWebCaches(ses) {
   const origin = new URL(appUrl).origin;
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     ses.clearCache(),
     ses.clearStorageData({
       origin,
       storages: ["serviceworkers", "cachestorage"],
     }),
   ]);
+  return results.every((result) => result.status === "fulfilled");
+}
+
+async function resetDesktopWebCachesIfNeeded(ses) {
+  if (!store) return false;
+  if (!shouldResetRendererCache({
+    storedSchema: store.get("rendererCacheSchema"),
+    currentSchema: DESKTOP_RENDERER_CACHE_SCHEMA,
+  })) {
+    return false;
+  }
+
+  const cleared = await clearDesktopWebCaches(ses);
+  if (cleared) {
+    store.set("rendererCacheSchema", DESKTOP_RENDERER_CACHE_SCHEMA);
+    logger?.info("renderer_cache_reset", { schema: DESKTOP_RENDERER_CACHE_SCHEMA });
+  } else {
+    logger?.warn("renderer_cache_reset_failed", { schema: DESKTOP_RENDERER_CACHE_SCHEMA });
+  }
+  return cleared;
 }
 
 function navigationUrl(event, deprecatedUrl) {
@@ -558,7 +580,7 @@ async function createMainWindow() {
   const ses = desktopSession();
   configureSession(ses);
   installAppearanceProtocol(ses);
-  await clearDesktopWebCaches(ses);
+  await resetDesktopWebCachesIfNeeded(ses);
 
   const window = new BrowserWindow({
     width: 1440,
