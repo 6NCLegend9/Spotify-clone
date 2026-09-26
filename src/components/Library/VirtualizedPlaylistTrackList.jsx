@@ -5,6 +5,7 @@ import PlaylistTrackRow from "@/components/Library/PlaylistTrackRow";
 import {
   PLAYLIST_OVERSCAN,
   PLAYLIST_ROW_HEIGHT,
+  playlistScrollOffsetForIndex,
   shouldVirtualizePlaylist,
   virtualPlaylistRange,
 } from "@/utils/virtualPlaylist.mjs";
@@ -31,6 +32,7 @@ export default function VirtualizedPlaylistTrackList({
   const virtualized = shouldVirtualizePlaylist(items.length);
   const containerRef = useRef(null);
   const restoredRef = useRef(false);
+  const lastRevealedActiveRef = useRef("");
   const [range, setRange] = useState(() => virtualPlaylistRange({
     count: items.length,
     rowHeight: PLAYLIST_ROW_HEIGHT,
@@ -38,6 +40,32 @@ export default function VirtualizedPlaylistTrackList({
     viewportHeight: typeof window !== "undefined" ? window.innerHeight : 844,
     overscan: PLAYLIST_OVERSCAN,
   }));
+
+  useLayoutEffect(() => {
+    if (!virtualized || typeof window === "undefined" || !activeYoutubeId) return;
+    if (lastRevealedActiveRef.current === activeYoutubeId) return;
+
+    const index = items.findIndex((track) => track?.id === activeYoutubeId);
+    if (index < 0) return;
+
+    const node = containerRef.current;
+    if (!node) return;
+    const alreadyMounted = index >= range.start && index < range.end;
+    lastRevealedActiveRef.current = activeYoutubeId;
+    if (alreadyMounted) return;
+
+    const listTop = window.scrollY + node.getBoundingClientRect().top;
+    const relativeOffset = playlistScrollOffsetForIndex({
+      index,
+      count: items.length,
+      rowHeight: PLAYLIST_ROW_HEIGHT,
+      viewportHeight: window.innerHeight,
+    });
+    window.scrollTo({
+      top: Math.max(0, listTop + relativeOffset),
+      behavior: "auto",
+    });
+  }, [activeYoutubeId, items, range.end, range.start, virtualized]);
 
   useLayoutEffect(() => {
     if (!virtualized || typeof window === "undefined") return undefined;
