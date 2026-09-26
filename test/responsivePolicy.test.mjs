@@ -85,3 +85,11 @@ test("responsive consumers do not own duplicate semantic breakpoint literals", a
   assert.doesNotMatch(searchbar, /max-width:\s*767px/);
   assert.doesNotMatch(mediaPresentation, /max-width:\s*1180px/);
 });
+
+
+test("media-query hook is hydration-safe while still subscribing to live matchMedia", async () => {
+  const hook = readFileSync(path.join(root, "src/hooks/useMediaQuery.js"), "utf8");
+  assert.match(hook, /useSyncExternalStore/);
+  assert.match(hook, /getServerSnapshot/);
+  assert.doesNotMatch(hook, /useState\(\(\)\s*=>\s*initialMediaQueryMatch/);
+});
