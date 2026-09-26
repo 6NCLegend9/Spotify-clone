@@ -37,3 +37,22 @@ export function virtualPlaylistRange({
     offsetTop: start * height,
   };
 }
+
+
+export function playlistScrollOffsetForIndex({
+  index,
+  count,
+  rowHeight = PLAYLIST_ROW_HEIGHT,
+  viewportHeight = 0,
+} = {}) {
+  const totalCount = Math.max(0, Math.floor(Number(count) || 0));
+  if (totalCount === 0) return 0;
+
+  const height = Math.max(1, Number(rowHeight) || PLAYLIST_ROW_HEIGHT);
+  const viewport = Math.max(0, Number(viewportHeight) || 0);
+  const targetIndex = clamp(Math.floor(Number(index) || 0), 0, totalCount - 1);
+  const totalHeight = totalCount * height;
+  const centered = targetIndex * height - Math.max(0, viewport - height) / 2;
+
+  return clamp(centered, 0, Math.max(0, totalHeight - viewport));
+}
