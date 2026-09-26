@@ -19,6 +19,35 @@ function sameRange(left, right) {
     && left.offsetTop === right.offsetTop;
 }
 
+function scrollHostFor(node) {
+  return node?.closest?.("[data-app-scroll-container]") || window;
+}
+
+function scrollMetrics(node, host) {
+  if (host === window) {
+    return {
+      containerTop: node.getBoundingClientRect().top,
+      viewportHeight: window.innerHeight,
+      scrollTop: window.scrollY,
+      listTop: window.scrollY + node.getBoundingClientRect().top,
+    };
+  }
+  const nodeRect = node.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  return {
+    containerTop: nodeRect.top - hostRect.top,
+    viewportHeight: host.clientHeight,
+    scrollTop: host.scrollTop,
+    listTop: host.scrollTop + nodeRect.top - hostRect.top,
+  };
+}
+
+function scrollHostTo(host, top) {
+  const target = Math.max(0, Number(top) || 0);
+  if (host === window) window.scrollTo({ top: target, behavior: "auto" });
+  else host.scrollTo({ top: target, behavior: "auto" });
+}
+
 export default function VirtualizedPlaylistTrackList({
   tracks,
   activeYoutubeId,
@@ -54,31 +83,30 @@ export default function VirtualizedPlaylistTrackList({
     lastRevealedActiveRef.current = activeYoutubeId;
     if (alreadyMounted) return;
 
-    const listTop = window.scrollY + node.getBoundingClientRect().top;
+    const host = scrollHostFor(node);
+    const metrics = scrollMetrics(node, host);
     const relativeOffset = playlistScrollOffsetForIndex({
       index,
       count: items.length,
       rowHeight: PLAYLIST_ROW_HEIGHT,
-      viewportHeight: window.innerHeight,
+      viewportHeight: metrics.viewportHeight,
     });
-    window.scrollTo({
-      top: Math.max(0, listTop + relativeOffset),
-      behavior: "auto",
-    });
+    scrollHostTo(host, metrics.listTop + relativeOffset);
   }, [activeYoutubeId, items, range.end, range.start, virtualized]);
 
   useLayoutEffect(() => {
     if (!virtualized || typeof window === "undefined") return undefined;
     const node = containerRef.current;
     if (!node) return undefined;
+    const host = scrollHostFor(node);
 
     const update = () => {
-      const rect = node.getBoundingClientRect();
+      const metrics = scrollMetrics(node, host);
       const next = virtualPlaylistRange({
         count: items.length,
         rowHeight: PLAYLIST_ROW_HEIGHT,
-        containerTop: rect.top,
-        viewportHeight: window.innerHeight,
+        containerTop: metrics.containerTop,
+        viewportHeight: metrics.viewportHeight,
         overscan: PLAYLIST_OVERSCAN,
       });
       setRange((current) => (sameRange(current, next) ? current : next));
@@ -87,24 +115,27 @@ export default function VirtualizedPlaylistTrackList({
     if (!restoredRef.current && scrollKey && scrollMemory.has(scrollKey)) {
       restoredRef.current = true;
       const relativeOffset = scrollMemory.get(scrollKey);
-      const absoluteTop = window.scrollY + node.getBoundingClientRect().top;
-      window.scrollTo({ top: Math.max(0, absoluteTop + relativeOffset), behavior: "auto" });
+      const metrics = scrollMetrics(node, host);
+      scrollHostTo(host, metrics.listTop + relativeOffset);
     } else {
       restoredRef.current = true;
     }
 
     update();
-    window.addEventListener("scroll", update, { passive: true });
+    host.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
     window.visualViewport?.addEventListener("resize", update);
 
     return () => {
       if (scrollKey) {
-        const rect = node.getBoundingClientRect();
-        const relativeOffset = Math.max(0, Math.min(items.length * PLAYLIST_ROW_HEIGHT, -rect.top));
+        const metrics = scrollMetrics(node, host);
+        const relativeOffset = Math.max(
+          0,
+          Math.min(items.length * PLAYLIST_ROW_HEIGHT, -metrics.containerTop),
+        );
         scrollMemory.set(scrollKey, relativeOffset);
       }
-      window.removeEventListener("scroll", update);
+      host.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("resize", update);
     };
