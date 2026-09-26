@@ -74,11 +74,12 @@ test("video stays visible through the final seconds instead of activating an end
 
 
 test("MediaPresentation is the only interactive video presentation owner", async () => {
-  const [dock, types, player, presentation] = await Promise.all([
+  const [dock, types, player, presentation, globals] = await Promise.all([
     read("src/components/MusicPlayer/PlayerDock.tsx"),
     read("src/components/MusicPlayer/player.types.ts"),
     read("src/components/MusicPlayer/YouTubePlayer.jsx"),
     read("src/components/MusicPlayer/MediaPresentation.tsx"),
+    read("src/app/globals.css"),
   ]);
 
   assert.match(types, /videoAvailable\?:\s*boolean/);
@@ -98,4 +99,5 @@ test("MediaPresentation is the only interactive video presentation owner", async
   assert.doesNotMatch(player, /\bchromeVisible\b|\bsetChromeVisible\b|\bchromeVisibleRef\b/);
   assert.doesNotMatch(player, /\bphoneSheet\b|\bsheetChrome\b|\bexpandedLayout\b/);
   assert.doesNotMatch(player, /onFullscreenSwipeStart|onFullscreenSwipeEnd|toggleSheetTab/);
+  assert.doesNotMatch(globals, /\.yt-video-expanded|\.yt-phone-(?:stage|video|chrome)|\.yt-expand-(?:stage|chrome)|\.yt-mobile-sheet|\.yt-queue-panel|\.lyrics-panel--expanded/);
 });
