@@ -35,18 +35,18 @@ test("large playlist rendering isolates row work from unrelated player state", a
 
 
 test("playlist scroll restoration is bounded and does not key memory by search text", async () => {
-  const module = await import(
+  const virtualPlaylist = await import(
     pathToFileURL(path.join(root, "src/utils/virtualPlaylist.mjs")).href + `?t=${Date.now()}`
   );
   const memory = new Map();
   for (let index = 0; index < 100; index += 1) {
-    module.rememberPlaylistScrollOffset(memory, `playlist-${index}`, index * 10, { limit: 32 });
+    virtualPlaylist.rememberPlaylistScrollOffset(memory, `playlist-${index}`, index * 10, { limit: 32 });
   }
 
   assert.equal(memory.size, 32);
   assert.equal(memory.has("playlist-0"), false);
   assert.equal(memory.has("playlist-99"), true);
-  assert.equal(module.recallPlaylistScrollOffset(memory, "playlist-99"), 990);
+  assert.equal(virtualPlaylist.recallPlaylistScrollOffset(memory, "playlist-99"), 990);
 
   const detail = await readFile(
     path.join(root, "src/components/Library/PlaylistDetail.jsx"),
