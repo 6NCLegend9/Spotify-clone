@@ -38,6 +38,10 @@ test("responsive policy classifies portrait phone, rotated phone, tablet, and de
     { phone: true, compactTouch: true, desktop: false },
   );
   assert.deepEqual(
+    responsiveLayoutForViewport({ width: 844, height: 390, pointer: "fine" }),
+    { phone: false, compactTouch: false, desktop: true },
+  );
+  assert.deepEqual(
     responsiveLayoutForViewport({ width: 1024, height: 768, pointer: "coarse" }),
     { phone: false, compactTouch: true, desktop: false },
   );
