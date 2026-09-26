@@ -63,3 +63,31 @@ test("active runtime sources no longer depend on retired capability fields", asy
     assert.doesNotMatch(content, /\bspatialAudio\b/, files[index]);
   }
 });
+
+
+test("unsupported persisted settings are dropped instead of becoming active Redux fields", () => {
+  const migrated = migrateLegacySettings({
+    dataSaver: true,
+    owner: "account:test",
+    discordPresenceConnectRequest: 3,
+    transitionMode: "crossfade",
+    crossfadeSeconds: 8,
+    futureUnknownCapability: true,
+    __proto__: { polluted: true },
+  });
+  assert.deepEqual(migrated, {
+    dataSaver: true,
+    owner: "account:test",
+    discordPresenceConnectRequest: 3,
+  });
+  assert.equal(Object.getPrototypeOf(migrated), Object.prototype);
+  assert.equal("futureUnknownCapability" in migrated, false);
+  assert.equal("transitionMode" in migrated, false);
+  assert.equal("crossfadeSeconds" in migrated, false);
+});
+
+test("settings slice does not re-inject retired transition fields during hydration", async () => {
+  const source = await readFile(path.join(root, "src/redux/features/settingsSlice.js"), "utf8");
+  assert.doesNotMatch(source, /transitionMode\s*:/);
+  assert.doesNotMatch(source, /crossfadeSeconds\s*:/);
+});
