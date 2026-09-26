@@ -110,3 +110,27 @@ test("presentation cleanup keeps playback-control refs declared and removes stal
   }
   assert.doesNotMatch(player, /\bexpandLockRef\b/);
 });
+
+
+test("YouTube audio-focused and data-saver copy stays truthful about provider media", async () => {
+  const settings = await read("src/app/settings/page.jsx");
+  assert.match(settings, /label="Audio-focused mode"/);
+  assert.doesNotMatch(settings, /label="Audio-only mode"/);
+  assert.match(settings, /This is not a separate audio-only YouTube stream/);
+  assert.match(settings, /YouTube still chooses the media stream and quality/);
+});
+
+test("hidden YouTube playback uses one shared supported viewport policy", async () => {
+  const [player, presentation, css] = await Promise.all([
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+    read("src/app/globals.css"),
+  ]);
+  assert.match(player, /HIDDEN_YOUTUBE_VIEWPORT/);
+  assert.match(presentation, /HIDDEN_YOUTUBE_VIEWPORT/);
+  assert.doesNotMatch(presentation, /visible \? rect!\.width : 320/);
+  assert.doesNotMatch(presentation, /visible \? rect!\.height : 180/);
+  assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*width:\s*200px/i);
+  assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*height:\s*200px/i);
+  assert.match(css, /\.yt-audio-stage \.yt-crop-frame,[\s\S]*width:\s*100% !important;[\s\S]*height:\s*100% !important;/);
+});
