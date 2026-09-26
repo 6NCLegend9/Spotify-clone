@@ -21,7 +21,7 @@ test("aggregates route metrics by path and viewport", () => {
   assert.deepEqual(aggregated["/search@390"], {
     usableMs: 330,
     scriptBytes: 485000,
-    longTasksMs: 40,
+    longTasksMs: 20,
   });
 });
 
@@ -81,4 +81,18 @@ test("long-task regression from a zero baseline still uses an absolute noise flo
   });
   assert.equal(fail.ok, false);
   assert.equal(fail.regressions[0].metric, "longTasksMs");
+});
+
+
+test("a single noisy long-task sample cannot fail an otherwise stable route", () => {
+  const aggregated = aggregateNavigationMetrics([
+    { path: "/search", width: 1440, usableMs: 1434, scriptBytes: 491800, longTasks: 921 },
+    { path: "/search", width: 1440, usableMs: 453, scriptBytes: 491800, longTasks: 0 },
+    { path: "/search", width: 1440, usableMs: 355, scriptBytes: 474187, longTasks: 55 },
+  ]);
+  assert.deepEqual(aggregated["/search@1440"], {
+    usableMs: 453,
+    scriptBytes: 491800,
+    longTasksMs: 55,
+  });
 });
