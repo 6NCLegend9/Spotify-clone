@@ -275,7 +275,8 @@ test("queue edits preserve playback, undo safely and save a playlist", async ({ 
 });
 
 test("mobile video defaults on and exposes the live iframe only after sheet motion settles", async ({ page }) => {
-  await page.clock.install();
+  const clockStart = new Date("2026-01-01T00:00:00.000Z");
+  await page.clock.install({ time: clockStart });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
     localStorage.removeItem("heykasa.media.presentation");
@@ -298,6 +299,9 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
   await page.goto("/search", { waitUntil: "domcontentloaded" });
   const dock = page.getByTestId("player-dock");
   await expect(dock).toBeVisible();
+  // Freeze application timers before opening the mobile sheet. clock.install()
+  // virtualizes time but still advances it in real time until pauseAt().
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:05.000Z"));
 
   await page.getByTestId("youtube-decks").evaluate((host) => {
     const frame = document.createElement("iframe");
