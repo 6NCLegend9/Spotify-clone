@@ -117,10 +117,18 @@ test.describe("real YouTube provider smoke", () => {
       } catch {
         providerSignals.playerErrorCodes = [];
       }
+      const failureMessage = error instanceof Error ? error.message : String(error);
       const classification = classifyYoutubeProviderFailure({
         ...providerSignals,
-        message: error instanceof Error ? error.message : String(error),
+        message: failureMessage,
       });
+      console.warn("[youtube-provider-smoke]", JSON.stringify({
+        classification,
+        playerErrorCodes: providerSignals.playerErrorCodes,
+        responseStatuses: providerSignals.responseStatuses,
+        requestFailures: providerSignals.requestFailures,
+        message: failureMessage,
+      }));
       testInfo.annotations.push({
         type: "youtube-provider-failure",
         description: classification,
