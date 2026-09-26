@@ -7,6 +7,7 @@ const NON_RUNTIME_PREFIXES = Object.freeze([
   "desktop/",
   "desktop-bridge/",
   "docs/",
+  "scripts/",
   "e2e/",
   "test/",
   "artifacts/",
