@@ -50,7 +50,7 @@ import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import AccessibleDialog from "@/components/AccessibleDialog";
 import { PlaylistHeroSkeleton, SongRowsSkeleton } from "@/components/Skeleton";
-import PlaylistTrackRow from "@/components/Library/PlaylistTrackRow";
+import VirtualizedPlaylistTrackList from "@/components/Library/VirtualizedPlaylistTrackList";
 import { requestJson } from "@/services/http";
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
@@ -606,18 +606,15 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px]">
                 <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><span className="mx-auto hidden md:inline"><FiClock aria-hidden="true" className="inline" /><span className="sr-only">Duration</span></span><span />
               </div>
-              {filteredTracks.map((track, index) => (
-                <PlaylistTrackRow
-                  key={track.id}
-                  track={track}
-                  index={index}
-                  active={activeYoutubeId === track.id}
-                  removable={isLiked || canEditTracks}
-                  liked={isLiked}
-                  onPlay={handleRowPlay}
-                  onRemove={handleRowRemove}
-                />
-              ))}
+              <VirtualizedPlaylistTrackList
+                tracks={filteredTracks}
+                activeYoutubeId={activeYoutubeId}
+                removable={isLiked || canEditTracks}
+                liked={isLiked}
+                onPlay={handleRowPlay}
+                onRemove={handleRowRemove}
+                scrollKey={`${owner}:${isLiked ? "liked" : playlistId || collection?._id || "playlist"}:${deferredSearch.trim().toLowerCase()}`}
+              />
               {tracks.length === 0 && (
                 <div className="py-8">
                   <EmptyState
