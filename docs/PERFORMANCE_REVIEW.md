@@ -191,3 +191,25 @@ bundle-size reduction. See `PRODUCTION.md` for repeat commands and rollout gates
   download execution was not exercised. Browser tests block YouTube decoding.
 - Production first-load home JS is now 172kB. No bundle-size reduction, full
   vulnerability audit, load capacity certification or all-site optimization is claimed.
+
+## PR19 Desktop hidden-window runtime measurement
+
+Date: 2026-09-26. The Desktop CI now launches the real shared renderer inside
+Electron and measures a visible interval followed by a 5.5-second hidden interval.
+It also sends a native playback command while hidden and runs a timer at the same
+4-second cadence as the Jam heartbeat.
+
+Measured on the GitHub Actions Linux/Xvfb runner:
+
+| Desktop web preference | Hidden visibilityState | Hidden 50ms timer ticks | Hidden animation frames | Jam-sized heartbeat | Native playback command |
+| --- | --- | ---: | ---: | ---: | --- |
+| `backgroundThrottling: false` | `visible` | 116 | 167 | 1 | delivered |
+| `backgroundThrottling: true` | `visible` | 116 | 1 | 1 | delivered |
+
+The evidence supports enabling Chromium background throttling: continuous animation
+work collapses while playback-critical timer cadence and native media commands remain
+available in the measured window. The Linux/Xvfb hide path does not report
+`document.visibilityState === "hidden"` and does not clamp the synthetic 50ms
+interval during this short sample, so the CI gate does not claim those behaviors.
+The measurement remains in CI to catch regressions in animation suspension, Jam-sized
+timer progress, and native media-command delivery.
