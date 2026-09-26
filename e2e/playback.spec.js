@@ -314,6 +314,13 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
   const dialog = page.getByRole("dialog", { name: "Now playing" });
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveClass(/sheetEntering/);
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  const responsiveState = await page.evaluate(() => ({
+    width: innerWidth,
+    phone: matchMedia("(max-width: 767px)").matches,
+    compactTouch: matchMedia("(max-width: 767px), (orientation: landscape) and (max-height: 540px) and (max-width: 1100px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)").matches,
+  }));
+  expect(responsiveState).toEqual({ width: 390, phone: true, compactTouch: true });
 
   const moving = await page.getByTestId("youtube-decks").evaluate((host) => ({
     hidden: host.getAttribute("aria-hidden"),
