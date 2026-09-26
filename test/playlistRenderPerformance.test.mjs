@@ -15,7 +15,10 @@ test("large playlist rendering isolates row work from unrelated player state", a
     path.join(root, "src/components/Library/PlaylistTrackRow.jsx"),
     "utf8",
   );
-  const css = await readFile(path.join(root, "src/app/globals.css"), "utf8");
+  const virtualList = await readFile(
+    path.join(root, "src/components/Library/VirtualizedPlaylistTrackList.jsx"),
+    "utf8",
+  );
 
   assert.match(detail, /state\.player\.youtubeVideo\?\.id/);
   assert.match(detail, /state\.player\.autoAdd/);
@@ -23,6 +26,9 @@ test("large playlist rendering isolates row work from unrelated player state", a
   assert.match(detail, /handleRowPlay/);
   assert.match(detail, /handleRowRemove/);
   assert.match(row, /memo\(PlaylistTrackRow\)/);
-  assert.match(css, /\.playlist-track-row[\s\S]*content-visibility:\s*auto/);
-  assert.match(css, /contain-intrinsic-size:\s*66px/);
+  assert.match(detail, /VirtualizedPlaylistTrackList/);
+  assert.doesNotMatch(detail, /filteredTracks\.map\(/);
+  assert.match(virtualList, /shouldVirtualizePlaylist/);
+  assert.match(virtualList, /data-mounted-rows/);
+  assert.match(virtualList, /items\.slice\(range\.start, range\.end\)/);
 });
