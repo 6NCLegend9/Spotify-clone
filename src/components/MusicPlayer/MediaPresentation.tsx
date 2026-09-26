@@ -119,6 +119,20 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const canLyrics = Boolean(props.onLyrics);
   const overlay = expanded || drawer;
   const showingVideo = canVideo && video && view === "player";
+  const viewportStateRef = useRef({
+    mobile,
+    showingVideo,
+    entering,
+    closing,
+    expanded,
+  });
+  viewportStateRef.current = {
+    mobile,
+    showingVideo,
+    entering,
+    closing,
+    expanded,
+  };
 
   const clearControlsTimer = useCallback(() => {
     if (controlsTimerRef.current !== null) {
@@ -349,18 +363,22 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
         sheet.dataset.dragging = dragY.current > 0 ? "true" : "false";
       }
       const liveMobileMatch = window.matchMedia(COMPACT_TOUCH_QUERY).matches;
+      const current = viewportStateRef.current;
       const exposeLiveVideo = shouldExposeLiveVideoViewport({
-        showingVideo,
-        mobile: mobile || liveMobileMatch,
-        entering,
-        closing,
+        showingVideo: current.showingVideo,
+        mobile: current.mobile || liveMobileMatch,
+        entering: current.entering,
+        closing: current.closing,
         dragY: dragY.current,
       });
-      positionMediaViewport(host, anchorRef.current, exposeLiveVideo, expanded, clips);
+      positionMediaViewport(host, anchorRef.current, exposeLiveVideo, current.expanded, clips);
       if (performance.now() < until) frame = requestAnimationFrame(place);
     };
     const request = (duration = 0) => {
-      until = Math.max(until, performance.now() + (showingVideo ? duration : 0));
+      until = Math.max(
+        until,
+        performance.now() + (viewportStateRef.current.showingVideo ? duration : 0),
+      );
       if (!frame) frame = requestAnimationFrame(place);
     };
     cancelAnimationFrame(fallbackFrame.current); fallbackFrame.current = 0;
