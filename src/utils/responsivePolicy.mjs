@@ -3,7 +3,7 @@ export const PHONE_LANDSCAPE_QUERY =
   "(orientation: landscape) and (max-height: 540px) and (max-width: 1100px)";
 export const PHONE_QUERY = `${PHONE_PORTRAIT_QUERY}, ${PHONE_LANDSCAPE_QUERY}`;
 export const COMPACT_TOUCH_QUERY =
-  `${PHONE_QUERY}, (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)`;
+  `${PHONE_QUERY}, (pointer: coarse) and (max-width: 1180px)`;
 export const DESKTOP_QUERY = "(min-width: 768px) and (pointer: fine)";
 
 function finiteDimension(value) {
@@ -23,8 +23,8 @@ export function responsiveLayoutForViewport({ width, height, pointer = "fine" } 
   const phone = phonePortrait || phoneLandscape;
   const compactTouch =
     phone
-    || (pointerKind === "coarse" && viewportWidth <= 1180 && viewportHeight <= 900);
-  const desktop = !compactTouch && pointerKind === "fine";
+    || (pointerKind === "coarse" && viewportWidth <= 1180);
+  const desktop = !compactTouch;
   return { phone, compactTouch, desktop };
 }
 
