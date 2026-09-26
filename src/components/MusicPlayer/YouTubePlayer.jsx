@@ -52,6 +52,7 @@ import {
 import { decodeTrackFields } from "@/utils/text";
 import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
 import { buildRadioDiscoveryQueries, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
 import useWakeLock from "@/hooks/useWakeLock";
@@ -905,7 +906,7 @@ function YouTubePlayer() {
     if (failedTrack?.id) rejected.add(failedTrack.id);
     try {
       const data = await requestJson(
-        `/api/youtube-search?type=video&q=${encodeURIComponent(query)}`,
+        buildYoutubeSearchUrl({ type: "video", q: query }, "queue"),
         {
           fallbackTitle: "Could not find another upload",
           fallbackMessage: "Skipping to the next track.",
@@ -2120,7 +2121,7 @@ function YouTubePlayer() {
         seeds.map((seed) => {
           const params = new URLSearchParams({ type: "video", q: seed });
           if (originArtist) params.set("seedArtist", originArtist);
-          return requestJson(`/api/youtube-search?${params}`, {
+          return requestJson(buildYoutubeSearchUrl(params, "radio"), {
             fallbackTitle: "Queue search is temporarily unavailable",
             fallbackMessage: "We couldn’t find more tracks right now.",
           }).catch(() => null);
@@ -2260,7 +2261,7 @@ function YouTubePlayer() {
     setAddSearchError("");
     try {
       const data = await requestJson(
-        `/api/youtube-search?type=video&q=${encodeURIComponent(query)}`,
+        buildYoutubeSearchUrl({ type: "video", q: query }, "queue"),
         {
           fallbackTitle: "Queue search is temporarily unavailable",
           fallbackMessage: "We couldn’t search for tracks. Please try again.",
@@ -2368,7 +2369,7 @@ function YouTubePlayer() {
     const oneMoreParams = new URLSearchParams({ type: "video", q: seed });
     const seedArtist = String(origin?.channel || origin?.artist || "").trim();
     if (seedArtist) oneMoreParams.set("seedArtist", seedArtist);
-    requestJson(`/api/youtube-search?${oneMoreParams}`, {
+    requestJson(buildYoutubeSearchUrl(oneMoreParams, "radio"), {
       fallbackTitle: "Related song unavailable",
       fallbackMessage: "We couldn’t find a last song to suggest.",
     })
