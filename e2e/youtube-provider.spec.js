@@ -1,11 +1,50 @@
 import { expect, test } from "@playwright/test";
 import { classifyYoutubeProviderFailure } from "../src/utils/youtubeProviderFailure.mjs";
 
+const EMBED_RESTRICTION_CODES = new Set([100, 101, 150]);
+const PROVIDER_SMOKE_TRACKS = [
+  {
+    id: "aqz-KE-bpKQ",
+    title: "Big Buck Bunny",
+    channel: "Blender Foundation",
+    thumbnail: "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
+    seedQuery: "Big Buck Bunny",
+  },
+  {
+    id: "jNQXAC9IVRw",
+    title: "Me at the zoo",
+    channel: "jawed",
+    thumbnail: "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg",
+    seedQuery: "Me at the zoo",
+  },
+  {
+    id: "M7lc1UVf-VE",
+    title: "YouTube IFrame API Demo",
+    channel: "YouTube Developers",
+    thumbnail: "https://i.ytimg.com/vi/M7lc1UVf-VE/hqdefault.jpg",
+    seedQuery: "YouTube IFrame API Demo",
+  },
+];
+
 test.describe("real YouTube provider smoke", () => {
   test.skip(process.env.HEYKASA_REAL_YOUTUBE_E2E !== "1", "Real provider smoke runs only in its dedicated workflow.");
 
-  test("creates and repositions a real cross-origin YouTube iframe", async ({ page }, testInfo) => {
-    const providerSignals = { requestFailures: [], responseStatuses: [], playerErrorCodes: [], providerApiLoaded: false };
+  test("creates, plays, and repositions a real cross-origin YouTube iframe", async ({ page }, testInfo) => {
+    const providerSignals = {
+      requestFailures: [],
+      responseStatuses: [],
+      playerErrorCodes: [],
+      providerApiLoaded: false,
+    };
+    const recordPlayerErrors = (codes = []) => {
+      for (const value of codes) {
+        const code = Number(value);
+        if (Number.isFinite(code) && !providerSignals.playerErrorCodes.includes(code)) {
+          providerSignals.playerErrorCodes.push(code);
+        }
+      }
+    };
+
     page.on("requestfailed", (request) => {
       const url = request.url();
       if (!/(?:youtube|googlevideo|ytimg)/i.test(url)) return;
@@ -17,20 +56,20 @@ test.describe("real YouTube provider smoke", () => {
       const status = response.status();
       if (status >= 400) providerSignals.responseStatuses.push({ url, status });
     });
-    const track = {
-      id: "M7lc1UVf-VE",
-      title: "YouTube IFrame API Demo",
-      channel: "YouTube Developers",
-      thumbnail: "https://i.ytimg.com/vi/M7lc1UVf-VE/hqdefault.jpg",
-      seedQuery: "YouTube IFrame API Demo",
-    };
 
-    await page.addInitScript((seed) => {
+    await page.addInitScript((seeds) => {
       window.__youtubeProviderErrorCodes = [];
       window.addEventListener("heykasa:youtube-provider-error", (event) => {
         const code = Number(event?.detail?.code);
         if (Number.isFinite(code)) window.__youtubeProviderErrorCodes.push(code);
       });
+
+      const storedIndex = Number(localStorage.getItem("heykasa:provider-smoke-index"));
+      const index = Number.isInteger(storedIndex) && storedIndex >= 0 && storedIndex < seeds.length
+        ? storedIndex
+        : 0;
+      const seed = seeds[index];
+
       localStorage.setItem("persist:settings", JSON.stringify({
         owner: JSON.stringify("account:test-a"),
         audioOnly: "false",
@@ -47,7 +86,7 @@ test.describe("real YouTube provider smoke", () => {
         isPlaying: false,
         position: 0,
       }));
-    }, track);
+    }, PROVIDER_SMOKE_TRACKS);
 
     await page.route("**/api/**", (route) => {
       const pathname = new URL(route.request().url()).pathname;
@@ -69,33 +108,91 @@ test.describe("real YouTube provider smoke", () => {
     });
 
     try {
-      await page.goto("/search", { waitUntil: "domcontentloaded" });
-      await expect(page.getByTestId("player-dock")).toBeVisible();
+      let activeTrack = null;
 
-      await expect.poll(
-        async () => {
-          const loaded = await page.evaluate(() => typeof window.YT?.Player === "function");
-          providerSignals.providerApiLoaded = loaded;
-          return loaded;
-        },
-        { timeout: 60_000 },
-      ).toBe(true);
+      for (let index = 0; index < PROVIDER_SMOKE_TRACKS.length; index += 1) {
+        const track = PROVIDER_SMOKE_TRACKS[index];
+        if (index === 0) {
+          await page.goto("/search", { waitUntil: "domcontentloaded" });
+        } else {
+          await page.evaluate((nextIndex) => {
+            localStorage.setItem("heykasa:provider-smoke-index", String(nextIndex));
+          }, index);
+          await page.reload({ waitUntil: "domcontentloaded" });
+        }
 
-      const realFrame = page.locator(
-        '[data-testid="youtube-decks"] iframe[src*="youtube.com/embed/"], [data-testid="youtube-decks"] iframe[src*="youtube-nocookie.com/embed/"]',
-      ).first();
-      await expect(realFrame).toBeAttached({ timeout: 60_000 });
-      await expect(realFrame).toHaveAttribute("src", /M7lc1UVf-VE/);
+        await expect(page.getByTestId("player-dock")).toBeVisible();
+        await expect.poll(
+          async () => {
+            const loaded = await page.evaluate(() => typeof window.YT?.Player === "function");
+            providerSignals.providerApiLoaded = providerSignals.providerApiLoaded || loaded;
+            return loaded;
+          },
+          { timeout: 60_000 },
+        ).toBe(true);
 
-      const progress = page.getByRole("slider", { name: "Song progress" }).first();
-      const before = Number(await progress.inputValue());
-      const playButton = page.getByRole("button", { name: "Play", exact: true }).first();
-      await expect(playButton).toBeEnabled({ timeout: 30_000 });
-      await playButton.click();
-      await expect.poll(
-        async () => Number(await progress.inputValue()),
-        { timeout: 30_000 },
-      ).toBeGreaterThan(before + 0.5);
+        const realFrame = page.locator(
+          '[data-testid="youtube-decks"] iframe[src*="youtube.com/embed/"], [data-testid="youtube-decks"] iframe[src*="youtube-nocookie.com/embed/"]',
+        ).first();
+        await expect(realFrame).toBeAttached({ timeout: 60_000 });
+        await expect(realFrame).toHaveAttribute("src", new RegExp(track.id));
+
+        const progress = page.getByRole("slider", { name: "Song progress" }).first();
+        const before = Number(await progress.inputValue());
+        const playButton = page.getByRole("button", { name: "Play", exact: true }).first();
+        await expect(playButton).toBeEnabled({ timeout: 30_000 });
+        await playButton.click();
+
+        let outcome;
+        try {
+          const handle = await page.waitForFunction(
+            (threshold) => {
+              const slider = document.querySelector('input[aria-label="Song progress"]');
+              const current = Number(slider?.value || 0);
+              const errors = Array.isArray(window.__youtubeProviderErrorCodes)
+                ? [...window.__youtubeProviderErrorCodes]
+                : [];
+              if (current > threshold) return { status: "played", current, errors };
+              if (errors.length > 0) return { status: "provider-error", current, errors };
+              return false;
+            },
+            before + 0.5,
+            { timeout: 30_000 },
+          );
+          outcome = await handle.jsonValue();
+        } catch (error) {
+          const codes = await page.evaluate(
+            () => Array.isArray(window.__youtubeProviderErrorCodes)
+              ? [...window.__youtubeProviderErrorCodes]
+              : [],
+          );
+          recordPlayerErrors(codes);
+          const externallyRestricted = codes.some((code) => EMBED_RESTRICTION_CODES.has(Number(code)));
+          if (externallyRestricted && index + 1 < PROVIDER_SMOKE_TRACKS.length) continue;
+          throw error;
+        }
+
+        recordPlayerErrors(outcome?.errors);
+        if (outcome?.status === "provider-error") {
+          const externallyRestricted = outcome.errors.some((code) => EMBED_RESTRICTION_CODES.has(Number(code)));
+          if (externallyRestricted && index + 1 < PROVIDER_SMOKE_TRACKS.length) continue;
+          throw new Error(`YouTube provider rejected playback with code(s): ${outcome.errors.join(", ")}`);
+        }
+
+        activeTrack = track;
+        console.info("[youtube-provider-smoke] playback verified", JSON.stringify({
+          videoId: track.id,
+          progress: outcome?.current,
+          rejectedCandidates: providerSignals.playerErrorCodes,
+        }));
+        break;
+      }
+
+      if (!activeTrack) {
+        throw new Error(
+          `All provider smoke candidates were rejected for embedding/playback: ${providerSignals.playerErrorCodes.join(", ")}`,
+        );
+      }
 
       await page.keyboard.press("v");
       const theater = page.getByRole("dialog", { name: "Expanded video" });
@@ -109,13 +206,13 @@ test.describe("real YouTube provider smoke", () => {
       expect(box.height).toBeGreaterThan(112);
     } catch (error) {
       try {
-        providerSignals.playerErrorCodes = await page.evaluate(
+        recordPlayerErrors(await page.evaluate(
           () => Array.isArray(window.__youtubeProviderErrorCodes)
             ? [...window.__youtubeProviderErrorCodes]
             : [],
-        );
+        ));
       } catch {
-        providerSignals.playerErrorCodes = [];
+        // The page may already be gone; keep the provider signals collected so far.
       }
       const failureMessage = error instanceof Error ? error.message : String(error);
       const classification = classifyYoutubeProviderFailure({
@@ -134,7 +231,7 @@ test.describe("real YouTube provider smoke", () => {
         description: classification,
       });
       if (classification === "external-provider") {
-        test.skip(true, "YouTube provider/network availability prevented the provider smoke from running.");
+        test.skip(true, "All real YouTube smoke candidates were blocked by provider/network availability.");
       }
       throw error;
     }
