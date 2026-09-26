@@ -356,9 +356,10 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
         if (sheet.style.getPropertyValue("--sheet-drag") !== offset) sheet.style.setProperty("--sheet-drag", offset);
         sheet.dataset.dragging = dragY.current > 0 ? "true" : "false";
       }
+      const liveMobileMatch = window.matchMedia(MOBILE_MEDIA_QUERY).matches;
       const exposeLiveVideo = shouldExposeLiveVideoViewport({
         showingVideo,
-        mobile,
+        mobile: mobile || liveMobileMatch,
         entering,
         closing,
         dragY: dragY.current,
