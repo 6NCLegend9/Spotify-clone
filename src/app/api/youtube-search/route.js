@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch, searchYouTubeChannels } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
+import { normalizeYoutubeSearchPurpose, youtubeSearchLimitFor } from "@/utils/youtubeSearchPurpose.mjs";
 import { readSearchOptions } from "@/utils/searchOptions.mjs";
 import { buildOfficialMusicQuery, filterMusicPlaybackResults, rankOfficialMusicResults } from "@/utils/officialMusicSearch.mjs";
 import { diversifyRadioTracks } from "@/utils/radioSeed.mjs";
@@ -51,10 +52,28 @@ async function searchResponse(request) {
       .trim()
       .slice(0, 100);
 
-    const rateLimit = await isRateLimited(getClientKey(request), { windowMs: 60_000, max: 15 });
-    if (rateLimit.limited) {
+    const purpose = normalizeYoutubeSearchPurpose(url.searchParams.get("purpose"));
+    const purposeLimit = await isRateLimited(
+      getClientKey(request, `youtube-search:${purpose}`),
+      { ...youtubeSearchLimitFor(purpose), storage: "memory" },
+    );
+    if (purposeLimit.limited) {
       return apiError("RATE_LIMITED", {
-        retryAfter: rateLimit.retryAfter,
+        retryAfter: purposeLimit.retryAfter,
+        message: "Too many search requests for this activity. Please slow down.",
+      });
+    }
+
+    // Keep one persistent route-wide ceiling across server instances. The
+    // purpose buckets above protect user-facing fairness without adding a
+    // second MongoDB write to every search request.
+    const globalLimit = await isRateLimited(
+      getClientKey(request, "youtube-search:global"),
+      { windowMs: 60_000, max: 180 },
+    );
+    if (globalLimit.limited) {
+      return apiError("RATE_LIMITED", {
+        retryAfter: globalLimit.retryAfter,
         message: "Too many search requests. Please slow down.",
       });
     }
