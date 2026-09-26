@@ -56,11 +56,15 @@ test("queue overlay traps keyboard focus", async () => {
 });
 
 test("audio-focused YouTube mode keeps a supported iframe viewport", async () => {
-  const css = await read("src/app/globals.css");
+  const [css, policy] = await Promise.all([
+    read("src/app/globals.css"),
+    import("../src/utils/youtubePresentationPolicy.mjs"),
+  ]);
   assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*width:\s*2px/i);
   assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*height:\s*2px/i);
-  assert.match(css, /\.yt-audio-stage\s*\{[^}]*width:\s*200px/i);
-  assert.match(css, /\.yt-audio-stage\s*\{[^}]*height:\s*200px/i);
+  assert.ok(policy.HIDDEN_YOUTUBE_VIEWPORT.width >= 200);
+  assert.ok(policy.HIDDEN_YOUTUBE_VIEWPORT.height >= 200);
+  assert.match(css, /\.yt-audio-stage \.yt-crop-frame,[\s\S]*width:\s*100% !important;[\s\S]*height:\s*100% !important;/);
 });
 
 test("video stays visible through the final seconds instead of activating an end-screen mask", async () => {
