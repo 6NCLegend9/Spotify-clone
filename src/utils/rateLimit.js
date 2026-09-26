@@ -52,13 +52,17 @@ function inMemoryRateLimit(keyHash, max, timing) {
   };
 }
 
-export async function isRateLimited(key, { windowMs = 60_000, max = 20 } = {}) {
+export async function isRateLimited(
+  key,
+  { windowMs = 60_000, max = 20, storage = "persistent" } = {},
+) {
   const safeWindowMs = Math.max(1_000, Math.floor(windowMs));
   const safeMax = Math.max(1, Math.floor(max));
   const keyHash = hashKey(key);
   const timing = windowDetails(safeWindowMs);
+  const memoryOnly = storage === "memory";
 
-  if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
+  if (memoryOnly || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
     return inMemoryRateLimit(keyHash, safeMax, timing);
   }
 
