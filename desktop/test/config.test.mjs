@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  DESKTOP_API_VERSION,
+  DESKTOP_CAPABILITIES,
   LOCAL_DEV_APP_URL,
   PRODUCTION_APP_URL,
   desktopAppUrl,
@@ -31,4 +33,18 @@ test("packaged desktop always uses the production origin", () => {
     desktopAppUrl({ isPackaged: true, overrideUrl: "http://localhost:3003" }),
     PRODUCTION_APP_URL,
   );
+});
+
+test("desktop config exposes the canonical native API contract", () => {
+  assert.equal(DESKTOP_API_VERSION, 1);
+  assert.deepEqual([...DESKTOP_CAPABILITIES], [
+    "discordPresenceV1",
+    "updaterV1",
+    "autoLaunchV1",
+    "desktopPreferencesV1",
+    "appearanceProfilesV1",
+    "trayV1",
+    "diagnosticsV1",
+    "authV1",
+  ]);
 });

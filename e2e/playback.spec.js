@@ -274,6 +274,94 @@ test("queue edits preserve playback, undo safely and save a playlist", async ({ 
   await expect(page.getByTestId("player-dock").getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
 });
 
+test("mobile video defaults on and exposes the live iframe only after sheet motion settles", async ({ page }) => {
+  const clockStart = new Date("2026-01-01T00:00:00.000Z");
+  await page.clock.install({ time: clockStart });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.removeItem("heykasa.media.presentation");
+    localStorage.setItem("persist:settings", JSON.stringify({
+      owner: JSON.stringify("account:test-a"),
+      audioOnly: "false",
+      dataSaver: "false",
+    }));
+    const track = { id: "abcdefghijk", title: "Mobile video stability", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1,
+      owner: "account:test-a",
+      savedAt: Date.now(),
+      youtubeVideo: track,
+      youtubeQueue: [track],
+      position: 42,
+    }));
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const dock = page.getByTestId("player-dock");
+  await expect(dock).toBeVisible();
+  // Freeze application timers before opening the mobile sheet. clock.install()
+  // virtualizes time but still advances it in real time until pauseAt().
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:05.000Z"));
+
+  await page.getByTestId("youtube-decks").evaluate((host) => {
+    const frame = document.createElement("iframe");
+    frame.title = "Mobile video stability frame";
+    frame.srcdoc = '<body style="margin:0;background:#168477;height:100vh"></body>';
+    host.querySelector(".yt-crop-frame").appendChild(frame);
+  });
+
+  const expand = dock.getByRole("button", { name: "Expand player: Mobile video stability" });
+  // Dispatch synchronously so this assertion observes the sheet while its entry
+  // animation is actually active. A normal Playwright click can spend longer
+  // than the 300ms animation in actionability/stability checks on busy CI.
+  await expand.dispatchEvent("click");
+  const dialog = page.getByRole("dialog", { name: "Now playing" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveClass(/sheetEntering/);
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  const responsiveState = await page.evaluate(() => ({
+    width: innerWidth,
+    phone: matchMedia("(max-width: 767px)").matches,
+    compactTouch: matchMedia("(max-width: 767px), (orientation: landscape) and (max-height: 540px) and (max-width: 1100px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)").matches,
+  }));
+  expect(responsiveState).toEqual({ width: 390, phone: true, compactTouch: true });
+
+  const moving = await page.getByTestId("youtube-decks").evaluate((host) => ({
+    hidden: host.getAttribute("aria-hidden"),
+    opacity: getComputedStyle(host).opacity,
+  }));
+  expect(moving.hidden).toBe("true");
+  expect(Number(moving.opacity)).toBe(0);
+
+  await page.clock.fastForward(380);
+  await expect(dialog).not.toHaveClass(/sheetEntering/);
+
+  const settled = await page.getByTestId("youtube-decks").evaluate((host) => {
+    const rect = host.getBoundingClientRect();
+    return {
+      hidden: host.getAttribute("aria-hidden"),
+      opacity: getComputedStyle(host).opacity,
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: innerWidth,
+      viewportHeight: innerHeight,
+    };
+  });
+
+  expect(settled.hidden).toBe("false");
+  expect(Number(settled.opacity)).toBe(1);
+  expect(settled.width).toBeGreaterThan(200);
+  expect(settled.height).toBeGreaterThan(100);
+  expect(settled.left).toBeGreaterThanOrEqual(-1);
+  expect(settled.top).toBeGreaterThanOrEqual(-1);
+  expect(settled.right).toBeLessThanOrEqual(settled.viewportWidth + 1);
+  expect(settled.bottom).toBeLessThanOrEqual(settled.viewportHeight + 1);
+});
+
 test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));

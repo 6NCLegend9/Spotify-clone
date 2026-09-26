@@ -2,7 +2,7 @@
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -43,7 +43,6 @@ import {
   startYoutubePlayback,
 } from "@/redux/features/playerSlice";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
-import AddToQueueButton from "@/components/AddToQueueButton";
 import PlaylistCover from "@/components/PlaylistCover";
 import LikePlaylistButton from "@/components/LikePlaylistButton";
 import CoverUploader from "@/components/CoverUploader";
@@ -51,11 +50,10 @@ import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import AccessibleDialog from "@/components/AccessibleDialog";
 import { PlaylistHeroSkeleton, SongRowsSkeleton } from "@/components/Skeleton";
-import MediaImage from "@/components/MediaImage";
+import VirtualizedPlaylistTrackList from "@/components/Library/VirtualizedPlaylistTrackList";
 import { requestJson } from "@/services/http";
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
-import { cleanTitle } from "@/utils/text";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import {
@@ -63,33 +61,12 @@ import {
   playlistListenUrl,
 } from "@/utils/shareCard.mjs";
 
-function cleanText(value = "") {
-  return cleanTitle(value);
-}
-
-function formatDuration(seconds) {
-  const value = Math.max(0, Number(seconds) || 0);
-  if (value === 0) return "—";
-  return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`;
-}
-
 function formatTotalDuration(seconds) {
   const minutes = Math.floor((Number(seconds) || 0) / 60);
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   if (hours > 0) return `${hours} hr ${remainingMinutes} min`;
   return `${minutes} min`;
-}
-
-function formatAddedDate(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
-  });
 }
 
 function interleaveRecommendations(tracks, recommendations) {
@@ -140,7 +117,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const isLiked = kind === "liked";
   const router = useRouter();
   const dispatch = useDispatch();
-  const { youtubeVideo, autoAdd } = useSelector((state) => state.player);
+  const activeYoutubeId = useSelector((state) => state.player.youtubeVideo?.id || "");
+  const autoAdd = useSelector((state) => state.player.autoAdd);
   const cacheKey = `${isLiked ? "liked" : `playlist:${playlistId || ""}`}:${owner}`;
   const cached = owner ? readNavCache(cacheKey) : null;
   const [collection, setCollection] = useState(() => cached?.collection ?? null);
@@ -155,10 +133,14 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const [showCollaborator, setShowCollaborator] = useState(false);
   const [collaboratorEmail, setCollaboratorEmail] = useState("");
   const [saving, setSaving] = useState(false);
-  const [smartShuffle, setSmartShuffle] = useState(isLiked && autoAdd);
+  const [discoveryShuffle, setSmartShuffle] = useState(isLiked && autoAdd);
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState(null);
   const live = useRef(true);
+  const playTrackRef = useRef(null);
+  const removeTrackRef = useRef(null);
+  const handleRowPlay = useCallback((track) => playTrackRef.current?.(track), []);
+  const handleRowRemove = useCallback((track) => removeTrackRef.current?.(track), []);
 
   useEffect(() => {
     live.current = true;
@@ -251,12 +233,12 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     [tracks],
   );
 
-  const fetchSmartRecommendations = async () => {
+  const fetchDiscoveryRecommendations = async () => {
     if (recommendations.length > 0) return recommendations;
     try {
       const data = await requestJson("/api/recommendations", {
         fallbackTitle: "Recommendations unavailable",
-        fallbackMessage: "Smart Shuffle recommendations couldn’t be loaded.",
+        fallbackMessage: "Shuffle + Discovery recommendations couldn’t be loaded.",
       });
       const nextRecommendations = [
         ...(Array.isArray(data?.sections?.trending) ? data.sections.trending : []),
@@ -271,8 +253,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   };
 
   const createQueue = async () => {
-    if (!smartShuffle) return tracks;
-    const smartTracks = await fetchSmartRecommendations();
+    if (!discoveryShuffle) return tracks;
+    const smartTracks = await fetchDiscoveryRecommendations();
     return interleaveRecommendations(tracks, [...smartTracks]);
   };
 
@@ -305,6 +287,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
       context: playbackContext,
     }));
   };
+
+  playTrackRef.current = playTrack;
 
   const playCollection = async () => {
     if (tracks.length === 0) return;
@@ -339,11 +323,11 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
 
   const isPublicPlaylist = !isLiked && collection?.visibility === "public";
 
-  const toggleSmartShuffle = async () => {
-    const nextValue = !smartShuffle;
+  const toggleDiscoveryShuffle = async () => {
+    const nextValue = !discoveryShuffle;
     setSmartShuffle(nextValue);
     dispatch(setAutoAdd(nextValue));
-    if (nextValue) fetchSmartRecommendations();
+    if (nextValue) fetchDiscoveryRecommendations();
     if (!isLiked && isOwner) {
       const response = await updatePlaylist(playlistId, "smartShuffle", nextValue);
       if (!live.current) return;
@@ -351,8 +335,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
         setSmartShuffle(!nextValue);
         dispatch(setAutoAdd(!nextValue));
         reportMutationError(response, {
-          title: "Smart Shuffle not updated",
-          message: "We couldn’t update Smart Shuffle. Please try again.",
+          title: "Shuffle + Discovery not updated",
+          message: "We couldn’t update Shuffle + Discovery. Please try again.",
         });
       } else {
         setActionError(null);
@@ -460,6 +444,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     toast.success("Song removed from playlist");
   };
 
+  removeTrackRef.current = removeTrack;
+
   const removePlaylist = async () => {
     if (!window.confirm(`Delete “${title}”? This cannot be undone.`)) return;
     setSaving(true);
@@ -550,7 +536,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             ) : null}
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
               <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="play-fab play-fab--static mr-2 h-14 w-14 min-h-14 min-w-14 disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
-              <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${smartShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
+              <button type="button" aria-pressed={discoveryShuffle} onClick={toggleDiscoveryShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${discoveryShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Shuffle + Discovery {discoveryShuffle ? "On" : "Off"}</button>
               {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => current ? ({ ...current, ...next }) : current)} /> : null}
               {isPublicPlaylist ? (
                 <>
@@ -620,22 +606,15 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px]">
                 <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><span className="mx-auto hidden md:inline"><FiClock aria-hidden="true" className="inline" /><span className="sr-only">Duration</span></span><span />
               </div>
-              {filteredTracks.map((track, index) => (
-                <ContextMenuTarget key={track.id} className={`group grid min-h-[66px] grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px] ${youtubeVideo?.id === track.id ? "bg-white/[0.06]" : ""}`}>
-                  <button type="button" aria-label={`Play ${cleanText(track.title)}`} onClick={() => playTrack(track)} className={`grid h-11 w-11 place-items-center rounded-full text-sm ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}><span className="group-hover:hidden">{index + 1}</span><FiPlay className="hidden fill-current group-hover:block" /></button>
-                  <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
-                    <MediaImage src={track.thumbnail} size="mq" alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-11 w-11 shrink-0 rounded object-cover" />
-                    <span className="min-w-0"><span className={`block truncate text-sm font-semibold ${youtubeVideo?.id === track.id ? "text-[#00e6e6]" : "text-white"}`}>{cleanText(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{cleanText(track.channel)}</span></span>
-                  </button>
-                  <span className="hidden truncate text-xs text-gray-400 md:block">-</span>
-                  <span className="hidden text-xs text-gray-400 lg:block">{formatAddedDate(track.addedAt)}</span>
-                  <span className="hidden text-right text-xs tabular-nums text-gray-400 md:block">{formatDuration(track.duration)}</span>
-                  <div className="flex items-center justify-end gap-1">
-                    <AddToQueueButton track={track} onRemove={(isLiked || canEditTracks) ? () => removeTrack(track) : undefined} removeLabel={isLiked ? "Remove from Liked Songs" : "Remove from playlist"} className="text-gray-500 opacity-100 hover:text-white sm:opacity-0 sm:group-hover:opacity-100" />
-                    {(isLiked || canEditTracks) ? <button type="button" aria-label={isLiked ? `Remove ${cleanText(track.title)} from Liked Songs` : `Remove ${cleanText(track.title)} from playlist`} title={isLiked ? "Remove from Liked Songs" : "Remove from playlist"} onClick={() => removeTrack(track)} className="grid h-11 w-11 place-items-center rounded-full text-gray-500 opacity-100 hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100">{isLiked ? <FiHeart className="fill-current text-[#00e6e6]" /> : <FiTrash2 />}</button> : null}
-                  </div>
-                </ContextMenuTarget>
-              ))}
+              <VirtualizedPlaylistTrackList
+                tracks={filteredTracks}
+                activeYoutubeId={activeYoutubeId}
+                removable={isLiked || canEditTracks}
+                liked={isLiked}
+                onPlay={handleRowPlay}
+                onRemove={handleRowRemove}
+                scrollKey={`${owner}:${isLiked ? "liked" : playlistId || collection?._id || "playlist"}:${deferredSearch.trim().toLowerCase()}`}
+              />
               {tracks.length === 0 && (
                 <div className="py-8">
                   <EmptyState

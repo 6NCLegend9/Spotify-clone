@@ -16,8 +16,11 @@ import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
+import { interactiveYoutubeSearchCache, normalizeSearchRequestKey } from "@/utils/searchRequestCache.mjs";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
 
 const Searchbar = () => {
   const { data: session, status } = useSession();
@@ -43,7 +46,7 @@ const AccountSearchbar = () => {
   const clusterRef = useRef(null);
   const [compactPlaceholder, setCompactPlaceholder] = useState(false);
   const [overlayBox, setOverlayBox] = useState({ top: 64, bottom: 0 });
-  const overlaySuggestions = useMediaQuery("(max-width: 767px)");
+  const overlaySuggestions = useMediaQuery(PHONE_QUERY);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -128,11 +131,14 @@ const AccountSearchbar = () => {
     abortRef.current = controller;
     const timer = window.setTimeout(async () => {
       try {
-        const data = await requestJson(`/api/youtube-search?type=video&q=${encodeURIComponent(term)}`, {
-          signal: controller.signal,
-          fallbackTitle: "Search unavailable",
-          fallbackMessage: "We couldn’t load suggestions.",
-        });
+        const key = normalizeSearchRequestKey({ purpose: "interactive", query: term });
+        const data = await interactiveYoutubeSearchCache.getOrCreate(
+          key,
+          () => requestJson(buildYoutubeSearchUrl({ type: "video", q: term }, "interactive"), {
+            fallbackTitle: "Search unavailable",
+            fallbackMessage: "We couldn’t load suggestions.",
+          }),
+        );
         const list = Array.isArray(data?.results) ? data.results.slice(0, 7) : [];
         if (!controller.signal.aborted) setSongs(list);
       } catch {

@@ -6,66 +6,37 @@ on:
     branches:
       - main
     paths:
-      - "desktop/**"
-      - "src/app/api/desktop/**"
-      - "src/app/api/version/**"
-      - "src/app/layout.js"
-      - "src/app/login/page.jsx"
-      - "src/app/signup/page.jsx"
-      - "src/components/DesktopAppCard.jsx"
-      - "src/components/DesktopCompatibilityGate.jsx"
-      - "src/components/DesktopUpdateNotifier.jsx"
-      - "src/components/DiscordPresenceSync.jsx"
-      - "src/components/SupportDiagnostics.jsx"
-      - "src/components/WebUpdateNotifier.jsx"
-      - "src/hooks/useDiscordPresence.js"
-      - "src/lib/discordPresenceClient.js"
-      - "src/models/DesktopAuthGrant.js"
-      - "src/utils/desktopAuth.mjs"
-      - "src/utils/desktopEnvironment.js"
-      - "src/utils/desktopInstaller.mjs"
-      - "src/utils/desktopRelease.mjs"
-      - "src/utils/desktopReleaseTrust.mjs"
-      - "test/desktopAuth.test.mjs"
-      - "test/desktopInstaller.test.mjs"
-      - "test/desktopDownload.test.mjs"
-      - "test/desktopManifest.test.mjs"
-      - "test/desktopPolicy.test.mjs"
-      - "test/desktopRelease.test.mjs"
+      - "src/**"
+      - "public/**"
+      - "contracts/**"
+      - "scripts/desktop-dev*.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.js"
+      - "desktop/src/**"
+      - "desktop/scripts/smoke-renderer.mjs"
+      - "desktop/scripts/measure-background-runtime.mjs"
+      - "desktop/package.json"
+      - "desktop/package-lock.json"
+      - "test/**"
+      - "e2e/**"
       - ".github/workflows/desktop-ci.yml"
-      - ".github/workflows/desktop-preview.yml"
-      - ".github/workflows/desktop-release.yml"
   pull_request:
     paths:
-      - "desktop/**"
-      - "src/app/api/desktop/**"
-      - "src/app/api/version/**"
-      - "src/app/layout.js"
-      - "src/app/login/page.jsx"
-      - "src/app/signup/page.jsx"
-      - "src/components/DesktopAppCard.jsx"
-      - "src/components/DesktopCompatibilityGate.jsx"
-      - "src/components/DesktopUpdateNotifier.jsx"
-      - "src/components/DiscordPresenceSync.jsx"
-      - "src/components/SupportDiagnostics.jsx"
-      - "src/components/WebUpdateNotifier.jsx"
-      - "src/hooks/useDiscordPresence.js"
-      - "src/lib/discordPresenceClient.js"
-      - "src/models/DesktopAuthGrant.js"
-      - "src/utils/desktopAuth.mjs"
-      - "src/utils/desktopEnvironment.js"
-      - "src/utils/desktopInstaller.mjs"
-      - "src/utils/desktopRelease.mjs"
-      - "src/utils/desktopReleaseTrust.mjs"
-      - "test/desktopAuth.test.mjs"
-      - "test/desktopInstaller.test.mjs"
-      - "test/desktopDownload.test.mjs"
-      - "test/desktopManifest.test.mjs"
-      - "test/desktopPolicy.test.mjs"
-      - "test/desktopRelease.test.mjs"
+      - "src/**"
+      - "public/**"
+      - "contracts/**"
+      - "scripts/desktop-dev*.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.js"
+      - "desktop/src/**"
+      - "desktop/scripts/smoke-renderer.mjs"
+      - "desktop/package.json"
+      - "desktop/package-lock.json"
+      - "test/**"
+      - "e2e/**"
       - ".github/workflows/desktop-ci.yml"
-      - ".github/workflows/desktop-preview.yml"
-      - ".github/workflows/desktop-release.yml"
 
 permissions:
   contents: read
@@ -74,64 +45,57 @@ concurrency:
   group: desktop-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NEXTAUTH_SECRET: heykasa-desktop-ci-only-secret
+  NEXTAUTH_URL: http://127.0.0.1:3003
+  DISABLE_HTTPS_UPGRADE: "1"
+
 jobs:
-  web-contract:
+  shared-renderer:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
+          cache: npm
       - name: Install web dependencies
         run: npm ci --no-audit --no-fund
-      - name: Test desktop web contract
-        run: node --test test/desktopAuth.test.mjs test/desktopDownload.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs test/desktopRelease.test.mjs
-
-  windows-desktop:
-    runs-on: windows-latest
-    timeout-minutes: 40
-    defaults:
-      run:
-        working-directory: desktop
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      HEYKASA_DESKTOP_RELEASE_CHANNEL: internal
-      HEYKASA_DESKTOP_MINIMUM_VERSION: "1.0.0"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
       - name: Install desktop dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm --prefix desktop ci --no-audit --no-fund
+      - name: Validate canonical desktop contract
+        run: npm run check:desktop-contract
+      - name: Test desktop web contract
+        run: node --test test/desktopAuth.test.mjs test/desktopContract.test.mjs test/desktopDev.test.mjs test/desktopDownload.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs test/desktopRelease.test.mjs test/desktopSmokeContract.test.mjs
       - name: Test native boundary
-        run: npm test
-      - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
-      - name: Stamp main-channel update version
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: pwsh
-        run: npm version "1.0.${{ github.run_number }}" --no-git-tag-version
-      - name: Build unsigned Windows installer
-        run: npm run dist
-      - name: Verify Windows installer
-        shell: pwsh
+        run: npm --prefix desktop test
+      - name: Build shared production renderer
+        run: npm run build
+      - name: Install Electron runtime dependencies
+        run: npx playwright install-deps chromium
+      - name: Start shared production renderer
+        shell: bash
         run: |
-          $installer = Get-ChildItem -Path dist -Filter "HayKasa-Setup-*-x64.exe" | Select-Object -First 1
-          if (-not $installer) { throw "HayKasa-Setup installer was not produced" }
-          $exe = Get-ChildItem -Path dist -Recurse -Filter "HayKasa.exe" | Select-Object -First 1
-          if (-not $exe) { throw "HayKasa.exe was not produced" }
-          Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
-      - name: Validate GitHub release bundle preparation
-        run: npm run prepare-github-release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: heykasa-desktop-windows-${{ github.sha }}
-          path: |
-            desktop/dist/HayKasa-Setup-*-x64.exe
-            desktop/dist/latest.yml
-            desktop/dist/*.blockmap
-            desktop/dist/release-manifest.json
-          if-no-files-found: error
-          retention-days: 7
+          npm start -- --hostname 127.0.0.1 --port 3003 > /tmp/heykasa-next.log 2>&1 &
+          echo $! > /tmp/heykasa-next.pid
+      - name: Wait for shared renderer
+        run: node --input-type=module -e "import { waitForHttp } from './scripts/desktop-dev-lib.mjs'; await waitForHttp('http://127.0.0.1:3003/search');"
+      - name: Verify shared renderer inside Electron
+        env:
+          HEYKASA_DESKTOP_SMOKE_URL: http://127.0.0.1:3003
+        run: xvfb-run -a npm --prefix desktop run smoke:renderer
+      - name: Measure hidden-window runtime
+        env:
+          HEYKASA_DESKTOP_SMOKE_URL: http://127.0.0.1:3003
+        run: xvfb-run -a npm --prefix desktop run measure:background
+      - name: Show renderer log on failure
+        if: failure()
+        run: cat /tmp/heykasa-next.log || true
+      - name: Stop shared renderer
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/heykasa-next.pid ]; then
+            kill "$(cat /tmp/heykasa-next.pid)" 2>/dev/null || true
+          fi

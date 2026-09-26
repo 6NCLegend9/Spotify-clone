@@ -29,7 +29,6 @@ import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import usePlayerTransport from "@/hooks/usePlayerTransport";
 import useMediaSession from "@/hooks/useMediaSession";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
-import useWakeLock from "@/hooks/useWakeLock";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 import { loginPath } from "@/utils/appOrigin.mjs";
@@ -92,19 +91,13 @@ const MusicPlayer = () => {
   const {
     pictureInPicture,
     dataSaver,
-    audioOnly: audioOnlyToggle,
-    videoQuality,
+    audioOnly,
     masterVolume,
   } = useSelector((state) => state.settings);
-  const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
   const compactPlayback = audioOnly || dataSaver;
   const [duration, setDuration] = useState(0);
   const [seekTime, setSeekTime] = useState(0);
   const [appTime, setAppTime] = useState(0);
-
-  // Hold a screen wake lock while anything is playing so a listener's display
-  // doesn't sleep mid-track. Releases on its own when playback stops.
-  useWakeLock(isPlaying && (isActive || Boolean(youtubeVideo)));
 
   const [repeat, setRepeat] = useState(false);
   const [shuffle, setShuffle] = useState(false);

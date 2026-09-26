@@ -52,13 +52,17 @@ function inMemoryRateLimit(keyHash, max, timing) {
   };
 }
 
-export async function isRateLimited(key, { windowMs = 60_000, max = 20 } = {}) {
+export async function isRateLimited(
+  key,
+  { windowMs = 60_000, max = 20, storage = "persistent" } = {},
+) {
   const safeWindowMs = Math.max(1_000, Math.floor(windowMs));
   const safeMax = Math.max(1, Math.floor(max));
   const keyHash = hashKey(key);
   const timing = windowDetails(safeWindowMs);
+  const memoryOnly = storage === "memory";
 
-  if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
+  if (memoryOnly || process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
     return inMemoryRateLimit(keyHash, safeMax, timing);
   }
 
@@ -98,11 +102,24 @@ export async function isRateLimited(key, { windowMs = 60_000, max = 20 } = {}) {
   };
 }
 
-export function getClientKey(request) {
+function normalizeRateLimitScope(scope) {
+  return String(scope || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9:_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 64);
+}
+
+export function getClientKey(request, scope = "") {
   const client =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip") ||
     "unknown";
   const pathname = request.nextUrl?.pathname || "request";
-  return `${pathname}:${client}`;
+  const safeScope = normalizeRateLimitScope(scope);
+  return safeScope
+    ? `${pathname}:${safeScope}:${client}`
+    : `${pathname}:${client}`;
 }

@@ -1,16 +1,13 @@
+import {
+  DESKTOP_API_VERSION,
+  DESKTOP_CAPABILITIES,
+} from "./generated/desktopContract.mjs";
+
+export { DESKTOP_API_VERSION, DESKTOP_CAPABILITIES };
+
 export const PRODUCT_NAME = "HayKasa";
+export const DESKTOP_RENDERER_CACHE_SCHEMA = 1;
 export const PRODUCTION_APP_URL = "https://haykasa.vercel.app";
-export const DESKTOP_API_VERSION = 1;
-export const DESKTOP_CAPABILITIES = Object.freeze([
-  "discordPresenceV1",
-  "updaterV1",
-  "autoLaunchV1",
-  "desktopPreferencesV1",
-  "appearanceProfilesV1",
-  "trayV1",
-  "diagnosticsV1",
-  "authV1",
-]);
 
 // The packaged client receives no GitHub write credentials, release signing
 // secrets, or artifact-origin configuration. It checks the production manifest

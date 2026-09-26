@@ -9,26 +9,25 @@ import {
   readRequestJson,
 } from "@/utils/apiResponse";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import { migrateLegacySettings } from "@/utils/settingsMigration.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
 const allowedKeys = [
   "eqPreset", "eqBands", "dataSaver", "audioOnly",
-  "wifiOnlyDownloads", "streamingQuality", "videoQuality", "normalization", "monoAudio", "explicitContent",
+  "wifiOnlyDownloads", "normalization", "monoAudio", "explicitContent",
   "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture", "masterVolume",
-  "keyboardShortcuts", "captions", "fadeEnabled", "fadeSeconds", "spatialAudio",
+  "keyboardShortcuts", "captions", "fadeEnabled", "fadeSeconds",
   "discordPresence", "discordPresenceConsent", "browserNotifications",
 ];
 const booleanKeys = new Set([
   "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "explicitContent",
   "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture",
-  "keyboardShortcuts", "captions", "fadeEnabled", "spatialAudio",
+  "keyboardShortcuts", "captions", "fadeEnabled",
   "discordPresence", "discordPresenceConsent", "browserNotifications",
 ]);
 const enumValues = {
-  streamingQuality: new Set(["auto", "low", "normal", "high", "very-high"]),
-  videoQuality: new Set(["auto", "720p", "1080p", "audio-only"]),
   normalization: new Set(["quiet", "normal", "loud"]),
 };
 const eqPresets = new Set([...Object.keys(EQ_PRESET_BANDS), "Custom"]);
@@ -42,10 +41,11 @@ function validatedSettings(value) {
     invalidSetting("Settings must be provided as an object.");
   }
 
+  const migratedValue = migrateLegacySettings(value);
   const settings = {};
   for (const key of allowedKeys) {
-    if (value[key] === undefined) continue;
-    const setting = value[key];
+    if (migratedValue[key] === undefined) continue;
+    const setting = migratedValue[key];
 
     if (booleanKeys.has(key)) {
       if (typeof setting !== "boolean") invalidSetting(`${key} must be true or false.`);
@@ -90,7 +90,7 @@ export async function GET(request) {
     const headers = { "Cache-Control": "private, no-store" };
     if (!account) return NextResponse.json({ authenticated: false, settings: null }, { headers });
     const { userData } = account;
-    return NextResponse.json({ authenticated: true, settings: userData?.settings || null, genres: userData?.genres || [] }, { headers });
+    return NextResponse.json({ authenticated: true, settings: migrateLegacySettings(userData?.settings || {}), genres: userData?.genres || [] }, { headers });
   } catch (error) {
     return handleApiError(error, "Load settings");
   }
@@ -121,7 +121,7 @@ export async function PUT(request) {
     if (!userData) {
       return apiError("NOT_FOUND", { message: "User profile not found." });
     }
-    return NextResponse.json({ success: true, settings: userData.settings });
+    return NextResponse.json({ success: true, settings: migrateLegacySettings(userData.settings || {}) });
   } catch (error) {
     return handleApiError(error, "Update settings");
   }

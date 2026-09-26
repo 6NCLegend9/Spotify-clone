@@ -20,6 +20,7 @@ import { JamProvider } from "@/components/Jam/JamProvider";
 import useNetworkRecovery from "@/hooks/useNetworkRecovery";
 import useScrollPerformance from "@/hooks/useScrollPerformance";
 import usePointerTilt from "@/hooks/usePointerTilt";
+import { useIsPhoneViewport } from "@/hooks/useMediaQuery";
 import PlaybackPersistence from "@/components/PlaybackPersistence";
 import DiscordPresenceSync from "@/components/DiscordPresenceSync";
 import AppearanceBackdrop from "@/components/AppearanceBackdrop";
@@ -88,7 +89,7 @@ export default function AppShell({ children }) {
   const authRoute = isAuthPath(pathname);
   const embedRoute = isEmbedPath(pathname);
   const [showNav, setShowNav] = useState(false);
-  const [isCompactNav, setIsCompactNav] = useState(false);
+  const isCompactNav = useIsPhoneViewport();
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -136,15 +137,6 @@ export default function AppShell({ children }) {
     router.prefetch("/login");
     router.prefetch("/signup");
   }, [router]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return undefined;
-    const query = window.matchMedia("(max-width: 767px)");
-    const update = () => setIsCompactNav(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
 
   useEffect(() => {
     const focusSkipTarget = () => {
@@ -321,7 +313,7 @@ export default function AppShell({ children }) {
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Atmosphere />
           <Navbar />
-          <div className="app-content" id="main-content" tabIndex={-1}>
+          <div className="app-content" id="main-content" tabIndex={-1} data-app-scroll-container>
             <PullToRefresh />
             <OnlineStatus />
             {authRoute ? children : <PageTransit pathname={pathname}>{children}</PageTransit>}

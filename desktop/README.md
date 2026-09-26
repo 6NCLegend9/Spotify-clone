@@ -173,15 +173,31 @@ Diagnostic logging redacts token-, cookie-, password-, secret-, credential-, PKC
 
 ## Development
 
+From the repository root, start the shared Next.js renderer and the Electron shell together:
+
+```powershell
+npm install
+npm --prefix desktop install
+npm run desktop:dev
+```
+
+`desktop:dev` starts the root HayKasa app on port 3003, waits for it to become ready, launches Electron against that same renderer, and cleans up the paired development processes when the Desktop process exits.
+
+For native-only testing:
+
+```powershell
+npm --prefix desktop test
+```
+
+Advanced/manual fallback:
+
 ```powershell
 cd desktop
-npm install
-npm test
-$env:HEYKASA_DESKTOP_URL="http://localhost:3000"
+$env:HEYKASA_DESKTOP_URL="http://localhost:3003"
 npm start
 ```
 
-Local renderer overrides are allowed only in unpackaged development builds and only for `localhost` / `127.0.0.1`.
+Local renderer overrides are allowed only in unpackaged development builds and only for `localhost` / `127.0.0.1`. Packaged production builds ignore arbitrary renderer overrides and always use the trusted HayKasa production origin.
 
 Create an unsigned package for development/CI:
 

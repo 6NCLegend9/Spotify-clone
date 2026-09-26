@@ -18,7 +18,6 @@ import {
   setYoutubeVideo,
   replaceCurrentYoutubeTrack,
   setYoutubeQueue,
-  setFullScreen,
   addToQueue,
   appendToQueue,
   setPlaybackPosition,
@@ -31,20 +30,15 @@ import { createPlaylist } from "@/services/playlistApi";
 import useSleepTimer from "@/hooks/useSleepTimer";
 import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
-const QueueEditor = dynamic(() => import("./QueueEditor"), { ssr: false });
-import { FiChevronDown, FiChevronUp, FiPause, FiPlay, FiPlus, FiRotateCcw, FiRotateCw, FiSearch, FiSkipBack, FiSkipForward, FiSquare, FiX, FiMaximize2, FiMinimize2 } from "react-icons/fi";
-import { MdOutlineLyrics } from "react-icons/md";
+import { FiPlus, FiSearch, FiX, FiMaximize2 } from "react-icons/fi";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
-const SyncedLyrics = dynamic(() => import("@/components/MusicPlayer/SyncedLyrics"), { ssr: false });
-const PictureInPictureWindow = dynamic(() => import("@/components/MusicPlayer/PictureInPictureWindow"), { ssr: false });
+const ClockedPictureInPictureWindow = dynamic(() => import("./ClockedPictureInPictureWindow"), { ssr: false });
 const FloatingPlayer = dynamic(() => import("./FloatingPlayer"), { ssr: false });
 import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
 import { useJam } from "@/components/Jam/JamProvider";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { requestJson } from "@/services/http";
-import { useIsPhoneViewport, useMediaQuery } from "@/hooks/useMediaQuery";
-import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { youtubePlaybackVolume } from "@/utils/eqPresets";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import {
@@ -58,8 +52,14 @@ import {
 import { decodeTrackFields } from "@/utils/text";
 import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
 import { buildRadioDiscoveryQueries, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
+import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
-const CaptionKaraoke = dynamic(() => import("./CaptionKaraoke"), { ssr: false });
+import useWakeLock from "@/hooks/useWakeLock";
+import { shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
+import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
+import { hiddenYoutubeViewportStyle, HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
+const ClockedCaptionKaraoke = dynamic(() => import("./ClockedCaptionKaraoke"), { ssr: false });
 const OneMoreSongCard = dynamic(() => import("./OneMoreSongCard"), { ssr: false });
 
 const handleThumbError = (event) => {
@@ -73,13 +73,14 @@ const safeMediaTime = (value) => {
   return Number.isFinite(next) && next >= 0 ? next : 0;
 };
 
-const formatTime = (seconds) => {
-  const value = Math.floor(safeMediaTime(seconds));
-  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
+const requestMediaPresentation = (command) => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("heykasa:media-presentation-command", {
+    detail: { command },
+  }));
 };
 
 const otherDeck = (key) => (key === "A" ? "B" : "A");
-const CHROME_IDLE_MS = 10000;
 const SEEK_GUARD_MS = 5000;
 const TRACK_CHANGE_GUARD_MS = 8000;
 const ACTIVE_BUFFER_RECOVERY_MS = 4500;
@@ -93,16 +94,6 @@ const STARTUP_GRACE_MS = 12000;
 const MAX_SAFE_YOUTUBE_CROSSFADE_SECONDS = 6;
 // Skips should still feel instant, so cap the outgoing ramp well below the configured fade length.
 const MAX_SKIP_FADE_SECONDS = 1;
-const YOUTUBE_QUALITY_LABELS = {
-  tiny: "144p",
-  small: "240p",
-  medium: "360p",
-  large: "480p",
-  hd720: "720p",
-  hd1080: "1080p",
-  highres: "High resolution",
-};
-
 function applyYouTubeCaptions(player, enabled) {
   if (!player) return;
   try {
@@ -157,8 +148,7 @@ function YouTubePlayer() {
   );
   const {
     dataSaver,
-    audioOnly: audioOnlyToggle,
-    videoQuality,
+    audioOnly,
     normalization,
     syncedLyrics,
     pictureInPicture,
@@ -173,21 +163,15 @@ function YouTubePlayer() {
   } = useSelector((state) => state.settings);
   const transitionMode = "off";
   const crossfadeSeconds = 0;
-  const isPhone = useIsPhoneViewport();
-  const isNarrow = useMediaQuery("(max-width: 1179px)");
-  const isLandscape = useMediaQuery("(orientation: landscape)");
-  const isShortViewport = useMediaQuery("(max-height: 540px)");
-  const isPhoneRef = useRef(isPhone);
-  isPhoneRef.current = isPhone;
   const videoId = video?.id || "";
   const playbackVolume = youtubePlaybackVolume(undefined, normalization);
-  // Preserve the old audio-only sentinel for accounts that saved it before the
-  // unsupported YouTube quality controls were removed from the UI.
-  const audioOnly = audioOnlyToggle || videoQuality === "audio-only";
   const captionsEnabled = captions !== false;
   const letterShortcutsEnabled = keyboardShortcuts !== false;
   const isJamGuest = jam?.role === "guest" && Boolean(jam.code);
   const jamLocked = isJamGuest && jam?.hasAux !== true;
+  const userPausedRef = useRef(false);
+  const pageHiddenWhilePlayingRef = useRef(false);
+  const trackChangeUntilRef = useRef(0);
   const sleep = useSleepTimer({
     owner: playbackOwner, trackId: videoId, enabled: false,
     onExpire: () => {
@@ -234,30 +218,14 @@ function YouTubePlayer() {
   const lastJamPlaybackReportRef = useRef(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const playbackClockRef = useRef(null);
+  if (!playbackClockRef.current) playbackClockRef.current = createPlaybackClockStore();
+  const playbackClock = playbackClockRef.current;
+  const lastUiClockCommitRef = useRef(0);
+  const durationRef = useRef(0);
+  durationRef.current = duration;
   const [apiReady, setApiReady] = useState(false);
   const [deliveredVideoQuality, setDeliveredVideoQuality] = useState("");
-  const [showQueue, setShowQueue] = useState(false);
-  const queueMenuRef = useRef(null);
-  const queuePanelRef = useRef(null);
-  const lyricsPanelRef = useRef(null);
-  const sheetRef = useRef(null);
-  const [expanded, setExpanded] = useState(false);
-  const [immersive, setImmersive] = useState(false);
-  const immersiveRef = useRef(false);
-  const toggleExpandedRef = useRef(() => {});
-  const videoTapRef = useRef({ x: 0, y: 0, active: false });
-  const [chromeVisible, setChromeVisible] = useState(true);
-  const expandLockRef = useRef(false);
-  const pendingLyricsSheetRef = useRef(false);
-  const chromeVisibleRef = useRef(true);
-  const chromePinnedRef = useRef(false);
-  const chromeLockedRef = useRef(false);
-  const chromeIdleTimerRef = useRef(0);
-  const chromeHideGenRef = useRef(0);
-  const bumpExpandedChromeRef = useRef(() => {});
-  const userPausedRef = useRef(false);
-  const pageHiddenWhilePlayingRef = useRef(false);
-  const trackChangeUntilRef = useRef(0);
   const [playerError, setPlayerError] = useState(null);
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState([]);
@@ -267,11 +235,13 @@ function YouTubePlayer() {
   const [oneMoreSuggestion, setOneMoreSuggestion] = useState(null);
   const [oneMorePrefetch, setOneMorePrefetch] = useState(null);
   const [mediaTheater, setMediaTheater] = useState(false);
+  const videoVisible = !dataSaver && !audioOnly;
+  useWakeLock(shouldHoldPlaybackWakeLock({ isPlaying, mediaTheater, videoVisible }));
   const oneMoreArmedRef = useRef(false);
   const oneMoreSuggestionRef = useRef(null);
   const oneMorePrefetchRef = useRef(null);
   const karaokeHasLinesRef = useRef(false);
-  const karaokeSurface = Boolean(mediaTheater || (expanded && !dataSaver && !audioOnly));
+  const karaokeSurface = Boolean(mediaTheater);
   const karaokeLines = useYoutubeCaptions(videoId, karaokeSurface && captionsEnabled);
   const karaokeHasLines = karaokeLines.length > 0;
   karaokeHasLinesRef.current = karaokeHasLines;
@@ -285,10 +255,6 @@ function YouTubePlayer() {
   const playNextOrContinueRef = useRef(() => {});
   const pipWindowRef = useRef(null);
   const pipMountRef = useRef(null);
-  const [showLyrics, setShowLyrics] = useState(false);
-  const [mobileSheet, setMobileSheet] = useState(false);
-  const [sheetTab, setSheetTab] = useState("lyrics");
-  const swipeStartYRef = useRef(null);
   const [pipWindow, setPipWindow] = useState(null);
   const [pipFloat, setPipFloat] = useState(false);
   const videoRef = useRef(video);
@@ -341,7 +307,31 @@ function YouTubePlayer() {
   isPlayingRef.current = isPlaying;
   isJamGuestRef.current = isJamGuest;
   jamRef.current = jam;
-  chromeLockedRef.current = Boolean(playerError || mobileSheet);
+
+  const syncPlaybackClock = (position, nextDuration, { commitUi = true } = {}) => {
+    const nextPosition = safeMediaTime(position);
+    const safeDuration = safeMediaTime(nextDuration);
+    playbackClock.publish({ position: nextPosition, duration: safeDuration });
+    durationRef.current = safeDuration;
+    if (commitUi) {
+      lastUiClockCommitRef.current = performance.now();
+      setCurrentTime(nextPosition);
+      setDuration(safeDuration);
+    }
+  };
+
+  const syncPlaybackDuration = (nextDuration) => {
+    const safeDuration = safeMediaTime(nextDuration);
+    playbackClock.publish({
+      position: playbackClock.read().position,
+      duration: safeDuration,
+    });
+    if (durationRef.current !== safeDuration) {
+      durationRef.current = safeDuration;
+      setDuration(safeDuration);
+    }
+  };
+
   const lyricsQuery = useSyncedLyrics({
     title: video?.title || "",
     artist: video?.channel || "",
@@ -380,9 +370,10 @@ function YouTubePlayer() {
     if (!userPausedRef.current) pageHiddenWhilePlayingRef.current = true;
   };
 
-  const resumePlayer = (player) => {
+  const resumePlayer = (player, { explicitUserAction = false } = {}) => {
     if (sleep.check()) return;
-    if (isPageHidden()) {
+    const hidden = isPageHidden();
+    if (shouldDeferYoutubeResume({ hidden, explicitUserAction })) {
       markBackgroundPlayback();
       return;
     }
@@ -391,6 +382,7 @@ function YouTubePlayer() {
       player.unMute?.();
       applyPlaybackVolume(player);
       player.playVideo();
+      if (hidden) pageHiddenWhilePlayingRef.current = true;
     } catch (error) {
       // Player may still be mounting the next video.
     }
@@ -910,7 +902,7 @@ function YouTubePlayer() {
     if (failedTrack?.id) rejected.add(failedTrack.id);
     try {
       const data = await requestJson(
-        `/api/youtube-search?type=video&q=${encodeURIComponent(query)}`,
+        buildYoutubeSearchUrl({ type: "video", q: query }, "queue"),
         {
           fallbackTitle: "Could not find another upload",
           fallbackMessage: "Skipping to the next track.",
@@ -1048,8 +1040,7 @@ function YouTubePlayer() {
     preloadRetryAtRef.current = 0;
     resetActiveRecovery(nextVideo.id);
     handledVideoIdRef.current = nextVideo.id;
-    setCurrentTime(0);
-    setDuration(0);
+    syncPlaybackClock(0, 0);
     setDeliveredVideoQuality("");
     markExpectPlaying();
     player.unMute?.();
@@ -1119,8 +1110,7 @@ function YouTubePlayer() {
             );
           }
           if (key === activeDeckRef.current) {
-            setDuration(safeMediaTime(event.target.getDuration()));
-          } else {
+            syncPlaybackDuration(event.target.getDuration());
           }
           event.target.mute();
           applyYouTubeCaptions(event.target, captionsEnabled && !karaokeHasLinesRef.current);
@@ -1192,7 +1182,6 @@ function YouTubePlayer() {
           if (
             event.data === window.YT.PlayerState.PAUSED &&
             !crossfadeInProgressRef.current &&
-            !expandLockRef.current &&
             !isSeekGuarded()
           ) {
             if (isPageHidden()) {
@@ -1386,8 +1375,7 @@ function YouTubePlayer() {
     preloadedIdRef.current = null;
     preloadingRef.current = null;
     preloadRetryAtRef.current = 0;
-    setCurrentTime(0);
-    setDuration(safeMediaTime(incomingPlayer?.getDuration?.()));
+    syncPlaybackClock(0, incomingPlayer?.getDuration?.());
     dispatch(playPause(true));
     dispatch(setYoutubeVideo(nextVideo));
     return true;
@@ -1748,8 +1736,7 @@ function YouTubePlayer() {
       activeDeckRef.current = "A";
       setActiveDeck("A");
       userPausedRef.current = true;
-      setCurrentTime(restorePosition);
-      setDuration(0);
+      syncPlaybackClock(restorePosition, 0);
       setPlayerError(null);
       mountDeck("A", video.id, {
         title: video.title,
@@ -1841,8 +1828,7 @@ function YouTubePlayer() {
         idle.playVideo?.();
         destroyDeck(outgoingKey);
         setPlayerError(null);
-        setCurrentTime(safeMediaTime(idle.getCurrentTime?.()));
-        setDuration(safeMediaTime(idle.getDuration?.()));
+        syncPlaybackClock(idle.getCurrentTime?.(), idle.getDuration?.());
         dispatch(playPause(true));
         return true;
       };
@@ -1878,8 +1864,7 @@ function YouTubePlayer() {
     seekGuardRef.current = { seeking: false, until: 0, target: null, videoId: null };
     nearEndStreakRef.current = 0;
     setPlayerError(null);
-    setCurrentTime(0);
-    setDuration(0);
+    syncPlaybackClock(0, 0);
     setDeliveredVideoQuality("");
     dispatch(playPause(true));
     const existing = getActivePlayer();
@@ -2008,8 +1993,21 @@ function YouTubePlayer() {
           // Player is still buffering the seek.
         }
       }
-      setCurrentTime(safeMediaTime(seekPending ? guard.target : time));
-      if (safeMediaTime(dur) > 0) setDuration(safeMediaTime(dur));
+      const visibleTime = safeMediaTime(seekPending ? guard.target : time);
+      const visibleDuration = safeMediaTime(dur);
+      lastUiClockCommitRef.current = publishPlaybackTick({
+        clock: playbackClock,
+        position: visibleTime,
+        duration: visibleDuration,
+        now: performance.now(),
+        lastUiCommitAt: lastUiClockCommitRef.current,
+        uiIntervalMs: 450,
+        commitPosition: setCurrentTime,
+      });
+      if (visibleDuration > 0 && visibleDuration !== durationRef.current) {
+        durationRef.current = visibleDuration;
+        setDuration(visibleDuration);
+      }
       if (!guard.seeking && guard.target != null && Math.abs(time - guard.target) <= 1.25 && (!want || !id || id === want)) {
         guard.target = null;
       }
@@ -2119,7 +2117,7 @@ function YouTubePlayer() {
         seeds.map((seed) => {
           const params = new URLSearchParams({ type: "video", q: seed });
           if (originArtist) params.set("seedArtist", originArtist);
-          return requestJson(`/api/youtube-search?${params}`, {
+          return requestJson(buildYoutubeSearchUrl(params, "radio"), {
             fallbackTitle: "Queue search is temporarily unavailable",
             fallbackMessage: "We couldn’t find more tracks right now.",
           }).catch(() => null);
@@ -2143,6 +2141,7 @@ function YouTubePlayer() {
       const nextTracks = diversifyRadioTracks(pool, {
         seedArtist: originArtist,
         excludeArtists: excludedArtists,
+        excludeTracks: list,
         limit: 16,
         maxPerArtist: 1,
         maxSeedArtist: 0,
@@ -2258,7 +2257,7 @@ function YouTubePlayer() {
     setAddSearchError("");
     try {
       const data = await requestJson(
-        `/api/youtube-search?type=video&q=${encodeURIComponent(query)}`,
+        buildYoutubeSearchUrl({ type: "video", q: query }, "queue"),
         {
           fallbackTitle: "Queue search is temporarily unavailable",
           fallbackMessage: "We couldn’t search for tracks. Please try again.",
@@ -2286,20 +2285,11 @@ function YouTubePlayer() {
     setAddResults((current) => current.filter((item) => item.id !== track.id));
   };
 
-  const overlaySheet = Boolean(expanded && isNarrow && !dataSaver && !audioOnly);
-  useDismissOnOutside(showQueue && !overlaySheet, () => setShowQueue(false), [queueMenuRef, queuePanelRef]);
-  useDismissOnOutside(
-    Boolean(showLyrics && !overlaySheet && !isPhone),
-    () => setShowLyrics(false),
-    [queueMenuRef, lyricsPanelRef],
-  );
-  useDismissOnOutside(Boolean(overlaySheet && mobileSheet), () => setMobileSheet(false), [queueMenuRef, sheetRef]);
-
   useEffect(() => {
-    const ms = showLyrics || pipWindow || pipFloat ? 120 : 500;
+    const ms = mediaTheater || pipWindow || pipFloat ? 120 : 500;
     const interval = window.setInterval(() => tickRef.current(), ms);
     return () => window.clearInterval(interval);
-  }, [showLyrics, pipWindow, pipFloat]);
+  }, [mediaTheater, pipWindow, pipFloat]);
 
   useEffect(() => {
     const queueRemotePlayback = (event) => {
@@ -2375,7 +2365,7 @@ function YouTubePlayer() {
     const oneMoreParams = new URLSearchParams({ type: "video", q: seed });
     const seedArtist = String(origin?.channel || origin?.artist || "").trim();
     if (seedArtist) oneMoreParams.set("seedArtist", seedArtist);
-    requestJson(`/api/youtube-search?${oneMoreParams}`, {
+    requestJson(buildYoutubeSearchUrl(oneMoreParams, "radio"), {
       fallbackTitle: "Related song unavailable",
       fallbackMessage: "We couldn’t find a last song to suggest.",
     })
@@ -2395,25 +2385,6 @@ function YouTubePlayer() {
       });
     return () => { active = false; };
   }, [isJamGuest, oneMoreArmed, playbackContext?.id, playbackContext?.name, playbackContext?.type, queueManualEnd, video]);
-
-  useEffect(() => {
-    if (!dataSaver && !audioOnly) return undefined;
-    setExpanded(false);
-    setImmersive(false);
-    immersiveRef.current = false;
-    pendingLyricsSheetRef.current = false;
-    setMobileSheet(false);
-    setShowLyrics(false);
-    setShowQueue(false);
-    dispatch(setFullScreen(false));
-    return undefined;
-  }, [dataSaver, audioOnly, dispatch]);
-
-  useEffect(() => {
-    if (!isPhone || !showLyrics) return undefined;
-    setShowLyrics(false);
-    return undefined;
-  }, [isPhone, showLyrics]);
 
   useEffect(() => {
     if (!videoId || !apiReady || transitionMode === "off" || dataSaver) return;
@@ -2519,7 +2490,7 @@ function YouTubePlayer() {
         ? videoRef.current.id
         : null;
     markSeek(time, dragging);
-    setCurrentTime(time);
+    syncPlaybackClock(time, dur);
     const want = videoRef.current?.id;
     try {
       const loadedId = playerVideoId(player);
@@ -2573,7 +2544,7 @@ function YouTubePlayer() {
       if (apiReady) mountDeck(activeDeckRef.current, current.id, { title: current.title });
       return;
     }
-    const resumeAt = Math.max(0, player.getCurrentTime?.() || currentTime || 0);
+    const resumeAt = Math.max(0, player.getCurrentTime?.() || playbackClock.read().position || 0);
     if (playerVideoId(player) !== current.id) {
       player.loadVideoById?.({ videoId: current.id, startSeconds: resumeAt });
     }
@@ -2647,7 +2618,7 @@ function YouTubePlayer() {
 
   const handlePrev = () => {
     if (isJamGuestRef.current) return;
-    if (currentTime > 3) {
+    if (playbackClock.read().position > 3) {
       seekOnCurrentTrack(0);
       return;
     }
@@ -2730,76 +2701,15 @@ function YouTubePlayer() {
     markExpectPlaying();
     dispatch(playPause(true));
     dispatch(setYoutubeVideo(item));
-    setShowQueue(false);
-  };
-
-  const onFullscreenSwipeStart = (event) => {
-    swipeStartYRef.current = event.touches?.[0]?.clientY ?? null;
-  };
-
-  const onFullscreenSwipeEnd = (event) => {
-    if (swipeStartYRef.current == null) return;
-    const endY = event.changedTouches?.[0]?.clientY;
-    const delta = (endY ?? swipeStartYRef.current) - swipeStartYRef.current;
-    swipeStartYRef.current = null;
-    if (delta < -56) {
-      immersiveRef.current = false;
-      setImmersive(false);
-      if (isPhoneRef.current) {
-        setSheetTab(syncedLyrics !== false ? "lyrics" : "queue");
-        setMobileSheet(true);
-        return;
-      }
-      setMobileSheet(true);
-      setShowQueue(true);
-      setShowLyrics(syncedLyrics !== false);
-      return;
-    }
-    if (delta > 56) {
-      if (mobileSheet) {
-        setMobileSheet(false);
-        setShowQueue(false);
-        setShowLyrics(false);
-        return;
-      }
-      if (isPhoneRef.current && immersiveRef.current) {
-        immersiveRef.current = false;
-        setImmersive(false);
-        bumpExpandedChromeRef.current({ reveal: true });
-        return;
-      }
-      if (isPhoneRef.current) {
-        toggleExpandedRef.current();
-        return;
-      }
-      setMobileSheet(false);
-      setShowQueue(false);
-      setShowLyrics(false);
-    }
   };
 
   const toggleLyrics = () => {
     if (syncedLyrics === false) return;
-    if (isPhoneRef.current) {
-      if (expandLockRef.current && !expanded) return;
-      if (!expanded) {
-        pendingLyricsSheetRef.current = true;
-        toggleExpandedRef.current();
-        return;
-      }
-      if (mobileSheet && sheetTab === "lyrics") {
-        setMobileSheet(false);
-        return;
-      }
-      setSheetTab("lyrics");
-      setMobileSheet(true);
-      return;
-    }
-    setShowLyrics((value) => !value);
+    requestMediaPresentation("lyrics");
   };
 
   const seekBy = (amount) => {
-    const base = seekGuardRef.current.target ?? currentTime;
+    const base = seekGuardRef.current.target ?? playbackClock.read().position;
     seekOnCurrentTrack(Math.max(0, base + amount));
   };
 
@@ -2820,8 +2730,6 @@ function YouTubePlayer() {
       if (isEditableKeyboardTarget(target) || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
-      if (expanded) bumpExpandedChromeRef.current();
-
       if (event.code === "Space") {
         if (isActionKeyboardTarget(target)) return;
         event.preventDefault();
@@ -2829,33 +2737,7 @@ function YouTubePlayer() {
         return;
       }
 
-      if (event.key === "Escape") {
-        if (showQueue && !overlaySheet) {
-          event.preventDefault();
-          setShowQueue(false);
-          return;
-        }
-        if (showLyrics && !overlaySheet && !isPhoneRef.current) {
-          event.preventDefault();
-          setShowLyrics(false);
-          return;
-        }
-        if (overlaySheet && mobileSheet) {
-          event.preventDefault();
-          setMobileSheet(false);
-          return;
-        }
-        if (isPhoneRef.current && immersiveRef.current) {
-          event.preventDefault();
-          bumpExpandedChromeRef.current({ reveal: true });
-          return;
-        }
-        if (expanded) {
-          event.preventDefault();
-          toggleExpanded();
-        }
-        return;
-      }
+      if (event.key === "Escape") return;
 
       if (!letterShortcutsEnabled) return;
 
@@ -2866,7 +2748,7 @@ function YouTubePlayer() {
         else player.mute?.();
       } else if (event.key === "f" || event.key === "F" || event.key === "v" || event.key === "V") {
         if (mediaTheater || document.querySelector("[data-testid=\"kasa-media-overlay\"]")) return;
-        if (!dataSaver && !audioOnly) toggleExpanded();
+        if (!dataSaver && !audioOnly) requestMediaPresentation("expand");
       } else if (event.key === "j" || event.key === "J") {
         seekBy(-10);
       } else if (event.key === "l" || event.key === "L") {
@@ -2900,14 +2782,8 @@ function YouTubePlayer() {
     setAction("play", () => {
       if (isJamGuestRef.current || sleep.check()) return;
       userPausedRef.current = false;
-      if (isPageHidden()) {
-        // The YouTube engine resumes when the page is visible. Do not claim
-        // playback started while resumePlayer deliberately defers that call.
-        markBackgroundPlayback();
-        return;
-      }
       dispatch(playPause(true));
-      resumePlayer(getActivePlayer());
+      resumePlayer(getActivePlayer(), { explicitUserAction: true });
     });
     setAction("pause", () => {
       if (isJamGuestRef.current) return;
@@ -2955,165 +2831,17 @@ function YouTubePlayer() {
     }
   }, [duration, mediaPosition, video]);
 
-  const enterIdleChrome = () => {
-    if (isPhoneRef.current) {
-      immersiveRef.current = true;
-      setImmersive(true);
-    }
-    chromeVisibleRef.current = false;
-    setChromeVisible(false);
-  };
-
-  const bumpExpandedChrome = (options = {}) => {
-    const isFullscreen = expanded && !dataSaver && !audioOnly;
-    if (!isFullscreen) return;
-    if (options.pin) chromePinnedRef.current = true;
-    window.clearTimeout(chromeIdleTimerRef.current);
-    chromeHideGenRef.current += 1;
-    const hideGeneration = chromeHideGenRef.current;
-    if (isPhoneRef.current && immersiveRef.current && !options.reveal) return;
-    if (options.reveal) {
-      immersiveRef.current = false;
-      setImmersive(false);
-    }
-    chromeVisibleRef.current = true;
-    setChromeVisible(true);
-    if (chromePinnedRef.current || chromeLockedRef.current) return;
-    chromeIdleTimerRef.current = window.setTimeout(() => {
-      if (hideGeneration !== chromeHideGenRef.current) return;
-      if (chromePinnedRef.current || chromeLockedRef.current) return;
-      enterIdleChrome();
-    }, CHROME_IDLE_MS);
-  };
-  bumpExpandedChromeRef.current = bumpExpandedChrome;
-
-  const pinExpandedChrome = () => {
-    chromePinnedRef.current = true;
-    bumpExpandedChrome({ pin: true });
-  };
-  const unpinExpandedChrome = () => {
-    chromePinnedRef.current = false;
-    bumpExpandedChrome();
-  };
-
-  useEffect(() => () => window.clearTimeout(chromeIdleTimerRef.current), []);
-
-  useEffect(() => {
-    if (!expanded || dataSaver || audioOnly) {
-      chromePinnedRef.current = false;
-      chromeVisibleRef.current = true;
-      setChromeVisible(true);
-      immersiveRef.current = false;
-      setImmersive(false);
-      window.clearTimeout(chromeIdleTimerRef.current);
-      return;
-    }
-    bumpExpandedChromeRef.current();
-  }, [expanded, dataSaver, audioOnly, video?.id]);
-
-  useEffect(() => {
-    if (chromeLockedRef.current) {
-      chromePinnedRef.current = true;
-      chromeVisibleRef.current = true;
-      setChromeVisible(true);
-      immersiveRef.current = false;
-      setImmersive(false);
-      window.clearTimeout(chromeIdleTimerRef.current);
-      return;
-    }
-    chromePinnedRef.current = false;
-    if (expanded && !dataSaver && !audioOnly) bumpExpandedChromeRef.current();
-  }, [playerError, mobileSheet, expanded, dataSaver, audioOnly]);
-
   if (!video?.id) return null;
 
-  const videoVisible = !dataSaver && !audioOnly;
-  const deliveredQualityLabel = YOUTUBE_QUALITY_LABELS[deliveredVideoQuality] || "";
   const outgoingOpacity = 1 - fadeProgress;
   const incomingOpacity = fadeProgress;
 
-  const toggleExpanded = () => {
+  const openVideoPresentation = () => {
     if (dataSaver || audioOnly) return;
-    if (expandLockRef.current) return;
-    const next = !expanded;
-    expandLockRef.current = true;
-    window.setTimeout(() => {
-      expandLockRef.current = false;
-    }, 1500);
-    immersiveRef.current = false;
-    setImmersive(false);
-    if (next) {
-      if (pendingLyricsSheetRef.current) {
-        pendingLyricsSheetRef.current = false;
-        setSheetTab("lyrics");
-        setMobileSheet(true);
-      } else {
-        setMobileSheet(false);
-      }
-    } else {
-      pendingLyricsSheetRef.current = false;
-      setMobileSheet(false);
-      setShowLyrics(false);
-      setShowQueue(false);
-    }
-    setExpanded(next);
-    dispatch(setFullScreen(next));
-    if (next) closePictureInPicture();
-    window.requestAnimationFrame(() => {
-      const player = getActivePlayer();
-      player?.unMute?.();
-      applyPlaybackVolume(player);
-      if (isPlaying) player?.playVideo?.();
-    });
-  };
-  toggleExpandedRef.current = toggleExpanded;
-
-  const fullscreen = expanded && videoVisible;
-  const phoneSheet = Boolean(fullscreen && isPhone);
-  const compactFullscreen = Boolean(fullscreen && isNarrow && !isLandscape && !isPhone);
-  const sheetChrome = Boolean(fullscreen && isNarrow);
-  const showDesktopQueue = showQueue && !sheetChrome;
-  const expandedLayout = !fullscreen
-    ? undefined
-    : phoneSheet
-      ? (isLandscape ? "phone-landscape" : "phone-portrait")
-      : compactFullscreen
-        ? "compact"
-        : "theater";
-
-  const togglePhoneImmersive = () => {
-    if (!phoneSheet) return;
-    if (immersiveRef.current) {
-      bumpExpandedChrome({ reveal: true });
-      return;
-    }
-    window.clearTimeout(chromeIdleTimerRef.current);
-    chromeHideGenRef.current += 1;
-    enterIdleChrome();
+    closePictureInPicture();
+    requestMediaPresentation("expand");
   };
 
-  const dismissPlayerOverlays = () => {
-    setMobileSheet(false);
-    setShowQueue(false);
-    if (!sheetChrome) setShowLyrics(false);
-  };
-
-  const handleVideoSurfaceTap = () => {
-    if (!fullscreen) {
-      toggleExpanded();
-      return;
-    }
-    if (mobileSheet || showDesktopQueue || (showLyrics && !sheetChrome)) {
-      dismissPlayerOverlays();
-      return;
-    }
-    if (phoneSheet) {
-      togglePhoneImmersive();
-      return;
-    }
-    if (chromeVisible) enterIdleChrome();
-    else bumpExpandedChrome({ reveal: true });
-  };
   const toggleShuffle = () => {
     if (isJamGuest) return;
     if (!shuffle) {
@@ -3143,67 +2871,23 @@ function YouTubePlayer() {
       window.dispatchEvent(new Event("heykasa:playlists-changed"));
     } : undefined,
   };
-  const expandedChromePointer = {
-    onPointerEnter: (event) => {
-      if (event.pointerType !== "touch") pinExpandedChrome();
-    },
-    onPointerLeave: (event) => {
-      if (event.pointerType !== "touch") unpinExpandedChrome();
-    },
-    onPointerDown: () => pinExpandedChrome(),
-    onPointerUp: (event) => {
-      if (event.pointerType === "touch") unpinExpandedChrome();
-    },
-  };
-
-  const toggleSheetTab = (tab) => {
-    if (mobileSheet && sheetTab === tab) {
-      setMobileSheet(false);
-      return;
-    }
-    setSheetTab(tab);
-    setMobileSheet(true);
-  };
-
-  const dockedLyricsPanel = showLyrics && syncedLyrics !== false && !sheetChrome && !isPhone ? (
-    <div ref={lyricsPanelRef} className={fullscreen ? "lyrics-panel lyrics-panel--expanded" : "lyrics-panel"}>
-      <button
-        type="button"
-        aria-label="Close lyrics"
-        onClick={() => setShowLyrics(false)}
-        className="absolute right-3 top-3 z-10 rounded-full p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
-      >
-        <FiX size={16} />
-      </button>
-      <SyncedLyrics
-        title={video.title}
-        artist={video.channel}
-        duration={duration}
-        currentTime={currentTime}
-        onSeek={seekOnCurrentTrack}
-      />
-    </div>
-  ) : null;
-
   return (
     <div
       data-testid="youtube-player"
-      data-chrome={fullscreen ? (chromeVisible ? "visible" : "hidden") : undefined}
-      data-immersive={phoneSheet ? (immersive ? "true" : "false") : undefined}
-      data-layout={expandedLayout}
-      className={fullscreen ? `yt-video-expanded relative flex h-[100dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden bg-black ${phoneSheet ? "yt-video-expanded--phone" : compactFullscreen ? "yt-video-expanded--compact" : "yt-video-expanded--theater"}${chromeVisible ? "" : " yt-video-expanded--idle"}` : "yt-player--docked relative w-full"}
+      data-provider-quality={deliveredVideoQuality || undefined}
+      className="yt-player--docked relative w-full"
       onClick={(event) => event.stopPropagation()}
-      onPointerMove={fullscreen && !phoneSheet ? () => bumpExpandedChrome() : undefined}
-      onTouchStart={fullscreen ? (event) => {
-        if (!phoneSheet) bumpExpandedChrome();
-        onFullscreenSwipeStart(event);
-      } : undefined}
-      onTouchEnd={fullscreen ? onFullscreenSwipeEnd : undefined}
     >
-      <div className={phoneSheet ? "yt-phone-stage" : compactFullscreen ? "relative flex min-h-0 flex-1 flex-col overflow-hidden" : "contents"}>
       <div
         data-testid="youtube-decks"
-        className={pipFloat && videoVisible ? "yt-crop yt-pip-float yt-video-floating bg-black" : phoneSheet ? "yt-crop yt-phone-video bg-black" : compactFullscreen ? "yt-crop relative min-h-[48vh] flex-1 bg-black" : fullscreen ? "yt-crop yt-expand-stage bg-black" : videoVisible ? "yt-crop yt-dock-preview bg-black" : "yt-crop yt-audio-stage"}
+        style={!videoVisible ? hiddenYoutubeViewportStyle() : undefined}
+        data-hidden-provider-width={!videoVisible ? HIDDEN_YOUTUBE_VIEWPORT.width : undefined}
+        data-hidden-provider-height={!videoVisible ? HIDDEN_YOUTUBE_VIEWPORT.height : undefined}
+        className={pipFloat && videoVisible
+          ? "yt-crop yt-pip-float yt-video-floating bg-black"
+          : videoVisible
+            ? "yt-crop yt-dock-preview bg-black"
+            : "yt-crop yt-audio-stage"}
       >
         {["A", "B"].map((key) => (
           <div
@@ -3219,57 +2903,27 @@ function YouTubePlayer() {
         ))}
         <div className="yt-chrome-mask" aria-hidden="true" />
         {karaokeSurface && captionsEnabled ? (
-          <CaptionKaraoke currentTime={currentTime} enabled={karaokeSurface && captionsEnabled} lines={karaokeLines} />
+          <ClockedCaptionKaraoke clock={playbackClock} enabled={karaokeSurface && captionsEnabled} lines={karaokeLines} />
         ) : null}
         {videoVisible && !pipFloat && !playerError && (
           <button
             type="button"
             data-testid="video-tap-target"
-            aria-label={
-              !fullscreen
-                ? "Expand video"
-                : !chromeVisible
-                  ? "Show player controls"
-                  : phoneSheet
-                    ? "Watch video fullscreen"
-                    : "Hide player controls"
-            }
-            className={`absolute inset-0 z-[16] border-0 bg-transparent ${fullscreen && !chromeVisible && !phoneSheet ? "cursor-none" : ""}`}
-            onPointerMove={(event) => {
+            aria-label="Expand video"
+            className="absolute inset-0 z-[16] border-0 bg-transparent"
+            onClick={(event) => {
               event.stopPropagation();
-              if (!phoneSheet && event.pointerType !== "touch") bumpExpandedChrome();
-            }}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              videoTapRef.current = {
-                x: event.clientX,
-                y: event.clientY,
-                active: true,
-                hadOverlay: Boolean(mobileSheet || showDesktopQueue || (showLyrics && !sheetChrome)),
-              };
-            }}
-            onPointerUp={(event) => {
-              event.stopPropagation();
-              const start = videoTapRef.current;
-              videoTapRef.current = { ...start, active: false };
-              if (!start.active) return;
-              const dx = event.clientX - start.x;
-              const dy = event.clientY - start.y;
-              if ((dx * dx) + (dy * dy) > 144) return;
-              event.preventDefault();
-              if (start.hadOverlay) {
-                dismissPlayerOverlays();
-                return;
-              }
-              handleVideoSurfaceTap();
+              openVideoPresentation();
             }}
           />
         )}
-        {pipFloat && videoVisible && <div className="absolute inset-x-0 top-0 z-30 flex justify-end bg-gradient-to-b from-black/80 to-transparent">
-          <button type="button" aria-label="Expand floating video" title="Expand video" onClick={toggleExpanded} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiMaximize2 /></button>
-          <button type="button" aria-label="Close floating video" title="Close floating video" onClick={closePictureInPicture} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiX /></button>
-        </div>}
-        {playerError && (fullscreen || pipFloat) && (
+        {pipFloat && videoVisible && (
+          <div className="absolute inset-x-0 top-0 z-30 flex justify-end bg-gradient-to-b from-black/80 to-transparent">
+            <button type="button" aria-label="Expand floating video" title="Expand video" onClick={openVideoPresentation} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiMaximize2 /></button>
+            <button type="button" aria-label="Close floating video" title="Close floating video" onClick={closePictureInPicture} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiX /></button>
+          </div>
+        )}
+        {playerError && pipFloat && (
           <div
             className="absolute inset-0 z-10 grid place-content-center bg-black/90 p-3 text-center"
             role="alert"
@@ -3290,7 +2944,7 @@ function YouTubePlayer() {
           </div>
         )}
       </div>
-      {playerError && !fullscreen && (
+      {playerError && (
         <div
           className="yt-dock-feedback relative z-20 border-t border-white/10 bg-black/90 px-4 py-3 text-center"
           role="alert"
@@ -3310,7 +2964,7 @@ function YouTubePlayer() {
           </div>
         </div>
       )}
-      {!fullscreen && <PlayerDock
+      <PlayerDock
         track={video} playing={isPlaying} position={currentTime} duration={duration}
         disabled={isJamGuest} nextDisabled={jamLocked} shuffle={shuffle} repeat={repeat}
         onShuffle={toggleShuffle} onRepeat={() => setRepeat((value) => !value)}
@@ -3334,7 +2988,8 @@ function YouTubePlayer() {
         onPip={togglePictureInPicture} pipActive={Boolean(pipWindow || pipFloat)}
         pipLabel={videoVisible ? "Picture in picture unavailable" : typeof window !== "undefined" && window.documentPictureInPicture?.requestWindow ? "Picture in picture controls" : "Floating player"}
         pipDisabled={pictureInPicture === false || videoVisible}
-        onVideo={videoVisible ? toggleExpanded : undefined}
+        videoAvailable={videoVisible}
+        playbackClock={playbackClock}
         onLyrics={syncedLyrics !== false ? toggleLyrics : undefined}
         onOneMore={!isJamGuest && queueMode !== "collection" && !queueManualEnd && !repeat ? () => {
           setOneMoreArmed((value) => {
@@ -3348,243 +3003,13 @@ function YouTubePlayer() {
           });
         } : undefined}
         oneMoreArmed={oneMoreArmed}
-      />}
-      {fullscreen && (
-      <div className={phoneSheet ? "yt-phone-chrome" : "contents"} {...(phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={phoneSheet ? !chromeVisible : undefined}>
-      {<div className={phoneSheet ? "yt-phone-chrome-title" : `yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pt-4" : "pointer-events-none absolute inset-x-0 top-0 z-20 min-w-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-4 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-28"}`} {...(!phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={!phoneSheet && !chromeVisible}>
-        {fullscreen ? (
-          <div>
-            <p className="text-xs uppercase tracking-widest text-[#00e6e6]">Now playing</p>
-            <p className={`mt-1 max-w-[70vw] truncate font-semibold text-white ${isShortViewport ? "text-sm" : "mt-2 text-lg"}`}>{video.title}</p>
-            <p className={`truncate text-gray-300 ${isShortViewport ? "text-xs" : "text-sm"}`}>{video.channel}</p>
-            {deliveredQualityLabel && (
-              <p className="mt-1 text-[10px] font-medium text-[#9aa8b5]" aria-live="polite">
-                Video: {deliveredQualityLabel}
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">{video.title}</p>
-            <p className="truncate text-xs text-gray-400">{video.channel}</p>
-            {videoVisible && deliveredQualityLabel && (
-              <p className="mt-0.5 text-[10px] font-medium text-[#9aa8b5]" aria-live="polite">
-                Video: {deliveredQualityLabel}
-              </p>
-            )}
-          </div>
-        )}
-      </div>}
-      {<div className={phoneSheet ? "yt-phone-chrome-transport" : `yt-expand-chrome ${compactFullscreen ? "yt-expand-chrome--stack px-4 pb-6 pt-2" : "absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-[min(96vw,880px)] flex-col items-center gap-1 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] pt-10"}`} {...(!phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={!phoneSheet && !chromeVisible} {...expandedChromePointer}>
-        <div className={fullscreen ? "relative flex w-full items-center justify-center gap-1 text-gray-200" : "yt-dock-transport"}>
-        {fullscreen && !phoneSheet && !compactFullscreen && !isShortViewport && <div className="pointer-events-none w-28 shrink-0 sm:w-36" />}
-          <div className={fullscreen ? "flex max-w-full flex-wrap items-center justify-center gap-1 rounded-lg bg-[var(--glass-strong)] px-1 py-2 backdrop-blur sm:px-3" : "contents"}>
-          <AddToPlaylistButton track={video} className="!h-12 !w-12 shrink-0 text-xl sm:!h-14 sm:!w-14" />
-          <button type="button" aria-label="Previous song" title={isJamGuest ? "The host controls playback" : "Previous"} onClick={() => handlePrev()} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-2 text-xl text-[var(--text)] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14"><FiSkipBack aria-hidden="true" /></button>
-          <button type="button" aria-label="Seek back 10 seconds" title={isJamGuest ? "The host controls playback" : "Back 10 seconds"} onClick={() => seekBy(-10)} disabled={isJamGuest} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:grid"><FiRotateCcw aria-hidden="true" /></button>
-          <button type="button" aria-label={isPlaying ? "Pause" : "Play"} title={isJamGuest ? "The host controls playback" : isPlaying ? "Pause" : "Play"} onClick={handlePlayPause} disabled={isJamGuest} className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--accent)] p-2 text-2xl text-[var(--navy)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:h-14 sm:w-14">{isPlaying ? <FiPause aria-hidden="true" /> : <FiPlay aria-hidden="true" />}</button>
-          <button type="button" aria-label="Seek forward 10 seconds" title={isJamGuest ? "The host controls playback" : "Forward 10 seconds"} onClick={() => seekBy(10)} disabled={isJamGuest} className="hidden h-14 w-14 place-items-center rounded-full p-2 text-xl hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:grid"><FiRotateCw aria-hidden="true" /></button>
-          <button type="button" aria-label="Next song" title={jamLocked ? "The host controls playback" : "Next"} onClick={() => handleNext()} disabled={jamLocked} className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-2 text-xl text-[var(--text)] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 sm:h-14 sm:w-14"><FiSkipForward aria-hidden="true" /></button>
-          <FavouriteTrackButton track={video} className="!h-12 !w-12 shrink-0 text-xl sm:!h-14 sm:!w-14" />
-          </div>
-          {fullscreen && !phoneSheet && !compactFullscreen && !isShortViewport && <div className="flex w-28 shrink-0 justify-end sm:w-36"><PlayerVolume /></div>}
-        </div>
-        <div className={fullscreen ? "w-full" : "yt-dock-seek"}>
-          <input
-            aria-label="YouTube song progress"
-            type="range"
-            min="0"
-            max={safeMediaTime(duration)}
-            value={Math.min(safeMediaTime(currentTime), safeMediaTime(duration))}
-            disabled={isJamGuest}
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-              seekGuardRef.current.seeking = true;
-            }}
-            onPointerUp={endSeekDrag}
-            onPointerCancel={() => {
-              seekGuardRef.current.seeking = false;
-              seekGuardRef.current.until = performance.now() + 2500;
-            }}
-            onChange={handleSeek}
-            className="w-full accent-[#00e6e6]"
-          />
-          <div className="flex justify-between text-[10px] text-gray-400"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
-        </div>
-      </div>}
-      {<div ref={queueMenuRef} className={phoneSheet ? "yt-phone-chrome-tools" : `yt-expand-chrome ${compactFullscreen ? "absolute right-4 top-4 z-20 flex items-center justify-end gap-1" : "absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex items-center justify-end gap-1 sm:gap-2"}`} {...(!phoneSheet && !chromeVisible ? { inert: true } : {})} aria-hidden={!phoneSheet && !chromeVisible} {...expandedChromePointer}>
-        <button
-          type="button"
-          aria-label="Queue"
-          aria-expanded={sheetChrome ? mobileSheet && sheetTab === "queue" : showQueue}
-          onClick={() => {
-            if (sheetChrome) {
-              toggleSheetTab("queue");
-              return;
-            }
-            setShowQueue((value) => !value);
-          }}
-          className={expanded && !dataSaver && !audioOnly ? "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-gray-300 hover:bg-white/10" : "flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs text-gray-300 hover:bg-white/10"}
-        >
-          <span className="hidden lg:inline">Queue</span> {sheetChrome ? (mobileSheet && sheetTab === "queue" ? <FiChevronDown /> : <FiChevronUp />) : (showQueue ? <FiChevronDown /> : <FiChevronUp />)}
-        </button>
-        <button
-          type="button"
-          aria-pressed={sheetChrome ? mobileSheet && sheetTab === "lyrics" : showLyrics}
-          aria-label={sheetChrome ? (mobileSheet && sheetTab === "lyrics" ? "Hide lyrics" : "Show live lyrics") : (showLyrics ? "Hide lyrics" : "Show live lyrics")}
-          title={syncedLyrics === false ? "Live lyrics are turned off in Settings" : "Live lyrics"}
-          disabled={syncedLyrics === false}
-          onClick={() => {
-            if (sheetChrome) {
-              toggleSheetTab("lyrics");
-              return;
-            }
-            toggleLyrics();
-          }}
-          className={expanded && !dataSaver && !audioOnly ? `grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 hover:bg-white/10 disabled:opacity-40 ${(sheetChrome ? mobileSheet && sheetTab === "lyrics" : showLyrics) ? "text-[#00e6e6]" : "text-white"}` : `grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10 disabled:opacity-40 ${showLyrics ? "text-[#00e6e6]" : "text-gray-300"}`}
-        >
-          <MdOutlineLyrics size={18} />
-        </button>
-        {!isJamGuest && queueMode !== "collection" && !queueManualEnd && !repeat ? (
-          <button
-            type="button"
-            aria-pressed={oneMoreArmed}
-            aria-label={oneMoreArmed ? "Cancel one more song" : "One more song"}
-            title={oneMoreArmed ? "Cancel one more song" : "After this track, pause with one last suggestion"}
-            onClick={() => {
-              setOneMoreArmed((value) => {
-                const next = !value;
-                oneMoreArmedRef.current = next;
-                if (!next) {
-                  setOneMoreSuggestion(null);
-                  oneMoreSuggestionRef.current = null;
-                }
-                return next;
-              });
-            }}
-            className={expanded && !dataSaver && !audioOnly ? `grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 hover:bg-white/10 ${oneMoreArmed ? "text-[#00e6e6]" : "text-white"}` : `grid min-h-11 min-w-11 place-items-center rounded-full p-2 hover:bg-white/10 ${oneMoreArmed ? "text-[#00e6e6]" : "text-gray-300"}`}
-          >
-            <FiSquare size={16} />
-          </button>
-        ) : null}
-        {!fullscreen && <PlayerVolume />}
-        <button type="button" aria-label={expanded ? "Minimize video" : "Expand video"} title={expanded ? "Minimize video" : "Expand video"} onClick={toggleExpanded} disabled={dataSaver || audioOnly} className={expanded && !dataSaver && !audioOnly ? "grid min-h-11 min-w-11 place-items-center rounded-full bg-black/60 p-2 text-white hover:bg-white/10 disabled:opacity-40" : "grid min-h-11 min-w-11 place-items-center rounded-full p-2 text-gray-300 hover:bg-white/10 disabled:opacity-40"}>{expanded ? <FiMinimize2 /> : <FiMaximize2 />}</button>
-        {showDesktopQueue && !fullscreen && (
-          <div ref={queuePanelRef} className="absolute bottom-full right-0 z-30 mb-2 w-[min(92vw,360px)] rounded-xl border border-white/10 bg-[#07121d] p-3 shadow-2xl">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>
-            <div className="max-h-72 overflow-y-auto">
-              {upcoming.length === 0 && <p className="px-1 py-3 text-xs text-gray-400">Queue is empty.</p>}
-              {upcoming.slice(0, 12).map((item) => (
-                <button key={item.id} type="button" onClick={() => playQueueItem(item)} disabled={isJamGuest} className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"><img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-9 w-9 rounded object-cover" /><span className="truncate text-xs text-white">{item.title}</span></button>
-              ))}
-            </div>
-            <form onSubmit={handleAddSearch} className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
-              <input
-                type="text"
-                value={addQuery}
-                onChange={(event) => setAddQuery(event.target.value)}
-                placeholder="Add a song to queue..."
-                className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none focus:border-[#00e6e6]"
-              />
-              <button type="submit" aria-label="Search" disabled={addSearching} className="shrink-0 rounded-md bg-white/10 p-1.5 text-gray-200 hover:bg-white/20 disabled:opacity-50">
-                <FiSearch className="h-4 w-4" />
-              </button>
-            </form>
-            {addResults.length > 0 && (
-              <div className="mt-2 max-h-40 overflow-y-auto">
-                {addResults.map((item) => (
-                  <div key={item.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/10">
-                    <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} className="h-8 w-8 shrink-0 rounded object-cover" />
-                    <span className="min-w-0 flex-1 truncate text-xs text-white">{item.title}</span>
-                    <button type="button" aria-label={`Add ${item.title} to queue`} onClick={() => handleAddTrack(item)} disabled={jamLocked} className="shrink-0 rounded-full bg-[#00e6e6]/20 p-1 text-[#00e6e6] hover:bg-[#00e6e6]/30 disabled:cursor-not-allowed disabled:opacity-40">
-                      <FiPlus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {addSearchError && (
-              <div className="mt-2 flex items-center justify-between gap-3 rounded-md bg-red-500/10 px-2 py-1.5" role="alert">
-                <p className="text-xs text-red-200">{addSearchError}</p>
-                <button type="button" onClick={() => void searchForQueueTracks()} disabled={addSearching || !addQuery.trim()} className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-[#00e6e6] hover:bg-white/10 disabled:opacity-50">Retry</button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>}
-      </div>
-      )}
-      </div>
-      {sheetChrome && mobileSheet && (
-        <div ref={sheetRef} className="yt-mobile-sheet">
-          <button
-            type="button"
-            aria-label="Close"
-            className="yt-mobile-sheet-handle"
-            onClick={() => setMobileSheet(false)}
-          />
-          <div className="flex w-full items-center justify-center">
-            <button
-              type="button"
-              onClick={() => setSheetTab("queue")}
-              className={`${sheetTab === "queue" ? "border-[#00e6e6] border-b-2" : ""} m-3 text-xl font-medium text-white`}
-            >
-              Queue
-            </button>
-            <button
-              type="button"
-              onClick={() => setSheetTab("lyrics")}
-              className={`${sheetTab === "lyrics" ? "border-[#00e6e6] border-b-2" : ""} m-3 text-xl font-medium text-white`}
-            >
-              Lyrics
-            </button>
-            <button
-              type="button"
-              aria-label="Close panel"
-              onClick={() => setMobileSheet(false)}
-              className="absolute right-3 top-3 rounded-full p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
-            >
-              <FiX size={16} />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {sheetTab === "queue" ? (
-              <div className="px-4 pb-6"><QueueEditor {...queueControls} /></div>
-            ) : syncedLyrics === false ? (
-              <p className="px-4 py-6 text-center text-sm text-gray-400">Live lyrics are turned off in Settings.</p>
-            ) : (
-              <SyncedLyrics
-                title={video.title}
-                artist={video.channel}
-                duration={duration}
-                currentTime={currentTime}
-                onSeek={seekOnCurrentTrack}
-                className="h-full"
-              />
-            )}
-          </div>
-        </div>
-      )}
-      {showDesktopQueue && fullscreen && (
-        <div ref={queuePanelRef} className="yt-queue-panel">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#00e6e6]">Queue</p>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <QueueEditor {...queueControls} />
-          </div>
-        </div>
-      )}
-      {dockedLyricsPanel
-        ? typeof document === "undefined"
-          ? dockedLyricsPanel
-          : createPortal(dockedLyricsPanel, document.body)
-        : null}
+      />
       {pipFloat && !videoVisible && <FloatingPlayer track={video} playing={isPlaying} disabled={isJamGuest} onPlayPause={handlePlayPause} onNext={() => handleNext()} onClose={closePictureInPicture} />}
       {pipWindow && pipMountRef.current && (
-        <PictureInPictureWindow
+        <ClockedPictureInPictureWindow
+          clock={playbackClock}
           container={pipMountRef.current}
           video={video}
-          currentTime={currentTime}
-          duration={duration}
           isPlaying={isPlaying}
           lines={lyricsQuery.lines}
           queue={upcoming}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Mesh, Program, Renderer, Triangle } from "ogl";
 import { useAccessibilityPreferences } from "@/components/AccessibilityPreferences";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
 
 const hexToRgb = (hex) => {
   const value = String(hex || "").trim().replace(/^#/, "");
@@ -179,6 +180,7 @@ export default function GhostFibers({
   const [supported, setSupported] = useState(true);
   const { preferences } = useAccessibilityPreferences();
   const systemReduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const isPhone = useMediaQuery(PHONE_QUERY);
   const motionPaused =
     paused || preferences.reducedMotion || preferences.highContrast || systemReduceMotion;
 
@@ -192,7 +194,7 @@ export default function GhostFibers({
     const container = containerRef.current;
     if (!container || !supported) return undefined;
 
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    const isMobile = isPhone;
     const isLowEnd = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
     const requestedDpr = Number.isFinite(dpr) ? dpr : 1;
     const requestedFps = Number.isFinite(fps) ? fps : 45;
@@ -399,7 +401,7 @@ export default function GhostFibers({
     };
     // Init once per canvas/DPR. Visual props are applied in the uniforms effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supported, dpr]);
+  }, [supported, dpr, isPhone]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -415,7 +417,7 @@ export default function GhostFibers({
     uniforms.uScale.value = scale;
     uniforms.uRotation.value = rotation;
     uniforms.uRotationSpeed.value = rotationSpeed;
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    const isMobile = isPhone;
     const nextLayers = Number.isFinite(layers) ? layers : 4;
     uniforms.uLayers.value = Math.min(Math.max(Math.round(nextLayers), 1), isMobile ? 3 : 10);
     uniforms.uWaveAmplitude.value = waveAmplitude;
@@ -467,6 +469,7 @@ export default function GhostFibers({
     fps,
     motionPaused,
     dpr,
+    isPhone,
   ]);
 
   return (

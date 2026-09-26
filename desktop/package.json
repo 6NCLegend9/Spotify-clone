@@ -13,7 +13,10 @@
     "dist": "electron-builder --win nsis --x64",
     "prepare-github-release": "node scripts/prepare-github-release.mjs",
     "publish-release": "node scripts/publish-release.mjs",
-    "publish-installer": "node scripts/publish-installer.mjs"
+    "publish-installer": "node scripts/publish-installer.mjs",
+    "smoke:renderer": "node scripts/smoke-renderer.mjs",
+    "smoke:packaged": "node scripts/verify-packaged-runtime.mjs",
+    "measure:background": "node scripts/measure-background-runtime.mjs"
   },
   "dependencies": {
     "electron-updater": "6.8.9"

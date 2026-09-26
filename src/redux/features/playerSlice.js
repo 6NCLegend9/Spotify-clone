@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { decodeTrackFields } from '../../utils/text.js';
 import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
 import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
-import { canonicalSongIdentity } from '../../utils/songIdentity.mjs';
+import { canonicalSongIdentity, sameRadioSongFamily } from '../../utils/songIdentity.mjs';
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
 import { normalizeRadioArtist } from '../../utils/radioSeed.mjs';
 
@@ -104,6 +104,8 @@ function pruneAutomaticRadioUpcoming(queue, current) {
       next.push(entry);
       continue;
     }
+    if (sameRadioSongFamily(entry, current)) continue;
+    if (next.some((kept) => kept?.queueSource !== 'user' && sameRadioSongFamily(entry, kept))) continue;
     if (artist && currentArtist && artist === currentArtist) continue;
     if (artist && seenAutoArtists.has(artist)) continue;
     if (artist) seenAutoArtists.add(artist);
@@ -251,8 +253,11 @@ const playerSlice = createSlice({
 
       if (nextVideo?.id && state.youtubeVideo?.id && state.queueMode === 'radio'
         && !state.youtubeQueue.some((item) => item?.id === nextVideo.id)
-        && canonicalSongIdentity(nextVideo)
-        && canonicalSongIdentity(nextVideo) === canonicalSongIdentity(state.youtubeVideo)) {
+        && (
+          (canonicalSongIdentity(nextVideo)
+            && canonicalSongIdentity(nextVideo) === canonicalSongIdentity(state.youtubeVideo))
+          || sameRadioSongFamily(nextVideo, state.youtubeVideo)
+        )) {
         const currentIndex = state.youtubeQueue.findIndex((item) => sameOccurrence(item, state.youtubeVideo));
         const replacement = state.youtubeQueue
           .slice(currentIndex < 0 ? 0 : currentIndex + 1)
@@ -457,6 +462,7 @@ const playerSlice = createSlice({
         if (!decoded?.id || existingIds.has(decoded.id)) return;
         const songIdentity = radioMode ? canonicalSongIdentity(decoded) : '';
         if (radioMode && songIdentity && existingSongIdentities.has(songIdentity)) return;
+        if (radioMode && state.youtubeQueue.some((item) => sameRadioSongFamily(item, decoded))) return;
         const entry = nextQueueEntry(state, decoded, 'context');
         if (!entry) return;
         state.queueUndo = null;

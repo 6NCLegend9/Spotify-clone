@@ -7,6 +7,7 @@ import MediaImage from "@/components/MediaImage";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { toUserError } from "@/utils/userError";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
 import { accountOwner } from "@/utils/accountCache.mjs";
@@ -103,7 +104,7 @@ function AccountFollowing({ status, owner }) {
         pending.map(async (artist) => {
           try {
             const search = await requestJson(
-              `/api/youtube-search?type=channel&q=${encodeURIComponent(artist.name)}`,
+              buildYoutubeSearchUrl({ type: "channel", q: artist.name }, "discovery"),
               { fallbackTitle: "", fallbackMessage: "" },
             );
             const match = Array.isArray(search?.results)

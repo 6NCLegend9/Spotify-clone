@@ -1,5 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { EQ_PRESET_BANDS, migrateEqBands } from "@/utils/eqPresets";
+import { migrateLegacySettings } from "@/utils/settingsMigration.mjs";
 
 export const EQ_PRESETS = [
   "Flat / Neutral", "Acoustic", "Bass Boost", "Bass Reducer", "Treble Boost", "Treble Reducer",
@@ -13,9 +14,7 @@ const initialState = {
   eqBands: [0, 0, 0, 0, 0, 0],
   dataSaver: false,
   audioOnly: false,
-  videoQuality: "auto",
   wifiOnlyDownloads: false,
-  streamingQuality: "auto",
   normalization: "normal",
   monoAudio: false,
   explicitContent: false,
@@ -28,7 +27,6 @@ const initialState = {
   captions: false,
   fadeEnabled: true,
   fadeSeconds: 0.8,
-  spatialAudio: false,
   discordPresence: false,
   discordPresenceConsent: false,
   browserNotifications: false,
@@ -74,7 +72,7 @@ const settingsSlice = createSlice({
       };
     },
     hydrateSettings: (state, action) => {
-      const payload = action.payload || {};
+      const payload = migrateLegacySettings(action.payload);
       const consent = payload.discordPresenceConsent === true || state.discordPresenceConsent === true;
       const requestedPresence = payload.discordPresence !== undefined
         ? payload.discordPresence === true
