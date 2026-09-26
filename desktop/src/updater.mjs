@@ -12,6 +12,8 @@ import { installationEligibleForRollout } from "./policy.mjs";
 import { versionOlderThan } from "./version.mjs";
 
 const { autoUpdater } = updaterPackage;
+const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
 
 function cleanChannel(value) {
   return ["stable", "beta", "internal"].includes(value) ? value : "stable";
@@ -193,6 +195,18 @@ export class DesktopUpdater {
         this.emit({
           state: "disabled",
           detail: `The ${this.channel()} desktop release is not code-signed and will not be installed automatically.`,
+        });
+        return this.getStatus();
+      }
+      if (
+        !SEMVER.test(String(manifest.latest || "").trim())
+        || !SHA512_BASE64.test(String(manifest.sha512 || "").trim())
+        || !Number.isSafeInteger(manifest.sizeBytes)
+        || manifest.sizeBytes <= 0
+      ) {
+        this.emit({
+          state: "error",
+          detail: "The desktop release manifest is missing required integrity metadata.",
         });
         return this.getStatus();
       }
