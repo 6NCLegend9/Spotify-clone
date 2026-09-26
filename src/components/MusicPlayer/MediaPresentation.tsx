@@ -17,6 +17,7 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import { COMPACT_TOUCH_QUERY } from "@/utils/responsivePolicy.mjs";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
+const ClockedSyncedLyrics = dynamic(() => import("./ClockedSyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
 const THEATER_CONTROLS_HIDE_MS = 6500;
 
@@ -568,7 +569,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
           </section>}
         </>}
       </> : <section className={styles.lyrics} aria-label="Live lyrics">
-        {metadata}<SyncedLyrics title={props.track.title} artist={props.track.channel || ""} duration={props.duration} currentTime={props.position} onSeek={props.disabled ? undefined : props.onSeek} />
+        {metadata}{props.playbackClock
+          ? <ClockedSyncedLyrics clock={props.playbackClock} title={props.track.title} artist={props.track.channel || ""} onSeek={props.disabled ? undefined : props.onSeek} />
+          : <SyncedLyrics title={props.track.title} artist={props.track.channel || ""} duration={props.duration} currentTime={props.position} onSeek={props.disabled ? undefined : props.onSeek} />}
       </section>}
     </div>
     {overlay && ((expanded && view === "player") || (mobile && view !== "player")) && <footer className={`${styles.expandedTransport} ${expanded ? styles.theaterChrome : ""}`}>{mobileTransport}</footer>}
