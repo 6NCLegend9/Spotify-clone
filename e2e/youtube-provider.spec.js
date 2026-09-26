@@ -26,6 +26,85 @@ const PROVIDER_SMOKE_TRACKS = [
   },
 ];
 
+async function probeRawYoutubePlayback(page, videoId) {
+  return page.evaluate((candidateId) => new Promise((resolve) => {
+    const mount = document.createElement("div");
+    mount.id = `youtube-provider-baseline-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    mount.style.position = "fixed";
+    mount.style.left = "12px";
+    mount.style.top = "12px";
+    mount.style.width = "320px";
+    mount.style.height = "180px";
+    mount.style.zIndex = "2147483647";
+    document.body.appendChild(mount);
+
+    let settled = false;
+    let timer = null;
+    let player = null;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearInterval(timer);
+      try { player?.destroy?.(); } catch {}
+      mount.remove();
+      resolve(result);
+    };
+
+    const timeout = setTimeout(() => {
+      finish({ status: "timeout", code: 0, current: 0 });
+    }, 15_000);
+
+    const originalFinish = finish;
+    const finishWithTimeoutClear = (result) => {
+      clearTimeout(timeout);
+      originalFinish(result);
+    };
+
+    try {
+      player = new window.YT.Player(mount.id, {
+        host: "https://www.youtube.com",
+        videoId: candidateId,
+        width: "320",
+        height: "180",
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          enablejsapi: 1,
+          mute: 1,
+          origin: window.location.origin,
+          playsinline: 1,
+        },
+        events: {
+          onReady: (event) => {
+            event.target.mute?.();
+            event.target.playVideo?.();
+            timer = setInterval(() => {
+              const current = Number(event.target.getCurrentTime?.() || 0);
+              if (current > 0.5) {
+                finishWithTimeoutClear({ status: "played", code: 0, current });
+              }
+            }, 200);
+          },
+          onError: (event) => {
+            finishWithTimeoutClear({
+              status: "provider-error",
+              code: Number(event.data) || 0,
+              current: Number(event.target?.getCurrentTime?.() || 0),
+            });
+          },
+        },
+      });
+    } catch (error) {
+      finishWithTimeoutClear({
+        status: "integration-error",
+        code: 0,
+        current: 0,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }), videoId);
+}
+
 test.describe("real YouTube provider smoke", () => {
   test.skip(process.env.HEYKASA_REAL_YOUTUBE_E2E !== "1", "Real provider smoke runs only in its dedicated workflow.");
 
@@ -130,6 +209,25 @@ test.describe("real YouTube provider smoke", () => {
           },
           { timeout: 60_000 },
         ).toBe(true);
+
+        const baseline = await probeRawYoutubePlayback(page, track.id);
+        console.info("[youtube-provider-baseline]", JSON.stringify({
+          videoId: track.id,
+          origin: await page.evaluate(() => window.location.origin),
+          ...baseline,
+        }));
+        if (baseline.status === "provider-error" && EMBED_RESTRICTION_CODES.has(Number(baseline.code))) {
+          recordPlayerErrors([baseline.code]);
+          if (index + 1 < PROVIDER_SMOKE_TRACKS.length) continue;
+          throw new Error(
+            `Raw YouTube baseline rejected all smoke candidates with provider code ${baseline.code}`,
+          );
+        }
+        if (baseline.status !== "played") {
+          throw new Error(
+            `Raw YouTube baseline did not prove playback for ${track.id}: ${baseline.status}`,
+          );
+        }
 
         const realFrame = page.locator(
           '[data-testid="youtube-decks"] iframe[src*="youtube.com/embed/"], [data-testid="youtube-decks"] iframe[src*="youtube-nocookie.com/embed/"]',
