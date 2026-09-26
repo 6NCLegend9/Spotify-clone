@@ -15,6 +15,7 @@ on:
       - "next.config.js"
       - "desktop/src/**"
       - "desktop/scripts/smoke-renderer.mjs"
+      - "desktop/scripts/measure-background-runtime.mjs"
       - "desktop/package.json"
       - "desktop/package-lock.json"
       - "test/**"
@@ -84,6 +85,10 @@ jobs:
         env:
           HEYKASA_DESKTOP_SMOKE_URL: http://127.0.0.1:3003
         run: xvfb-run -a npm --prefix desktop run smoke:renderer
+      - name: Measure hidden-window runtime
+        env:
+          HEYKASA_DESKTOP_SMOKE_URL: http://127.0.0.1:3003
+        run: xvfb-run -a npm --prefix desktop run measure:background
       - name: Show renderer log on failure
         if: failure()
         run: cat /tmp/heykasa-next.log || true
