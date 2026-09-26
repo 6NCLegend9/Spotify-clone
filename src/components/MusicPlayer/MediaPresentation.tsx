@@ -15,6 +15,7 @@ import { resolveInitialMediaVideoMode, resolveMediaVideoModeAfterCapabilityChang
 import { setFullScreen } from "@/redux/features/playerSlice";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { COMPACT_TOUCH_QUERY } from "@/utils/responsivePolicy.mjs";
+import { HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 const ClockedSyncedLyrics = dynamic(() => import("./ClockedSyncedLyrics"), { ssr: false });
@@ -55,7 +56,7 @@ export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | n
     left = Math.max(left, box.left); right = Math.min(right, box.right);
   }
   const values: Record<string, string> = {
-    width: `${visible ? rect!.width : 320}px`, height: `${visible ? rect!.height : 180}px`,
+    width: `${visible ? rect!.width : HIDDEN_YOUTUBE_VIEWPORT.width}px`, height: `${visible ? rect!.height : HIDDEN_YOUTUBE_VIEWPORT.height}px`,
     left: `${visible ? rect!.left - originX : -10000}px`, top: `${visible ? rect!.top - originY : -10000}px`,
     opacity: visible ? "1" : "0", "pointer-events": visible ? "auto" : "none",
     "border-radius": expanded ? "0" : "12px",
