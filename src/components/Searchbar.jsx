@@ -18,6 +18,7 @@ import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
 
 const Searchbar = () => {
   const { data: session, status } = useSession();
@@ -43,7 +44,7 @@ const AccountSearchbar = () => {
   const clusterRef = useRef(null);
   const [compactPlaceholder, setCompactPlaceholder] = useState(false);
   const [overlayBox, setOverlayBox] = useState({ top: 64, bottom: 0 });
-  const overlaySuggestions = useMediaQuery("(max-width: 767px)");
+  const overlaySuggestions = useMediaQuery(PHONE_QUERY);
 
   useEffect(() => {
     const onKey = (event) => {
