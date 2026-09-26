@@ -29,6 +29,17 @@ test("Vercel build policy skips only non-runtime preview changes", async () => {
     branch: "refactor/unify-web-desktop-pr19",
     previousSha: "aaa",
     currentSha: "bbb",
+    changedFiles: [
+      "scripts/performance-budget-lib.mjs",
+      "scripts/performance-baseline.json",
+      "scripts/benchmark-dev.mjs",
+    ],
+  }), true);
+
+  assert.equal(shouldIgnoreVercelBuild({
+    branch: "refactor/unify-web-desktop-pr19",
+    previousSha: "aaa",
+    currentSha: "bbb",
     changedFiles: ["package.json"],
   }), false);
 });
