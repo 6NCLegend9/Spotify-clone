@@ -9,18 +9,12 @@ import {
   readRequestJson,
 } from "@/utils/apiResponse";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
-import { migrateLegacySettings } from "@/utils/settingsMigration.mjs";
+import { migrateLegacySettings, SUPPORTED_USER_SETTING_KEYS } from "@/utils/settingsMigration.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
-const allowedKeys = [
-  "eqPreset", "eqBands", "dataSaver", "audioOnly",
-  "wifiOnlyDownloads", "normalization", "monoAudio", "explicitContent",
-  "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture", "masterVolume",
-  "keyboardShortcuts", "captions", "fadeEnabled", "fadeSeconds",
-  "discordPresence", "discordPresenceConsent", "browserNotifications",
-];
+const allowedKeys = SUPPORTED_USER_SETTING_KEYS;
 const booleanKeys = new Set([
   "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "explicitContent",
   "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture",
