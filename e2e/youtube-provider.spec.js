@@ -26,6 +26,11 @@ test.describe("real YouTube provider smoke", () => {
     };
 
     await page.addInitScript((seed) => {
+      window.__youtubeProviderErrorCodes = [];
+      window.addEventListener("heykasa:youtube-provider-error", (event) => {
+        const code = Number(event?.detail?.code);
+        if (Number.isFinite(code)) window.__youtubeProviderErrorCodes.push(code);
+      });
       localStorage.setItem("persist:settings", JSON.stringify({
         owner: JSON.stringify("account:test-a"),
         audioOnly: "false",
@@ -82,6 +87,16 @@ test.describe("real YouTube provider smoke", () => {
       await expect(realFrame).toBeAttached({ timeout: 60_000 });
       await expect(realFrame).toHaveAttribute("src", /M7lc1UVf-VE/);
 
+      const progress = page.getByRole("slider", { name: "Song progress" }).first();
+      const before = Number(await progress.inputValue());
+      const playButton = page.getByRole("button", { name: "Play", exact: true }).first();
+      await expect(playButton).toBeEnabled({ timeout: 30_000 });
+      await playButton.click();
+      await expect.poll(
+        async () => Number(await progress.inputValue()),
+        { timeout: 30_000 },
+      ).toBeGreaterThan(before + 0.5);
+
       await page.keyboard.press("v");
       const theater = page.getByRole("dialog", { name: "Expanded video" });
       await expect(theater).toBeVisible();
@@ -93,6 +108,15 @@ test.describe("real YouTube provider smoke", () => {
       expect(box.width).toBeGreaterThan(200);
       expect(box.height).toBeGreaterThan(112);
     } catch (error) {
+      try {
+        providerSignals.playerErrorCodes = await page.evaluate(
+          () => Array.isArray(window.__youtubeProviderErrorCodes)
+            ? [...window.__youtubeProviderErrorCodes]
+            : [],
+        );
+      } catch {
+        providerSignals.playerErrorCodes = [];
+      }
       const classification = classifyYoutubeProviderFailure({
         ...providerSignals,
         message: error instanceof Error ? error.message : String(error),
