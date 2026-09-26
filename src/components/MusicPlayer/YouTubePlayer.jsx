@@ -2986,6 +2986,7 @@ function YouTubePlayer() {
         pipLabel={videoVisible ? "Picture in picture unavailable" : typeof window !== "undefined" && window.documentPictureInPicture?.requestWindow ? "Picture in picture controls" : "Floating player"}
         pipDisabled={pictureInPicture === false || videoVisible}
         videoAvailable={videoVisible}
+        playbackClock={playbackClock}
         onLyrics={syncedLyrics !== false ? toggleLyrics : undefined}
         onOneMore={!isJamGuest && queueMode !== "collection" && !queueManualEnd && !repeat ? () => {
           setOneMoreArmed((value) => {
