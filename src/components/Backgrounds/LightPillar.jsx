@@ -5,6 +5,7 @@ import * as THREE from "three";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { useAccessibilityPreferences } from "@/components/AccessibilityPreferences";
 import { canCreateWebGLContext } from "@/utils/webglSupport.mjs";
+import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
 
 const QUALITY_SETTINGS = {
   low: {
@@ -91,6 +92,7 @@ export default function LightPillar({
   });
   const [webGLSupported, setWebGLSupported] = useState(true);
   const systemReduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const isPhone = useMediaQuery(PHONE_QUERY);
   const { preferences } = useAccessibilityPreferences();
   const reduceMotion = systemReduceMotion || preferences.reducedMotion;
   rotationSpeedRef.current = rotationSpeed;
@@ -113,7 +115,7 @@ export default function LightPillar({
       return undefined;
     }
 
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    const isMobile = isPhone;
     const isLowEnd =
       isMobile ||
       (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
@@ -347,7 +349,7 @@ export default function LightPillar({
       rendererRef.current = null;
       materialRef.current = null;
     };
-  }, [quality, reduceMotion, webGLSupported]);
+  }, [isPhone, quality, reduceMotion, webGLSupported]);
 
   useEffect(() => {
     applyLook(materialRef.current, lookRef.current);
