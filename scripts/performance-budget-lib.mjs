@@ -1,3 +1,33 @@
+
+const BENCHMARK_METHODOLOGY_KEYS = [
+  "samplesPerRoute",
+  "isolatedContextPerSample",
+  "httpCacheEnabled",
+  "serviceWorkersEnabled",
+  "syntheticAPIs",
+];
+
+export function evaluateBenchmarkMethodology({ baseline, report }) {
+  const expected = baseline?.methodology || {};
+  const observed = report?.environment || {};
+  const mismatches = [];
+
+  for (const key of BENCHMARK_METHODOLOGY_KEYS) {
+    if (!(key in expected) || observed?.[key] !== expected[key]) {
+      mismatches.push({
+        key,
+        baseline: key in expected ? expected[key] : null,
+        current: key in observed ? observed[key] : null,
+      });
+    }
+  }
+
+  return {
+    ok: mismatches.length === 0,
+    mismatches,
+  };
+}
+
 export function median(values) {
   const numbers = (Array.isArray(values) ? values : [])
     .map(Number)
