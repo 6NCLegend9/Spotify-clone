@@ -6,6 +6,7 @@ import {
 export { DESKTOP_API_VERSION, DESKTOP_CAPABILITIES };
 
 export const PRODUCT_NAME = "HayKasa";
+export const DESKTOP_RENDERER_CACHE_SCHEMA = 1;
 export const PRODUCTION_APP_URL = "https://haykasa.vercel.app";
 
 // The packaged client receives no GitHub write credentials, release signing
