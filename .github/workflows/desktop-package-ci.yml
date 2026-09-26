@@ -66,6 +66,8 @@ jobs:
           $exe = Get-ChildItem -Path desktop/dist -Recurse -Filter "HayKasa.exe" | Select-Object -First 1
           if (-not $exe) { throw "HayKasa.exe was not produced" }
           Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
+      - name: Verify packaged Windows runtime
+        run: npm --prefix desktop run smoke:packaged
       - name: Validate GitHub release bundle preparation
         run: npm --prefix desktop run prepare-github-release
       - uses: actions/upload-artifact@v4
