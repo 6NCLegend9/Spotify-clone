@@ -313,7 +313,7 @@ export default function AppShell({ children }) {
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Atmosphere />
           <Navbar />
-          <div className="app-content" id="main-content" tabIndex={-1}>
+          <div className="app-content" id="main-content" tabIndex={-1} data-app-scroll-container>
             <PullToRefresh />
             <OnlineStatus />
             {authRoute ? children : <PageTransit pathname={pathname}>{children}</PageTransit>}
