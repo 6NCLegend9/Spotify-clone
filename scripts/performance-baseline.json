@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "source": {
+    "workflowRunId": 36250029193,
+    "benchmarkJobId": 108426867433,
+    "headSha": "784179cab38ab74d857210e8aa62930bf03094de"
+  },
+  "relativeTolerance": 0.3,
+  "absoluteFloors": {
+    "usableMs": 100,
+    "scriptBytes": 50000,
+    "longTasksMs": 150
+  },
+  "metrics": {
+    "/search@1440": {
+      "usableMs": 511,
+      "scriptBytes": 489712,
+      "longTasksMs": 535
+    },
+    "/library@1440": {
+      "usableMs": 313,
+      "scriptBytes": 502213,
+      "longTasksMs": 0
+    },
+    "/search@390": {
+      "usableMs": 343,
+      "scriptBytes": 489712,
+      "longTasksMs": 53
+    },
+    "/library@390": {
+      "usableMs": 265,
+      "scriptBytes": 495455,
+      "longTasksMs": 0
+    }
+  }
+}
