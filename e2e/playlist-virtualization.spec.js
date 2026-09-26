@@ -74,7 +74,8 @@ test("500-track liked collection mounts a bounded row window while keeping endpo
   expect(mountedAtTop).toBeLessThan(100);
   await expect(page.getByRole("button", { name: "Play Virtual song 500", exact: true })).toBeVisible();
 
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const scrollRoot = page.locator("[data-app-scroll-container]");
+  await scrollRoot.evaluate((element) => element.scrollTo(0, element.scrollHeight));
   await expect.poll(async () => Number(await list.getAttribute("data-mounted-rows"))).toBeLessThan(100);
   await expect(page.getByRole("button", { name: "Play Virtual song 1", exact: true })).toBeVisible();
 });
