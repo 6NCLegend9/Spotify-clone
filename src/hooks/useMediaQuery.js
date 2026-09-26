@@ -1,16 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  PHONE_PORTRAIT_QUERY,
+  PHONE_QUERY,
+  initialMediaQueryMatch,
+} from "@/utils/responsivePolicy.mjs";
 
 export function useMediaQuery(query) {
-  const [matches, setMatches] = useState(false);
+  const [matches, setMatches] = useState(() =>
+    initialMediaQueryMatch(
+      query,
+      typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia.bind(window)
+        : undefined,
+    ),
+  );
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      setMatches(false);
+      return undefined;
+    }
     const media = window.matchMedia(query);
-    const onChange = () => setMatches(media.matches);
+    const onChange = () => setMatches(media.matches === true);
     onChange();
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    }
+    media.addListener?.(onChange);
+    return () => media.removeListener?.(onChange);
   }, [query]);
 
   return matches;
@@ -19,13 +39,11 @@ export function useMediaQuery(query) {
 export default useMediaQuery;
 
 export function useIsMobile() {
-  return useMediaQuery("(max-width: 767px)");
+  return useMediaQuery(PHONE_PORTRAIT_QUERY);
 }
 
-/** Phone portrait, or a phone rotated to landscape (short side still phone-sized). */
-export const PHONE_VIEWPORT_QUERY =
-  "(max-width: 767px), (orientation: landscape) and (max-height: 540px) and (max-width: 1100px)";
+export const PHONE_VIEWPORT_QUERY = PHONE_QUERY;
 
 export function useIsPhoneViewport() {
-  return useMediaQuery(PHONE_VIEWPORT_QUERY);
+  return useMediaQuery(PHONE_QUERY);
 }
