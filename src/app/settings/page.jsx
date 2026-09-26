@@ -277,7 +277,7 @@ function AccountSettings({ owner, status }) {
           <SelectControl label="Playback level" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
           <Toggle label="Mono audio" checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
           <p className="mt-4 text-xs leading-5 text-[#9aa8b5]">
-            YouTube chooses stream quality automatically from the uploaded source, connection, device, and player conditions. HayKasa no longer shows unsupported quality controls; Audio-only and Data Saver remain under Playback &amp; data.
+            YouTube chooses stream quality automatically from the uploaded source, connection, device, and player conditions. HayKasa&apos;s Audio-focused and Data Saver options only change HayKasa presentation and visual work; they do not select a different YouTube stream.
           </p>
         </div>
       </section>
@@ -364,7 +364,26 @@ function AccountSettings({ owner, status }) {
       </section>
 
       <section className="grid gap-8 lg:grid-cols-2 mb-8">
-        <div className="glass-panel rounded-xl p-5 sm:p-7"><h2 className="mb-2 text-xl font-semibold">Playback & data</h2><Toggle label="Data Saver mode" checked={settings.dataSaver} onChange={(value) => set("dataSaver", value)} /><Toggle label="Audio-only mode" checked={settings.audioOnly} onChange={(value) => set("audioOnly", value)} /><Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them. Fullscreen highlights the current caption line from those same captions." checked={settings.captions !== false} onChange={(value) => set("captions", value)} /><Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} /><Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} /><Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} /><Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} /></div>
+        <div className="glass-panel rounded-xl p-5 sm:p-7">
+          <h2 className="mb-2 text-xl font-semibold">Playback & data</h2>
+          <Toggle
+            label="Data Saver mode"
+            description="Reduces HayKasa visual work and hides video surfaces. YouTube still chooses the media stream and quality."
+            checked={settings.dataSaver}
+            onChange={(value) => set("dataSaver", value)}
+          />
+          <Toggle
+            label="Audio-focused mode"
+            description="Hides HayKasa video surfaces while keeping YouTube playback mounted. This is not a separate audio-only YouTube stream."
+            checked={settings.audioOnly}
+            onChange={(value) => set("audioOnly", value)}
+          />
+          <Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them. Fullscreen highlights the current caption line from those same captions." checked={settings.captions !== false} onChange={(value) => set("captions", value)} />
+          <Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} />
+          <Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} />
+          <Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} />
+          <Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} />
+        </div>
         <div className="glass-panel rounded-xl p-5 sm:p-7">
           <h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2>
           <Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} />
