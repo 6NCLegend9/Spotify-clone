@@ -613,7 +613,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                 liked={isLiked}
                 onPlay={handleRowPlay}
                 onRemove={handleRowRemove}
-                scrollKey={`${owner}:${isLiked ? "liked" : playlistId || collection?._id || "playlist"}:${deferredSearch.trim().toLowerCase()}`}
+                scrollKey={`${owner}:${isLiked ? "liked" : playlistId || collection?._id || "playlist"}`}
               />
               {tracks.length === 0 && (
                 <div className="py-8">
