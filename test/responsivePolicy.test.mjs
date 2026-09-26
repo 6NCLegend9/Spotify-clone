@@ -26,6 +26,7 @@ test("responsive policy classifies portrait phone, rotated phone, tablet, and de
   assert.equal(PHONE_LANDSCAPE_QUERY, "(orientation: landscape) and (max-height: 540px) and (max-width: 1100px)");
   assert.match(PHONE_QUERY, /max-width: 767px/);
   assert.match(COMPACT_TOUCH_QUERY, /pointer: coarse/);
+  assert.doesNotMatch(COMPACT_TOUCH_QUERY, /max-height:\s*900px/);
   assert.match(DESKTOP_QUERY, /pointer: fine/);
 
   assert.deepEqual(
@@ -38,6 +39,14 @@ test("responsive policy classifies portrait phone, rotated phone, tablet, and de
   );
   assert.deepEqual(
     responsiveLayoutForViewport({ width: 1024, height: 768, pointer: "coarse" }),
+    { phone: false, compactTouch: true, desktop: false },
+  );
+  assert.deepEqual(
+    responsiveLayoutForViewport({ width: 768, height: 1024, pointer: "coarse" }),
+    { phone: false, compactTouch: true, desktop: false },
+  );
+  assert.deepEqual(
+    responsiveLayoutForViewport({ width: 1024, height: 1366, pointer: "coarse" }),
     { phone: false, compactTouch: true, desktop: false },
   );
   assert.deepEqual(
