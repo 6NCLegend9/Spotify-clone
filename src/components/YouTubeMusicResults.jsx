@@ -20,6 +20,7 @@ import { toUserError } from "@/utils/userError";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import { SITE_BRAND, SITE_NAME } from "@/utils/siteConfig";
 import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 
 export default function YouTubeMusicResults({ query }) {
   const searchParams = useSearchParams();
@@ -28,7 +29,7 @@ export default function YouTubeMusicResults({ query }) {
   const resultType = ["video", "channel", "playlist"].includes(searchParams.get("type")) ? searchParams.get("type") : "video";
   const order = searchParams.get("order") === "date" ? "date" : "relevance";
   const length = resultType === "video" && ["short", "medium", "long"].includes(searchParams.get("duration")) ? searchParams.get("duration") : "any";
-  const searchUrl = `/api/youtube-search?${new URLSearchParams({ q: query, type: resultType, order, duration: length })}`;
+  const searchUrl = buildYoutubeSearchUrl({ q: query, type: resultType, order, duration: length }, "interactive");
   const changeSearch = (key, value) => {
     const parameters = new URLSearchParams(searchParams.toString());
     parameters.set(key, value);
@@ -248,13 +249,12 @@ export default function YouTubeMusicResults({ query }) {
     setLoadingExtras(true);
     setExtrasError(null);
     try {
-      const searchUrl = `/api/youtube-search?q=${encodeURIComponent(query)}`;
       const [channelResult, playlistResult] = await Promise.allSettled([
-        requestJson(`${searchUrl}&type=channel`, {
+        requestJson(buildYoutubeSearchUrl({ q: query, type: "channel" }, "interactive"), {
           fallbackTitle: "Artists couldn’t be loaded",
           fallbackMessage: "Artist results are temporarily unavailable.",
         }),
-        requestJson(`${searchUrl}&type=playlist`, {
+        requestJson(buildYoutubeSearchUrl({ q: query, type: "playlist" }, "interactive"), {
           fallbackTitle: "Playlists couldn’t be loaded",
           fallbackMessage: "Playlist results are temporarily unavailable.",
         }),
