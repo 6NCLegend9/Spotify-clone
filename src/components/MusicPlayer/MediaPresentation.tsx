@@ -11,13 +11,14 @@ import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
-import { resolveInitialMediaVideoMode, resolveInitialMobilePresentation, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
+import { resolveInitialMediaVideoMode, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
 import { setFullScreen } from "@/redux/features/playerSlice";
+import useMediaQuery from "@/hooks/useMediaQuery";
+import { COMPACT_TOUCH_QUERY } from "@/utils/responsivePolicy.mjs";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
 const THEATER_CONTROLS_HIDE_MS = 6500;
-const MOBILE_MEDIA_QUERY = "(max-width: 767px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)";
 
 type View = "player" | "lyrics";
 type PlaybackContext = { type?: string; id?: string; name?: string } | null;
@@ -72,11 +73,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const dispatch = useDispatch();
   const [mediaHost, setMediaHost] = useState<HTMLElement | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  const [mobile, setMobile] = useState(() =>
-    resolveInitialMobilePresentation(
-      typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches,
-    ),
-  );
+  const mobile = useMediaQuery(COMPACT_TOUCH_QUERY);
   const [drawer, setDrawer] = useState(false);
   const [closing, setClosing] = useState(false);
   const [entering, setEntering] = useState(false);
@@ -215,12 +212,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   useEffect(() => {
     setSlot(document.getElementById("kasa-now-playing-slot"));
     setMediaHost(document.querySelector<HTMLElement>('[data-testid="youtube-decks"]'));
-    // A rotated phone can be wider than the old 767px breakpoint. Keep coarse-pointer
-    // phone/tablet layouts in mobile presentation mode so rotation does not drop controls.
-    const query = window.matchMedia(MOBILE_MEDIA_QUERY);
-    const update = () => setMobile(query.matches);
-    update(); query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
+    return undefined;
   }, []);
 
   useEffect(() => {
