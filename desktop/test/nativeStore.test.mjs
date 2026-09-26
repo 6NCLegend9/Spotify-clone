@@ -21,11 +21,13 @@ test("desktop settings default safely and persist supported values", () => {
     assert.equal(store.get("closeToTray"), true);
     assert.equal(store.get("updateChannel"), "stable");
     assert.equal(store.get("safeMode"), false);
+    assert.equal(store.get("rendererCacheSchema"), 0);
 
     const installationId = store.get("installationId");
     store.set("autoLaunch", true);
     store.set("closeToTray", false);
     store.set("updateChannel", "beta");
+    store.set("rendererCacheSchema", 1);
 
     const restored = new NativeStore(directory);
     assert.equal(restored.get("installationId"), installationId);
@@ -33,6 +35,7 @@ test("desktop settings default safely and persist supported values", () => {
     assert.equal(restored.get("closeToTray"), false);
     assert.equal(restored.get("updateChannel"), "beta");
     assert.equal(restored.get("autoUpdate"), true);
+    assert.equal(restored.get("rendererCacheSchema"), 1);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
