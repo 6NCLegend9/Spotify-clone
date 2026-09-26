@@ -50,6 +50,14 @@ try {
   await page.goto(`${origin}/search`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Browse all", exact: true }).waitFor();
 
+  const visibleWindow = await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    window?.show();
+    return window?.isVisible() === true;
+  });
+  assert.equal(visibleWindow, true, "Background measurement must start from a visible Desktop window.");
+  await sleep(250);
+
   await page.evaluate((heartbeatMs) => {
     const state = {
       intervalTicks: 0,
