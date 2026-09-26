@@ -67,5 +67,5 @@ test("the route-wide hard ceiling still blocks mixed workload abuse", async () =
   assert.equal(blocked.status, 429);
   const body = await blocked.json();
   assert.equal(body.error?.code || body.code, "RATE_LIMITED");
-  assert.equal(body.error?.retryAfter || body.retryAfter, 37);
+  assert.equal(blocked.headers.get("retry-after"), "37");
 });
