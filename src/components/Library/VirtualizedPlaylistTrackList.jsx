@@ -6,6 +6,8 @@ import {
   PLAYLIST_OVERSCAN,
   PLAYLIST_ROW_HEIGHT,
   playlistScrollOffsetForIndex,
+  recallPlaylistScrollOffset,
+  rememberPlaylistScrollOffset,
   shouldVirtualizePlaylist,
   virtualPlaylistRange,
 } from "@/utils/virtualPlaylist.mjs";
@@ -112,11 +114,11 @@ export default function VirtualizedPlaylistTrackList({
       setRange((current) => (sameRange(current, next) ? current : next));
     };
 
-    if (!restoredRef.current && scrollKey && scrollMemory.has(scrollKey)) {
+    const rememberedOffset = recallPlaylistScrollOffset(scrollMemory, scrollKey);
+    if (!restoredRef.current && rememberedOffset !== null) {
       restoredRef.current = true;
-      const relativeOffset = scrollMemory.get(scrollKey);
       const metrics = scrollMetrics(node, host);
-      scrollHostTo(host, metrics.listTop + relativeOffset);
+      scrollHostTo(host, metrics.listTop + rememberedOffset);
     } else {
       restoredRef.current = true;
     }
@@ -133,7 +135,7 @@ export default function VirtualizedPlaylistTrackList({
           0,
           Math.min(items.length * PLAYLIST_ROW_HEIGHT, -metrics.containerTop),
         );
-        scrollMemory.set(scrollKey, relativeOffset);
+        rememberPlaylistScrollOffset(scrollMemory, scrollKey, relativeOffset);
       }
       host.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
