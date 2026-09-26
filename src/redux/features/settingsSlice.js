@@ -82,8 +82,6 @@ const settingsSlice = createSlice({
         ...state,
         ...payload,
         owner: state.owner,
-        transitionMode: "off",
-        crossfadeSeconds: 0,
         keyboardShortcuts:
           payload.keyboardShortcuts !== undefined
             ? payload.keyboardShortcuts !== false
