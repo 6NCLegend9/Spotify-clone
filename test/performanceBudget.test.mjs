@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   aggregateNavigationMetrics,
+  evaluateBenchmarkMethodology,
   evaluatePerformanceBudget,
   median,
 } from "../scripts/performance-budget-lib.mjs";
@@ -123,4 +124,45 @@ test("performance budget fails closed when a surface has too few samples", () =>
   assert.equal(result.ok, false);
   assert.equal(result.regressions[0].metric, "sampleCount");
   assert.equal(result.regressions[0].minimum, 5);
+});
+
+
+test("performance gate rejects a baseline captured with a different benchmark methodology", () => {
+  const baseline = {
+    methodology: {
+      samplesPerRoute: 5,
+      isolatedContextPerSample: true,
+      httpCacheEnabled: false,
+      serviceWorkersEnabled: false,
+      syntheticAPIs: true,
+    },
+  };
+  const mismatch = evaluateBenchmarkMethodology({
+    baseline,
+    report: {
+      environment: {
+        samplesPerRoute: 3,
+        isolatedContextPerSample: false,
+        httpCacheEnabled: false,
+        serviceWorkersEnabled: false,
+        syntheticAPIs: true,
+      },
+    },
+  });
+  assert.equal(mismatch.ok, false);
+  assert.deepEqual(mismatch.mismatches.map((item) => item.key).sort(), [
+    "isolatedContextPerSample",
+    "samplesPerRoute",
+  ]);
+
+  const match = evaluateBenchmarkMethodology({
+    baseline,
+    report: {
+      environment: {
+        ...baseline.methodology,
+      },
+    },
+  });
+  assert.equal(match.ok, true);
+  assert.deepEqual(match.mismatches, []);
 });
