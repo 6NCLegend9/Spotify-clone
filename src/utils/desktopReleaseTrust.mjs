@@ -8,6 +8,74 @@ import {
 } from "./desktopRelease.mjs";
 
 const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
+const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+
+function yamlScalar(text, key) {
+  const match = String(text || "").match(new RegExp(`^${key}:\\s*["']?([^\\r\\n"']+)["']?\\s*import crypto from "node:crypto";
+import { desktopAppDownloadUrl } from "./desktopInstaller.mjs";
+import {
+  desktopGithubReleaseDownloadUrl,
+  desktopReleaseBundle,
+  fetchDesktopGithubRelease,
+  normalizeDesktopReleaseChannel,
+} from "./desktopRelease.mjs";
+
+, "m"));
+  return match ? match[1].trim() : "";
+}
+
+function yamlFileEntry(text, fileName) {
+  const lines = String(text || "").split(/\r?\n/);
+  let inFiles = false;
+  let current = null;
+  const entries = [];
+  for (const line of lines) {
+    if (/^files:\s*$/.test(line)) {
+      inFiles = true;
+      continue;
+    }
+    if (inFiles && /^\S/.test(line) && !/^\s*-\s+url:/.test(line)) break;
+    const urlMatch = line.match(/^\s*-\s+url:\s*["']?([^"']+)["']?\s*$/);
+    if (urlMatch) {
+      current = { url: urlMatch[1].trim(), sha512: "", size: null };
+      entries.push(current);
+      continue;
+    }
+    if (!current) continue;
+    const shaMatch = line.match(/^\s+sha512:\s*["']?([^"']+)["']?\s*$/);
+    if (shaMatch) current.sha512 = shaMatch[1].trim();
+    const sizeMatch = line.match(/^\s+size:\s*(\d+)\s*$/);
+    if (sizeMatch) current.size = Number(sizeMatch[1]);
+  }
+  return entries.find((entry) => entry.url === fileName) || null;
+}
+
+export function parseDesktopUpdateMetadata(text) {
+  const raw = String(text || "");
+  return {
+    version: yamlScalar(raw, "version"),
+    path: yamlScalar(raw, "path"),
+    sha512: yamlScalar(raw, "sha512"),
+    files: raw,
+  };
+}
+
+function verifyDesktopUpdateMetadata(text, bundle, payload) {
+  const metadata = parseDesktopUpdateMetadata(text);
+  const file = yamlFileEntry(metadata.files, bundle.installerFile);
+  if (!SEMVER.test(metadata.version) || metadata.version !== bundle.version) {
+    throw new Error("GitHub latest.yml version does not match the release bundle.");
+  }
+  if (metadata.path !== bundle.installerFile) {
+    throw new Error("GitHub latest.yml installer path does not match the release bundle.");
+  }
+  if (!SHA512_BASE64.test(metadata.sha512) || metadata.sha512 !== payload.sha512) {
+    throw new Error("GitHub latest.yml SHA-512 does not match the trusted manifest.");
+  }
+  if (!file || file.sha512 !== payload.sha512 || file.size !== payload.sizeBytes) {
+    throw new Error("GitHub latest.yml file entry does not match the trusted manifest.");
+  }
+}
 
 export function verifyDesktopReleaseEnvelope(envelope, secretValue) {
   const secret = String(secretValue || "");
@@ -83,6 +151,16 @@ export async function fetchVerifiedDesktopGithubRelease(channelValue, {
   if (channel !== "internal" && payload.signed !== true) {
     throw new Error("Stable and beta desktop releases must be signed.");
   }
+
+  const metadataUrl = desktopGithubReleaseDownloadUrl(bundle.tag, bundle.metadataFile);
+  const metadataResponse = await fetchImpl(metadataUrl, {
+    headers: { accept: "text/yaml, text/plain;q=0.9" },
+    cache: "no-store",
+  });
+  if (!metadataResponse?.ok) {
+    throw new Error(`GitHub desktop update metadata returned ${metadataResponse?.status || "an error"}.`);
+  }
+  verifyDesktopUpdateMetadata(await metadataResponse.text(), bundle, payload);
 
   return { release, bundle, payload };
 }
