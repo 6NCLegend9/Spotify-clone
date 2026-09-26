@@ -306,8 +306,14 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
     host.querySelector(".yt-crop-frame").appendChild(frame);
   });
 
-  await dock.getByRole("button", { name: "Expand player: Mobile video stability" }).click();
-  await expect(page.getByRole("dialog", { name: "Now playing" })).toBeVisible();
+  const expand = dock.getByRole("button", { name: "Expand player: Mobile video stability" });
+  // Dispatch synchronously so this assertion observes the sheet while its entry
+  // animation is actually active. A normal Playwright click can spend longer
+  // than the 300ms animation in actionability/stability checks on busy CI.
+  await expand.dispatchEvent("click");
+  const dialog = page.getByRole("dialog", { name: "Now playing" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveClass(/sheetEntering/);
 
   const moving = await page.getByTestId("youtube-decks").evaluate((host) => ({
     hidden: host.getAttribute("aria-hidden"),
@@ -317,6 +323,7 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
   expect(Number(moving.opacity)).toBe(0);
 
   await page.clock.fastForward(380);
+  await expect(dialog).not.toHaveClass(/sheetEntering/);
 
   const settled = await page.getByTestId("youtube-decks").evaluate((host) => {
     const rect = host.getBoundingClientRect();
