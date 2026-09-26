@@ -70,6 +70,18 @@ function mockRelease(envelope, version = "2.0.0") {
     if (text.endsWith("/release-manifest.json")) {
       return new Response(JSON.stringify(envelope), { status: 200, headers: { "content-type": "application/json" } });
     }
+    if (text.endsWith("/latest.yml")) {
+      const installer = `HayKasa-Setup-${version}-x64.exe`;
+      return new Response([
+        `version: ${version}`,
+        "files:",
+        `  - url: ${installer}`,
+        `    sha512: ${"B".repeat(86)}==`,
+        "    size: 123456",
+        `path: ${installer}`,
+        `sha512: ${"B".repeat(86)}==`,
+      ].join("\n"), { status: 200, headers: { "content-type": "text/yaml" } });
+    }
     throw new Error(`Unexpected fetch: ${text}`);
   };
 }
