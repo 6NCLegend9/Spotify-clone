@@ -80,6 +80,14 @@ const requestMediaPresentation = (command) => {
   }));
 };
 
+const reportYoutubeProviderError = (code) => {
+  if (typeof window === "undefined") return;
+  const numericCode = Number(code);
+  window.dispatchEvent(new CustomEvent("heykasa:youtube-provider-error", {
+    detail: { code: Number.isFinite(numericCode) ? numericCode : 0 },
+  }));
+};
+
 const otherDeck = (key) => (key === "A" ? "B" : "A");
 const SEEK_GUARD_MS = 5000;
 const TRACK_CHANGE_GUARD_MS = 8000;
@@ -1320,6 +1328,7 @@ function YouTubePlayer() {
         },
         onError: (event) => {
           if (!isCurrent()) return;
+          reportYoutubeProviderError(event.data);
           if (key === activeDeckRef.current) {
             clearActiveBufferTimers();
             void handlePlaybackFailureRef.current?.({
