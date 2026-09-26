@@ -213,3 +213,22 @@ available in the measured window. The Linux/Xvfb hide path does not report
 interval during this short sample, so the CI gate does not claim those behaviors.
 The measurement remains in CI to catch regressions in animation suspension, Jam-sized
 timer progress, and native media-command delivery.
+
+
+## PR19 enforced performance budget
+
+Date: 2026-09-26. The CI benchmark now fails when route performance materially
+regresses instead of merely uploading a report. The committed baseline comes from
+green workflow run `36250029193`, benchmark job `108426867433`, head
+`784179cab38ab74d857210e8aa62930bf03094de`.
+
+For each `/search` and `/library` surface at 1440px and 390px, the gate compares:
+- median usable time;
+- median encoded script bytes;
+- maximum sampled long-task time.
+
+The default tolerance is 30% relative growth plus an absolute noise floor
+(100ms usable time, 50KB script bytes, 150ms long tasks). This is intentionally
+tolerant of GitHub Actions variance while still failing material regressions.
+The baseline is synthetic Chromium with mocked APIs and is a regression signal,
+not a field-performance SLA.
