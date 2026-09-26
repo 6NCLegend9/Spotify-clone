@@ -91,4 +91,11 @@ test("MediaPresentation is the only interactive video presentation owner", async
   assert.match(player, /videoAvailable=\{videoVisible\}/);
   assert.doesNotMatch(player, /const \[expanded, setExpanded\] = useState/);
   assert.doesNotMatch(player, /setExpanded\(next\)/);
+  assert.doesNotMatch(player, /const expanded = false/);
+  assert.doesNotMatch(player, /\bmobileSheet\b|\bsetMobileSheet\b/);
+  assert.doesNotMatch(player, /\bsheetTab\b|\bsetSheetTab\b/);
+  assert.doesNotMatch(player, /\bimmersive\b|\bsetImmersive\b|\bimmersiveRef\b/);
+  assert.doesNotMatch(player, /\bchromeVisible\b|\bsetChromeVisible\b|\bchromeVisibleRef\b/);
+  assert.doesNotMatch(player, /\bphoneSheet\b|\bsheetChrome\b|\bexpandedLayout\b/);
+  assert.doesNotMatch(player, /onFullscreenSwipeStart|onFullscreenSwipeEnd|toggleSheetTab/);
 });
