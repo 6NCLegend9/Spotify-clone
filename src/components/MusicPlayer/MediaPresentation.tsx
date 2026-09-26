@@ -182,33 +182,72 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const dismiss = useCallback(() => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      entering: false,
+      closing: false,
+      expanded: false,
+    };
     setClosing(false); setEntering(false); setDragY(0); setCompactHeader(false);
     setDrawer(false); setExpanded(false); setView("player");
   }, [setDragY]);
   const collapseSheet = useCallback(() => {
     if (!mobile || expanded || window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.a11yReducedMotion === "true") { dismiss(); return; }
     if (closeTimer.current !== null) return;
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      entering: false,
+      closing: true,
+    };
     setEntering(false); setClosing(true);
     closeTimer.current = window.setTimeout(dismiss, 260);
   }, [mobile, expanded, dismiss]);
   useEffect(() => {
     if (!entering) return;
-    const timer = window.setTimeout(() => setEntering(false), 320);
+    const timer = window.setTimeout(() => {
+      viewportStateRef.current = {
+        ...viewportStateRef.current,
+        entering: false,
+      };
+      setEntering(false);
+    }, 320);
     return () => window.clearTimeout(timer);
   }, [entering]);
   useEffect(() => () => { if (closeTimer.current !== null) window.clearTimeout(closeTimer.current); cancelAnimationFrame(fallbackFrame.current); }, []);
   const open = useCallback(() => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
+    // Update the imperative viewport state before setDragY can schedule an
+    // existing ResizeObserver/rAF callback from the pre-open render.
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      mobile,
+      entering: true,
+      closing: false,
+      expanded: false,
+    };
     setClosing(false); setEntering(true); setDragY(0); setCompactHeader(false);
     rememberFocus(); setView("player"); setExpanded(false); setDrawer(true);
-  }, [rememberFocus, setDragY]);
+  }, [mobile, rememberFocus, setDragY]);
   const openExpanded = useCallback(() => {
     if (!canVideo) { open(); return; }
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      entering: false,
+      closing: false,
+      expanded: true,
+    };
     rememberFocus(); setView("player"); setExpanded(true);
   }, [canVideo, open, rememberFocus]);
   const openLyrics = useCallback(() => {
     if (!canLyrics) return;
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      showingVideo: false,
+      entering: false,
+      closing: false,
+      expanded: false,
+    };
     rememberFocus(); setExpanded(false); setDrawer(true); setView("lyrics");
   }, [canLyrics, rememberFocus]);
   const openQueue = useCallback(() => {
