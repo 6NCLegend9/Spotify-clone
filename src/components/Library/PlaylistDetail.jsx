@@ -133,7 +133,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const [showCollaborator, setShowCollaborator] = useState(false);
   const [collaboratorEmail, setCollaboratorEmail] = useState("");
   const [saving, setSaving] = useState(false);
-  const [smartShuffle, setSmartShuffle] = useState(isLiked && autoAdd);
+  const [discoveryShuffle, setSmartShuffle] = useState(isLiked && autoAdd);
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState(null);
   const live = useRef(true);
@@ -233,12 +233,12 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     [tracks],
   );
 
-  const fetchSmartRecommendations = async () => {
+  const fetchDiscoveryRecommendations = async () => {
     if (recommendations.length > 0) return recommendations;
     try {
       const data = await requestJson("/api/recommendations", {
         fallbackTitle: "Recommendations unavailable",
-        fallbackMessage: "Smart Shuffle recommendations couldn’t be loaded.",
+        fallbackMessage: "Shuffle + Discovery recommendations couldn’t be loaded.",
       });
       const nextRecommendations = [
         ...(Array.isArray(data?.sections?.trending) ? data.sections.trending : []),
@@ -253,8 +253,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   };
 
   const createQueue = async () => {
-    if (!smartShuffle) return tracks;
-    const smartTracks = await fetchSmartRecommendations();
+    if (!discoveryShuffle) return tracks;
+    const smartTracks = await fetchDiscoveryRecommendations();
     return interleaveRecommendations(tracks, [...smartTracks]);
   };
 
@@ -323,11 +323,11 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
 
   const isPublicPlaylist = !isLiked && collection?.visibility === "public";
 
-  const toggleSmartShuffle = async () => {
-    const nextValue = !smartShuffle;
+  const toggleDiscoveryShuffle = async () => {
+    const nextValue = !discoveryShuffle;
     setSmartShuffle(nextValue);
     dispatch(setAutoAdd(nextValue));
-    if (nextValue) fetchSmartRecommendations();
+    if (nextValue) fetchDiscoveryRecommendations();
     if (!isLiked && isOwner) {
       const response = await updatePlaylist(playlistId, "smartShuffle", nextValue);
       if (!live.current) return;
@@ -335,8 +335,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
         setSmartShuffle(!nextValue);
         dispatch(setAutoAdd(!nextValue));
         reportMutationError(response, {
-          title: "Smart Shuffle not updated",
-          message: "We couldn’t update Smart Shuffle. Please try again.",
+          title: "Shuffle + Discovery not updated",
+          message: "We couldn’t update Shuffle + Discovery. Please try again.",
         });
       } else {
         setActionError(null);
@@ -536,7 +536,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             ) : null}
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
               <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="play-fab play-fab--static mr-2 h-14 w-14 min-h-14 min-w-14 disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
-              <button type="button" aria-pressed={smartShuffle} onClick={toggleSmartShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${smartShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Smart Shuffle {smartShuffle ? "On" : "Off"}</button>
+              <button type="button" aria-pressed={discoveryShuffle} onClick={toggleDiscoveryShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${discoveryShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Shuffle + Discovery {discoveryShuffle ? "On" : "Off"}</button>
               {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => current ? ({ ...current, ...next }) : current)} /> : null}
               {isPublicPlaylist ? (
                 <>
