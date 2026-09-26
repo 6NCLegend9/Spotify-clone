@@ -10,6 +10,8 @@ on:
       - "src/hooks/useYoutubeCaptions.js"
       - "src/app/globals.css"
       - "e2e/youtube-provider.spec.js"
+      - "src/utils/youtubeProviderFailure.mjs"
+      - "test/youtubeProviderSmokeContract.test.mjs"
       - ".github/workflows/youtube-provider-smoke.yml"
 
 permissions:
@@ -29,9 +31,8 @@ jobs:
   real-youtube:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # YouTube is an external provider. Surface regressions, but do not make a
-    # provider outage or regional embed restriction block an otherwise healthy PR.
-    continue-on-error: true
+    # The Playwright spec skips only failures with explicit external-provider
+    # evidence. HayKasa integration regressions remain blocking.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
