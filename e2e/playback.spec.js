@@ -459,3 +459,85 @@ test("video expansion fits desktop and mobile without replacing the media host",
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
   expect(errors).toEqual([]);
 });
+
+
+test("keeps the user's volume after returning from another tab", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Desktop tab switching regression.");
+
+  await page.addInitScript(() => {
+    window.__volumeCalls = [];
+    window.__enginePlayCalls = 0;
+    window.__engineTime = 42;
+
+    localStorage.setItem("persist:settings", JSON.stringify({
+      owner: JSON.stringify("account:test-a"),
+      audioOnly: "true",
+      masterVolume: "1",
+    }));
+
+    window.YT = {
+      PlayerState: { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 },
+      Player: class {
+        constructor(frame, options) {
+          const mount = typeof frame === "string" ? document.getElementById(frame) : frame;
+          this.frame = document.createElement("iframe");
+          this.frame.id = mount.id;
+          this.frame.title = "YouTube volume test player";
+          mount.replaceWith(this.frame);
+          window.__volumeEngine = this;
+          setTimeout(() => options.events.onReady({ target: this }), 0);
+        }
+        getIframe() { return this.frame; }
+        getDuration() { return 180; }
+        getCurrentTime() { return window.__engineTime; }
+        getPlayerState() { return 2; }
+        getVideoData() { return { video_id: "abcdefghijk" }; }
+        getPlaybackQuality() { return "medium"; }
+        playVideo() { window.__enginePlayCalls += 1; }
+        pauseVideo() {}
+        mute() {}
+        unMute() {}
+        setVolume(value) {
+          this.volume = Number(value);
+          window.__volumeCalls.push(this.volume);
+        }
+        setPlaybackQuality() {}
+        seekTo() {}
+        destroy() { this.frame.remove(); }
+      },
+    };
+
+    const track = { id: "abcdefghijk", title: "Volume restore test", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1,
+      owner: "account:test-a",
+      savedAt: Date.now(),
+      youtubeVideo: track,
+      youtubeQueue: [track],
+      position: 42,
+    }));
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("player-dock")).toBeVisible();
+  await expect(page.locator('[data-testid="youtube-decks"] iframe')).toHaveCount(1);
+
+  const play = page.getByTestId("player-dock").getByRole("button", { name: "Play", exact: true }).first();
+  await play.click();
+  await expect(page.getByTestId("player-dock").getByRole("button", { name: "Pause", exact: true }).first()).toBeVisible();
+
+  const volume = page.getByRole("slider", { name: "Volume" }).first();
+  await volume.fill("0.3");
+  await expect.poll(() => page.evaluate(() => window.__volumeCalls.at(-1))).toBe(30);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+
+  await expect.poll(() => page.evaluate(() => window.__volumeCalls.at(-1))).toBe(30);
+});
