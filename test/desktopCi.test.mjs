@@ -29,6 +29,15 @@ test("desktop package CI owns Windows packaging and launches the packaged runtim
 });
 
 
+test("desktop preview workflow stamps the immutable internal build channel before packaging", () => {
+  const workflow = readFileSync(path.join(root, ".github/workflows/desktop-preview.yml"), "utf8");
+  assert.match(workflow, /npm --prefix desktop pkg set heykasaReleaseChannel=internal/);
+  const stampIndex = workflow.indexOf("npm --prefix desktop pkg set heykasaReleaseChannel=internal");
+  const buildIndex = workflow.indexOf("npm run dist");
+  assert.ok(stampIndex >= 0, "Preview workflow must stamp the internal build channel.");
+  assert.ok(buildIndex > stampIndex, "Preview build channel must be stamped before packaging.");
+});
+
 test("desktop release workflow stamps the immutable build update channel before packaging", () => {
   const workflow = readFileSync(path.join(root, ".github/workflows/desktop-release.yml"), "utf8");
   const pkg = JSON.parse(readFileSync(path.join(root, "desktop/package.json"), "utf8"));
