@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeStoredUpdateChannel } from "./updateChannel.mjs";
 
 const STORE_VERSION = 2;
 const CRASH_WINDOW_MS = 10 * 60 * 1000;
@@ -40,9 +41,7 @@ function sanitize(value) {
     autoLaunch: input.autoLaunch === true,
     autoUpdate: input.autoUpdate !== false,
     closeToTray: input.closeToTray !== false,
-    updateChannel: ["stable", "beta", "internal"].includes(input.updateChannel)
-      ? input.updateChannel
-      : "stable",
+    updateChannel: normalizeStoredUpdateChannel(input.updateChannel),
     lastNotifiedVersion: typeof input.lastNotifiedVersion === "string"
       ? input.lastNotifiedVersion.slice(0, 40)
       : "",
