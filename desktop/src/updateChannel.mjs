@@ -12,3 +12,10 @@ export function rendererSelectableUpdateChannel(value, { isPackaged = true } = {
   if (!isPackaged && channel === "internal") return "internal";
   return "";
 }
+
+
+export function effectiveUpdateChannel(value, { isPackaged = true } = {}) {
+  const stored = normalizeStoredUpdateChannel(value);
+  if (isPackaged && stored === "internal") return "stable";
+  return stored;
+}
