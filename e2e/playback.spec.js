@@ -462,8 +462,6 @@ test("video expansion fits desktop and mobile without replacing the media host",
 
 
 test("keeps the user's volume after returning from another tab", async ({ page, isMobile }) => {
-  test.skip(isMobile, "Desktop tab switching regression.");
-
   await page.addInitScript(() => {
     window.__volumeCalls = [];
     window.__enginePlayCalls = 0;
@@ -526,7 +524,11 @@ test("keeps the user's volume after returning from another tab", async ({ page, 
   await play.click();
   await expect(page.getByTestId("player-dock").getByRole("button", { name: "Pause", exact: true }).first()).toBeVisible();
 
-  const volume = page.getByRole("slider", { name: "Volume" }).first();
+  if (isMobile) {
+    await page.getByRole("button", { name: "Volume controls" }).first().click();
+  }
+  const volume = page.locator('input[aria-label="Volume"]:visible').first();
+  await expect(volume).toBeVisible();
   await volume.fill("0.3");
   await expect.poll(() => page.evaluate(() => window.__volumeCalls.at(-1))).toBe(30);
 
