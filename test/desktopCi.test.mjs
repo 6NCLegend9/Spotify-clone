@@ -20,6 +20,7 @@ test("desktop package CI owns Windows packaging and launches the packaged runtim
   const pkg = JSON.parse(readFileSync(path.join(root, "desktop/package.json"), "utf8"));
   assert.match(workflow, /- "desktop\/\*\*"/);
   assert.match(workflow, /runs-on: windows-latest/);
+  assert.match(workflow, /npm --prefix desktop pkg set heykasaReleaseChannel=internal/);
   assert.match(workflow, /npm --prefix desktop run dist/);
   assert.match(workflow, /Verify packaged Windows runtime/);
   assert.match(workflow, /npm --prefix desktop run smoke:packaged/);
@@ -30,7 +31,7 @@ test("desktop package CI owns Windows packaging and launches the packaged runtim
 
 test("desktop release workflow stamps the immutable build update channel before packaging", () => {
   const workflow = readFileSync(path.join(root, ".github/workflows/desktop-release.yml"), "utf8");
-  const pkg = JSON.parse(readFileSync(path.join(root, "desktop/package.json"), "utf8");
+  const pkg = JSON.parse(readFileSync(path.join(root, "desktop/package.json"), "utf8"));
   assert.equal(pkg.heykasaReleaseChannel, "stable");
   assert.match(workflow, /npm pkg set heykasaReleaseChannel=internal/);
   assert.match(workflow, /npm pkg set heykasaReleaseChannel="\$\{\{ inputs\.channel \}\}"/);
