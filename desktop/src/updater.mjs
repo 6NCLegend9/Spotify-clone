@@ -11,6 +11,7 @@ import {
 import { installationEligibleForRollout } from "./policy.mjs";
 import { versionOlderThan } from "./version.mjs";
 import { effectiveUpdateChannel } from "./updateChannel.mjs";
+import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
 
 const { autoUpdater } = updaterPackage;
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
@@ -100,7 +101,7 @@ export class DesktopUpdater {
   }
 
   channel() {
-    return effectiveUpdateChannel(this.store.get("updateChannel"), { isPackaged: this.app.isPackaged });
+    return effectiveUpdateChannel(this.store.get("updateChannel"), { isPackaged: this.app.isPackaged, buildChannel: DESKTOP_BUILD_CHANNEL });
   }
 
   configuredFeedUrl() {
