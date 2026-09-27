@@ -40,9 +40,11 @@ jobs:
         run: npm test
       - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
-      - name: Stamp preview version
+      - name: Stamp preview version and build channel
         shell: pwsh
-        run: npm version "1.1.${{ github.run_number }}-internal" --no-git-tag-version
+        run: |
+          npm version "1.1.${{ github.run_number }}-internal" --no-git-tag-version
+          npm pkg set heykasaReleaseChannel=internal
       - name: Build unsigned Windows installer
         run: npm run dist
       - uses: actions/upload-artifact@v4
