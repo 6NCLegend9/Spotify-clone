@@ -36,9 +36,12 @@ function cleanHttpsUrl(value) {
   return url.href;
 }
 
-async function packageVersion() {
+async function packageMetadata() {
   const pkg = JSON.parse(await fsp.readFile(path.join(desktopRoot, "package.json"), "utf8"));
-  return cleanVersion(pkg.version, "desktop/package.json version");
+  return {
+    version: cleanVersion(pkg.version, "desktop/package.json version"),
+    channel: normalizeDesktopReleaseChannel(pkg.heykasaReleaseChannel),
+  };
 }
 
 async function sha512File(file) {
@@ -85,7 +88,11 @@ async function releaseFiles(version) {
 const channel = normalizeDesktopReleaseChannel(process.env.HEYKASA_DESKTOP_RELEASE_CHANNEL);
 if (!channel) throw new Error("HEYKASA_DESKTOP_RELEASE_CHANNEL must be stable, beta, or internal.");
 
-const version = await packageVersion();
+const packageInfo = await packageMetadata();
+const version = packageInfo.version;
+if (packageInfo.channel !== channel) {
+  throw new Error(`desktop/package.json build channel ${packageInfo.channel || "missing"} does not match requested ${channel} release.`);
+}
 const minimum = cleanVersion(process.env.HEYKASA_DESKTOP_MINIMUM_VERSION || version, "minimum desktop version");
 const releaseNotesUrl = cleanHttpsUrl(process.env.HEYKASA_DESKTOP_RELEASE_NOTES_URL);
 const tag = desktopReleaseTag(channel, version);
