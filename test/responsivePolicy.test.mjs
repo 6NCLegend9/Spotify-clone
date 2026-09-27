@@ -57,6 +57,11 @@ test("responsive policy classifies portrait phone, rotated phone, tablet, and de
     responsiveLayoutForViewport({ width: 1440, height: 900, pointer: "fine" }),
     { phone: false, compactTouch: false, desktop: true },
   );
+  assert.deepEqual(
+    responsiveLayoutForViewport({ width: 1366, height: 1024, pointer: "coarse" }),
+    { phone: false, compactTouch: false, desktop: true },
+  );
+  assert.match(DESKTOP_QUERY, /min-width: 1181px/);
 });
 
 test("responsive policy changes classification across resize and orientation transitions", async () => {
