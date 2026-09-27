@@ -4,7 +4,7 @@ export const PHONE_LANDSCAPE_QUERY =
 export const PHONE_QUERY = `${PHONE_PORTRAIT_QUERY}, ${PHONE_LANDSCAPE_QUERY}`;
 export const COMPACT_TOUCH_QUERY =
   `${PHONE_QUERY}, (pointer: coarse) and (max-width: 1180px)`;
-export const DESKTOP_QUERY = "(min-width: 768px) and (pointer: fine)";
+export const DESKTOP_QUERY = "(min-width: 1181px), (min-width: 768px) and (pointer: fine)";
 
 function finiteDimension(value) {
   const number = Number(value);
