@@ -39,6 +39,25 @@ export function virtualPlaylistRange({
 }
 
 
+export function playlistIndexIsVisible({
+  index,
+  count,
+  rowHeight = PLAYLIST_ROW_HEIGHT,
+  containerTop = 0,
+  viewportHeight = 0,
+} = {}) {
+  const totalCount = Math.max(0, Math.floor(Number(count) || 0));
+  const targetIndex = Math.floor(Number(index));
+  if (!Number.isFinite(targetIndex) || targetIndex < 0 || targetIndex >= totalCount) return false;
+
+  const height = Math.max(1, Number(rowHeight) || PLAYLIST_ROW_HEIGHT);
+  const viewport = Math.max(0, Number(viewportHeight) || 0);
+  if (viewport <= 0) return false;
+  const rowTop = (Number(containerTop) || 0) + targetIndex * height;
+  const rowBottom = rowTop + height;
+  return rowBottom > 0 && rowTop < viewport;
+}
+
 export function playlistScrollOffsetForIndex({
   index,
   count,

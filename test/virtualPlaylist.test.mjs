@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PLAYLIST_ROW_HEIGHT,
   PLAYLIST_VIRTUALIZE_THRESHOLD,
+  playlistIndexIsVisible,
   playlistScrollOffsetForIndex,
   shouldVirtualizePlaylist,
   virtualPlaylistRange,
@@ -45,4 +46,18 @@ test("active-track reveal offset centers a distant row and clamps to list bounds
     playlistScrollOffsetForIndex({ index: 99999, count, viewportHeight: 844 }),
     Math.max(0, count * PLAYLIST_ROW_HEIGHT - 844),
   );
+});
+
+
+test("active reveal distinguishes overscan-mounted rows from viewport-visible rows", () => {
+  const base = {
+    count: 500,
+    rowHeight: PLAYLIST_ROW_HEIGHT,
+    containerTop: -(10 * PLAYLIST_ROW_HEIGHT),
+    viewportHeight: 5 * PLAYLIST_ROW_HEIGHT,
+  };
+  assert.equal(playlistIndexIsVisible({ ...base, index: 10 }), true);
+  assert.equal(playlistIndexIsVisible({ ...base, index: 14 }), true);
+  assert.equal(playlistIndexIsVisible({ ...base, index: 15 }), false);
+  assert.equal(playlistIndexIsVisible({ ...base, index: 9 }), false);
 });

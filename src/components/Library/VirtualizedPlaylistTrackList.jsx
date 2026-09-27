@@ -5,6 +5,7 @@ import PlaylistTrackRow from "@/components/Library/PlaylistTrackRow";
 import {
   PLAYLIST_OVERSCAN,
   PLAYLIST_ROW_HEIGHT,
+  playlistIndexIsVisible,
   playlistScrollOffsetForIndex,
   recallPlaylistScrollOffset,
   rememberPlaylistScrollOffset,
@@ -81,12 +82,18 @@ export default function VirtualizedPlaylistTrackList({
 
     const node = containerRef.current;
     if (!node) return;
-    const alreadyMounted = index >= range.start && index < range.end;
-    lastRevealedActiveRef.current = activeYoutubeId;
-    if (alreadyMounted) return;
-
     const host = scrollHostFor(node);
     const metrics = scrollMetrics(node, host);
+    const alreadyVisible = playlistIndexIsVisible({
+      index,
+      count: items.length,
+      rowHeight: PLAYLIST_ROW_HEIGHT,
+      containerTop: metrics.containerTop,
+      viewportHeight: metrics.viewportHeight,
+    });
+    lastRevealedActiveRef.current = activeYoutubeId;
+    if (alreadyVisible) return;
+
     const relativeOffset = playlistScrollOffsetForIndex({
       index,
       count: items.length,
