@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  effectiveUpdateChannel,
   normalizeStoredUpdateChannel,
   rendererSelectableUpdateChannel,
 } from "../src/updateChannel.mjs";
@@ -21,4 +22,11 @@ test("packaged web renderer cannot opt into unsigned internal updates", () => {
 test("unpackaged development may explicitly select internal channel", () => {
   assert.equal(rendererSelectableUpdateChannel("internal", { isPackaged: false }), "internal");
   assert.equal(rendererSelectableUpdateChannel("garbage", { isPackaged: false }), "");
+});
+
+
+test("packaged clients migrate previously stored internal channel back to stable", () => {
+  assert.equal(effectiveUpdateChannel("internal", { isPackaged: true }), "stable");
+  assert.equal(effectiveUpdateChannel("beta", { isPackaged: true }), "beta");
+  assert.equal(effectiveUpdateChannel("internal", { isPackaged: false }), "internal");
 });
