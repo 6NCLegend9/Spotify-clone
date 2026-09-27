@@ -61,6 +61,7 @@ import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
 import { shouldResetRendererCache } from "./cachePolicy.mjs";
 import { isPackagedCiSmoke, runPackagedCiSmoke } from "./ciSmoke.mjs";
 import { effectiveUpdateChannel, rendererSelectableUpdateChannel } from "./updateChannel.mjs";
+import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
@@ -859,7 +860,7 @@ function desktopPreferences() {
   return {
     autoUpdate: store?.get("autoUpdate") !== false,
     closeToTray: store?.get("closeToTray") !== false,
-    updateChannel: effectiveUpdateChannel(store?.get("updateChannel"), { isPackaged: app.isPackaged }),
+    updateChannel: effectiveUpdateChannel(store?.get("updateChannel"), { isPackaged: app.isPackaged, buildChannel: DESKTOP_BUILD_CHANNEL }),
   };
 }
 
@@ -868,7 +869,7 @@ function setDesktopPreference(key, value) {
   if (key === "autoUpdate" || key === "closeToTray") {
     store.set(key, value === true);
   } else if (key === "updateChannel") {
-    const channel = rendererSelectableUpdateChannel(value, { isPackaged: app.isPackaged });
+    const channel = rendererSelectableUpdateChannel(value, { isPackaged: app.isPackaged, buildChannel: DESKTOP_BUILD_CHANNEL });
     if (!channel) throw new Error("Unsupported desktop update channel.");
     store.set(key, channel);
   } else {
@@ -1157,8 +1158,11 @@ if (registerSingleInstance()) {
     app.setAppUserModelId(APP_USER_MODEL_ID);
     configureSession(session.defaultSession);
     const userDataDir = app.getPath("userData");
-    store = new NativeStore(userDataDir);
-    const effectiveChannel = effectiveUpdateChannel(store.get("updateChannel"), { isPackaged: app.isPackaged });
+    store = new NativeStore(userDataDir, { defaultUpdateChannel: DESKTOP_BUILD_CHANNEL });
+    const effectiveChannel = effectiveUpdateChannel(store.get("updateChannel"), {
+      isPackaged: app.isPackaged,
+      buildChannel: DESKTOP_BUILD_CHANNEL,
+    });
     if (effectiveChannel !== store.get("updateChannel")) store.set("updateChannel", effectiveChannel);
     appearanceStore = new AppearanceStore(userDataDir);
     resolvedAccent = appearanceStore.activeProfile()?.accent?.fixedColor || "#00e6e6";
