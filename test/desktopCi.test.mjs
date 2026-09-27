@@ -46,3 +46,22 @@ test("desktop release workflow stamps the immutable build update channel before 
   assert.match(workflow, /npm pkg set heykasaReleaseChannel=internal/);
   assert.match(workflow, /npm pkg set heykasaReleaseChannel="\$\{\{ inputs\.channel \}\}"/);
 });
+
+
+test("desktop release workflow launches each packaged build before preparing publication assets", () => {
+  const workflow = readFileSync(path.join(root, ".github/workflows/desktop-release.yml"), "utf8");
+  const smokeMatches = workflow.match(/Verify packaged Windows runtime/g) || [];
+  const smokeCommands = workflow.match(/npm run smoke:packaged/g) || [];
+  assert.equal(smokeMatches.length, 2, "Internal and signed release jobs must both launch the packaged runtime.");
+  assert.equal(smokeCommands.length, 2, "Internal and signed release jobs must both execute smoke:packaged.");
+
+  const internalBuild = workflow.indexOf("Build internal Windows installer");
+  const internalSmoke = workflow.indexOf("Verify packaged Windows runtime", internalBuild);
+  const internalPrepare = workflow.indexOf("Prepare GitHub release bundle", internalBuild);
+  assert.ok(internalBuild >= 0 && internalSmoke > internalBuild && internalPrepare > internalSmoke);
+
+  const signedBuild = workflow.indexOf("Build signed Windows installer");
+  const signedSmoke = workflow.indexOf("Verify packaged Windows runtime", signedBuild);
+  const signedPrepare = workflow.indexOf("Prepare GitHub release bundle", signedBuild);
+  assert.ok(signedBuild >= 0 && signedSmoke > signedBuild && signedPrepare > signedSmoke);
+});
