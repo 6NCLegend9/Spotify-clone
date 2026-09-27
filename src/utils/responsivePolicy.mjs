@@ -1,6 +1,6 @@
 export const PHONE_PORTRAIT_QUERY = "(max-width: 767px)";
 export const PHONE_LANDSCAPE_QUERY =
-  "(orientation: landscape) and (max-height: 540px) and (max-width: 1100px)";
+  "(orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px)";
 export const PHONE_QUERY = `${PHONE_PORTRAIT_QUERY}, ${PHONE_LANDSCAPE_QUERY}`;
 export const COMPACT_TOUCH_QUERY =
   `${PHONE_QUERY}, (pointer: coarse) and (max-width: 1180px)`;
