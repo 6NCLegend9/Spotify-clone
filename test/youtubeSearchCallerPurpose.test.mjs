@@ -28,3 +28,10 @@ test("production youtube-search callers use the purpose-aware URL builder", () =
     .sort();
   assert.deepEqual(direct, []);
 });
+
+
+test("search-page artist and playlist enrichment use the discovery bucket", () => {
+  const source = fs.readFileSync(path.join(root, "src/components/YouTubeMusicResults.jsx"), "utf8");
+  assert.match(source, /buildYoutubeSearchUrl\(\{ q: query, type: "channel" \}, "discovery"\)/);
+  assert.match(source, /buildYoutubeSearchUrl\(\{ q: query, type: "playlist" \}, "discovery"\)/);
+});
