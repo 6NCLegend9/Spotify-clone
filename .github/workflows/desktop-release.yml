@@ -97,7 +97,9 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Stamp internal release version
         shell: pwsh
-        run: npm version "${{ inputs.version }}" --no-git-tag-version
+        run: |
+          npm version "${{ inputs.version }}" --no-git-tag-version
+          npm pkg set heykasaReleaseChannel=internal
       - name: Build internal Windows installer
         run: npm run dist
       - name: Prepare GitHub release bundle
@@ -197,7 +199,9 @@ jobs:
         run: node scripts/validate-release-version.mjs
       - name: Stamp signed release version
         shell: pwsh
-        run: npm version "${{ inputs.version }}" --no-git-tag-version
+        run: |
+          npm version "${{ inputs.version }}" --no-git-tag-version
+          npm pkg set heykasaReleaseChannel="${{ inputs.channel }}"
       - name: Verify v1 package metadata
         shell: pwsh
         run: |
