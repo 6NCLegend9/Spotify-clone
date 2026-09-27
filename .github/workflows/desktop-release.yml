@@ -102,6 +102,8 @@ jobs:
           npm pkg set heykasaReleaseChannel=internal
       - name: Build internal Windows installer
         run: npm run dist
+      - name: Verify packaged Windows runtime
+        run: npm run smoke:packaged
       - name: Prepare GitHub release bundle
         id: prepare
         run: npm run prepare-github-release
@@ -212,6 +214,8 @@ jobs:
           Write-Host "Preparing HayKasa Desktop $($package.version) on $env:HEYKASA_DESKTOP_RELEASE_CHANNEL"
       - name: Build signed Windows installer
         run: npm run dist
+      - name: Verify packaged Windows runtime
+        run: npm run smoke:packaged
       - name: Verify Authenticode signature
         shell: pwsh
         run: |
