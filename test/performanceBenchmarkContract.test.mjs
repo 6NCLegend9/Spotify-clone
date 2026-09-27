@@ -22,3 +22,22 @@ test("production navigation benchmark uses five isolated contexts per surface", 
   assert.ok(navigation > contextCreation, "navigation must happen inside the isolated sample context");
   assert.ok(contextClose > navigation, "each isolated sample context must be closed");
 });
+
+
+test("performance baseline is derived from five independent benchmark batches", () => {
+  const baseline = JSON.parse(readFileSync(path.join(root, "scripts/performance-baseline.json"), "utf8"));
+  assert.equal(Array.isArray(baseline.source?.benchmarkJobIds), true);
+  assert.equal(baseline.source.benchmarkJobIds.length, 5);
+  assert.equal(new Set(baseline.source.benchmarkJobIds).size, 5);
+});
+
+test("CI confirms a first performance-budget failure with a fresh benchmark batch", () => {
+  const workflow = readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+  assert.match(workflow, /Initial performance budget failed; confirming with a fresh benchmark batch/);
+  const firstGate = workflow.indexOf("node scripts/performance-budget.mjs");
+  const confirmation = workflow.indexOf("npm run benchmark:production", firstGate + 1);
+  const secondGate = workflow.indexOf("node scripts/performance-budget.mjs", firstGate + 1);
+  assert.ok(firstGate >= 0, "workflow must run the first performance budget evaluation");
+  assert.ok(confirmation > firstGate, "workflow must run a fresh benchmark after the first failed evaluation");
+  assert.ok(secondGate > confirmation, "workflow must re-evaluate the fresh benchmark batch");
+});
