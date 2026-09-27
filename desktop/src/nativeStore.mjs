@@ -33,7 +33,7 @@ function boundedCount(value, max = 1000) {
   return Number.isInteger(number) && number >= 0 ? Math.min(max, number) : 0;
 }
 
-function sanitize(value) {
+function sanitize(value, defaultUpdateChannel = "stable") {
   const input = value && typeof value === "object" ? value : {};
   return {
     version: STORE_VERSION,
@@ -41,7 +41,7 @@ function sanitize(value) {
     autoLaunch: input.autoLaunch === true,
     autoUpdate: input.autoUpdate !== false,
     closeToTray: input.closeToTray !== false,
-    updateChannel: normalizeStoredUpdateChannel(input.updateChannel),
+    updateChannel: normalizeStoredUpdateChannel(input.updateChannel ?? defaultUpdateChannel),
     lastNotifiedVersion: typeof input.lastNotifiedVersion === "string"
       ? input.lastNotifiedVersion.slice(0, 40)
       : "",
@@ -55,9 +55,10 @@ function sanitize(value) {
 }
 
 export class NativeStore {
-  constructor(userDataDir) {
+  constructor(userDataDir, { defaultUpdateChannel = "stable" } = {}) {
     this.file = path.join(userDataDir, "desktop-settings.json");
-    this.value = { ...DEFAULTS };
+    this.defaultUpdateChannel = normalizeStoredUpdateChannel(defaultUpdateChannel);
+    this.value = { ...DEFAULTS, updateChannel: this.defaultUpdateChannel };
     this.load();
     if (!this.value.installationId) {
       this.value.installationId = crypto.randomUUID();
@@ -68,9 +69,9 @@ export class NativeStore {
   load() {
     try {
       const raw = fs.readFileSync(this.file, "utf8");
-      this.value = sanitize(JSON.parse(raw));
+      this.value = sanitize(JSON.parse(raw), this.defaultUpdateChannel);
     } catch {
-      this.value = { ...DEFAULTS };
+      this.value = { ...DEFAULTS, updateChannel: this.defaultUpdateChannel };
     }
     return this.getAll();
   }
@@ -94,7 +95,7 @@ export class NativeStore {
     if (!(key in DEFAULTS) || key === "version" || key === "installationId") {
       throw new Error("Unsupported desktop setting.");
     }
-    this.value = sanitize({ ...this.value, [key]: value });
+    this.value = sanitize({ ...this.value, [key]: value }, this.defaultUpdateChannel);
     this.save();
     return this.getAll();
   }
@@ -106,7 +107,7 @@ export class NativeStore {
         throw new Error("Unsupported desktop setting.");
       }
     }
-    this.value = sanitize({ ...this.value, ...input });
+    this.value = sanitize({ ...this.value, ...input }, this.defaultUpdateChannel);
     this.save();
     return this.getAll();
   }
@@ -127,7 +128,7 @@ export class NativeStore {
       crashStreak,
       rendererCrashCount: 0,
       safeMode,
-    });
+    }, this.defaultUpdateChannel);
     this.save();
     return { crashStreak, safeMode };
   }
@@ -135,7 +136,7 @@ export class NativeStore {
   recordRendererCrash() {
     const rendererCrashCount = Math.min(20, this.value.rendererCrashCount + 1);
     const safeMode = this.value.safeMode || rendererCrashCount >= SAFE_MODE_THRESHOLD;
-    this.value = sanitize({ ...this.value, rendererCrashCount, safeMode });
+    this.value = sanitize({ ...this.value, rendererCrashCount, safeMode }, this.defaultUpdateChannel);
     this.save();
     return { rendererCrashCount, safeMode };
   }
@@ -147,7 +148,7 @@ export class NativeStore {
       crashStreak: 0,
       rendererCrashCount: 0,
       safeMode: false,
-    });
+    }, this.defaultUpdateChannel);
     this.save();
     return this.getAll();
   }
