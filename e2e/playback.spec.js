@@ -527,7 +527,7 @@ test("keeps the user's volume after returning from another tab", async ({ page, 
   if (isMobile) {
     await page.getByTestId("player-dock").getByRole("button", { name: /^Expand player:/ }).click();
     await expect(page.getByRole("dialog", { name: "Now playing" })).toBeVisible();
-    await page.getByRole("button", { name: "Volume controls" }).filter({ visible: true }).first().click();
+    await page.locator('button[aria-label="Volume controls"]:visible').first().click();
   }
   const volume = page.locator('input[aria-label="Volume"]:visible').first();
   await expect(volume).toBeVisible();
