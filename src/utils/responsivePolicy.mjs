@@ -17,7 +17,8 @@ export function responsiveLayoutForViewport({ width, height, pointer = "fine" } 
   const pointerKind = pointer === "coarse" ? "coarse" : "fine";
   const phonePortrait = viewportWidth <= 767;
   const phoneLandscape =
-    viewportWidth > viewportHeight
+    pointerKind === "coarse"
+    && viewportWidth > viewportHeight
     && viewportHeight <= 540
     && viewportWidth <= 1100;
   const phone = phonePortrait || phoneLandscape;
