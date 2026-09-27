@@ -10,7 +10,7 @@ import {
 } from "./config.mjs";
 import { installationEligibleForRollout } from "./policy.mjs";
 import { versionOlderThan } from "./version.mjs";
-import { normalizeStoredUpdateChannel } from "./updateChannel.mjs";
+import { effectiveUpdateChannel } from "./updateChannel.mjs";
 
 const { autoUpdater } = updaterPackage;
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
@@ -100,7 +100,7 @@ export class DesktopUpdater {
   }
 
   channel() {
-    return normalizeStoredUpdateChannel(this.store.get("updateChannel"));
+    return effectiveUpdateChannel(this.store.get("updateChannel"), { isPackaged: this.app.isPackaged });
   }
 
   configuredFeedUrl() {
