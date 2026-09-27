@@ -60,7 +60,7 @@ import { DesktopUpdater } from "./updater.mjs";
 import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
 import { shouldResetRendererCache } from "./cachePolicy.mjs";
 import { isPackagedCiSmoke, runPackagedCiSmoke } from "./ciSmoke.mjs";
-import { normalizeStoredUpdateChannel, rendererSelectableUpdateChannel } from "./updateChannel.mjs";
+import { effectiveUpdateChannel, rendererSelectableUpdateChannel } from "./updateChannel.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
@@ -859,7 +859,7 @@ function desktopPreferences() {
   return {
     autoUpdate: store?.get("autoUpdate") !== false,
     closeToTray: store?.get("closeToTray") !== false,
-    updateChannel: normalizeStoredUpdateChannel(store?.get("updateChannel")),
+    updateChannel: effectiveUpdateChannel(store?.get("updateChannel"), { isPackaged: app.isPackaged }),
   };
 }
 
@@ -1158,6 +1158,8 @@ if (registerSingleInstance()) {
     configureSession(session.defaultSession);
     const userDataDir = app.getPath("userData");
     store = new NativeStore(userDataDir);
+    const effectiveChannel = effectiveUpdateChannel(store.get("updateChannel"), { isPackaged: app.isPackaged });
+    if (effectiveChannel !== store.get("updateChannel")) store.set("updateChannel", effectiveChannel);
     appearanceStore = new AppearanceStore(userDataDir);
     resolvedAccent = appearanceStore.activeProfile()?.accent?.fixedColor || "#00e6e6";
     logger = new NativeLogger(userDataDir);
