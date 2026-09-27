@@ -98,6 +98,8 @@ export function canonicalSongIdentity(track) {
 }
 
 
+const RADIO_VARIANT_MARKER = /\b(?:official|video|audio|lyrics?|visuali[sz]er|slowed|sped\s*up|reverb|remix|edit|version|phonk|nightcore|bass\s*boost(?:ed)?|extended|instrumental|clean|explicit)\b/i;
+
 function radioFamilyText(track) {
   return normalize(
     String(track?.title || track?.name || "")
@@ -133,11 +135,29 @@ export function sameRadioSongFamily(left, right) {
   const leftRaw = radioFamilyText(left);
   const rightRaw = radioFamilyText(right);
   if (!distinctiveRadioTitle(leftRaw) || !distinctiveRadioTitle(rightRaw)) return false;
-  if (leftRaw === rightRaw) return true;
 
-  const [shorter, longer] = leftRaw.length <= rightRaw.length
-    ? [leftRaw, rightRaw]
-    : [rightRaw, leftRaw];
+  const leftOriginal = String(left?.title || left?.name || "");
+  const rightOriginal = String(right?.title || right?.name || "");
+  if (leftRaw === rightRaw) {
+    return RADIO_VARIANT_MARKER.test(leftOriginal) || RADIO_VARIANT_MARKER.test(rightOriginal);
+  }
 
-  return longer.startsWith(`${shorter} `);
+  const leftIsShorter = leftRaw.length <= rightRaw.length;
+  const shorter = leftIsShorter ? leftRaw : rightRaw;
+  const longer = leftIsShorter ? rightRaw : leftRaw;
+  if (!longer.startsWith(`${shorter} `)) return false;
+
+  const suffix = longer.slice(shorter.length).trim();
+  if (RADIO_VARIANT_MARKER.test(suffix)) return true;
+
+  const leftChannel = normalizeArtist(left?.channel || left?.channelTitle || left?.artist || "");
+  const rightChannel = normalizeArtist(right?.channel || right?.channelTitle || right?.artist || "");
+  return [leftChannel, rightChannel].some((channel) =>
+    channel
+    && (
+      suffix === channel
+      || suffix.startsWith(`${channel} `)
+      || channel.startsWith(`${suffix} `)
+    )
+  );
 }
