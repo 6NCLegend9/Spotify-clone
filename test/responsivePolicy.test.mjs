@@ -23,7 +23,7 @@ test("responsive policy classifies portrait phone, rotated phone, tablet, and de
   } = await policy();
 
   assert.equal(PHONE_PORTRAIT_QUERY, "(max-width: 767px)");
-  assert.equal(PHONE_LANDSCAPE_QUERY, "(orientation: landscape) and (max-height: 540px) and (max-width: 1100px)");
+  assert.equal(PHONE_LANDSCAPE_QUERY, "(orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px)");
   assert.match(PHONE_QUERY, /max-width: 767px/);
   assert.match(COMPACT_TOUCH_QUERY, /pointer: coarse/);
   assert.doesNotMatch(COMPACT_TOUCH_QUERY, /max-height:\s*900px/);
