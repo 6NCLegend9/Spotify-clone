@@ -1,9 +1,16 @@
 {
-  "version": 2,
+  "version": 3,
   "source": {
-    "workflowRunId": 36272664685,
-    "benchmarkJobId": 108489789256,
-    "headSha": "86a271fd6f07e0cee40333c0241aea7f65f68e17"
+    "workflowRunId": 36283756541,
+    "benchmarkJobIds": [
+      108520831154,
+      108521848420,
+      108522270186,
+      108522589195,
+      108523049238
+    ],
+    "headSha": "aa9b4881d372a72eabac9f8bdff11620d3f6efcb",
+    "aggregation": "median of five independent benchmark batches"
   },
   "methodology": {
     "samplesPerRoute": 5,
@@ -21,24 +28,24 @@
   },
   "metrics": {
     "/search@1440": {
-      "usableMs": 455,
-      "scriptBytes": 479366,
-      "longTasksMs": 124
+      "usableMs": 468,
+      "scriptBytes": 479457,
+      "longTasksMs": 133
     },
     "/library@1440": {
-      "usableMs": 424,
-      "scriptBytes": 485989,
-      "longTasksMs": 118
+      "usableMs": 464,
+      "scriptBytes": 486269,
+      "longTasksMs": 177
     },
     "/search@390": {
-      "usableMs": 412,
-      "scriptBytes": 490176,
-      "longTasksMs": 116
+      "usableMs": 439,
+      "scriptBytes": 479457,
+      "longTasksMs": 119
     },
     "/library@390": {
-      "usableMs": 409,
-      "scriptBytes": 497679,
-      "longTasksMs": 115
+      "usableMs": 419,
+      "scriptBytes": 486080,
+      "longTasksMs": 119
     }
   }
 }
