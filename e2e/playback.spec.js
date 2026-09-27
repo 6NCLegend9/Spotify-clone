@@ -538,13 +538,22 @@ test("keeps the user's volume after returning from another tab", async ({ page, 
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  const playCallsBeforeForeground = await page.evaluate(() => window.__enginePlayCalls);
+  const foregroundBaseline = await page.evaluate(() => ({
+    playCalls: window.__enginePlayCalls,
+    volumeCallCount: window.__volumeCalls.length,
+  }));
   await page.evaluate(() => {
     Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
     document.dispatchEvent(new Event("visibilitychange"));
     window.dispatchEvent(new Event("focus"));
   });
 
-  await expect.poll(() => page.evaluate(() => window.__enginePlayCalls)).toBeGreaterThan(playCallsBeforeForeground);
+  await expect.poll(() => page.evaluate(() => window.__enginePlayCalls)).toBeGreaterThan(foregroundBaseline.playCalls);
+  await expect.poll(
+    () => page.evaluate((start) => window.__volumeCalls.slice(start), foregroundBaseline.volumeCallCount),
+  ).not.toEqual([]);
+  await expect.poll(
+    () => page.evaluate((start) => Math.max(...window.__volumeCalls.slice(start)), foregroundBaseline.volumeCallCount),
+  ).toBeLessThanOrEqual(30);
   await expect.poll(() => page.evaluate(() => window.__volumeCalls.at(-1))).toBe(30);
 });
