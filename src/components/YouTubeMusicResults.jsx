@@ -250,11 +250,11 @@ export default function YouTubeMusicResults({ query }) {
     setExtrasError(null);
     try {
       const [channelResult, playlistResult] = await Promise.allSettled([
-        requestJson(buildYoutubeSearchUrl({ q: query, type: "channel" }, "interactive"), {
+        requestJson(buildYoutubeSearchUrl({ q: query, type: "channel" }, "discovery"), {
           fallbackTitle: "Artists couldn’t be loaded",
           fallbackMessage: "Artist results are temporarily unavailable.",
         }),
-        requestJson(buildYoutubeSearchUrl({ q: query, type: "playlist" }, "interactive"), {
+        requestJson(buildYoutubeSearchUrl({ q: query, type: "playlist" }, "discovery"), {
           fallbackTitle: "Playlists couldn’t be loaded",
           fallbackMessage: "Playlist results are temporarily unavailable.",
         }),
