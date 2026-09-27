@@ -60,6 +60,7 @@ import { DesktopUpdater } from "./updater.mjs";
 import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
 import { shouldResetRendererCache } from "./cachePolicy.mjs";
 import { isPackagedCiSmoke, runPackagedCiSmoke } from "./ciSmoke.mjs";
+import { normalizeStoredUpdateChannel, rendererSelectableUpdateChannel } from "./updateChannel.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
@@ -858,9 +859,7 @@ function desktopPreferences() {
   return {
     autoUpdate: store?.get("autoUpdate") !== false,
     closeToTray: store?.get("closeToTray") !== false,
-    updateChannel: ["stable", "beta", "internal"].includes(store?.get("updateChannel"))
-      ? store.get("updateChannel")
-      : "stable",
+    updateChannel: normalizeStoredUpdateChannel(store?.get("updateChannel")),
   };
 }
 
@@ -869,8 +868,9 @@ function setDesktopPreference(key, value) {
   if (key === "autoUpdate" || key === "closeToTray") {
     store.set(key, value === true);
   } else if (key === "updateChannel") {
-    if (!["stable", "beta", "internal"].includes(value)) throw new Error("Unsupported desktop update channel.");
-    store.set(key, value);
+    const channel = rendererSelectableUpdateChannel(value, { isPackaged: app.isPackaged });
+    if (!channel) throw new Error("Unsupported desktop update channel.");
+    store.set(key, channel);
   } else {
     throw new Error("Unsupported desktop preference.");
   }
