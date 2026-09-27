@@ -10,14 +10,11 @@ import {
 } from "./config.mjs";
 import { installationEligibleForRollout } from "./policy.mjs";
 import { versionOlderThan } from "./version.mjs";
+import { normalizeStoredUpdateChannel } from "./updateChannel.mjs";
 
 const { autoUpdater } = updaterPackage;
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
-
-function cleanChannel(value) {
-  return ["stable", "beta", "internal"].includes(value) ? value : "stable";
-}
 
 function httpsUrl(value) {
   try {
@@ -103,7 +100,7 @@ export class DesktopUpdater {
   }
 
   channel() {
-    return cleanChannel(this.store.get("updateChannel"));
+    return normalizeStoredUpdateChannel(this.store.get("updateChannel"));
   }
 
   configuredFeedUrl() {
