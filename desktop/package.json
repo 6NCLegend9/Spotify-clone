@@ -91,5 +91,6 @@
       "loadBrowserProcessSpecificV8Snapshot": false,
       "grantFileProtocolExtraPrivileges": false
     }
-  }
+  },
+  "heykasaReleaseChannel": "stable"
 }
