@@ -53,6 +53,8 @@ jobs:
         run: npm --prefix desktop test
       - name: Audit runtime dependencies
         run: npm --prefix desktop audit --omit=dev --audit-level=high
+      - name: Stamp internal preview channel
+        run: npm --prefix desktop pkg set heykasaReleaseChannel=internal
       - name: Stamp main-channel update version
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npm --prefix desktop version "1.0.${{ github.run_number }}" --no-git-tag-version
