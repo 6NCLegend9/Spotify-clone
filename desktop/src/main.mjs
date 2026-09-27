@@ -50,6 +50,7 @@ import { DesktopPolicy, effectiveUpdateRolloutPercent } from "./policy.mjs";
 import {
   assertTrustedIpcEvent,
   buildTrustedOrigins,
+  configureSessionPermissions,
   isSafeDesktopOpenUrl,
   isSafeExternalUrl,
   isSafeHeyKasaDeepLink,
@@ -466,11 +467,7 @@ function registerSingleInstance() {
 }
 
 function configureSession(ses) {
-  ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  ses.setPermissionCheckHandler(() => false);
-  if (typeof ses.setDevicePermissionHandler === "function") {
-    ses.setDevicePermissionHandler(() => false);
-  }
+  configureSessionPermissions(ses, trustedOrigins);
 }
 
 async function clearDesktopWebCaches(ses) {
