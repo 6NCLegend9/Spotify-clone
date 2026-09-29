@@ -45,7 +45,7 @@ import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { requestJson } from "@/services/http";
 import { useIsPhoneViewport, useMediaQuery } from "@/hooks/useMediaQuery";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
-import { youtubePlaybackVolume } from "@/utils/eqPresets";
+import { applyLatestOutputVolume, armVolumeRestore, youtubePlaybackVolume } from "@/utils/eqPresets";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import {
   DESKTOP_PREV_EVENT,
@@ -257,6 +257,9 @@ function YouTubePlayer() {
   const bumpExpandedChromeRef = useRef(() => {});
   const userPausedRef = useRef(false);
   const pageHiddenWhilePlayingRef = useRef(false);
+  const volumeLevelsRef = useRef({ playbackVolume, masterVolume });
+  const volumeRestoreRef = useRef({ clear() {}, holds() { return false; } });
+  volumeLevelsRef.current = { playbackVolume, masterVolume };
   const trackChangeUntilRef = useRef(0);
   const [playerError, setPlayerError] = useState(null);
   const [addQuery, setAddQuery] = useState("");
@@ -388,9 +391,20 @@ function YouTubePlayer() {
     }
     if (!player?.playVideo) return;
     try {
+      // unMute() posts a command that can force 100 after setVolume. Apply the
+      // current level on both sides of it, and once more after the iframe has
+      // processed that command when a tab-return restore is in progress.
+      applyPlaybackVolume(player);
       player.unMute?.();
       applyPlaybackVolume(player);
       player.playVideo();
+      if (volumeRestoreRef.current.holds()) {
+        window.requestAnimationFrame(() => {
+          if (!volumeRestoreRef.current.holds()) return;
+          if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+          applyPlaybackVolume(player);
+        });
+      }
     } catch (error) {
       // Player may still be mounting the next video.
     }
@@ -455,8 +469,9 @@ function YouTubePlayer() {
   };
 
   const applyPlaybackVolume = (player, ratio = 1) => {
-    const master = Number.isFinite(masterVolume) ? masterVolume : 1;
-    player?.setVolume?.(Math.round(playbackVolume * master * ratio));
+    // Read the ref at call time. Listeners registered once (tab visibility)
+    // must not keep the master volume from the first render, which is 100%.
+    applyLatestOutputVolume(player, volumeLevelsRef.current, ratio);
   };
 
   // Fade-in/out is a simple volume ramp on the active player; it never touches deck/crossfade logic.
@@ -2440,18 +2455,38 @@ function YouTubePlayer() {
   }, [isPlaying]);
 
   useEffect(() => {
+    const canRestoreVolume = () => (
+      (typeof document === "undefined" || document.visibilityState === "visible")
+      && !crossfadeInProgressRef.current
+      && !fadeTimerRef.current
+    );
+    const scheduleVolumeRestore = () => {
+      volumeRestoreRef.current.clear();
+      volumeRestoreRef.current = armVolumeRestore({
+        apply: () => {
+          if (!canRestoreVolume()) return;
+          applyPlaybackVolume(getActivePlayer());
+        },
+        shouldApply: canRestoreVolume,
+      });
+    };
     const resumeAfterBackground = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") {
         if (!userPausedRef.current && (isPlayingRef.current || pageHiddenWhilePlayingRef.current)) {
           pageHiddenWhilePlayingRef.current = true;
         }
+        volumeRestoreRef.current.clear();
         return;
       }
-      if (!pageHiddenWhilePlayingRef.current) return;
+      const shouldResume = pageHiddenWhilePlayingRef.current && !userPausedRef.current;
       pageHiddenWhilePlayingRef.current = false;
-      if (userPausedRef.current) return;
-      resumePlayer(getActivePlayer());
-      dispatch(playPause(true));
+      // Arm before resume. unMute() inside resumePlayer can force 100, and the
+      // restore window keeps writing the live master level after that snap.
+      scheduleVolumeRestore();
+      if (shouldResume) {
+        resumePlayer(getActivePlayer());
+        dispatch(playPause(true));
+      }
     };
     const markHidden = () => {
       if (!userPausedRef.current && isPlayingRef.current) {
@@ -2465,6 +2500,7 @@ function YouTubePlayer() {
     document.addEventListener("freeze", markHidden);
     document.addEventListener("resume", resumeAfterBackground);
     return () => {
+      volumeRestoreRef.current.clear();
       document.removeEventListener("visibilitychange", resumeAfterBackground);
       window.removeEventListener("focus", resumeAfterBackground);
       window.removeEventListener("pageshow", resumeAfterBackground);
