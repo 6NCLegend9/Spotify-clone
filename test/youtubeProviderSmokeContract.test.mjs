@@ -60,3 +60,14 @@ test("real provider smoke falls back when one video loses embed permission", () 
   assert.match(spec, /EMBED_RESTRICTION_CODES/);
   assert.match(spec, /provider-smoke-index/);
 });
+
+
+test("provider workflow reports verified versus inconclusive playback explicitly", () => {
+  const workflow = fs.readFileSync(path.join(root, ".github/workflows/youtube-provider-smoke.yml"), "utf8");
+  const spec = fs.readFileSync(path.join(root, "e2e/youtube-provider.spec.js"), "utf8");
+  assert.match(spec, /writeProviderStatus\("verified"/);
+  assert.match(spec, /writeProviderStatus\("inconclusive"/);
+  assert.match(workflow, /youtube-provider-status\.json/);
+  assert.match(workflow, /YouTube playback verification inconclusive/);
+  assert.match(workflow, /next\.config\.js/);
+});
