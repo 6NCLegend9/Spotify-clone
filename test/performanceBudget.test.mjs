@@ -133,6 +133,24 @@ test("performance budget fails closed when required metrics are missing", () => 
 });
 
 
+test("performance budget rejects zero valid metric samples even with no configured minimum", () => {
+  const baseline = {
+    minimumSamplesPerSurface: 0,
+    relativeTolerance: 0.3,
+    absoluteFloors: { usableMs: 100, scriptBytes: 50000, longTasksMs: 150 },
+    metrics: {
+      "/search@390": { usableMs: 343, scriptBytes: 489712, longTasksMs: 53 },
+    },
+  };
+  const current = aggregateNavigationMetrics([
+    { path: "/search", width: 390, usableMs: 300, scriptBytes: null, longTasks: 20 },
+  ]);
+  const result = evaluatePerformanceBudget({ baseline, current });
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.regressions.map((item) => item.metric), ["scriptBytesSampleCount"]);
+  assert.equal(result.regressions[0].minimum, 1);
+});
+
 test("performance budget fails closed when a surface has too few samples", () => {
   const baseline = {
     minimumSamplesPerSurface: 5,
