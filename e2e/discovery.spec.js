@@ -81,6 +81,30 @@ test("search suggestions play directly without navigating away", async ({ page }
   await expect(page.locator("#player")).toContainText("6WA");
 });
 
+test("failed recent-search loading does not spin requests", async ({ page }) => {
+  let requests = 0;
+  await page.route("**/api/searches", (route) => {
+    if (route.request().method() !== "GET") {
+      return route.fulfill({ json: { success: true, data: [] } });
+    }
+    requests += 1;
+    return route.fulfill({
+      status: 503,
+      json: { code: "UNAVAILABLE", message: "fixture unavailable" },
+    });
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const search = page.getByRole("combobox", {
+    name: "Search songs, artists, playlists, and genres",
+    exact: true,
+  });
+  await search.focus();
+  await expect.poll(() => requests).toBe(1);
+  await page.waitForTimeout(750);
+  expect(requests).toBe(1);
+});
+
 test("focused empty search loads recents when auth finishes", async ({ page }) => {
   let releaseSession;
   const sessionGate = new Promise((resolve) => { releaseSession = resolve; });
