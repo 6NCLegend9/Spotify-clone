@@ -101,7 +101,7 @@ export default function VirtualizedPlaylistTrackList({
       viewportHeight: metrics.viewportHeight,
     });
     scrollHostTo(host, metrics.listTop + relativeOffset);
-  }, [activeYoutubeId, items, range.end, range.start, virtualized]);
+  }, [activeYoutubeId, items, range.end, range.start, scrollKey, virtualized]);
 
   useLayoutEffect(() => {
     if (!virtualized || typeof window === "undefined") return undefined;
