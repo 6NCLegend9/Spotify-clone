@@ -107,7 +107,7 @@ test("stale recent-search responses cannot cross account boundaries", async ({ p
   });
 
   try {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/search", { waitUntil: "domcontentloaded" });
     const search = page.getByRole("combobox", {
       name: "Search songs, artists, playlists, and genres",
       exact: true,
@@ -116,6 +116,14 @@ test("stale recent-search responses cannot cross account boundaries", async ({ p
     await expect.poll(() => accountARequestStarted).toBe(true);
 
     currentId = "search-b";
+    const switchedSession = page.waitForResponse(async (response) => {
+      if (new URL(response.url()).pathname !== "/api/auth/session" || response.status() !== 200) return false;
+      try {
+        return (await response.json())?.user?.id === "search-b";
+      } catch {
+        return false;
+      }
+    });
     await page.evaluate(() => window.dispatchEvent(new StorageEvent("storage", {
       key: "nextauth.message",
       newValue: JSON.stringify({
@@ -124,7 +132,7 @@ test("stale recent-search responses cannot cross account boundaries", async ({ p
         timestamp: Date.now(),
       }),
     })));
-    await expect(page.getByRole("link", { name: "Open settings for search-b" })).toBeVisible();
+    await switchedSession;
 
     await search.blur();
     await search.focus();
