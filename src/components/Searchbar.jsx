@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import ItemMenu from "@/components/ItemMenu";
@@ -149,7 +149,7 @@ const AccountSearchbar = ({ accountKey }) => {
     recentsLoadedAtRef.current = 0;
   };
 
-  const loadRecents = async () => {
+  const loadRecents = useCallback(async () => {
     const requestAccount = accountKey;
     if (!requestAccount) return;
     const now = Date.now();
@@ -176,7 +176,13 @@ const AccountSearchbar = ({ accountKey }) => {
         setRecentLoading(false);
       }
     }
-  };
+  }, [accountKey, recentLoading]);
+
+  useEffect(() => {
+    if (!accountKey || !open || searchTerm.trim()) return;
+    if (document.activeElement !== inputRef.current) return;
+    void loadRecents();
+  }, [accountKey, loadRecents, open, searchTerm]);
 
   useEffect(() => {
     const term = searchTerm.trim();
