@@ -41,10 +41,12 @@ export default function ArcadeSongPicker({
         const key = normalizeSearchRequestKey({ purpose: "interactive", query: term });
         const data = await interactiveYoutubeSearchCache.getOrCreate(
           key,
-          () => requestJson(buildYoutubeSearchUrl({ type: "video", q: term }, "interactive"), {
+          (signal) => requestJson(buildYoutubeSearchUrl({ type: "video", q: term }, "interactive"), {
+            signal,
             fallbackTitle: "Search unavailable",
             fallbackMessage: "We couldn't load results.",
           }),
+          { signal: controller.signal },
         );
         if (!controller.signal.aborted) setResults(Array.isArray(data?.results) ? data.results.slice(0, 12) : []);
       } catch {
