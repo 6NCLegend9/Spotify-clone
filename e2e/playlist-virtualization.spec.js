@@ -107,14 +107,22 @@ test("playlist scroll restoration is isolated by collection across client naviga
   const list = page.locator('[data-playlist-virtualized="true"]');
   await expect(list).toHaveAttribute("data-total-rows", String(TRACK_COUNT));
 
-  await scrollRoot.evaluate((element) => element.scrollTo(0, 6200));
+  await scrollRoot.evaluate((element) => new Promise((resolve) => {
+    const done = () => requestAnimationFrame(resolve);
+    element.addEventListener("scroll", done, { once: true });
+    element.scrollTo({ top: 6200, behavior: "auto" });
+  }));
   await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeGreaterThan(5000);
   const playlistAScroll = await scrollRoot.evaluate((element) => element.scrollTop);
 
   await page.locator('a[href="/library/playlist/playlist-b"]').first().click();
   await expect(page).toHaveURL(/\/library\/playlist\/playlist-b$/);
   await expect(list).toHaveAttribute("data-total-rows", String(TRACK_COUNT));
-  await scrollRoot.evaluate((element) => element.scrollTo(0, 1500));
+  await scrollRoot.evaluate((element) => new Promise((resolve) => {
+    const done = () => requestAnimationFrame(resolve);
+    element.addEventListener("scroll", done, { once: true });
+    element.scrollTo({ top: 1500, behavior: "auto" });
+  }));
   await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeGreaterThan(1000);
 
   await page.locator('a[href="/library/playlist/playlist-a"]').first().click();
