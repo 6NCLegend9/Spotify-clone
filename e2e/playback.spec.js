@@ -274,6 +274,94 @@ test("queue edits preserve playback, undo safely and save a playlist", async ({ 
   await expect(page.getByTestId("player-dock").getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
 });
 
+test("mobile video defaults on and exposes the live iframe only after sheet motion settles", async ({ page }) => {
+  const clockStart = new Date("2026-01-01T00:00:00.000Z");
+  await page.clock.install({ time: clockStart });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.removeItem("heykasa.media.presentation");
+    localStorage.setItem("persist:settings", JSON.stringify({
+      owner: JSON.stringify("account:test-a"),
+      audioOnly: "false",
+      dataSaver: "false",
+    }));
+    const track = { id: "abcdefghijk", title: "Mobile video stability", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1,
+      owner: "account:test-a",
+      savedAt: Date.now(),
+      youtubeVideo: track,
+      youtubeQueue: [track],
+      position: 42,
+    }));
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const dock = page.getByTestId("player-dock");
+  await expect(dock).toBeVisible();
+  // Freeze application timers before opening the mobile sheet. clock.install()
+  // virtualizes time but still advances it in real time until pauseAt().
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:05.000Z"));
+
+  await page.getByTestId("youtube-decks").evaluate((host) => {
+    const frame = document.createElement("iframe");
+    frame.title = "Mobile video stability frame";
+    frame.srcdoc = '<body style="margin:0;background:#168477;height:100vh"></body>';
+    host.querySelector(".yt-crop-frame").appendChild(frame);
+  });
+
+  const expand = dock.getByRole("button", { name: "Expand player: Mobile video stability" });
+  // Dispatch synchronously so this assertion observes the sheet while its entry
+  // animation is actually active. A normal Playwright click can spend longer
+  // than the 300ms animation in actionability/stability checks on busy CI.
+  await expand.dispatchEvent("click");
+  const dialog = page.getByRole("dialog", { name: "Now playing" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveClass(/sheetEntering/);
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  const responsiveState = await page.evaluate(() => ({
+    width: innerWidth,
+    phone: matchMedia("(max-width: 767px)").matches,
+    compactTouch: matchMedia("(max-width: 767px), (orientation: landscape) and (max-height: 540px) and (max-width: 1100px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)").matches,
+  }));
+  expect(responsiveState).toEqual({ width: 390, phone: true, compactTouch: true });
+
+  const moving = await page.getByTestId("youtube-decks").evaluate((host) => ({
+    hidden: host.getAttribute("aria-hidden"),
+    opacity: getComputedStyle(host).opacity,
+  }));
+  expect(moving.hidden).toBe("true");
+  expect(Number(moving.opacity)).toBe(0);
+
+  await page.clock.fastForward(380);
+  await expect(dialog).not.toHaveClass(/sheetEntering/);
+
+  const settled = await page.getByTestId("youtube-decks").evaluate((host) => {
+    const rect = host.getBoundingClientRect();
+    return {
+      hidden: host.getAttribute("aria-hidden"),
+      opacity: getComputedStyle(host).opacity,
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: innerWidth,
+      viewportHeight: innerHeight,
+    };
+  });
+
+  expect(settled.hidden).toBe("false");
+  expect(Number(settled.opacity)).toBe(1);
+  expect(settled.width).toBeGreaterThan(200);
+  expect(settled.height).toBeGreaterThan(100);
+  expect(settled.left).toBeGreaterThanOrEqual(-1);
+  expect(settled.top).toBeGreaterThanOrEqual(-1);
+  expect(settled.right).toBeLessThanOrEqual(settled.viewportWidth + 1);
+  expect(settled.bottom).toBeLessThanOrEqual(settled.viewportHeight + 1);
+});
+
 test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -370,4 +458,102 @@ test("video expansion fits desktop and mobile without replacing the media host",
   await expect(dock).toBeVisible();
   expect(await page.getByTestId("youtube-decks").evaluate((host) => host === window.__videoHost && host.contains(window.__videoFrame))).toBe(true);
   expect(errors).toEqual([]);
+});
+
+
+test("keeps the user's volume after returning from another tab", async ({ page, isMobile }) => {
+  await page.addInitScript(() => {
+    window.__volumeCalls = [];
+    window.__enginePlayCalls = 0;
+    window.__engineTime = 42;
+
+    localStorage.setItem("persist:settings", JSON.stringify({
+      owner: JSON.stringify("account:test-a"),
+      audioOnly: "true",
+      masterVolume: "1",
+    }));
+
+    window.YT = {
+      PlayerState: { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 },
+      Player: class {
+        constructor(frame, options) {
+          const mount = typeof frame === "string" ? document.getElementById(frame) : frame;
+          this.frame = document.createElement("iframe");
+          this.frame.id = mount.id;
+          this.frame.title = "YouTube volume test player";
+          mount.replaceWith(this.frame);
+          window.__volumeEngine = this;
+          setTimeout(() => options.events.onReady({ target: this }), 0);
+        }
+        getIframe() { return this.frame; }
+        getDuration() { return 180; }
+        getCurrentTime() { return window.__engineTime; }
+        getPlayerState() { return 2; }
+        getVideoData() { return { video_id: "abcdefghijk" }; }
+        getPlaybackQuality() { return "medium"; }
+        playVideo() { window.__enginePlayCalls += 1; }
+        pauseVideo() {}
+        mute() {}
+        unMute() {}
+        setVolume(value) {
+          this.volume = Number(value);
+          window.__volumeCalls.push(this.volume);
+        }
+        setPlaybackQuality() {}
+        seekTo() {}
+        destroy() { this.frame.remove(); }
+      },
+    };
+
+    const track = { id: "abcdefghijk", title: "Volume restore test", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1,
+      owner: "account:test-a",
+      savedAt: Date.now(),
+      youtubeVideo: track,
+      youtubeQueue: [track],
+      position: 42,
+    }));
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("player-dock")).toBeVisible();
+  await expect(page.locator('[data-testid="youtube-decks"] iframe')).toHaveCount(1);
+
+  const play = page.getByTestId("player-dock").getByRole("button", { name: "Play", exact: true }).first();
+  await play.click();
+  await expect(page.getByTestId("player-dock").getByRole("button", { name: "Pause", exact: true }).first()).toBeVisible();
+
+  if (isMobile) {
+    await page.getByTestId("player-dock").getByRole("button", { name: /^Expand player:/ }).click();
+    await expect(page.getByRole("dialog", { name: "Now playing" })).toBeVisible();
+    await page.locator('button[aria-label="Volume controls"]:visible').first().click();
+  }
+  const volume = page.locator('input[aria-label="Volume"]:visible').first();
+  await expect(volume).toBeVisible();
+  await volume.fill("0.3");
+  await expect.poll(() => page.evaluate(() => window.__volumeCalls.at(-1))).toBe(30);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  const foregroundBaseline = await page.evaluate(() => ({
+    playCalls: window.__enginePlayCalls,
+    volumeCallCount: window.__volumeCalls.length,
+  }));
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("focus"));
+  });
+
+  await expect.poll(() => page.evaluate(() => window.__enginePlayCalls)).toBeGreaterThan(foregroundBaseline.playCalls);
+  await expect.poll(
+    () => page.evaluate((start) => window.__volumeCalls.slice(start), foregroundBaseline.volumeCallCount),
+  ).not.toEqual([]);
+  await expect.poll(
+    () => page.evaluate((start) => Math.max(...window.__volumeCalls.slice(start)), foregroundBaseline.volumeCallCount),
+  ).toBeLessThanOrEqual(30);
+  await expect.poll(() => page.evaluate(() => window.__volumeCalls.at(-1))).toBe(30);
 });

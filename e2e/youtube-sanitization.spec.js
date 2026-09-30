@@ -100,11 +100,9 @@ test("YouTube embed stays sanitized while honoring enabled captions", async ({ p
   const deck = page.getByTestId("youtube-decks");
   await expect(deck).not.toHaveAttribute("data-kasa-end-guard", "true");
   await page.evaluate(() => { window.__ytTime = 114; });
-  await expect(deck).toHaveAttribute("data-kasa-end-guard", "true");
+  await expect(deck).not.toHaveAttribute("data-kasa-end-guard", "true");
   await page.evaluate(() => { window.__ytTime = 120; });
-  await expect(deck).toHaveAttribute("data-kasa-end-guard", "true");
+  await expect(deck).not.toHaveAttribute("data-kasa-end-guard", "true");
   await page.evaluate(() => { window.__ytTime = 125; });
-  await expect(deck).toHaveAttribute("data-kasa-end-guard", "true");
-  await page.evaluate(() => { window.__ytTime = 100; });
   await expect(deck).not.toHaveAttribute("data-kasa-end-guard", "true");
 });

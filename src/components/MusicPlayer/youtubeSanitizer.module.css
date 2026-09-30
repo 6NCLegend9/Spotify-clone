@@ -55,25 +55,3 @@
   height: clamp(22px, 5%, 42px);
   background: linear-gradient(0deg, #000 0%, rgb(0 0 0 / 72%) 48%, transparent 100%);
 }
-
-/* Last-line defense against YouTube's unavoidable native end screen. The player
-   marks the deck before the video reaches ENDED and advances through KASA's queue.
-   If the next source takes a moment to load, users see the KASA canvas instead of
-   external recommendation cards/channel links. */
-:global(body):has(.scope) :global([data-testid="youtube-decks"][data-kasa-end-guard="true"] iframe) {
-  opacity: 0 !important;
-}
-
-:global(body):has(.scope) :global([data-testid="youtube-decks"][data-kasa-end-guard="true"])::after {
-  inset: 0;
-  height: auto;
-  z-index: 40;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 46%, rgb(0 230 230 / 8%), transparent 34%),
-    #000;
-}
-
-:global(body):has(.scope) :global([data-testid="youtube-decks"][data-kasa-end-guard="true"])::before {
-  display: none;
-}

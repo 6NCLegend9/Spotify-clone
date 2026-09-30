@@ -46,7 +46,7 @@ function securityHeaders({ allowFraming = false } = {}) {
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     {
       key: "Permissions-Policy",
-      value: 'camera=(), microphone=(), geolocation=(), loopback-network=(self), compute-pressure=(self "https://www.youtube.com")',
+      value: "camera=(), microphone=(), geolocation=(), loopback-network=(self), compute-pressure=()",
     },
     { key: "Content-Security-Policy", value: csp },
     ...(isProduction

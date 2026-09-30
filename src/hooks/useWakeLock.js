@@ -8,11 +8,11 @@ function hasWakeLock() {
 }
 
 /**
- * Keep the screen on while audio plays so a music listener's display doesn't
- * sleep mid-track. The lock auto-releases when the page hides (an OS rule, not
- * optional) and is re-acquired on return if playback is still active.
+ * Keep the screen on only while a caller has an active visual-media reason.
+ * The lock auto-releases when the page hides and is re-acquired on return while
+ * that visual-media condition remains active.
  *
- * @param {boolean} active  True while the player is playing.
+ * @param {boolean} active  True while a visible media surface needs the display awake.
  * @param {boolean} [enabled]  Master switch (default true).
  */
 export default function useWakeLock(active, enabled = true) {

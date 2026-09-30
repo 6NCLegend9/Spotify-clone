@@ -1,18 +1,24 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Pause, Play, Settings2, Video } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent } from "react";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
+import { resolveInitialMediaVideoMode, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
+import { setFullScreen } from "@/redux/features/playerSlice";
+import useMediaQuery from "@/hooks/useMediaQuery";
+import { COMPACT_TOUCH_QUERY } from "@/utils/responsivePolicy.mjs";
+import { HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
 
 const SyncedLyrics = dynamic(() => import("./SyncedLyrics"), { ssr: false });
+const ClockedSyncedLyrics = dynamic(() => import("./ClockedSyncedLyrics"), { ssr: false });
 const MEDIA_MODE_KEY = "heykasa.media.presentation";
 const THEATER_CONTROLS_HIDE_MS = 6500;
 
@@ -50,7 +56,7 @@ export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | n
     left = Math.max(left, box.left); right = Math.min(right, box.right);
   }
   const values: Record<string, string> = {
-    width: `${visible ? rect!.width : 320}px`, height: `${visible ? rect!.height : 180}px`,
+    width: `${visible ? rect!.width : HIDDEN_YOUTUBE_VIEWPORT.width}px`, height: `${visible ? rect!.height : HIDDEN_YOUTUBE_VIEWPORT.height}px`,
     left: `${visible ? rect!.left - originX : -10000}px`, top: `${visible ? rect!.top - originY : -10000}px`,
     opacity: visible ? "1" : "0", "pointer-events": visible ? "auto" : "none",
     "border-radius": expanded ? "0" : "12px",
@@ -66,9 +72,10 @@ export function positionMediaViewport(host: HTMLElement, anchor: HTMLElement | n
 /** One presentation owner. It never recreates decks or invokes legacy view callbacks. */
 const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function MediaPresentation(props, ref) {
   const { onQueue } = props;
+  const dispatch = useDispatch();
   const [mediaHost, setMediaHost] = useState<HTMLElement | null>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  const [mobile, setMobile] = useState(false);
+  const mobile = useMediaQuery(COMPACT_TOUCH_QUERY);
   const [drawer, setDrawer] = useState(false);
   const [closing, setClosing] = useState(false);
   const [entering, setEntering] = useState(false);
@@ -88,11 +95,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const scrollRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
   const [video, setVideo] = useState(() => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") return props.videoAvailable === true;
     try {
-      return window.localStorage.getItem(MEDIA_MODE_KEY) === "video";
+      return resolveInitialMediaVideoMode(
+        window.localStorage.getItem(MEDIA_MODE_KEY),
+        props.videoAvailable === true,
+      );
     } catch {
-      return false;
+      return props.videoAvailable === true;
     }
   });
   const [expanded, setExpanded] = useState(false);
@@ -107,10 +117,24 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const controlsTimerRef = useRef<number | null>(null);
   const controlsVisibleRef = useRef(true);
   const controlsRevealedByPointerMoveRef = useRef(false);
-  const canVideo = Boolean(props.onVideo);
+  const canVideo = props.videoAvailable === true;
   const canLyrics = Boolean(props.onLyrics);
   const overlay = expanded || drawer;
   const showingVideo = canVideo && video && view === "player";
+  const viewportStateRef = useRef({
+    mobile,
+    showingVideo,
+    entering,
+    closing,
+    expanded,
+  });
+  viewportStateRef.current = {
+    mobile,
+    showingVideo,
+    entering,
+    closing,
+    expanded,
+  };
 
   const clearControlsTimer = useCallback(() => {
     if (controlsTimerRef.current !== null) {
@@ -160,33 +184,72 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const dismiss = useCallback(() => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      entering: false,
+      closing: false,
+      expanded: false,
+    };
     setClosing(false); setEntering(false); setDragY(0); setCompactHeader(false);
     setDrawer(false); setExpanded(false); setView("player");
   }, [setDragY]);
   const collapseSheet = useCallback(() => {
     if (!mobile || expanded || window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.a11yReducedMotion === "true") { dismiss(); return; }
     if (closeTimer.current !== null) return;
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      entering: false,
+      closing: true,
+    };
     setEntering(false); setClosing(true);
     closeTimer.current = window.setTimeout(dismiss, 260);
   }, [mobile, expanded, dismiss]);
   useEffect(() => {
     if (!entering) return;
-    const timer = window.setTimeout(() => setEntering(false), 320);
+    const timer = window.setTimeout(() => {
+      viewportStateRef.current = {
+        ...viewportStateRef.current,
+        entering: false,
+      };
+      setEntering(false);
+    }, 320);
     return () => window.clearTimeout(timer);
   }, [entering]);
   useEffect(() => () => { if (closeTimer.current !== null) window.clearTimeout(closeTimer.current); cancelAnimationFrame(fallbackFrame.current); }, []);
   const open = useCallback(() => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
     closeTimer.current = null;
+    // Update the imperative viewport state before setDragY can schedule an
+    // existing ResizeObserver/rAF callback from the pre-open render.
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      mobile,
+      entering: true,
+      closing: false,
+      expanded: false,
+    };
     setClosing(false); setEntering(true); setDragY(0); setCompactHeader(false);
     rememberFocus(); setView("player"); setExpanded(false); setDrawer(true);
-  }, [rememberFocus, setDragY]);
+  }, [mobile, rememberFocus, setDragY]);
   const openExpanded = useCallback(() => {
     if (!canVideo) { open(); return; }
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      entering: false,
+      closing: false,
+      expanded: true,
+    };
     rememberFocus(); setView("player"); setExpanded(true);
   }, [canVideo, open, rememberFocus]);
   const openLyrics = useCallback(() => {
     if (!canLyrics) return;
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      showingVideo: false,
+      entering: false,
+      closing: false,
+      expanded: false,
+    };
     rememberFocus(); setExpanded(false); setDrawer(true); setView("lyrics");
   }, [canLyrics, rememberFocus]);
   const openQueue = useCallback(() => {
@@ -204,16 +267,23 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   useEffect(() => {
     setSlot(document.getElementById("kasa-now-playing-slot"));
     setMediaHost(document.querySelector<HTMLElement>('[data-testid="youtube-decks"]'));
-    // A rotated phone can be wider than the old 767px breakpoint. Keep coarse-pointer
-    // phone/tablet layouts in mobile presentation mode so rotation does not drop controls.
-    const query = window.matchMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)");
-    const update = () => setMobile(query.matches);
-    update(); query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
+    return undefined;
   }, []);
 
   useEffect(() => {
-    if (!canVideo && expanded) setExpanded(false);
+    if (!canVideo) {
+      if (expanded) setExpanded(false);
+      setVideo(false);
+    } else {
+      try {
+        setVideo(resolveMediaVideoModeAfterCapabilityChange(
+          window.localStorage.getItem(MEDIA_MODE_KEY),
+          true,
+        ));
+      } catch {
+        setVideo(true);
+      }
+    }
     if (!canLyrics && view === "lyrics") setView("player");
   }, [canVideo, canLyrics, expanded, view]);
 
@@ -229,11 +299,13 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   }, [clearControlsTimer, expanded, props.track.id, showTheaterControls, view]);
 
   useEffect(() => {
+    dispatch(setFullScreen(expanded));
     window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: expanded && showingVideo } }));
     return () => {
+      dispatch(setFullScreen(false));
       window.dispatchEvent(new CustomEvent("heykasa:media-theater", { detail: { active: false } }));
     };
-  }, [expanded, showingVideo]);
+  }, [dispatch, expanded, showingVideo]);
 
   const hasOtherDialog = useCallback(() => Array.from(document.querySelectorAll<HTMLElement>('dialog[open], [role="dialog"][aria-modal="true"]'))
     .some((element) => element !== overlayRef.current && element.getClientRects().length > 0), []);
@@ -301,7 +373,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
 
   useEffect(() => { if (overlay) overlayRef.current?.focus(); }, [view, expanded, overlay]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const host = mediaHost;
     const region = host?.closest<HTMLElement>(".app-player");
     const boundary = host?.closest<HTMLElement>(".player-dock");
@@ -331,11 +403,23 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
         if (sheet.style.getPropertyValue("--sheet-drag") !== offset) sheet.style.setProperty("--sheet-drag", offset);
         sheet.dataset.dragging = dragY.current > 0 ? "true" : "false";
       }
-      positionMediaViewport(host, anchorRef.current, showingVideo, expanded, clips);
+      const liveMobileMatch = window.matchMedia(COMPACT_TOUCH_QUERY).matches;
+      const current = viewportStateRef.current;
+      const exposeLiveVideo = shouldExposeLiveVideoViewport({
+        showingVideo: current.showingVideo,
+        mobile: current.mobile || liveMobileMatch,
+        entering: current.entering,
+        closing: current.closing,
+        dragY: dragY.current,
+      });
+      positionMediaViewport(host, anchorRef.current, exposeLiveVideo, current.expanded, clips);
       if (performance.now() < until) frame = requestAnimationFrame(place);
     };
     const request = (duration = 0) => {
-      until = Math.max(until, performance.now() + (showingVideo ? duration : 0));
+      until = Math.max(
+        until,
+        performance.now() + (viewportStateRef.current.showingVideo ? duration : 0),
+      );
       if (!frame) frame = requestAnimationFrame(place);
     };
     cancelAnimationFrame(fallbackFrame.current); fallbackFrame.current = 0;
@@ -366,7 +450,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       if (oldHidden === null) host.removeAttribute("aria-hidden"); else host.setAttribute("aria-hidden", oldHidden);
       host.inert = oldInert; host.classList.remove(styles.viewport); region.classList.remove(styles.presentationRegion);
     };
-  }, [mediaHost, showingVideo, overlay, mobile, drawer, expanded, view, slot]);
+  }, [mediaHost, showingVideo, overlay, mobile, drawer, expanded, view, slot, entering, closing]);
 
   useEffect(() => {
     if (mobile && drawer && !expanded) scheduleViewport.current?.(350);
@@ -486,7 +570,9 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
           </section>}
         </>}
       </> : <section className={styles.lyrics} aria-label="Live lyrics">
-        {metadata}<SyncedLyrics title={props.track.title} artist={props.track.channel || ""} duration={props.duration} currentTime={props.position} onSeek={props.disabled ? undefined : props.onSeek} />
+        {metadata}{props.playbackClock
+          ? <ClockedSyncedLyrics clock={props.playbackClock} title={props.track.title} artist={props.track.channel || ""} onSeek={props.disabled ? undefined : props.onSeek} />
+          : <SyncedLyrics title={props.track.title} artist={props.track.channel || ""} duration={props.duration} currentTime={props.position} onSeek={props.disabled ? undefined : props.onSeek} />}
       </section>}
     </div>
     {overlay && ((expanded && view === "player") || (mobile && view !== "player")) && <footer className={`${styles.expandedTransport} ${expanded ? styles.theaterChrome : ""}`}>{mobileTransport}</footer>}

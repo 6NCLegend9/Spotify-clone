@@ -9,6 +9,7 @@ import languagesReducer from "./features/languagesSlice";
 import settingsReducer from "./features/settingsSlice";
 import appearanceReducer from "./features/appearanceSlice";
 import { migrateEqBands } from "@/utils/eqPresets";
+import { migrateLegacySettings } from "@/utils/settingsMigration.mjs";
 
 const createNoopStorage = () => {
   return {
@@ -43,13 +44,15 @@ const languagePersistedReducer = persistReducer(
 
 const settingsPersistedReducer = persistReducer(
   persistConfig("settings", {
-    version: 5,
-    migrate: (state) =>
-      Promise.resolve({
-        ...(state && typeof state === "object" ? state : {}),
-        keyboardShortcuts: state?.keyboardShortcuts !== false,
-        eqBands: migrateEqBands(state?.eqBands),
-      }),
+    version: 6,
+    migrate: (state) => {
+      const migrated = migrateLegacySettings(state);
+      return Promise.resolve({
+        ...migrated,
+        keyboardShortcuts: migrated.keyboardShortcuts !== false,
+        eqBands: migrateEqBands(migrated.eqBands),
+      });
+    },
   }),
   settingsReducer
 );

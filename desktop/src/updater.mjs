@@ -10,12 +10,12 @@ import {
 } from "./config.mjs";
 import { installationEligibleForRollout } from "./policy.mjs";
 import { versionOlderThan } from "./version.mjs";
+import { effectiveUpdateChannel } from "./updateChannel.mjs";
+import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
 
 const { autoUpdater } = updaterPackage;
-
-function cleanChannel(value) {
-  return ["stable", "beta", "internal"].includes(value) ? value : "stable";
-}
+const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const SHA512_BASE64 = /^[A-Za-z0-9+/]{86}==$/;
 
 function httpsUrl(value) {
   try {
@@ -101,7 +101,7 @@ export class DesktopUpdater {
   }
 
   channel() {
-    return cleanChannel(this.store.get("updateChannel"));
+    return effectiveUpdateChannel(this.store.get("updateChannel"), { isPackaged: this.app.isPackaged, buildChannel: DESKTOP_BUILD_CHANNEL });
   }
 
   configuredFeedUrl() {
@@ -193,6 +193,18 @@ export class DesktopUpdater {
         this.emit({
           state: "disabled",
           detail: `The ${this.channel()} desktop release is not code-signed and will not be installed automatically.`,
+        });
+        return this.getStatus();
+      }
+      if (
+        !SEMVER.test(String(manifest.latest || "").trim())
+        || !SHA512_BASE64.test(String(manifest.sha512 || "").trim())
+        || !Number.isSafeInteger(manifest.sizeBytes)
+        || manifest.sizeBytes <= 0
+      ) {
+        this.emit({
+          state: "error",
+          detail: "The desktop release manifest is missing required integrity metadata.",
         });
         return this.getStatus();
       }

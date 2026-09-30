@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
 
+export interface PlaybackClockStore {
+  read: () => { position: number; duration: number };
+  subscribe: (listener: () => void) => () => void;
+}
+
 export interface PlayerTrack {
   id: string;
   title: string;
@@ -45,7 +50,8 @@ export interface PlayerDockProps {
   pipActive: boolean;
   pipLabel: string;
   pipDisabled?: boolean;
-  onVideo?: () => void;
+  videoAvailable?: boolean;
+  playbackClock?: PlaybackClockStore;
   onLyrics?: () => void;
   onOneMore?: () => void;
   oneMoreArmed?: boolean;

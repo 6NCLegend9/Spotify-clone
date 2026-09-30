@@ -29,7 +29,7 @@ Legend: `[ ]` open · `[x]` done · `[~]` staged (large/risky, needs sign-off)
 ## Functional & Interactive Control Fixes
 - [x] Validated (no-trigger) the "Permanently Delete My Data" flow: `DeleteAccountForm` requires opening a confirm panel and typing `DELETE` exactly before `/api/deleteAccount` is called — destructive handler never fired during testing.
 - [x] MediaSession (play/pause/next/prev/seek) wired for both players.
-- [x] Crossfade/fade + Smart Shuffle functional (YouTube dual-deck).
+- [x] Fade-out/fade-in transitions and Shuffle + Discovery are functional. True overlapping crossfade remains disabled in the active YouTube runtime.
 - [x] Documented: Web Audio EQ/GainNode only affects the direct-`<audio>` path, never YouTube iframe audio (platform limitation, not a bug).
 
 ---

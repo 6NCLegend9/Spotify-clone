@@ -191,3 +191,79 @@ bundle-size reduction. See `PRODUCTION.md` for repeat commands and rollout gates
   download execution was not exercised. Browser tests block YouTube decoding.
 - Production first-load home JS is now 172kB. No bundle-size reduction, full
   vulnerability audit, load capacity certification or all-site optimization is claimed.
+
+## PR19 Desktop hidden-window runtime measurement
+
+Date: 2026-09-26. The Desktop CI now launches the real shared renderer inside
+Electron and measures a visible interval followed by a 5.5-second hidden interval.
+It also sends a native playback command while hidden and runs a timer at the same
+4-second cadence as the Jam heartbeat.
+
+Measured on the GitHub Actions Linux/Xvfb runner:
+
+| Desktop web preference | Hidden visibilityState | Hidden 50ms timer ticks | Hidden animation frames | Jam-sized heartbeat | Native playback command |
+| --- | --- | ---: | ---: | ---: | --- |
+| `backgroundThrottling: false` | `visible` | 116 | 167 | 1 | delivered |
+| `backgroundThrottling: true` | `visible` | 116 | 1 | 1 | delivered |
+
+The evidence supports enabling Chromium background throttling: continuous animation
+work collapses while playback-critical timer cadence and native media commands remain
+available in the measured window. The Linux/Xvfb hide path does not report
+`document.visibilityState === "hidden"` and does not clamp the synthetic 50ms
+interval during this short sample, so the CI gate does not claim those behaviors.
+The measurement remains in CI to catch regressions in animation suspension, Jam-sized
+timer progress, and native media-command delivery.
+
+
+## PR19 enforced performance budget
+
+Date: 2026-09-27. The CI benchmark fails when route performance materially
+regresses instead of merely uploading a report. Baseline v3 is derived from
+**five independent production benchmark batches** on the unchanged PR19 head
+`aa9b4881d372a72eabac9f8bdff11620d3f6efcb`, workflow run
+`36283756541`.
+
+The five benchmark job ids are:
+
+- `108520831154`
+- `108521848420`
+- `108522270186`
+- `108522589195`
+- `108523049238`
+
+The first batch exceeded the budget while the next four passed on identical
+code. In particular, mobile-search median usable time moved from 841ms in the
+noisy batch to 414ms, 310ms, 439ms, and 445ms in the following batches.
+That evidence rules out treating a single CI batch as a stable regression
+verdict.
+
+The committed baseline is the median of the five **batch-level medians**:
+
+| Surface | Usable ms | Encoded script bytes | Long tasks ms |
+| --- | ---: | ---: | ---: |
+| `/search@1440` | 468 | 479457 | 133 |
+| `/library@1440` | 464 | 486269 | 177 |
+| `/search@390` | 439 | 479457 | 119 |
+| `/library@390` | 419 | 486080 | 119 |
+
+The baseline and current report must use the same benchmark methodology:
+five isolated browser contexts per route/viewport, synthetic API responses,
+HTTP cache disabled by routing, and service workers blocked. The gate fails
+closed when those methodology fields disagree.
+
+For each `/search` and `/library` surface at 1440px and 390px, the gate compares:
+- median usable time;
+- median encoded script bytes;
+- median sampled long-task time.
+
+The thresholds remain unchanged: 30% relative growth plus the existing absolute
+noise floors (100ms usable time, 50KB script bytes, 150ms long tasks).
+
+**Gate ruling:** if the first batch exceeds those thresholds, CI records that
+report and runs one fresh independent confirmation batch. The job blocks only
+when the confirmation batch also exceeds the same budget. This does not loosen
+the thresholds; it prevents one demonstrated noisy batch from being treated as
+a product regression.
+
+The benchmark remains a synthetic Chromium regression signal with mocked APIs,
+not a field-performance SLA.

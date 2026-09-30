@@ -49,7 +49,19 @@ test("search filters persist in the URL and pagination deduplicates results", as
 
 test("search suggestions play directly without navigating away", async ({ page }, testInfo) => {
   const track = { id: "abcdefghijk", title: "6WA", channel: "BigXthaPlug", thumbnail: "/icon-192x192.png" };
+  await page.route("**/api/auth/session", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    return route.fulfill({
+      json: {
+        user: { id: "discovery-user", name: "Listener" },
+        expires: "2099-01-01T00:00:00.000Z",
+      },
+    });
+  });
   await page.route("**/api/youtube-search?**", (route) => route.fulfill({ json: { results: [track] } }));
+  const sessionResolved = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/auth/session" && response.status() === 200
+  ));
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const mobileProject = testInfo.project.name.startsWith("mobile-");
@@ -62,9 +74,140 @@ test("search suggestions play directly without navigating away", async ({ page }
   await search.fill("6wa");
   const suggestion = page.getByRole("option", { name: "Play 6WA", exact: true });
   await expect(suggestion).toBeVisible();
+  await sessionResolved;
+  await expect(suggestion).toBeVisible();
   await suggestion.click();
   await expect(page).toHaveURL(mobileProject ? /\/search$/ : /\/$/);
   await expect(page.locator("#player")).toContainText("6WA");
+});
+
+test("failed recent-search loading does not spin requests", async ({ page }) => {
+  let requests = 0;
+  await page.route("**/api/searches", (route) => {
+    if (route.request().method() !== "GET") {
+      return route.fulfill({ json: { success: true, data: [] } });
+    }
+    requests += 1;
+    return route.fulfill({
+      status: 500,
+      json: { code: "INTERNAL_ERROR", message: "fixture unavailable" },
+    });
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const search = page.getByRole("combobox", {
+    name: "Search songs, artists, playlists, and genres",
+    exact: true,
+  });
+  await search.focus();
+  await expect.poll(() => requests).toBe(1);
+  await page.waitForTimeout(750);
+  expect(requests).toBe(1);
+});
+
+test("focused empty search loads recents when auth finishes", async ({ page }) => {
+  let releaseSession;
+  const sessionGate = new Promise((resolve) => { releaseSession = resolve; });
+
+  await page.route("**/api/auth/session", async (route) => {
+    await sessionGate;
+    return route.fulfill({
+      json: {
+        user: { id: "late-auth-user", name: "Late Auth" },
+        expires: "2099-01-01T00:00:00.000Z",
+      },
+    });
+  });
+  await page.route("**/api/searches", (route) => route.fulfill({
+    json: { success: true, data: ["late-auth-recent"] },
+  }));
+
+  try {
+    await page.goto("/search", { waitUntil: "domcontentloaded" });
+    const search = page.getByRole("combobox", {
+      name: "Search songs, artists, playlists, and genres",
+      exact: true,
+    });
+    await search.focus();
+    releaseSession();
+    await expect(page.getByRole("option", { name: "late-auth-recent", exact: true })).toBeVisible();
+  } finally {
+    releaseSession();
+  }
+});
+
+test("stale recent-search responses cannot cross account boundaries", async ({ page }) => {
+  let currentId = "search-a";
+  let releaseAccountA;
+  let accountARequestStarted = false;
+  const accountAWait = new Promise((resolve) => { releaseAccountA = resolve; });
+
+  await page.route("**/api/auth/session", (route) => route.fulfill({
+    json: {
+      user: { id: currentId, name: currentId },
+      expires: "2099-01-01T00:00:00.000Z",
+    },
+  }));
+  await page.route("**/api/searches", async (route) => {
+    if (route.request().method() !== "GET") {
+      return route.fulfill({ json: { success: true, data: [] } });
+    }
+    const requestedBy = currentId;
+    if (requestedBy === "search-a") {
+      accountARequestStarted = true;
+      await accountAWait;
+      return route.fulfill({ json: { success: true, data: ["account-a-secret"] } });
+    }
+    return route.fulfill({ json: { success: true, data: ["account-b-recent"] } });
+  });
+
+  try {
+    const initialSession = page.waitForResponse(async (response) => {
+      if (new URL(response.url()).pathname !== "/api/auth/session" || response.status() !== 200) return false;
+      try {
+        return (await response.json())?.user?.id === "search-a";
+      } catch {
+        return false;
+      }
+    });
+    await page.goto("/search", { waitUntil: "domcontentloaded" });
+    await initialSession;
+    const search = page.getByRole("combobox", {
+      name: "Search songs, artists, playlists, and genres",
+      exact: true,
+    });
+    await search.focus();
+    await expect.poll(() => accountARequestStarted).toBe(true);
+
+    currentId = "search-b";
+    const switchedSession = page.waitForResponse(async (response) => {
+      if (new URL(response.url()).pathname !== "/api/auth/session" || response.status() !== 200) return false;
+      try {
+        return (await response.json())?.user?.id === "search-b";
+      } catch {
+        return false;
+      }
+    });
+    await page.evaluate(() => window.dispatchEvent(new StorageEvent("storage", {
+      key: "nextauth.message",
+      newValue: JSON.stringify({
+        event: "session",
+        data: { trigger: "getSession" },
+        timestamp: Date.now(),
+      }),
+    })));
+    await switchedSession;
+
+    await search.blur();
+    await search.focus();
+    await expect(page.getByRole("option", { name: "account-b-recent", exact: true })).toBeVisible();
+
+    releaseAccountA();
+    await expect(page.getByRole("option", { name: "account-a-secret", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: "account-b-recent", exact: true })).toBeVisible();
+  } finally {
+    releaseAccountA();
+  }
 });
 
 test("saved feedback can be restored from Settings", async ({ page }) => {

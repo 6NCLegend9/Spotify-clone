@@ -81,8 +81,18 @@ function signedEnvelope(payload, secret) {
   };
 }
 
-function mockGithubRelease(channel, version, envelope, releaseOverrides = {}) {
+function mockGithubRelease(channel, version, envelope, releaseOverrides = {}, latestYml = "") {
   const release = releaseFixture(channel, version, releaseOverrides);
+  const installer = `HayKasa-Setup-${version}-x64.exe`;
+  const metadata = latestYml || [
+    `version: ${version}`,
+    "files:",
+    `  - url: ${installer}`,
+    `    sha512: ${"B".repeat(86)}==`,
+    "    size: 123456",
+    `path: ${installer}`,
+    `sha512: ${"B".repeat(86)}==`,
+  ].join("\n");
   globalThis.fetch = async (url) => {
     const text = String(url);
     if (text.includes("api.github.com/repos/6NCLegend9/Spotify-clone/releases")) {
@@ -90,6 +100,9 @@ function mockGithubRelease(channel, version, envelope, releaseOverrides = {}) {
     }
     if (text.endsWith("/release-manifest.json")) {
       return new Response(JSON.stringify(envelope), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (text.endsWith("/latest.yml")) {
+      return new Response(metadata, { status: 200, headers: { "content-type": "text/yaml" } });
     }
     throw new Error(`Unexpected fetch: ${text}`);
   };
@@ -193,4 +206,33 @@ test("internal GitHub previews stay explicitly unsigned", async () => {
   assert.equal(result.published, true);
   assert.equal(result.signed, false);
   assert.equal(result.source, "github-release");
+});
+
+
+test("signed GitHub releases fail closed when latest.yml disagrees with the trusted manifest", async () => {
+  const secret = "desktop-manifest-test-secret-32-bytes-minimum";
+  const payload = releasePayload("stable", "2.0.0");
+  process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = secret;
+  delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
+  mockGithubRelease(
+    "stable",
+    "2.0.0",
+    signedEnvelope(payload, secret),
+    {},
+    [
+      "version: 2.0.1",
+      "files:",
+      "  - url: HayKasa-Setup-2.0.1-x64.exe",
+      `    sha512: ${"C".repeat(86)}==`,
+      "    size: 999999",
+      "path: HayKasa-Setup-2.0.1-x64.exe",
+      `sha512: ${"C".repeat(86)}==`,
+    ].join("\n"),
+  );
+
+  const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=stable"));
+  const result = await response.json();
+  assert.equal(result.published, false);
+  assert.equal(result.signed, false);
+  assert.equal(result.downloadUrl, "");
 });

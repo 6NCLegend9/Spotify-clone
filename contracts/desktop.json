@@ -1,0 +1,13 @@
+{
+  "apiVersion": 1,
+  "capabilities": [
+    "discordPresenceV1",
+    "updaterV1",
+    "autoLaunchV1",
+    "desktopPreferencesV1",
+    "appearanceProfilesV1",
+    "trayV1",
+    "diagnosticsV1",
+    "authV1"
+  ]
+}

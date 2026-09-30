@@ -11,6 +11,7 @@ import { requestJson } from "@/services/http";
 import { mixBackground } from "@/utils/homeMixes";
 import { playHomeTracks } from "@/utils/playHome";
 import { discoveryPlaylistHref } from "@/utils/discoveryPlaylist.mjs";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { toUserError } from "@/utils/userError";
 
 export default function MixCard({ mix }) {
@@ -29,7 +30,7 @@ export default function MixCard({ mix }) {
         const data = await requestJson(
           mix.playlistId
             ? `/api/youtube-playlist?id=${encodeURIComponent(mix.playlistId)}`
-            : `/api/youtube-search?type=video&q=${encodeURIComponent(mix.query || mix.title)}`,
+            : buildYoutubeSearchUrl({ type: "video", q: mix.query || mix.title }, "discovery"),
           {
             fallbackCode: "PLAYBACK_ERROR",
             fallbackTitle: mix.playlistId ? "Playlist unavailable" : "Mix unavailable",

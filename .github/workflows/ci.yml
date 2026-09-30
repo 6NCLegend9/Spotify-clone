@@ -25,8 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.x
           cache: npm
@@ -54,8 +54,8 @@ jobs:
           - project: mobile-safari
             browser: webkit
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.x
           cache: npm
@@ -63,7 +63,7 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps ${{ matrix.browser }}
       - run: npx playwright test --project="${{ matrix.project }}" --workers=2
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: browser-test-results-${{ matrix.project }}
@@ -75,8 +75,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.x
           cache: npm
@@ -84,9 +84,21 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run benchmark:production
-      - uses: actions/upload-artifact@v4
+      - name: Enforce performance budget
+        shell: bash
+        run: |
+          if node scripts/performance-budget.mjs; then
+            exit 0
+          fi
+          cp artifacts/performance.json artifacts/performance-initial-failure.json
+          echo "Initial performance budget failed; confirming with a fresh benchmark batch"
+          npm run benchmark:production
+          node scripts/performance-budget.mjs
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: performance-${{ github.sha }}
-          path: artifacts/performance.json
+          path: |
+            artifacts/performance.json
+            artifacts/performance-initial-failure.json
           retention-days: 14

@@ -55,11 +55,86 @@ test("queue overlay traps keyboard focus", async () => {
   assert.match(queue, /enabled:\s*true/);
 });
 
-test("end-guard mask does not cover the expand control", async () => {
-  const [sanitizer, css] = await Promise.all([
-    read("src/components/MusicPlayer/youtubeSanitizer.module.css"),
-    read("src/components/MusicPlayer/mediaPresentation.module.css"),
+test("audio-focused YouTube mode keeps a supported iframe viewport", async () => {
+  const [css, policy] = await Promise.all([
+    read("src/app/globals.css"),
+    import("../src/utils/youtubePresentationPolicy.mjs"),
   ]);
-  assert.match(sanitizer, /\[data-kasa-end-guard="true"\]\)::after\s*\{[^}]*pointer-events:\s*none/);
-  assert.match(css, /\.expandButton\s*\{[^}]*z-index:\s*50/);
+  assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*width:\s*2px/i);
+  assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*height:\s*2px/i);
+  assert.ok(policy.HIDDEN_YOUTUBE_VIEWPORT.width >= 200);
+  assert.ok(policy.HIDDEN_YOUTUBE_VIEWPORT.height >= 200);
+  assert.match(css, /\.yt-audio-stage \.yt-crop-frame,[\s\S]*width:\s*100% !important;[\s\S]*height:\s*100% !important;/);
+});
+
+test("video stays visible through the final seconds instead of activating an end-screen mask", async () => {
+  const [dock, sanitizer] = await Promise.all([
+    read("src/components/MusicPlayer/PlayerDock.tsx"),
+    read("src/components/MusicPlayer/youtubeSanitizer.module.css"),
+  ]);
+  assert.doesNotMatch(dock, /END_SCREEN_MASK_SECONDS|kasaEndGuard|data-kasa-end-guard/);
+  assert.doesNotMatch(sanitizer, /data-kasa-end-guard/);
+});
+
+
+test("MediaPresentation is the only interactive video presentation owner", async () => {
+  const [dock, types, player, presentation, globals] = await Promise.all([
+    read("src/components/MusicPlayer/PlayerDock.tsx"),
+    read("src/components/MusicPlayer/player.types.ts"),
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+    read("src/app/globals.css"),
+  ]);
+
+  assert.match(types, /videoAvailable\?:\s*boolean/);
+  assert.doesNotMatch(types, /onVideo\?:\s*\(\)\s*=>\s*void/);
+  assert.match(dock, /heykasa:media-presentation-command/);
+  assert.match(dock, /presentationRef\.current\?\.expand\(\)/);
+  assert.match(presentation, /const canVideo = props\.videoAvailable === true/);
+  assert.match(presentation, /dispatch\(setFullScreen\(expanded\)\)/);
+  assert.doesNotMatch(player, /onVideo=\{videoVisible \? toggleExpanded/);
+  assert.match(player, /videoAvailable=\{videoVisible\}/);
+  assert.doesNotMatch(player, /const \[expanded, setExpanded\] = useState/);
+  assert.doesNotMatch(player, /setExpanded\(next\)/);
+  assert.doesNotMatch(player, /const expanded = false/);
+  assert.doesNotMatch(player, /\bmobileSheet\b|\bsetMobileSheet\b/);
+  assert.doesNotMatch(player, /\bsheetTab\b|\bsetSheetTab\b/);
+  assert.doesNotMatch(player, /\bimmersive\b|\bsetImmersive\b|\bimmersiveRef\b/);
+  assert.doesNotMatch(player, /\bchromeVisible\b|\bsetChromeVisible\b|\bchromeVisibleRef\b/);
+  assert.doesNotMatch(player, /\bphoneSheet\b|\bsheetChrome\b|\bexpandedLayout\b/);
+  assert.doesNotMatch(player, /onFullscreenSwipeStart|onFullscreenSwipeEnd|toggleSheetTab/);
+  assert.doesNotMatch(globals, /\.yt-video-expanded|\.yt-phone-(?:stage|video|chrome)|\.yt-expand-(?:stage|chrome)|\.yt-mobile-sheet|\.yt-queue-panel|\.lyrics-panel--expanded/);
+});
+
+
+test("presentation cleanup keeps playback-control refs declared and removes stale expand lock", async () => {
+  const player = await read("src/components/MusicPlayer/YouTubePlayer.jsx");
+  for (const refName of ["userPausedRef", "pageHiddenWhilePlayingRef", "trackChangeUntilRef"]) {
+    assert.match(player, new RegExp(`const ${refName} = useRef\\(`));
+  }
+  assert.doesNotMatch(player, /\bexpandLockRef\b/);
+});
+
+
+test("YouTube audio-focused and data-saver copy stays truthful about provider media", async () => {
+  const settings = await read("src/app/settings/page.jsx");
+  assert.match(settings, /label="Audio-focused mode"/);
+  assert.doesNotMatch(settings, /label="Audio-only mode"/);
+  assert.match(settings, /This is not a separate audio-only YouTube stream/);
+  assert.match(settings, /YouTube still chooses the media stream and quality/);
+});
+
+test("hidden YouTube playback uses one shared supported viewport policy", async () => {
+  const [player, presentation, css] = await Promise.all([
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+    read("src/app/globals.css"),
+  ]);
+  assert.match(player, /HIDDEN_YOUTUBE_VIEWPORT/);
+  assert.match(presentation, /HIDDEN_YOUTUBE_VIEWPORT/);
+  assert.doesNotMatch(presentation, /visible \? rect!\.width : 320/);
+  assert.doesNotMatch(presentation, /visible \? rect!\.height : 180/);
+  assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*width:\s*200px/i);
+  assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*height:\s*200px/i);
+  assert.match(css, /\.yt-audio-stage \.yt-crop-frame,[\s\S]*width:\s*100% !important;[\s\S]*height:\s*100% !important;/);
 });

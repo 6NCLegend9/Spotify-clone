@@ -55,6 +55,37 @@ export function shouldAllowRendererNavigation(url, trustedOrigins, { isMainFrame
   return isTrustedRendererUrl(url, trustedOrigins);
 }
 
+export function shouldGrantRendererPermission({
+  permission = "",
+  requestingUrl = "",
+  requestingOrigin = "",
+  isMainFrame = false,
+} = {}, trustedOrigins) {
+  if (permission !== "screen-wake-lock" || isMainFrame !== true) return false;
+  return isTrustedRendererUrl(requestingUrl || requestingOrigin, trustedOrigins);
+}
+
+export function configureSessionPermissions(session, trustedOrigins) {
+  session.setPermissionRequestHandler((_webContents, permission, callback, details = {}) => {
+    callback(shouldGrantRendererPermission({
+      permission,
+      requestingUrl: details.requestingUrl || "",
+      isMainFrame: details.isMainFrame === true,
+    }, trustedOrigins));
+  });
+  session.setPermissionCheckHandler((_webContents, permission, requestingOrigin, details = {}) => (
+    shouldGrantRendererPermission({
+      permission,
+      requestingUrl: details.requestingUrl || "",
+      requestingOrigin,
+      isMainFrame: details.isMainFrame === true,
+    }, trustedOrigins)
+  ));
+  if (typeof session.setDevicePermissionHandler === "function") {
+    session.setDevicePermissionHandler(() => false);
+  }
+}
+
 export function isSafeHeyKasaDeepLink(value) {
   const parsed = parsedUrl(value);
   if (!parsed || parsed.protocol !== "heykasa:") return false;

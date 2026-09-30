@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { register } from "node:module";
-import { canonicalSongIdentity, canonicalSongTitle } from "../src/utils/songIdentity.mjs";
+import { canonicalSongIdentity, canonicalSongTitle, sameRadioSongFamily } from "../src/utils/songIdentity.mjs";
 
 register("./support/toolkit-loader.mjs", import.meta.url);
 const {
@@ -80,4 +80,55 @@ test("finite playlist queues keep explicit order even when titles repeat", () =>
 
   assert.equal(state.youtubeQueue.length, 2);
   assert.equal(state.queueManualEnd, true);
+});
+test("radio rejects same-song families uploaded by different artists or channels", () => {
+  const montage = {
+    id: "montage0001",
+    title: "MONTAGEM ALQUIMIA",
+    channel: "MAFIA",
+    seedQuery: "montagem alquimia",
+  };
+  const sameSongVariants = [
+    { id: "montage0002", title: "MONTAGEM ALQUIMIA_SLOWED_H6", channel: "Black mafia 2.0", seedQuery: "montagem alquimia" },
+    { id: "montage0003", title: "MONTAGEM ALQUIMIA MAFIA 3#phonk #edit #montagem", channel: "YAMAXA707", seedQuery: "montagem alquimia" },
+    { id: "montage0004", title: "MONTAGEM ALQUIMIA — MAFIA", channel: "PHONK_AURA", seedQuery: "montagem alquimia" },
+    { id: "montage0005", title: "MONTAGEM ALQUIMIA PHONK#MAFIA#phonkmusic", channel: "CRNX-EDITZ", seedQuery: "montagem alquimia" },
+    { id: "montage0006", title: "MONTAGEM ALQUIMIA - (Official Music Video)", channel: "h6itam and 2 more", seedQuery: "montagem alquimia" },
+  ];
+  const relatedDifferentSong = {
+    id: "related0001",
+    title: "MONTAGEM TOMADA",
+    channel: "ATLXS",
+    seedQuery: "montagem alquimia",
+  };
+
+  let state = reducer(undefined, startYoutubePlayback({ track: montage, queue: [montage], queueMode: "radio" }));
+  state = reducer(state, appendToQueue([...sameSongVariants, relatedDifferentSong]));
+
+  assert.deepEqual(state.youtubeQueue.map((track) => track.id), [montage.id, relatedDifferentSong.id]);
+});
+
+
+test("radio song-family fallback keeps unrelated artists with the same or prefixed title", () => {
+  assert.equal(
+    sameRadioSongFamily(
+      { id: "same-title-a", title: "Stay With Me", channel: "Artist Alpha" },
+      { id: "same-title-b", title: "Stay With Me", channel: "Artist Beta" },
+    ),
+    false,
+  );
+  assert.equal(
+    sameRadioSongFamily(
+      { id: "prefix-a", title: "Love Story", channel: "Artist Alpha" },
+      { id: "prefix-b", title: "Love Story Part 2", channel: "Artist Beta" },
+    ),
+    false,
+  );
+  assert.equal(
+    sameRadioSongFamily(
+      { id: "variant-a", title: "MONTAGEM ALQUIMIA", channel: "MAFIA" },
+      { id: "variant-b", title: "MONTAGEM ALQUIMIA SLOWED + REVERB", channel: "Uploader Two" },
+    ),
+    true,
+  );
 });

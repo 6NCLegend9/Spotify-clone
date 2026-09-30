@@ -76,15 +76,21 @@ test("public discovery does not advertise private libraries or fabricated freshn
   assert.match(searchMetadata, /robots: \{ index: false, follow: true \}/);
 });
 
-test("desktop CI builds update artifacts but never publishes an end-user release", () => {
-  const workflow = readFileSync(join(projectRoot, ".github/workflows/desktop-ci.yml"), "utf8");
-  assert.match(workflow, /Stamp main-channel update version/);
-  assert.match(workflow, /desktop\/dist\/latest\.yml/);
-  assert.match(workflow, /Validate GitHub release bundle preparation/);
-  assert.match(workflow, /npm run prepare-github-release/);
-  assert.match(workflow, /desktop\/dist\/release-manifest\.json/);
-  assert.doesNotMatch(workflow, /softprops\/action-gh-release/);
-  assert.doesNotMatch(workflow, /BLOB_READ_WRITE_TOKEN/);
+test("desktop CI verifies the shared renderer while package CI owns Windows artifacts", () => {
+  const renderer = readFileSync(join(projectRoot, ".github/workflows/desktop-ci.yml"), "utf8");
+  const packaging = readFileSync(join(projectRoot, ".github/workflows/desktop-package-ci.yml"), "utf8");
+  assert.match(renderer, /- "src\/\*\*"/);
+  assert.match(renderer, /check:desktop-contract/);
+  assert.match(renderer, /smoke:renderer/);
+  assert.doesNotMatch(renderer, /Build unsigned Windows installer/);
+
+  assert.match(packaging, /Stamp main-channel update version/);
+  assert.match(packaging, /desktop\/dist\/latest\.yml/);
+  assert.match(packaging, /Validate GitHub release bundle preparation/);
+  assert.match(packaging, /prepare-github-release/);
+  assert.match(packaging, /desktop\/dist\/release-manifest\.json/);
+  assert.doesNotMatch(packaging, /softprops\/action-gh-release/);
+  assert.doesNotMatch(packaging, /BLOB_READ_WRITE_TOKEN/);
 });
 
 test("desktop preview remains an unsigned Actions artifact", () => {
@@ -106,6 +112,7 @@ test("manual desktop release publishes complete GitHub Release bundles without V
   assert.match(release, /environment: desktop-release/);
   assert.match(release, /HEYKASA_WINDOWS_CSC_LINK/);
   assert.match(release, /HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET/);
+  assert.match(release, /check:desktop-contract/);
   assert.match(release, /Validate release version monotonicity/);
   assert.match(release, /validate-release-version\.mjs/);
   assert.match(release, /npm run prepare-github-release/);

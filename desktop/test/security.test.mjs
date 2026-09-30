@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildTrustedOrigins,
+  configureSessionPermissions,
   isSafeDesktopOpenUrl,
   isSafeExternalUrl,
   isSafeHeyKasaDeepLink,
   isTrustedRendererUrl,
   shouldAllowRendererNavigation,
+  shouldGrantRendererPermission,
 } from "../src/security.mjs";
 import { PRODUCTION_APP_URL } from "../src/config.mjs";
 
@@ -56,4 +58,66 @@ test("deep links accept only reserved HayKasa commands", () => {
   assert.equal(isSafeHeyKasaDeepLink("heykasa://auth/callback?code=abc"), true);
   assert.equal(isSafeHeyKasaDeepLink("heykasa://shell/anything"), false);
   assert.equal(isSafeHeyKasaDeepLink("https://haykasa.vercel.app"), false);
+});
+
+
+test("desktop grants only screen wake lock to the trusted HayKasa main frame", () => {
+  const origins = buildTrustedOrigins({ appUrl: PRODUCTION_APP_URL, isPackaged: true });
+  assert.equal(shouldGrantRendererPermission({
+    permission: "screen-wake-lock",
+    requestingUrl: "https://haykasa.vercel.app/search",
+    isMainFrame: true,
+  }, origins), true);
+  assert.equal(shouldGrantRendererPermission({
+    permission: "notifications",
+    requestingUrl: "https://haykasa.vercel.app/search",
+    isMainFrame: true,
+  }, origins), false);
+  assert.equal(shouldGrantRendererPermission({
+    permission: "screen-wake-lock",
+    requestingUrl: "https://www.youtube.com/embed/abc",
+    isMainFrame: false,
+  }, origins), false);
+  assert.equal(shouldGrantRendererPermission({
+    permission: "screen-wake-lock",
+    requestingUrl: "https://evil.example/",
+    isMainFrame: true,
+  }, origins), false);
+});
+
+test("desktop session permission handlers share the same fail-closed wake-lock policy", () => {
+  const origins = buildTrustedOrigins({ appUrl: PRODUCTION_APP_URL, isPackaged: true });
+  let requestHandler;
+  let checkHandler;
+  let deviceHandler;
+  const session = {
+    setPermissionRequestHandler(handler) { requestHandler = handler; },
+    setPermissionCheckHandler(handler) { checkHandler = handler; },
+    setDevicePermissionHandler(handler) { deviceHandler = handler; },
+  };
+
+  configureSessionPermissions(session, origins);
+
+  let granted = null;
+  requestHandler({}, "screen-wake-lock", (value) => { granted = value; }, {
+    requestingUrl: "https://haykasa.vercel.app/",
+    isMainFrame: true,
+  });
+  assert.equal(granted, true);
+
+  requestHandler({}, "screen-wake-lock", (value) => { granted = value; }, {
+    requestingUrl: "https://www.youtube.com/embed/abc",
+    isMainFrame: false,
+  });
+  assert.equal(granted, false);
+
+  assert.equal(checkHandler(null, "screen-wake-lock", "https://haykasa.vercel.app", {
+    requestingUrl: "https://haykasa.vercel.app/",
+    isMainFrame: true,
+  }), true);
+  assert.equal(checkHandler(null, "notifications", "https://haykasa.vercel.app", {
+    requestingUrl: "https://haykasa.vercel.app/",
+    isMainFrame: true,
+  }), false);
+  assert.equal(deviceHandler({ deviceType: "usb", origin: "https://haykasa.vercel.app" }), false);
 });

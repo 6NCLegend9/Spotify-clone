@@ -1,3 +1,4 @@
+import { CURRENT_DESKTOP_API_VERSION } from "../../../../generated/desktopContract.mjs";
 import {
   desktopAppDownloadUrl,
 } from "../../../../utils/desktopInstaller.mjs";
@@ -74,7 +75,7 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
     recommended: version(input.recommended, latest),
     desktopApiVersion: Number.isInteger(input.desktopApiVersion) && input.desktopApiVersion > 0
       ? input.desktopApiVersion
-      : 1,
+      : CURRENT_DESKTOP_API_VERSION,
     channel,
     platform: "win32",
     arch: "x64",

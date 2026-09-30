@@ -46,3 +46,11 @@ test("stable and beta updater paths require a signed manifest before auto-update
   assert.match(source, /this\.channel\(\) !== "internal" && manifest\.signed !== true/);
   assert.match(source, /will not be installed automatically/);
 });
+
+
+test("desktop updater validates published manifest integrity fields before checking electron-updater", () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../src/updater.mjs"), "utf8");
+  assert.match(source, /manifest\.sha512/);
+  assert.match(source, /manifest\.sizeBytes/);
+  assert.match(source, /manifest\.latest/);
+});

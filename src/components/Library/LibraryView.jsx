@@ -71,7 +71,7 @@ function CollectionBadges({ item }) {
         <span className="inline-flex items-center gap-1"><BsPinAngleFill className="text-[#00e6e6]" /> Pinned</span>
       )}
       {item.smartShuffle && (
-        <span className="inline-flex items-center gap-1"><FiZap className="text-emerald-400" /> Smart Shuffle</span>
+        <span className="inline-flex items-center gap-1"><FiZap className="text-emerald-400" /> Shuffle + Discovery</span>
       )}
       {item.collaborative && (
         <span className="inline-flex items-center gap-1"><FiUsers /> Collaborative</span>

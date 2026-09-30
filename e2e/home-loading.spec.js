@@ -273,6 +273,7 @@ test.describe("production PWA", () => {
     });
     await page.goto("/search", { waitUntil: "load" });
     await expect(page.getByRole("heading", { name: "Browse all" })).toBeVisible();
+    expect(await page.evaluate(() => typeof window.heykasaDesktop)).toBe("undefined");
     await page.waitForFunction(() => navigator.serviceWorker.controller?.scriptURL.endsWith("/sw.js"));
     // Only Chromium reliably exposes service-worker fetches to Playwright routing;
     // WebKit and Firefox still verify that private routes never enter Cache Storage.

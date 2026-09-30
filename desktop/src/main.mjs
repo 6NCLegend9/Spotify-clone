@@ -20,6 +20,7 @@ import {
 import {
   DESKTOP_API_VERSION,
   DESKTOP_CAPABILITIES,
+  DESKTOP_RENDERER_CACHE_SCHEMA,
   PRODUCT_NAME,
   desktopAppUrl,
 } from "./config.mjs";
@@ -49,6 +50,7 @@ import { DesktopPolicy, effectiveUpdateRolloutPercent } from "./policy.mjs";
 import {
   assertTrustedIpcEvent,
   buildTrustedOrigins,
+  configureSessionPermissions,
   isSafeDesktopOpenUrl,
   isSafeExternalUrl,
   isSafeHeyKasaDeepLink,
@@ -57,6 +59,10 @@ import {
 } from "./security.mjs";
 import { DesktopUpdater } from "./updater.mjs";
 import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
+import { shouldResetRendererCache } from "./cachePolicy.mjs";
+import { isPackagedCiSmoke, runPackagedCiSmoke } from "./ciSmoke.mjs";
+import { effectiveUpdateChannel, rendererSelectableUpdateChannel } from "./updateChannel.mjs";
+import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
@@ -74,6 +80,7 @@ const appUrl = desktopAppUrl({
   overrideUrl: process.env.HEYKASA_DESKTOP_URL || "",
 });
 const trustedOrigins = buildTrustedOrigins({ appUrl, isPackaged: app.isPackaged });
+const packagedCiSmoke = app.isPackaged && isPackagedCiSmoke(process.argv, process.env);
 
 let mainWindow = null;
 let store = null;
@@ -460,22 +467,38 @@ function registerSingleInstance() {
 }
 
 function configureSession(ses) {
-  ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  ses.setPermissionCheckHandler(() => false);
-  if (typeof ses.setDevicePermissionHandler === "function") {
-    ses.setDevicePermissionHandler(() => false);
-  }
+  configureSessionPermissions(ses, trustedOrigins);
 }
 
 async function clearDesktopWebCaches(ses) {
   const origin = new URL(appUrl).origin;
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     ses.clearCache(),
     ses.clearStorageData({
       origin,
       storages: ["serviceworkers", "cachestorage"],
     }),
   ]);
+  return results.every((result) => result.status === "fulfilled");
+}
+
+async function resetDesktopWebCachesIfNeeded(ses) {
+  if (!store) return false;
+  if (!shouldResetRendererCache({
+    storedSchema: store.get("rendererCacheSchema"),
+    currentSchema: DESKTOP_RENDERER_CACHE_SCHEMA,
+  })) {
+    return false;
+  }
+
+  const cleared = await clearDesktopWebCaches(ses);
+  if (cleared) {
+    store.set("rendererCacheSchema", DESKTOP_RENDERER_CACHE_SCHEMA);
+    logger?.info("renderer_cache_reset", { schema: DESKTOP_RENDERER_CACHE_SCHEMA });
+  } else {
+    logger?.warn("renderer_cache_reset_failed", { schema: DESKTOP_RENDERER_CACHE_SCHEMA });
+  }
+  return cleared;
 }
 
 function navigationUrl(event, deprecatedUrl) {
@@ -556,7 +579,7 @@ async function createMainWindow() {
   const ses = desktopSession();
   configureSession(ses);
   installAppearanceProtocol(ses);
-  await clearDesktopWebCaches(ses);
+  await resetDesktopWebCachesIfNeeded(ses);
 
   const window = new BrowserWindow({
     width: 1440,
@@ -579,7 +602,7 @@ async function createMainWindow() {
       navigateOnDragDrop: false,
       safeDialogs: true,
       devTools: !app.isPackaged,
-      backgroundThrottling: false,
+      backgroundThrottling: true,
       spellcheck: false,
     },
   });
@@ -834,9 +857,7 @@ function desktopPreferences() {
   return {
     autoUpdate: store?.get("autoUpdate") !== false,
     closeToTray: store?.get("closeToTray") !== false,
-    updateChannel: ["stable", "beta", "internal"].includes(store?.get("updateChannel"))
-      ? store.get("updateChannel")
-      : "stable",
+    updateChannel: effectiveUpdateChannel(store?.get("updateChannel"), { isPackaged: app.isPackaged, buildChannel: DESKTOP_BUILD_CHANNEL }),
   };
 }
 
@@ -845,8 +866,9 @@ function setDesktopPreference(key, value) {
   if (key === "autoUpdate" || key === "closeToTray") {
     store.set(key, value === true);
   } else if (key === "updateChannel") {
-    if (!["stable", "beta", "internal"].includes(value)) throw new Error("Unsupported desktop update channel.");
-    store.set(key, value);
+    const channel = rendererSelectableUpdateChannel(value, { isPackaged: app.isPackaged, buildChannel: DESKTOP_BUILD_CHANNEL });
+    if (!channel) throw new Error("Unsupported desktop update channel.");
+    store.set(key, channel);
   } else {
     throw new Error("Unsupported desktop preference.");
   }
@@ -1133,7 +1155,12 @@ if (registerSingleInstance()) {
     app.setAppUserModelId(APP_USER_MODEL_ID);
     configureSession(session.defaultSession);
     const userDataDir = app.getPath("userData");
-    store = new NativeStore(userDataDir);
+    store = new NativeStore(userDataDir, { defaultUpdateChannel: DESKTOP_BUILD_CHANNEL });
+    const effectiveChannel = effectiveUpdateChannel(store.get("updateChannel"), {
+      isPackaged: app.isPackaged,
+      buildChannel: DESKTOP_BUILD_CHANNEL,
+    });
+    if (effectiveChannel !== store.get("updateChannel")) store.set("updateChannel", effectiveChannel);
     appearanceStore = new AppearanceStore(userDataDir);
     resolvedAccent = appearanceStore.activeProfile()?.accent?.fixedColor || "#00e6e6";
     logger = new NativeLogger(userDataDir);
@@ -1164,7 +1191,15 @@ if (registerSingleInstance()) {
       rolloutPercent: () => effectiveUpdateRolloutPercent(policy?.snapshot()),
     });
     registerIpcHandlers();
-    await createMainWindow();
+    const window = await createMainWindow();
+    if (packagedCiSmoke) {
+      await runPackagedCiSmoke({
+        app,
+        window,
+        trustedRenderer: isTrustedRendererUrl(window.webContents.getURL(), trustedOrigins),
+      });
+      return;
+    }
     createTray();
     if (runtimeFeature("updater")) updater.start();
     policy.start();

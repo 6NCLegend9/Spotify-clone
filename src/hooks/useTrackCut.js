@@ -6,6 +6,7 @@ import { useJam } from "@/components/Jam/JamProvider";
 import { setYoutubeVideo } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
 import { canonicalSongIdentity } from "@/utils/songIdentity.mjs";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import {
   buildTrackCutQuery,
   classifyTrackCut,
@@ -36,7 +37,7 @@ export default function useTrackCut() {
     setBusy(cut);
     try {
       const query = buildTrackCutQuery(track, cut);
-      const data = await requestJson(`/api/youtube-search?type=video&q=${encodeURIComponent(query)}`, {
+      const data = await requestJson(buildYoutubeSearchUrl({ type: "video", q: query }, "queue"), {
         fallbackTitle: "That cut is unavailable",
         fallbackMessage: "We couldn’t find that version. Try another cut.",
       });

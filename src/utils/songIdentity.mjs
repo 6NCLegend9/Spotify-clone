@@ -96,3 +96,68 @@ export function canonicalSongIdentity(track) {
   }
   return artist ? `${artist}|${title}` : title;
 }
+
+
+const RADIO_VARIANT_MARKER = /\b(?:official|video|audio|lyrics?|visuali[sz]er|slowed|sped\s*up|reverb|remix|edit|version|phonk|nightcore|bass\s*boost(?:ed)?|extended|instrumental|clean|explicit)\b/i;
+
+function radioFamilyText(track) {
+  return normalize(
+    String(track?.title || track?.name || "")
+      .replace(/[_#]+/g, " ")
+      .replace(/[–—]/g, " - ")
+      .replace(/\((?:[^)]*\b(?:official|video|audio|lyrics?|visuali[sz]er|slowed|sped\s*up|reverb|remix|edit|version|4k|uhd|hd)\b[^)]*)\)/gi, " ")
+      .replace(/\[(?:[^\]]*\b(?:official|video|audio|lyrics?|visuali[sz]er|slowed|sped\s*up|reverb|remix|edit|version|4k|uhd|hd)\b[^\]]*)\]/gi, " "),
+  );
+}
+
+function distinctiveRadioTitle(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  const words = text.split(/\s+/).filter(Boolean);
+  return words.length >= 2 && text.length >= 8;
+}
+
+/**
+ * Radio-only duplicate guard.
+ *
+ * canonicalSongIdentity intentionally includes the artist so unrelated songs
+ * sharing a title remain separate. Radio discovery needs a second, stricter
+ * guard: different YouTube uploaders often publish the same recording under
+ * variant titles such as "slowed", "edit", "phonk", or "official video".
+ */
+export function sameRadioSongFamily(left, right) {
+  if (!left || !right) return false;
+
+  const leftIdentity = canonicalSongIdentity(left);
+  const rightIdentity = canonicalSongIdentity(right);
+  if (leftIdentity && rightIdentity && leftIdentity === rightIdentity) return true;
+
+  const leftRaw = radioFamilyText(left);
+  const rightRaw = radioFamilyText(right);
+  if (!distinctiveRadioTitle(leftRaw) || !distinctiveRadioTitle(rightRaw)) return false;
+
+  const leftOriginal = String(left?.title || left?.name || "");
+  const rightOriginal = String(right?.title || right?.name || "");
+  if (leftRaw === rightRaw) {
+    return RADIO_VARIANT_MARKER.test(leftOriginal) || RADIO_VARIANT_MARKER.test(rightOriginal);
+  }
+
+  const leftIsShorter = leftRaw.length <= rightRaw.length;
+  const shorter = leftIsShorter ? leftRaw : rightRaw;
+  const longer = leftIsShorter ? rightRaw : leftRaw;
+  if (!longer.startsWith(`${shorter} `)) return false;
+
+  const suffix = longer.slice(shorter.length).trim();
+  if (RADIO_VARIANT_MARKER.test(suffix)) return true;
+
+  const leftChannel = normalizeArtist(left?.channel || left?.channelTitle || left?.artist || "");
+  const rightChannel = normalizeArtist(right?.channel || right?.channelTitle || right?.artist || "");
+  return [leftChannel, rightChannel].some((channel) =>
+    channel
+    && (
+      suffix === channel
+      || suffix.startsWith(`${channel} `)
+      || channel.startsWith(`${suffix} `)
+    )
+  );
+}

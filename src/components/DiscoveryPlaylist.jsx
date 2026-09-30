@@ -15,6 +15,7 @@ import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import { collectionPlayback, mergePlaylistTracks } from "@/utils/discoveryPlaylist.mjs";
+import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { SITE_BRAND, SITE_URL } from "@/utils/siteConfig";
 
 function formatDuration(seconds) {
@@ -38,7 +39,7 @@ export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist"
   const requestController = useRef(null);
   const pageBusy = useRef(false);
   const endpoint = query
-    ? `/api/youtube-search?type=video&q=${encodeURIComponent(query)}`
+    ? buildYoutubeSearchUrl({ type: "video", q: query }, "discovery")
     : `/api/youtube-playlist?id=${encodeURIComponent(id)}`;
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);

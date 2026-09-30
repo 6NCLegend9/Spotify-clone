@@ -20,5 +20,6 @@
       "destination": "/api/desktop/download",
       "permanent": false
     }
-  ]
+  ],
+  "ignoreCommand": "node scripts/vercel-ignore-build.mjs"
 }

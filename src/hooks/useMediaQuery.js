@@ -1,31 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
+import {
+  PHONE_PORTRAIT_QUERY,
+  PHONE_QUERY,
+  initialMediaQueryMatch,
+} from "@/utils/responsivePolicy.mjs";
+
+const getServerSnapshot = () => false;
+const noopUnsubscribe = () => {};
 
 export function useMediaQuery(query) {
-  const [matches, setMatches] = useState(false);
+  const getSnapshot = useCallback(() =>
+    initialMediaQueryMatch(
+      query,
+      typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia.bind(window)
+        : undefined,
+    ), [query]);
 
-  useEffect(() => {
+  const subscribe = useCallback((notify) => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return noopUnsubscribe;
+    }
+
     const media = window.matchMedia(query);
-    const onChange = () => setMatches(media.matches);
-    onChange();
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+    const onChange = () => notify();
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    }
+
+    media.addListener?.(onChange);
+    return () => media.removeListener?.(onChange);
   }, [query]);
 
-  return matches;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 export default useMediaQuery;
 
 export function useIsMobile() {
-  return useMediaQuery("(max-width: 767px)");
+  return useMediaQuery(PHONE_PORTRAIT_QUERY);
 }
 
-/** Phone portrait, or a phone rotated to landscape (short side still phone-sized). */
-export const PHONE_VIEWPORT_QUERY =
-  "(max-width: 767px), (orientation: landscape) and (max-height: 540px) and (max-width: 1100px)";
+export const PHONE_VIEWPORT_QUERY = PHONE_QUERY;
 
 export function useIsPhoneViewport() {
-  return useMediaQuery(PHONE_VIEWPORT_QUERY);
+  return useMediaQuery(PHONE_QUERY);
 }

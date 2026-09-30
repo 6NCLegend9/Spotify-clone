@@ -1,3 +1,5 @@
+import { sameRadioSongFamily } from "./songIdentity.mjs";
+
 const RADIO_SEED_PREFIX = "__kasa_radio__:";
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
@@ -95,6 +97,7 @@ export function diversifyRadioTracks(
   {
     seedArtist = "",
     excludeArtists = [],
+    excludeTracks = [],
     limit = 24,
     maxPerArtist = 2,
     maxSeedArtist = 1,
@@ -114,6 +117,8 @@ export function diversifyRadioTracks(
     if (!VIDEO_ID_PATTERN.test(id) || seenIds.has(id)) continue;
     const artist = normalizeRadioArtist(track?.channel || track?.artist || "");
     if (artist && excluded.has(artist)) continue;
+    if ((Array.isArray(excludeTracks) ? excludeTracks : []).some((existing) => sameRadioSongFamily(existing, track))) continue;
+    if (unique.some((existing) => sameRadioSongFamily(existing, track))) continue;
     seenIds.add(id);
     unique.push(track);
   }
