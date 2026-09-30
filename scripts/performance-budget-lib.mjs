@@ -43,8 +43,11 @@ export function median(values) {
 function finiteSamples(samples, selector) {
   return samples
     .map(selector)
-    .map(Number)
-    .filter(Number.isFinite);
+    .filter((value) => typeof value === "number" && Number.isFinite(value));
+}
+
+function finiteMetric(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 export function aggregateNavigationMetrics(navigation) {
@@ -118,11 +121,11 @@ export function evaluatePerformanceBudget({ baseline, current }) {
     }
 
     for (const metric of ["usableMs", "scriptBytes", "longTasksMs"]) {
-      const baselineValue = Number(expected?.[metric]);
-      const currentValue = Number(observed?.[metric]);
+      const baselineValue = finiteMetric(expected?.[metric]);
+      const currentValue = finiteMetric(observed?.[metric]);
       const metricSampleCount = Number(
         observed?.validSampleCounts?.[metric] ?? (
-          Number.isFinite(currentValue) ? observed?.sampleCount : 0
+          currentValue !== null ? observed?.sampleCount : 0
         ),
       ) || 0;
 
@@ -136,12 +139,12 @@ export function evaluatePerformanceBudget({ baseline, current }) {
         continue;
       }
 
-      if (!Number.isFinite(baselineValue) || !Number.isFinite(currentValue)) {
+      if (baselineValue === null || currentValue === null) {
         regressions.push({
           surface,
           metric,
-          baseline: Number.isFinite(baselineValue) ? baselineValue : null,
-          current: Number.isFinite(currentValue) ? currentValue : null,
+          baseline: baselineValue,
+          current: currentValue,
           threshold: null,
         });
         continue;
