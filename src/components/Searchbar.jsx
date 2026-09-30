@@ -46,6 +46,7 @@ const AccountSearchbar = ({ accountKey }) => {
   const abortRef = useRef(null);
   const recentsAbortRef = useRef(null);
   const recentsLoadedAtRef = useRef(0);
+  const activeAccountRef = useRef(null);
   const resolvedAccountRef = useRef(null);
   const inputRef = useRef(null);
   const clusterRef = useRef(null);
@@ -54,6 +55,7 @@ const AccountSearchbar = ({ accountKey }) => {
   const overlaySuggestions = useMediaQuery(PHONE_QUERY);
 
   useLayoutEffect(() => {
+    activeAccountRef.current = accountKey;
     const previousAccount = resolvedAccountRef.current;
     if (!accountKey) {
       if (!previousAccount) return;
@@ -143,7 +145,7 @@ const AccountSearchbar = ({ accountKey }) => {
   const removeRecent = async (term) => {
     const requestAccount = accountKey;
     await requestJson("/api/searches", { method: "DELETE", body: { term } });
-    if (!requestAccount || resolvedAccountRef.current !== requestAccount) return;
+    if (!requestAccount || activeAccountRef.current !== requestAccount) return;
     setRecentQueries((queries) => queries.filter((value) => value.toLowerCase() !== term.toLowerCase()));
     setActiveIndex(-1);
     recentsLoadedAtRef.current = 0;
@@ -162,16 +164,16 @@ const AccountSearchbar = ({ accountKey }) => {
     setRecentLoading(true);
     try {
       const data = await requestJson("/api/searches", { signal: controller.signal });
-      if (controller.signal.aborted || resolvedAccountRef.current !== requestAccount) return;
+      if (controller.signal.aborted || activeAccountRef.current !== requestAccount) return;
       const searches = Array.isArray(data?.data) ? data.data : [];
       setRecentQueries(searches.filter((query) => typeof query === "string" && query.trim()).slice(0, 8));
     } catch {
-      if (!controller.signal.aborted && resolvedAccountRef.current === requestAccount) {
+      if (!controller.signal.aborted && activeAccountRef.current === requestAccount) {
         setRecentQueries([]);
       }
     } finally {
       if (recentsAbortRef.current === controller) recentsAbortRef.current = null;
-      if (!controller.signal.aborted && resolvedAccountRef.current === requestAccount) {
+      if (!controller.signal.aborted && activeAccountRef.current === requestAccount) {
         setRecentLoading(false);
       }
     }
