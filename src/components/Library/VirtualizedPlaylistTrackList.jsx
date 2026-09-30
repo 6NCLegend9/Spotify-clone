@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import PlaylistTrackRow from "@/components/Library/PlaylistTrackRow";
 import {
   PLAYLIST_OVERSCAN,
@@ -64,6 +64,7 @@ export default function VirtualizedPlaylistTrackList({
   const virtualized = shouldVirtualizePlaylist(items.length);
   const containerRef = useRef(null);
   const restoredKeyRef = useRef("");
+  const pendingRestoreRef = useRef(null);
   const lastRevealedActiveRef = useRef("");
   const [range, setRange] = useState(() => virtualPlaylistRange({
     count: items.length,
@@ -112,13 +113,10 @@ export default function VirtualizedPlaylistTrackList({
     const routeAtMount = `${window.location.pathname}${window.location.search}`;
     const rememberCurrentOffset = (metrics) => {
       if (!scrollKey) return;
+      if (pendingRestoreRef.current?.key === scrollKey) return;
       const currentRoute = `${window.location.pathname}${window.location.search}`;
       if (currentRoute !== routeAtMount) return;
-      const relativeOffset = Math.max(
-        0,
-        Math.min(items.length * PLAYLIST_ROW_HEIGHT, -metrics.containerTop),
-      );
-      rememberPlaylistScrollOffset(scrollMemory, scrollKey, relativeOffset);
+      rememberPlaylistScrollOffset(scrollMemory, scrollKey, metrics.scrollTop);
     };
 
     const update = () => {
@@ -138,10 +136,9 @@ export default function VirtualizedPlaylistTrackList({
     if (restoredKeyRef.current !== scrollKey) {
       restoredKeyRef.current = scrollKey;
       lastRevealedActiveRef.current = "";
-      if (rememberedOffset !== null) {
-        const metrics = scrollMetrics(node, host);
-        scrollHostTo(host, metrics.listTop + rememberedOffset);
-      }
+      pendingRestoreRef.current = rememberedOffset === null
+        ? null
+        : { key: scrollKey, offset: rememberedOffset };
     }
 
     update();
@@ -155,6 +152,31 @@ export default function VirtualizedPlaylistTrackList({
       window.visualViewport?.removeEventListener("resize", update);
     };
   }, [items.length, scrollKey, virtualized]);
+
+  useEffect(() => {
+    if (!virtualized || typeof window === "undefined") return undefined;
+    const pending = pendingRestoreRef.current;
+    if (!pending || pending.key !== scrollKey) return undefined;
+
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const latest = pendingRestoreRef.current;
+        if (!latest || latest.key !== scrollKey) return;
+        const node = containerRef.current;
+        if (!node) return;
+        const host = scrollHostFor(node);
+        scrollHostTo(host, latest.offset);
+        pendingRestoreRef.current = null;
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [scrollKey, virtualized]);
 
   if (!virtualized) {
     return items.map((track, index) => (
