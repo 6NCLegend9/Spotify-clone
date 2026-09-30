@@ -32,6 +32,70 @@ test("shares one in-flight request for an identical key", async () => {
   assert.deepEqual(a, b);
 });
 
+
+test("aborting one consumer keeps a shared request alive for other consumers", async () => {
+  const cache = createSearchRequestCache({ ttlMs: 1000, maxEntries: 8 });
+  const firstController = new AbortController();
+  const secondController = new AbortController();
+  let underlyingSignal;
+  let resolveRequest;
+
+  const factory = (signal) => {
+    underlyingSignal = signal;
+    return new Promise((resolve) => {
+      resolveRequest = resolve;
+    });
+  };
+
+  const first = cache.getOrCreate("interactive:shared", factory, {
+    signal: firstController.signal,
+  });
+  const second = cache.getOrCreate("interactive:shared", factory, {
+    signal: secondController.signal,
+  });
+
+  await Promise.resolve();
+  firstController.abort();
+  await assert.rejects(first, (error) => error?.name === "AbortError");
+  assert.equal(underlyingSignal.aborted, false);
+
+  resolveRequest({ results: ["ok"] });
+  assert.deepEqual(await second, { results: ["ok"] });
+});
+
+test("aborting the last consumer cancels and evicts the underlying request", async () => {
+  const cache = createSearchRequestCache({ ttlMs: 1000, maxEntries: 8 });
+  const controller = new AbortController();
+  let underlyingSignal;
+
+  const pending = cache.getOrCreate(
+    "interactive:cancel-me",
+    (signal) => {
+      underlyingSignal = signal;
+      return new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          const error = new Error("underlying request aborted");
+          error.name = "AbortError";
+          reject(error);
+        }, { once: true });
+      });
+    },
+    { signal: controller.signal },
+  );
+
+  await Promise.resolve();
+  controller.abort();
+  await assert.rejects(pending, (error) => error?.name === "AbortError");
+  await Promise.resolve();
+
+  assert.equal(underlyingSignal.aborted, true);
+  assert.equal(cache.has("interactive:cancel-me"), false);
+  assert.deepEqual(
+    await cache.getOrCreate("interactive:cancel-me", async () => ({ fresh: true })),
+    { fresh: true },
+  );
+});
+
 test("reuses fulfilled results inside TTL but expires them afterwards", async () => {
   let now = 1000;
   const cache = createSearchRequestCache({ ttlMs: 500, maxEntries: 8, now: () => now });
