@@ -79,3 +79,50 @@ test("500-track liked collection mounts a bounded row window while keeping endpo
   await expect.poll(async () => Number(await list.getAttribute("data-mounted-rows"))).toBeLessThan(100);
   await expect(page.getByRole("button", { name: "Play Virtual song 1", exact: true })).toBeVisible();
 });
+
+
+test("playlist scroll restoration is isolated by collection across client navigation", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop", "Collection restoration needs one browser-level state regression.");
+
+  const playlists = [
+    { _id: "playlist-a", name: "Playlist A", songs: ids, visibility: "private", user: { _id: "virtual-list-user", userName: "Virtual Listener" } },
+    { _id: "playlist-b", name: "Playlist B", songs: ids, visibility: "private", user: { _id: "virtual-list-user", userName: "Virtual Listener" } },
+  ];
+
+  await page.route("**/api/userPlaylists", (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname !== "/api/userPlaylists" || route.request().method() !== "GET") return route.fallback();
+    return route.fulfill({ json: { success: true, data: { playlists } } });
+  });
+  await page.route("**/api/userPlaylists/songs?**", (route) => {
+    const url = new URL(route.request().url());
+    const playlistId = url.searchParams.get("playlist");
+    const playlist = playlists.find((item) => item._id === playlistId);
+    if (!playlist) return route.fulfill({ status: 404, json: { success: false } });
+    return route.fulfill({ json: { success: true, data: playlist } });
+  });
+
+  await page.goto("/library/playlist/playlist-a", { waitUntil: "domcontentloaded" });
+  const scrollRoot = page.locator("[data-app-scroll-container]");
+  const list = page.locator('[data-playlist-virtualized="true"]');
+  await expect(list).toHaveAttribute("data-total-rows", String(TRACK_COUNT));
+
+  await scrollRoot.evaluate((element) => element.scrollTo(0, 6200));
+  await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeGreaterThan(5000);
+  const playlistAScroll = await scrollRoot.evaluate((element) => element.scrollTop);
+
+  await page.locator('a[href="/library/playlist/playlist-b"]').first().click();
+  await expect(page).toHaveURL(/\/library\/playlist\/playlist-b$/);
+  await expect(list).toHaveAttribute("data-total-rows", String(TRACK_COUNT));
+  await scrollRoot.evaluate((element) => element.scrollTo(0, 1500));
+  await expect.poll(() => scrollRoot.evaluate((element) => element.scrollTop)).toBeGreaterThan(1000);
+
+  await page.locator('a[href="/library/playlist/playlist-a"]').first().click();
+  await expect(page).toHaveURL(/\/library\/playlist\/playlist-a$/);
+  await expect.poll(
+    () => scrollRoot.evaluate((element) => element.scrollTop),
+    { timeout: 10_000 },
+  ).toBeGreaterThan(playlistAScroll - 250);
+  const restored = await scrollRoot.evaluate((element) => element.scrollTop);
+  expect(Math.abs(restored - playlistAScroll)).toBeLessThan(300);
+});
