@@ -81,6 +81,63 @@ test("search suggestions play directly without navigating away", async ({ page }
   await expect(page.locator("#player")).toContainText("6WA");
 });
 
+test("stale recent-search responses cannot cross account boundaries", async ({ page }) => {
+  let currentId = "search-a";
+  let releaseAccountA;
+  let accountARequestStarted = false;
+  const accountAWait = new Promise((resolve) => { releaseAccountA = resolve; });
+
+  await page.route("**/api/auth/session", (route) => route.fulfill({
+    json: {
+      user: { id: currentId, name: currentId },
+      expires: "2099-01-01T00:00:00.000Z",
+    },
+  }));
+  await page.route("**/api/searches", async (route) => {
+    if (route.request().method() !== "GET") {
+      return route.fulfill({ json: { success: true, data: [] } });
+    }
+    const requestedBy = currentId;
+    if (requestedBy === "search-a") {
+      accountARequestStarted = true;
+      await accountAWait;
+      return route.fulfill({ json: { success: true, data: ["account-a-secret"] } });
+    }
+    return route.fulfill({ json: { success: true, data: ["account-b-recent"] } });
+  });
+
+  try {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const search = page.getByRole("combobox", {
+      name: "Search songs, artists, playlists, and genres",
+      exact: true,
+    });
+    await search.focus();
+    await expect.poll(() => accountARequestStarted).toBe(true);
+
+    currentId = "search-b";
+    await page.evaluate(() => window.dispatchEvent(new StorageEvent("storage", {
+      key: "nextauth.message",
+      newValue: JSON.stringify({
+        event: "session",
+        data: { trigger: "getSession" },
+        timestamp: Date.now(),
+      }),
+    })));
+    await expect(page.getByRole("link", { name: "Open settings for search-b" })).toBeVisible();
+
+    await search.blur();
+    await search.focus();
+    await expect(page.getByRole("option", { name: "account-b-recent", exact: true })).toBeVisible();
+
+    releaseAccountA();
+    await expect(page.getByRole("option", { name: "account-a-secret", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: "account-b-recent", exact: true })).toBeVisible();
+  } finally {
+    releaseAccountA();
+  }
+});
+
 test("saved feedback can be restored from Settings", async ({ page }) => {
   const restored = [];
   await page.route(/\/api\/(notInterested|snoozedTracks)$/, (route) => {
