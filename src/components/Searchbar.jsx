@@ -54,8 +54,21 @@ const AccountSearchbar = ({ accountKey }) => {
   const overlaySuggestions = useMediaQuery(PHONE_QUERY);
 
   useEffect(() => {
-    if (!accountKey) return;
     const previousAccount = resolvedAccountRef.current;
+    if (!accountKey) {
+      if (!previousAccount) return;
+      abortRef.current?.abort();
+      recentsAbortRef.current?.abort();
+      recentsAbortRef.current = null;
+      recentsLoadedAtRef.current = 0;
+      setOpen(false);
+      setActiveIndex(-1);
+      setSongs([]);
+      setRecentQueries([]);
+      setRecentLoading(false);
+      return;
+    }
+
     resolvedAccountRef.current = accountKey;
     if (!previousAccount || previousAccount === accountKey) return;
 
@@ -152,8 +165,11 @@ const AccountSearchbar = ({ accountKey }) => {
       if (controller.signal.aborted || resolvedAccountRef.current !== requestAccount) return;
       const searches = Array.isArray(data?.data) ? data.data : [];
       setRecentQueries(searches.filter((query) => typeof query === "string" && query.trim()).slice(0, 8));
-    } catch (error) {
-      if (!controller.signal.aborted && resolvedAccountRef.current === requestAccount) throw error;
+    } catch {
+      if (!controller.signal.aborted && resolvedAccountRef.current === requestAccount) {
+        recentsLoadedAtRef.current = 0;
+        setRecentQueries([]);
+      }
     } finally {
       if (recentsAbortRef.current === controller) recentsAbortRef.current = null;
       if (!controller.signal.aborted && resolvedAccountRef.current === requestAccount) {
