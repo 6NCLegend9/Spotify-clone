@@ -81,6 +81,37 @@ test("search suggestions play directly without navigating away", async ({ page }
   await expect(page.locator("#player")).toContainText("6WA");
 });
 
+test("focused empty search loads recents when auth finishes", async ({ page }) => {
+  let releaseSession;
+  const sessionGate = new Promise((resolve) => { releaseSession = resolve; });
+
+  await page.route("**/api/auth/session", async (route) => {
+    await sessionGate;
+    return route.fulfill({
+      json: {
+        user: { id: "late-auth-user", name: "Late Auth" },
+        expires: "2099-01-01T00:00:00.000Z",
+      },
+    });
+  });
+  await page.route("**/api/searches", (route) => route.fulfill({
+    json: { success: true, data: ["late-auth-recent"] },
+  }));
+
+  try {
+    await page.goto("/search", { waitUntil: "domcontentloaded" });
+    const search = page.getByRole("combobox", {
+      name: "Search songs, artists, playlists, and genres",
+      exact: true,
+    });
+    await search.focus();
+    releaseSession();
+    await expect(page.getByRole("option", { name: "late-auth-recent", exact: true })).toBeVisible();
+  } finally {
+    releaseSession();
+  }
+});
+
 test("stale recent-search responses cannot cross account boundaries", async ({ page }) => {
   let currentId = "search-a";
   let releaseAccountA;
@@ -107,7 +138,16 @@ test("stale recent-search responses cannot cross account boundaries", async ({ p
   });
 
   try {
+    const initialSession = page.waitForResponse(async (response) => {
+      if (new URL(response.url()).pathname !== "/api/auth/session" || response.status() !== 200) return false;
+      try {
+        return (await response.json())?.user?.id === "search-a";
+      } catch {
+        return false;
+      }
+    });
     await page.goto("/search", { waitUntil: "domcontentloaded" });
+    await initialSession;
     const search = page.getByRole("combobox", {
       name: "Search songs, artists, playlists, and genres",
       exact: true,
