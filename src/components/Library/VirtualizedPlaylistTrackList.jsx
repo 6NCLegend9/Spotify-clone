@@ -63,7 +63,7 @@ export default function VirtualizedPlaylistTrackList({
   const items = useMemo(() => (Array.isArray(tracks) ? tracks : []), [tracks]);
   const virtualized = shouldVirtualizePlaylist(items.length);
   const containerRef = useRef(null);
-  const restoredRef = useRef(false);
+  const restoredKeyRef = useRef("");
   const lastRevealedActiveRef = useRef("");
   const [range, setRange] = useState(() => virtualPlaylistRange({
     count: items.length,
@@ -75,10 +75,10 @@ export default function VirtualizedPlaylistTrackList({
 
   useLayoutEffect(() => {
     if (!virtualized || typeof window === "undefined" || !activeYoutubeId) return;
-    if (lastRevealedActiveRef.current === activeYoutubeId) return;
-
     const index = items.findIndex((track) => track?.id === activeYoutubeId);
     if (index < 0) return;
+    const revealKey = `${scrollKey}:${activeYoutubeId}:${index}`;
+    if (lastRevealedActiveRef.current === revealKey) return;
 
     const node = containerRef.current;
     if (!node) return;
@@ -91,7 +91,7 @@ export default function VirtualizedPlaylistTrackList({
       containerTop: metrics.containerTop,
       viewportHeight: metrics.viewportHeight,
     });
-    lastRevealedActiveRef.current = activeYoutubeId;
+    lastRevealedActiveRef.current = revealKey;
     if (alreadyVisible) return;
 
     const relativeOffset = playlistScrollOffsetForIndex({
@@ -122,12 +122,13 @@ export default function VirtualizedPlaylistTrackList({
     };
 
     const rememberedOffset = recallPlaylistScrollOffset(scrollMemory, scrollKey);
-    if (!restoredRef.current && rememberedOffset !== null) {
-      restoredRef.current = true;
-      const metrics = scrollMetrics(node, host);
-      scrollHostTo(host, metrics.listTop + rememberedOffset);
-    } else {
-      restoredRef.current = true;
+    if (restoredKeyRef.current !== scrollKey) {
+      restoredKeyRef.current = scrollKey;
+      lastRevealedActiveRef.current = "";
+      if (rememberedOffset !== null) {
+        const metrics = scrollMetrics(node, host);
+        scrollHostTo(host, metrics.listTop + rememberedOffset);
+      }
     }
 
     update();
