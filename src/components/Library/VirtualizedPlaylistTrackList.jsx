@@ -109,6 +109,18 @@ export default function VirtualizedPlaylistTrackList({
     if (!node) return undefined;
     const host = scrollHostFor(node);
 
+    const routeAtMount = `${window.location.pathname}${window.location.search}`;
+    const rememberCurrentOffset = (metrics) => {
+      if (!scrollKey) return;
+      const currentRoute = `${window.location.pathname}${window.location.search}`;
+      if (currentRoute !== routeAtMount) return;
+      const relativeOffset = Math.max(
+        0,
+        Math.min(items.length * PLAYLIST_ROW_HEIGHT, -metrics.containerTop),
+      );
+      rememberPlaylistScrollOffset(scrollMemory, scrollKey, relativeOffset);
+    };
+
     const update = () => {
       const metrics = scrollMetrics(node, host);
       const next = virtualPlaylistRange({
@@ -119,6 +131,7 @@ export default function VirtualizedPlaylistTrackList({
         overscan: PLAYLIST_OVERSCAN,
       });
       setRange((current) => (sameRange(current, next) ? current : next));
+      rememberCurrentOffset(metrics);
     };
 
     const rememberedOffset = recallPlaylistScrollOffset(scrollMemory, scrollKey);
@@ -137,14 +150,6 @@ export default function VirtualizedPlaylistTrackList({
     window.visualViewport?.addEventListener("resize", update);
 
     return () => {
-      if (scrollKey) {
-        const metrics = scrollMetrics(node, host);
-        const relativeOffset = Math.max(
-          0,
-          Math.min(items.length * PLAYLIST_ROW_HEIGHT, -metrics.containerTop),
-        );
-        rememberPlaylistScrollOffset(scrollMemory, scrollKey, relativeOffset);
-      }
       host.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("resize", update);
