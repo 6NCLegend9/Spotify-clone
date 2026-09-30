@@ -121,8 +121,8 @@ test("performance budget fails closed when required metrics are missing", () => 
   };
   const current = aggregateNavigationMetrics([
     { path: "/search", width: 390, usableMs: 300, scriptBytes: 480000, longTasks: 20 },
-    { path: "/search", width: 390, usableMs: 320, scriptBytes: undefined, longTasks: 30 },
-    { path: "/search", width: 390, usableMs: 340, scriptBytes: NaN, longTasks: 40 },
+    { path: "/search", width: 390, usableMs: 320, scriptBytes: null, longTasks: 30 },
+    { path: "/search", width: 390, usableMs: 340, scriptBytes: "0", longTasks: 40 },
   ]);
   const result = evaluatePerformanceBudget({ baseline, current });
   assert.equal(result.ok, false);
