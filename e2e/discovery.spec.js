@@ -89,8 +89,8 @@ test("failed recent-search loading does not spin requests", async ({ page }) => 
     }
     requests += 1;
     return route.fulfill({
-      status: 503,
-      json: { code: "UNAVAILABLE", message: "fixture unavailable" },
+      status: 500,
+      json: { code: "INTERNAL_ERROR", message: "fixture unavailable" },
     });
   });
 
