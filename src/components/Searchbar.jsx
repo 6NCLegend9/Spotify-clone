@@ -167,7 +167,6 @@ const AccountSearchbar = ({ accountKey }) => {
       setRecentQueries(searches.filter((query) => typeof query === "string" && query.trim()).slice(0, 8));
     } catch {
       if (!controller.signal.aborted && resolvedAccountRef.current === requestAccount) {
-        recentsLoadedAtRef.current = 0;
         setRecentQueries([]);
       }
     } finally {
