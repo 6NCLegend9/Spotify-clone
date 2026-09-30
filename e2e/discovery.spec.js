@@ -59,6 +59,9 @@ test("search suggestions play directly without navigating away", async ({ page }
     });
   });
   await page.route("**/api/youtube-search?**", (route) => route.fulfill({ json: { results: [track] } }));
+  const sessionResolved = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/auth/session" && response.status() === 200
+  ));
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const mobileProject = testInfo.project.name.startsWith("mobile-");
@@ -71,7 +74,7 @@ test("search suggestions play directly without navigating away", async ({ page }
   await search.fill("6wa");
   const suggestion = page.getByRole("option", { name: "Play 6WA", exact: true });
   await expect(suggestion).toBeVisible();
-  await page.waitForTimeout(1400);
+  await sessionResolved;
   await expect(suggestion).toBeVisible();
   await suggestion.click();
   await expect(page).toHaveURL(mobileProject ? /\/search$/ : /\/$/);
