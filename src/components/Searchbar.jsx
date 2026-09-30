@@ -53,7 +53,7 @@ const AccountSearchbar = ({ accountKey }) => {
   const [overlayBox, setOverlayBox] = useState({ top: 64, bottom: 0 });
   const overlaySuggestions = useMediaQuery(PHONE_QUERY);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousAccount = resolvedAccountRef.current;
     if (!accountKey) {
       if (!previousAccount) return;
