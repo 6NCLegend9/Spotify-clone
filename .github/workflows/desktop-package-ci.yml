@@ -68,7 +68,10 @@ jobs:
           $exe = Get-ChildItem -Path desktop/dist -Recurse -Filter "HayKasa.exe" | Select-Object -First 1
           if (-not $exe) { throw "HayKasa.exe was not produced" }
           Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
-      - name: Verify packaged Windows runtime
+      # Packaged clients intentionally pin the production renderer. Exact PR
+      # renderer compatibility is exercised separately by Desktop CI against
+      # the shared renderer; do not add a packaged URL override here.
+      - name: Verify packaged Windows runtime against pinned production renderer
         run: npm --prefix desktop run smoke:packaged
       - name: Validate GitHub release bundle preparation
         run: npm --prefix desktop run prepare-github-release
