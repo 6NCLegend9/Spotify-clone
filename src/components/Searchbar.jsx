@@ -44,6 +44,7 @@ const AccountSearchbar = ({ accountKey }) => {
   const inputId = useId();
   const listboxId = useId();
   const abortRef = useRef(null);
+  const recentsAbortRef = useRef(null);
   const recentsLoadedAtRef = useRef(0);
   const resolvedAccountRef = useRef(null);
   const inputRef = useRef(null);
@@ -59,6 +60,8 @@ const AccountSearchbar = ({ accountKey }) => {
     if (!previousAccount || previousAccount === accountKey) return;
 
     abortRef.current?.abort();
+    recentsAbortRef.current?.abort();
+    recentsAbortRef.current = null;
     recentsLoadedAtRef.current = 0;
     setSearchTerm("");
     setOpen(false);
@@ -67,6 +70,11 @@ const AccountSearchbar = ({ accountKey }) => {
     setRecentQueries([]);
     setRecentLoading(false);
   }, [accountKey]);
+
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    recentsAbortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -120,23 +128,37 @@ const AccountSearchbar = ({ accountKey }) => {
   }, [pathname]);
 
   const removeRecent = async (term) => {
+    const requestAccount = accountKey;
     await requestJson("/api/searches", { method: "DELETE", body: { term } });
+    if (!requestAccount || resolvedAccountRef.current !== requestAccount) return;
     setRecentQueries((queries) => queries.filter((value) => value.toLowerCase() !== term.toLowerCase()));
     setActiveIndex(-1);
     recentsLoadedAtRef.current = 0;
   };
 
   const loadRecents = async () => {
+    const requestAccount = accountKey;
+    if (!requestAccount) return;
     const now = Date.now();
     if (recentLoading || now - recentsLoadedAtRef.current < 15_000) return;
+
+    recentsAbortRef.current?.abort();
+    const controller = new AbortController();
+    recentsAbortRef.current = controller;
     recentsLoadedAtRef.current = now;
     setRecentLoading(true);
     try {
-      const data = await requestJson("/api/searches");
+      const data = await requestJson("/api/searches", { signal: controller.signal });
+      if (controller.signal.aborted || resolvedAccountRef.current !== requestAccount) return;
       const searches = Array.isArray(data?.data) ? data.data : [];
       setRecentQueries(searches.filter((query) => typeof query === "string" && query.trim()).slice(0, 8));
+    } catch (error) {
+      if (!controller.signal.aborted && resolvedAccountRef.current === requestAccount) throw error;
     } finally {
-      setRecentLoading(false);
+      if (recentsAbortRef.current === controller) recentsAbortRef.current = null;
+      if (!controller.signal.aborted && resolvedAccountRef.current === requestAccount) {
+        setRecentLoading(false);
+      }
     }
   };
 
