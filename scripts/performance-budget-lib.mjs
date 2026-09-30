@@ -125,16 +125,17 @@ export function evaluatePerformanceBudget({ baseline, current }) {
       const currentValue = finiteMetric(observed?.[metric]);
       const metricSampleCount = Number(
         observed?.validSampleCounts?.[metric] ?? (
-          currentValue !== null ? observed?.sampleCount : 0
+          currentValue !== null ? (observed?.sampleCount ?? 1) : 0
         ),
       ) || 0;
+      const requiredMetricSamples = Math.max(1, minimumSamples);
 
-      if (minimumSamples > 0 && metricSampleCount < minimumSamples) {
+      if (metricSampleCount < requiredMetricSamples) {
         regressions.push({
           surface,
           metric: `${metric}SampleCount`,
           current: metricSampleCount,
-          minimum: minimumSamples,
+          minimum: requiredMetricSamples,
         });
         continue;
       }
