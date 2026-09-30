@@ -40,6 +40,13 @@ export function median(values) {
     : (numbers[middle - 1] + numbers[middle]) / 2;
 }
 
+function finiteSamples(samples, selector) {
+  return samples
+    .map(selector)
+    .map(Number)
+    .filter(Number.isFinite);
+}
+
 export function aggregateNavigationMetrics(navigation) {
   const groups = new Map();
   for (const sample of Array.isArray(navigation) ? navigation : []) {
@@ -53,11 +60,22 @@ export function aggregateNavigationMetrics(navigation) {
 
   const result = {};
   for (const [key, samples] of groups) {
+    const usableMs = finiteSamples(samples, (sample) => sample?.usableMs);
+    const scriptBytes = finiteSamples(samples, (sample) => sample?.scriptBytes);
+    const longTasksMs = finiteSamples(
+      samples,
+      (sample) => sample?.longTasksMs ?? sample?.longTasks,
+    );
     result[key] = {
-      usableMs: median(samples.map((sample) => sample.usableMs)),
-      scriptBytes: median(samples.map((sample) => sample.scriptBytes)),
-      longTasksMs: median(samples.map((sample) => Number(sample.longTasks) || 0)),
+      usableMs: median(usableMs),
+      scriptBytes: median(scriptBytes),
+      longTasksMs: median(longTasksMs),
       sampleCount: samples.length,
+      validSampleCounts: {
+        usableMs: usableMs.length,
+        scriptBytes: scriptBytes.length,
+        longTasksMs: longTasksMs.length,
+      },
     };
   }
   return result;
@@ -100,8 +118,35 @@ export function evaluatePerformanceBudget({ baseline, current }) {
     }
 
     for (const metric of ["usableMs", "scriptBytes", "longTasksMs"]) {
-      const baselineValue = Number(expected?.[metric]) || 0;
-      const currentValue = Number(observed?.[metric]) || 0;
+      const baselineValue = Number(expected?.[metric]);
+      const currentValue = Number(observed?.[metric]);
+      const metricSampleCount = Number(
+        observed?.validSampleCounts?.[metric] ?? (
+          Number.isFinite(currentValue) ? observed?.sampleCount : 0
+        ),
+      ) || 0;
+
+      if (minimumSamples > 0 && metricSampleCount < minimumSamples) {
+        regressions.push({
+          surface,
+          metric: `${metric}SampleCount`,
+          current: metricSampleCount,
+          minimum: minimumSamples,
+        });
+        continue;
+      }
+
+      if (!Number.isFinite(baselineValue) || !Number.isFinite(currentValue)) {
+        regressions.push({
+          surface,
+          metric,
+          baseline: Number.isFinite(baselineValue) ? baselineValue : null,
+          current: Number.isFinite(currentValue) ? currentValue : null,
+          threshold: null,
+        });
+        continue;
+      }
+
       const threshold = thresholdFor(
         baselineValue,
         relativeTolerance,
