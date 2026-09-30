@@ -49,6 +49,15 @@ test("search filters persist in the URL and pagination deduplicates results", as
 
 test("search suggestions play directly without navigating away", async ({ page }, testInfo) => {
   const track = { id: "abcdefghijk", title: "6WA", channel: "BigXthaPlug", thumbnail: "/icon-192x192.png" };
+  await page.route("**/api/auth/session", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    return route.fulfill({
+      json: {
+        user: { id: "discovery-user", name: "Listener" },
+        expires: "2099-01-01T00:00:00.000Z",
+      },
+    });
+  });
   await page.route("**/api/youtube-search?**", (route) => route.fulfill({ json: { results: [track] } }));
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
@@ -61,6 +70,8 @@ test("search suggestions play directly without navigating away", async ({ page }
   const search = page.getByRole("combobox", { name: "Search songs, artists, playlists, and genres", exact: true });
   await search.fill("6wa");
   const suggestion = page.getByRole("option", { name: "Play 6WA", exact: true });
+  await expect(suggestion).toBeVisible();
+  await page.waitForTimeout(1400);
   await expect(suggestion).toBeVisible();
   await suggestion.click();
   await expect(page).toHaveURL(mobileProject ? /\/search$/ : /\/$/);
