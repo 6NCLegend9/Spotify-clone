@@ -217,9 +217,20 @@ const Player = ({
   }, [isPlaying]);
 
   useEffect(() => {
-    if (ref.current) {
+    const apply = () => {
+      if (!ref.current) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       ref.current.volume = Number.isFinite(masterVolume) ? masterVolume : 1;
-    }
+    };
+    apply();
+    document.addEventListener("visibilitychange", apply);
+    window.addEventListener("focus", apply);
+    window.addEventListener("pageshow", apply);
+    return () => {
+      document.removeEventListener("visibilitychange", apply);
+      window.removeEventListener("focus", apply);
+      window.removeEventListener("pageshow", apply);
+    };
   }, [masterVolume]);
   // updates audio element only on seekTime change (and not on each rerender):
   useEffect(() => {

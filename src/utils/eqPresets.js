@@ -53,3 +53,49 @@ export function youtubePlaybackVolume(bands, mode) {
   void bands;
   return Math.round(Math.min(100, Math.max(8, 100 * normalizationGain(mode))));
 }
+
+// YouTube IFrame setVolume is an integer from 0 to 100. masterVolume is 0 to 1.
+export function playerOutputVolume(playbackVolume, masterVolume, ratio = 1) {
+  const master = Number.isFinite(masterVolume) ? Math.min(1, Math.max(0, masterVolume)) : 1;
+  const base = Number.isFinite(playbackVolume) ? playbackVolume : 100;
+  const scale = Number.isFinite(ratio) ? ratio : 1;
+  return Math.round(Math.min(100, Math.max(0, base * master * scale)));
+}
+
+export function applyLatestOutputVolume(player, levels, ratio = 1) {
+  const volume = playerOutputVolume(levels?.playbackVolume, levels?.masterVolume, ratio);
+  player?.setVolume?.(volume);
+  return volume;
+}
+
+// Provider visibility/unmute handling can apply after setVolume returns. Reapply
+// the current user level for a short bounded window after foreground restore.
+export const VOLUME_RESTORE_DELAYS_MS = [100, 300, 700, 1400, 2200, 3200, 4500];
+
+export function armVolumeRestore({
+  apply,
+  shouldApply = () => true,
+  delays = VOLUME_RESTORE_DELAYS_MS,
+  now = () => Date.now(),
+  setTimer = (fn, ms) => setTimeout(fn, ms),
+  clearTimer = (id) => clearTimeout(id),
+} = {}) {
+  const ids = [];
+  let active = true;
+  const startedAt = now();
+  const windowMs = delays.reduce((max, delay) => Math.max(max, Number(delay) || 0), 0);
+  const run = () => {
+    if (!active || !shouldApply()) return;
+    apply();
+  };
+  const clear = () => {
+    active = false;
+    while (ids.length) clearTimer(ids.pop());
+  };
+  run();
+  for (const delay of delays) ids.push(setTimer(run, delay));
+  return {
+    clear,
+    holds: () => active && now() - startedAt < windowMs,
+  };
+}
