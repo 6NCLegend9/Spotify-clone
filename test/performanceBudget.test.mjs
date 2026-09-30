@@ -24,6 +24,11 @@ test("aggregates route metrics by path and viewport", () => {
     scriptBytes: 485000,
     longTasksMs: 20,
     sampleCount: 3,
+    validSampleCounts: {
+      usableMs: 3,
+      scriptBytes: 3,
+      longTasksMs: 3,
+    },
   });
 });
 
@@ -97,7 +102,34 @@ test("a single noisy long-task sample cannot fail an otherwise stable route", ()
     scriptBytes: 491800,
     longTasksMs: 55,
     sampleCount: 3,
+    validSampleCounts: {
+      usableMs: 3,
+      scriptBytes: 3,
+      longTasksMs: 3,
+    },
   });
+});
+
+test("performance budget fails closed when required metrics are missing", () => {
+  const baseline = {
+    minimumSamplesPerSurface: 3,
+    relativeTolerance: 0.3,
+    absoluteFloors: { usableMs: 100, scriptBytes: 50000, longTasksMs: 150 },
+    metrics: {
+      "/search@390": { usableMs: 343, scriptBytes: 489712, longTasksMs: 53 },
+    },
+  };
+  const current = aggregateNavigationMetrics([
+    { path: "/search", width: 390, usableMs: 300, scriptBytes: 480000, longTasks: 20 },
+    { path: "/search", width: 390, usableMs: 320, scriptBytes: undefined, longTasks: 30 },
+    { path: "/search", width: 390, usableMs: 340, scriptBytes: NaN, longTasks: 40 },
+  ]);
+  const result = evaluatePerformanceBudget({ baseline, current });
+  assert.equal(result.ok, false);
+  assert.deepEqual(
+    result.regressions.map((item) => item.metric),
+    ["scriptBytesSampleCount"],
+  );
 });
 
 
