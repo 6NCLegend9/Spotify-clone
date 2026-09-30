@@ -43,7 +43,50 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Verify real YouTube iframe integration
+        id: provider
         run: npx playwright test e2e/youtube-provider.spec.js --project=chromium-desktop --workers=1
+      - name: Report provider verification state
+        if: always()
+        shell: bash
+        env:
+          PROVIDER_STEP_OUTCOME: ${{ steps.provider.outcome }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, appendFile } from "node:fs/promises";
+
+          const file = "test-results/youtube-provider-status.json";
+          let result = null;
+          try {
+            result = JSON.parse(await readFile(file, "utf8"));
+          } catch {
+            result = { status: "missing" };
+          }
+
+          const status = String(result?.status || "missing");
+          const summary = [
+            "### YouTube provider verification",
+            `- State: **${status}**`,
+            `- Test step: **${process.env.PROVIDER_STEP_OUTCOME || "unknown"}**`,
+          ];
+          if (result?.providerApiLoaded !== undefined) {
+            summary.push(`- Provider API loaded: **${result.providerApiLoaded === true ? "yes" : "no"}**`);
+          }
+          if (Array.isArray(result?.playerErrorCodes) && result.playerErrorCodes.length) {
+            summary.push(`- Provider error codes: ${result.playerErrorCodes.join(", ")}`);
+          }
+          await appendFile(process.env.GITHUB_STEP_SUMMARY, `${summary.join("\n")}\n`);
+
+          if (status === "inconclusive") {
+            console.log("::warning title=YouTube playback verification inconclusive::The real provider API loaded, but YouTube blocked all playback candidates from the CI runner. This is not counted as verified playback.");
+            process.exit(0);
+          }
+          if (status === "verified") process.exit(0);
+
+          if (process.env.PROVIDER_STEP_OUTCOME === "success") {
+            console.error(`Provider test completed without a terminal verification state: ${status}`);
+            process.exit(1);
+          }
+          NODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
