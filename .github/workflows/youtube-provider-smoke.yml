@@ -9,6 +9,7 @@ on:
       - "src/components/MusicPlayer/**"
       - "src/hooks/useYoutubeCaptions.js"
       - "src/app/globals.css"
+      - "next.config.js"
       - "e2e/youtube-provider.spec.js"
       - "src/utils/youtubeProviderFailure.mjs"
       - "test/youtubeProviderSmokeContract.test.mjs"
