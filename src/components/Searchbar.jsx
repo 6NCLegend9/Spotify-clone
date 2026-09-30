@@ -24,10 +24,13 @@ import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
 
 const Searchbar = () => {
   const { data: session, status } = useSession();
-  return <AccountSearchbar key={session?.user?.id || session?.user?.email || status} />;
+  const accountKey = status === "loading"
+    ? null
+    : session?.user?.id || session?.user?.email || "anonymous";
+  return <AccountSearchbar accountKey={accountKey} />;
 };
 
-const AccountSearchbar = () => {
+const AccountSearchbar = ({ accountKey }) => {
   const dispatch = useDispatch();
   const router = useRouter();
   const pathname = usePathname();
@@ -42,11 +45,28 @@ const AccountSearchbar = () => {
   const listboxId = useId();
   const abortRef = useRef(null);
   const recentsLoadedAtRef = useRef(0);
+  const resolvedAccountRef = useRef(null);
   const inputRef = useRef(null);
   const clusterRef = useRef(null);
   const [compactPlaceholder, setCompactPlaceholder] = useState(false);
   const [overlayBox, setOverlayBox] = useState({ top: 64, bottom: 0 });
   const overlaySuggestions = useMediaQuery(PHONE_QUERY);
+
+  useEffect(() => {
+    if (!accountKey) return;
+    const previousAccount = resolvedAccountRef.current;
+    resolvedAccountRef.current = accountKey;
+    if (!previousAccount || previousAccount === accountKey) return;
+
+    abortRef.current?.abort();
+    recentsLoadedAtRef.current = 0;
+    setSearchTerm("");
+    setOpen(false);
+    setActiveIndex(-1);
+    setSongs([]);
+    setRecentQueries([]);
+    setRecentLoading(false);
+  }, [accountKey]);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -134,10 +154,12 @@ const AccountSearchbar = () => {
         const key = normalizeSearchRequestKey({ purpose: "interactive", query: term });
         const data = await interactiveYoutubeSearchCache.getOrCreate(
           key,
-          () => requestJson(buildYoutubeSearchUrl({ type: "video", q: term }, "interactive"), {
+          (signal) => requestJson(buildYoutubeSearchUrl({ type: "video", q: term }, "interactive"), {
+            signal,
             fallbackTitle: "Search unavailable",
             fallbackMessage: "We couldn’t load suggestions.",
           }),
+          { signal: controller.signal },
         );
         const list = Array.isArray(data?.results) ? data.results.slice(0, 7) : [];
         if (!controller.signal.aborted) setSongs(list);
