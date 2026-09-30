@@ -180,7 +180,6 @@ const AccountSearchbar = ({ accountKey }) => {
 
   useEffect(() => {
     if (!accountKey || !open || searchTerm.trim()) return;
-    if (document.activeElement !== inputRef.current) return;
     void loadRecents();
   }, [accountKey, loadRecents, open, searchTerm]);
 
