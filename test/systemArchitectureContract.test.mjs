@@ -89,3 +89,12 @@ test("Electron remains a thin native shell rather than a second product frontend
   }
   assert.deepEqual([...new Set(forbidden)], []);
 });
+
+
+test("YouTube playback does not receive compute-pressure permission", async () => {
+  const player = await source("src/components/MusicPlayer/YouTubePlayer.jsx");
+  const nextConfig = await source("next.config.js");
+  assert.doesNotMatch(player, /compute-pressure/);
+  assert.match(nextConfig, /compute-pressure=\(\)/);
+  assert.doesNotMatch(nextConfig, /compute-pressure=\([^)]*youtube/i);
+});
