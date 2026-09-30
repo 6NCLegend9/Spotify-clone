@@ -1,7 +1,23 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { classifyYoutubeProviderFailure } from "../src/utils/youtubeProviderFailure.mjs";
 
 const EMBED_RESTRICTION_CODES = new Set([100, 101, 150]);
+const PROVIDER_STATUS_PATH = path.resolve(process.cwd(), "test-results", "youtube-provider-status.json");
+
+function writeProviderStatus(status, details = {}) {
+  mkdirSync(path.dirname(PROVIDER_STATUS_PATH), { recursive: true });
+  writeFileSync(
+    PROVIDER_STATUS_PATH,
+    `${JSON.stringify({
+      status,
+      checkedAt: new Date().toISOString(),
+      ...details,
+    }, null, 2)}\n`,
+    "utf8",
+  );
+}
 const PROVIDER_SMOKE_TRACKS = [
   {
     id: "aqz-KE-bpKQ",
@@ -109,6 +125,7 @@ test.describe("real YouTube provider smoke", () => {
   test.skip(process.env.HEYKASA_REAL_YOUTUBE_E2E !== "1", "Real provider smoke runs only in its dedicated workflow.");
 
   test("creates, plays, and repositions a real cross-origin YouTube iframe", async ({ page }, testInfo) => {
+    writeProviderStatus("running");
     const providerSignals = {
       requestFailures: [],
       responseStatuses: [],
@@ -302,6 +319,11 @@ test.describe("real YouTube provider smoke", () => {
       expect(box).not.toBeNull();
       expect(box.width).toBeGreaterThan(200);
       expect(box.height).toBeGreaterThan(112);
+      writeProviderStatus("verified", {
+        videoId: activeTrack.id,
+        providerApiLoaded: providerSignals.providerApiLoaded,
+        rejectedCandidates: providerSignals.playerErrorCodes,
+      });
     } catch (error) {
       try {
         recordPlayerErrors(await page.evaluate(
@@ -329,8 +351,24 @@ test.describe("real YouTube provider smoke", () => {
         description: classification,
       });
       if (classification === "external-provider") {
+        writeProviderStatus("inconclusive", {
+          reason: "external-provider",
+          providerApiLoaded: providerSignals.providerApiLoaded,
+          playerErrorCodes: providerSignals.playerErrorCodes,
+          responseStatuses: providerSignals.responseStatuses,
+          requestFailures: providerSignals.requestFailures,
+          message: failureMessage,
+        });
         test.skip(true, "All real YouTube smoke candidates were blocked by provider/network availability.");
       }
+      writeProviderStatus("failed", {
+        reason: classification,
+        providerApiLoaded: providerSignals.providerApiLoaded,
+        playerErrorCodes: providerSignals.playerErrorCodes,
+        responseStatuses: providerSignals.responseStatuses,
+        requestFailures: providerSignals.requestFailures,
+        message: failureMessage,
+      });
       throw error;
     }
   });
