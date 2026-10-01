@@ -385,9 +385,11 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     const oldInert = host.inert;
     host.classList.add(styles.viewport);
     region.classList.add(styles.presentationRegion);
-    // In theater the live cross-origin iframe sits just below the transparent KASA
-    // overlay so header/transport controls remain clickable over the video.
-    region.style.setProperty("z-index", overlay ? "69" : "30");
+    // Drawer video must sit above the opaque sheet so the live frame and its
+    // expand affordance are actually visible. Theater is intentionally the
+    // inverse: the live iframe stays below the transparent KASA chrome.
+    const presentationZ = expanded ? "69" : drawer && showingVideo ? "71" : "30";
+    region.style.setProperty("z-index", presentationZ);
     // Establish the fixed containing block once, before the first measurement.
     for (const [name, value] of Object.entries({ display: "block", position: "fixed", inset: "auto", margin: "0", transform: "none", "min-height": "0", "max-height": "none", overflow: "hidden", "z-index": "1", left: "0px", top: "0px" })) {
       host.style.setProperty(name, value, "important");
