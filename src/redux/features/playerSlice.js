@@ -4,7 +4,7 @@ import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
 import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity, sameRadioSongFamily } from '../../utils/songIdentity.mjs';
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
-import { normalizeRadioArtist } from '../../utils/radioSeed.mjs';
+import { collectRadioArtistExclusions, normalizeRadioArtist } from '../../utils/radioSeed.mjs';
 
 const initialState = {
   currentSongs: [],
@@ -85,7 +85,7 @@ function radioOriginContext(track) {
   };
 }
 
-function pruneAutomaticRadioUpcoming(queue, current) {
+function pruneAutomaticRadioUpcoming(queue, current, { history = [] } = {}) {
   const list = Array.isArray(queue) ? queue : [];
   if (!current?.id || list.length < 2) return list;
   const currentIndex = list.findIndex((item) => sameOccurrence(item, current) || item?.id === current.id);
@@ -93,7 +93,12 @@ function pruneAutomaticRadioUpcoming(queue, current) {
 
   const head = list.slice(0, currentIndex + 1);
   const upcoming = list.slice(currentIndex + 1);
-  const currentArtist = normalizeRadioArtist(current.channel || current.artist || '');
+  const recentArtists = new Set(collectRadioArtistExclusions({
+    history,
+    current,
+    historyLimit: 6,
+    upcomingLimit: 0,
+  }));
   const seenAutoArtists = new Set();
   const next = [];
 
@@ -106,7 +111,7 @@ function pruneAutomaticRadioUpcoming(queue, current) {
     }
     if (sameRadioSongFamily(entry, current)) continue;
     if (next.some((kept) => kept?.queueSource !== 'user' && sameRadioSongFamily(entry, kept))) continue;
-    if (artist && currentArtist && artist === currentArtist) continue;
+    if (artist && recentArtists.has(artist)) continue;
     if (artist && seenAutoArtists.has(artist)) continue;
     if (artist) seenAutoArtists.add(artist);
     next.push(entry);
@@ -176,8 +181,11 @@ const playerSlice = createSlice({
       if (youtubeVideo?.id && !youtubeQueue.some((track) => track.id === youtubeVideo.id)) {
         youtubeQueue.unshift(youtubeVideo);
       }
+      const history = (Array.isArray(snapshot.history) ? snapshot.history : [])
+        .map((track) => decodePlayableYoutubeTrack(track))
+        .filter(Boolean);
       if (queueMode === 'radio' && youtubeVideo?.id) {
-        youtubeQueue = pruneAutomaticRadioUpcoming(youtubeQueue, youtubeVideo);
+        youtubeQueue = pruneAutomaticRadioUpcoming(youtubeQueue, youtubeVideo, { history });
       }
       return {
         ...initialState,
@@ -185,9 +193,7 @@ const playerSlice = createSlice({
         youtubeVideo,
         youtubeQueue,
         userQueue: youtubeQueue.filter((track) => track?.queueSource === 'user' && track.id !== youtubeVideo?.id),
-        history: (Array.isArray(snapshot.history) ? snapshot.history : [])
-          .map((track) => decodePlayableYoutubeTrack(track))
-          .filter(Boolean),
+        history,
         playbackContext: normalizeContext(snapshot.playbackContext)
           || (queueMode === 'radio' ? radioOriginContext(youtubeQueue[0] || youtubeVideo) : null),
         isPlaying: youtubeVideo?.id || snapshot.activeSong?.id ? snapshot.isPlaying === true : false,
@@ -273,7 +279,7 @@ const playerSlice = createSlice({
         || state.youtubeQueue.find((item) => item?.id === nextVideo?.id);
       state.youtubeVideo = queuedOccurrence || nextVideo;
       if (state.queueMode === 'radio' && state.youtubeVideo?.id) {
-        state.youtubeQueue = pruneAutomaticRadioUpcoming(state.youtubeQueue, state.youtubeVideo);
+        state.youtubeQueue = pruneAutomaticRadioUpcoming(state.youtubeQueue, state.youtubeVideo, { history: state.history });
       }
       if (state.youtubeVideo) {
         state.activeSong = {};
@@ -471,7 +477,7 @@ const playerSlice = createSlice({
         if (songIdentity) existingSongIdentities.add(songIdentity);
       });
       if (radioMode && state.youtubeVideo?.id) {
-        state.youtubeQueue = pruneAutomaticRadioUpcoming(state.youtubeQueue, state.youtubeVideo);
+        state.youtubeQueue = pruneAutomaticRadioUpcoming(state.youtubeQueue, state.youtubeVideo, { history: state.history });
       }
     },
 
