@@ -353,7 +353,11 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
         event.preventDefault(); event.stopImmediatePropagation(); closeRef.current(); return;
       }
       if (event.key !== "Tab") return;
-      const roots = [overlayRef.current, !mobile ? document.querySelector('[data-testid="player-dock"]') : null];
+      const roots = [
+        overlayRef.current,
+        !mobile ? document.querySelector('[data-testid="player-dock"]') : null,
+        document.querySelector('[data-testid="player-volume-popover"]'),
+      ];
       const controls = roots.flatMap((root) => root ? Array.from(root.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')) : [])
         .filter((element) => element.getClientRects().length && !element.closest('[inert]') && getComputedStyle(element).visibility !== "hidden");
       const first = controls[0]; const last = controls[controls.length - 1];
