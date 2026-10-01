@@ -92,6 +92,31 @@ export function parseRadioSeedQuery(value) {
   return { id, artist };
 }
 
+export function collectRadioArtistExclusions({
+  history = [],
+  current = null,
+  upcoming = [],
+  historyLimit = 6,
+  upcomingLimit = 8,
+} = {}) {
+  const recentHistory = (Array.isArray(history) ? history : []).slice(
+    -Math.max(0, Math.min(20, Number(historyLimit) || 0)),
+  );
+  const nextTracks = (Array.isArray(upcoming) ? upcoming : []).slice(
+    0,
+    Math.max(0, Math.min(20, Number(upcomingLimit) || 0)),
+  );
+  const seen = new Set();
+  const artists = [];
+  for (const track of [...recentHistory, current, ...nextTracks]) {
+    const artist = normalizeRadioArtist(track?.channel || track?.artist || "");
+    if (!artist || seen.has(artist)) continue;
+    seen.add(artist);
+    artists.push(artist);
+  }
+  return artists;
+}
+
 export function diversifyRadioTracks(
   tracks,
   {
