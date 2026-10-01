@@ -4,31 +4,26 @@ import React from "react";
 import { useSelector } from "react-redux";
 import SongsList from "../SongsList";
 import { useDispatch } from "react-redux";
-import { playPause, setAutoAdd, setYoutubeVideo } from "@/redux/features/playerSlice";
+import { setAutoAdd } from "@/redux/features/playerSlice";
 import UserMessage from "@/components/UserMessage";
 import SyncedLyrics from "./SyncedLyrics";
-import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import { cleanTitle } from "@/utils/text";
 
 const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
   const dispatch = useDispatch();
-  const { currentSongs, autoAdd, youtubeVideo, youtubeQueue } = useSelector((state) => state.player);
+  const { currentSongs, autoAdd } = useSelector((state) => state.player);
   const [activeTab, setActiveTab] = useState("lyrics");
-  const playableYoutubeQueue = Array.isArray(youtubeQueue)
-    ? youtubeQueue.filter((item) => item?.id)
-    : [];
   const nativeQueue = Array.isArray(currentSongs) ? currentSongs : [];
 
-  const title = cleanTitle(youtubeVideo?.title || activeSong?.name || activeSong?.title || "");
+  const title = cleanTitle(activeSong?.name || activeSong?.title || "");
   const artist = cleanTitle(
-    youtubeVideo?.channel
-    || (Array.isArray(activeSong?.artists?.primary)
+    Array.isArray(activeSong?.artists?.primary)
       ? activeSong.artists.primary.map((item) => item?.name).filter(Boolean).join(", ")
       : typeof activeSong?.artists === "string"
         ? activeSong.artists
-        : activeSong?.primaryArtists || activeSong?.channel || ""),
+        : activeSong?.primaryArtists || activeSong?.channel || "",
   );
-  const lyricDuration = Number(youtubeVideo?.duration || activeSong?.duration) || duration;
+  const lyricDuration = Number(activeSong?.duration) || duration;
 
   const handleAutoAdd = (checked) => {
     if (checked) {
@@ -80,7 +75,6 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
           />
         ) : (
           <div>
-            {!youtubeVideo && (
             <div
               className=" flex justify-between gap-7 mt-4"
               onClick={(e) => e.stopPropagation()}
@@ -108,46 +102,7 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
                 <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none ring-2  ring-gray-500 ch rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-[#00e6e6]"></div>
               </label>
             </div>
-            )}
-            {youtubeVideo ? (
-              playableYoutubeQueue.length > 0 ? (
-                <div className="mt-2 md:w-[450px]">
-                  {playableYoutubeQueue.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        if (!item?.id) return;
-                        dispatch(playPause(true));
-                        dispatch(setYoutubeVideo(item));
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10 ${item.id === youtubeVideo.id ? "bg-white/10" : ""}`}
-                    >
-                      <img
-                        src={item.thumbnail || THUMB_FALLBACK}
-                        alt=""
-                        onError={(event) => {
-                          if (event.currentTarget.src !== THUMB_FALLBACK) {
-                            event.currentTarget.src = THUMB_FALLBACK;
-                          }
-                        }}
-                        className="h-11 w-11 rounded object-cover"
-                      />
-                      <span className="min-w-0 flex-1 truncate text-sm text-white">{cleanTitle(item.title)}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-5 p-4 sm:p-0 md:w-[450px]">
-                  <UserMessage
-                    tone="info"
-                    title="Queue is empty"
-                    message="Add a track to keep listening."
-                    compact
-                  />
-                </div>
-              )
-            ) : nativeQueue.length > 0 ? (
+            {nativeQueue.length > 0 ? (
               <div className=" text-white p- mt- md:w-[450px] md:h-full overflow-y-scroll hideScrollBar ">
                 <SongsList
                   SongData={nativeQueue}
