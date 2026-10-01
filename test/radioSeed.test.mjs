@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRadioDiscoveryQueries, diversifyRadioTracks, normalizeRadioArtist } from "../src/utils/radioSeed.mjs";
+import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks, normalizeRadioArtist } from "../src/utils/radioSeed.mjs";
 
 const track = (id, channel, title) => ({ id, channel, title });
 
@@ -99,4 +99,29 @@ test("radio diversification can exclude artists already waiting in the queue", (
     limit: 10,
   });
   assert.deepEqual(result.map((item) => item.channel), ["Artist K", "Artist L"]);
+});
+
+
+test("radio artist exclusions carry recent listening history into the next discovery batch", () => {
+  const exclusions = collectRadioArtistExclusions({
+    history: [
+      track("HISTORY00001", "Artist Old", "Old"),
+      track("HISTORY00002", "Artist Recent A - Topic", "Recent A"),
+      track("HISTORY00003", "Artist Recent B", "Recent B"),
+    ],
+    current: track("CURRENT00001", "Current Artist", "Current"),
+    upcoming: [
+      track("UPCOMING001", "Queued Artist", "Queued"),
+      track("UPCOMING002", "Artist Recent A", "Duplicate artist spelling"),
+    ],
+    historyLimit: 2,
+    upcomingLimit: 2,
+  });
+
+  assert.deepEqual(exclusions, [
+    "artist recent a",
+    "artist recent b",
+    "current artist",
+    "queued artist",
+  ]);
 });
