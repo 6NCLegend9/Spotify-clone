@@ -531,7 +531,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       <PlayerIconButton label={view !== "player" ? "Back to player" : expanded ? (showingVideo ? "Collapse video" : "Collapse player") : "Close player"} onClick={close}>{expanded ? <Minimize2 size={21} /> : <ChevronDown size={25} />}</PlayerIconButton>
       <span className={styles.source}><small>{mobile && compactHeader && !expanded && view === "player" ? props.track.channel || "NOW PLAYING" : sourceLabel}</small><strong>{mobile && compactHeader && !expanded && view === "player" ? props.track.title : sourceName}</strong></span>
       {mobile && compactHeader && !expanded && view === "player" ? <PlayerIconButton label={props.playing ? "Pause" : "Play"} disabled={props.disabled} onClick={props.onPlayPause}>{props.playing ? <Pause size={21} /> : <Play size={21} />}</PlayerIconButton> : expanded ? <div className={styles.topTools}>{modeButton}
-        <Link href="/settings" onClick={dismiss} aria-label="Video quality settings" className={styles.modeButton}><Settings2 size={17} /><span>Quality settings</span></Link>
+        <Link href="/settings" onClick={dismiss} aria-label="Playback settings" className={styles.modeButton}><Settings2 size={17} /><span>Playback settings</span></Link>
       </div> : <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={21} /></PlayerIconButton>}
     </header>}
     <div ref={scrollRef} data-testid="mobile-player-scroll" onScroll={(event) => {
