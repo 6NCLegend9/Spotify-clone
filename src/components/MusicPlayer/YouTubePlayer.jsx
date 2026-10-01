@@ -51,7 +51,7 @@ import {
 } from "@/utils/jam.mjs";
 import { decodeTrackFields } from "@/utils/text";
 import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
-import { buildRadioDiscoveryQueries, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
+import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
@@ -146,7 +146,7 @@ function YouTubePlayer() {
   repeatRef.current = repeat;
   const { status } = useSession();
   const jam = useJam();
-  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner, queueUndo, queueManualEnd, queueMode, playbackContext } = useSelector(
+  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner, queueUndo, queueManualEnd, queueMode, playbackContext, history: playbackHistory } = useSelector(
     (state) => state.player,
   );
   const video = useMemo(() => decodeTrackFields(rawVideo), [rawVideo]);
@@ -347,7 +347,7 @@ function YouTubePlayer() {
     title: video?.title || "",
     artist: video?.channel || "",
     duration,
-    enabled: Boolean(video?.title) && syncedLyrics !== false,
+    enabled: Boolean(video?.title) && syncedLyrics !== false && Boolean(pipWindow),
   });
 
   const getActivePlayer = () => deckPlayerRefs[activeDeckRef.current]?.current;
@@ -2125,9 +2125,13 @@ function YouTubePlayer() {
 
       const currentIndex = list.findIndex((item) => item?.id === current.id);
       const upcoming = currentIndex >= 0 ? list.slice(currentIndex + 1) : [];
-      const excludedArtists = upcoming
-        .map((item) => item?.channel || item?.artist || "")
-        .filter(Boolean);
+      const excludedArtists = collectRadioArtistExclusions({
+        history: playbackHistory,
+        current,
+        upcoming,
+        historyLimit: 6,
+        upcomingLimit: 8,
+      });
       const existingIds = new Set(list.map((item) => item?.id).filter(Boolean));
 
       const searches = await Promise.all(
