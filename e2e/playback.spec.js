@@ -503,6 +503,11 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await expect(page.locator(".app-player")).toHaveCSS("z-index", "69");
     await revealControls();
     await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
+    const collapsedDrawer = page.getByRole("dialog", { name: "Now playing" });
+    await expect(collapsedDrawer).toBeVisible();
+    await expect(page.getByRole("button", { name: "Expand video", exact: true })).toBeVisible();
+    await collapsedDrawer.getByRole("button", { name: "Close player", exact: true }).click();
+    await expect(collapsedDrawer).toHaveCount(0);
     await expect(dock).toBeVisible();
   } else {
     await page.keyboard.press("v");
