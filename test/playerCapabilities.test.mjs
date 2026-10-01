@@ -138,3 +138,39 @@ test("hidden YouTube playback uses one shared supported viewport policy", async 
   assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*height:\s*200px/i);
   assert.match(css, /\.yt-audio-stage \.yt-crop-frame,[\s\S]*width:\s*100% !important;[\s\S]*height:\s*100% !important;/);
 });
+
+
+test("mobile drawer raises the live video above the opaque sheet while theater stays below KASA chrome", async () => {
+  const presentation = await read("src/components/MusicPlayer/MediaPresentation.tsx");
+  assert.match(
+    presentation,
+    /const presentationZ = expanded \? "69" : drawer && showingVideo \? "71" : "30"/,
+  );
+  assert.match(presentation, /region\.style\.setProperty\("z-index", presentationZ\)/);
+});
+
+test("volume popover escapes scroll containers and stays viewport-positioned", async () => {
+  const [volume, css] = await Promise.all([
+    read("src/components/MusicPlayer/PlayerVolume.jsx"),
+    read("src/app/globals.css"),
+  ]);
+  assert.match(volume, /createPortal/);
+  assert.match(volume, /window\.visualViewport/);
+  assert.match(volume, /data-testid="player-volume-popover"/);
+  assert.match(css, /\.player-volume-popover\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*150;/s);
+});
+
+test("lyrics fetches are demand-driven instead of running for every playing track", async () => {
+  const [youtubePlayer, nativePlayer] = await Promise.all([
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/components/MusicPlayer/index.jsx"),
+  ]);
+  assert.match(
+    youtubePlayer,
+    /enabled:\s*Boolean\(video\?\.title\) && syncedLyrics !== false && Boolean\(pipWindow\)/,
+  );
+  assert.match(
+    nativePlayer,
+    /enabled:\s*Boolean\(nativeTitle\) && !youtubeVideo && Boolean\(pipWindow\)/,
+  );
+});
