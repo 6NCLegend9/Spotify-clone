@@ -1986,13 +1986,16 @@ select:-webkit-autofill {
   }
 
   .player-volume-popover {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 0.5rem);
-    z-index: 40;
+    position: fixed;
+    z-index: 150;
+    display: flex;
+    width: 9.5rem;
+    min-width: 9.5rem;
+    align-items: center;
+    justify-content: center;
     border-radius: 0.85rem;
     border: 1px solid var(--hairline);
-    background: rgba(7, 18, 29, 0.94);
+    background: rgba(7, 18, 29, 0.96);
     padding: 0.75rem 0.85rem;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), var(--inset-shine);
     backdrop-filter: blur(12px);
