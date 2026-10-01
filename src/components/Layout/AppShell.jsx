@@ -89,7 +89,7 @@ export default function AppShell({ children }) {
   const authRoute = isAuthPath(pathname);
   const embedRoute = isEmbedPath(pathname);
   const [showNav, setShowNav] = useState(false);
-  const isCompactNav = useIsPhoneViewport();
+  const isPhoneViewport = useIsPhoneViewport();
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -124,6 +124,7 @@ export default function AppShell({ children }) {
       return false;
     }
   });
+  const effectiveCollapsed = collapsed && !isPhoneViewport;
 
   useNetworkRecovery();
   useScrollPerformance();
@@ -161,7 +162,7 @@ export default function AppShell({ children }) {
   };
 
   const startSidebarResize = (event) => {
-    if (collapsed || event.button !== 0) return;
+    if (effectiveCollapsed || event.button !== 0) return;
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = sidebarWidth;
@@ -184,7 +185,7 @@ export default function AppShell({ children }) {
   };
 
   const resizeSidebarWithKeyboard = (event) => {
-    if (collapsed || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    if (effectiveCollapsed || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
     if (event.key === "Home") updateSidebarWidth(220);
     else if (event.key === "End") updateSidebarWidth(420);
@@ -251,7 +252,7 @@ export default function AppShell({ children }) {
     });
   };
 
-  const navModal = showNav && isCompactNav;
+  const navModal = showNav && isPhoneViewport;
 
   useEffect(() => {
     if (!navModal) return undefined;
@@ -263,8 +264,8 @@ export default function AppShell({ children }) {
   }, [navModal]);
 
   const value = useMemo(
-    () => ({ showNav, setShowNav, navModal, collapsed, toggleCollapsed }),
-    [collapsed, navModal, showNav],
+    () => ({ showNav, setShowNav, navModal, collapsed: effectiveCollapsed, toggleCollapsed }),
+    [effectiveCollapsed, navModal, showNav],
   );
 
   if (embedRoute) {
@@ -277,12 +278,13 @@ export default function AppShell({ children }) {
       <PlaybackPersistence />
       <DiscordPresenceSync />
       <div
-        className={`app-shell${collapsed ? " is-sidebar-collapsed" : ""}${rightPanelCollapsed ? " is-right-panel-collapsed" : ""}`}
+        className={`app-shell${effectiveCollapsed ? " is-sidebar-collapsed" : ""}${rightPanelCollapsed ? " is-right-panel-collapsed" : ""}`}
         style={{
           "--sidebar-live-w": `${sidebarWidth}px`,
           "--right-panel-live-w": `${rightPanelWidth}px`,
         }}
         data-route={pathname === "/" ? "home" : "app"}
+        data-phone={isPhoneViewport ? "true" : "false"}
         data-has-track={hasTrack ? "true" : "false"}
         data-player={fullScreen ? "full" : "dock"}
       >
@@ -295,7 +297,7 @@ export default function AppShell({ children }) {
           aria-valuemin={220}
           aria-valuemax={420}
           aria-valuenow={sidebarWidth}
-          tabIndex={collapsed ? -1 : 0}
+          tabIndex={effectiveCollapsed ? -1 : 0}
           onPointerDown={startSidebarResize}
           onKeyDown={resizeSidebarWithKeyboard}
         />
@@ -304,7 +306,7 @@ export default function AppShell({ children }) {
           aria-label="Close navigation"
           aria-hidden={!showNav}
           tabIndex={-1}
-          className={`app-overlay md:hidden ${showNav ? "is-open" : ""}`}
+          className={`app-overlay phone-only-block ${showNav ? "is-open" : ""}`}
           onClick={() => setShowNav(false)}
         />
         <div className="app-stage" inert={navModal}>
