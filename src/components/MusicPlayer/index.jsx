@@ -124,7 +124,7 @@ const MusicPlayer = () => {
     title: nativeTitle,
     artist: nativeArtist,
     duration,
-    enabled: Boolean(nativeTitle) && !youtubeVideo,
+    enabled: Boolean(nativeTitle) && !youtubeVideo && Boolean(pipWindow),
   });
 
   const songCount = Array.isArray(currentSongs) ? currentSongs.length : 0;
