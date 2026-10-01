@@ -207,7 +207,13 @@ export default function UpdatesBell() {
     dispatch(startYoutubePlayback({
       queue: [item.playable],
       track: item.playable,
-      radio: false,
+      queueMode: "collection",
+      autoExtend: false,
+      context: {
+        type: "notification",
+        id: item.playable.id,
+        name: "New release",
+      },
     }));
     setOpen(false);
   };
