@@ -174,3 +174,9 @@ test("lyrics fetches are demand-driven instead of running for every playing trac
     /enabled:\s*Boolean\(nativeTitle\) && !youtubeVideo && Boolean\(pipWindow\)/,
   );
 });
+
+
+test("portaled volume controls remain inside the media modal keyboard boundary", async () => {
+  const presentation = await read("src/components/MusicPlayer/MediaPresentation.tsx");
+  assert.match(presentation, /document\.querySelector\('\[data-testid="player-volume-popover"\]'\)/);
+});
