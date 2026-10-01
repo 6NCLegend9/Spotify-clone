@@ -23,3 +23,10 @@ test("project TODO does not claim true crossfade is functional", async () => {
   assert.doesNotMatch(source, /Crossfade\/fade \+ Smart Shuffle functional/);
   assert.match(source, /true overlapping crossfade remains disabled/i);
 });
+
+
+test("expanded YouTube controls do not imply HayKasa can choose provider stream quality", async () => {
+  const presentation = await readFile(path.join(root, "src/components/MusicPlayer/MediaPresentation.tsx"), "utf8");
+  assert.doesNotMatch(presentation, /Video quality settings|>Quality settings</);
+  assert.match(presentation, /aria-label="Playback settings"/);
+});
