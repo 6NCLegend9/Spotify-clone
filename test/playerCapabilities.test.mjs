@@ -180,3 +180,10 @@ test("portaled volume controls remain inside the media modal keyboard boundary",
   const presentation = await read("src/components/MusicPlayer/MediaPresentation.tsx");
   assert.match(presentation, /document\.querySelector\('\[data-testid="player-volume-popover"\]'\)/);
 });
+
+
+test("legacy native Lyrics surface does not own YouTube queue transitions", async () => {
+  const lyrics = await read("src/components/MusicPlayer/Lyrics.jsx");
+  assert.doesNotMatch(lyrics, /\byoutubeVideo\b|\byoutubeQueue\b|\bsetYoutubeVideo\b|\bplayPause\b/);
+  assert.match(lyrics, /nativeQueue/);
+});
