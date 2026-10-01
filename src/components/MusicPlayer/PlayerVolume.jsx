@@ -5,12 +5,16 @@ import { useDispatch, useSelector } from "react-redux";
 import { BsFillVolumeMuteFill, BsFillVolumeUpFill, BsVolumeDownFill } from "react-icons/bs";
 import { updateSetting } from "@/redux/features/settingsSlice";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
+import useMediaQuery, { useIsPhoneViewport } from "@/hooks/useMediaQuery";
 
 export default function PlayerVolume({ className = "" }) {
   const dispatch = useDispatch();
   const volume = Number(useSelector((state) => state.settings.masterVolume) ?? 1);
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const phoneViewport = useIsPhoneViewport();
+  const narrowViewport = useMediaQuery("(max-width: 1023px)");
+  const popoverVolume = phoneViewport || narrowViewport;
   const setVolume = (value) => dispatch(updateSetting({ key: "masterVolume", value }));
   const Icon = volume === 0 ? BsFillVolumeMuteFill : volume <= 0.5 ? BsVolumeDownFill : BsFillVolumeUpFill;
 
@@ -28,7 +32,7 @@ export default function PlayerVolume({ className = "" }) {
         aria-expanded={open}
         title="Volume"
         onClick={() => {
-          if (window.matchMedia("(max-width: 1023px)").matches) {
+          if (popoverVolume) {
             setOpen((value) => !value);
             return;
           }
@@ -46,7 +50,7 @@ export default function PlayerVolume({ className = "" }) {
         step="0.01"
         value={volume}
         onChange={(event) => setVolume(Number(event.target.value))}
-        className="player-volume-slider hidden !h-12 lg:block"
+        className="player-volume-slider hidden !h-12 lg:block phone-landscape-hidden"
       />
       {open && (
         <div className="player-volume-popover">
