@@ -126,3 +126,11 @@ test("YouTube playback does not receive compute-pressure permission", async () =
   assert.match(nextConfig, /compute-pressure=\(\)/);
   assert.doesNotMatch(nextConfig, /compute-pressure=\([^)]*youtube/i);
 });
+
+
+test("notification playback uses the current finite-queue contract", async () => {
+  const updates = await source("src/components/UpdatesBell.jsx");
+  assert.doesNotMatch(updates, /\bradio:\s*(?:true|false)/);
+  assert.match(updates, /queueMode:\s*"collection"/);
+  assert.match(updates, /autoExtend:\s*false/);
+});
