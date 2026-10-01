@@ -132,3 +132,21 @@ test("radio song-family fallback keeps unrelated artists with the same or prefix
     true,
   );
 });
+
+
+test("radio queue rejects automatic tracks from recently played artists but preserves explicit user intent", () => {
+  const artistB1 = { id: "artistb0001", title: "First B Song", channel: "Artist B" };
+  const artistC = { id: "artistc0001", title: "C Song", channel: "Artist C" };
+  const artistB2 = { id: "artistb0002", title: "Second B Song", channel: "Artist B - Topic" };
+  const artistD = { id: "artistd0001", title: "D Song", channel: "Artist D" };
+
+  let state = reducer(undefined, startYoutubePlayback({ track: seed, queue: [seed, artistB1, artistC], queueMode: "radio" }));
+  state = reducer(state, setYoutubeVideo(artistB1));
+  state = reducer(state, setYoutubeVideo(artistC));
+  state = reducer(state, appendToQueue([artistB2, artistD]));
+
+  assert.deepEqual(
+    state.youtubeQueue.slice(state.youtubeQueue.findIndex((item) => item.id === artistC.id) + 1).map((item) => item.channel),
+    ["Artist D"],
+  );
+});
