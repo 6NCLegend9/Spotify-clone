@@ -8,6 +8,7 @@ const {
   default: reducer,
   addToQueue,
   appendToQueue,
+  replaceCurrentYoutubeTrack,
   setYoutubeVideo,
   startYoutubePlayback,
 } = await import("../src/redux/features/playerSlice.js");
@@ -153,4 +154,24 @@ test("radio queue rejects automatic tracks from recently played artists but pres
 
   state = reducer(state, addToQueue(artistB2));
   assert.ok(state.youtubeQueue.some((item) => item.id === artistB2.id && item.queueSource === "user"));
+});
+
+
+test("explicit current-track replacement may choose another cut of the same song", () => {
+  const alternateCut = {
+    id: "variant90001",
+    title: "Lose My Mind (feat. Doja Cat) [Official Audio]",
+    channel: "Don Toliver - Topic",
+  };
+  let state = reducer(undefined, startYoutubePlayback({
+    track: seed,
+    queue: [seed],
+    queueMode: "radio",
+  }));
+
+  state = reducer(state, replaceCurrentYoutubeTrack(alternateCut));
+
+  assert.equal(state.youtubeVideo.id, alternateCut.id);
+  assert.equal(state.youtubeQueue[0].id, alternateCut.id);
+  assert.equal(canonicalSongIdentity(state.youtubeVideo), canonicalSongIdentity(seed));
 });
