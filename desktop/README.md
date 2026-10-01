@@ -271,3 +271,7 @@ If no valid signed GitHub stable release is available, the stable manifest stays
 8. Keep Authenticode verification enabled for production updates.
 9. A renderer compromise must remain constrained by preload allowlists, IPC sender validation, payload validation, and operational kill switches.
 10. A failed updater, policy server, Discord client, or diagnostics path must not stop normal music playback.
+
+## License
+
+The desktop shell uses the repository's [MIT License](../LICENSE). Packaged builds include `licenses/LICENSE` and `licenses/THIRD_PARTY_NOTICES.md` in the application resources. Preserve both files when redistributing the desktop package.

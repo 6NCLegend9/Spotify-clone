@@ -200,6 +200,10 @@ HayKasa's security-sensitive paths are designed to fail closed:
 
 For deeper operational detail, see [desktop/README.md](./desktop/README.md), [PRODUCTION.md](./PRODUCTION.md), and the focused documents under [`docs/`](./docs/).
 
+## License
+
+HayKasa is distributed under the [MIT License](./LICENSE). Copyright and upstream license notices are preserved in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Include both files when redistributing the software. Third-party dependencies and media retain their respective licenses.
+
 ---
 
 <div align="center">

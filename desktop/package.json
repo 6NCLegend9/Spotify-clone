@@ -1,6 +1,7 @@
 {
   "name": "heykasa-desktop",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Secure Windows desktop shell for HayKasa",
   "author": "HayKasa",
@@ -51,6 +52,14 @@
       {
         "from": "../public/icon-256x256.png",
         "to": "icon.png"
+      },
+      {
+        "from": "../LICENSE",
+        "to": "licenses/LICENSE"
+      },
+      {
+        "from": "../THIRD_PARTY_NOTICES.md",
+        "to": "licenses/THIRD_PARTY_NOTICES.md"
       }
     ],
     "win": {
