@@ -319,12 +319,8 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveClass(/sheetEntering/);
   await expect(dialog).toHaveAttribute("aria-modal", "true");
-  const responsiveState = await page.evaluate(() => ({
-    width: innerWidth,
-    phone: matchMedia("(max-width: 767px)").matches,
-    compactTouch: matchMedia("(max-width: 767px), (orientation: landscape) and (max-height: 540px) and (max-width: 1100px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)").matches,
-  }));
-  expect(responsiveState).toEqual({ width: 390, phone: true, compactTouch: true });
+  await expect(page.locator(".app-shell")).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
 
   const moving = await page.getByTestId("youtube-decks").evaluate((host) => ({
     hidden: host.getAttribute("aria-hidden"),
@@ -360,6 +356,45 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
   expect(settled.top).toBeGreaterThanOrEqual(-1);
   expect(settled.right).toBeLessThanOrEqual(settled.viewportWidth + 1);
   expect(settled.bottom).toBeLessThanOrEqual(settled.viewportHeight + 1);
+});
+
+
+test("rotated phone keeps the phone shell, mobile dock and touch volume controls", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith("mobile-"), "Requires a coarse-pointer mobile browser context.");
+  await page.setViewportSize({ width: 1080, height: 480 });
+  await page.addInitScript(() => {
+    localStorage.setItem("persist:settings", JSON.stringify({
+      owner: JSON.stringify("account:test-a"),
+      audioOnly: "true",
+      dataSaver: "false",
+    }));
+    const track = { id: "abcdefghijk", title: "Landscape contract track", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1,
+      owner: "account:test-a",
+      savedAt: Date.now(),
+      youtubeVideo: track,
+      youtubeQueue: [track],
+      position: 42,
+    }));
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const shell = page.locator(".app-shell");
+  const dock = page.getByTestId("player-dock");
+  await expect(shell).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
+  await expect(dock).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Shuffle", exact: true })).toBeHidden();
+  await expect(dock.getByRole("button", { name: "Next song", exact: true })).toBeVisible();
+
+  await dock.getByRole("button", { name: "Expand player: Landscape contract track" }).click();
+  const dialog = page.getByRole("dialog", { name: "Now playing" });
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  const volumeButton = dialog.getByRole("button", { name: "Volume controls" });
+  await volumeButton.click();
+  await expect(dialog.locator('input[aria-label="Volume"]:visible')).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
 test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
