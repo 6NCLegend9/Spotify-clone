@@ -6,6 +6,7 @@ import { canonicalSongIdentity, canonicalSongTitle, sameRadioSongFamily } from "
 register("./support/toolkit-loader.mjs", import.meta.url);
 const {
   default: reducer,
+  addToQueue,
   appendToQueue,
   setYoutubeVideo,
   startYoutubePlayback,
@@ -149,4 +150,7 @@ test("radio queue rejects automatic tracks from recently played artists but pres
     state.youtubeQueue.slice(state.youtubeQueue.findIndex((item) => item.id === artistC.id) + 1).map((item) => item.channel),
     ["Artist D"],
   );
+
+  state = reducer(state, addToQueue(artistB2));
+  assert.ok(state.youtubeQueue.some((item) => item.id === artistB2.id && item.queueSource === "user"));
 });
