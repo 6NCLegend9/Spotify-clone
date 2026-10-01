@@ -393,7 +393,28 @@ test("rotated phone keeps the phone shell, mobile dock and touch volume controls
   await expect(dialog).toHaveAttribute("aria-modal", "true");
   const volumeButton = dialog.getByRole("button", { name: "Volume controls" });
   await volumeButton.click();
-  await expect(dialog.locator('input[aria-label="Volume"]:visible')).toHaveCount(1);
+  const popover = page.getByTestId("player-volume-popover");
+  await expect(popover).toBeVisible();
+  await expect(page.locator('input[aria-label="Volume"]:visible')).toHaveCount(1);
+  const popoverGeometry = await popover.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: window.visualViewport?.width || innerWidth,
+      viewportHeight: window.visualViewport?.height || innerHeight,
+      offsetLeft: window.visualViewport?.offsetLeft || 0,
+      offsetTop: window.visualViewport?.offsetTop || 0,
+    };
+  });
+  expect(popoverGeometry.left).toBeGreaterThanOrEqual(popoverGeometry.offsetLeft);
+  expect(popoverGeometry.top).toBeGreaterThanOrEqual(popoverGeometry.offsetTop);
+  expect(popoverGeometry.right).toBeLessThanOrEqual(popoverGeometry.offsetLeft + popoverGeometry.viewportWidth + 1);
+  expect(popoverGeometry.bottom).toBeLessThanOrEqual(popoverGeometry.offsetTop + popoverGeometry.viewportHeight + 1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
@@ -463,12 +484,34 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await expect(expanded).toHaveAttribute("data-controls", "visible");
   };
 
-  await page.keyboard.press("v");
-  await assertExpandedLayout("initial viewport");
-  await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
-  await revealControls();
-  await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
-  await expect(dock).toBeVisible();
+  if (testInfo.project.name.startsWith("mobile-")) {
+    await dock.getByRole("button", { name: /^Expand player:/ }).click();
+    const drawer = page.getByRole("dialog", { name: "Now playing" });
+    await expect(drawer).toBeVisible();
+    const expandVideo = page.getByRole("button", { name: "Expand video", exact: true });
+    await expect(expandVideo).toBeVisible();
+    const buttonBox = await expandVideo.boundingBox();
+    expect(buttonBox).not.toBeNull();
+    expect(buttonBox.x).toBeGreaterThanOrEqual(-1);
+    expect(buttonBox.y).toBeGreaterThanOrEqual(-1);
+    expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual((await page.evaluate(() => innerWidth)) + 1);
+    expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual((await page.evaluate(() => innerHeight)) + 1);
+    await expect(page.locator(".app-player")).toHaveCSS("z-index", "71");
+
+    await expandVideo.click();
+    await assertExpandedLayout("mobile expand control");
+    await expect(page.locator(".app-player")).toHaveCSS("z-index", "69");
+    await revealControls();
+    await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
+    await expect(dock).toBeVisible();
+  } else {
+    await page.keyboard.press("v");
+    await assertExpandedLayout("initial viewport");
+    await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
+    await revealControls();
+    await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
+    await expect(dock).toBeVisible();
+  }
 
   for (const viewport of [
     { width: 320, height: 844 },
