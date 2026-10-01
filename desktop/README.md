@@ -274,4 +274,4 @@ If no valid signed GitHub stable release is available, the stable manifest stays
 
 ## License
 
-The desktop shell uses the repository's [MIT License](../LICENSE). Packaged builds include `licenses/LICENSE` and `licenses/THIRD_PARTY_NOTICES.md` in the application resources. Preserve both files when redistributing the desktop package.
+The desktop shell uses the repository's [MIT License](../LICENSE). Packaged builds include `licenses/LICENSE` in the application resources. Preserve this file when redistributing the desktop package.

@@ -204,7 +204,7 @@ For deeper operational detail, see [desktop/README.md](./desktop/README.md), [PR
 
 Original contributions and modifications authored by **6NCLegend9 and collaborators** remain the copyright of their respective authors and are released under the [MIT License](./LICENSE).
 
-Upstream copyright and license notices for imported code are preserved in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Include both files when redistributing the software. Third-party dependencies and media retain their respective licenses.
+Include [LICENSE](./LICENSE) when redistributing the software. Third-party dependencies and media retain their respective licenses.
 
 ---
 
