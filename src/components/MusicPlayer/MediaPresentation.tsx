@@ -351,6 +351,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     overlayRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || hasOtherDialog()) return;
+      if (event.key === "Escape" && document.querySelector('[data-testid="player-volume-popover"]')) return;
       if (event.key === "Escape" && !document.fullscreenElement) {
         event.preventDefault(); event.stopImmediatePropagation(); closeRef.current(); return;
       }
