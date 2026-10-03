@@ -85,6 +85,9 @@
     },
     "@rollup/plugin-terser": {
       "serialize-javascript": "7.0.5"
+    },
+    "@serwist/next": {
+      "browserslist": "4.28.7"
     }
   },
   "browserslist": {
