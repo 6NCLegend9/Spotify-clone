@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import { isRateLimited } from "@/utils/rateLimit";
 import {
@@ -47,6 +48,7 @@ export async function GET(req){
 
 // Add to favourites
 export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
     try {
         const { userData, email } = await getAuthenticatedAccount(request);
         const rateLimit = await isRateLimited(`favourite:${email}`, {
