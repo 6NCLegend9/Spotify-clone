@@ -24,13 +24,15 @@ export default function PlayerVolume({ className = "" }) {
   const updatePopoverPosition = useCallback(() => {
     if (!open || !rootRef.current || typeof window === "undefined") return;
     const rect = rootRef.current.getBoundingClientRect();
+    const popoverRect = popoverRef.current?.getBoundingClientRect();
+    if (!popoverRect?.width || !popoverRect?.height) return;
     const viewport = window.visualViewport;
     const viewportLeft = viewport?.offsetLeft || 0;
     const viewportTop = viewport?.offsetTop || 0;
     const viewportWidth = viewport?.width || window.innerWidth;
     const viewportHeight = viewport?.height || window.innerHeight;
-    const width = 152;
-    const height = 72;
+    const width = popoverRect.width;
+    const height = popoverRect.height;
     const gap = 8;
     const edge = 12;
     const minLeft = viewportLeft + edge;
@@ -54,11 +56,14 @@ export default function PlayerVolume({ className = "" }) {
     }
     updatePopoverPosition();
     const update = () => updatePopoverPosition();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(update) : null;
+    if (popoverRef.current) observer?.observe(popoverRef.current);
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     window.visualViewport?.addEventListener("resize", update);
     window.visualViewport?.addEventListener("scroll", update);
     return () => {
+      observer?.disconnect();
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
       window.visualViewport?.removeEventListener("resize", update);
