@@ -2,19 +2,26 @@
 
 import { useEffect, useRef } from "react";
 import { JAM_PLAYBACK_STATE_EVENT } from "@/utils/jam.mjs";
+import { queueOccurrenceMatches } from "@/utils/playerQueue.mjs";
 
 /**
  * Song-time clock for the arcade. File rounds read the hidden audio element.
  * YouTube rounds interpolate the player's reported currentTime and only nudge
  * when a report disagrees, so tiles do not jump on every player tick.
  */
-export default function useArcadeClock({ source = "none", audioRef, videoId } = {}) {
+export default function useArcadeClock({
+  source = "none",
+  audioRef,
+  videoId,
+  queueEntryId,
+} = {}) {
   const playbackRef = useRef({
     time: 0,
     duration: 0,
     at: 0,
     playing: false,
     videoId: "",
+    queueEntryId: "",
     waitForStart: false,
     smooth: 0,
     smoothAt: 0,
@@ -22,26 +29,36 @@ export default function useArcadeClock({ source = "none", audioRef, videoId } = 
   });
   const sourceRef = useRef(source);
   const videoIdRef = useRef(videoId);
+  const queueEntryIdRef = useRef(queueEntryId);
   sourceRef.current = source;
   videoIdRef.current = videoId;
+  queueEntryIdRef.current = queueEntryId;
 
   useEffect(() => {
     const stamp = playbackRef.current;
     stamp.videoId = videoId || "";
+    stamp.queueEntryId = queueEntryId || "";
     stamp.time = 0;
     stamp.smooth = 0;
     stamp.at = performance.now();
     stamp.smoothAt = stamp.at;
     stamp.playing = false;
     stamp.pauseStreak = 0;
-  }, [videoId, source]);
+  }, [videoId, queueEntryId, source]);
 
   useEffect(() => {
     if (source !== "youtube") return undefined;
     const onState = (event) => {
       const detail = event.detail || {};
-      const want = videoIdRef.current;
-      if (want && detail.videoId && detail.videoId !== want) return;
+      const want = {
+        id: videoIdRef.current,
+        queueEntryId: queueEntryIdRef.current,
+      };
+      const reported = {
+        id: detail.videoId,
+        queueEntryId: detail.queueEntryId,
+      };
+      if (want.id && detail.videoId && !queueOccurrenceMatches(want, reported)) return;
       const time = Number(detail.currentTime);
       const duration = Number(detail.duration);
       if (!Number.isFinite(time)) return;

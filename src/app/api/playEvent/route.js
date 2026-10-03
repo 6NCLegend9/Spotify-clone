@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
@@ -18,6 +19,7 @@ const MAX_ENTRIES = 200;
 // recommendations.js's exclusion filter; completedPlays is stored for future use (e.g.
 // a "most played" view) but isn't consumed by anything yet.
 export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { user, userData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`play-event:${email}`, {
@@ -93,6 +95,7 @@ export async function GET(request) {
 }
 
 export async function DELETE(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData } = await getAuthenticatedAccount(request);
     await UserData.updateOne({ _id: userData._id }, { $set: { listeningEvents: [] }, $inc: { __v: 1 } });

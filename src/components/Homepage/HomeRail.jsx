@@ -66,7 +66,7 @@ export function HomeSquareCard({ video, queue }) {
       <button type="button" onClick={play} aria-label={`Play ${title}`} className="block w-full text-left">
         <span className="home-square">
           <MediaImage src={cover} size="hq" alt="" className="h-full w-full object-cover" />
-          <span className="home-square-play max-md:hidden">
+          <span className="home-square-play pointer-fine-only-grid">
             <BsPlayFill aria-hidden="true" className="text-xl" />
           </span>
         </span>
@@ -74,7 +74,7 @@ export function HomeSquareCard({ video, queue }) {
         {video.kicker ? <span className="home-shelf-kicker">{video.kicker}</span> : null}
         {subtitle ? <span className="home-shelf-subtitle">{subtitle}</span> : null}
       </button>
-      <AddToQueueButton track={video} className="absolute right-1 top-1 z-20 rounded-full bg-[var(--navy-deep)]/90 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
+      <AddToQueueButton track={video} className="pointer-hover-action absolute right-1 top-1 z-20 rounded-full bg-[var(--navy-deep)]/90" />
     </ContextMenuTarget>
   );
 }

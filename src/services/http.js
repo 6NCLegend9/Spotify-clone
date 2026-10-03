@@ -146,8 +146,13 @@ export async function requestJson(url, options = {}) {
       signal: controller.signal,
     }, isGet && retry);
     const data = await parseResponseBody(response);
-    recordDiagnostic("request", { route: url, durationMs: performance.now() - startedAt, status: response.status,
-      requestId: response.headers.get("x-request-id") });
+    recordDiagnostic("request", {
+      route: url,
+      durationMs: performance.now() - startedAt,
+      status: response.status,
+      code: response.ok ? "OK" : codeForStatus(response.status),
+      requestId: response.headers.get("x-request-id"),
+    });
 
     if (!response.ok) {
       const retryAfterHeader = response.headers.get("retry-after");
@@ -172,10 +177,10 @@ export async function requestJson(url, options = {}) {
 
     return data;
   } catch (error) {
-    if (!signal?.aborted) recordDiagnostic("request", { route: url, durationMs: performance.now() - startedAt,
-      code: controller.signal.aborted ? "TIMEOUT" : "NETWORK_ERROR" });
     if (signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
     if (error instanceof Error && error.name === "UserFacingError") throw error;
+    if (!signal?.aborted) recordDiagnostic("request", { route: url, durationMs: performance.now() - startedAt,
+      code: controller.signal.aborted ? "TIMEOUT" : "NETWORK_ERROR" });
     const timedOut = controller.signal.aborted && !signal?.aborted;
     throw toUserError(error, {
       status: error?.status,

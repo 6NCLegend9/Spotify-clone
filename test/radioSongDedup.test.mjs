@@ -6,7 +6,9 @@ import { canonicalSongIdentity, canonicalSongTitle, sameRadioSongFamily } from "
 register("./support/toolkit-loader.mjs", import.meta.url);
 const {
   default: reducer,
+  addToQueue,
   appendToQueue,
+  replaceCurrentYoutubeTrack,
   setYoutubeVideo,
   startYoutubePlayback,
 } = await import("../src/redux/features/playerSlice.js");
@@ -131,4 +133,85 @@ test("radio song-family fallback keeps unrelated artists with the same or prefix
     ),
     true,
   );
+});
+
+
+test("radio queue rejects automatic tracks from recently played artists but preserves explicit user intent", () => {
+  const artistB1 = { id: "artistb0001", title: "First B Song", channel: "Artist B" };
+  const artistC = { id: "artistc0001", title: "C Song", channel: "Artist C" };
+  const artistB2 = { id: "artistb0002", title: "Second B Song", channel: "Artist B - Topic" };
+  const artistD = { id: "artistd0001", title: "D Song", channel: "Artist D" };
+
+  let state = reducer(undefined, startYoutubePlayback({ track: seed, queue: [seed, artistB1, artistC], queueMode: "radio" }));
+  state = reducer(state, setYoutubeVideo(artistB1));
+  state = reducer(state, setYoutubeVideo(artistC));
+  state = reducer(state, appendToQueue([artistB2, artistD]));
+
+  assert.deepEqual(
+    state.youtubeQueue.slice(state.youtubeQueue.findIndex((item) => item.id === artistC.id) + 1).map((item) => item.channel),
+    ["Artist D"],
+  );
+
+  state = reducer(state, addToQueue(artistB2));
+  assert.ok(state.youtubeQueue.some((item) => item.id === artistB2.id && item.queueSource === "user"));
+});
+
+
+test("explicit current-track replacement may choose another cut of the same song", () => {
+  const alternateCut = {
+    id: "variant90001",
+    title: "Lose My Mind (feat. Doja Cat) [Official Audio]",
+    channel: "Don Toliver - Topic",
+  };
+  let state = reducer(undefined, startYoutubePlayback({
+    track: seed,
+    queue: [seed],
+    queueMode: "radio",
+  }));
+
+  state = reducer(state, replaceCurrentYoutubeTrack(alternateCut));
+
+  assert.equal(state.youtubeVideo.id, alternateCut.id);
+  assert.equal(state.youtubeQueue[0].id, alternateCut.id);
+  assert.equal(canonicalSongIdentity(state.youtubeVideo), canonicalSongIdentity(seed));
+});
+
+
+test("same-song upload replacement keeps the radio origin stable without creating history", () => {
+  const origin = {
+    id: "origin00001",
+    title: "Origin Artist - Night Drive",
+    channel: "Origin Artist",
+    seedQuery: "deep house night drive",
+    genre: "Deep House",
+  };
+  const alternate = {
+    id: "mirror00001",
+    title: "Night Drive (Official Audio)",
+    channel: "Mirror Upload - Topic",
+    seedQuery: "night drive official audio",
+    genre: "Official Audio",
+  };
+  let state = reducer(undefined, startYoutubePlayback({
+    track: origin,
+    queue: [origin],
+    queueMode: "radio",
+    context: { type: "radio", id: origin.id, name: "Deep House Radio" },
+  }));
+  const entryId = state.youtubeVideo.queueEntryId;
+
+  state = reducer(state, replaceCurrentYoutubeTrack(alternate));
+
+  assert.equal(state.youtubeVideo.id, alternate.id);
+  assert.equal(state.youtubeVideo.queueEntryId, entryId);
+  assert.equal(state.youtubeVideo.channel, "Mirror Upload");
+  assert.equal(state.youtubeVideo.seedQuery, origin.seedQuery);
+  assert.equal(state.youtubeVideo.genre, origin.genre);
+  assert.equal(state.youtubeVideo.radioSeedArtist, "origin artist");
+  assert.deepEqual(state.playbackContext, {
+    type: "radio",
+    id: alternate.id,
+    name: "Deep House Radio",
+  });
+  assert.deepEqual(state.history, []);
 });

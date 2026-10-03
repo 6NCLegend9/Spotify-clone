@@ -9,6 +9,7 @@ export interface PlayerTrack {
   id: string;
   title: string;
   channel?: string;
+  channelId?: string;
   thumbnail?: string;
   queueEntryId?: string;
   queueSource?: "user" | "context";

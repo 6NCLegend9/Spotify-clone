@@ -18,3 +18,55 @@ test("one more suggestion skips the current and queued tracks", () => {
   assert.equal(next.id, "related12345");
   assert.equal(pickOneMoreTrack([{ id: "current12345" }], { currentId: "current12345" }), null);
 });
+
+
+test("one more suggestion rejects repeated artists and alternate uploads from the active radio session", () => {
+  const current = {
+    id: "current00001",
+    title: "MONTAGEM ALQUIMIA",
+    channel: "MAFIA",
+  };
+  const queue = [
+    { id: "queued000001", title: "Queued Song", channel: "Artist B" },
+  ];
+  const history = [
+    { id: "history00001", title: "History Song", channel: "Artist C" },
+  ];
+  const candidates = [
+    { id: "variant00001", title: "MONTAGEM ALQUIMIA SLOWED + REVERB", channel: "Mirror Uploader" },
+    { id: "artistb00001", title: "Different B Song", channel: "Artist B - Topic" },
+    { id: "artistc00001", title: "Different C Song", channel: "Artist C" },
+    { id: "fresh000001", title: "Fresh Song", channel: "Artist D" },
+  ];
+
+  assert.equal(
+    pickOneMoreTrack(candidates, { current, queue, history }),
+    candidates[3],
+  );
+});
+
+
+test("one more rejects the same artist across different uploader channels", () => {
+  const current = {
+    id: "artistcur001",
+    title: "Don Toliver - No Idea",
+    channel: "Label Archive",
+  };
+  const candidates = [
+    {
+      id: "artistdup001",
+      title: "Don Toliver - After Party",
+      channel: "Mirror Uploads",
+    },
+    {
+      id: "artistnew001",
+      title: "Future - Like That",
+      channel: "Future - Topic",
+    },
+  ];
+
+  assert.equal(
+    pickOneMoreTrack(candidates, { current }),
+    candidates[1],
+  );
+});

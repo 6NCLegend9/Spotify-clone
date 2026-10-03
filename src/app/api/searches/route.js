@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import UserData from "@/models/UserData";
 import { mutateDocument } from "@/utils/documentMutation.mjs";
 import { removeSearchTerm } from "@/utils/recentActivity.mjs";
@@ -13,6 +14,7 @@ const MAX_SEARCHES = 30;
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function DELETE(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData, email } = await getAuthenticatedAccount(request);
     const limit = await isRateLimited(`search-history:${email}`, { windowMs: 60_000, max: 60 });
@@ -43,6 +45,7 @@ export async function GET(request) {
 // accounts that haven't played anything yet (previously this field was declared
 // in the schema but never written to).
 export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`search-history:${email}`, {

@@ -5,6 +5,7 @@ import {
   resolveInitialMobilePresentation,
   resolveMediaVideoModeAfterCapabilityChange,
   shouldExposeLiveVideoViewport,
+  shouldRenderMobileVideoPoster,
 } from "../src/components/MusicPlayer/mediaPresentationState.mjs";
 
 test("mobile presentation initializes from the current media query before effects run", () => {
@@ -76,5 +77,29 @@ test("stable mobile and desktop video expose the live iframe", () => {
     entering: false,
     closing: false,
     dragY: 0,
+  }), false);
+});
+
+
+test("mobile drawer keeps a poster beneath video during sheet motion without covering theater", () => {
+  assert.equal(shouldRenderMobileVideoPoster({
+    mobile: true,
+    showingVideo: true,
+    expanded: false,
+  }), true);
+  assert.equal(shouldRenderMobileVideoPoster({
+    mobile: true,
+    showingVideo: true,
+    expanded: true,
+  }), false);
+  assert.equal(shouldRenderMobileVideoPoster({
+    mobile: false,
+    showingVideo: true,
+    expanded: false,
+  }), false);
+  assert.equal(shouldRenderMobileVideoPoster({
+    mobile: true,
+    showingVideo: false,
+    expanded: false,
   }), false);
 });

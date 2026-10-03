@@ -22,6 +22,10 @@ export function shouldExposeLiveVideoViewport({
   return !(Number(dragY) > 0);
 }
 
+export function shouldRenderMobileVideoPoster({ mobile, showingVideo, expanded }) {
+  return mobile === true && showingVideo === true && expanded !== true;
+}
+
 export function resolveMediaVideoModeAfterCapabilityChange(storedValue, canVideo) {
   return resolveInitialMediaVideoMode(storedValue, canVideo);
 }

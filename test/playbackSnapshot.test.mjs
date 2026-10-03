@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readPlaybackSnapshot, writePlaybackSnapshot, normalizePlaybackSnapshot } from "../src/utils/playbackSnapshot.mjs";
 
-const track = { id: "abcdefghijk", title: "Track", channel: "Artist", seedQuery: "Artist Track", genre: "R&B", source: "youtube" };
+const track = { id: "abcdefghijk", title: "Track", channel: "Artist", seedQuery: "Artist Track", genre: "R&B", radioSeedArtist: "Artist", source: "youtube" };
 function memoryStorage() {
   const values = new Map();
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
@@ -25,6 +25,7 @@ test("snapshots restore playback context, queue mode and safe metadata without l
   assert.equal(restored.youtubeVideo.id, track.id);
   assert.equal(restored.youtubeVideo.seedQuery, "Artist Track");
   assert.equal(restored.youtubeVideo.genre, "R&B");
+  assert.equal(restored.youtubeVideo.radioSeedArtist, "Artist");
   assert.equal(restored.position, 42);
   assert.equal(restored.queueMode, "radio");
   assert.equal(restored.queueManualEnd, false);

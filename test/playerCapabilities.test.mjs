@@ -16,16 +16,38 @@ test("captions remain user-controlled from settings to the player", async () => 
   assert.doesNotMatch(dock, /unloadModule.+captions/);
 });
 
-test("sleep timer UI is wired to the persistent timer controller", async () => {
-  const [hook, control] = await Promise.all([
+test("sleep timer is reachable from both active playback engines and catches up after suspension", async () => {
+  const [hook, control, youtube, nativePlayer, playerShell, presentation, queueOverlay] = await Promise.all([
     read("src/hooks/useSleepTimer.js"),
     read("src/components/MusicPlayer/SleepTimerControl.jsx"),
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/components/MusicPlayer/Player.jsx"),
+    read("src/components/MusicPlayer/index.jsx"),
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+    read("src/components/MusicPlayer/ExpandedPlayer.tsx"),
   ]);
+
   assert.match(hook, /createSleepTimer/);
   assert.match(hook, /trackChanged\(trackId\)/);
+  assert.match(hook, /visibilitychange/);
+  assert.match(hook, /pageshow/);
   assert.match(control, /aria-label="Sleep timer"/);
   assert.match(control, /value="track"/);
   assert.match(control, /value="60"/);
+
+  assert.match(youtube, /import SleepTimerControl from "\.\/SleepTimerControl"/);
+  assert.match(youtube, /enabled:\s*!jam\?\.code/);
+  assert.doesNotMatch(youtube, /useSleepTimer\(\{[\s\S]{0,180}enabled:\s*false/);
+  assert.match(youtube, /sleepControl=\{<SleepTimerControl timer=\{sleep\.timer\} onChange=\{sleep\.change\}/);
+
+  assert.match(nativePlayer, /import SleepTimerControl from "\.\/SleepTimerControl"/);
+  assert.doesNotMatch(nativePlayer, /useSleepTimer\(\{[\s\S]{0,180}enabled:\s*false/);
+  assert.match(nativePlayer, /onExpire:[\s\S]*?ref\.current\?\.pause\(\)[\s\S]*?dispatch\(playPause\(false\)\)/);
+  assert.match(nativePlayer, /showTimer[\s\S]*?<SleepTimerControl timer=\{sleep\.timer\} onChange=\{sleep\.change\}/);
+  assert.match(playerShell, /<Player[\s\S]*?showTimer=\{fullScreen\}/);
+
+  assert.match(presentation, /\{props\.sleepControl\}/);
+  assert.match(queueOverlay, /props\.sleepControl/);
 });
 
 test("expanded video lets the overlay own taps so hide/show cannot cancel itself", async () => {
@@ -137,4 +159,132 @@ test("hidden YouTube playback uses one shared supported viewport policy", async 
   assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*width:\s*200px/i);
   assert.doesNotMatch(css, /\.yt-audio-stage\s*\{[^}]*height:\s*200px/i);
   assert.match(css, /\.yt-audio-stage \.yt-crop-frame,[\s\S]*width:\s*100% !important;[\s\S]*height:\s*100% !important;/);
+});
+
+
+test("mobile drawer raises the live video above the opaque sheet while theater stays below KASA chrome", async () => {
+  const presentation = await read("src/components/MusicPlayer/MediaPresentation.tsx");
+  assert.match(
+    presentation,
+    /const presentationZ = expanded \? "69" : drawer && showingVideo \? "71" : "30"/,
+  );
+  assert.match(presentation, /region\.style\.setProperty\("z-index", presentationZ\)/);
+});
+
+test("volume popover escapes scroll containers and stays viewport-positioned", async () => {
+  const [volume, css] = await Promise.all([
+    read("src/components/MusicPlayer/PlayerVolume.jsx"),
+    read("src/app/globals.css"),
+  ]);
+  assert.match(volume, /createPortal/);
+  assert.match(volume, /window\.visualViewport/);
+  assert.match(volume, /data-testid="player-volume-popover"/);
+  assert.match(css, /\.player-volume-popover\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*150;/s);
+});
+
+test("lyrics fetches are demand-driven instead of running for every playing track", async () => {
+  const [youtubePlayer, nativePlayer] = await Promise.all([
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/components/MusicPlayer/index.jsx"),
+  ]);
+  assert.match(
+    youtubePlayer,
+    /enabled:\s*Boolean\(video\?\.title\) && syncedLyrics !== false && Boolean\(pipWindow\)/,
+  );
+  assert.match(
+    nativePlayer,
+    /enabled:\s*Boolean\(nativeTitle\) && !youtubeVideo && Boolean\(pipWindow\)/,
+  );
+});
+
+
+test("portaled volume controls remain inside the media modal keyboard boundary", async () => {
+  const presentation = await read("src/components/MusicPlayer/MediaPresentation.tsx");
+  assert.match(presentation, /document\.querySelector\('\[data-testid="player-volume-popover"\]'\)/);
+});
+
+
+test("legacy native Lyrics surface does not own YouTube queue transitions", async () => {
+  const lyrics = await read("src/components/MusicPlayer/Lyrics.jsx");
+  assert.doesNotMatch(lyrics, /\byoutubeVideo\b|\byoutubeQueue\b|\bsetYoutubeVideo\b|\bplayPause\b/);
+  assert.match(lyrics, /nativeQueue/);
+});
+
+
+test("mobile drawer exposes an explicit in-dialog video expand control without overflowing narrow phones", async () => {
+  const [presentation, css] = await Promise.all([
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+    read("src/components/MusicPlayer/mediaPresentation.module.css"),
+  ]);
+  assert.match(
+    presentation,
+    /const drawerExpandButton = mobile && showingVideo && !expanded/,
+  );
+  assert.match(presentation, /data-testid="mobile-expand-video"/);
+  assert.match(
+    presentation,
+    /className=\{styles\.mediaTools\}>\{modeButton\}\{drawerExpandButton\}<\/div>/,
+  );
+  assert.match(
+    presentation,
+    /!mobile && !expanded && <button type="button" aria-label="Expand video"/,
+    "the portaled over-video expand button must stay desktop-only",
+  );
+  assert.match(
+    css,
+    /\.mobileSheet \.mediaTools\s*\{[^}]*flex-wrap:\s*wrap;/s,
+  );
+});
+
+
+test("volume popover positioning follows its rendered size instead of fixed pixel assumptions", async () => {
+  const volume = await read("src/components/MusicPlayer/PlayerVolume.jsx");
+  assert.match(volume, /popoverRef\.current\?\.getBoundingClientRect\(\)/);
+  assert.match(volume, /new ResizeObserver\(update\)/);
+  assert.doesNotMatch(volume, /const width = 152/);
+  assert.doesNotMatch(volume, /const height = 72/);
+});
+
+
+test("YouTube Previous follows actual listening history instead of queue order", async () => {
+  const player = await read("src/components/MusicPlayer/YouTubePlayer.jsx");
+  assert.match(player, /\bplayPreviousFromHistory\b/);
+  const handlePrev = player.match(/const handlePrev = \(\) => \{([\s\S]*?)\n  \};/);
+  assert.ok(handlePrev, "handlePrev must remain an explicit player boundary");
+  assert.match(handlePrev[1], /playbackHistory\.length/);
+  assert.match(handlePrev[1], /dispatch\(playPreviousFromHistory\(\)\)/);
+  assert.doesNotMatch(handlePrev[1], /getPreviousVideo\(\)/);
+});
+
+
+test("YouTube progress persistence is bound to the occurrence actually started on the active deck", async () => {
+  const player = await read("src/components/MusicPlayer/YouTubePlayer.jsx");
+  assert.match(player, /const progressIdentity = queueEntryIdentity\(videoRef\.current\)/);
+  assert.match(player, /const progressQueueEntryId = videoRef\.current\?\.queueEntryId/);
+  assert.match(player, /activeTrackStartedRef\.current\.identity === progressIdentity/);
+  assert.match(player, /activeTrackStartedRef\.current\.startedAt/);
+  assert.match(player, /setPlaybackPosition\(\{ id, queueEntryId: progressQueueEntryId, position: time \}\)/);
+});
+
+
+test("Jam playback state and remote seeks carry queue occurrence identity end to end", async () => {
+  const [player, jamSession] = await Promise.all([
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/hooks/useJamSession.js"),
+  ]);
+  assert.match(player, /JAM_PLAYBACK_STATE_EVENT,[\s\S]*queueEntryId:\s*videoRef\.current\?\.queueEntryId/);
+  assert.match(jamSession, /jamPlaybackPositionMatchesTrack\(\s*playbackPositionRef\.current,\s*snapshot\.youtubeVideo,?\s*\)/);
+  assert.match(jamSession, /jamPlaybackPositionMatchesTrack\(position, nextTrack\)/);
+  assert.match(jamSession, /JAM_REMOTE_SEEK_EVENT,[\s\S]*queueEntryId:\s*nextTrack\.queueEntryId/);
+  assert.match(player, /pendingJamSeekRef\.current = \{[\s\S]*queueEntryId:\s*detail\.queueEntryId/);
+  assert.match(player, /queueOccurrenceMatches\(videoRef\.current, \{ id: pendingJamSeek\?\.videoId, queueEntryId: pendingJamSeek\?\.queueEntryId \}\)/);
+});
+
+
+test("Escape dismisses the portaled volume popover before closing Now Playing", async () => {
+  const presentation = await read("src/components/MusicPlayer/MediaPresentation.tsx");
+  assert.match(
+    presentation,
+    /if \(event\.key === "Escape" && document\.querySelector\('\[data-testid="player-volume-popover"\]'\)\) return;/,
+  );
 });

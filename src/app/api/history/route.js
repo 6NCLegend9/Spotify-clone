@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
@@ -14,6 +15,7 @@ const MAX_HISTORY_ENTRIES = 100;
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function DELETE(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData, email } = await getAuthenticatedAccount(request);
     const limit = await isRateLimited(`history:${email}`, { windowMs: 60_000, max: 120 });
@@ -45,6 +47,7 @@ export async function GET(request) {
 
 // Record a played track in the signed-in user's server-synced listening history.
 export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`history:${email}`, {

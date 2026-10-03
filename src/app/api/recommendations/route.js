@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import UserData from "@/models/UserData";
 import Genre from "@/models/Genre";
@@ -262,6 +263,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { user, userData: accountData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`recommendations:${email}`, {

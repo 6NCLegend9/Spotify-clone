@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ListMusic, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import type { PlayerDockProps } from "./player.types";
 import PlayerTimeline from "./PlayerTimeline";
 import MediaPresentation from "./MediaPresentation";
@@ -61,8 +62,11 @@ export default function PlayerDock(props: PlayerDockProps) {
         <button type="button" aria-label={`Expand player: ${props.track.title}`} onClick={openPresentation} className={styles.trackButton}>
           <img src={props.track.thumbnail || "/icon-192x192.png"} alt="" width={48} height={48} className={styles.artwork}
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />
-          <span className={styles.trackText}><strong>{props.track.title}</strong><small>{props.track.channel}</small></span>
         </button>
+        <div className={styles.trackText}>
+          <button type="button" onClick={openPresentation} className={styles.trackTitle}>{props.track.title}</button>
+          <ArtistNameLink channelId={props.track.channelId} name={props.track.channel} className={styles.artistName} />
+        </div>
         <div className={styles.favourite}>{props.favourite}</div>
         <div className={styles.pip}><PlayerIconButton label={props.pipLabel} active={props.pipActive} disabled={props.pipDisabled} onClick={props.onPip}><PictureInPicture2 size={18} /></PlayerIconButton></div>
       </div>

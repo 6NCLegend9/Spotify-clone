@@ -9,6 +9,7 @@ import {
   fetchVerifiedDesktopGithubRelease,
   verifyDesktopReleaseEnvelope,
 } from "../../../../utils/desktopReleaseTrust.mjs";
+import { desktopRolloutPercent } from "../../../../utils/desktopRollout.mjs";
 
 export const runtime = "nodejs";
 
@@ -36,13 +37,6 @@ function sha512(value) {
   return SHA512_BASE64.test(text) ? text : "";
 }
 
-function percentage(value, fallback = 100) {
-  const text = String(value ?? "").trim();
-  if (!text) return fallback;
-  const number = Number(text);
-  return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : fallback;
-}
-
 function normalizeManifest(input = {}, requestedChannel = "stable") {
   const channel = normalizeDesktopReleaseChannel(requestedChannel) || "stable";
   const isStable = channel === "stable";
@@ -64,9 +58,9 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
     input.sha512 || (isStable ? process.env.HEYKASA_DESKTOP_SHA512 : ""),
   );
   const rolloutEnv = isStable ? String(process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT ?? "").trim() : "";
-  const updateRolloutPercent = rolloutEnv
-    ? percentage(rolloutEnv, 100)
-    : percentage(input.updateRolloutPercent, 100);
+  const updateRolloutPercent = isStable
+    ? desktopRolloutPercent(rolloutEnv)
+    : desktopRolloutPercent(input.updateRolloutPercent, 100);
 
   return {
     formatVersion: 1,

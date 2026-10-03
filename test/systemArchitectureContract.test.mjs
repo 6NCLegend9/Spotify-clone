@@ -45,6 +45,34 @@ test("shared responsive policy owns semantic phone and compact-touch queries", a
   }
 });
 
+test("phone navigation and touch actions do not fall back to width-only visibility rules", async () => {
+  for (const file of [
+    "src/components/Layout/AppShell.jsx",
+    "src/components/Navbar.jsx",
+    "src/components/Sidebar/Sidebar.jsx",
+    "src/components/Homepage/HomeHeader.jsx",
+    "src/components/Layout/MobileTabBar.jsx",
+    "src/components/Jam/JamController.jsx",
+    "src/components/Homepage/HomeRail.jsx",
+  ]) {
+    const content = await source(file);
+    assert.doesNotMatch(content, /(?:md:hidden|hidden md:inline-flex|max-md:hidden|md:opacity-0|sm:opacity-0)/, file);
+  }
+
+  for (const file of [
+    "src/components/Homepage/HomeRail.jsx",
+    "src/components/Library/PlaylistTrackRow.jsx",
+    "src/components/Library/LibraryView.jsx",
+  ]) {
+    const content = await source(file);
+    assert.match(content, /pointer-hover-action/, file);
+    assert.doesNotMatch(content, /(?:md:opacity-0|sm:opacity-0)/, file);
+  }
+
+  const css = await source("src/app/globals.css");
+  assert.match(css, /\(hover:\s*hover\) and \(pointer:\s*fine\)/);
+});
+
 test("production YouTube search callers go through the purpose-aware URL builder", async () => {
   const srcRoot = path.join(root, "src");
   const files = (await walk(srcRoot)).filter((file) => /\.(?:js|jsx|mjs|ts|tsx)$/.test(file));
@@ -97,4 +125,38 @@ test("YouTube playback does not receive compute-pressure permission", async () =
   assert.doesNotMatch(player, /compute-pressure/);
   assert.match(nextConfig, /compute-pressure=\(\)/);
   assert.doesNotMatch(nextConfig, /compute-pressure=\([^)]*youtube/i);
+});
+
+
+test("notification playback uses the current finite-queue contract", async () => {
+  const updates = await source("src/components/UpdatesBell.jsx");
+  assert.doesNotMatch(updates, /\bradio:\s*(?:true|false)/);
+  assert.match(updates, /queueMode:\s*"collection"/);
+  assert.match(updates, /autoExtend:\s*false/);
+});
+
+
+test("keyboard transport has one active owner per playback provider", async () => {
+  const shell = await source("src/components/MusicPlayer/index.jsx");
+  const youtube = await source("src/components/MusicPlayer/YouTubePlayer.jsx");
+
+  assert.match(shell, /enabled:\s*canControl && !isTyping && !youtubeVideo/);
+  assert.match(shell, /onToggleMute:\s*keyboardShortcuts !== false \? toggleMute : undefined/);
+
+  assert.match(youtube, /useKeyboardShortcuts\(\{[\s\S]*onTogglePlay:\s*handlePlayPause[\s\S]*onPrevious:\s*handlePrev[\s\S]*onNext:\s*handleNext[\s\S]*onSeekRelative:\s*seekBy/);
+  assert.doesNotMatch(youtube, /event\.code === "Space"/);
+  assert.doesNotMatch(youtube, /event\.key === "m" \|\| event\.key === "M"/);
+});
+
+
+test("collection playback carries explicit occurrence selection into Redux", async () => {
+  const [queue, slice, home] = await Promise.all([
+    source("src/utils/playerQueue.mjs"),
+    source("src/redux/features/playerSlice.js"),
+    source("src/utils/playHome.js"),
+  ]);
+  assert.match(queue, /export function resolveQueueStartIndex/);
+  assert.match(slice, /resolveQueueStartIndex/);
+  assert.match(slice, /action\.payload\?\.index/);
+  assert.match(home, /index:\s*collection\s*\?/);
 });

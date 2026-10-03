@@ -87,3 +87,4 @@ test("update rollout fails closed until a valid policy has loaded", () => {
   assert.equal(effectiveUpdateRolloutPercent({ updatedAt: Date.now(), updateRolloutPercent: 25.4 }), 25);
   assert.equal(effectiveUpdateRolloutPercent({ updatedAt: Date.now(), updateRolloutPercent: 250 }), 100);
 });
+

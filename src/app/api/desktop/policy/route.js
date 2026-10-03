@@ -1,3 +1,5 @@
+import { desktopRolloutPercent } from "../../../../utils/desktopRollout.mjs";
+
 export const dynamic = "force-dynamic";
 
 function enabled(name, fallback = true) {
@@ -6,13 +8,6 @@ function enabled(name, fallback = true) {
   if (["0", "false", "off", "disabled"].includes(raw)) return false;
   if (["1", "true", "on", "enabled"].includes(raw)) return true;
   return fallback;
-}
-
-function percentage(name, fallback = 100) {
-  const raw = String(process.env[name] ?? "").trim();
-  if (!raw) return fallback;
-  const value = Number(raw);
-  return Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : fallback;
 }
 
 function maintenanceMessage() {
@@ -35,7 +30,7 @@ export async function GET() {
     formatVersion: 1,
     maintenance,
     maintenanceMessage: maintenance ? maintenanceMessage() : "",
-    updateRolloutPercent: percentage("HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT", 100),
+    updateRolloutPercent: desktopRolloutPercent(process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT),
     features,
   }, {
     headers: {

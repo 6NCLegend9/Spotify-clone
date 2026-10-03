@@ -36,3 +36,11 @@ test("remembers the preferred cut per song identity", () => {
   assert.equal(preferredTrackCut(track, storage), "live");
   assert.equal(JSON.parse(store.get(TRACK_CUT_STORAGE_KEY))["eminem|brand new dance"], "live");
 });
+
+
+test("track cut hook uses the intentional current-track replacement action", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../src/hooks/useTrackCut.js", import.meta.url), "utf8");
+  assert.match(source, /replaceCurrentYoutubeTrack/);
+  assert.doesNotMatch(source, /\bsetYoutubeVideo\b/);
+});

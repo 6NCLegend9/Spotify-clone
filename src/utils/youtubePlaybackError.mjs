@@ -1,9 +1,30 @@
+import { queueEntryIdentity } from "./playerQueue.mjs";
+
 export const MAX_SAME_ID_RETRIES = 2;
 export const MAX_ALTERNATE_ATTEMPTS = 3;
 
 /**
  * @typedef {"retrySame" | "tryAlternate" | "skipQueue" | "fatalUI"} PlaybackFailureAction
  */
+
+export function youtubeRecoveryScope(track) {
+  const videoId = typeof track?.id === "string" ? track.id.trim() : "";
+  const identity = queueEntryIdentity(track);
+  return {
+    identity: identity ? String(identity) : null,
+    videoId: videoId || null,
+  };
+}
+
+export function youtubeRecoveryScopeMatches(scope, track) {
+  const next = youtubeRecoveryScope(track);
+  return Boolean(
+    scope?.identity
+    && scope?.videoId
+    && scope.identity === next.identity
+    && scope.videoId === next.videoId
+  );
+}
 
 /**
  * Map a YouTube IFrame error code (or synthetic stall token) to user copy and

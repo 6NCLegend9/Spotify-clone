@@ -276,6 +276,76 @@ select:-webkit-autofill {
   }
 }
 
+
+/* Responsive semantics shared by shell/navigation callers.
+   PHONE_LANDSCAPE_QUERY is contract-tested against responsivePolicy.mjs so
+   first paint does not depend on hydration before correcting a rotated phone. */
+.phone-only-block { display: block !important; }
+.phone-only-flex { display: flex !important; }
+.phone-only-grid { display: grid !important; }
+.phone-only-inline { display: inline !important; }
+.phone-only-inline-flex { display: inline-flex !important; }
+.phone-wide-only-flex,
+.non-phone-only-flex,
+.non-phone-only-inline-flex { display: none !important; }
+.pointer-fine-only-grid { display: none !important; }
+.pointer-hover-action { opacity: 1; }
+.jam-fab-docked {
+  position: fixed;
+  right: 0.75rem;
+  bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 25;
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .phone-wide-only-flex { display: flex !important; }
+}
+
+@media (min-width: 768px) {
+  .phone-only-block,
+  .phone-only-flex,
+  .phone-only-grid,
+  .phone-only-inline,
+  .phone-only-inline-flex { display: none !important; }
+  .non-phone-only-flex { display: flex !important; }
+  .non-phone-only-inline-flex { display: inline-flex !important; }
+  .jam-fab-docked {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pointer-fine-only-grid { display: grid !important; }
+  .group .pointer-hover-action {
+    opacity: 0;
+    transition: opacity var(--motion-fast) ease;
+  }
+  .group:hover .pointer-hover-action,
+  .group:focus-within .pointer-hover-action {
+    opacity: 1;
+  }
+}
+
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px) {
+  .phone-only-block { display: block !important; }
+  .phone-only-flex { display: flex !important; }
+  .phone-only-grid { display: grid !important; }
+  .phone-only-inline { display: inline !important; }
+  .phone-only-inline-flex { display: inline-flex !important; }
+  .phone-wide-only-flex { display: flex !important; }
+  .non-phone-only-flex,
+  .non-phone-only-inline-flex { display: none !important; }
+  .phone-landscape-hidden { display: none !important; }
+  .jam-fab-docked {
+    position: fixed;
+    right: 0.75rem;
+    bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
+    z-index: 25;
+  }
+}
+
 @layer components {
   .app-shell {
     display: grid;
@@ -1916,13 +1986,16 @@ select:-webkit-autofill {
   }
 
   .player-volume-popover {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 0.5rem);
-    z-index: 40;
+    position: fixed;
+    z-index: 150;
+    display: flex;
+    width: 9.5rem;
+    min-width: 9.5rem;
+    align-items: center;
+    justify-content: center;
     border-radius: 0.85rem;
     border: 1px solid var(--hairline);
-    background: rgba(7, 18, 29, 0.94);
+    background: rgba(7, 18, 29, 0.96);
     padding: 0.75rem 0.85rem;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), var(--inset-shine);
     backdrop-filter: blur(12px);

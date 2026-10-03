@@ -45,7 +45,7 @@ export default function HomeHeader({ filter, onFilter }) {
   return (
     <header className="home-header">
       <div className="kasa-home-filters">
-        <button type="button" className="home-avatar grid place-items-center md:hidden" aria-label="Open menu" aria-controls="app-sidebar" aria-expanded={navModal} onClick={() => setShowNav(true)}>
+        <button type="button" className="home-avatar phone-only-grid place-items-center" aria-label="Open menu" aria-controls="app-sidebar" aria-expanded={navModal} onClick={() => setShowNav(true)}>
           {status === "authenticated" && imageUrl && !imageFailed ? <img src={imageUrl} alt="" onError={() => setImageFailed(true)} className="h-full w-full object-cover" /> : <span aria-hidden="true">{status === "authenticated" ? userName.charAt(0).toUpperCase() : "K"}</span>}
         </button>
         <div className="home-chips no-scrollbar" role="group" aria-label="Home filters">
@@ -54,7 +54,7 @@ export default function HomeHeader({ filter, onFilter }) {
             return <button key={item.id} type="button" aria-pressed={active} onClick={() => onFilter(item.id)} className={`home-chip ${active ? "is-active" : ""}`}>{item.label}</button>;
           })}
         </div>
-        {href ? <Link href={href} aria-label={label} title={label} className="ml-auto grid h-11 w-11 shrink-0 place-items-center text-[var(--teal)] md:hidden"><FiSettings size={22} /></Link> : <span className="ml-auto h-8 w-8 animate-pulse rounded-full bg-white/10 md:hidden" role="status" aria-label={label} />}
+        {href ? <Link href={href} aria-label={label} title={label} className="ml-auto phone-only-grid h-11 w-11 shrink-0 place-items-center text-[var(--teal)]"><FiSettings size={22} /></Link> : <span className="ml-auto phone-only-block h-8 w-8 animate-pulse rounded-full bg-white/10" role="status" aria-label={label} />}
       </div>
       <div className="home-header-row">
         <div className={`home-title-copy appearance-home-text--${homeAlign}`}>

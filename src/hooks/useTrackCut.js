@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useJam } from "@/components/Jam/JamProvider";
-import { setYoutubeVideo } from "@/redux/features/playerSlice";
+import { replaceCurrentYoutubeTrack } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
 import { canonicalSongIdentity } from "@/utils/songIdentity.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
@@ -44,7 +44,7 @@ export default function useTrackCut() {
       const ranked = rankTrackCutResults(data?.results, cut, query);
       const next = ranked.find((item) => item?.id);
       if (next?.id && next.id !== track.id) {
-        dispatch(setYoutubeVideo({
+        dispatch(replaceCurrentYoutubeTrack({
           ...track,
           id: next.id,
           title: next.title || track.title,

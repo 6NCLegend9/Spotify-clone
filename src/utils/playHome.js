@@ -46,6 +46,7 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0, options = {}) {
     dispatch(startYoutubePlayback({
       queue: collection ? queue : [radioTrack],
       track: collection ? queue[list.indexOf(start)] || queue[0] : radioTrack,
+      index: collection ? list.indexOf(start) : 0,
       queueMode: collection ? "collection" : "radio",
       autoExtend: collection ? false : undefined,
       context: options.context || (collection

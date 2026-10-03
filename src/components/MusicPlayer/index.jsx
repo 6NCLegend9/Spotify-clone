@@ -93,6 +93,7 @@ const MusicPlayer = () => {
     dataSaver,
     audioOnly,
     masterVolume,
+    keyboardShortcuts,
   } = useSelector((state) => state.settings);
   const compactPlayback = audioOnly || dataSaver;
   const [duration, setDuration] = useState(0);
@@ -124,7 +125,7 @@ const MusicPlayer = () => {
     title: nativeTitle,
     artist: nativeArtist,
     duration,
-    enabled: Boolean(nativeTitle) && !youtubeVideo,
+    enabled: Boolean(nativeTitle) && !youtubeVideo && Boolean(pipWindow),
   });
 
   const songCount = Array.isArray(currentSongs) ? currentSongs.length : 0;
@@ -316,12 +317,12 @@ const MusicPlayer = () => {
   const canControl = isActive || Boolean(youtubeVideo);
 
   useKeyboardShortcuts({
-    enabled: canControl && !isTyping,
+    enabled: canControl && !isTyping && !youtubeVideo,
     onTogglePlay: () => dispatch(playPause(!isPlaying)),
     onPrevious: handlePrevious,
     onNext: handleNext,
     onSeekRelative: seekRelative,
-    onToggleMute: toggleMute,
+    onToggleMute: keyboardShortcuts !== false ? toggleMute : undefined,
     seekStep: 5,
   });
 
@@ -556,6 +557,7 @@ const MusicPlayer = () => {
             />
             <Player
               activeSong={activeSong}
+              showTimer={fullScreen}
               isPlaying={isPlaying}
               seekTime={seekTime}
               repeat={repeat}

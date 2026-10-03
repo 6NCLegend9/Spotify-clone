@@ -309,7 +309,17 @@ test.describe("real YouTube provider smoke", () => {
         );
       }
 
-      await page.keyboard.press("v");
+      if (testInfo.project.name.startsWith("mobile-")) {
+        const dock = page.getByTestId("player-dock");
+        await dock.getByRole("button", { name: /^Expand player:/ }).click();
+        const drawer = page.getByRole("dialog", { name: "Now playing" });
+        await expect(drawer).toBeVisible();
+        const expandVideo = page.getByRole("button", { name: "Expand video", exact: true });
+        await expect(expandVideo).toBeVisible();
+        await expandVideo.click();
+      } else {
+        await page.keyboard.press("v");
+      }
       const theater = page.getByRole("dialog", { name: "Expanded video" });
       await expect(theater).toBeVisible();
 

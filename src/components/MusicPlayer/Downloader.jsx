@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { MdOutlineFileDownload, MdDownloadForOffline } from "react-icons/md";
 import { toast } from "react-hot-toast";
 import { useSelector } from "react-redux";
-import { checkWifiDownloadConnection } from "@/utils/downloadConnection";
+import { evaluateWifiOnlyDownload } from "@/utils/downloadConnection";
 import { toUserError } from "@/utils/userError";
 import {
   QUALITY_OPTIONS,
@@ -61,25 +61,11 @@ const Downloader = ({ activeSong, icon }) => {
   }, [showMenu]);
 
   const canStartDownload = () => {
-    if (!wifiOnlyDownloads) return true;
-
-    const connection = checkWifiDownloadConnection();
-    if (connection.status === "non-wifi") {
-      const message =
-        "Wi-Fi-only downloads are enabled. Connect to Wi-Fi or turn off this setting to download.";
-      setAnnouncement(message);
-      toast.error(message);
-      return false;
-    }
-
-    if (connection.status === "unknown") {
-      const message =
-        "This browser can’t verify whether you’re on Wi-Fi. The download will continue, and your network may charge for data.";
-      setAnnouncement(message);
-      toast(message, { icon: "ℹ️" });
-    }
-
-    return true;
+    const decision = evaluateWifiOnlyDownload(wifiOnlyDownloads);
+    if (decision.allowed) return true;
+    setAnnouncement(decision.message);
+    toast.error(decision.message);
+    return false;
   };
 
   const handleDownload = async (quality) => {

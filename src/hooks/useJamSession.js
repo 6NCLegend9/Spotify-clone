@@ -23,6 +23,8 @@ import {
   isJamCode,
   jamChannelName,
   jamCodeFromPath,
+  jamPlaybackPositionMatchesTrack,
+  jamTrackOccurrenceChanged,
   makeJamCode,
   normalizeJamCode,
   projectJamPlaybackTime,
@@ -163,7 +165,7 @@ export default function useJamSession() {
       applyingRemoteRef.current = true;
       const current = playerStateRef.current;
       const nextTrack = payload.track?.id ? payload.track : null;
-      const trackChanged = nextTrack?.id !== current.youtubeVideo?.id;
+      const trackChanged = jamTrackOccurrenceChanged(current.youtubeVideo, nextTrack);
       const nextQueue = Array.isArray(payload.queue)
         ? payload.queue
         : current.youtubeQueue;
@@ -191,14 +193,18 @@ export default function useJamSession() {
 
       if (nextTrack?.id) {
         window.dispatchEvent(new CustomEvent(JAM_REMOTE_PLAYBACK_EVENT, {
-          detail: { videoId: nextTrack.id, isPlaying: nextPlaying },
+          detail: {
+            videoId: nextTrack.id,
+            queueEntryId: nextTrack.queueEntryId,
+            isPlaying: nextPlaying,
+          },
         }));
       }
 
       const position = payload.position;
       if (
         nextTrack?.id
-        && position?.videoId === nextTrack.id
+        && jamPlaybackPositionMatchesTrack(position, nextTrack)
         && Number.isFinite(Number(position.currentTime))
       ) {
         const targetTime = projectJamPlaybackTime(
@@ -207,7 +213,11 @@ export default function useJamSession() {
           payload.at,
         );
         window.dispatchEvent(new CustomEvent(JAM_REMOTE_SEEK_EVENT, {
-          detail: { videoId: nextTrack.id, currentTime: targetTime },
+          detail: {
+            videoId: nextTrack.id,
+            queueEntryId: nextTrack.queueEntryId,
+            currentTime: targetTime,
+          },
         }));
       }
       window.setTimeout(() => {
@@ -252,7 +262,10 @@ export default function useJamSession() {
   const sendSnapshot = useCallback((channel = channelRef.current) => {
     if (!channel) return Promise.resolve("error");
     const snapshot = playerStateRef.current;
-    const position = playbackPositionRef.current?.videoId === snapshot.youtubeVideo?.id
+    const position = jamPlaybackPositionMatchesTrack(
+      playbackPositionRef.current,
+      snapshot.youtubeVideo,
+    )
       ? playbackPositionRef.current
       : null;
     return channel.send({

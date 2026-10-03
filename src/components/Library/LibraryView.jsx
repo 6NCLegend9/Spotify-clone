@@ -107,7 +107,7 @@ function GridItem({ item }) {
         <CollectionBadges item={item} />
       </Link>
       {item.type === "playlist" ? (
-        <div className="absolute right-2 top-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+        <div className="pointer-hover-action absolute right-2 top-2">
           <LikePlaylistButton playlist={item} className="bg-black/50 backdrop-blur" />
         </div>
       ) : null}

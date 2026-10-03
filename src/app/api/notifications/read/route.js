@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import UserData from "@/models/UserData";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
@@ -9,6 +10,7 @@ export const runtime = "nodejs";
 export const maxDuration = 15;
 
 export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`notifications-read:${email}`, {

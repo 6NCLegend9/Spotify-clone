@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import Genre from "@/models/Genre";
@@ -79,6 +80,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const user = await authenticatedUser(request);
     if (!user) {
@@ -181,6 +183,7 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const user = await authenticatedUser(request);
     if (!user) {

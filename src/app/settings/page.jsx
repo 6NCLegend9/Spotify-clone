@@ -275,7 +275,7 @@ function AccountSettings({ owner, status }) {
         <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">
           <h2 className="mb-2 text-xl font-semibold">Playback sound</h2>
           <SelectControl label="Playback level" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
-          <Toggle label="Mono audio" checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
+          <Toggle label="Mono audio" description="Applies mono output only to HayKasa’s native audio path. YouTube embedded audio stays unchanged because it cannot be routed through HayKasa’s Web Audio graph." checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
           <p className="mt-4 text-xs leading-5 text-[#9aa8b5]">
             YouTube chooses stream quality automatically from the uploaded source, connection, device, and player conditions. HayKasa&apos;s Audio-focused and Data Saver options only change HayKasa presentation and visual work; they do not select a different YouTube stream.
           </p>
@@ -379,10 +379,10 @@ function AccountSettings({ owner, status }) {
             onChange={(value) => set("audioOnly", value)}
           />
           <Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them. Fullscreen highlights the current caption line from those same captions." checked={settings.captions !== false} onChange={(value) => set("captions", value)} />
-          <Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} />
+          <Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F/V, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} />
           <Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} />
-          <Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} />
-          <Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} />
+          <Toggle label="Floating player (desktop)" description="Opens HayKasa controls in a separate desktop window when the browser supports Document Picture-in-Picture. This does not place the YouTube video itself into native video PiP." checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} />
+          <Toggle label="Wi-Fi-only downloads" description="When enabled, downloads are blocked unless the browser can confirm a Wi-Fi connection. Browsers that cannot expose network type must turn this off to download." checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} />
         </div>
         <div className="glass-panel rounded-xl p-5 sm:p-7">
           <h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2>

@@ -24,6 +24,9 @@ function upstreamError(status) {
       : "BAD_GATEWAY";
   return new ApiRouteError(code, {
     message: "Lyrics are temporarily unavailable.",
+    headers: {
+      "Retry-After": status === 429 ? "60" : "30",
+    },
   });
 }
 

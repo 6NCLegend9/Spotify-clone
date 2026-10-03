@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
+import * as playbackError from "../src/utils/youtubePlaybackError.mjs";
+const {
   alternateSearchQuery,
   MAX_ALTERNATE_ATTEMPTS,
   MAX_SAME_ID_RETRIES,
   youtubePlaybackError,
   youtubePlaybackFailurePolicy,
-} from "../src/utils/youtubePlaybackError.mjs";
+} = playbackError;
 
 test("retry is not offered for embedding restrictions or unavailable uploads", () => {
   for (const code of [100, 101, 150, "150"]) {
@@ -59,5 +60,36 @@ test("alternate search query prefers title and channel", () => {
   assert.equal(
     alternateSearchQuery({ title: "Post To Be", channel: "Omarion" }),
     "Post To Be Omarion",
+  );
+});
+
+
+test("recovery scope distinguishes duplicate queue occurrences of the same provider video", () => {
+  const first = { id: "abcdefghijk", queueEntryId: "context:1:abcdefghijk" };
+  const second = { id: "abcdefghijk", queueEntryId: "user:2:abcdefghijk" };
+
+  assert.equal(typeof playbackError.youtubeRecoveryScope, "function");
+  assert.equal(typeof playbackError.youtubeRecoveryScopeMatches, "function");
+  if (
+    typeof playbackError.youtubeRecoveryScope !== "function"
+    || typeof playbackError.youtubeRecoveryScopeMatches !== "function"
+  ) return;
+
+  const firstScope = playbackError.youtubeRecoveryScope(first);
+  const secondScope = playbackError.youtubeRecoveryScope(second);
+
+  assert.deepEqual(firstScope, {
+    identity: first.queueEntryId,
+    videoId: first.id,
+  });
+  assert.notDeepEqual(firstScope, secondScope);
+  assert.equal(playbackError.youtubeRecoveryScopeMatches(firstScope, first), true);
+  assert.equal(playbackError.youtubeRecoveryScopeMatches(firstScope, second), false);
+  assert.equal(
+    playbackError.youtubeRecoveryScopeMatches(
+      { ...firstScope, videoId: "lmnopqrstuv" },
+      first,
+    ),
+    false,
   );
 });

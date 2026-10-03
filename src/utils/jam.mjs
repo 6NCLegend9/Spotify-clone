@@ -56,6 +56,20 @@ export function shouldExpireEmptyJam(session, now = Date.now()) {
   return now - startedAt >= EMPTY_JAM_MS;
 }
 
+export function jamTrackOccurrenceChanged(current, next) {
+  const currentIdentity = current?.queueEntryId || current?.id || "";
+  const nextIdentity = next?.queueEntryId || next?.id || "";
+  return currentIdentity !== nextIdentity;
+}
+
+export function jamPlaybackPositionMatchesTrack(position, track) {
+  if (!position?.videoId || !track?.id) return false;
+  if (position.queueEntryId && track.queueEntryId) {
+    return position.queueEntryId === track.queueEntryId;
+  }
+  return position.videoId === track.id;
+}
+
 export function projectJamPlaybackTime(
   currentTime,
   isPlaying,
