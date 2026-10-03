@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as downloadConnection from "../src/utils/downloadConnection.js";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("Wi-Fi-only downloads fail closed when the browser cannot verify network type", () => {
   assert.equal(typeof downloadConnection.evaluateWifiOnlyDownload, "function");
@@ -35,4 +40,11 @@ test("downloads remain allowed when Wi-Fi-only mode is disabled", () => {
     downloadConnection.evaluateWifiOnlyDownload(false, { status: "unknown" }),
     { allowed: true, reason: "disabled", message: "" },
   );
+});
+
+
+test("Wi-Fi-only settings copy explains strict blocking when network type is unavailable", async () => {
+  const settings = await readFile(path.join(root, "src/app/settings/page.jsx"), "utf8");
+  assert.match(settings, /downloads are blocked unless the browser can confirm a Wi-Fi connection/i);
+  assert.match(settings, /cannot expose network type must turn this off to download/i);
 });
