@@ -1,4 +1,5 @@
 import { radioArtistIdentity } from "./radioSeed.mjs";
+import { sameRadioSongFamily } from "./songIdentity.mjs";
 
 // Parametric radio queue engine (YouTube Music-style station tuner).
 //
@@ -248,6 +249,8 @@ export function buildRadioQueue({
     const idStr = String(id);
     if (seedIdStr != null && idStr === seedIdStr) continue;
     if (seen.has(idStr)) continue;
+    if (seed && sameRadioSongFamily(seed, track)) continue;
+    if (pool.some((existing) => sameRadioSongFamily(existing, track))) continue;
     seen.add(idStr);
     pool.push(track);
   }
