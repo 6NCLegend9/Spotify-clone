@@ -131,14 +131,6 @@ function isEditableKeyboardTarget(target) {
   return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-function isActionKeyboardTarget(target) {
-  if (!(target instanceof HTMLElement)) return false;
-  return Boolean(
-    target.closest(
-      "button, a, [role='button'], [role='link'], [role='menuitem'], [role='option'], [role='tab'], [role='switch'], summary",
-    ),
-  );
-}
 
 // Best-effort signal for recommendations.js's skip exclusion filter; never blocks playback.
 const recordPlayEvent = (id, event) => {
