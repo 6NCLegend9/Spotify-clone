@@ -9,6 +9,17 @@ export function queueTrackIndex(queue, current) {
   return (Array.isArray(queue) ? queue : []).findIndex((track) => matchesTrack(track, identity));
 }
 
+export function queueWithoutCurrentOccurrence(queue, current) {
+  const identity = queueEntryIdentity(current);
+  if (!identity) return Array.isArray(queue) ? [...queue] : [];
+  let removed = false;
+  return (Array.isArray(queue) ? queue : []).filter((track) => {
+    if (removed || queueEntryIdentity(track) !== identity) return true;
+    removed = true;
+    return false;
+  });
+}
+
 export function queueAdvanceDecision(current, next, { avoidId = null } = {}) {
   if (!next?.id) return "none";
   if (avoidId && next.id === avoidId) return "blocked";
