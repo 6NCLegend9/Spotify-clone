@@ -4,7 +4,12 @@ import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
 import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity, sameRadioSongFamily } from '../../utils/songIdentity.mjs';
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
-import { collectRadioArtistExclusions, normalizeRadioArtist } from '../../utils/radioSeed.mjs';
+import {
+  collectRadioArtistExclusions,
+  normalizeRadioArtist,
+  preserveRadioReplacementMetadata,
+  retargetRadioPlaybackContext,
+} from '../../utils/radioSeed.mjs';
 
 const initialState = {
   currentSongs: [],
@@ -63,13 +68,18 @@ function trackScopedRadioSeed(rawTrack) {
   ].find((value) => typeof value === 'string' && value.trim())?.trim() || '';
   const inheritedSeed = typeof track.seedQuery === 'string' ? track.seedQuery.trim() : '';
   const inheritedGenre = typeof track.genre === 'string' ? track.genre.trim() : '';
+  const inheritedRadioArtist = typeof track.radioSeedArtist === 'string'
+    ? track.radioSeedArtist.trim()
+    : '';
   const seedQuery = inheritedSeed || [artist, title].filter(Boolean).join(' ');
+  const radioSeedArtist = inheritedRadioArtist || artist;
 
   return {
     ...track,
     ...(artist ? { channel: artist } : {}),
     ...(seedQuery ? { seedQuery } : {}),
     ...(inheritedGenre ? { genre: inheritedGenre } : {}),
+    ...(radioSeedArtist ? { radioSeedArtist } : {}),
   };
 }
 
@@ -305,10 +315,13 @@ const playerSlice = createSlice({
       const current = state.youtubeVideo;
       const currentIndex = state.youtubeQueue.findIndex((item) => sameOccurrence(item, current)
         || item?.id === current.id);
+      const replacementTrack = state.queueMode === 'radio'
+        ? preserveRadioReplacementMetadata(current, replacement)
+        : replacement;
       const nextEntry = nextQueueEntry(
         state,
         {
-          ...replacement,
+          ...replacementTrack,
           queueEntryId: current.queueEntryId,
           queueSource: current.queueSource || 'context',
         },
@@ -323,6 +336,11 @@ const playerSlice = createSlice({
         state.youtubeQueue.unshift(nextEntry);
       }
       state.youtubeVideo = nextEntry;
+      state.playbackContext = retargetRadioPlaybackContext(
+        state.playbackContext,
+        current.id,
+        nextEntry.id,
+      );
       state.activeSong = {};
       state.currentSongs = [];
       state.isActive = false;
