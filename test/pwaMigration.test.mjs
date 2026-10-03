@@ -47,11 +47,6 @@ test("Serwist never caches account or authentication routes and preserves bounde
 });
 
 
-test("Serwist pins its vulnerable Browserslist child to the patched release", async () => {
-  const pkg = JSON.parse(await source("package.json"));
-  assert.equal(pkg.overrides?.["@serwist/next"]?.browserslist, "4.28.7");
-});
-
 
 test("Serwist build tooling pins the patched Browserslist release", async () => {
   const pkg = JSON.parse(await source("package.json"));
