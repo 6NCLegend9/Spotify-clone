@@ -12,9 +12,10 @@ test("playlist-specific discovery never overwrites the Liked Songs preference", 
     source,
     /setSmartShuffle\(nextValue\);\s*dispatch\(setAutoAdd\(nextValue\)\);/,
   );
+  assert.doesNotMatch(source, /dispatch\(setAutoAdd/);
   assert.match(
     source,
-    /if \(isLiked\) \{[\s\S]*?dispatch\(setAutoAdd\(nextValue\)\);[\s\S]*?writeDiscoveryShufflePreference\(window\.localStorage, nextValue\);[\s\S]*?\}/,
+    /if \(isLiked\) \{[\s\S]*?writeDiscoveryShufflePreference\(window\.localStorage, nextValue\);[\s\S]*?\}/,
   );
 });
 
