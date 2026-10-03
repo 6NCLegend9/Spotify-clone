@@ -275,7 +275,7 @@ function AccountSettings({ owner, status }) {
         <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">
           <h2 className="mb-2 text-xl font-semibold">Playback sound</h2>
           <SelectControl label="Playback level" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
-          <Toggle label="Mono audio" checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
+          <Toggle label="Mono audio" description="Applies mono output only to HayKasa’s native audio path. YouTube embedded audio stays unchanged because it cannot be routed through HayKasa’s Web Audio graph." checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
           <p className="mt-4 text-xs leading-5 text-[#9aa8b5]">
             YouTube chooses stream quality automatically from the uploaded source, connection, device, and player conditions. HayKasa&apos;s Audio-focused and Data Saver options only change HayKasa presentation and visual work; they do not select a different YouTube stream.
           </p>
