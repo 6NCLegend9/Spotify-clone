@@ -97,3 +97,40 @@ test("queue consumer lists remove only the current occurrence, not every duplica
     [second, third],
   );
 });
+
+
+test("restore keeps an explicit duplicate occurrence of the current recording in User Queue", () => {
+  const current = {
+    id: "same-track1",
+    queueEntryId: "context:1:same-track1",
+    queueSource: "context",
+  };
+  const duplicate = {
+    id: "same-track1",
+    queueEntryId: "user:2:same-track1",
+    queueSource: "user",
+  };
+  assert.equal(typeof playerQueue.restoreQueueOccurrenceState, "function");
+  if (typeof playerQueue.restoreQueueOccurrenceState !== "function") return;
+  const restored = playerQueue.restoreQueueOccurrenceState([current, duplicate], current);
+  assert.deepEqual(restored.queue, [current, duplicate]);
+  assert.deepEqual(restored.userQueue, [duplicate]);
+});
+
+test("restore inserts the missing current occurrence even when the same video id already exists", () => {
+  const current = {
+    id: "same-track1",
+    queueEntryId: "context:9:same-track1",
+    queueSource: "context",
+  };
+  const duplicate = {
+    id: "same-track1",
+    queueEntryId: "user:2:same-track1",
+    queueSource: "user",
+  };
+  assert.equal(typeof playerQueue.restoreQueueOccurrenceState, "function");
+  if (typeof playerQueue.restoreQueueOccurrenceState !== "function") return;
+  const restored = playerQueue.restoreQueueOccurrenceState([duplicate], current);
+  assert.deepEqual(restored.queue, [current, duplicate]);
+  assert.deepEqual(restored.userQueue, [duplicate]);
+});
