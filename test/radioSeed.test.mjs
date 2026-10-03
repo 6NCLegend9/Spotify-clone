@@ -210,3 +210,19 @@ test("recent-artist exclusions collapse label and unofficial uploads to the song
 
   assert.deepEqual(exclusions, ["don toliver", "future", "travis scott"]);
 });
+
+
+test("artist diversity still allows unrelated artists that share the same song title", () => {
+  const result = diversifyRadioTracks([
+    track("VVVVVVVVVV1", "Label One", "Artist Alpha - Stay With Me"),
+    track("WWWWWWWWWW1", "Label Two", "Artist Beta - Stay With Me"),
+  ], {
+    maxPerArtist: 1,
+    limit: 10,
+  });
+
+  assert.deepEqual(result.map((item) => item.title), [
+    "Artist Alpha - Stay With Me",
+    "Artist Beta - Stay With Me",
+  ]);
+});
