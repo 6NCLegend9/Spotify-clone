@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks, normalizeRadioArtist } from "../src/utils/radioSeed.mjs";
+import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks, normalizeRadioArtist, preserveRadioReplacementMetadata, retargetRadioPlaybackContext } from "../src/utils/radioSeed.mjs";
 
 const track = (id, channel, title) => ({ id, channel, title });
 
@@ -124,4 +124,44 @@ test("radio artist exclusions carry recent listening history into the next disco
     "current artist",
     "queued artist",
   ]);
+});
+
+
+test("same-song replacement preserves radio origin affinity without lying about the new uploader", () => {
+  const current = {
+    id: "ORIGIN00001",
+    title: "Origin Song",
+    channel: "Origin Artist",
+    seedQuery: "deep house night drive",
+    genre: "Deep House",
+  };
+  const replacement = {
+    id: "REPLACE0001",
+    title: "Origin Song (Official Audio)",
+    channel: "Mirror Upload - Topic",
+    seedQuery: "Origin Song official audio",
+    genre: "",
+  };
+  const next = preserveRadioReplacementMetadata(current, replacement);
+  assert.equal(next.id, replacement.id);
+  assert.equal(next.channel, replacement.channel);
+  assert.equal(next.seedQuery, current.seedQuery);
+  assert.equal(next.genre, current.genre);
+  assert.equal(next.radioSeedArtist, current.channel);
+});
+
+test("radio playback context retargets only when the replaced row is the radio origin", () => {
+  const context = { type: "radio", id: "ORIGIN00001", name: "Deep House Radio" };
+  assert.deepEqual(
+    retargetRadioPlaybackContext(context, "ORIGIN00001", "REPLACE0001"),
+    { type: "radio", id: "REPLACE0001", name: "Deep House Radio" },
+  );
+  assert.equal(
+    retargetRadioPlaybackContext({ type: "playlist", id: "p1", name: "List" }, "ORIGIN00001", "REPLACE0001").id,
+    "p1",
+  );
+  assert.equal(
+    retargetRadioPlaybackContext(context, "OTHER000001", "REPLACE0001").id,
+    "ORIGIN00001",
+  );
 });
