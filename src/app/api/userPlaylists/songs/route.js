@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/utils/dbconnect";
@@ -46,6 +47,7 @@ async function resolveUser(req, required = true) {
 
 // add song to playlist
 export async function POST(req){
+  if (!isTrustedRequestOrigin(req)) return apiError("FORBIDDEN");
     try {
         const user = await resolveUser(req);
         const rateLimit = await isRateLimited(`playlist-songs:add:${user._id}`, {
@@ -83,6 +85,7 @@ export async function POST(req){
 
 // delete song from playlist
 export async function DELETE(req){
+  if (!isTrustedRequestOrigin(req)) return apiError("FORBIDDEN");
     try {
         const user = await resolveUser(req);
         const rateLimit = await isRateLimited(`playlist-songs:delete:${user._id}`, {
