@@ -134,3 +134,16 @@ test("notification playback uses the current finite-queue contract", async () =>
   assert.match(updates, /queueMode:\s*"collection"/);
   assert.match(updates, /autoExtend:\s*false/);
 });
+
+
+test("keyboard transport has one active owner per playback provider", async () => {
+  const shell = await source("src/components/MusicPlayer/index.jsx");
+  const youtube = await source("src/components/MusicPlayer/YouTubePlayer.jsx");
+
+  assert.match(shell, /enabled:\s*canControl && !isTyping && !youtubeVideo/);
+  assert.match(shell, /onToggleMute:\s*keyboardShortcuts !== false \? toggleMute : undefined/);
+
+  assert.match(youtube, /useKeyboardShortcuts\(\{[\s\S]*onTogglePlay:\s*handlePlayPause[\s\S]*onPrevious:\s*handlePrev[\s\S]*onNext:\s*handleNext[\s\S]*onSeekRelative:\s*seekBy/);
+  assert.doesNotMatch(youtube, /event\.code === "Space"/);
+  assert.doesNotMatch(youtube, /event\.key === "m" \|\| event\.key === "M"/);
+});
