@@ -29,10 +29,12 @@ function normalizeTrack(track, fallbackEntryId) {
   const seedQuery = optionalText(track.seedQuery, 200);
   const genre = optionalText(track.genre, 120);
   const channelId = optionalText(track.channelId, 120);
+  const radioSeedArtist = optionalText(track.radioSeedArtist, 200);
   const queueEntryId = optionalText(track.queueEntryId, 220) || fallbackEntryId;
   if (seedQuery) normalized.seedQuery = seedQuery;
   if (genre) normalized.genre = genre;
   if (channelId) normalized.channelId = channelId;
+  if (radioSeedArtist) normalized.radioSeedArtist = radioSeedArtist;
   if (track.source === "youtube") normalized.source = "youtube";
   if (queueEntryId) normalized.queueEntryId = queueEntryId;
   if (track.queueSource === "user") normalized.queueSource = "user";
