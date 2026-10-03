@@ -2106,7 +2106,14 @@ function YouTubePlayer() {
           ? list.find((item) => item?.id === playbackContext.id)
           : null
       ) || list[0] || current;
-      const originArtist = String(origin?.channel || origin?.artist || current?.channel || "").trim();
+      const originArtist = String(
+        origin?.radioSeedArtist
+        || origin?.channel
+        || origin?.artist
+        || current?.radioSeedArtist
+        || current?.channel
+        || "",
+      ).trim();
       const originSeed = String(
         origin?.seedQuery
         || playbackContext?.name
@@ -2384,7 +2391,7 @@ function YouTubePlayer() {
       limit: 1,
     });
     const oneMoreParams = new URLSearchParams({ type: "video", q: seed });
-    const seedArtist = String(origin?.channel || origin?.artist || "").trim();
+    const seedArtist = String(origin?.radioSeedArtist || origin?.channel || origin?.artist || "").trim();
     if (seedArtist) oneMoreParams.set("seedArtist", seedArtist);
     requestJson(buildYoutubeSearchUrl(oneMoreParams, "radio"), {
       fallbackTitle: "Related song unavailable",
