@@ -509,6 +509,13 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
     aria-label={showingVideo ? "Switch to audio" : "Switch to video"}>
     {showingVideo ? <Music2 size={17} /> : <Video size={17} />}{showingVideo ? "Switch to audio" : "Switch to video"}
   </button> : null;
+  const drawerExpandButton = mobile && showingVideo && !expanded ? <button
+    type="button"
+    data-testid="mobile-expand-video"
+    className={styles.modeButton}
+    onClick={openExpanded}
+    aria-label="Expand video"
+  ><Maximize2 size={17} />Expand video</button> : null;
   const upcomingIndex = props.queue.findIndex((track) =>
     props.track.queueEntryId && track.queueEntryId
       ? track.queueEntryId === props.track.queueEntryId
@@ -551,7 +558,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
         </div>
         {!expanded && <>
-          <div className={styles.mediaTools}>{modeButton}</div>{metadata}
+          <div className={styles.mediaTools}>{modeButton}{drawerExpandButton}</div>{metadata}
           {mobile && mobileTransport}
           {mobile && canLyrics && <section className={styles.detailCard} aria-label="Lyrics">
             <div><h3>Lyrics</h3><Mic2 size={20} /></div>
