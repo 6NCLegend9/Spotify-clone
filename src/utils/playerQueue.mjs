@@ -20,6 +20,16 @@ export function queueWithoutCurrentOccurrence(queue, current) {
   });
 }
 
+export function restoreQueueOccurrenceState(queue, current) {
+  const source = (Array.isArray(queue) ? queue : []).filter(Boolean);
+  const nextQueue = current?.id && queueTrackIndex(source, current) < 0
+    ? [current, ...source]
+    : source;
+  const userQueue = queueWithoutCurrentOccurrence(nextQueue, current)
+    .filter((track) => track?.queueSource === "user");
+  return { queue: nextQueue, userQueue };
+}
+
 export function queueAdvanceDecision(current, next, { avoidId = null } = {}) {
   if (!next?.id) return "none";
   if (avoidId && next.id === avoidId) return "blocked";
