@@ -147,3 +147,16 @@ test("keyboard transport has one active owner per playback provider", async () =
   assert.doesNotMatch(youtube, /event\.code === "Space"/);
   assert.doesNotMatch(youtube, /event\.key === "m" \|\| event\.key === "M"/);
 });
+
+
+test("collection playback carries explicit occurrence selection into Redux", async () => {
+  const [queue, slice, home] = await Promise.all([
+    source("src/utils/playerQueue.mjs"),
+    source("src/redux/features/playerSlice.js"),
+    source("src/utils/playHome.js"),
+  ]);
+  assert.match(queue, /export function resolveQueueStartIndex/);
+  assert.match(slice, /resolveQueueStartIndex/);
+  assert.match(slice, /action\.payload\?\.index/);
+  assert.match(home, /index:\s*collection\s*\?/);
+});
