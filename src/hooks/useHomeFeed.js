@@ -5,12 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import { setProgress } from "@/redux/features/loadingBarSlice";
-import { setAutoAdd } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { toUserError } from "@/utils/userError";
 import { accountOwner, readAccountCache, writeAccountCache } from "@/utils/accountCache.mjs";
-import { readDiscoveryShufflePreference } from "@/utils/discoveryShufflePreference.mjs";
 
 const HOME_CACHE_KEY = "HayKasa-home-recommendations-v3";
 const HOME_CACHE_TTL = 5 * 60_000;
@@ -58,9 +56,6 @@ export default function useHomeFeed() {
   const [playlists, setPlaylists] = useState([]);
   const [releases, setReleases] = useState([]);
 
-  useEffect(() => {
-    dispatch(setAutoAdd(readDiscoveryShufflePreference(window.localStorage)));
-  }, [dispatch]);
 
   useEffect(() => {
     setHome({ owner, privateSession, data: null });
