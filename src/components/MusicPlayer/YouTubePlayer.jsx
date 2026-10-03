@@ -39,6 +39,7 @@ import {
 } from "@/redux/features/playerSlice";
 import { createPlaylist } from "@/services/playlistApi";
 import useSleepTimer from "@/hooks/useSleepTimer";
+import SleepTimerControl from "./SleepTimerControl";
 import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
 import { FiPlus, FiSearch, FiX, FiMaximize2 } from "react-icons/fi";
@@ -191,7 +192,7 @@ function YouTubePlayer() {
   volumeLevelsRef.current = { playbackVolume, masterVolume };
   const trackChangeUntilRef = useRef(0);
   const sleep = useSleepTimer({
-    owner: playbackOwner, trackId: videoId, enabled: false,
+    owner: playbackOwner, trackId: videoId, enabled: !jam?.code,
     onExpire: () => {
       userPausedRef.current = true;
       isPlayingRef.current = false;
@@ -3058,6 +3059,7 @@ function YouTubePlayer() {
         volume={<PlayerVolume />} queue={safeQueue} onSelect={playQueueItem}
         onQueueEdit={queueControls.onQueueEdit} onQueueUndo={queueControls.onQueueUndo}
         canUndoQueue={queueControls.canUndoQueue} onSaveQueue={queueControls.onSaveQueue}
+        sleepControl={<SleepTimerControl timer={sleep.timer} onChange={sleep.change} disabled={Boolean(jam?.code)} />}
         trackActions={<AddToPlaylistButton track={video} className="!h-12 !w-12" />}
         queueSearch={<div className="mb-4 border-b border-white/10 pb-4">
           <form onSubmit={handleAddSearch} className="flex gap-2">
