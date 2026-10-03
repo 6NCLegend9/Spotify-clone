@@ -134,3 +134,14 @@ test("restore inserts the missing current occurrence even when the same video id
   assert.deepEqual(restored.queue, [current, duplicate]);
   assert.deepEqual(restored.userQueue, [duplicate]);
 });
+
+
+test("progress tokens reject stale duplicate occurrences with the same provider id", () => {
+  assert.equal(typeof playerQueue.queueOccurrenceMatches, "function");
+  const first = { id: "same-track1", queueEntryId: "context:1:same-track1" };
+  const second = { id: "same-track1", queueEntryId: "user:2:same-track1" };
+  assert.equal(playerQueue.queueOccurrenceMatches(first, { id: first.id, queueEntryId: first.queueEntryId }), true);
+  assert.equal(playerQueue.queueOccurrenceMatches(second, { id: first.id, queueEntryId: first.queueEntryId }), false);
+  assert.equal(playerQueue.queueOccurrenceMatches(second, { id: second.id }), true);
+  assert.equal(playerQueue.queueOccurrenceMatches(second, { id: "othertrack1" }), false);
+});
