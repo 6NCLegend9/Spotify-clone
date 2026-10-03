@@ -39,7 +39,6 @@ import {
   valueFromDateMap,
 } from "@/services/libraryApi";
 import {
-  setAutoAdd,
   startYoutubePlayback,
 } from "@/redux/features/playerSlice";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
@@ -56,7 +55,10 @@ import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
 import { accountOwner } from "@/utils/accountCache.mjs";
-import { writeDiscoveryShufflePreference } from "@/utils/discoveryShufflePreference.mjs";
+import {
+  readDiscoveryShufflePreference,
+  writeDiscoveryShufflePreference,
+} from "@/utils/discoveryShufflePreference.mjs";
 import {
   playlistEmbedSnippet,
   playlistListenUrl,
@@ -119,7 +121,6 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const router = useRouter();
   const dispatch = useDispatch();
   const activeYoutubeId = useSelector((state) => state.player.youtubeVideo?.id || "");
-  const autoAdd = useSelector((state) => state.player.autoAdd);
   const cacheKey = `${isLiked ? "liked" : `playlist:${playlistId || ""}`}:${owner}`;
   const cached = owner ? readNavCache(cacheKey) : null;
   const [collection, setCollection] = useState(() => cached?.collection ?? null);
@@ -134,7 +135,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const [showCollaborator, setShowCollaborator] = useState(false);
   const [collaboratorEmail, setCollaboratorEmail] = useState("");
   const [saving, setSaving] = useState(false);
-  const [discoveryShuffle, setSmartShuffle] = useState(isLiked && autoAdd);
+  const [discoveryShuffle, setSmartShuffle] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState(null);
   const live = useRef(true);
@@ -206,8 +207,9 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   }, [cacheKey, isLiked, playlistId, refreshKey, status, owner]);
 
   useEffect(() => {
-    if (isLiked) setSmartShuffle(autoAdd);
-  }, [autoAdd, isLiked]);
+    if (!isLiked) return;
+    setSmartShuffle(readDiscoveryShufflePreference(window.localStorage));
+  }, [isLiked]);
 
   const ownerId = collection?.user?._id || collection?.user;
   const isOwner = isLiked
@@ -328,7 +330,6 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     const nextValue = !discoveryShuffle;
     setSmartShuffle(nextValue);
     if (isLiked) {
-      dispatch(setAutoAdd(nextValue));
       writeDiscoveryShufflePreference(window.localStorage, nextValue);
     }
     if (nextValue) fetchDiscoveryRecommendations();
