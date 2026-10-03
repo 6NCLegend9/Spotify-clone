@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { decodeTrackFields } from '../../utils/text.js';
 import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
-import { editUpcomingQueue, restoreQueueOccurrenceState } from '../../utils/playerQueue.mjs';
+import { editUpcomingQueue, queueOccurrenceMatches, restoreQueueOccurrenceState } from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity, sameRadioSongFamily } from '../../utils/songIdentity.mjs';
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
 import {
@@ -215,7 +215,7 @@ const playerSlice = createSlice({
     },
 
     setPlaybackPosition: (state, action) => {
-      if (action.payload?.id !== state.youtubeVideo?.id) return;
+      if (!queueOccurrenceMatches(state.youtubeVideo, action.payload)) return;
       if (Number.isFinite(action.payload.position)) {
         state.position = Math.max(0, action.payload.position);
       }
