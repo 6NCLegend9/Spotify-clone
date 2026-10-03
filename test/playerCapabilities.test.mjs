@@ -250,5 +250,5 @@ test("Jam playback state and remote seeks carry queue occurrence identity end to
   assert.match(jamSession, /jamPlaybackPositionMatchesTrack\(position, nextTrack\)/);
   assert.match(jamSession, /JAM_REMOTE_SEEK_EVENT,[\s\S]*queueEntryId:\s*nextTrack\.queueEntryId/);
   assert.match(player, /pendingJamSeekRef\.current = \{[\s\S]*queueEntryId:\s*detail\.queueEntryId/);
-  assert.match(player, /queueOccurrenceMatches\(videoRef\.current, pendingJamSeek\)/);
+  assert.match(player, /queueOccurrenceMatches\(videoRef\.current, \{ id: pendingJamSeek\.videoId, queueEntryId: pendingJamSeek\.queueEntryId \}\)/);
 });
