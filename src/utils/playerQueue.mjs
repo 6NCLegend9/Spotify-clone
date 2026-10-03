@@ -11,6 +11,31 @@ export function queueOccurrenceMatches(track, token) {
   return Boolean(token.id) && token.id === track.id;
 }
 
+export function resolveQueueStartIndex(queue, track, requestedIndex) {
+  const list = Array.isArray(queue) ? queue : [];
+  if (!track?.id) return -1;
+
+  if (
+    Number.isInteger(requestedIndex)
+    && requestedIndex >= 0
+    && requestedIndex < list.length
+    && list[requestedIndex]?.id === track.id
+  ) {
+    return requestedIndex;
+  }
+
+  const byReference = list.indexOf(track);
+  if (byReference >= 0) return byReference;
+
+  if (track.queueEntryId) {
+    const identity = queueEntryIdentity(track);
+    const byOccurrence = list.findIndex((item) => queueEntryIdentity(item) === identity);
+    if (byOccurrence >= 0) return byOccurrence;
+  }
+
+  return list.findIndex((item) => item?.id === track.id);
+}
+
 export function queueTrackIndex(queue, current) {
   const identity = typeof current === "object" ? queueEntryIdentity(current) : current;
   if (!identity) return -1;
