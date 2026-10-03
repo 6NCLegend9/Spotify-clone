@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { nextQueueTrack, queueEntryIdentity, queueTrackIndex, shuffleUpcoming } from "../src/utils/playerQueue.mjs";
+import { nextQueueTrack, queueAdvanceDecision, queueEntryIdentity, queueTrackIndex, shuffleUpcoming } from "../src/utils/playerQueue.mjs";
 
 test("shuffle preserves played/current tracks and queue members without mutation", () => {
   const queue = ["past", "current", "next", "last"].map((id) => ({ id }));
@@ -39,4 +39,13 @@ test("shuffle treats duplicate recordings as separate occurrences", () => {
   const shuffled = shuffleUpcoming(queue, queueEntryIdentity(second), () => 0);
   assert.deepEqual(shuffled.slice(0, 2), [first, second]);
   assert.deepEqual(shuffled.slice(2), [fourth, third]);
+});
+
+
+test("same video ID advances when the next row is a different queue occurrence", () => {
+  const first = { id: "same-track1", queueEntryId: "context:1:same-track1" };
+  const second = { id: "same-track1", queueEntryId: "user:2:same-track1" };
+  assert.equal(queueAdvanceDecision(first, second), "advance");
+  assert.equal(queueAdvanceDecision(first, first), "replay");
+  assert.equal(queueAdvanceDecision(first, second, { avoidId: first.id }), "blocked");
 });
