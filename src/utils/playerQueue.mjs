@@ -1,3 +1,20 @@
+export function queueEntryIdentity(track) {
+  if (!track) return null;
+  return track.queueEntryId || track.id || null;
+}
+
+export function queueTrackIndex(queue, current) {
+  const identity = typeof current === "object" ? queueEntryIdentity(current) : current;
+  if (!identity) return -1;
+  return (Array.isArray(queue) ? queue : []).findIndex((track) => matchesTrack(track, identity));
+}
+
+export function queueAdvanceDecision(current, next, { avoidId = null } = {}) {
+  if (!next?.id) return "none";
+  if (avoidId && next.id === avoidId) return "blocked";
+  return queueEntryIdentity(current) === queueEntryIdentity(next) ? "replay" : "advance";
+}
+
 function matchesTrack(track, identity) {
   if (!track || !identity) return false;
   if (track.queueEntryId && track.queueEntryId === identity) return true;
@@ -5,7 +22,7 @@ function matchesTrack(track, identity) {
 }
 
 export function shuffleUpcoming(queue, currentIdentity, random = Math.random) {
-  const index = queue.findIndex((track) => matchesTrack(track, currentIdentity));
+  const index = queueTrackIndex(queue, currentIdentity);
   const boundary = index < 0 ? 0 : index + 1;
   const upcoming = queue.slice(boundary);
   for (let cursor = upcoming.length - 1; cursor > 0; cursor -= 1) {
@@ -16,14 +33,14 @@ export function shuffleUpcoming(queue, currentIdentity, random = Math.random) {
 }
 
 export function nextQueueTrack(queue, currentIdentity, repeat = false) {
-  const index = queue.findIndex((track) => matchesTrack(track, currentIdentity));
+  const index = queueTrackIndex(queue, currentIdentity);
   if (index < 0) return null;
   return queue.slice(index + 1).find((track) => track?.id)
     || (repeat ? queue.find((track) => track?.id) : null) || null;
 }
 
 export function editUpcomingQueue(queue, currentIdentity, { kind, id, entryId, index: requestedIndex, direction, toIndex }) {
-  const currentIndex = queue.findIndex((track) => matchesTrack(track, currentIdentity));
+  const currentIndex = queueTrackIndex(queue, currentIdentity);
   const boundary = currentIndex < 0 ? 0 : currentIndex + 1;
   if (kind === "clear") return queue.length > boundary ? queue.slice(0, boundary) : queue;
 
