@@ -204,6 +204,11 @@ test("mobile drawer exposes an explicit in-dialog video expand control without o
     /className=\{styles\.mediaTools\}>\{modeButton\}\{drawerExpandButton\}<\/div>/,
   );
   assert.match(
+    presentation,
+    /!mobile && !expanded && <button type="button" aria-label="Expand video"/,
+    "the portaled over-video expand button must stay desktop-only",
+  );
+  assert.match(
     css,
     /\.mobileSheet \.mediaTools\s*\{[^}]*flex-wrap:\s*wrap;/s,
   );
