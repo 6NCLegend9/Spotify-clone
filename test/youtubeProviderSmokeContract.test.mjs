@@ -84,3 +84,10 @@ test("real provider workflow covers desktop and both mobile browser engines", ()
   assert.match(spec, /testInfo\.project\.name\.startsWith\("mobile-"\)/);
   assert.match(spec, /name:\s*"Expand video"/);
 });
+
+
+test("mobile Safari provider verification has a longer timeout budget than Chromium", () => {
+  const workflow = fs.readFileSync(path.join(root, ".github/workflows/youtube-provider-smoke.yml"), "utf8");
+  assert.match(workflow, /timeout-minutes:\s*\$\{\{\s*matrix\.timeout\s*\}\}/);
+  assert.match(workflow, /project:\s*mobile-safari[\s\S]*?browser:\s*webkit[\s\S]*?timeout:\s*40/);
+});
