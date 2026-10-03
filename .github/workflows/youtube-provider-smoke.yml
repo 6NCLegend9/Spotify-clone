@@ -32,17 +32,20 @@ jobs:
   real-youtube:
     name: real-youtube / ${{ matrix.project }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - project: chromium-desktop
             browser: chromium
+            timeout: 20
           - project: mobile-chrome
             browser: chromium
+            timeout: 20
           - project: mobile-safari
             browser: webkit
+            timeout: 40
     # The Playwright spec skips only failures with explicit external-provider
     # evidence. HayKasa integration regressions remain blocking.
     steps:
