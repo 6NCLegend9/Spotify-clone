@@ -67,3 +67,20 @@ test("unshuffle restores duplicate occurrences in their original order", () => {
     original,
   );
 });
+
+
+test("failure recovery skips duplicate occurrences of the rejected provider video", () => {
+  const first = { id: "same-track1", queueEntryId: "context:1:same-track1" };
+  const duplicate = { id: "same-track1", queueEntryId: "user:2:same-track1" };
+  const recovery = { id: "othertrack1", queueEntryId: "context:3:othertrack1" };
+  const queue = [first, duplicate, recovery];
+
+  assert.equal(
+    nextQueueTrack(queue, queueEntryIdentity(first), false, { avoidId: first.id }),
+    recovery,
+  );
+  assert.equal(
+    nextQueueTrack([first, duplicate], queueEntryIdentity(first), false, { avoidId: first.id }),
+    null,
+  );
+});
