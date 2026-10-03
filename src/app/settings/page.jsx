@@ -381,7 +381,7 @@ function AccountSettings({ owner, status }) {
           <Toggle label="Captions when available" description="Ask YouTube to show captions on the current video when the uploader provided them. Fullscreen highlights the current caption line from those same captions." checked={settings.captions !== false} onChange={(value) => set("captions", value)} />
           <Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} />
           <Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} />
-          <Toggle label="Picture-in-picture (desktop)" checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} />
+          <Toggle label="Floating player (desktop)" description="Opens HayKasa controls in a separate desktop window when the browser supports Document Picture-in-Picture. This does not place the YouTube video itself into native video PiP." checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} />
           <Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} />
         </div>
         <div className="glass-panel rounded-xl p-5 sm:p-7">
