@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks, normalizeRadioArtist, preserveRadioReplacementMetadata, retargetRadioPlaybackContext } from "../src/utils/radioSeed.mjs";
+import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks, normalizeRadioArtist, preserveRadioReplacementMetadata, radioArtistIdentity, retargetRadioPlaybackContext } from "../src/utils/radioSeed.mjs";
 
 const track = (id, channel, title) => ({ id, channel, title });
 
@@ -147,7 +147,7 @@ test("same-song replacement preserves radio origin affinity without lying about 
   assert.equal(next.channel, replacement.channel);
   assert.equal(next.seedQuery, current.seedQuery);
   assert.equal(next.genre, current.genre);
-  assert.equal(next.radioSeedArtist, current.channel);
+  assert.equal(next.radioSeedArtist, radioArtistIdentity(current));
 });
 
 test("radio playback context retargets only when the replaced row is the radio origin", () => {
