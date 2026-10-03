@@ -435,11 +435,11 @@ function YouTubePlayer() {
     }
   };
 
-  const getNextVideo = () => {
+  const getNextVideo = ({ avoidId = null } = {}) => {
     const currentIdentity = queueEntryIdentity(videoRef.current);
     if (!currentIdentity) return null;
     const list = Array.isArray(queueRef.current) ? queueRef.current : [];
-    return nextQueueTrack(list, currentIdentity, repeatRef.current);
+    return nextQueueTrack(list, currentIdentity, repeatRef.current, { avoidId });
   };
 
   const getPreviousVideo = () => {
@@ -2268,7 +2268,7 @@ function YouTubePlayer() {
     }
     markExpectPlaying();
     dispatch(playPause(true));
-    const immediate = getNextVideo();
+    const immediate = getNextVideo({ avoidId });
     if (immediate) {
       const decision = queueAdvanceDecision(current, immediate, { avoidId });
       if (decision === "blocked") return false;
@@ -2287,7 +2287,8 @@ function YouTubePlayer() {
       return false;
     }
     const extras = await extendQueueRef.current();
-    const next = getNextVideo() || extras[0];
+    const next = getNextVideo({ avoidId })
+      || extras.find((item) => item?.id && (!avoidId || item.id !== avoidId));
     if (next && next.id !== avoidId) {
       dispatch(setYoutubeVideo(next));
       return true;
