@@ -116,7 +116,7 @@ test("manual desktop release publishes complete GitHub Release bundles without V
   assert.match(release, /Validate release version monotonicity/);
   assert.match(release, /validate-release-version\.mjs/);
   assert.match(release, /npm run prepare-github-release/);
-  assert.match(release, /softprops\/action-gh-release@v2/);
+  assert.match(release, /softprops\/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65/);
   assert.match(release, /desktop-v\$\{\{ inputs\.version \}\}/);
   assert.match(release, /desktop-beta-v\$\{\{ inputs\.version \}\}/);
   assert.match(release, /desktop-internal-v\$\{\{ inputs\.version \}\}/);
