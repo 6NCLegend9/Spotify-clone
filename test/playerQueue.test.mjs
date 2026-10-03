@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as playerQueue from "../src/utils/playerQueue.mjs";
-const { nextQueueTrack, queueAdvanceDecision, queueEntryIdentity, queueTrackIndex, shuffleUpcoming } = playerQueue;
+const { nextQueueTrack, queueAdvanceDecision, queueEntryIdentity, queueTrackIndex, resolveQueueStartIndex, shuffleUpcoming } = playerQueue;
 
 test("shuffle preserves played/current tracks and queue members without mutation", () => {
   const queue = ["past", "current", "next", "last"].map((id) => ({ id }));
@@ -144,4 +144,26 @@ test("progress tokens reject stale duplicate occurrences with the same provider 
   assert.equal(playerQueue.queueOccurrenceMatches(second, { id: first.id, queueEntryId: first.queueEntryId }), false);
   assert.equal(playerQueue.queueOccurrenceMatches(second, { id: second.id }), true);
   assert.equal(playerQueue.queueOccurrenceMatches(second, { id: "othertrack1" }), false);
+});
+
+
+test("collection start selects the exact duplicate occurrence the caller clicked", () => {
+  const first = { id: "same-track1" };
+  const second = { id: "same-track1" };
+  const third = { id: "othertrack1" };
+  const queue = [first, second, third];
+
+  assert.equal(resolveQueueStartIndex(queue, second, 1), 1);
+  assert.equal(resolveQueueStartIndex(queue, second), 1);
+  assert.equal(resolveQueueStartIndex(queue, { ...second, queueEntryId: "ctx:2" }, 1), 1);
+});
+
+test("collection start rejects a mismatched requested index and falls back safely", () => {
+  const first = { id: "same-track1" };
+  const second = { id: "same-track1" };
+  const other = { id: "othertrack1" };
+  const queue = [first, second, other];
+
+  assert.equal(resolveQueueStartIndex(queue, second, 2), 1);
+  assert.equal(resolveQueueStartIndex(queue, { id: "missing" }, 1), -1);
 });
