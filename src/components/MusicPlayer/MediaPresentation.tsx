@@ -603,7 +603,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       {!expanded && <div className={styles.gestureSurface} aria-hidden="true"
         onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture}
         onClick={toggleMediaControls} onPointerMove={moveMediaPointer} />}
-      {!expanded && <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
+      {!mobile && !expanded && <button type="button" aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
     </>, mediaHost)}
     <span hidden data-kasa-media-view={overlay ? (expanded ? "expanded" : "drawer") : showingVideo ? "video" : "audio"} />
     {!mobile && !overlay && slot && createPortal(<section className={styles.panel} aria-label="Current track media" onClick={(event) => event.stopPropagation()}>{content}</section>, slot)}
