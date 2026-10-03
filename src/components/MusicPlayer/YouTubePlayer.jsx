@@ -207,7 +207,9 @@ function YouTubePlayer() {
     },
   });
   const insights = useListeningInsights({
-    owner: playbackOwner, trackId: videoId,
+    owner: playbackOwner,
+    trackId: videoId,
+    occurrenceId: video?.queueEntryId || videoId,
     enabled: status === "authenticated" && settingsOwner === playbackOwner && listeningInsights === true && !privateSession && !jam?.code,
     getSample: () => {
       const player = getActivePlayer();
