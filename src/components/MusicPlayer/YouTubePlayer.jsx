@@ -2433,9 +2433,13 @@ function YouTubePlayer() {
     })
       .then((data) => {
         if (!active) return;
+        const queuedTracks = Array.isArray(queueRef.current) ? queueRef.current : [];
         const next = pickOneMoreTrack(data?.results, {
+          current: video,
           currentId: video.id,
-          queuedIds: (queueRef.current || []).map((item) => item.id),
+          queue: queuedTracks,
+          queuedIds: queuedTracks.map((item) => item.id),
+          history: playbackHistory,
         });
         oneMorePrefetchRef.current = next;
         setOneMorePrefetch(next);
@@ -2446,7 +2450,7 @@ function YouTubePlayer() {
         setOneMorePrefetch(null);
       });
     return () => { active = false; };
-  }, [isJamGuest, oneMoreArmed, playbackContext?.id, playbackContext?.name, playbackContext?.type, queueManualEnd, video]);
+  }, [isJamGuest, oneMoreArmed, playbackContext?.id, playbackContext?.name, playbackContext?.type, playbackHistory, queueManualEnd, video]);
 
   useEffect(() => {
     if (!videoId || !apiReady || transitionMode === "off" || dataSaver) return;
