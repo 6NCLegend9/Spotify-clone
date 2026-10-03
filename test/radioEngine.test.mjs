@@ -224,3 +224,30 @@ test("high-variety radio separates one performer across different uploader chann
     "different uploaders for one performer must not bypass artist spacing",
   );
 });
+
+
+test("crowd radio drops alternate uploads with different video ids", () => {
+  const queue = buildRadioQueue({
+    candidates: [
+      track("variant00001", "Don Toliver - Lose My Mind (Official Audio)", "Don Toliver - Topic"),
+      track("variant00002", "Lose My Mind Ft. Doja Cat – Don Toliver (Official Movie Version)", "Mirror Upload"),
+      track("fresh000001", "Future - Like That", "Future - Topic"),
+    ],
+    varietyLevel: "high",
+  });
+
+  assert.deepEqual(queue.map((item) => item.id), ["variant00001", "fresh000001"]);
+});
+
+test("crowd radio rejects alternate uploads of the seed recording", () => {
+  const seed = track("seedradio001", "Don Toliver - Lose My Mind (Official Video)", "Don Toliver");
+  const queue = buildRadioQueue({
+    seedTrack: seed,
+    candidates: [
+      track("variant00003", "Lose My Mind Ft. Doja Cat – Don Toliver (Official Audio)", "Label Archive"),
+      track("fresh000002", "Future - Like That", "Future - Topic"),
+    ],
+  });
+
+  assert.deepEqual(queue.map((item) => item.id), ["fresh000002"]);
+});
