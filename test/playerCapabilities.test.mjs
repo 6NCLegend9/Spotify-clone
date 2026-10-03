@@ -238,3 +238,17 @@ test("YouTube progress persistence is bound to the occurrence actually started o
   assert.match(player, /activeTrackStartedRef\.current\.startedAt/);
   assert.match(player, /setPlaybackPosition\(\{ id, queueEntryId: progressQueueEntryId, position: time \}\)/);
 });
+
+
+test("Jam playback state and remote seeks carry queue occurrence identity end to end", async () => {
+  const [player, jamSession] = await Promise.all([
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/hooks/useJamSession.js"),
+  ]);
+  assert.match(player, /JAM_PLAYBACK_STATE_EVENT,[\s\S]*queueEntryId:\s*videoRef\.current\?\.queueEntryId/);
+  assert.match(jamSession, /jamPlaybackPositionMatchesTrack\(playbackPositionRef\.current, snapshot\.youtubeVideo\)/);
+  assert.match(jamSession, /jamPlaybackPositionMatchesTrack\(position, nextTrack\)/);
+  assert.match(jamSession, /JAM_REMOTE_SEEK_EVENT,[\s\S]*queueEntryId:\s*nextTrack\.queueEntryId/);
+  assert.match(player, /pendingJamSeekRef\.current = \{[\s\S]*queueEntryId:\s*detail\.queueEntryId/);
+  assert.match(player, /queueOccurrenceMatches\(videoRef\.current, pendingJamSeek\)/);
+});
