@@ -228,3 +228,12 @@ test("YouTube Previous follows actual listening history instead of queue order",
   assert.match(handlePrev[1], /dispatch\(playPreviousFromHistory\(\)\)/);
   assert.doesNotMatch(handlePrev[1], /getPreviousVideo\(\)/);
 });
+
+
+test("YouTube progress persistence is bound to the occurrence actually started on the active deck", async () => {
+  const player = await read("src/components/MusicPlayer/YouTubePlayer.jsx");
+  assert.match(player, /const progressIdentity = queueEntryIdentity\(videoRef\.current\)/);
+  assert.match(player, /activeTrackStartedRef\.current\.identity === progressIdentity/);
+  assert.match(player, /activeTrackStartedRef\.current\.startedAt/);
+  assert.match(player, /setPlaybackPosition\(\{ id, queueEntryId: progressIdentity, position: time \}\)/);
+});
