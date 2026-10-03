@@ -21,6 +21,25 @@ function matchesTrack(track, identity) {
   return track.id === identity;
 }
 
+export function restoreQueueOrder(queue, originalIdentities) {
+  const source = Array.isArray(queue) ? queue : [];
+  const order = new Map(
+    (Array.isArray(originalIdentities) ? originalIdentities : [])
+      .filter(Boolean)
+      .map((identity, index) => [identity, index]),
+  );
+  return source
+    .map((track, index) => ({
+      track,
+      index,
+      rank: order.has(queueEntryIdentity(track))
+        ? order.get(queueEntryIdentity(track))
+        : Number.POSITIVE_INFINITY,
+    }))
+    .sort((first, second) => first.rank - second.rank || first.index - second.index)
+    .map(({ track }) => track);
+}
+
 export function shuffleUpcoming(queue, currentIdentity, random = Math.random) {
   const index = queueTrackIndex(queue, currentIdentity);
   const boundary = index < 0 ? 0 : index + 1;
