@@ -6,7 +6,7 @@ import { canonicalSongIdentity, sameRadioSongFamily } from '../../utils/songIden
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
 import {
   collectRadioArtistExclusions,
-  normalizeRadioArtist,
+  radioArtistIdentity,
   preserveRadioReplacementMetadata,
   retargetRadioPlaybackContext,
 } from '../../utils/radioSeed.mjs';
@@ -72,7 +72,7 @@ function trackScopedRadioSeed(rawTrack) {
     ? track.radioSeedArtist.trim()
     : '';
   const seedQuery = inheritedSeed || [artist, title].filter(Boolean).join(' ');
-  const radioSeedArtist = inheritedRadioArtist || artist;
+  const radioSeedArtist = inheritedRadioArtist || radioArtistIdentity(track) || artist;
 
   return {
     ...track,
@@ -114,7 +114,7 @@ function pruneAutomaticRadioUpcoming(queue, current, { history = [] } = {}) {
 
   for (const entry of upcoming) {
     if (!entry?.id) continue;
-    const artist = normalizeRadioArtist(entry.channel || entry.artist || '');
+    const artist = radioArtistIdentity(entry);
     if (entry.queueSource === 'user') {
       next.push(entry);
       continue;
