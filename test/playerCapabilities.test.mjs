@@ -257,3 +257,12 @@ test("Jam playback state and remote seeks carry queue occurrence identity end to
   assert.match(player, /pendingJamSeekRef\.current = \{[\s\S]*queueEntryId:\s*detail\.queueEntryId/);
   assert.match(player, /queueOccurrenceMatches\(videoRef\.current, \{ id: pendingJamSeek\.videoId, queueEntryId: pendingJamSeek\.queueEntryId \}\)/);
 });
+
+
+test("Escape dismisses the portaled volume popover before closing Now Playing", async () => {
+  const presentation = await read("src/components/MusicPlayer/MediaPresentation.tsx");
+  assert.match(
+    presentation,
+    /if \(event\.key === "Escape" && document\.querySelector\('\[data-testid="player-volume-popover"\]'\)\) return;/,
+  );
+});
