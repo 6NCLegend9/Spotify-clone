@@ -23,11 +23,11 @@ const fixtures = globalThis.__activityFixtures = {
 };
 const history = await import('../src/app/api/history/route.js');
 const searches = await import('../src/app/api/searches/route.js');
-const request = (body, method = 'DELETE') => new Request('http://localhost/api/activity', {
+const request = (body, method = 'DELETE') => new Request('http://localhost:3000/api/activity', {
   method,
   headers: {
     'content-type': 'application/json',
-    origin: 'http://localhost',
+    origin: 'http://localhost:3000',
   },
   body: typeof body === 'string' ? body : JSON.stringify(body),
 });
