@@ -1,7 +1,12 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { decodeTrackFields } from '../../utils/text.js';
 import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
-import { editUpcomingQueue, queueOccurrenceMatches, restoreQueueOccurrenceState } from '../../utils/playerQueue.mjs';
+import {
+  editUpcomingQueue,
+  queueOccurrenceMatches,
+  resolveQueueStartIndex,
+  restoreQueueOccurrenceState,
+} from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity, sameRadioSongFamily } from '../../utils/songIdentity.mjs';
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
 import {
@@ -392,17 +397,24 @@ const playerSlice = createSlice({
       // reducer's queue contract intact is important for explicit contexts and
       // tests; discovery UI must decide what context it intends to supply.
       const rawQueue = Array.isArray(action.payload?.queue) ? action.payload.queue : [];
+      const selectedRawIndex = resolveQueueStartIndex(
+        rawQueue,
+        action.payload?.track,
+        action.payload?.index,
+      );
+      let selectedTrack = null;
       let queue = rawQueue
-        .map((item) => {
+        .map((item, rawIndex) => {
           const decoded = decodePlayableYoutubeTrack(item);
           if (!decoded?.id) return null;
-          if (queueMode === 'radio' && decoded.id === rawTrack.id) {
-            return nextQueueEntry(state, trackScopedRadioSeed({ ...decoded, ...rawTrack }), 'context');
-          }
-          return nextQueueEntry(state, decoded, 'context');
+          const entry = queueMode === 'radio' && decoded.id === rawTrack.id
+            ? nextQueueEntry(state, trackScopedRadioSeed({ ...decoded, ...rawTrack }), 'context')
+            : nextQueueEntry(state, decoded, 'context');
+          if (rawIndex === selectedRawIndex) selectedTrack = entry;
+          return entry;
         })
         .filter(Boolean);
-      let track = queue.find((item) => item.id === rawTrack.id);
+      let track = selectedTrack || queue.find((item) => item.id === rawTrack.id);
       if (!track) {
         track = nextQueueEntry(state, rawTrack, 'context');
         if (track) queue.unshift(track);
