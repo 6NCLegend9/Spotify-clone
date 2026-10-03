@@ -25,7 +25,6 @@ const initialState = {
   youtubeVideo: null,
   youtubeQueue: [],
   fullScreen: false,
-  autoAdd: false,
   position: 0,
   restorePosition: null,
   playbackOwner: null,
@@ -567,9 +566,6 @@ const playerSlice = createSlice({
       state.fullScreen = action.payload;
     },
 
-    setAutoAdd: (state, action) => {
-      state.autoAdd = action.payload;
-    },
   },
 });
 
@@ -595,7 +591,6 @@ export const {
   setPlaybackContext,
   setQueueMode,
   setFullScreen,
-  setAutoAdd,
 } = playerSlice.actions;
 
 export default playerSlice.reducer;
