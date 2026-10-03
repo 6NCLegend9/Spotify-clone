@@ -143,7 +143,7 @@ test("complete signed GitHub stable releases become the compatibility manifest",
   assert.equal(result.latest, "2.0.0");
   assert.equal(result.minimum, "1.0.0");
   assert.equal(result.sha512, `${"B".repeat(86)}==`);
-  assert.equal(result.updateRolloutPercent, 40);
+  assert.equal(result.updateRolloutPercent, 25);
   assert.equal(result.published, true);
   assert.equal(result.signed, true);
   assert.equal(result.source, "github-release");
