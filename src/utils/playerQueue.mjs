@@ -3,6 +3,14 @@ export function queueEntryIdentity(track) {
   return track.queueEntryId || track.id || null;
 }
 
+export function queueOccurrenceMatches(track, token) {
+  if (!track || !token) return false;
+  if (token.queueEntryId && track.queueEntryId) {
+    return token.queueEntryId === track.queueEntryId;
+  }
+  return Boolean(token.id) && token.id === track.id;
+}
+
 export function queueTrackIndex(queue, current) {
   const identity = typeof current === "object" ? queueEntryIdentity(current) : current;
   if (!identity) return -1;
