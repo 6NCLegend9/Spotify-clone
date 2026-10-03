@@ -14,5 +14,13 @@ test("YouTube recovery state is scoped to the active queue occurrence and stale 
   assert.match(player, /youtubeRecoveryScopeMatches\(recoveryScope, videoRef\.current\)/);
   assert.match(player, /const getNextVideo = \(\{ avoidId = null \} = \{\}\) =>/);
   assert.match(player, /const immediate = getNextVideo\(\{ avoidId \}\)/);
+  assert.match(
+    player,
+    /activeTrackStartedRef\.current = \{\s*identity: queueEntryIdentity\(nextVideo\),\s*videoId: nextVideo\.id,/,
+  );
+  assert.match(
+    player,
+    /activeTrackStartedRef\.current = \{\s*identity: occurrenceIdentity,\s*videoId: video\.id,/,
+  );
   assert.doesNotMatch(player, /failureResolveRef\.current === current\.id/);
 });
