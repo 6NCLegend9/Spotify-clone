@@ -60,7 +60,7 @@ import {
 } from "@/utils/jam.mjs";
 import { decodeTrackFields } from "@/utils/text";
 import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
-import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks } from "@/utils/radioSeed.mjs";
+import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks, radioArtistIdentity } from "@/utils/radioSeed.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
@@ -2144,10 +2144,9 @@ function YouTubePlayer() {
       ) || list[0] || current;
       const originArtist = String(
         origin?.radioSeedArtist
-        || origin?.channel
-        || origin?.artist
+        || radioArtistIdentity(origin)
         || current?.radioSeedArtist
-        || current?.channel
+        || radioArtistIdentity(current)
         || "",
       ).trim();
       const originSeed = String(
@@ -2425,7 +2424,7 @@ function YouTubePlayer() {
       limit: 1,
     });
     const oneMoreParams = new URLSearchParams({ type: "video", q: seed });
-    const seedArtist = String(origin?.radioSeedArtist || origin?.channel || origin?.artist || "").trim();
+    const seedArtist = String(origin?.radioSeedArtist || radioArtistIdentity(origin) || "").trim();
     if (seedArtist) oneMoreParams.set("seedArtist", seedArtist);
     requestJson(buildYoutubeSearchUrl(oneMoreParams, "radio"), {
       fallbackTitle: "Related song unavailable",
