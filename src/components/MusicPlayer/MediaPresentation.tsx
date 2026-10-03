@@ -4,6 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import { useDispatch, useSelector } from "react-redux";
 import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Pause, Play, Settings2, Video } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent } from "react";
@@ -514,7 +515,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       : track.id === props.track.id,
   );
   const upcoming = props.queue.slice(upcomingIndex < 0 ? 0 : upcomingIndex + 1, upcomingIndex < 0 ? 3 : upcomingIndex + 4);
-  const metadata = <div className={styles.metadata}><div><h2>{props.track.title}</h2><p>{props.track.channel}</p></div>{props.favourite}</div>;
+  const metadata = <div className={styles.metadata}><div><h2>{props.track.title}</h2><ArtistNameLink channelId={props.track.channelId} name={props.track.channel} className={styles.artistLink} /></div>{props.favourite}</div>;
   const sourceLabel = view === "player"
     ? (playbackContext?.name ? "PLAYING FROM" : "NOW PLAYING")
     : view.toUpperCase();
@@ -558,10 +559,15 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
             <button type="button" onClick={openLyrics}>Open live lyrics</button>
           </section>}
           <section className={styles.queue} aria-label="Next in queue"><header><h3>{mobile ? "Up next" : "Next in queue"}</h3><button type="button" onClick={openQueue}>Show all</button></header>
-            {upcoming.length ? upcoming.map((track, index) => <button type="button" key={track.queueEntryId || `${track.id}-${index}`} disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueRow}>
-              <img src={track.thumbnail || "/icon-192x192.png"} alt="" width={44} height={44} />
-              <span><strong>{track.title}</strong><small>{track.channel}</small></span>
-            </button>) : <p className={styles.empty}>Your queue is empty.</p>}
+            {upcoming.length ? upcoming.map((track, index) => <div key={track.queueEntryId || `${track.id}-${index}`} className={styles.queueRow}>
+              <button type="button" disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueArt} aria-label={`Play ${track.title}`}>
+                <img src={track.thumbnail || "/icon-192x192.png"} alt="" width={44} height={44} />
+              </button>
+              <div className={styles.queueCopy}>
+                <button type="button" disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueTitle}>{track.title}</button>
+                <ArtistNameLink channelId={track.channelId} name={track.channel} className={styles.queueArtist} />
+              </div>
+            </div>) : <p className={styles.empty}>Your queue is empty.</p>}
           </section>
           {mobile && props.track.channel && <section className={styles.detailCard} aria-label="Explore artist">
             <div><h3>Explore {props.track.channel}</h3><Music2 size={20} /></div>
