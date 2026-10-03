@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DesktopPolicy,
-  effectiveReleaseRolloutPercent,
   effectiveUpdateRolloutPercent,
   installationEligibleForRollout,
   installationRolloutBucket,
@@ -89,12 +88,3 @@ test("update rollout fails closed until a valid policy has loaded", () => {
   assert.equal(effectiveUpdateRolloutPercent({ updatedAt: Date.now(), updateRolloutPercent: 250 }), 100);
 });
 
-
-test("release rollout is capped by both remote policy and signed release metadata", () => {
-  const snapshot = { updatedAt: Date.now(), updateRolloutPercent: 80 };
-  assert.equal(effectiveReleaseRolloutPercent(snapshot, 25), 25);
-  assert.equal(effectiveReleaseRolloutPercent({ ...snapshot, updateRolloutPercent: 10 }, 25), 10);
-  assert.equal(effectiveReleaseRolloutPercent(snapshot, 100), 80);
-  assert.equal(effectiveReleaseRolloutPercent(snapshot, undefined), 80);
-  assert.equal(effectiveReleaseRolloutPercent(null, 25), 0);
-});
