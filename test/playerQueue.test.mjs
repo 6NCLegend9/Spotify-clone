@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { nextQueueTrack, queueAdvanceDecision, queueEntryIdentity, queueTrackIndex, restoreQueueOrder, shuffleUpcoming } from "../src/utils/playerQueue.mjs";
+import * as playerQueue from "../src/utils/playerQueue.mjs";
+const { nextQueueTrack, queueAdvanceDecision, queueEntryIdentity, queueTrackIndex, shuffleUpcoming } = playerQueue;
 
 test("shuffle preserves played/current tracks and queue members without mutation", () => {
   const queue = ["past", "current", "next", "last"].map((id) => ({ id }));
@@ -59,8 +60,10 @@ test("unshuffle restores duplicate occurrences in their original order", () => {
   const original = [first, second, third, fourth];
   const shuffled = [first, second, fourth, third];
 
+  assert.equal(typeof playerQueue.restoreQueueOrder, "function");
+  if (typeof playerQueue.restoreQueueOrder !== "function") return;
   assert.deepEqual(
-    restoreQueueOrder(shuffled, original.map(queueEntryIdentity)),
+    playerQueue.restoreQueueOrder(shuffled, original.map(queueEntryIdentity)),
     original,
   );
 });
