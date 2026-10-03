@@ -35,9 +35,10 @@ test("every cookie-authenticated mutation route enforces the trusted Origin cont
     assert.match(source, /isTrustedRequestOrigin/, file);
     const mutations = [...source.matchAll(/export\s+async\s+function\s+(POST|PUT|PATCH|DELETE)\s*\(([^)]+)\)/g)];
     assert.ok(mutations.length > 0, `${file}: expected an exported mutation method`);
-    for (const [, method, rawParameter] of mutations) {
+    for (const mutation of mutations) {
+      const [, method, rawParameter] = mutation;
       const parameter = rawParameter.trim().split(/[,:=\s]/, 1)[0];
-      const start = source.indexOf(`export async function ${method}`, mutations[0].index);
+      const start = mutation.index;
       const nextExport = source.indexOf("export async function ", start + 1);
       const body = source.slice(start, nextExport < 0 ? source.length : nextExport);
       assert.match(
