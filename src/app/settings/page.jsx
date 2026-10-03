@@ -382,7 +382,7 @@ function AccountSettings({ owner, status }) {
           <Toggle label="Letter keyboard shortcuts" description="Single-letter playback shortcuts such as J, L, M, F, P, and T. Turn this off if they conflict with a screen reader, browser extension, or another keyboard layout." checked={settings.keyboardShortcuts !== false} onChange={(value) => set("keyboardShortcuts", value)} />
           <Toggle label="Live synced lyrics" checked={settings.syncedLyrics !== false} onChange={(value) => set("syncedLyrics", value)} />
           <Toggle label="Floating player (desktop)" description="Opens HayKasa controls in a separate desktop window when the browser supports Document Picture-in-Picture. This does not place the YouTube video itself into native video PiP." checked={settings.pictureInPicture !== false} onChange={(value) => set("pictureInPicture", value)} />
-          <Toggle label="Wi-Fi-only downloads" checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} />
+          <Toggle label="Wi-Fi-only downloads" description="When enabled, downloads are blocked unless the browser can confirm a Wi-Fi connection. Browsers that cannot expose network type must turn this off to download." checked={settings.wifiOnlyDownloads} onChange={(value) => set("wifiOnlyDownloads", value)} />
         </div>
         <div className="glass-panel rounded-xl p-5 sm:p-7">
           <h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2>
