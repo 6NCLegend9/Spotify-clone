@@ -44,3 +44,29 @@ test("one more suggestion rejects repeated artists and alternate uploads from th
     candidates[3],
   );
 });
+
+
+test("one more rejects the same artist across different uploader channels", () => {
+  const current = {
+    id: "artistcur001",
+    title: "Don Toliver - No Idea",
+    channel: "Label Archive",
+  };
+  const candidates = [
+    {
+      id: "artistdup001",
+      title: "Don Toliver - After Party",
+      channel: "Mirror Uploads",
+    },
+    {
+      id: "artistnew001",
+      title: "Future - Like That",
+      channel: "Future - Topic",
+    },
+  ];
+
+  assert.equal(
+    pickOneMoreTrack(candidates, { current }),
+    candidates[1],
+  );
+});
