@@ -51,3 +51,12 @@ test("Serwist pins its vulnerable Browserslist child to the patched release", as
   const pkg = JSON.parse(await source("package.json"));
   assert.equal(pkg.overrides?.["@serwist/next"]?.browserslist, "4.28.7");
 });
+
+
+test("Serwist build tooling pins the patched Browserslist release", async () => {
+  const pkg = JSON.parse(await source("package.json"));
+  assert.equal(pkg.overrides?.["@serwist/next"]?.browserslist, "4.28.7");
+
+  const lock = JSON.parse(await source("package-lock.json"));
+  assert.equal(lock.packages?.["node_modules/@serwist/next/node_modules/browserslist"]?.version, "4.28.7");
+});
