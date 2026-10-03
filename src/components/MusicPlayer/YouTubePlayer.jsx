@@ -281,7 +281,7 @@ function YouTubePlayer() {
   const videoRef = useRef(video);
   const queueRef = useRef(queue);
   const isPlayingRef = useRef(isPlaying);
-  const savedProgressRef = useRef({ id: null, position: 0 });
+  const savedProgressRef = useRef({ identity: null, position: 0 });
   const isJamGuestRef = useRef(isJamGuest);
   const jamRef = useRef(jam);
   const seekGuardRef = useRef({ seeking: false, until: 0, target: null, videoId: null });
@@ -1956,11 +1956,19 @@ function YouTubePlayer() {
       const guard = seekGuardRef.current;
       const id = playerVideoId(activePlayer);
       const want = videoRef.current?.id;
-      if (id === want && Number.isFinite(time) && time >= 0
-        && (id !== savedProgressRef.current.id || Math.abs(time - savedProgressRef.current.position) >= 5)
+      const progressIdentity = queueEntryIdentity(videoRef.current);
+      const progressQueueEntryId = videoRef.current?.queueEntryId;
+      const activeOccurrenceStarted = Boolean(
+        progressIdentity
+        && activeTrackStartedRef.current.identity === progressIdentity
+        && activeTrackStartedRef.current.videoId === id
+        && activeTrackStartedRef.current.startedAt,
+      );
+      if (id === want && activeOccurrenceStarted && Number.isFinite(time) && time >= 0
+        && (progressIdentity !== savedProgressRef.current.identity || Math.abs(time - savedProgressRef.current.position) >= 5)
         && activePlayer.getPlayerState?.() !== window.YT?.PlayerState?.CUED) {
-        savedProgressRef.current = { id, position: time };
-        dispatch(setPlaybackPosition({ id, position: time }));
+        savedProgressRef.current = { identity: progressIdentity, position: time };
+        dispatch(setPlaybackPosition({ id, queueEntryId: progressQueueEntryId, position: time }));
       }
       const pendingJamPlayback = pendingJamPlaybackRef.current;
       if (
