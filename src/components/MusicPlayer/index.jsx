@@ -557,6 +557,7 @@ const MusicPlayer = () => {
             />
             <Player
               activeSong={activeSong}
+              showTimer={fullScreen}
               isPlaying={isPlaying}
               seekTime={seekTime}
               repeat={repeat}
