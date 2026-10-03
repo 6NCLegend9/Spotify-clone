@@ -1,6 +1,5 @@
 import { sameRadioSongFamily } from "./songIdentity.mjs";
 
-const RADIO_SEED_PREFIX = "__kasa_radio__:";
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const FEATURE_MARKER = /\b(?:feat(?:uring)?|ft)\.?\b/i;
 const RADIO_ARTIST_GENERIC_SEGMENT = /^(?:official|official\s+audio|official\s+(?:music\s+)?video|audio|video|music\s+video|lyrics?|lyric\s+video|visuali[sz]er|remix|edit|version|live|instrumental|acoustic|slowed|sped\s*up|reverb|nightcore|extended|clean|explicit|4k|uhd|hd)\b/i;
@@ -150,29 +149,6 @@ export function buildRadioDiscoveryQueries(
   return queries;
 }
 
-export function buildRadioSeedQuery({ id, artist = "" } = {}) {
-  const videoId = String(id || "").trim();
-  if (!VIDEO_ID_PATTERN.test(videoId)) return "";
-  const artistText = String(artist || "")
-    .normalize("NFC")
-    .replace(/[\u0000-\u001f\u007f|]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 56);
-  return `${RADIO_SEED_PREFIX}${videoId}${artistText ? `|${artistText}` : ""}`;
-}
-
-export function parseRadioSeedQuery(value) {
-  const text = String(value || "").trim();
-  if (!text.startsWith(RADIO_SEED_PREFIX)) return null;
-  const payload = text.slice(RADIO_SEED_PREFIX.length);
-  const separator = payload.indexOf("|");
-  const id = (separator >= 0 ? payload.slice(0, separator) : payload).trim();
-  if (!VIDEO_ID_PATTERN.test(id)) return null;
-  const artist = separator >= 0 ? payload.slice(separator + 1).trim().slice(0, 56) : "";
-  return { id, artist };
-}
-
 export function preserveRadioReplacementMetadata(current, replacement) {
   if (!replacement || typeof replacement !== "object") return replacement;
   const seedQuery = radioText(current?.seedQuery || "", 200);
@@ -296,4 +272,3 @@ export function diversifyRadioTracks(
   return result;
 }
 
-export { RADIO_SEED_PREFIX };
