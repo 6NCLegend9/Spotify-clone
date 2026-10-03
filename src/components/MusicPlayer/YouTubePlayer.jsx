@@ -1405,6 +1405,7 @@ function YouTubePlayer() {
     activeDeckRef.current = incomingKey;
     setActiveDeck(incomingKey);
     activeTrackStartedRef.current = {
+      identity: queueEntryIdentity(nextVideo),
       videoId: nextVideo.id,
       startedAt: performance.now(),
     };
@@ -1869,6 +1870,7 @@ function YouTubePlayer() {
         activeDeckRef.current = idleKey;
         setActiveDeck(idleKey);
         activeTrackStartedRef.current = {
+          identity: occurrenceIdentity,
           videoId: video.id,
           startedAt: performance.now(),
         };
