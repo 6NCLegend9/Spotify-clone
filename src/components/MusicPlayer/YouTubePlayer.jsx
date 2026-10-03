@@ -3074,7 +3074,7 @@ function YouTubePlayer() {
           </div>)}
         </div>}
         onPip={togglePictureInPicture} pipActive={Boolean(pipWindow || pipFloat)}
-        pipLabel={videoVisible ? "Picture in picture unavailable" : typeof window !== "undefined" && window.documentPictureInPicture?.requestWindow ? "Picture in picture controls" : "Floating player"}
+        pipLabel={videoVisible ? "Floating player unavailable while video is visible" : typeof window !== "undefined" && window.documentPictureInPicture?.requestWindow ? "Floating player controls" : "Floating player"}
         pipDisabled={pictureInPicture === false || videoVisible}
         videoAvailable={videoVisible}
         playbackClock={playbackClock}
