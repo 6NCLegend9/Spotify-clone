@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { decodeTrackFields } from '../../utils/text.js';
 import { normalizePlaybackSnapshot } from '../../utils/playbackSnapshot.mjs';
-import { editUpcomingQueue } from '../../utils/playerQueue.mjs';
+import { editUpcomingQueue, restoreQueueOccurrenceState } from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity, sameRadioSongFamily } from '../../utils/songIdentity.mjs';
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
 import {
@@ -188,21 +188,21 @@ const playerSlice = createSlice({
       let youtubeQueue = (Array.isArray(snapshot.youtubeQueue) ? snapshot.youtubeQueue : [])
         .map((track) => decodePlayableYoutubeTrack(track))
         .filter(Boolean);
-      if (youtubeVideo?.id && !youtubeQueue.some((track) => track.id === youtubeVideo.id)) {
-        youtubeQueue.unshift(youtubeVideo);
-      }
+      youtubeQueue = restoreQueueOccurrenceState(youtubeQueue, youtubeVideo).queue;
       const history = (Array.isArray(snapshot.history) ? snapshot.history : [])
         .map((track) => decodePlayableYoutubeTrack(track))
         .filter(Boolean);
       if (queueMode === 'radio' && youtubeVideo?.id) {
         youtubeQueue = pruneAutomaticRadioUpcoming(youtubeQueue, youtubeVideo, { history });
       }
+      const restoredOccurrences = restoreQueueOccurrenceState(youtubeQueue, youtubeVideo);
+      youtubeQueue = restoredOccurrences.queue;
       return {
         ...initialState,
         ...snapshot,
         youtubeVideo,
         youtubeQueue,
-        userQueue: youtubeQueue.filter((track) => track?.queueSource === 'user' && track.id !== youtubeVideo?.id),
+        userQueue: restoredOccurrences.userQueue,
         history,
         playbackContext: normalizeContext(snapshot.playbackContext)
           || (queueMode === 'radio' ? radioOriginContext(youtubeQueue[0] || youtubeVideo) : null),
