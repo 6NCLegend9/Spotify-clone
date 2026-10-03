@@ -208,3 +208,12 @@ test("mobile drawer exposes an explicit in-dialog video expand control without o
     /\.mobileSheet \.mediaTools\s*\{[^}]*flex-wrap:\s*wrap;/s,
   );
 });
+
+
+test("volume popover positioning follows its rendered size instead of fixed pixel assumptions", async () => {
+  const volume = await read("src/components/MusicPlayer/PlayerVolume.jsx");
+  assert.match(volume, /popoverRef\.current\?\.getBoundingClientRect\(\)/);
+  assert.match(volume, /new ResizeObserver\(update\)/);
+  assert.doesNotMatch(volume, /const width = 152/);
+  assert.doesNotMatch(volume, /const height = 72/);
+});
