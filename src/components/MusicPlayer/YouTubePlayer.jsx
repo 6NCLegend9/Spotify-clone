@@ -7,6 +7,8 @@ import Link from "next/link";
 import {
   alternateSearchQuery,
   youtubePlaybackFailurePolicy,
+  youtubeRecoveryScope,
+  youtubeRecoveryScopeMatches,
 } from "@/utils/youtubePlaybackError.mjs";
 import PlayerDock from "./PlayerDock";
 import {
@@ -312,8 +314,8 @@ function YouTubePlayer() {
   const handoffTimerRef = useRef(null);
   const handoffWaitingRef = useRef(null);
   const endedTransitionRef = useRef(null);
-  const sameIdRetryRef = useRef({ videoId: null, attempts: 0 });
-  const alternateAttemptRef = useRef({ seedId: null, attempts: 0, rejectedIds: new Set() });
+  const sameIdRetryRef = useRef({ identity: null, videoId: null, attempts: 0 });
+  const alternateAttemptRef = useRef({ identity: null, attempts: 0, rejectedIds: new Set() });
   const failureResolveRef = useRef(null);
   const handlePlaybackFailureRef = useRef(async () => {});
   videoRef.current = video;
@@ -639,18 +641,26 @@ function YouTubePlayer() {
     }
   };
 
-  const resetActiveRecovery = (videoId = null) => {
+  const resetActiveRecovery = (track = null) => {
     clearActiveBufferTimers();
-    activeRecoveryRef.current = emptyRecovery(videoId);
-    if (videoId && sameIdRetryRef.current.videoId !== videoId) {
-      sameIdRetryRef.current = { videoId, attempts: 0 };
+    const recoveryScope = youtubeRecoveryScope(track);
+    activeRecoveryRef.current = emptyRecovery(recoveryScope.videoId);
+    if (!recoveryScope.identity || !recoveryScope.videoId) {
+      sameIdRetryRef.current = { identity: null, videoId: null, attempts: 0 };
+      alternateAttemptRef.current = { identity: null, attempts: 0, rejectedIds: new Set() };
+      return;
     }
-    if (videoId && !alternateAttemptRef.current.rejectedIds.has(videoId)) {
+    if (!youtubeRecoveryScopeMatches(sameIdRetryRef.current, track)) {
+      sameIdRetryRef.current = { ...recoveryScope, attempts: 0 };
+    }
+    if (alternateAttemptRef.current.identity !== recoveryScope.identity) {
       alternateAttemptRef.current = {
-        seedId: videoId,
+        identity: recoveryScope.identity,
         attempts: 0,
-        rejectedIds: new Set([videoId]),
+        rejectedIds: new Set([recoveryScope.videoId]),
       };
+    } else {
+      alternateAttemptRef.current.rejectedIds.add(recoveryScope.videoId);
     }
   };
 
@@ -928,9 +938,9 @@ function YouTubePlayer() {
     if (isPlayingRef.current) outgoing?.playVideo?.();
   };
 
-  const resolveAlternateUpload = async (failedTrack) => {
+  const resolveAlternateUpload = async (failedTrack, rejectedIds) => {
     const query = alternateSearchQuery(failedTrack);
-    const rejected = alternateAttemptRef.current.rejectedIds;
+    const rejected = rejectedIds || alternateAttemptRef.current.rejectedIds;
     if (failedTrack?.id) rejected.add(failedTrack.id);
     try {
       const data = await requestJson(
@@ -963,36 +973,39 @@ function YouTubePlayer() {
       return;
     }
     const current = videoRef.current;
-    if (!current?.id) return;
-    if (failureResolveRef.current === current.id) return;
-    failureResolveRef.current = current.id;
+    const recoveryScope = youtubeRecoveryScope(current);
+    if (!recoveryScope.identity || !recoveryScope.videoId) return;
+    if (failureResolveRef.current === recoveryScope.identity) return;
+    failureResolveRef.current = recoveryScope.identity;
 
     try {
       abortCrossfade();
       clearActiveBufferTimers();
 
-      if (sameIdRetryRef.current.videoId !== current.id) {
-        sameIdRetryRef.current = { videoId: current.id, attempts: 0 };
+      if (!youtubeRecoveryScopeMatches(sameIdRetryRef.current, current)) {
+        sameIdRetryRef.current = { ...recoveryScope, attempts: 0 };
       }
-      if (alternateAttemptRef.current.seedId !== current.id
-        && !alternateAttemptRef.current.rejectedIds.has(current.id)) {
+      if (alternateAttemptRef.current.identity !== recoveryScope.identity) {
         alternateAttemptRef.current = {
-          seedId: current.id,
+          identity: recoveryScope.identity,
           attempts: 0,
           rejectedIds: new Set([current.id]),
         };
+      } else {
+        alternateAttemptRef.current.rejectedIds.add(current.id);
       }
+      const alternateState = alternateAttemptRef.current;
 
       const policy = youtubePlaybackFailurePolicy({
         code,
         kind,
         sameIdAttempts: sameIdRetryRef.current.attempts,
-        alternateAttempts: alternateAttemptRef.current.attempts,
+        alternateAttempts: alternateState.attempts,
       });
 
       if (policy.action === "retrySame") {
         sameIdRetryRef.current = {
-          videoId: current.id,
+          ...recoveryScope,
           attempts: sameIdRetryRef.current.attempts + 1,
         };
         setPlayerError(null);
@@ -1012,14 +1025,19 @@ function YouTubePlayer() {
       }
 
       if (policy.action === "tryAlternate") {
-        alternateAttemptRef.current.attempts += 1;
-        alternateAttemptRef.current.rejectedIds.add(current.id);
-        const alternate = await resolveAlternateUpload(current);
+        alternateState.attempts += 1;
+        alternateState.rejectedIds.add(current.id);
+        const alternate = await resolveAlternateUpload(current, alternateState.rejectedIds);
+        if (!youtubeRecoveryScopeMatches(recoveryScope, videoRef.current)) return;
         if (alternate?.id) {
-          alternateAttemptRef.current.rejectedIds.add(alternate.id);
+          alternateState.rejectedIds.add(alternate.id);
           toast(`Trying another upload of “${current.title || "this song"}”.`);
           setPlayerError(null);
-          sameIdRetryRef.current = { videoId: alternate.id, attempts: 0 };
+          sameIdRetryRef.current = {
+            identity: recoveryScope.identity,
+            videoId: alternate.id,
+            attempts: 0,
+          };
           markExpectPlaying();
           dispatch(replaceCurrentYoutubeTrack(alternate));
           return;
@@ -1027,7 +1045,7 @@ function YouTubePlayer() {
       }
 
       // skipQueue, or no alternate upload was found.
-      alternateAttemptRef.current.rejectedIds.add(current.id);
+      alternateState.rejectedIds.add(current.id);
       setPlayerError(null);
       markExpectPlaying();
       const advanced = await playNextOrContinueRef.current?.(false, { avoidId: current.id });
@@ -1040,7 +1058,7 @@ function YouTubePlayer() {
         toast.error(`${policy.error?.message || "Couldn’t play this song."} Skipped to the next track.`);
       }
     } finally {
-      if (failureResolveRef.current === current.id) failureResolveRef.current = null;
+      if (failureResolveRef.current === recoveryScope.identity) failureResolveRef.current = null;
     }
   };
   handlePlaybackFailureRef.current = handlePlaybackFailure;
@@ -1070,7 +1088,7 @@ function YouTubePlayer() {
     preloadedIdRef.current = null;
     preloadingRef.current = null;
     preloadRetryAtRef.current = 0;
-    resetActiveRecovery(nextVideo.id);
+    resetActiveRecovery(nextVideo);
     handledVideoIdRef.current = nextVideo.id;
     syncPlaybackClock(0, 0);
     setDeliveredVideoQuality("");
@@ -1390,7 +1408,7 @@ function YouTubePlayer() {
       videoId: nextVideo.id,
       startedAt: performance.now(),
     };
-    resetActiveRecovery(nextVideo.id);
+    resetActiveRecovery(nextVideo);
     activeRecoveryRef.current.lastTime = incomingPlayer.getCurrentTime?.() || 0;
     activeRecoveryRef.current.lastAdvancedAt = performance.now();
     applyPlaybackVolume(incomingPlayer);
@@ -1780,7 +1798,7 @@ function YouTubePlayer() {
     markExpectPlaying();
     endedTransitionRef.current = null;
     preloadRetryAtRef.current = 0;
-    resetActiveRecovery(video.id);
+    resetActiveRecovery(video);
     if (skipCrossfadeVideoRef.current !== video.id) {
       skipCrossfadeVideoRef.current = null;
     }
@@ -1854,7 +1872,7 @@ function YouTubePlayer() {
           videoId: video.id,
           startedAt: performance.now(),
         };
-        resetActiveRecovery(video.id);
+        resetActiveRecovery(video);
         activeRecoveryRef.current.lastTime = idle.getCurrentTime?.() || 0;
         activeRecoveryRef.current.lastAdvancedAt = performance.now();
         applyPlaybackVolume(idle);
