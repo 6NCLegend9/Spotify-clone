@@ -63,10 +63,11 @@ function normalizeManifest(input = {}, requestedChannel = "stable") {
   const installerSha512 = sha512(
     input.sha512 || (isStable ? process.env.HEYKASA_DESKTOP_SHA512 : ""),
   );
+  const releaseRolloutPercent = percentage(input.updateRolloutPercent, 100);
   const rolloutEnv = isStable ? String(process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT ?? "").trim() : "";
   const updateRolloutPercent = rolloutEnv
-    ? percentage(rolloutEnv, 100)
-    : percentage(input.updateRolloutPercent, 100);
+    ? Math.min(releaseRolloutPercent, percentage(rolloutEnv, 100))
+    : releaseRolloutPercent;
 
   return {
     formatVersion: 1,
