@@ -23,6 +23,7 @@ import {
   isJamCode,
   jamChannelName,
   jamCodeFromPath,
+  jamTrackOccurrenceChanged,
   makeJamCode,
   normalizeJamCode,
   projectJamPlaybackTime,
@@ -163,7 +164,7 @@ export default function useJamSession() {
       applyingRemoteRef.current = true;
       const current = playerStateRef.current;
       const nextTrack = payload.track?.id ? payload.track : null;
-      const trackChanged = nextTrack?.id !== current.youtubeVideo?.id;
+      const trackChanged = jamTrackOccurrenceChanged(current.youtubeVideo, nextTrack);
       const nextQueue = Array.isArray(payload.queue)
         ? payload.queue
         : current.youtubeQueue;
