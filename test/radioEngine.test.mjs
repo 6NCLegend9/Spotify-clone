@@ -208,3 +208,19 @@ test("spreadByOwner dedupes ids, honours limit, and tolerates junk", () => {
   assert.equal(trackOwner({ ownerId: 7 }), "7");
   assert.equal(trackOwner({}), "");
 });
+
+test("high-variety radio separates one performer across different uploader channels", () => {
+  const clustered = [
+    track("uploader-a1", "Don Toliver - No Idea", "Label Archive"),
+    track("uploader-a2", "Don Toliver - After Party", "Mirror Uploads"),
+    track("uploader-b1", "Future - Like That", "Future - Topic"),
+    track("uploader-c1", "Travis Scott - FE!N", "Travis Scott - Topic"),
+  ];
+
+  const spread = spreadByArtist(clustered, "high");
+  assert.notEqual(
+    spread[1].title,
+    "Don Toliver - After Party",
+    "different uploaders for one performer must not bypass artist spacing",
+  );
+});
