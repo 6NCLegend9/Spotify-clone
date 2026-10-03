@@ -3,15 +3,20 @@
 import { useEffect, useRef } from "react";
 import { createListeningObservation } from "@/utils/listeningInsights.mjs";
 
-export default function useListeningInsights({ owner, trackId, enabled, getSample }) {
-  const latest = useRef({ owner, enabled, trackId, getSample });
-  latest.current = { owner, enabled, trackId, getSample };
+export default function useListeningInsights({ owner, trackId, occurrenceId, enabled, getSample }) {
+  const latest = useRef({ owner, enabled, trackId, occurrenceId, getSample });
+  latest.current = { owner, enabled, trackId, occurrenceId, getSample };
   const finishRef = useRef(() => {});
   useEffect(() => {
     if (!enabled || !owner?.startsWith("account:") || !/^[A-Za-z0-9_-]{11}$/.test(trackId || "")) return;
     let observation = null;
     const sample = () => {
-      if (latest.current.trackId !== trackId || latest.current.owner !== owner || !latest.current.enabled) return;
+      if (
+        latest.current.trackId !== trackId
+        || latest.current.occurrenceId !== occurrenceId
+        || latest.current.owner !== owner
+        || !latest.current.enabled
+      ) return;
       let value;
       try { value = latest.current.getSample(); } catch { return; }
       if (!value) return;
@@ -42,6 +47,6 @@ export default function useListeningInsights({ owner, trackId, enabled, getSampl
       finish("skipped");
       finishRef.current = () => {};
     };
-  }, [owner, trackId, enabled]);
+  }, [owner, trackId, occurrenceId, enabled]);
   return { finish: (event) => finishRef.current(event) };
 }
