@@ -24,6 +24,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import {
   playPause,
+  playPreviousFromHistory,
   setYoutubeVideo,
   replaceCurrentYoutubeTrack,
   setYoutubeQueue,
@@ -440,13 +441,6 @@ function YouTubePlayer() {
     if (!currentIdentity) return null;
     const list = Array.isArray(queueRef.current) ? queueRef.current : [];
     return nextQueueTrack(list, currentIdentity, repeatRef.current, { avoidId });
-  };
-
-  const getPreviousVideo = () => {
-    const list = Array.isArray(queueRef.current) ? queueRef.current : [];
-    const index = queueTrackIndex(list, videoRef.current);
-    if (index <= 0) return null;
-    return list.slice(0, index).reverse().find((item) => item?.id) || null;
   };
 
   const hushIdleDeck = () => {
@@ -2704,22 +2698,17 @@ function YouTubePlayer() {
 
   const handlePrev = () => {
     if (isJamGuestRef.current) return;
-    if (playbackClock.read().position > 3) {
+    if (playbackClock.read().position > 3 || !playbackHistory.length) {
       seekOnCurrentTrack(0);
       return;
     }
     fadeOutThenSkip(() => {
-      const previous = getPreviousVideo();
-      if (!previous) {
-        seekOnCurrentTrack(0);
-        return;
-      }
       if (status === "authenticated" && videoRef.current?.id) {
         recordPlayEvent(videoRef.current.id, "skipped");
       }
       markExpectPlaying();
       dispatch(playPause(true));
-      dispatch(setYoutubeVideo(previous));
+      dispatch(playPreviousFromHistory());
     });
   };
 
