@@ -56,6 +56,7 @@ import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
 import { accountOwner } from "@/utils/accountCache.mjs";
+import { writeDiscoveryShufflePreference } from "@/utils/discoveryShufflePreference.mjs";
 import {
   playlistEmbedSnippet,
   playlistListenUrl,
@@ -327,6 +328,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     const nextValue = !discoveryShuffle;
     setSmartShuffle(nextValue);
     dispatch(setAutoAdd(nextValue));
+    if (isLiked) writeDiscoveryShufflePreference(window.localStorage, nextValue);
     if (nextValue) fetchDiscoveryRecommendations();
     if (!isLiked && isOwner) {
       const response = await updatePlaylist(playlistId, "smartShuffle", nextValue);
