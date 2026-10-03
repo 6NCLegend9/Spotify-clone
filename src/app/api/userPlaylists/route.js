@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import User from "@/models/User";
@@ -100,6 +101,7 @@ function requirePlaylistId(value) {
 
 // Create a new playlist
 export async function POST(req){
+  if (!isTrustedRequestOrigin(req)) return apiError("FORBIDDEN");
     try {
         const { user, userData } = await getAuthenticatedAccount(req);
         const rateLimit = await isRateLimited(`playlists:create:${user._id}`, {
@@ -170,6 +172,7 @@ export async function POST(req){
 
 // delete a playlist
 export async function DELETE(req){
+  if (!isTrustedRequestOrigin(req)) return apiError("FORBIDDEN");
     try {
         const user = await getAuthenticatedUser(req);
         const rateLimit = await isRateLimited(`playlists:delete:${user._id}`, {
@@ -218,6 +221,7 @@ export async function DELETE(req){
 
 // update playlist library settings or collaborators
 export async function PATCH(req){
+  if (!isTrustedRequestOrigin(req)) return apiError("FORBIDDEN");
     try {
         const user = await getAuthenticatedUser(req);
         const rateLimit = await isRateLimited(`playlists:update:${user._id}`, {
