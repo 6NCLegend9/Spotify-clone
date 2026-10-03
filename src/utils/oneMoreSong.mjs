@@ -1,4 +1,4 @@
-import { normalizeRadioArtist } from "./radioSeed.mjs";
+import { radioArtistIdentity } from "./radioSeed.mjs";
 import { sameRadioSongFamily } from "./songIdentity.mjs";
 
 export function shouldOfferOneMore({ armed, completed, radio, jamGuest } = {}) {
@@ -30,13 +30,13 @@ export function pickOneMoreTrack(
   ].filter(Boolean));
   const excludedArtists = new Set(
     sessionTracks
-      .map((track) => normalizeRadioArtist(track?.channel || track?.artist || ""))
+      .map((track) => radioArtistIdentity(track))
       .filter(Boolean),
   );
 
   return (Array.isArray(candidates) ? candidates : []).find((item) => {
     if (!item?.id || blocked.has(item.id)) return false;
-    const artist = normalizeRadioArtist(item.channel || item.artist || "");
+    const artist = radioArtistIdentity(item);
     if (artist && excludedArtists.has(artist)) return false;
     if (sessionTracks.some((track) => sameRadioSongFamily(track, item))) return false;
     return true;
