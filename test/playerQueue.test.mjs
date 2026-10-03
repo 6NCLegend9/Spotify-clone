@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { nextQueueTrack, shuffleUpcoming } from "../src/utils/playerQueue.mjs";
+import { nextQueueTrack, queueEntryIdentity, queueTrackIndex, shuffleUpcoming } from "../src/utils/playerQueue.mjs";
 
 test("shuffle preserves played/current tracks and queue members without mutation", () => {
   const queue = ["past", "current", "next", "last"].map((id) => ({ id }));
@@ -15,4 +15,28 @@ test("repeat wraps including a single track; off leaves continuation to the engi
   assert.equal(nextQueueTrack(queue, "last", false), null);
   assert.equal(nextQueueTrack([queue[0]], "first", true), queue[0]);
   assert.equal(nextQueueTrack([], "missing", true), null);
+});
+
+test("duplicate video IDs advance by queue occurrence instead of restarting the first copy", () => {
+  const first = { id: "same-track1", queueEntryId: "context:1:same-track1" };
+  const second = { id: "same-track1", queueEntryId: "user:2:same-track1" };
+  const third = { id: "othertrack1", queueEntryId: "context:3:othertrack1" };
+  const queue = [first, second, third];
+
+  assert.equal(queueEntryIdentity(first), first.queueEntryId);
+  assert.equal(queueTrackIndex(queue, second), 1);
+  assert.equal(nextQueueTrack(queue, queueEntryIdentity(first)), second);
+  assert.equal(nextQueueTrack(queue, queueEntryIdentity(second)), third);
+});
+
+test("shuffle treats duplicate recordings as separate occurrences", () => {
+  const first = { id: "same-track1", queueEntryId: "context:1:same-track1" };
+  const second = { id: "same-track1", queueEntryId: "user:2:same-track1" };
+  const third = { id: "othertrack1", queueEntryId: "context:3:othertrack1" };
+  const fourth = { id: "lasttrack01", queueEntryId: "context:4:lasttrack01" };
+  const queue = [first, second, third, fourth];
+
+  const shuffled = shuffleUpcoming(queue, queueEntryIdentity(second), () => 0);
+  assert.deepEqual(shuffled.slice(0, 2), [first, second]);
+  assert.deepEqual(shuffled.slice(2), [fourth, third]);
 });
