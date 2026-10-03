@@ -45,3 +45,9 @@ test("Serwist never caches account or authentication routes and preserves bounde
   assert.match(worker, /maxAgeSeconds:\s*7\s*\*\s*24\s*\*\s*60\s*\*\s*60/);
   assert.match(worker, /new CacheableResponsePlugin\(\{\s*statuses:\s*\[0,\s*200\]/);
 });
+
+
+test("Serwist pins its vulnerable Browserslist child to the patched release", async () => {
+  const pkg = JSON.parse(await source("package.json"));
+  assert.equal(pkg.overrides?.["@serwist/next"]?.browserslist, "4.28.7");
+});
