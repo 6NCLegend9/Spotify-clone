@@ -187,3 +187,24 @@ test("legacy native Lyrics surface does not own YouTube queue transitions", asyn
   assert.doesNotMatch(lyrics, /\byoutubeVideo\b|\byoutubeQueue\b|\bsetYoutubeVideo\b|\bplayPause\b/);
   assert.match(lyrics, /nativeQueue/);
 });
+
+
+test("mobile drawer exposes an explicit in-dialog video expand control without overflowing narrow phones", async () => {
+  const [presentation, css] = await Promise.all([
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+    read("src/components/MusicPlayer/mediaPresentation.module.css"),
+  ]);
+  assert.match(
+    presentation,
+    /const drawerExpandButton = mobile && showingVideo && !expanded/,
+  );
+  assert.match(presentation, /data-testid="mobile-expand-video"/);
+  assert.match(
+    presentation,
+    /className=\{styles\.mediaTools\}>\{modeButton\}\{drawerExpandButton\}<\/div>/,
+  );
+  assert.match(
+    css,
+    /\.mobileSheet \.mediaTools\s*\{[^}]*flex-wrap:\s*wrap;/s,
+  );
+});
