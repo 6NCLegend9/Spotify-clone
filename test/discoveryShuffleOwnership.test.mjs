@@ -20,11 +20,13 @@ test("playlist-specific discovery never overwrites the Liked Songs preference", 
 
 
 test("Liked Songs owns discovery preference hydration without requiring Home to mount first", async () => {
-  const [detail, home] = await Promise.all([
+  const [detail, home, player] = await Promise.all([
     readFile(path.join(root, "src/components/Library/PlaylistDetail.jsx"), "utf8"),
     readFile(path.join(root, "src/hooks/useHomeFeed.js"), "utf8"),
+    readFile(path.join(root, "src/redux/features/playerSlice.js"), "utf8"),
   ]);
   assert.match(detail, /readDiscoveryShufflePreference/);
   assert.match(detail, /if \(!isLiked\) return;[\s\S]*readDiscoveryShufflePreference\(window\.localStorage\)/);
   assert.doesNotMatch(home, /setAutoAdd|readDiscoveryShufflePreference/);
+  assert.doesNotMatch(player, /\bautoAdd\b|\bsetAutoAdd\b/);
 });
