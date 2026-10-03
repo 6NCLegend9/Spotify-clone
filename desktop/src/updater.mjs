@@ -8,7 +8,7 @@ import {
   UPDATE_MANIFEST_URL,
   UPDATE_PREFLIGHT_TIMEOUT_MS,
 } from "./config.mjs";
-import { installationEligibleForRollout } from "./policy.mjs";
+import { effectiveReleaseRolloutPercent, installationEligibleForRollout } from "./policy.mjs";
 import { versionOlderThan } from "./version.mjs";
 import { effectiveUpdateChannel } from "./updateChannel.mjs";
 import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
@@ -28,11 +28,11 @@ function httpsUrl(value) {
 }
 
 export class DesktopUpdater {
-  constructor({ app, store, onStatus = () => {}, rolloutPercent = () => 0 }) {
+  constructor({ app, store, onStatus = () => {}, rolloutSnapshot = () => null }) {
     this.app = app;
     this.store = store;
     this.onStatus = onStatus;
-    this.getRolloutPercent = rolloutPercent;
+    this.getRolloutSnapshot = rolloutSnapshot;
     this.status = { state: "idle", version: app.getVersion(), progress: 0, detail: "" };
     this.started = false;
     this.initialTimer = null;
@@ -151,12 +151,16 @@ export class DesktopUpdater {
     if (this.channel() !== "stable") return true;
     if (versionOlderThan(this.app.getVersion(), manifest?.minimum)) return true;
     if ((Number(manifest?.desktopApiVersion) || 0) > DESKTOP_API_VERSION) return true;
-    let percent = 0;
+    let snapshot = null;
     try {
-      percent = this.getRolloutPercent();
+      snapshot = this.getRolloutSnapshot();
     } catch {
-      percent = 0;
+      snapshot = null;
     }
+    const percent = effectiveReleaseRolloutPercent(
+      snapshot,
+      manifest?.updateRolloutPercent,
+    );
     return installationEligibleForRollout(
       this.store.get("installationId"),
       percent,
