@@ -51,11 +51,17 @@ export function shuffleUpcoming(queue, currentIdentity, random = Math.random) {
   return [...queue.slice(0, boundary), ...upcoming];
 }
 
-export function nextQueueTrack(queue, currentIdentity, repeat = false) {
+export function nextQueueTrack(
+  queue,
+  currentIdentity,
+  repeat = false,
+  { avoidId = null } = {},
+) {
   const index = queueTrackIndex(queue, currentIdentity);
   if (index < 0) return null;
-  return queue.slice(index + 1).find((track) => track?.id)
-    || (repeat ? queue.find((track) => track?.id) : null) || null;
+  const allowed = (track) => track?.id && (!avoidId || track.id !== avoidId);
+  return queue.slice(index + 1).find(allowed)
+    || (repeat ? queue.find(allowed) : null) || null;
 }
 
 export function editUpcomingQueue(queue, currentIdentity, { kind, id, entryId, index: requestedIndex, direction, toIndex }) {
