@@ -148,3 +148,21 @@ test("jam sync treats duplicate video IDs as different queue occurrences", () =>
   assert.equal(jam.jamTrackOccurrenceChanged({ id: first.id }, { id: first.id }), false);
   assert.equal(jam.jamTrackOccurrenceChanged({ id: "one" }, { id: "two" }), true);
 });
+
+
+test("jam playback positions are scoped to the matching queue occurrence", () => {
+  assert.equal(typeof jam.jamPlaybackPositionMatchesTrack, "function");
+  const first = { id: "samevideo01", queueEntryId: "context:1:samevideo01" };
+  const second = { id: "samevideo01", queueEntryId: "user:2:samevideo01" };
+  assert.equal(jam.jamPlaybackPositionMatchesTrack({
+    videoId: first.id,
+    queueEntryId: first.queueEntryId,
+    currentTime: 42,
+  }, first), true);
+  assert.equal(jam.jamPlaybackPositionMatchesTrack({
+    videoId: first.id,
+    queueEntryId: first.queueEntryId,
+    currentTime: 42,
+  }, second), false);
+  assert.equal(jam.jamPlaybackPositionMatchesTrack({ videoId: first.id, currentTime: 42 }, second), true);
+});
