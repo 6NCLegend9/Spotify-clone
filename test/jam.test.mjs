@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import * as jam from "../src/utils/jam.mjs";
 import {
   EMPTY_JAM_MS,
   JAM_CODE_ALPHABET,
   JAM_SESSION_KEY,
   isJamCode,
   jamChannelName,
-  jamTrackOccurrenceChanged,
   jamCodeFromPath,
   jamPath,
   makeJamCode,
@@ -140,10 +140,11 @@ test("jam session persistence survives refresh and rejects corrupt values", () =
 
 
 test("jam sync treats duplicate video IDs as different queue occurrences", () => {
+  assert.equal(typeof jam.jamTrackOccurrenceChanged, "function");
   const first = { id: "samevideo01", queueEntryId: "context:1:samevideo01" };
   const second = { id: "samevideo01", queueEntryId: "user:2:samevideo01" };
-  assert.equal(jamTrackOccurrenceChanged(first, second), true);
-  assert.equal(jamTrackOccurrenceChanged(first, first), false);
-  assert.equal(jamTrackOccurrenceChanged({ id: first.id }, { id: first.id }), false);
-  assert.equal(jamTrackOccurrenceChanged({ id: "one" }, { id: "two" }), true);
+  assert.equal(jam.jamTrackOccurrenceChanged(first, second), true);
+  assert.equal(jam.jamTrackOccurrenceChanged(first, first), false);
+  assert.equal(jam.jamTrackOccurrenceChanged({ id: first.id }, { id: first.id }), false);
+  assert.equal(jam.jamTrackOccurrenceChanged({ id: "one" }, { id: "two" }), true);
 });
