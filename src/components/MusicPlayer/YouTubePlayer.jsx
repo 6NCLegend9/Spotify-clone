@@ -14,6 +14,7 @@ import {
   queueAdvanceDecision,
   queueEntryIdentity,
   queueTrackIndex,
+  restoreQueueOrder,
   shuffleUpcoming,
 } from "@/utils/playerQueue.mjs";
 import { useDispatch, useSelector } from "react-redux";
@@ -2913,12 +2914,7 @@ function YouTubePlayer() {
       unshuffledRef.current = safeQueue.map(queueEntryIdentity);
       dispatch(setYoutubeQueue(shuffleUpcoming(safeQueue, queueEntryIdentity(video))));
     } else {
-      const originalOrder = new Map(
-        unshuffledRef.current.map((identity, index) => [identity, index]),
-      );
-      dispatch(setYoutubeQueue([...safeQueue].sort((first, second) =>
-        (originalOrder.get(queueEntryIdentity(first)) ?? Infinity)
-        - (originalOrder.get(queueEntryIdentity(second)) ?? Infinity))));
+      dispatch(setYoutubeQueue(restoreQueueOrder(safeQueue, unshuffledRef.current)));
     }
     setShuffle(!shuffle);
   };
