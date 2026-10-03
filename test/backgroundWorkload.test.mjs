@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveGhostFiberWorkload } from "../src/utils/backgroundWorkload.mjs";
@@ -39,4 +42,15 @@ test("normal desktop bounds visual workload and rejects invalid values", () => {
     }),
     { dpr: 0.9, fps: 42, layers: 1 },
   );
+});
+
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("GhostFibers consumes the shared workload policy in both lifecycle phases", () => {
+  const source = readFileSync(path.join(root, "src/components/ReactBits/GhostFibers.jsx"), "utf8");
+  const uses = source.match(/resolveGhostFiberWorkload\(/g) || [];
+  assert.ok(uses.length >= 2, "init and prop-update effects must share the same workload resolver");
+  assert.doesNotMatch(source, /context\.setFps\(fps\)/);
+  assert.doesNotMatch(source, /isMobile \? 3 : 10/);
 });
