@@ -175,3 +175,43 @@ test("explicit current-track replacement may choose another cut of the same song
   assert.equal(state.youtubeQueue[0].id, alternateCut.id);
   assert.equal(canonicalSongIdentity(state.youtubeVideo), canonicalSongIdentity(seed));
 });
+
+
+test("same-song upload replacement keeps the radio origin stable without creating history", () => {
+  const origin = {
+    id: "origin00001",
+    title: "Origin Artist - Night Drive",
+    channel: "Origin Artist",
+    seedQuery: "deep house night drive",
+    genre: "Deep House",
+  };
+  const alternate = {
+    id: "mirror00001",
+    title: "Night Drive (Official Audio)",
+    channel: "Mirror Upload - Topic",
+    seedQuery: "night drive official audio",
+    genre: "Official Audio",
+  };
+  let state = reducer(undefined, startYoutubePlayback({
+    track: origin,
+    queue: [origin],
+    queueMode: "radio",
+    context: { type: "radio", id: origin.id, name: "Deep House Radio" },
+  }));
+  const entryId = state.youtubeVideo.queueEntryId;
+
+  state = reducer(state, replaceCurrentYoutubeTrack(alternate));
+
+  assert.equal(state.youtubeVideo.id, alternate.id);
+  assert.equal(state.youtubeVideo.queueEntryId, entryId);
+  assert.equal(state.youtubeVideo.channel, "Mirror Upload");
+  assert.equal(state.youtubeVideo.seedQuery, origin.seedQuery);
+  assert.equal(state.youtubeVideo.genre, origin.genre);
+  assert.equal(state.youtubeVideo.radioSeedArtist, origin.channel);
+  assert.deepEqual(state.playbackContext, {
+    type: "radio",
+    id: alternate.id,
+    name: "Deep House Radio",
+  });
+  assert.deepEqual(state.history, []);
+});
