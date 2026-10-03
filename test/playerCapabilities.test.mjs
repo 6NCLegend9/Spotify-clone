@@ -251,7 +251,7 @@ test("Jam playback state and remote seeks carry queue occurrence identity end to
     read("src/hooks/useJamSession.js"),
   ]);
   assert.match(player, /JAM_PLAYBACK_STATE_EVENT,[\s\S]*queueEntryId:\s*videoRef\.current\?\.queueEntryId/);
-  assert.match(jamSession, /jamPlaybackPositionMatchesTrack\(playbackPositionRef\.current, snapshot\.youtubeVideo\)/);
+  assert.match(jamSession, /jamPlaybackPositionMatchesTrack\(\s*playbackPositionRef\.current,\s*snapshot\.youtubeVideo,?\s*\)/);
   assert.match(jamSession, /jamPlaybackPositionMatchesTrack\(position, nextTrack\)/);
   assert.match(jamSession, /JAM_REMOTE_SEEK_EVENT,[\s\S]*queueEntryId:\s*nextTrack\.queueEntryId/);
   assert.match(player, /pendingJamSeekRef\.current = \{[\s\S]*queueEntryId:\s*detail\.queueEntryId/);
