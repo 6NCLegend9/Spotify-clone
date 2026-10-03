@@ -165,3 +165,48 @@ test("radio playback context retargets only when the replaced row is the radio o
     "ORIGIN00001",
   );
 });
+
+
+test("radio caps the same artist across different uploader channels", () => {
+  const result = diversifyRadioTracks([
+    track("NNNNNNNNNN1", "Cactus Jack Records", "Don Toliver - No Idea"),
+    track("OOOOOOOOOO1", "Mirror Music Uploads", "Don Toliver - After Party"),
+    track("PPPPPPPPPP1", "Travis Scott - Topic", "Travis Scott - FE!N"),
+  ], {
+    maxPerArtist: 1,
+    artistGap: 3,
+    limit: 10,
+  });
+
+  assert.deepEqual(result.map((item) => item.title), [
+    "Don Toliver - No Idea",
+    "Travis Scott - FE!N",
+  ]);
+});
+
+test("radio seed-artist exclusion follows the song artist instead of the uploader channel", () => {
+  const result = diversifyRadioTracks([
+    track("QQQQQQQQQQ1", "Label Archive", "Don Toliver - Cardigan"),
+    track("RRRRRRRRRR1", "Future - Topic", "Future - Like That"),
+  ], {
+    seedArtist: "Don Toliver",
+    maxSeedArtist: 0,
+    maxPerArtist: 1,
+    limit: 10,
+  });
+
+  assert.deepEqual(result.map((item) => item.title), ["Future - Like That"]);
+});
+
+test("recent-artist exclusions collapse label and unofficial uploads to the song artist", () => {
+  const exclusions = collectRadioArtistExclusions({
+    history: [
+      track("SSSSSSSSSS1", "Label Archive", "Don Toliver - No Idea"),
+      track("TTTTTTTTTT1", "Future - Topic", "Future - Like That"),
+    ],
+    current: track("UUUUUUUUUU1", "Mirror Uploads", "Travis Scott - FE!N"),
+    upcoming: [],
+  });
+
+  assert.deepEqual(exclusions, ["don toliver", "future", "travis scott"]);
+});
