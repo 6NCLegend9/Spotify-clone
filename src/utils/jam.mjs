@@ -62,6 +62,14 @@ export function jamTrackOccurrenceChanged(current, next) {
   return currentIdentity !== nextIdentity;
 }
 
+export function jamPlaybackPositionMatchesTrack(position, track) {
+  if (!position?.videoId || !track?.id) return false;
+  if (position.queueEntryId && track.queueEntryId) {
+    return position.queueEntryId === track.queueEntryId;
+  }
+  return position.videoId === track.id;
+}
+
 export function projectJamPlaybackTime(
   currentTime,
   isPlaying,
