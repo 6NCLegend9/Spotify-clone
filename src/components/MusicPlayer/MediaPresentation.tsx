@@ -12,7 +12,7 @@ import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton, Transport } from "./PlayerDock";
 import PlayerTimeline from "./PlayerTimeline";
 import styles from "./mediaPresentation.module.css";
-import { resolveInitialMediaVideoMode, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport } from "./mediaPresentationState.mjs";
+import { resolveInitialMediaVideoMode, resolveMediaVideoModeAfterCapabilityChange, shouldExposeLiveVideoViewport, shouldRenderMobileVideoPoster } from "./mediaPresentationState.mjs";
 import { setFullScreen } from "@/redux/features/playerSlice";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { COMPACT_TOUCH_QUERY } from "@/utils/responsivePolicy.mjs";
@@ -122,6 +122,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const canLyrics = Boolean(props.onLyrics);
   const overlay = expanded || drawer;
   const showingVideo = canVideo && video && view === "player";
+  const showVideoPoster = shouldRenderMobileVideoPoster({ mobile, showingVideo, expanded });
   const viewportStateRef = useRef({
     mobile,
     showingVideo,
@@ -554,7 +555,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
         <div ref={anchorRef} onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture}
           onPointerMove={expanded ? undefined : moveMediaPointer}
           className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
-          {!showingVideo && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
+          {(!showingVideo || showVideoPoster) && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
         </div>
         {!expanded && <>
