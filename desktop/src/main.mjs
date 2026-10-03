@@ -1188,7 +1188,7 @@ if (registerSingleInstance()) {
       app,
       store,
       onStatus: sendUpdateStatus,
-      rolloutSnapshot: () => policy?.snapshot() || null,
+      rolloutPercent: () => effectiveUpdateRolloutPercent(policy?.snapshot()),
     });
     registerIpcHandlers();
     const window = await createMainWindow();
