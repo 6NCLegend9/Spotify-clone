@@ -57,15 +57,6 @@ export function effectiveUpdateRolloutPercent(snapshot) {
   return rolloutPercent(snapshot.updateRolloutPercent);
 }
 
-export function effectiveReleaseRolloutPercent(snapshot, releasePercent) {
-  const policyPercent = effectiveUpdateRolloutPercent(snapshot);
-  if (policyPercent <= 0) return 0;
-  const releaseCap = releasePercent === undefined || releasePercent === null || String(releasePercent).trim() === ""
-    ? 100
-    : rolloutPercent(releasePercent);
-  return Math.min(policyPercent, releaseCap);
-}
-
 export class DesktopPolicy {
   constructor({ url, fetchImpl = globalThis.fetch, onChange = () => {} }) {
     this.url = String(url || "");
