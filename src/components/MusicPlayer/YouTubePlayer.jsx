@@ -67,6 +67,8 @@ import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
 import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
 import useWakeLock from "@/hooks/useWakeLock";
+import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
+import { updateSetting } from "@/redux/features/settingsSlice";
 import { shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
 import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
 import { hiddenYoutubeViewportStyle, HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
@@ -192,6 +194,8 @@ function YouTubePlayer() {
   const pageHiddenWhilePlayingRef = useRef(false);
   const volumeLevelsRef = useRef({ playbackVolume, masterVolume });
   const volumeRestoreRef = useRef({ clear() {}, holds() { return false; } });
+  const lastShortcutVolumeRef = useRef(masterVolume > 0 ? masterVolume : 1);
+  if (masterVolume > 0) lastShortcutVolumeRef.current = masterVolume;
   volumeLevelsRef.current = { playbackVolume, masterVolume };
   const trackChangeUntilRef = useRef(0);
   const sleep = useSleepTimer({
@@ -2803,6 +2807,29 @@ function YouTubePlayer() {
     seekGuardRef.current.until = performance.now() + SEEK_GUARD_MS;
   };
 
+  const toggleShortcutMute = () => {
+    const current = Number(masterVolume) || 0;
+    if (current > 0) {
+      lastShortcutVolumeRef.current = current;
+      dispatch(updateSetting({ key: "masterVolume", value: 0 }));
+      return;
+    }
+    dispatch(updateSetting({
+      key: "masterVolume",
+      value: lastShortcutVolumeRef.current > 0 ? lastShortcutVolumeRef.current : 1,
+    }));
+  };
+
+  useKeyboardShortcuts({
+    enabled: Boolean(video),
+    onTogglePlay: handlePlayPause,
+    onPrevious: handlePrev,
+    onNext: handleNext,
+    onSeekRelative: seekBy,
+    onToggleMute: letterShortcutsEnabled ? toggleShortcutMute : undefined,
+    seekStep: 5,
+  });
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (!video) return;
@@ -2810,23 +2837,11 @@ function YouTubePlayer() {
       if (isEditableKeyboardTarget(target) || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
-      if (event.code === "Space") {
-        if (isActionKeyboardTarget(target)) return;
-        event.preventDefault();
-        handlePlayPause();
-        return;
-      }
-
       if (event.key === "Escape") return;
 
       if (!letterShortcutsEnabled) return;
 
-      if (event.key === "m" || event.key === "M") {
-        const player = getActivePlayer();
-        if (!player) return;
-        if (player.isMuted?.()) player.unMute?.();
-        else player.mute?.();
-      } else if (event.key === "f" || event.key === "F" || event.key === "v" || event.key === "V") {
+      if (event.key === "f" || event.key === "F" || event.key === "v" || event.key === "V") {
         if (mediaTheater || document.querySelector("[data-testid=\"kasa-media-overlay\"]")) return;
         if (!dataSaver && !audioOnly) requestMediaPresentation("expand");
       } else if (event.key === "j" || event.key === "J") {
