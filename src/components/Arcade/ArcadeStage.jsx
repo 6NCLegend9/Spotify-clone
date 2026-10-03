@@ -22,6 +22,7 @@ import { analyzePcm, buildRhythmChart, sliceChartFrom } from "@/utils/arcadeChar
 import { playPause, setYoutubeVideo } from "@/redux/features/playerSlice";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import { parseDurationSeconds } from "@/utils/radioEngine.mjs";
+import { queueOccurrenceMatches } from "@/utils/playerQueue.mjs";
 import { cleanTitle } from "@/utils/text";
 import { useJam } from "@/components/Jam/JamProvider";
 import { toast } from "react-hot-toast";
@@ -124,6 +125,7 @@ export default function ArcadeStage() {
   const isPlaying = useSelector((state) => state.player.isPlaying);
   const youtubeVideo = useSelector((state) => state.player.youtubeVideo);
   const youtubeVideoId = youtubeVideo?.id || null;
+  const youtubeQueueEntryId = youtubeVideo?.queueEntryId || null;
   const playerPosition = useSelector((state) => state.player.position);
   const jam = useJam();
 
@@ -131,11 +133,12 @@ export default function ArcadeStage() {
   const audioRef = useRef(null);
   const objectUrlRef = useRef(null);
   const resumeOnExitRef = useRef(false);
-  const mainVideoIdRef = useRef(null);
+  const mainTrackRef = useRef(null);
 
   const [source, setSource] = useState("none");
   const [videoId, setVideoId] = useState("");
-  const clock = useArcadeClock({ source, audioRef, videoId });
+  const [queueEntryId, setQueueEntryId] = useState("");
+  const clock = useArcadeClock({ source, audioRef, videoId, queueEntryId });
   const clockRef = useRef(clock);
   clockRef.current = clock;
   const playerPositionRef = useRef(Number(playerPosition) || 0);
@@ -144,18 +147,22 @@ export default function ArcadeStage() {
 
   const controlMainPlayer = useCallback((shouldPlay) => {
     dispatch(playPause(shouldPlay));
-    const id = mainVideoIdRef.current;
-    if (!id || typeof window === "undefined") return;
+    const track = mainTrackRef.current;
+    if (!track?.id || typeof window === "undefined") return;
     window.dispatchEvent(
-      new CustomEvent(JAM_REMOTE_PLAYBACK_EVENT, { detail: { videoId: id, isPlaying: shouldPlay } }),
+      new CustomEvent(JAM_REMOTE_PLAYBACK_EVENT, {
+        detail: { videoId: track.id, queueEntryId: track.queueEntryId || null, isPlaying: shouldPlay },
+      }),
     );
   }, [dispatch]);
 
   const seekMainPlayer = useCallback((time) => {
-    const id = mainVideoIdRef.current;
-    if (!id || typeof window === "undefined") return;
+    const track = mainTrackRef.current;
+    if (!track?.id || typeof window === "undefined") return;
     window.dispatchEvent(
-      new CustomEvent(JAM_REMOTE_SEEK_EVENT, { detail: { videoId: id, currentTime: time } }),
+      new CustomEvent(JAM_REMOTE_SEEK_EVENT, {
+        detail: { videoId: track.id, queueEntryId: track.queueEntryId || null, currentTime: time },
+      }),
     );
   }, []);
 
@@ -187,7 +194,7 @@ export default function ArcadeStage() {
   useEffect(() => {
     setReducedMotion(prefersReducedMotion());
     resumeOnExitRef.current = isPlaying;
-    mainVideoIdRef.current = youtubeVideoId;
+    mainTrackRef.current = youtubeVideo?.id ? youtubeVideo : null;
     dispatch(setIsTyping(true));
     return () => {
       dispatch(setIsTyping(false));
@@ -287,6 +294,7 @@ export default function ArcadeStage() {
     setTrackLabel(file.name.replace(/\.[^.]+$/, ""));
     setSource("file");
     setVideoId("");
+    setQueueEntryId("");
     setChartStatus("analyzing");
     setFollowLive(false);
     controlMainPlayer(false);
@@ -312,20 +320,25 @@ export default function ArcadeStage() {
       audioRef.current.removeAttribute("src");
     }
     const label = cleanTitle(track.title, "Untitled track");
+    const currentTrack = youtubeVideo?.id ? youtubeVideo : null;
+    const sameCurrentOccurrence = currentTrack
+      ? queueOccurrenceMatches(currentTrack, track)
+      : false;
     setTrackLabel(label);
     setSource("youtube");
     setVideoId(track.id);
+    setQueueEntryId(track.queueEntryId || "");
     setChart(chartFromTrack(track));
     setChartStatus("ready");
     setStartHint("");
-    setFollowLive(live || track.id === mainVideoIdRef.current);
+    setFollowLive(live || sameCurrentOccurrence);
     resumeOnExitRef.current = true;
-    mainVideoIdRef.current = track.id;
-    if (!live && track.id !== youtubeVideoId) {
+    mainTrackRef.current = track;
+    if (!live && !sameCurrentOccurrence) {
       dispatch(setYoutubeVideo(track));
       dispatch(playPause(false));
     }
-  }, [analyzer, dispatch, youtubeVideoId]);
+  }, [analyzer, dispatch, youtubeVideo]);
 
   useEffect(() => {
     if (step !== "ready" || trackLabel || !youtubeVideo?.id) return;
