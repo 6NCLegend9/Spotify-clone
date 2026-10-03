@@ -15,6 +15,7 @@ import {
   nextQueueTrack,
   queueAdvanceDecision,
   queueEntryIdentity,
+  queueOccurrenceMatches,
   queueTrackIndex,
   restoreQueueOrder,
   shuffleUpcoming,
@@ -1972,7 +1973,10 @@ function YouTubePlayer() {
       }
       const pendingJamPlayback = pendingJamPlaybackRef.current;
       if (
-        pendingJamPlayback?.videoId === want
+        queueOccurrenceMatches(videoRef.current, {
+          id: pendingJamPlayback?.videoId,
+          queueEntryId: pendingJamPlayback?.queueEntryId,
+        })
         && id === want
       ) {
         pendingJamPlaybackRef.current = null;
@@ -1987,7 +1991,7 @@ function YouTubePlayer() {
 
       const pendingJamSeek = pendingJamSeekRef.current;
       if (
-        pendingJamSeek?.videoId === want
+        queueOccurrenceMatches(videoRef.current, { id: pendingJamSeek?.videoId, queueEntryId: pendingJamSeek?.queueEntryId })
         && (!id || id === want)
         && safeMediaTime(dur) > 0
       ) {
@@ -2015,6 +2019,7 @@ function YouTubePlayer() {
         window.dispatchEvent(new CustomEvent(JAM_PLAYBACK_STATE_EVENT, {
           detail: {
             videoId: want,
+            queueEntryId: videoRef.current?.queueEntryId,
             currentTime: safeMediaTime(time),
             duration: safeMediaTime(dur),
             isPlaying: isPlayingRef.current,
@@ -2360,6 +2365,7 @@ function YouTubePlayer() {
       if (!detail?.videoId || typeof detail.isPlaying !== "boolean") return;
       pendingJamPlaybackRef.current = {
         videoId: detail.videoId,
+        queueEntryId: detail.queueEntryId,
         isPlaying: detail.isPlaying,
       };
       tickRef.current();
@@ -2370,6 +2376,7 @@ function YouTubePlayer() {
       if (!detail?.videoId || !Number.isFinite(time) || time < 0) return;
       pendingJamSeekRef.current = {
         videoId: detail.videoId,
+        queueEntryId: detail.queueEntryId,
         currentTime: time,
       };
       tickRef.current();
