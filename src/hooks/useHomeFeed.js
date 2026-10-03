@@ -10,6 +10,7 @@ import { requestJson } from "@/services/http";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { toUserError } from "@/utils/userError";
 import { accountOwner, readAccountCache, writeAccountCache } from "@/utils/accountCache.mjs";
+import { readDiscoveryShufflePreference } from "@/utils/discoveryShufflePreference.mjs";
 
 const HOME_CACHE_KEY = "HayKasa-home-recommendations-v3";
 const HOME_CACHE_TTL = 5 * 60_000;
@@ -58,11 +59,7 @@ export default function useHomeFeed() {
   const [releases, setReleases] = useState([]);
 
   useEffect(() => {
-    try {
-      dispatch(setAutoAdd(localStorage.getItem("autoAdd") === "true"));
-    } catch {
-      dispatch(setAutoAdd(false));
-    }
+    dispatch(setAutoAdd(readDiscoveryShufflePreference(window.localStorage)));
   }, [dispatch]);
 
   useEffect(() => {
