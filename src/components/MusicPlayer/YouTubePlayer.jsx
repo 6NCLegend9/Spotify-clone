@@ -2295,15 +2295,11 @@ function YouTubePlayer() {
       dispatch(setYoutubeVideo(next));
       return true;
     }
-    const list = Array.isArray(queueRef.current) ? queueRef.current : [];
-    const fallback = list.find((item) => item?.id && item.id !== current?.id) || list[0];
-    if (fallback && fallback.id !== current?.id) {
-      dispatch(setYoutubeVideo(fallback));
-      return true;
-    }
-    if (avoidId) return false;
-    replayCurrent();
-    return true;
+    userPausedRef.current = true;
+    trackChangeUntilRef.current = 0;
+    getActivePlayer()?.pauseVideo?.();
+    dispatch(playPause(false));
+    return false;
   };
   playNextOrContinueRef.current = playNextOrContinue;
 
