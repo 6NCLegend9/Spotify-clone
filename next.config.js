@@ -184,58 +184,11 @@ const nextConfig = {
   },
 };
 
-const withPWA = disablePwa ? (config) => config : require("@ducanh2912/next-pwa").default({
-  dest: "public",
+const withSerwist = require("@serwist/next").default({
+  swSrc: "src/sw.js",
+  swDest: "public/sw.js",
+  register: true,
   disable: disablePwa,
-  cacheStartUrl: false,
-  skipWaiting: true,
-  clientsClaim: true,
-  cleanupOutdatedCaches: true,
-  workboxOptions: {
-    runtimeCaching: [
-      {
-        urlPattern: ({ sameOrigin, url }) =>
-          sameOrigin
-          && (
-            url.pathname.startsWith("/api/")
-            || url.pathname === "/api"
-            || /^\/(?:login|signup|resend-verification|reset-password|verify-email)(?:\/|$)/.test(
-              url.pathname,
-            )
-          ),
-        handler: "NetworkOnly",
-      },
-      {
-        urlPattern: ({ sameOrigin, request }) =>
-          sameOrigin
-          && ["script", "style", "worker", "font"].includes(request.destination),
-        handler: "CacheFirst",
-        options: {
-          cacheName: "static-resources",
-          expiration: {
-            maxEntries: 96,
-            maxAgeSeconds: 30 * 24 * 60 * 60,
-          },
-        },
-      },
-      {
-        // Only same-origin images (incl. /_next/image) are cached. Cross-origin
-        // images (YouTube, DiceBear, avatars) pass straight through to the network;
-        // intercepting their opaque responses here breaks them in the service worker.
-        urlPattern: ({ sameOrigin, request }) =>
-          sameOrigin && request.destination === "image",
-        handler: "StaleWhileRevalidate",
-        options: {
-          cacheName: "image-resources",
-          expiration: {
-            maxEntries: 128,
-            maxAgeSeconds: 7 * 24 * 60 * 60,
-          },
-          cacheableResponse: { statuses: [0, 200] },
-        },
-      },
-    ],
-  },
 });
 
 const withBundleAnalyzer = process.env.ANALYZE === "true" ? require("@next/bundle-analyzer")({
@@ -243,4 +196,4 @@ const withBundleAnalyzer = process.env.ANALYZE === "true" ? require("@next/bundl
   openAnalyzer: false,
 }) : (config) => config;
 
-module.exports = withBundleAnalyzer(withPWA(nextConfig));
+module.exports = withBundleAnalyzer(withSerwist(nextConfig));
