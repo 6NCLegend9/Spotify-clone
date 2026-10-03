@@ -187,3 +187,16 @@ test("signed publication verifies the live production manifest, update feed, and
   assert.match(verifier, /sizeBytes/);
   assert.match(verifier, /releaseNotesUrl/);
 });
+
+
+test("all GitHub workflows pin external actions to immutable commit SHAs", () => {
+  const workflowDir = join(projectRoot, ".github", "workflows");
+  for (const name of readdirSync(workflowDir).filter((file) => /\.ya?ml$/.test(file))) {
+    const workflow = readFileSync(join(workflowDir, name), "utf8");
+    const refs = [...workflow.matchAll(/uses:\s*([^\s#]+)/g)].map((match) => match[1]);
+    for (const ref of refs) {
+      if (ref.startsWith("./") || ref.startsWith("docker://")) continue;
+      assert.match(ref, /@[0-9a-f]{40}$/i, `${name} contains a mutable action reference: ${ref}`);
+    }
+  }
+});
