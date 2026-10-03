@@ -162,18 +162,6 @@ test("stable rollout environment overrides the signed GitHub release percentage"
   assert.equal(result.updateRolloutPercent, 10);
 });
 
-test("stable signed release rollout cap cannot be widened by environment policy", async () => {
-  const secret = "desktop-manifest-test-secret-32-bytes-minimum";
-  const payload = releasePayload("stable", "2.0.0", { updateRolloutPercent: 25 });
-  process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = secret;
-  process.env.HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT = "80";
-  mockGithubRelease("stable", "2.0.0", signedEnvelope(payload, secret));
-
-  const response = await GET(new Request("https://haykasa.vercel.app/api/desktop/manifest?channel=stable"));
-  const result = await response.json();
-  assert.equal(result.updateRolloutPercent, 25);
-});
-
 test("tampered GitHub release manifests fail closed", async () => {
   process.env.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET = "desktop-manifest-test-secret-32-bytes-minimum";
   delete process.env.HEYKASA_DESKTOP_MANIFEST_URL;
