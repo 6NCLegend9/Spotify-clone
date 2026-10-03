@@ -327,15 +327,16 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const toggleDiscoveryShuffle = async () => {
     const nextValue = !discoveryShuffle;
     setSmartShuffle(nextValue);
-    dispatch(setAutoAdd(nextValue));
-    if (isLiked) writeDiscoveryShufflePreference(window.localStorage, nextValue);
+    if (isLiked) {
+      dispatch(setAutoAdd(nextValue));
+      writeDiscoveryShufflePreference(window.localStorage, nextValue);
+    }
     if (nextValue) fetchDiscoveryRecommendations();
     if (!isLiked && isOwner) {
       const response = await updatePlaylist(playlistId, "smartShuffle", nextValue);
       if (!live.current) return;
       if (!response?.success) {
         setSmartShuffle(!nextValue);
-        dispatch(setAutoAdd(!nextValue));
         reportMutationError(response, {
           title: "Shuffle + Discovery not updated",
           message: "We couldn’t update Shuffle + Discovery. Please try again.",
