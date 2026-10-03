@@ -148,7 +148,7 @@ The renderer cannot provide an arbitrary executable URL to the native updater.
 
 Stable updates support deterministic percentage rollout using a local installation UUID and a stable `0-99` bucket.
 
-`HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT` controls stable eligibility. A client outside the current rollout enters the updater `deferred` state and checks again later. Manual checks do not bypass the rollout gate.
+`HEYKASA_DESKTOP_UPDATE_ROLLOUT_PERCENT` controls stable eligibility. If it is not configured, production defaults to a staged **25%** rollout rather than silently exposing a new stable release to every installation. Operators can increase or decrease the percentage after observing the rollout. A client outside the current rollout enters the updater `deferred` state and checks again later. Manual checks do not bypass the rollout gate.
 
 ## Runtime kill switches
 
@@ -235,8 +235,12 @@ Stable/beta preparation additionally requires `HEYKASA_DESKTOP_MANIFEST_HMAC_SEC
 4. build and test the Windows package;
 5. verify Authenticode for beta/stable;
 6. generate and validate the complete updater bundle;
-7. publish that bundle as an immutable public GitHub Release;
-8. fetch every required public release asset to verify publication.
+7. reject an already-existing versioned tag or release before publication;
+8. publish that bundle as an immutable public GitHub Release;
+9. fetch every required public release asset to verify publication;
+10. verify the live HayKasa manifest, updater metadata route, and stable installer redirect against the published signed manifest.
+
+Stable publication additionally requires an HTTPS release-notes URL. Release-workflow third-party Actions are pinned to reviewed immutable commit SHAs rather than mutable major tags.
 
 Protected `desktop-release` environment secrets required for beta/stable:
 
