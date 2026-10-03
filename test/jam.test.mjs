@@ -6,6 +6,7 @@ import {
   JAM_SESSION_KEY,
   isJamCode,
   jamChannelName,
+  jamTrackOccurrenceChanged,
   jamCodeFromPath,
   jamPath,
   makeJamCode,
@@ -135,4 +136,14 @@ test("jam session persistence survives refresh and rejects corrupt values", () =
     if (previousWindow === undefined) delete globalThis.window;
     else globalThis.window = previousWindow;
   }
+});
+
+
+test("jam sync treats duplicate video IDs as different queue occurrences", () => {
+  const first = { id: "samevideo01", queueEntryId: "context:1:samevideo01" };
+  const second = { id: "samevideo01", queueEntryId: "user:2:samevideo01" };
+  assert.equal(jamTrackOccurrenceChanged(first, second), true);
+  assert.equal(jamTrackOccurrenceChanged(first, first), false);
+  assert.equal(jamTrackOccurrenceChanged({ id: first.id }, { id: first.id }), false);
+  assert.equal(jamTrackOccurrenceChanged({ id: "one" }, { id: "two" }), true);
 });
