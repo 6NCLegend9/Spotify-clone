@@ -136,8 +136,8 @@ export default function ArcadeStage() {
   const mainTrackRef = useRef(null);
 
   const [source, setSource] = useState("none");
-  const [videoId, setVideoId] = useState("");
-  const [queueEntryId, setQueueEntryId] = useState("");
+  const [videoId, setVideoId] = useState(youtubeVideoId || "");
+  const [queueEntryId, setQueueEntryId] = useState(youtubeQueueEntryId || "");
   const clock = useArcadeClock({ source, audioRef, videoId, queueEntryId });
   const clockRef = useRef(clock);
   clockRef.current = clock;
