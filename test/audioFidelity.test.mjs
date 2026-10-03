@@ -165,3 +165,10 @@ test("native and YouTube playback share one master-volume authority", async () =
     /ref\.current\.volume\s*=\s*Number\.isFinite\(masterVolume\)\s*\?\s*masterVolume\s*:\s*1/,
   );
 });
+
+
+test("Mono audio copy is scoped to native playback instead of implying YouTube iframe DSP", async () => {
+  const settings = await read("src/app/settings/page.jsx");
+  assert.match(settings, /label="Mono audio"/);
+  assert.match(settings, /description="[^"]*native audio[^"]*YouTube[^"]*unchanged/i);
+});
