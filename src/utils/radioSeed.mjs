@@ -41,7 +41,7 @@ export function buildRadioDiscoveryQueries(
 ) {
   const origin = originTrack?.id ? originTrack : track;
   const originTitle = radioTitle(origin?.title || origin?.name || "");
-  const originArtist = radioText(origin?.channel || origin?.artist || "", 80);
+  const originArtist = radioText(origin?.radioSeedArtist || origin?.channel || origin?.artist || "", 80);
   const originSeed = radioText(origin?.seedQuery || contextName || "");
   const originGenre = radioText(origin?.genre || "");
   const currentTitle = radioTitle(track?.title || track?.name || "");
@@ -90,6 +90,34 @@ export function parseRadioSeedQuery(value) {
   if (!VIDEO_ID_PATTERN.test(id)) return null;
   const artist = separator >= 0 ? payload.slice(separator + 1).trim().slice(0, 56) : "";
   return { id, artist };
+}
+
+export function preserveRadioReplacementMetadata(current, replacement) {
+  if (!replacement || typeof replacement !== "object") return replacement;
+  const seedQuery = radioText(current?.seedQuery || "", 200);
+  const genre = radioText(current?.genre || "", 120);
+  const radioSeedArtist = radioText(
+    current?.radioSeedArtist || current?.channel || current?.artist || "",
+    200,
+  );
+  return {
+    ...replacement,
+    ...(seedQuery ? { seedQuery } : {}),
+    ...(genre ? { genre } : {}),
+    ...(radioSeedArtist ? { radioSeedArtist } : {}),
+  };
+}
+
+export function retargetRadioPlaybackContext(context, currentId, replacementId) {
+  if (!context || typeof context !== "object") return context;
+  if (
+    context.type !== "radio"
+    || String(context.id || "") !== String(currentId || "")
+    || !replacementId
+  ) {
+    return context;
+  }
+  return { ...context, id: String(replacementId).slice(0, 160) };
 }
 
 export function collectRadioArtistExclusions({
