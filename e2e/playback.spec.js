@@ -488,7 +488,7 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await dock.getByRole("button", { name: /^Expand player:/ }).click();
     const drawer = page.getByRole("dialog", { name: "Now playing" });
     await expect(drawer).toBeVisible();
-    const expandVideo = page.getByRole("button", { name: "Expand video", exact: true });
+    const expandVideo = page.getByTestId("mobile-expand-video");
     await expect(expandVideo).toBeVisible();
     const buttonBox = await expandVideo.boundingBox();
     expect(buttonBox).not.toBeNull();
@@ -505,7 +505,7 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
     const collapsedDrawer = page.getByRole("dialog", { name: "Now playing" });
     await expect(collapsedDrawer).toBeVisible();
-    await expect(page.getByRole("button", { name: "Expand video", exact: true })).toBeVisible();
+    await expect(page.getByTestId("mobile-expand-video")).toBeVisible();
     await collapsedDrawer.getByRole("button", { name: "Close player", exact: true }).click();
     await expect(collapsedDrawer).toHaveCount(0);
     await expect(dock).toBeVisible();
