@@ -84,3 +84,16 @@ test("failure recovery skips duplicate occurrences of the rejected provider vide
     null,
   );
 });
+
+
+test("queue consumer lists remove only the current occurrence, not every duplicate video id", () => {
+  const first = { id: "same-track1", queueEntryId: "context:1:same-track1" };
+  const second = { id: "same-track1", queueEntryId: "user:2:same-track1" };
+  const third = { id: "othertrack1", queueEntryId: "context:3:othertrack1" };
+  assert.equal(typeof playerQueue.queueWithoutCurrentOccurrence, "function");
+  if (typeof playerQueue.queueWithoutCurrentOccurrence !== "function") return;
+  assert.deepEqual(
+    playerQueue.queueWithoutCurrentOccurrence([first, second, third], first),
+    [second, third],
+  );
+});
