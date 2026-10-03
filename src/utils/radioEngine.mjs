@@ -1,3 +1,5 @@
+import { radioArtistIdentity } from "./radioSeed.mjs";
+
 // Parametric radio queue engine (YouTube Music-style station tuner).
 //
 // Pure, dependency-free, and framework-agnostic so it can be unit-tested with
@@ -83,6 +85,10 @@ function trackArtist(track) {
   return track?.channel || track?.channelTitle || track?.artist || track?.videoOwnerChannelTitle || "";
 }
 
+function trackArtistKey(track) {
+  return radioArtistIdentity(track) || lc(trackArtist(track));
+}
+
 function trackGenre(track) {
   return track?.genre || track?.seedQuery || "";
 }
@@ -134,8 +140,8 @@ function keywordHits(text, words) {
 function familiarityScore(track, seed) {
   if (!seed) return 0;
   let score = 0;
-  const artist = lc(trackArtist(track));
-  const seedArtist = lc(trackArtist(seed));
+  const artist = trackArtistKey(track);
+  const seedArtist = trackArtistKey(seed);
   if (artist && artist === seedArtist) score += 3;
   const genre = lc(trackGenre(track));
   const seedGenre = lc(trackGenre(seed));
@@ -163,7 +169,7 @@ function scoreCandidate(track, { seed, index, total, depth, mood }) {
   const viewsScore = views > 0 ? Math.min(1, Math.log10(views) / 9) : 0;
   const popularity = Math.max(positionScore, viewsScore);
 
-  const sameArtist = seed && lc(trackArtist(track)) === lc(trackArtist(seed));
+  const sameArtist = seed && trackArtistKey(track) === trackArtistKey(seed);
   const novelty = (sameArtist ? 0 : 1) * (genreMatches(track, seed) ? 1.2 : 0.6);
 
   let score = weights.familiarity * familiarity + weights.popularity * popularity * 2 + weights.novelty * novelty;
@@ -191,11 +197,11 @@ export function spreadByArtist(tracks, varietyLevel = "med") {
   const result = [];
   const recentArtists = [];
   while (list.length) {
-    let pick = list.findIndex((track) => !recentArtists.includes(lc(trackArtist(track))));
+    let pick = list.findIndex((track) => !recentArtists.includes(trackArtistKey(track)));
     if (pick === -1) pick = 0; // Everything left is "recent" -> take the top-ranked.
     const [chosen] = list.splice(pick, 1);
     result.push(chosen);
-    recentArtists.push(lc(trackArtist(chosen)));
+    recentArtists.push(trackArtistKey(chosen));
     while (recentArtists.length > gap) recentArtists.shift();
   }
   return result;
