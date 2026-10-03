@@ -217,3 +217,14 @@ test("volume popover positioning follows its rendered size instead of fixed pixe
   assert.doesNotMatch(volume, /const width = 152/);
   assert.doesNotMatch(volume, /const height = 72/);
 });
+
+
+test("YouTube Previous follows actual listening history instead of queue order", async () => {
+  const player = await read("src/components/MusicPlayer/YouTubePlayer.jsx");
+  assert.match(player, /\bplayPreviousFromHistory\b/);
+  const handlePrev = player.match(/const handlePrev = \(\) => \{([\s\S]*?)\n  \};/);
+  assert.ok(handlePrev, "handlePrev must remain an explicit player boundary");
+  assert.match(handlePrev[1], /playbackHistory\.length/);
+  assert.match(handlePrev[1], /dispatch\(playPreviousFromHistory\(\)\)/);
+  assert.doesNotMatch(handlePrev[1], /getPreviousVideo\(\)/);
+});
