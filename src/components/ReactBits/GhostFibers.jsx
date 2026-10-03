@@ -5,7 +5,7 @@ import { Mesh, Program, Renderer, Triangle } from "ogl";
 import { useAccessibilityPreferences } from "@/components/AccessibilityPreferences";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
-import { resolveGhostFibersWorkload } from "@/utils/ghostFibersPolicy.mjs";
+import { resolveGhostFiberWorkload } from "@/utils/backgroundWorkload.mjs";
 
 const hexToRgb = (hex) => {
   const value = String(hex || "").trim().replace(/^#/, "");
@@ -195,7 +195,7 @@ export default function GhostFibers({
     const container = containerRef.current;
     if (!container || !supported) return undefined;
 
-    const workload = resolveGhostFibersWorkload({
+    const workload = resolveGhostFiberWorkload({
       isPhone,
       hardwareConcurrency: navigator.hardwareConcurrency,
       dpr,
@@ -417,7 +417,7 @@ export default function GhostFibers({
     uniforms.uScale.value = scale;
     uniforms.uRotation.value = rotation;
     uniforms.uRotationSpeed.value = rotationSpeed;
-    const workload = resolveGhostFibersWorkload({
+    const workload = resolveGhostFiberWorkload({
       isPhone,
       hardwareConcurrency: navigator.hardwareConcurrency,
       dpr,
