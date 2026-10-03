@@ -1,0 +1,51 @@
+name: PWA Migration Helper
+
+on:
+  push:
+    branches:
+      - fix/pr21-responsive-production-regressions
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.js"
+      - "src/sw.js"
+      - "test/pwaMigration.test.mjs"
+      - ".github/workflows/pwa-migration-helper.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pwa-migration-helper-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pwa-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+      - name: Run PWA migration contract
+        run: node --test test/pwaMigration.test.mjs
+      - name: Generate deterministic lockfile candidate
+        if: always()
+        shell: bash
+        run: |
+          if ! grep -q '"@serwist/next"' package.json; then
+            echo "LOCKFILE_NOT_REQUESTED"
+            exit 0
+          fi
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const lock = await readFile("package-lock.json", "utf8");
+          const width = 12000;
+          console.log("LOCKFILE_BEGIN");
+          for (let offset = 0, index = 0; offset < lock.length; offset += width, index += 1) {
+            console.log(`LOCKFILE_CHUNK_${String(index).padStart(5, "0")}=${JSON.stringify(lock.slice(offset, offset + width))}`);
+          }
+          console.log("LOCKFILE_END");
+          NODE
