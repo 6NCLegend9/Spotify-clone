@@ -56,6 +56,12 @@ export function shouldExpireEmptyJam(session, now = Date.now()) {
   return now - startedAt >= EMPTY_JAM_MS;
 }
 
+export function jamTrackOccurrenceChanged(current, next) {
+  const currentIdentity = current?.queueEntryId || current?.id || "";
+  const nextIdentity = next?.queueEntryId || next?.id || "";
+  return currentIdentity !== nextIdentity;
+}
+
 export function projectJamPlaybackTime(
   currentTime,
   isPlaying,
