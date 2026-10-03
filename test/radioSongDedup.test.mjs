@@ -207,7 +207,7 @@ test("same-song upload replacement keeps the radio origin stable without creatin
   assert.equal(state.youtubeVideo.channel, "Mirror Upload");
   assert.equal(state.youtubeVideo.seedQuery, origin.seedQuery);
   assert.equal(state.youtubeVideo.genre, origin.genre);
-  assert.equal(state.youtubeVideo.radioSeedArtist, origin.channel);
+  assert.equal(state.youtubeVideo.radioSeedArtist, "origin artist");
   assert.deepEqual(state.playbackContext, {
     type: "radio",
     id: alternate.id,
