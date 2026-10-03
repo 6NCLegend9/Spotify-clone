@@ -16,16 +16,38 @@ test("captions remain user-controlled from settings to the player", async () => 
   assert.doesNotMatch(dock, /unloadModule.+captions/);
 });
 
-test("sleep timer UI is wired to the persistent timer controller", async () => {
-  const [hook, control] = await Promise.all([
+test("sleep timer is reachable from both active playback engines and catches up after suspension", async () => {
+  const [hook, control, youtube, nativePlayer, playerShell, presentation, queueOverlay] = await Promise.all([
     read("src/hooks/useSleepTimer.js"),
     read("src/components/MusicPlayer/SleepTimerControl.jsx"),
+    read("src/components/MusicPlayer/YouTubePlayer.jsx"),
+    read("src/components/MusicPlayer/Player.jsx"),
+    read("src/components/MusicPlayer/index.jsx"),
+    read("src/components/MusicPlayer/MediaPresentation.tsx"),
+    read("src/components/MusicPlayer/ExpandedPlayer.tsx"),
   ]);
+
   assert.match(hook, /createSleepTimer/);
   assert.match(hook, /trackChanged\(trackId\)/);
+  assert.match(hook, /visibilitychange/);
+  assert.match(hook, /pageshow/);
   assert.match(control, /aria-label="Sleep timer"/);
   assert.match(control, /value="track"/);
   assert.match(control, /value="60"/);
+
+  assert.match(youtube, /import SleepTimerControl from "\.\/SleepTimerControl"/);
+  assert.match(youtube, /enabled:\s*!jam\?\.code/);
+  assert.doesNotMatch(youtube, /useSleepTimer\(\{[\s\S]{0,180}enabled:\s*false/);
+  assert.match(youtube, /sleepControl=\{<SleepTimerControl timer=\{sleep\.timer\} onChange=\{sleep\.change\}/);
+
+  assert.match(nativePlayer, /import SleepTimerControl from "\.\/SleepTimerControl"/);
+  assert.doesNotMatch(nativePlayer, /useSleepTimer\(\{[\s\S]{0,180}enabled:\s*false/);
+  assert.match(nativePlayer, /onExpire:[\s\S]*?ref\.current\?\.pause\(\)[\s\S]*?dispatch\(playPause\(false\)\)/);
+  assert.match(nativePlayer, /showTimer[\s\S]*?<SleepTimerControl timer=\{sleep\.timer\} onChange=\{sleep\.change\}/);
+  assert.match(playerShell, /<Player[\s\S]*?showTimer=\{fullScreen\}/);
+
+  assert.match(presentation, /\{props\.sleepControl\}/);
+  assert.match(queueOverlay, /props\.sleepControl/);
 });
 
 test("expanded video lets the overlay own taps so hide/show cannot cancel itself", async () => {
