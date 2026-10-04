@@ -159,8 +159,10 @@ test("home playback preserves explicit occurrence selection and keeps continuati
   assert.match(slice, /resolveQueueStartIndex/);
   assert.match(slice, /action\.payload\?\.index/);
   assert.match(home, /const selectedIndex =/);
-  assert.match(home, /list\.slice\(selectedIndex\)/);
-  assert.match(home, /index:\s*0/);
+  assert.match(home, /const sourceQueue = collection \? list : list\.slice\(selectedIndex\)/);
+  assert.match(home, /const queueIndex = collection \? selectedIndex : 0/);
+  assert.match(home, /track:\s*selectedTrack/);
+  assert.match(home, /index:\s*queueIndex/);
   assert.match(home, /queueMode:\s*collection \? "collection" : "radio"/);
   assert.match(home, /autoExtend:\s*true/);
   assert.doesNotMatch(home, /autoExtend:\s*false/);
