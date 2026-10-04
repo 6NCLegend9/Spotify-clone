@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -35,7 +34,6 @@ import {
   editQueue,
   undoQueueEdit,
   expireQueueUndo,
-  startYoutubePlayback,
 } from "@/redux/features/playerSlice";
 import { createPlaylist } from "@/services/playlistApi";
 import useSleepTimer from "@/hooks/useSleepTimer";
@@ -62,7 +60,6 @@ import {
   JAM_REMOTE_SEEK_EVENT,
 } from "@/utils/jam.mjs";
 import { decodeTrackFields } from "@/utils/text";
-import { pickOneMoreTrack, shouldOfferOneMore } from "@/utils/oneMoreSong.mjs";
 import { buildRadioDiscoveryQueries, collectRadioArtistExclusions, diversifyRadioTracks, radioArtistIdentity } from "@/utils/radioSeed.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { createPlaybackClockStore, publishPlaybackTick } from "./playbackClock";
@@ -74,7 +71,6 @@ import { shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
 import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
 import { hiddenYoutubeViewportStyle, HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
 const ClockedCaptionKaraoke = dynamic(() => import("./ClockedCaptionKaraoke"), { ssr: false });
-const OneMoreSongCard = dynamic(() => import("./OneMoreSongCard"), { ssr: false });
 
 const handleThumbError = (event) => {
   if (event.currentTarget.src !== THUMB_FALLBACK) {
@@ -252,23 +248,14 @@ function YouTubePlayer() {
   const [addResults, setAddResults] = useState([]);
   const [addSearching, setAddSearching] = useState(false);
   const [addSearchError, setAddSearchError] = useState("");
-  const [oneMoreArmed, setOneMoreArmed] = useState(false);
-  const [oneMoreSuggestion, setOneMoreSuggestion] = useState(null);
-  const [oneMorePrefetch, setOneMorePrefetch] = useState(null);
   const [mediaTheater, setMediaTheater] = useState(false);
   const videoVisible = !dataSaver && !audioOnly;
   useWakeLock(shouldHoldPlaybackWakeLock({ isPlaying, mediaTheater, videoVisible }));
-  const oneMoreArmedRef = useRef(false);
-  const oneMoreSuggestionRef = useRef(null);
-  const oneMorePrefetchRef = useRef(null);
   const karaokeHasLinesRef = useRef(false);
   const karaokeSurface = Boolean(mediaTheater);
   const karaokeLines = useYoutubeCaptions(videoId, karaokeSurface && captionsEnabled);
   const karaokeHasLines = karaokeLines.length > 0;
   karaokeHasLinesRef.current = karaokeHasLines;
-  oneMoreArmedRef.current = oneMoreArmed;
-  oneMoreSuggestionRef.current = oneMoreSuggestion;
-  oneMorePrefetchRef.current = oneMorePrefetch;
   const autoExtendingRef = useRef(false);
   const lastExtendEmptyRef = useRef(false);
   const lastExtendAtRef = useRef(0);
@@ -2128,7 +2115,7 @@ function YouTubePlayer() {
   };
 
   const extendQueue = async () => {
-    if (oneMoreArmedRef.current || manualEndRef.current || autoExtendingRef.current || repeatRef.current) return [];
+    if (manualEndRef.current || autoExtendingRef.current || repeatRef.current) return [];
     if (lastExtendEmptyRef.current && Date.now() - lastExtendAtRef.current < 15000) return [];
     autoExtendingRef.current = true;
     lastExtendAtRef.current = Date.now();
@@ -2247,26 +2234,6 @@ function YouTubePlayer() {
     if (status === "authenticated" && current?.id) {
       recordPlayEvent(current.id, completed ? "completed" : "skipped");
     }
-    if (shouldOfferOneMore({
-      armed: oneMoreArmedRef.current,
-      completed,
-      radio: !manualEndRef.current,
-      jamGuest: false,
-    })) {
-      oneMoreArmedRef.current = false;
-      setOneMoreArmed(false);
-      userPausedRef.current = true;
-      trackChangeUntilRef.current = 0;
-      getActivePlayer()?.pauseVideo?.();
-      dispatch(playPause(false));
-      const suggestion = oneMorePrefetchRef.current || {
-        title: "Radio paused after this track",
-        channel: "We couldn’t find a last related song.",
-      };
-      oneMoreSuggestionRef.current = suggestion;
-      setOneMoreSuggestion(suggestion);
-      return;
-    }
     markExpectPlaying();
     dispatch(playPause(true));
     const immediate = getNextVideo({ avoidId });
@@ -2306,10 +2273,10 @@ function YouTubePlayer() {
   const handlePrevRef = useRef(() => {});
 
   useEffect(() => {
-    if (!video?.id || isJamGuest || repeat || queueManualEnd || oneMoreArmed) return;
+    if (!video?.id || isJamGuest || repeat || queueManualEnd) return;
     if (remainingAfterCurrent() > 2) return;
     void extendQueueRef.current();
-  }, [isJamGuest, video?.id, video?.queueEntryId, safeQueue.length, repeat, queueManualEnd, oneMoreArmed]);
+  }, [isJamGuest, video?.id, video?.queueEntryId, safeQueue.length, repeat, queueManualEnd]);
 
   const searchForQueueTracks = async () => {
     const query = addQuery.trim();
@@ -2397,61 +2364,6 @@ function YouTubePlayer() {
     window.addEventListener("heykasa:media-theater", onTheater);
     return () => window.removeEventListener("heykasa:media-theater", onTheater);
   }, []);
-
-  useEffect(() => {
-    oneMoreArmedRef.current = false;
-    setOneMoreArmed(false);
-    setOneMoreSuggestion(null);
-    oneMoreSuggestionRef.current = null;
-    setOneMorePrefetch(null);
-    oneMorePrefetchRef.current = null;
-  }, [videoId, video?.queueEntryId]);
-
-  useEffect(() => {
-    if (!oneMoreArmed || !video?.id || isJamGuest || queueManualEnd) {
-      setOneMorePrefetch(null);
-      oneMorePrefetchRef.current = null;
-      return undefined;
-    }
-    let active = true;
-    const list = Array.isArray(queueRef.current) ? queueRef.current : [];
-    const origin = (
-      playbackContext?.type === "radio" && playbackContext?.id
-        ? list.find((item) => item?.id === playbackContext.id)
-        : null
-    ) || list[0] || video;
-    const [seed = "popular music mix"] = buildRadioDiscoveryQueries(video, {
-      originTrack: origin,
-      contextName: playbackContext?.name || origin?.seedQuery || "",
-      limit: 1,
-    });
-    const oneMoreParams = new URLSearchParams({ type: "video", q: seed });
-    const seedArtist = String(origin?.radioSeedArtist || radioArtistIdentity(origin) || "").trim();
-    if (seedArtist) oneMoreParams.set("seedArtist", seedArtist);
-    requestJson(buildYoutubeSearchUrl(oneMoreParams, "radio"), {
-      fallbackTitle: "Related song unavailable",
-      fallbackMessage: "We couldn’t find a last song to suggest.",
-    })
-      .then((data) => {
-        if (!active) return;
-        const queuedTracks = Array.isArray(queueRef.current) ? queueRef.current : [];
-        const next = pickOneMoreTrack(data?.results, {
-          current: video,
-          currentId: video.id,
-          queue: queuedTracks,
-          queuedIds: queuedTracks.map((item) => item.id),
-          history: playbackHistory,
-        });
-        oneMorePrefetchRef.current = next;
-        setOneMorePrefetch(next);
-      })
-      .catch(() => {
-        if (!active) return;
-        oneMorePrefetchRef.current = null;
-        setOneMorePrefetch(null);
-      });
-    return () => { active = false; };
-  }, [isJamGuest, oneMoreArmed, playbackContext?.id, playbackContext?.name, playbackContext?.type, playbackHistory, queueManualEnd, video]);
 
   useEffect(() => {
     if (!videoId || !apiReady || transitionMode === "off" || dataSaver) return;
@@ -2661,12 +2573,6 @@ function YouTubePlayer() {
     if (isJamGuestRef.current) {
       jamRef.current?.requestAuxSkip?.();
       return;
-    }
-    if (!completed) {
-      oneMoreArmedRef.current = false;
-      setOneMoreArmed(false);
-      setOneMoreSuggestion(null);
-      oneMoreSuggestionRef.current = null;
     }
     // A finished track has already faded out via the near-end ramp.
     if (completed) {
@@ -3078,18 +2984,6 @@ function YouTubePlayer() {
         videoAvailable={videoVisible}
         playbackClock={playbackClock}
         onLyrics={syncedLyrics !== false ? toggleLyrics : undefined}
-        onOneMore={!isJamGuest && queueMode !== "collection" && !queueManualEnd && !repeat ? () => {
-          setOneMoreArmed((value) => {
-            const next = !value;
-            oneMoreArmedRef.current = next;
-            if (!next) {
-              setOneMoreSuggestion(null);
-              oneMoreSuggestionRef.current = null;
-            }
-            return next;
-          });
-        } : undefined}
-        oneMoreArmed={oneMoreArmed}
       />
       {pipFloat && !videoVisible && <FloatingPlayer track={video} playing={isPlaying} disabled={isJamGuest} onPlayPause={handlePlayPause} onNext={() => handleNext()} onClose={closePictureInPicture} />}
       {pipWindow && pipMountRef.current && (
@@ -3107,32 +3001,6 @@ function YouTubePlayer() {
           onClose={closePictureInPicture}
         />
       )}
-      {oneMoreSuggestion && typeof document !== "undefined" ? createPortal(
-        <div className="one-more-layer">
-          <OneMoreSongCard
-            track={oneMoreSuggestion}
-            onPlay={(track) => {
-              setOneMoreSuggestion(null);
-              oneMoreSuggestionRef.current = null;
-              oneMoreArmedRef.current = false;
-              setOneMoreArmed(false);
-              if (!track?.id) return;
-              dispatch(startYoutubePlayback({
-                track,
-                queue: [track],
-                queueMode: "collection",
-                autoExtend: false,
-                context: { type: "one-more", name: "One more song" },
-              }));
-            }}
-            onDismiss={() => {
-              setOneMoreSuggestion(null);
-              oneMoreSuggestionRef.current = null;
-            }}
-          />
-        </div>,
-        document.body,
-      ) : null}
     </div>
   );
 }
