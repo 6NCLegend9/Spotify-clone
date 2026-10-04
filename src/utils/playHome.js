@@ -23,7 +23,17 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0, options = {}) {
     const artist = cleanArtist(start.channel);
     const title = cleanTitle(start.title || start.name);
     const seedQuery = start.seedQuery || start.genre || [artist, title].filter(Boolean).join(" ");
-    const queue = list.slice(selectedIndex).map((track) => {
+    const playlistContext = options.playlistId || options.playlistName
+      ? {
+          type: "playlist",
+          id: String(options.playlistId || start.id),
+          name: options.playlistName || title || "Playlist",
+        }
+      : null;
+    const collection = options.queueMode === "collection" || Boolean(playlistContext)
+      || options.context?.type === "playlist";
+    const sourceQueue = collection ? list : list.slice(selectedIndex);
+    const queue = sourceQueue.map((track) => {
       const trackArtist = cleanArtist(track.channel);
       const trackTitle = cleanTitle(track.title || track.name);
       const trackSeed = track.seedQuery || track.genre || seedQuery
@@ -35,21 +45,13 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0, options = {}) {
         genre: track.genre || trackArtist || trackSeed,
       };
     });
-    const radioTrack = queue[0];
-    const playlistContext = options.playlistId || options.playlistName
-      ? {
-          type: "playlist",
-          id: String(options.playlistId || start.id),
-          name: options.playlistName || title || "Playlist",
-        }
-      : null;
+    const queueIndex = collection ? selectedIndex : 0;
+    const selectedTrack = queue[queueIndex] || queue[0];
 
-    const collection = options.queueMode === "collection" || Boolean(playlistContext)
-      || options.context?.type === "playlist";
     dispatch(startYoutubePlayback({
       queue,
-      track: radioTrack,
-      index: 0,
+      track: selectedTrack,
+      index: queueIndex,
       queueMode: collection ? "collection" : "radio",
       autoExtend: true,
       context: options.context || playlistContext || {
