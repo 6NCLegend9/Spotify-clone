@@ -551,6 +551,8 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
           className={`${styles.art} ${showingVideo ? styles.videoArt : ""} ${expanded ? styles.expandedArt : ""}`}>
           {(!showingVideo || showVideoPoster) && <img src={props.track.thumbnail || "/icon-192x192.png"} alt={`Artwork for ${props.track.title}`} width={480} height={480}
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />}
+          {mobile && showingVideo && !expanded && entering && <button type="button" data-testid="mobile-expand-video"
+            aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
         </div>
         {!expanded && <>
           <div className={styles.mediaTools}>{modeButton}</div>{metadata}
@@ -597,7 +599,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       {!expanded && <div className={styles.gestureSurface} aria-hidden="true"
         onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture}
         onClick={toggleMediaControls} onPointerMove={moveMediaPointer} />}
-      {!expanded && <button type="button" data-testid={mobile ? "mobile-expand-video" : undefined} aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
+      {!expanded && (!mobile || (!entering && !closing)) && <button type="button" data-testid={mobile ? "mobile-expand-video" : undefined} aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
     </>, mediaHost)}
     <span hidden data-kasa-media-view={overlay ? (expanded ? "expanded" : "drawer") : showingVideo ? "video" : "audio"} />
     {!mobile && !overlay && slot && createPortal(<section className={styles.panel} aria-label="Current track media" onClick={(event) => event.stopPropagation()}>{content}</section>, slot)}
