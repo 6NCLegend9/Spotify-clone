@@ -45,7 +45,6 @@ export interface PlayerDockProps {
   onQueueUndo?: () => void;
   canUndoQueue?: boolean;
   onSaveQueue?: (name: string) => Promise<void>;
-  sleepControl?: ReactNode;
   onSelect: (track: PlayerTrack) => void;
   onPip: () => void;
   pipActive: boolean;
