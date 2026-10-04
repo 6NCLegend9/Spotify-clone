@@ -10,6 +10,7 @@ import Link from "next/link";
 import { FaDiscord } from "react-icons/fa";
 import { FiCheck, FiLogOut, FiSave, FiSettings } from "react-icons/fi";
 import { getDiscordPresenceStatus, subscribeDiscordPresenceStatus } from "@/utils/discordPresenceStatus";
+import { discordPresenceTransport } from "@/lib/discordPresenceClient";
 import DeleteAccountForm from "@/components/DeleteAccountForm";
 import ExportDataButton from "@/components/ExportDataButton";
 import UserMessage from "@/components/UserMessage";
@@ -69,51 +70,44 @@ function Toggle({ label, description, checked, onChange }) {
   );
 }
 
-function discordStatusCopy(status, configured) {
-  if (!configured) {
-    return "Add a Discord application client ID and secret to enable listening activity.";
+function discordStatusCopy(status, transport) {
+  if (transport === "desktop-unsupported") {
+    return "This HayKasa Desktop version is too old for native Discord presence. Update the desktop app first.";
+  }
+  if (transport === "unavailable") {
+    return "Discord Rich Presence is available in HayKasa Desktop for Windows.";
+  }
+  if (transport === "local-development-bridge" && status.state === "idle") {
+    return "Local development bridge detected. Play a song with Discord Desktop open to test Rich Presence.";
   }
   switch (status.state) {
     case "connected":
       return status.detail ? `Showing “${status.detail}” on Discord.` : "Connected to Discord.";
     case "connecting":
-      return "Connecting to Discord desktop…";
+      return "Connecting to Discord Desktop…";
     case "private":
       return "Private session is hiding Discord activity.";
     case "off":
       return "Discord listening activity is turned off.";
     case "unavailable":
-      return "Discord desktop is not open on this computer.";
+      return "Discord Desktop is not open on this computer.";
     case "error":
       return status.detail || "Discord could not update your listening activity.";
     default:
-      return "Play a song with Discord desktop open to share what you are listening to.";
+      return "Play a song with Discord Desktop open to share what you are listening to.";
   }
 }
 
 function DiscordPresenceHint() {
-  const [configured, setConfigured] = useState(null);
+  const [transport, setTransport] = useState("checking");
   const [status, setStatus] = useState(getDiscordPresenceStatus);
   useEffect(() => subscribeDiscordPresenceStatus(setStatus), []);
   useEffect(() => {
-    let cancelled = false;
-    requestJson("/api/discord/config", {
-      fallbackTitle: "Discord status unavailable",
-      fallbackMessage: "Could not check Discord presence configuration.",
-    })
-      .then((json) => {
-        if (!cancelled) setConfigured(json?.configured === true);
-      })
-      .catch(() => {
-        if (!cancelled) setConfigured(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    setTransport(discordPresenceTransport());
   }, []);
   return (
     <p className="mt-3 text-xs leading-5 text-[#9aa8b5]">
-      {configured === null ? "Checking Discord connection…" : discordStatusCopy(status, configured)}
+      {transport === "checking" ? "Checking Discord connection…" : discordStatusCopy(status, transport)}
     </p>
   );
 }
