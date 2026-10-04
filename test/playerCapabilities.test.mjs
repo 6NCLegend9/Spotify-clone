@@ -177,17 +177,21 @@ test("legacy native Lyrics surface does not own YouTube queue transitions", asyn
 });
 
 
-test("mobile video expand control stays on the live media surface and inside the viewport", async () => {
+test("mobile video expand control survives sheet entry and live-host handoff", async () => {
   const [presentation, css] = await Promise.all([
     read("src/components/MusicPlayer/MediaPresentation.tsx"),
     read("src/components/MusicPlayer/mediaPresentation.module.css"),
   ]);
   assert.doesNotMatch(presentation, /drawerExpandButton/);
-  assert.match(presentation, /data-testid=\{mobile \? "mobile-expand-video" : undefined\}/);
   assert.match(
     presentation,
-    /!expanded && <button type="button" data-testid=\{mobile \? "mobile-expand-video" : undefined\} aria-label="Expand video"/,
+    /mobile && showingVideo && !expanded && entering && <button type="button" data-testid="mobile-expand-video"/,
   );
+  assert.match(
+    presentation,
+    /!expanded && \(!mobile \|\| \(!entering && !closing\)\) && <button type="button" data-testid=\{mobile \? "mobile-expand-video" : undefined\}/,
+  );
+  assert.match(css, /\.art\s*\{[^}]*position:\s*relative;/s);
   assert.match(
     css,
     /\.expandButton\s*\{[^}]*width:\s*48px;[^}]*height:\s*48px;/s,
