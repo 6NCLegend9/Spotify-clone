@@ -1,15 +1,12 @@
 "use client";
 /* eslint-disable jsx-a11y/media-has-caption */
 import React, { useRef, useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import UserMessage from "@/components/UserMessage";
 import useAudioEq from "@/hooks/useAudioEq";
 import { bandsForPreset } from "@/utils/eqPresets";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
-import useSleepTimer from "@/hooks/useSleepTimer";
-import SleepTimerControl from "./SleepTimerControl";
-import { playPause } from "@/redux/features/playerSlice";
 import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
 import { playNativeAudio } from "@/utils/nativeAudio.mjs";
@@ -27,20 +24,9 @@ const Player = ({
   handleNextSong,
   setSeekTime,
   appTime,
-  showTimer = false,
 }) => {
   const ref = useRef(null);
-  const dispatch = useDispatch();
   const owner = useSelector((state) => state.player.playbackOwner);
-  const sleep = useSleepTimer({
-    owner,
-    trackId: activeSong?.id,
-    onExpire: () => {
-      ref.current?.pause();
-      dispatch(playPause(false));
-    },
-  });
-  const checkSleep = sleep.check;
   const handlePlayPauseRef = useRef(handlePlayPause);
   const mediaActionsRef = useRef({});
   const [playbackError, setPlaybackError] = useState(null);
@@ -86,7 +72,6 @@ const Player = ({
       audio.pause();
       return;
     }
-    if (checkSleep()) return;
 
     if (!audioSource) {
       setPlaybackError(toUserError(
@@ -105,7 +90,7 @@ const Player = ({
       ));
       handlePlayPauseRef.current?.();
     });
-  }, [audioSource, isPlaying, checkSleep, resumeContext]);
+  }, [audioSource, isPlaying, resumeContext]);
 
   const handleAudioError = (event) => {
     const mediaError = event.currentTarget.error;
@@ -119,7 +104,6 @@ const Player = ({
   };
 
   const retryPlayback = () => {
-    if (checkSleep()) return;
     if (!audioSource || !ref.current) {
       setPlaybackError(toUserError(
         { code: "PLAYBACK_ERROR" },
@@ -187,8 +171,7 @@ const Player = ({
     };
 
     setAction("play", () => {
-      if (checkSleep()) return;
-      playNativeAudio(ref.current, resumeContext).catch((error) => {
+        playNativeAudio(ref.current, resumeContext).catch((error) => {
         if (error.name === "AbortError") return;
         setPlaybackError(toUserError({ code: "PLAYBACK_ERROR", cause: error }));
         if (mediaActionsRef.current.isPlaying) {
@@ -219,7 +202,7 @@ const Player = ({
       ["play", "pause", "previoustrack", "nexttrack", "seekbackward", "seekforward", "seekto"]
         .forEach((action) => setAction(action, null));
     };
-  }, [activeSong?.name, activeSong?.title, albumName, artistName, artwork, checkSleep, resumeContext]);
+  }, [activeSong?.name, activeSong?.title, albumName, artistName, artwork, resumeContext]);
 
   useEffect(() => {
     if ("mediaSession" in navigator) {
@@ -256,8 +239,8 @@ const Player = ({
         src={audioSource}
         ref={ref}
         crossOrigin="anonymous"
-        loop={repeat && sleep.timer?.mode !== "track"}
-        onEnded={(event) => { insights.finish("completed"); if (!sleep.check(activeSong?.id)) onEnded?.(event); }}
+        loop={repeat}
+        onEnded={(event) => { insights.finish("completed"); onEnded?.(event); }
         onPlaying={() => recordDiagnostic("playback_state", { code: "playing" })}
         onPause={() => recordDiagnostic("playback_state", { code: "paused" })}
         onWaiting={() => recordDiagnostic("playback_state", { code: "buffering" })}
@@ -265,7 +248,7 @@ const Player = ({
         onLoadedData={(event) => {
           setPlaybackError(null);
           onLoadedData?.(event);
-          if (mediaActionsRef.current.isPlaying && !checkSleep()) {
+          if (mediaActionsRef.current.isPlaying) {
             playNativeAudio(event.currentTarget, resumeContext).catch((error) => {
               if (error.name === "AbortError") return;
             });
@@ -273,11 +256,6 @@ const Player = ({
         }}
         onError={handleAudioError}
       />
-      {showTimer ? (
-        <div className="w-full max-w-sm py-3" onClick={(event) => event.stopPropagation()}>
-          <SleepTimerControl timer={sleep.timer} onChange={sleep.change} />
-        </div>
-      ) : null}
       {playbackError ? (
         <div className="mt-2 w-full max-w-md" onClick={(event) => event.stopPropagation()}>
           <UserMessage
