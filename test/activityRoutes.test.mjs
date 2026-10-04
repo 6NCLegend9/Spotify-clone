@@ -23,8 +23,13 @@ const fixtures = globalThis.__activityFixtures = {
 };
 const history = await import('../src/app/api/history/route.js');
 const searches = await import('../src/app/api/searches/route.js');
-const request = (body, method = 'DELETE') => new Request('http://localhost/api/activity', {
-  method, headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body),
+const request = (body, method = 'DELETE') => new Request('http://localhost:3000/api/activity', {
+  method,
+  headers: {
+    'content-type': 'application/json',
+    origin: 'http://localhost:3000',
+  },
+  body: typeof body === 'string' ? body : JSON.stringify(body),
 });
 beforeEach(() => {
   document = { _id: 'listener', __v: 0, songHistory: [{ id: 'abcdefghijk', title: 'One' }, { id: 'lmnopqrstuv', title: 'Two' }], searches: ['One', 'Two'], settings: {} };

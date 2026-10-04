@@ -71,3 +71,23 @@ test("provider workflow reports verified versus inconclusive playback explicitly
   assert.match(workflow, /YouTube playback verification inconclusive/);
   assert.match(workflow, /next\.config\.js/);
 });
+
+
+test("real provider workflow covers desktop and both mobile browser engines", () => {
+  const workflow = fs.readFileSync(path.join(root, ".github/workflows/youtube-provider-smoke.yml"), "utf8");
+  const spec = fs.readFileSync(path.join(root, "e2e/youtube-provider.spec.js"), "utf8");
+  for (const project of ["chromium-desktop", "mobile-chrome", "mobile-safari"]) {
+    assert.match(workflow, new RegExp(`project:\\s*${project.replace("-", "\\-")}`));
+  }
+  assert.match(workflow, /\$\{\{ matrix\.project \}\}/);
+  assert.match(workflow, /\$\{\{ matrix\.browser \}\}/);
+  assert.match(spec, /testInfo\.project\.name\.startsWith\("mobile-"\)/);
+  assert.match(spec, /name:\s*"Expand video"/);
+});
+
+
+test("mobile Safari provider verification has a longer timeout budget than Chromium", () => {
+  const workflow = fs.readFileSync(path.join(root, ".github/workflows/youtube-provider-smoke.yml"), "utf8");
+  assert.match(workflow, /timeout-minutes:\s*\$\{\{\s*matrix\.timeout\s*\}\}/);
+  assert.match(workflow, /project:\s*mobile-safari[\s\S]*?browser:\s*webkit[\s\S]*?timeout:\s*40/);
+});

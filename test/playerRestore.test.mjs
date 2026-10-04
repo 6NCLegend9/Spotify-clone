@@ -128,3 +128,32 @@ test("Previous consumes listening history instead of walking backward through qu
   assert.equal(state.youtubeVideo.id, track.id);
   assert.deepEqual(state.history, []);
 });
+
+
+test("progress from an older duplicate occurrence cannot overwrite the current occurrence", () => {
+  const first = { id: "abcdefghijk", title: "First", queueEntryId: "context:1:abcdefghijk" };
+  const second = { id: "abcdefghijk", title: "Second", queueEntryId: "user:2:abcdefghijk", queueSource: "user" };
+  let state = reducer(undefined, restorePlayback({
+    owner: "guest",
+    snapshot: {
+      youtubeVideo: second,
+      youtubeQueue: [first, second],
+      position: 7,
+      queueMode: "collection",
+    },
+  }));
+
+  state = reducer(state, setPlaybackPosition({
+    id: first.id,
+    queueEntryId: first.queueEntryId,
+    position: 99,
+  }));
+  assert.equal(state.position, 7);
+
+  state = reducer(state, setPlaybackPosition({
+    id: second.id,
+    queueEntryId: second.queueEntryId,
+    position: 12,
+  }));
+  assert.equal(state.position, 12);
+});

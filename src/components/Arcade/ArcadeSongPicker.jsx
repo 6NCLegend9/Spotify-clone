@@ -7,6 +7,7 @@ import { requestJson } from "@/services/http";
 import { cleanTitle } from "@/utils/text";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { interactiveYoutubeSearchCache, normalizeSearchRequestKey } from "@/utils/searchRequestCache.mjs";
+import { queueWithoutCurrentOccurrence } from "@/utils/playerQueue.mjs";
 
 /**
  * Files are decoded in the browser so the chart can use real onsets.
@@ -63,6 +64,9 @@ export default function ArcadeSongPicker({
 
   const queue = Array.isArray(youtubeQueue) ? youtubeQueue.filter((item) => item?.id).slice(0, 20) : [];
   const current = youtubeVideo?.id ? youtubeVideo : null;
+  const queueChoices = current
+    ? [current, ...queueWithoutCurrentOccurrence(queue, current)]
+    : queue;
 
   return (
     <div className="glass-panel rounded-xl p-4">
@@ -132,8 +136,8 @@ export default function ArcadeSongPicker({
         <>
           {current || queue.length ? (
             <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto pr-1">
-              {(current ? [current, ...queue.filter((item) => item.id !== current.id)] : queue).map((track) => (
-                <li key={track.id}>
+              {queueChoices.map((track) => (
+                <li key={track.queueEntryId || track.id}>
                   <button
                     type="button"
                     onClick={() => onPickTrack(track)}

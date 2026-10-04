@@ -13,7 +13,7 @@ export default function MobileTabBar({ hidden = false }) {
 
   return (
     <nav
-      className={`app-tabbar md:hidden${hidden ? " is-hidden" : ""}`}
+      className={`app-tabbar phone-only-flex${hidden ? " is-hidden" : ""}`}
       aria-label="Primary"
       hidden={hidden}
       inert={hidden || undefined}

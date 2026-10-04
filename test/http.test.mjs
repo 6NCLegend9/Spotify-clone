@@ -91,3 +91,29 @@ test("cancellation during retry backoff does not issue another request", async (
   await assert.rejects(requestJson("/api/settings", { signal: controller.signal }), { name: "AbortError" });
   assert.equal(fetchMock.mock.callCount(), 1);
 });
+
+test("HTTP response failures keep their API status code out of the transport-error diagnostic path", async (context) => {
+  const previousWindow = globalThis.window;
+  globalThis.window = {};
+  const diagnostics = await import("../src/utils/diagnostics.mjs");
+  diagnostics.clearDiagnostics();
+  context.after(() => {
+    diagnostics.clearDiagnostics();
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  });
+
+  context.mock.method(globalThis, "fetch", async () =>
+    Response.json({ code: "RATE_LIMITED" }, { status: 429 }),
+  );
+
+  await assert.rejects(
+    requestJson("/api/settings", { retry: false }),
+    { code: "RATE_LIMITED", status: 429 },
+  );
+
+  const events = diagnostics.diagnosticSnapshot().events;
+  assert.deepEqual(events.map(({ code, status }) => ({ code, status })), [
+    { code: "RATE_LIMITED", status: 429 },
+  ]);
+});

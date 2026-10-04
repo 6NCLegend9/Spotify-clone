@@ -28,7 +28,7 @@ function restore() {
 
 test.afterEach(restore);
 
-test("desktop policy defaults native capabilities on with full rollout", async () => {
+test("desktop policy defaults native capabilities on with staged rollout", async () => {
   delete process.env.HEYKASA_DESKTOP_ENABLED;
   delete process.env.HEYKASA_DESKTOP_AUTH_ENABLED;
   delete process.env.HEYKASA_DESKTOP_DISCORD_ENABLED;
@@ -37,7 +37,7 @@ test("desktop policy defaults native capabilities on with full rollout", async (
   const response = await GET();
   const policy = await response.json();
   assert.equal(policy.maintenance, false);
-  assert.equal(policy.updateRolloutPercent, 100);
+  assert.equal(policy.updateRolloutPercent, 25);
   assert.deepEqual(policy.features, { auth: true, discord: true, updater: true });
 });
 

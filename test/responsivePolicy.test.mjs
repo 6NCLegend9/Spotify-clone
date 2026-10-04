@@ -93,15 +93,26 @@ test("initial media query matching uses the client matcher immediately and fails
 });
 
 test("responsive consumers do not own duplicate semantic breakpoint literals", async () => {
+  const { PHONE_LANDSCAPE_QUERY, DESKTOP_QUERY } = await policy();
   const hook = readFileSync(path.join(root, "src/hooks/useMediaQuery.js"), "utf8");
   const appShell = readFileSync(path.join(root, "src/components/Layout/AppShell.jsx"), "utf8");
   const searchbar = readFileSync(path.join(root, "src/components/Searchbar.jsx"), "utf8");
   const mediaPresentation = readFileSync(path.join(root, "src/components/MusicPlayer/MediaPresentation.tsx"), "utf8");
+  const playerVolume = readFileSync(path.join(root, "src/components/MusicPlayer/PlayerVolume.jsx"), "utf8");
+  const playerDockCss = readFileSync(path.join(root, "src/components/MusicPlayer/playerDock.module.css"), "utf8");
+  const kasaShellCss = readFileSync(path.join(root, "src/components/Layout/KasaShell.module.css"), "utf8");
+  const globalCss = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
 
+  assert.match(hook, /useIsMobile\(\)[\s\S]*useMediaQuery\(PHONE_QUERY\)/);
   assert.match(hook, /initialMediaQueryMatch/);
   assert.doesNotMatch(appShell, /max-width:\s*767px/);
   assert.doesNotMatch(searchbar, /max-width:\s*767px/);
   assert.doesNotMatch(mediaPresentation, /max-width:\s*1180px/);
+  assert.match(playerVolume, /useIsPhoneViewport/);
+  assert.doesNotMatch(playerVolume, /window\.matchMedia\(["']\(max-width:\s*1023px\)/);
+  assert.equal(playerDockCss.includes(`@media ${DESKTOP_QUERY}`), true);
+  assert.equal(kasaShellCss.includes(PHONE_LANDSCAPE_QUERY), true);
+  assert.equal(globalCss.includes(PHONE_LANDSCAPE_QUERY), true);
 });
 
 

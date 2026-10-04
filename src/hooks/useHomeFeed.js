@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import { setProgress } from "@/redux/features/loadingBarSlice";
-import { setAutoAdd } from "@/redux/features/playerSlice";
 import { requestJson } from "@/services/http";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { toUserError } from "@/utils/userError";
@@ -57,13 +56,6 @@ export default function useHomeFeed() {
   const [playlists, setPlaylists] = useState([]);
   const [releases, setReleases] = useState([]);
 
-  useEffect(() => {
-    try {
-      dispatch(setAutoAdd(localStorage.getItem("autoAdd") === "true"));
-    } catch {
-      dispatch(setAutoAdd(false));
-    }
-  }, [dispatch]);
 
   useEffect(() => {
     setHome({ owner, privateSession, data: null });

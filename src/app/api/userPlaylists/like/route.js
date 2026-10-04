@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import Playlist from "@/models/Playlist";
@@ -21,6 +22,7 @@ export const maxDuration = 15;
 const MAX_LIKED_PLAYLISTS = 500;
 
 export async function POST(req) {
+  if (!isTrustedRequestOrigin(req)) return apiError("FORBIDDEN");
   try {
     const { user, userData } = await getAuthenticatedAccount(req);
     const rateLimit = await isRateLimited(`playlist-like:${user._id}`, {

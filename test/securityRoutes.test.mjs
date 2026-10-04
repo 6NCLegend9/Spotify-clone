@@ -490,3 +490,34 @@ test("saving a queue creates a private playlist and rolls back if its account re
   assert.equal((await libraryRoute.DELETE(request("/api/userPlaylists", "DELETE", { playlistId: data.data.playlist._id }))).status, 200);
   assert.deepEqual(state.profiles["owner-data"].playlists, [playlistId]);
 });
+
+test("cookie-authenticated mutations reject foreign origins before account work", async () => {
+  const foreign = (path, method, body = {}) => new Request(`http://localhost:3000${path}`, {
+    method,
+    headers: { Origin: "https://foreign.example.test", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const cases = [
+    () => settingsRoute.PUT(foreign("/api/settings", "PUT", { normalization: "normal" })),
+    () => languageRoute.PUT(foreign("/api/language", "PUT", { language: ["English"] })),
+    () => libraryRoute.POST(foreign("/api/userPlaylists", "POST", { name: "Blocked", songs: [] })),
+    () => libraryRoute.PATCH(foreign("/api/userPlaylists", "PATCH", { playlistId, action: "visibility", value: "private" })),
+    () => libraryRoute.DELETE(foreign("/api/userPlaylists", "DELETE", { playlistId })),
+    () => songsRoute.POST(foreign("/api/userPlaylists/songs", "POST", { playlistID: playlistId, song: "abcdefghijk" })),
+    () => songsRoute.DELETE(foreign("/api/userPlaylists/songs", "DELETE", { playlistID: playlistId, song: "abcdefghijk" })),
+    () => likeRoute.POST(foreign("/api/userPlaylists/like", "POST", { playlistId, liked: true })),
+    () => genresRoute.POST(foreign("/api/genres", "POST", { genres: ["Pop"] })),
+    () => tagsRoute.POST(foreign("/api/tags", "POST", { tags: ["Chill"] })),
+    () => eventsRoute.POST(foreign("/api/playEvent", "POST", { id: "abcdefghijk", event: "completed" })),
+    () => eventsRoute.DELETE(foreign("/api/playEvent", "DELETE")),
+  ];
+
+  const writesBefore = state.writes;
+  const readsBefore = state.userReads + state.dataReads;
+  for (const invoke of cases) {
+    const response = await invoke();
+    assert.equal(response.status, 403);
+  }
+  assert.equal(state.writes, writesBefore);
+  assert.equal(state.userReads + state.dataReads, readsBefore);
+});

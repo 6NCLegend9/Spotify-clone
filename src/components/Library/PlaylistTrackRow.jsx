@@ -69,7 +69,7 @@ function PlaylistTrackRow({
           track={track}
           onRemove={removable ? () => onRemove(track) : undefined}
           removeLabel={liked ? "Remove from Liked Songs" : "Remove from playlist"}
-          className="text-gray-500 opacity-100 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
+          className="pointer-hover-action text-gray-500 hover:text-white"
         />
         {removable ? (
           <button
@@ -77,7 +77,7 @@ function PlaylistTrackRow({
             aria-label={liked ? `Remove ${title} from Liked Songs` : `Remove ${title} from playlist`}
             title={liked ? "Remove from Liked Songs" : "Remove from playlist"}
             onClick={() => onRemove(track)}
-            className="grid h-11 w-11 place-items-center rounded-full text-gray-500 opacity-100 hover:bg-white/10 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
+            className="pointer-hover-action grid h-11 w-11 place-items-center rounded-full text-gray-500 hover:bg-white/10 hover:text-white"
           >
             {liked ? <FiHeart className="fill-current text-[#00e6e6]" /> : <FiTrash2 />}
           </button>

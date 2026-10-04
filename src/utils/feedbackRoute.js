@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import UserData from "@/models/UserData";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 import { apiError, apiSuccess, handleApiError, readRequestJson } from "@/utils/apiResponse";
@@ -9,6 +10,7 @@ export function feedbackHandlers(field) {
   const headers = { "Cache-Control": "private, no-store" };
   const read = (profile) => field === "snoozedTracks" ? activeSnoozedTracks(profile) : profile[field] || [];
   const write = (remove) => async (request) => {
+    if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
     try {
       const { user, userData } = await getAuthenticatedAccount(request);
       const limit = await isRateLimited(`feedback:${user._id}`, { windowMs: 900_000, max: 100 });

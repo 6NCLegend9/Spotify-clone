@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import UserData from "@/models/UserData";
 import { EQ_PRESET_BANDS, migrateEqBands } from "@/utils/eqPresets";
@@ -91,6 +92,7 @@ export async function GET(request) {
 }
 
 export async function PUT(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData: accountData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`settings:${email}`, {

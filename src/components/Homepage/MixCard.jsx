@@ -58,7 +58,7 @@ export default function MixCard({ mix }) {
         0,
         {
           queueMode: "collection",
-          autoExtend: false,
+          autoExtend: true,
           playlistId: mix.playlistId || mix.id,
           playlistName: mix.title,
           context: {

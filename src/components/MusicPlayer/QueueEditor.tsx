@@ -5,6 +5,7 @@ import { GripVertical, ListX, Save, Trash2, Undo2 } from "lucide-react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import type { PlayerDockProps } from "./player.types";
 import { PlayerIconButton } from "./PlayerDock";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import TrackQueueMenu from "@/components/TrackQueueMenu";
 
@@ -250,14 +251,16 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
               className="grid h-12 w-10 shrink-0 touch-none cursor-grab place-items-center rounded text-[var(--muted)] hover:bg-white/10 hover:text-white active:cursor-grabbing"
             ><GripVertical size={18} /></button> : <span className="w-2 shrink-0" />}
             <ContextMenuTarget className="flex min-w-0 flex-1 items-center gap-1">
-              <button type="button" disabled={props.disabled} aria-current={index === currentIndex ? "true" : undefined} onClick={() => props.onSelect(track)} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded p-2 text-left hover:bg-white/10 aria-[current=true]:bg-white/10 disabled:opacity-50">
-                <img src={track.thumbnail || "/icon-192x192.png"} alt="" loading="lazy" width={40} height={40} className="h-10 w-10 shrink-0 rounded-[4px] object-cover" onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />
-                <span className="min-w-0">
-                  <span className="block break-words text-sm">{track.title}</span>
-                  <span className="block truncate text-xs text-[var(--muted)]">{track.channel}</span>
+              <div aria-current={index === currentIndex ? "true" : undefined} className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded p-2 text-left hover:bg-white/10 aria-[current=true]:bg-white/10">
+                <button type="button" disabled={props.disabled} aria-label={`Play ${track.title}`} onClick={() => props.onSelect(track)} className="shrink-0 disabled:opacity-50">
+                  <img src={track.thumbnail || "/icon-192x192.png"} alt="" loading="lazy" width={40} height={40} className="h-10 w-10 rounded-[4px] object-cover" onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />
+                </button>
+                <span className="min-w-0 flex-1">
+                  <button type="button" disabled={props.disabled} onClick={() => props.onSelect(track)} className="block w-full break-words text-left text-sm disabled:opacity-50">{track.title}</button>
+                  <ArtistNameLink channelId={track.channelId} name={track.channel} className="mt-0.5 block truncate text-xs text-[var(--muted)] hover:text-[var(--teal)] hover:underline" />
                 </span>
                 {track.queueSource === "user" && <span className="shrink-0 rounded-full border border-[var(--hairline-cyan)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--teal)]">Queued</span>}
-              </button>
+              </div>
               {!props.disabled && <TrackQueueMenu
                 track={track}
                 onRemove={movable ? () => { props.onQueueEdit?.({ kind: "remove", index }); setMessage(`${track.title} removed. Undo is available.`); } : undefined}

@@ -21,7 +21,7 @@ test("large playlist rendering isolates row work from unrelated player state", a
   );
 
   assert.match(detail, /state\.player\.youtubeVideo\?\.id/);
-  assert.match(detail, /state\.player\.autoAdd/);
+  assert.doesNotMatch(detail, /state\.player\.autoAdd|setAutoAdd/);
   assert.doesNotMatch(detail, /const \{ youtubeVideo, autoAdd \} = useSelector\(\(state\) => state\.player\)/);
   assert.match(detail, /handleRowPlay/);
   assert.match(detail, /handleRowRemove/);

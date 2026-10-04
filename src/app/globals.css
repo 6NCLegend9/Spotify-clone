@@ -276,6 +276,76 @@ select:-webkit-autofill {
   }
 }
 
+
+/* Responsive semantics shared by shell/navigation callers.
+   PHONE_LANDSCAPE_QUERY is contract-tested against responsivePolicy.mjs so
+   first paint does not depend on hydration before correcting a rotated phone. */
+.phone-only-block { display: block !important; }
+.phone-only-flex { display: flex !important; }
+.phone-only-grid { display: grid !important; }
+.phone-only-inline { display: inline !important; }
+.phone-only-inline-flex { display: inline-flex !important; }
+.phone-wide-only-flex,
+.non-phone-only-flex,
+.non-phone-only-inline-flex { display: none !important; }
+.pointer-fine-only-grid { display: none !important; }
+.pointer-hover-action { opacity: 1; }
+.jam-fab-docked {
+  position: fixed;
+  right: 0.75rem;
+  bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 25;
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .phone-wide-only-flex { display: flex !important; }
+}
+
+@media (min-width: 768px) {
+  .phone-only-block,
+  .phone-only-flex,
+  .phone-only-grid,
+  .phone-only-inline,
+  .phone-only-inline-flex { display: none !important; }
+  .non-phone-only-flex { display: flex !important; }
+  .non-phone-only-inline-flex { display: inline-flex !important; }
+  .jam-fab-docked {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pointer-fine-only-grid { display: grid !important; }
+  .group .pointer-hover-action {
+    opacity: 0;
+    transition: opacity var(--motion-fast) ease;
+  }
+  .group:hover .pointer-hover-action,
+  .group:focus-within .pointer-hover-action {
+    opacity: 1;
+  }
+}
+
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px) {
+  .phone-only-block { display: block !important; }
+  .phone-only-flex { display: flex !important; }
+  .phone-only-grid { display: grid !important; }
+  .phone-only-inline { display: inline !important; }
+  .phone-only-inline-flex { display: inline-flex !important; }
+  .phone-wide-only-flex { display: flex !important; }
+  .non-phone-only-flex,
+  .non-phone-only-inline-flex { display: none !important; }
+  .phone-landscape-hidden { display: none !important; }
+  .jam-fab-docked {
+    position: fixed;
+    right: 0.75rem;
+    bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
+    z-index: 25;
+  }
+}
+
 @layer components {
   .app-shell {
     display: grid;
@@ -1916,13 +1986,16 @@ select:-webkit-autofill {
   }
 
   .player-volume-popover {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 0.5rem);
-    z-index: 40;
+    position: fixed;
+    z-index: 150;
+    display: flex;
+    width: 9.5rem;
+    min-width: 9.5rem;
+    align-items: center;
+    justify-content: center;
     border-radius: 0.85rem;
     border: 1px solid var(--hairline);
-    background: rgba(7, 18, 29, 0.94);
+    background: rgba(7, 18, 29, 0.96);
     padding: 0.75rem 0.85rem;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), var(--inset-shine);
     backdrop-filter: blur(12px);
@@ -2615,59 +2688,6 @@ select:-webkit-autofill {
   font-size: clamp(0.8rem, 1.6vw, 1.05rem);
 }
 
-.one-more-layer {
-  position: fixed;
-  inset: auto 16px calc(108px + env(safe-area-inset-bottom, 0px));
-  z-index: 130;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.one-more-card {
-  pointer-events: auto;
-  width: min(100%, 420px);
-  padding: 18px 20px 16px;
-  border: 1px solid var(--hairline-cyan);
-  border-radius: 16px;
-  background: linear-gradient(160deg, rgba(8, 24, 36, 0.96), rgba(2, 10, 18, 0.96));
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
-}
-
-.one-more-kicker {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--teal);
-}
-
-.one-more-title {
-  margin: 8px 0 4px;
-  font-size: 1.15rem;
-  font-weight: 750;
-  color: #fff;
-}
-
-.one-more-channel {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.one-more-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-@media (max-width: 767px) {
-  .one-more-layer {
-    inset: auto 12px calc(var(--mobile-player-h, 72px) + 12px + env(safe-area-inset-bottom, 0px));
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .caption-karaoke-now,

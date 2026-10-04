@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import * as jam from "../src/utils/jam.mjs";
 import {
   EMPTY_JAM_MS,
   JAM_CODE_ALPHABET,
@@ -135,4 +136,33 @@ test("jam session persistence survives refresh and rejects corrupt values", () =
     if (previousWindow === undefined) delete globalThis.window;
     else globalThis.window = previousWindow;
   }
+});
+
+
+test("jam sync treats duplicate video IDs as different queue occurrences", () => {
+  assert.equal(typeof jam.jamTrackOccurrenceChanged, "function");
+  const first = { id: "samevideo01", queueEntryId: "context:1:samevideo01" };
+  const second = { id: "samevideo01", queueEntryId: "user:2:samevideo01" };
+  assert.equal(jam.jamTrackOccurrenceChanged(first, second), true);
+  assert.equal(jam.jamTrackOccurrenceChanged(first, first), false);
+  assert.equal(jam.jamTrackOccurrenceChanged({ id: first.id }, { id: first.id }), false);
+  assert.equal(jam.jamTrackOccurrenceChanged({ id: "one" }, { id: "two" }), true);
+});
+
+
+test("jam playback positions are scoped to the matching queue occurrence", () => {
+  assert.equal(typeof jam.jamPlaybackPositionMatchesTrack, "function");
+  const first = { id: "samevideo01", queueEntryId: "context:1:samevideo01" };
+  const second = { id: "samevideo01", queueEntryId: "user:2:samevideo01" };
+  assert.equal(jam.jamPlaybackPositionMatchesTrack({
+    videoId: first.id,
+    queueEntryId: first.queueEntryId,
+    currentTime: 42,
+  }, first), true);
+  assert.equal(jam.jamPlaybackPositionMatchesTrack({
+    videoId: first.id,
+    queueEntryId: first.queueEntryId,
+    currentTime: 42,
+  }, second), false);
+  assert.equal(jam.jamPlaybackPositionMatchesTrack({ videoId: first.id, currentTime: 42 }, second), true);
 });

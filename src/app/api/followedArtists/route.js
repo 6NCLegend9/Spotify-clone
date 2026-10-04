@@ -1,3 +1,4 @@
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
@@ -27,6 +28,7 @@ export async function GET(request) {
 // Toggles a followed channel/artist by name (the name is the recommendations seed);
 // channelId/thumbnail are also stored so the UI can link to the profile and show releases.
 export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`followed-artists:${email}`, {
@@ -78,6 +80,7 @@ export async function POST(request) {
 // follows, without toggling the follow. Used to repair legacy follows that were saved
 // with only a name so the Following page can show avatars and link to the channel.
 export async function PATCH(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
   try {
     const { userData, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`followed-artists-meta:${email}`, {

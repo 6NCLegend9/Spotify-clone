@@ -73,13 +73,13 @@ const Navbar = () => {
   return (
     <header className={`app-navbar ${styles.navbar} ${pathname?.startsWith("/search") ? styles.searchRoute : ""}`}>
       <div className="navbar-slot navbar-slot-start">
-        <button type="button" onClick={() => setShowNav(true)} className="icon-btn h-11 w-11 shrink-0 md:hidden" aria-label="Open menu" aria-expanded={navModal} aria-controls="app-sidebar">
+        <button type="button" onClick={() => setShowNav(true)} className="icon-btn phone-only-grid h-11 w-11 shrink-0" aria-label="Open menu" aria-expanded={navModal} aria-controls="app-sidebar">
           <MdOutlineMenu aria-hidden="true" className="text-xl" />
         </button>
-        <button type="button" onClick={goBack} disabled={!historyState.canBack} className="icon-btn h-11 w-11 shrink-0 md:hidden disabled:cursor-not-allowed disabled:opacity-35" aria-label="Go back" title="Go back">
+        <button type="button" onClick={goBack} disabled={!historyState.canBack} className="icon-btn phone-only-grid h-11 w-11 shrink-0 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Go back" title="Go back">
           <FiChevronLeft aria-hidden="true" size={22} />
         </button>
-        <div className="hidden shrink-0 sm:flex md:hidden">
+        <div className="phone-wide-only-flex shrink-0">
           <BrandMark compact />
         </div>
         <div className={styles.history} aria-label="Navigation history">

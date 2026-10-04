@@ -85,7 +85,7 @@ No dependency or lockfile changes are needed.
    token happens to be current when an old callback arrives. All volume values use 0..1 at
    the port; provider-specific unit conversion belongs in the adapter.
 3. Preserve retry/skip recovery, Jam host/guest permissions, media-session callbacks, keyboard
-   handling, sleep timers, wake locks and account isolation when replacing transport callbacks.
+   handling, wake locks and account isolation when replacing transport callbacks.
    Audio/video presentation changes must not create another controller or reparent an iframe.
 4. Replace paired queue/track dispatches with atomic context selection. Map actual source
    metadata from PlaylistDetail, SongsList, ArtistProfile, Home and search results. Do not

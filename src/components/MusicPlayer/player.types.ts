@@ -9,6 +9,7 @@ export interface PlayerTrack {
   id: string;
   title: string;
   channel?: string;
+  channelId?: string;
   thumbnail?: string;
   queueEntryId?: string;
   queueSource?: "user" | "context";
@@ -44,7 +45,6 @@ export interface PlayerDockProps {
   onQueueUndo?: () => void;
   canUndoQueue?: boolean;
   onSaveQueue?: (name: string) => Promise<void>;
-  sleepControl?: ReactNode;
   onSelect: (track: PlayerTrack) => void;
   onPip: () => void;
   pipActive: boolean;
@@ -53,6 +53,4 @@ export interface PlayerDockProps {
   videoAvailable?: boolean;
   playbackClock?: PlaybackClockStore;
   onLyrics?: () => void;
-  onOneMore?: () => void;
-  oneMoreArmed?: boolean;
 }

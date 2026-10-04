@@ -116,7 +116,7 @@ test("manual desktop release publishes complete GitHub Release bundles without V
   assert.match(release, /Validate release version monotonicity/);
   assert.match(release, /validate-release-version\.mjs/);
   assert.match(release, /npm run prepare-github-release/);
-  assert.match(release, /softprops\/action-gh-release@v2/);
+  assert.match(release, /softprops\/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65/);
   assert.match(release, /desktop-v\$\{\{ inputs\.version \}\}/);
   assert.match(release, /desktop-beta-v\$\{\{ inputs\.version \}\}/);
   assert.match(release, /desktop-internal-v\$\{\{ inputs\.version \}\}/);
@@ -153,4 +153,50 @@ test("desktop window can traverse responsive breakpoints without crushing conten
   assert.match(css, /min-width:\s*768px\) and \(max-width:\s*1099px/);
   assert.match(css, /min-width:\s*1100px\) and \(max-width:\s*1359px/);
   assert.match(css, /@media \(min-width:\s*1360px\)/);
+});
+
+
+test("desktop release workflow pins supply-chain actions to reviewed immutable commits", () => {
+  const release = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
+  assert.match(release, /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/);
+  assert.match(release, /actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/);
+  assert.match(release, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
+  assert.match(release, /actions\/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131/);
+  assert.match(release, /softprops\/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65/);
+  assert.doesNotMatch(release, /uses:\s*(?:actions\/(?:checkout|setup-node|upload-artifact|download-artifact)|softprops\/action-gh-release)@v\d/);
+});
+
+test("desktop release fails closed on reused version tags and requires stable release notes", () => {
+  const release = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
+  assert.match(release, /Reject existing versioned release/);
+  assert.match(release, /git\/ref\/tags/);
+  assert.match(release, /releases\/tags/);
+  assert.match(release, /Stable releases require an HTTPS release notes URL/);
+  assert.match(release, /HEYKASA_DESKTOP_RELEASE_NOTES_URL/);
+});
+
+test("signed publication verifies the live production manifest, update feed, and installer route", () => {
+  const release = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
+  const verifier = readFileSync(join(projectRoot, "scripts/verify-desktop-production-release.mjs"), "utf8");
+  assert.match(release, /Verify production desktop release endpoints/);
+  assert.match(release, /verify-desktop-production-release\.mjs/);
+  assert.match(verifier, /\/api\/desktop\/manifest/);
+  assert.match(verifier, /\/api\/desktop\/update\//);
+  assert.match(verifier, /\/api\/desktop\/download/);
+  assert.match(verifier, /sha512/);
+  assert.match(verifier, /sizeBytes/);
+  assert.match(verifier, /releaseNotesUrl/);
+});
+
+
+test("all GitHub workflows pin external actions to immutable commit SHAs", () => {
+  const workflowDir = join(projectRoot, ".github", "workflows");
+  for (const name of readdirSync(workflowDir).filter((file) => /\.ya?ml$/.test(file))) {
+    const workflow = readFileSync(join(workflowDir, name), "utf8");
+    const refs = [...workflow.matchAll(/uses:\s*([^\s#]+)/g)].map((match) => match[1]);
+    for (const ref of refs) {
+      if (ref.startsWith("./") || ref.startsWith("docker://")) continue;
+      assert.match(ref, /@[0-9a-f]{40}$/i, `${name} contains a mutable action reference: ${ref}`);
+    }
+  }
 });

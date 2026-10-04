@@ -2,7 +2,6 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import {
-  PHONE_PORTRAIT_QUERY,
   PHONE_QUERY,
   initialMediaQueryMatch,
 } from "@/utils/responsivePolicy.mjs";
@@ -41,7 +40,7 @@ export function useMediaQuery(query) {
 export default useMediaQuery;
 
 export function useIsMobile() {
-  return useMediaQuery(PHONE_PORTRAIT_QUERY);
+  return useMediaQuery(PHONE_QUERY);
 }
 
 export const PHONE_VIEWPORT_QUERY = PHONE_QUERY;

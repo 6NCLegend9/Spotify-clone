@@ -5,7 +5,7 @@ import { Innertube, Log, UniversalCache } from "youtubei.js";
 import { cleanTitle } from "./text.js";
 import { filterMusicPlaybackResults } from "./officialMusicSearch.mjs";
 import { firstSuccessfulSearch } from "./youtubeSearchFallback.mjs";
-import { isYoutubeVideoId, sanitizeYoutubeComments } from "./youtubeComments.mjs";
+import { isYoutubeVideoId } from "./youtubeComments.mjs";
 import { videoIdsMentionedInText } from "./commentVideoIds.mjs";
 import {
   captionLinesFromJson3,
@@ -926,27 +926,6 @@ async function youtubeFetchUncached(endpoint, params, fetchOptions) {
   }
 }
 
-function mapOfficialComment(item) {
-  const snippet = item?.snippet?.topLevelComment?.snippet;
-  return {
-    id: item?.id || item?.snippet?.topLevelComment?.id,
-    author: snippet?.authorDisplayName,
-    text: snippet?.textOriginal || snippet?.textDisplay,
-    likeCount: snippet?.likeCount,
-  };
-}
-
-function mapInnertubeComment(thread) {
-  const comment = thread?.comment;
-  const likes = Number.parseInt(String(comment?.like_count || "").replace(/[^\d]/g, ""), 10);
-  return {
-    id: comment?.comment_id,
-    author: comment?.author?.name,
-    text: textValue(comment?.content),
-    likeCount: Number.isFinite(likes) ? likes : 0,
-  };
-}
-
 function parseIsoDuration(value = "") {
   const match = String(value).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 0;
@@ -1179,27 +1158,3 @@ export async function fetchYouTubeCaptionLines(videoId) {
   }
 }
 
-export async function fetchYouTubeComments(videoId, maxResults = 8) {
-  const id = String(videoId || "").trim();
-  if (!isYoutubeVideoId(id)) return [];
-  const limit = Math.min(8, Math.max(1, Number(maxResults) || 8));
-
-  const official = await fetchFromOfficialApi("commentThreads", {
-    part: "snippet",
-    videoId: id,
-    maxResults: String(limit),
-    order: "relevance",
-    textFormat: "plainText",
-  });
-  if (official?.ok) {
-    return sanitizeYoutubeComments((official.data?.items || []).map(mapOfficialComment));
-  }
-
-  try {
-    const innertube = await getInnertube();
-    const comments = await innertube.getComments(id, "TOP_COMMENTS");
-    return sanitizeYoutubeComments((comments?.contents || []).slice(0, limit).map(mapInnertubeComment));
-  } catch {
-    return [];
-  }
-}

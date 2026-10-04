@@ -1,7 +1,14 @@
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
+const repoRoot = new URL("../../", import.meta.url);
+
 export async function resolve(specifier, context, nextResolve) {
+  if (specifier.startsWith("@/")) {
+    const relative = specifier.slice(2);
+    const withExtension = /\.[cm]?[jt]sx?$/.test(relative) ? relative : `${relative}.js`;
+    return nextResolve(new URL(`src/${withExtension}`, repoRoot).href, context);
+  }
   if (specifier !== "@reduxjs/toolkit") return nextResolve(specifier, context);
   const require = createRequire(context.parentURL);
   const url = pathToFileURL(require.resolve(specifier)).href;

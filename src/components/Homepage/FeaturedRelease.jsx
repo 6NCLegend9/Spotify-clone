@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import { BsPlayFill } from "react-icons/bs";
 import { PiDotsThreeVerticalBold } from "react-icons/pi";
 import { FiPlus, FiCornerDownRight } from "react-icons/fi";
@@ -16,6 +17,24 @@ import { cleanTitle } from "@/utils/text";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 
 const MENU_WIDTH = 192;
+
+function ArtistMark({ video, artist }) {
+  if (video.artistThumbnail) {
+    return (
+      <MediaImage
+        src={video.artistThumbnail}
+        size="mq"
+        alt=""
+        className="h-10 w-10 rounded-full object-cover ring-1 ring-[#00e6e6]/35 sm:h-12 sm:w-12"
+      />
+    );
+  }
+  return (
+    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#00e6e6]/20 text-sm font-bold text-[#00e6e6] sm:h-12 sm:w-12">
+      {artist.charAt(0).toUpperCase()}
+    </span>
+  );
+}
 
 export default function FeaturedRelease({ video, queue }) {
   const dispatch = useDispatch();
@@ -94,23 +113,16 @@ export default function FeaturedRelease({ video, queue }) {
   return (
     <section className="home-feature">
       <div className="mb-3 flex items-center gap-3">
-        {video.artistThumbnail ? (
-          <MediaImage
-            src={video.artistThumbnail}
-            size="mq"
-            alt=""
-            className="h-10 w-10 rounded-full object-cover ring-1 ring-[#00e6e6]/35 sm:h-12 sm:w-12"
-          />
-        ) : (
-          <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00e6e6]/20 text-sm font-bold text-[#00e6e6] sm:h-12 sm:w-12">
-            {artist.charAt(0).toUpperCase()}
-          </span>
-        )}
+        <ArtistMark video={video} artist={artist} />
         <div className="min-w-0">
           <p className="text-[11px] font-medium uppercase tracking-wide text-[#9aa8b5]">
             New release from
           </p>
-          <p className="truncate text-base font-bold text-white sm:text-lg">{artist}</p>
+          <ArtistNameLink
+            channelId={video.channelId}
+            name={artist}
+            className="block truncate text-base font-bold text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00e6e6] sm:text-lg"
+          />
         </div>
       </div>
 
@@ -125,13 +137,19 @@ export default function FeaturedRelease({ video, queue }) {
         </button>
         <div className="home-feature-meta">
           <div className="flex items-start gap-1">
-            <button type="button" onClick={play} className="min-w-0 flex-1 text-left">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#9aa8b5]">
-                {kind}
-              </p>
-              <p className="mt-1 line-clamp-2 text-sm font-bold text-white sm:text-base">{title}</p>
-              <p className="mt-1 line-clamp-1 text-xs text-[#9aa8b5]">{artist}</p>
-            </button>
+            <div className="min-w-0 flex-1 text-left">
+              <button type="button" onClick={play} className="block w-full text-left">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#9aa8b5]">
+                  {kind}
+                </p>
+                <p className="mt-1 line-clamp-2 text-sm font-bold text-white sm:text-base">{title}</p>
+              </button>
+              <ArtistNameLink
+                channelId={video.channelId}
+                name={artist}
+                className="mt-1 block truncate text-xs text-[#9aa8b5] hover:text-[#00e6e6] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00e6e6]"
+              />
+            </div>
             <button
               ref={menuButtonRef}
               type="button"

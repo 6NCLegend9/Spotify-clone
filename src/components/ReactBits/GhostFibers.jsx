@@ -5,6 +5,7 @@ import { Mesh, Program, Renderer, Triangle } from "ogl";
 import { useAccessibilityPreferences } from "@/components/AccessibilityPreferences";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
+import { resolveGhostFiberWorkload } from "@/utils/backgroundWorkload.mjs";
 
 const hexToRgb = (hex) => {
   const value = String(hex || "").trim().replace(/^#/, "");
@@ -194,14 +195,13 @@ export default function GhostFibers({
     const container = containerRef.current;
     if (!container || !supported) return undefined;
 
-    const isMobile = isPhone;
-    const isLowEnd = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
-    const requestedDpr = Number.isFinite(dpr) ? dpr : 1;
-    const requestedFps = Number.isFinite(fps) ? fps : 45;
-    const requestedLayers = Number.isFinite(layers) ? layers : 4;
-    const effectiveDpr = isMobile ? 0.5 : isLowEnd ? 0.6 : Math.min(Math.max(requestedDpr, 0.5), 0.9);
-    const effectiveFps = isMobile ? 24 : isLowEnd ? 28 : Math.min(Math.max(requestedFps, 1), 42);
-    const effectiveLayers = isMobile ? Math.min(requestedLayers, 2) : Math.min(requestedLayers, 4);
+    const workload = resolveGhostFiberWorkload({
+      isPhone,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      dpr,
+      fps,
+      layers,
+    });
 
     let renderer;
     try {
@@ -209,7 +209,7 @@ export default function GhostFibers({
         webgl: 2,
         alpha: false,
         antialias: false,
-        dpr: effectiveDpr,
+        dpr: workload.dpr,
       });
     } catch {
       setSupported(false);
@@ -238,7 +238,7 @@ export default function GhostFibers({
           uScale: { value: scale },
           uRotation: { value: rotation },
           uRotationSpeed: { value: rotationSpeed },
-          uLayers: { value: effectiveLayers },
+          uLayers: { value: workload.layers },
           uWaveAmplitude: { value: waveAmplitude },
           uWaveFrequency: { value: waveFrequency },
           uWaveSpeed: { value: waveSpeed },
@@ -273,7 +273,7 @@ export default function GhostFibers({
     let elapsed = 0;
     let previousTime = performance.now();
     let lastRenderTime = 0;
-    let frameRate = effectiveFps;
+    let frameRate = workload.fps;
     let isPaused = motionPaused;
     let isScrolling = false;
     let isVisible = true;
@@ -417,9 +417,14 @@ export default function GhostFibers({
     uniforms.uScale.value = scale;
     uniforms.uRotation.value = rotation;
     uniforms.uRotationSpeed.value = rotationSpeed;
-    const isMobile = isPhone;
-    const nextLayers = Number.isFinite(layers) ? layers : 4;
-    uniforms.uLayers.value = Math.min(Math.max(Math.round(nextLayers), 1), isMobile ? 3 : 10);
+    const workload = resolveGhostFiberWorkload({
+      isPhone,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      dpr,
+      fps,
+      layers,
+    });
+    uniforms.uLayers.value = workload.layers;
     uniforms.uWaveAmplitude.value = waveAmplitude;
     uniforms.uWaveFrequency.value = waveFrequency;
     uniforms.uWaveSpeed.value = waveSpeed;
@@ -437,7 +442,7 @@ export default function GhostFibers({
     uniforms.uVignette.value = vignette;
     uniforms.uGrain.value = grain;
     uniforms.uLightMode.value = lightMode ? 1 : 0;
-    context.setFps(fps);
+    context.setFps(workload.fps);
     context.setPaused(motionPaused);
     context.render();
   }, [

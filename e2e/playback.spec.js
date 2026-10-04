@@ -256,14 +256,15 @@ test("queue edits preserve playback, undo safely and save a playlist", async ({ 
   await expect(queueDialog).toBeVisible();
   const order = () => queueDialog.locator("li[data-track-id]").evaluateAll((rows) => rows.map((row) => row.dataset.trackId));
   await queueDialog.getByRole("button", { name: "Drag Third track to reorder", exact: true }).press("ArrowUp");
-  expect(await order()).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
+  await expect.poll(order).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
   await queueDialog.getByRole("button", { name: "Remove Third track from queue", exact: true }).click();
-  expect(await order()).toEqual(["abcdefghijk", "lmnopqrstuv"]);
+  await expect.poll(order).toEqual(["abcdefghijk", "lmnopqrstuv"]);
   await queueDialog.getByRole("button", { name: "Undo queue edit" }).click();
-  expect(await order()).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
+  await expect.poll(order).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
   await queueDialog.getByRole("button", { name: "Clear added tracks" }).click();
-  expect(await order()).toEqual(["abcdefghijk"]);
+  await expect.poll(order).toEqual(["abcdefghijk"]);
   await queueDialog.getByRole("button", { name: "Undo queue edit" }).click();
+  await expect.poll(order).toEqual(["abcdefghijk", "12345678901", "lmnopqrstuv"]);
   await queueDialog.getByLabel("Queue playlist name").fill("Evening queue");
   await queueDialog.getByRole("button", { name: "Save queue as playlist" }).click();
   await expect(queueDialog.getByText("Playlist saved.", { exact: true })).toBeVisible();
@@ -319,12 +320,8 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveClass(/sheetEntering/);
   await expect(dialog).toHaveAttribute("aria-modal", "true");
-  const responsiveState = await page.evaluate(() => ({
-    width: innerWidth,
-    phone: matchMedia("(max-width: 767px)").matches,
-    compactTouch: matchMedia("(max-width: 767px), (orientation: landscape) and (max-height: 540px) and (max-width: 1100px), (pointer: coarse) and (max-width: 1180px) and (max-height: 900px)").matches,
-  }));
-  expect(responsiveState).toEqual({ width: 390, phone: true, compactTouch: true });
+  await expect(page.locator(".app-shell")).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
 
   const moving = await page.getByTestId("youtube-decks").evaluate((host) => ({
     hidden: host.getAttribute("aria-hidden"),
@@ -360,6 +357,114 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
   expect(settled.top).toBeGreaterThanOrEqual(-1);
   expect(settled.right).toBeLessThanOrEqual(settled.viewportWidth + 1);
   expect(settled.bottom).toBeLessThanOrEqual(settled.viewportHeight + 1);
+});
+
+
+test("rotated phone preserves playback state, phone chrome and touch volume controls", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith("mobile-"), "Requires a coarse-pointer mobile browser context.");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    localStorage.setItem("persist:settings", JSON.stringify({
+      owner: JSON.stringify("account:test-a"),
+      audioOnly: "true",
+      dataSaver: "false",
+    }));
+    const tracks = [
+      { id: "abcdefghijk", title: "Rotation contract track", channel: "Test Artist" },
+      { id: "lmnopqrstuv", title: "Rotation queue two", channel: "Another Artist" },
+      { id: "12345678901", title: "Rotation queue three", channel: "Third Artist" },
+    ];
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1,
+      owner: "account:test-a",
+      savedAt: Date.now(),
+      youtubeVideo: tracks[0],
+      youtubeQueue: tracks,
+      position: 42,
+    }));
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const shell = page.locator(".app-shell");
+  const dock = page.getByTestId("player-dock");
+  await expect(shell).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
+  await expect(dock).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Expand player: Rotation contract track" })).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
+  const before = await page.evaluate(() => {
+    window.__rotationDeckHost = document.querySelector('[data-testid="youtube-decks"]');
+    const snapshot = JSON.parse(localStorage.getItem("heykasa:playback:v1:account%3Atest-a"));
+    return {
+      track: snapshot.youtubeVideo?.id,
+      queue: snapshot.youtubeQueue?.map((item) => item.id),
+      position: snapshot.position,
+    };
+  });
+  expect(before).toEqual({
+    track: "abcdefghijk",
+    queue: ["abcdefghijk", "lmnopqrstuv", "12345678901"],
+    position: 42,
+  });
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(shell).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Expand player: Rotation contract track" })).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
+  expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__rotationDeckHost)).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(shell).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Expand player: Rotation contract track" })).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
+  expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__rotationDeckHost)).toBe(true);
+  const after = await page.evaluate(() => {
+    const snapshot = JSON.parse(localStorage.getItem("heykasa:playback:v1:account%3Atest-a"));
+    return {
+      track: snapshot.youtubeVideo?.id,
+      queue: snapshot.youtubeQueue?.map((item) => item.id),
+      position: snapshot.position,
+    };
+  });
+  expect(after).toEqual(before);
+
+  await page.setViewportSize({ width: 1080, height: 480 });
+  await expect(shell).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
+  await expect(dock).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Shuffle", exact: true })).toBeHidden();
+  await expect(dock.getByRole("button", { name: "Next song", exact: true })).toBeVisible();
+
+  await dock.getByRole("button", { name: "Expand player: Rotation contract track" }).click();
+  const dialog = page.getByRole("dialog", { name: "Now playing" });
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  const volumeButton = dialog.getByRole("button", { name: "Volume controls" });
+  await volumeButton.click();
+  const popover = page.getByTestId("player-volume-popover");
+  await expect(popover).toBeVisible();
+  await expect(page.locator('input[aria-label="Volume"]:visible')).toHaveCount(1);
+  const popoverGeometry = await popover.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: window.visualViewport?.width || innerWidth,
+      viewportHeight: window.visualViewport?.height || innerHeight,
+      offsetLeft: window.visualViewport?.offsetLeft || 0,
+      offsetTop: window.visualViewport?.offsetTop || 0,
+    };
+  });
+  expect(popoverGeometry.left).toBeGreaterThanOrEqual(popoverGeometry.offsetLeft);
+  expect(popoverGeometry.top).toBeGreaterThanOrEqual(popoverGeometry.offsetTop);
+  expect(popoverGeometry.right).toBeLessThanOrEqual(popoverGeometry.offsetLeft + popoverGeometry.viewportWidth + 1);
+  expect(popoverGeometry.bottom).toBeLessThanOrEqual(popoverGeometry.offsetTop + popoverGeometry.viewportHeight + 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
 test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
@@ -428,12 +533,41 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await expect(expanded).toHaveAttribute("data-controls", "visible");
   };
 
-  await page.keyboard.press("v");
-  await assertExpandedLayout("initial viewport");
-  await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
-  await revealControls();
-  await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
-  await expect(dock).toBeVisible();
+  if (testInfo.project.name.startsWith("mobile-")) {
+    await dock.getByRole("button", { name: /^Expand player:/ }).click();
+    const drawer = page.getByRole("dialog", { name: "Now playing" });
+    await expect(drawer).toBeVisible();
+    await expect(drawer).not.toHaveClass(/sheetEntering/);
+    await expect(page.getByTestId("youtube-decks")).toHaveAttribute("aria-hidden", "false");
+    const expandVideo = page.getByTestId("mobile-expand-video");
+    await expect(expandVideo).toBeVisible();
+    const buttonBox = await expandVideo.boundingBox();
+    expect(buttonBox).not.toBeNull();
+    expect(buttonBox.x).toBeGreaterThanOrEqual(-1);
+    expect(buttonBox.y).toBeGreaterThanOrEqual(-1);
+    expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual((await page.evaluate(() => innerWidth)) + 1);
+    expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual((await page.evaluate(() => innerHeight)) + 1);
+    await expect(page.locator(".app-player")).toHaveCSS("z-index", "71");
+
+    await expandVideo.click();
+    await assertExpandedLayout("mobile expand control");
+    await expect(page.locator(".app-player")).toHaveCSS("z-index", "69");
+    await revealControls();
+    await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
+    const collapsedDrawer = page.getByRole("dialog", { name: "Now playing" });
+    await expect(collapsedDrawer).toBeVisible();
+    await expect(page.getByTestId("mobile-expand-video")).toBeVisible();
+    await collapsedDrawer.getByRole("button", { name: "Close player", exact: true }).click();
+    await expect(collapsedDrawer).toHaveCount(0);
+    await expect(dock).toBeVisible();
+  } else {
+    await page.keyboard.press("v");
+    await assertExpandedLayout("initial viewport");
+    await page.screenshot({ path: testInfo.outputPath("video-expanded.png") });
+    await revealControls();
+    await expanded.getByRole("button", { name: "Collapse video", exact: true }).click();
+    await expect(dock).toBeVisible();
+  }
 
   for (const viewport of [
     { width: 320, height: 844 },

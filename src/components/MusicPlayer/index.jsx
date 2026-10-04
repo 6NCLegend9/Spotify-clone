@@ -12,7 +12,7 @@ import Controls from "./Controls";
 const Player = dynamic(() => import("./Player"), { ssr: false });
 import Seekbar from "./Seekbar";
 import Track from "./Track";
-import VolumeBar from "./VolumeBar";
+import AddToPlaylistButton from "@/components/AddToPlaylistButton";
 import PlayerVolume from "./PlayerVolume";
 const FullscreenTrack = dynamic(() => import("./FullscreenTrack"), { ssr: false });
 const Lyrics = dynamic(() => import("./Lyrics"), { ssr: false });
@@ -93,6 +93,7 @@ const MusicPlayer = () => {
     dataSaver,
     audioOnly,
     masterVolume,
+    keyboardShortcuts,
   } = useSelector((state) => state.settings);
   const compactPlayback = audioOnly || dataSaver;
   const [duration, setDuration] = useState(0);
@@ -124,7 +125,7 @@ const MusicPlayer = () => {
     title: nativeTitle,
     artist: nativeArtist,
     duration,
-    enabled: Boolean(nativeTitle) && !youtubeVideo,
+    enabled: Boolean(nativeTitle) && !youtubeVideo && Boolean(pipWindow),
   });
 
   const songCount = Array.isArray(currentSongs) ? currentSongs.length : 0;
@@ -316,12 +317,12 @@ const MusicPlayer = () => {
   const canControl = isActive || Boolean(youtubeVideo);
 
   useKeyboardShortcuts({
-    enabled: canControl && !isTyping,
+    enabled: canControl && !isTyping && !youtubeVideo,
     onTogglePlay: () => dispatch(playPause(!isPlaying)),
     onPrevious: handlePrevious,
     onNext: handleNext,
     onSeekRelative: seekRelative,
-    onToggleMute: toggleMute,
+    onToggleMute: keyboardShortcuts !== false ? toggleMute : undefined,
     seekStep: 5,
   });
 
@@ -593,10 +594,9 @@ const MusicPlayer = () => {
           </div>
           <div className="flex items-center gap-2">
             <PlayerVolume />
-            <VolumeBar
-              activeSong={activeSong}
-              bgColor={bgColor}
-            />
+            <div className="hidden min-[1180px]:block">
+              <AddToPlaylistButton track={activeSong} className="!h-12 !w-12" />
+            </div>
           </div>
         </div>
       </div>}
