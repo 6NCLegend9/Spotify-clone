@@ -12,7 +12,7 @@ import Controls from "./Controls";
 const Player = dynamic(() => import("./Player"), { ssr: false });
 import Seekbar from "./Seekbar";
 import Track from "./Track";
-import VolumeBar from "./VolumeBar";
+import AddToPlaylistButton from "@/components/AddToPlaylistButton";
 import PlayerVolume from "./PlayerVolume";
 const FullscreenTrack = dynamic(() => import("./FullscreenTrack"), { ssr: false });
 const Lyrics = dynamic(() => import("./Lyrics"), { ssr: false });
@@ -595,10 +595,9 @@ const MusicPlayer = () => {
           </div>
           <div className="flex items-center gap-2">
             <PlayerVolume />
-            <VolumeBar
-              activeSong={activeSong}
-              bgColor={bgColor}
-            />
+            <div className="hidden min-[1180px]:block">
+              <AddToPlaylistButton track={activeSong} className="!h-12 !w-12" />
+            </div>
           </div>
         </div>
       </div>}
