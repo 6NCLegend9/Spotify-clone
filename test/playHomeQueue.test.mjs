@@ -37,7 +37,7 @@ test("home track playback keeps the remaining shelf as a continuing radio queue"
 
 test("home playlist keeps collection order and explicitly enables continuation", () => {
   const context = { type: "playlist", id: "home-mix", name: "Home Mix" };
-  const payload = playbackPayload(0, {
+  const payload = playbackPayload(1, {
     queueMode: "collection",
     autoExtend: true,
     context,
@@ -47,6 +47,8 @@ test("home playlist keeps collection order and explicitly enables continuation",
 
   assert.equal(payload.queueMode, "collection");
   assert.equal(payload.autoExtend, true);
+  assert.equal(payload.track.id, tracks[1].id);
+  assert.equal(payload.index, 1);
   assert.deepEqual(payload.context, context);
   assert.deepEqual(payload.queue.map((track) => track.id), tracks.map((track) => track.id));
 });
