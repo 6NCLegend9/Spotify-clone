@@ -78,9 +78,6 @@ export function normalizePlaybackSnapshot(value) {
   const queueManualEnd = typeof value?.queueManualEnd === "boolean"
     ? value.queueManualEnd
     : queueMode === "collection";
-  const queueManualEnd = typeof value?.queueManualEnd === "boolean"
-    ? value.queueManualEnd
-    : queueMode === "collection";
   const userQueue = normalizeQueue(
     Array.isArray(value?.userQueue)
       ? value.userQueue
