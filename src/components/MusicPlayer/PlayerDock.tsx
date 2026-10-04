@@ -64,7 +64,7 @@ export default function PlayerDock(props: PlayerDockProps) {
             onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} />
         </button>
         <div className={styles.trackText}>
-          <button type="button" onClick={openPresentation} className={styles.trackTitle}>{props.track.title}</button>
+          <strong className={styles.trackTitle}>{props.track.title}</strong>
           <ArtistNameLink channelId={props.track.channelId} name={props.track.channel} className={styles.artistName} />
         </div>
         <div className={styles.favourite}>{props.favourite}</div>
