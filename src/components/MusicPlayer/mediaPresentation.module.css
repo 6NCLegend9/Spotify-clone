@@ -1,6 +1,6 @@
 .panel { padding: 0 14px 20px; color: var(--text); }
 .body { min-height: 0; }
-.art { width: 100%; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--hairline-cyan); border-radius: 12px; background: var(--navy-deep); touch-action: pan-y; }
+.art { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--hairline-cyan); border-radius: 12px; background: var(--navy-deep); touch-action: pan-y; }
 .art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .videoArt { aspect-ratio: 16 / 9; }
 .mediaTools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 16px; }
