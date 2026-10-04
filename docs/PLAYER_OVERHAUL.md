@@ -9,7 +9,7 @@
 - `player.types.ts` and `playerDock.module.css`: typed props and responsive layout. New dock buttons have 48px minimum targets.
 - `YouTubePlayer.jsx` retains the existing dual-deck hosts, transport, seeking, errors, Jam synchronization and video-expanded UI. Shuffle permutes upcoming tracks; repeat wraps the current queue.
 
-## Queue and timers
+## Queue and playback
 
 - `QueueEditor.tsx` supplies upcoming-only move up/down, remove and clear commands,
 	a ten-second Undo and a named private-playlist save. The current track and iframe
@@ -19,11 +19,6 @@
 - Expanded audio and video queue views reuse the editor. Jam guests cannot edit
 	the host queue; host changes use the existing snapshot broadcast. Two-device
 	reconnect behavior still needs real Jam testing.
-- `sleepTimer.mjs`, `useSleepTimer.js` and `SleepTimerControl.jsx` implement 15/30/60
-	minutes or end-of-track, cancellation and tab-local refresh persistence. Account
-	changes discard the previous timer; Jams disable it. A manual track change
-	cancels end-of-track mode. Deadline checks call the active engine's Pause and
-	are repeated on visibility/pageshow and explicit Play.
 - Native explicit Play resumes suspended/interrupted Web Audio processing and
 	the media element together. Rejected autoplay is reported, not repeatedly retried.
 - The snapshot throttle now keeps its last-saved position across renders instead
@@ -47,10 +42,7 @@
 
 Run `npm test`, `npm run lint`, `npm run typecheck`, and `npm run test:e2e`.
 The browser suite uses synthetic accounts and blocks YouTube. It verifies restoration/account separation, manual reload recovery, no YouTube API request on empty search, 48px dock buttons, dialog focus, queue toggles, PiP fallback/rejection, and deck host identity across resize and client navigation.
-It also exercises queue move/remove/clear/Undo/private save, timer persistence and
-actual mocked-engine pause commands at deadline and end-of-track. Unit tests cover
-native media/context commands and timer clock changes. The complete application
-verification passed 108 Node checks and 42 desktop/mobile browser tests.
+It also exercises queue move/remove/clear/Undo/private save and playback-state continuity. Unit tests cover native media/context commands. Historical pass counts are not used as current release evidence; the branch CI is the source of truth.
 Screenshots are written under ignored `test-results` folders.
 
 Development-server runs have intermittently failed before the restored dock appeared; that intermittent startup issue is not proven fixed. Production browser checks cover the same flows without on-demand route compilation.
