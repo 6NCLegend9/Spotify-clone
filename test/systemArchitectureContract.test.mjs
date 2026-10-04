@@ -149,7 +149,7 @@ test("keyboard transport has one active owner per playback provider", async () =
 });
 
 
-test("home playback preserves explicit occurrence selection in a continuing radio queue", async () => {
+test("home playback preserves explicit occurrence selection and keeps continuation enabled", async () => {
   const [queue, slice, home] = await Promise.all([
     source("src/utils/playerQueue.mjs"),
     source("src/redux/features/playerSlice.js"),
@@ -161,6 +161,7 @@ test("home playback preserves explicit occurrence selection in a continuing radi
   assert.match(home, /const selectedIndex =/);
   assert.match(home, /list\.slice\(selectedIndex\)/);
   assert.match(home, /index:\s*0/);
-  assert.match(home, /queueMode:\s*"radio"/);
+  assert.match(home, /queueMode:\s*collection \? "collection" : "radio"/);
+  assert.match(home, /autoExtend:\s*true/);
   assert.doesNotMatch(home, /autoExtend:\s*false/);
 });
