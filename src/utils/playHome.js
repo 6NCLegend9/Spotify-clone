@@ -17,49 +17,43 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0, options = {}) {
   const list = (Array.isArray(tracks) ? tracks : []).filter((track) => track?.id);
   if (!list.length) return;
 
-  const start = list[Math.max(0, Math.min(startIndex, list.length - 1))];
+  const selectedIndex = Math.max(0, Math.min(startIndex, list.length - 1));
+  const start = list[selectedIndex];
   if (isYoutubeTrack(start)) {
     const artist = cleanArtist(start.channel);
     const title = cleanTitle(start.title || start.name);
     const seedQuery = start.seedQuery || start.genre || [artist, title].filter(Boolean).join(" ");
-    const collection = options.queueMode === "collection" || options.autoExtend === false;
-    const queue = collection
-      ? list.map((track) => {
-          const trackArtist = cleanArtist(track.channel);
-          const trackTitle = cleanTitle(track.title || track.name);
-          const trackSeed = track.seedQuery || track.genre || seedQuery
-            || [trackArtist, trackTitle].filter(Boolean).join(" ");
-          return {
-            ...track,
-            channel: trackArtist || track.channel,
-            seedQuery: trackSeed,
-            genre: track.genre || trackArtist || trackSeed,
-          };
-        })
+    const queue = list.slice(selectedIndex).map((track) => {
+      const trackArtist = cleanArtist(track.channel);
+      const trackTitle = cleanTitle(track.title || track.name);
+      const trackSeed = track.seedQuery || track.genre || seedQuery
+        || [trackArtist, trackTitle].filter(Boolean).join(" ");
+      return {
+        ...track,
+        channel: trackArtist || track.channel,
+        seedQuery: trackSeed,
+        genre: track.genre || trackArtist || trackSeed,
+      };
+    });
+    const radioTrack = queue[0];
+    const playlistContext = options.playlistId || options.playlistName
+      ? {
+          type: "playlist",
+          id: String(options.playlistId || start.id),
+          name: options.playlistName || title || "Playlist",
+        }
       : null;
-    const radioTrack = {
-      ...start,
-      channel: artist || start.channel,
-      seedQuery,
-      genre: start.genre || artist || seedQuery,
-    };
+
     dispatch(startYoutubePlayback({
-      queue: collection ? queue : [radioTrack],
-      track: collection ? queue[list.indexOf(start)] || queue[0] : radioTrack,
-      index: collection ? list.indexOf(start) : 0,
-      queueMode: collection ? "collection" : "radio",
-      autoExtend: collection ? false : undefined,
-      context: options.context || (collection
-        ? {
-            type: "playlist",
-            id: String(options.playlistId || start.id),
-            name: options.playlistName || title || "Playlist",
-          }
-        : {
-            type: "radio",
-            id: String(start.id),
-            name: artist ? `${artist} Radio` : `${title || "Track"} Radio`,
-          }),
+      queue,
+      track: radioTrack,
+      index: 0,
+      queueMode: "radio",
+      context: options.context || playlistContext || {
+        type: "radio",
+        id: String(start.id),
+        name: artist ? `${artist} Radio` : `${title || "Track"} Radio`,
+      },
     }));
     return;
   }
