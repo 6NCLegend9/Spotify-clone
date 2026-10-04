@@ -211,28 +211,20 @@ test("legacy native Lyrics surface does not own YouTube queue transitions", asyn
 });
 
 
-test("mobile drawer exposes an explicit in-dialog video expand control without overflowing narrow phones", async () => {
+test("mobile video expand control stays on the live media surface and inside the viewport", async () => {
   const [presentation, css] = await Promise.all([
     read("src/components/MusicPlayer/MediaPresentation.tsx"),
     read("src/components/MusicPlayer/mediaPresentation.module.css"),
   ]);
+  assert.doesNotMatch(presentation, /drawerExpandButton/);
+  assert.match(presentation, /data-testid=\{mobile \? "mobile-expand-video" : undefined\}/);
   assert.match(
     presentation,
-    /const drawerExpandButton = mobile && showingVideo && !expanded/,
-  );
-  assert.match(presentation, /data-testid="mobile-expand-video"/);
-  assert.match(
-    presentation,
-    /className=\{styles\.mediaTools\}>\{modeButton\}\{drawerExpandButton\}<\/div>/,
-  );
-  assert.match(
-    presentation,
-    /!mobile && !expanded && <button type="button" aria-label="Expand video"/,
-    "the portaled over-video expand button must stay desktop-only",
+    /!expanded && <button type="button" data-testid=\{mobile \? "mobile-expand-video" : undefined\} aria-label="Expand video"/,
   );
   assert.match(
     css,
-    /\.mobileSheet \.mediaTools\s*\{[^}]*flex-wrap:\s*wrap;/s,
+    /\.expandButton\s*\{[^}]*width:\s*48px;[^}]*height:\s*48px;/s,
   );
 });
 
