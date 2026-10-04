@@ -36,8 +36,6 @@ import {
   expireQueueUndo,
 } from "@/redux/features/playerSlice";
 import { createPlaylist } from "@/services/playlistApi";
-import useSleepTimer from "@/hooks/useSleepTimer";
-import SleepTimerControl from "./SleepTimerControl";
 import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
 import { FiPlus, FiSearch, FiX, FiMaximize2 } from "react-icons/fi";
@@ -187,18 +185,6 @@ function YouTubePlayer() {
   if (masterVolume > 0) lastShortcutVolumeRef.current = masterVolume;
   volumeLevelsRef.current = { playbackVolume, masterVolume };
   const trackChangeUntilRef = useRef(0);
-  const sleep = useSleepTimer({
-    owner: playbackOwner, trackId: videoId, enabled: !jam?.code,
-    onExpire: () => {
-      userPausedRef.current = true;
-      isPlayingRef.current = false;
-      trackChangeUntilRef.current = 0;
-      abortCrossfade();
-      cancelFade();
-      for (const deck of Object.values(deckPlayerRefs)) deck.current?.pauseVideo?.();
-      dispatch(playPause(false));
-    },
-  });
   const insights = useListeningInsights({
     owner: playbackOwner,
     trackId: videoId,
@@ -378,7 +364,6 @@ function YouTubePlayer() {
   };
 
   const resumePlayer = (player, { explicitUserAction = false } = {}) => {
-    if (sleep.check()) return;
     const hidden = isPageHidden();
     if (shouldDeferYoutubeResume({ hidden, explicitUserAction })) {
       markBackgroundPlayback();
@@ -1188,7 +1173,7 @@ function YouTubePlayer() {
           const stateCode = ({ 0: "ended", 1: "playing", 2: "paused", 3: "buffering" })[event.data];
           if (stateCode) recordDiagnostic("playback_state", { code: stateCode });
           if (event.data === window.YT.PlayerState.PLAYING) {
-            if (sleep.check() || (userPausedRef.current && !isPlayingRef.current)) {
+            if (userPausedRef.current && !isPlayingRef.current) {
               event.target.pauseVideo?.();
               return;
             }
@@ -1231,7 +1216,6 @@ function YouTubePlayer() {
           if (event.data === window.YT.PlayerState.ENDED) {
             clearActiveBufferTimers();
             if (isRealTrackEnd(event.target)) insights.finish("completed");
-            if (isRealTrackEnd(event.target) && sleep.check(videoRef.current?.id)) return;
             if (!isRealTrackEnd(event.target)) {
               const target = seekGuardRef.current.target ?? event.target.getCurrentTime?.() ?? 0;
               const want = videoRef.current?.id;
@@ -2225,7 +2209,6 @@ function YouTubePlayer() {
   // Resolves true when playback moved on, false when nothing else can play.
   // avoidId keeps a failed track from being replayed into an error loop.
   const playNextOrContinue = async (completed = false, { avoidId = null } = {}) => {
-    if (sleep.check(completed ? videoRef.current?.id : undefined)) return;
     if (isJamGuestRef.current) {
       dispatch(playPause(false));
       return;
@@ -2505,7 +2488,6 @@ function YouTubePlayer() {
 
   const handlePlayPause = () => {
     if (isJamGuestRef.current) return;
-    if (sleep.check()) return;
     abortCrossfade();
     cancelFade();
     const player = getActivePlayer();
@@ -2774,7 +2756,7 @@ function YouTubePlayer() {
       } catch {}
     };
     setAction("play", () => {
-      if (isJamGuestRef.current || sleep.check()) return;
+      if (isJamGuestRef.current) return;
       userPausedRef.current = false;
       dispatch(playPause(true));
       resumePlayer(getActivePlayer(), { explicitUserAction: true });
@@ -2965,7 +2947,6 @@ function YouTubePlayer() {
         volume={<PlayerVolume />} queue={safeQueue} onSelect={playQueueItem}
         onQueueEdit={queueControls.onQueueEdit} onQueueUndo={queueControls.onQueueUndo}
         canUndoQueue={queueControls.canUndoQueue} onSaveQueue={queueControls.onSaveQueue}
-        sleepControl={<SleepTimerControl timer={sleep.timer} onChange={sleep.change} disabled={Boolean(jam?.code)} />}
         trackActions={<AddToPlaylistButton track={video} className="!h-12 !w-12" />}
         queueSearch={<div className="mb-4 border-b border-white/10 pb-4">
           <form onSubmit={handleAddSearch} className="flex gap-2">
