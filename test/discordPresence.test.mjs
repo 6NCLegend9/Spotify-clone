@@ -116,7 +116,7 @@ test("Settings disables Discord presence when no supported Desktop transport exi
   const settings = await readFile(new URL("../src/app/settings/page.jsx", import.meta.url), "utf8");
   assert.match(settings, /const \[discordTransport, setDiscordTransport\] = useState\("checking"\)/);
   assert.match(settings, /const discordPresenceAvailable = \["desktop-native", "local-development-bridge"\]\.includes\(discordTransport\)/);
-  assert.match(settings, /label="Discord listening activity"[\s\S]*?disabled=\{!discordPresenceAvailable\}/);
+  assert.match(settings, /label="Discord listening activity"[\s\S]*?disabled=\{!discordPresenceAvailable && settings\.discordPresence !== true\}/);
   assert.match(settings, /checked=\{settings\.discordPresence === true\}/);
 });
 
