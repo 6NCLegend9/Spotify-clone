@@ -53,9 +53,9 @@ function settingsErrorDetails(error) {
   return details;
 }
 
-function Toggle({ label, description, checked, onChange }) {
+function Toggle({ label, description, checked, disabled = false, onChange }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 border-b border-white/10 py-4">
+    <label className={`flex items-center justify-between gap-4 border-b border-white/10 py-4 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
       <span>
         <span className="block text-sm text-gray-200">{label}</span>
         {description ? (
@@ -64,7 +64,7 @@ function Toggle({ label, description, checked, onChange }) {
           </span>
         ) : null}
       </span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="peer sr-only" />
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} className="peer sr-only" />
       <span className="relative h-6 w-11 shrink-0 rounded-full bg-white/15 transition peer-checked:bg-[#00e6e6] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#00e6e6] after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5 peer-checked:after:bg-black" />
     </label>
   );
@@ -98,13 +98,9 @@ function discordStatusCopy(status, transport) {
   }
 }
 
-function DiscordPresenceHint() {
-  const [transport, setTransport] = useState("checking");
+function DiscordPresenceHint({ transport }) {
   const [status, setStatus] = useState(getDiscordPresenceStatus);
   useEffect(() => subscribeDiscordPresenceStatus(setStatus), []);
-  useEffect(() => {
-    setTransport(discordPresenceTransport());
-  }, []);
   return (
     <p className="mt-3 text-xs leading-5 text-[#9aa8b5]">
       {transport === "checking" ? "Checking Discord connection…" : discordStatusCopy(status, transport)}
@@ -142,6 +138,8 @@ function AccountSettings({ owner, status }) {
   const [signingOut, setSigningOut] = useState(false);
   const [signingOutHere, setSigningOutHere] = useState(false);
   const [sessionError, setSessionError] = useState(null);
+  const [discordTransport, setDiscordTransport] = useState("checking");
+  const discordPresenceAvailable = ["desktop-native", "local-development-bridge"].includes(discordTransport);
   const live = useRef(true);
   const savedTimerRef = useRef(null);
   const set = (key, value) => dispatch(updateSetting({ key, value }));
@@ -156,6 +154,10 @@ function AccountSettings({ owner, status }) {
       live.current = false;
       if (savedTimerRef.current) window.clearTimeout(savedTimerRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    setDiscordTransport(discordPresenceTransport());
   }, []);
 
   const saveSettings = async () => {
@@ -400,15 +402,21 @@ function AccountSettings({ owner, status }) {
           />
           <Toggle
             label="Discord listening activity"
-            description="Show the current song on your Discord profile. Discord desktop must be open on this computer."
-            checked={settings.discordPresence !== false}
-            onChange={(value) => set("discordPresence", value)}
+            description={discordPresenceAvailable
+              ? "Show the current song on your Discord profile. Discord Desktop must be open on this computer."
+              : "Discord Rich Presence requires HayKasa Desktop for Windows."}
+            checked={settings.discordPresence === true}
+            disabled={!discordPresenceAvailable && settings.discordPresence !== true}
+            onChange={(value) => {
+              if (value && !discordPresenceAvailable) return;
+              set("discordPresence", value);
+            }}
           />
           <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-[#9aa8b5]">
             <FaDiscord className="mt-0.5 h-4 w-4 shrink-0 text-[#5865F2]" aria-hidden="true" />
             <span>Private session also hides Discord activity and recommendation history.</span>
           </p>
-          <DiscordPresenceHint />
+          <DiscordPresenceHint transport={discordTransport} />
         </div>
       </section>
 
