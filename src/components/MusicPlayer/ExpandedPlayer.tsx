@@ -66,7 +66,6 @@ export default function ExpandedPlayer(props: PlayerDockProps & { onClose: () =>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--navy-deep)] p-4">
           <QueueEditor {...props} />
-          {props.sleepControl ? <div className="mt-4">{props.sleepControl}</div> : null}
         </div>
       </section>
     </div>,
