@@ -360,22 +360,26 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
 });
 
 
-test("rotated phone keeps the phone shell, mobile dock and touch volume controls", async ({ page }, testInfo) => {
+test("rotated phone preserves playback state, phone chrome and touch volume controls", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile-"), "Requires a coarse-pointer mobile browser context.");
-  await page.setViewportSize({ width: 1080, height: 480 });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
     localStorage.setItem("persist:settings", JSON.stringify({
       owner: JSON.stringify("account:test-a"),
       audioOnly: "true",
       dataSaver: "false",
     }));
-    const track = { id: "abcdefghijk", title: "Landscape contract track", channel: "Test Artist" };
+    const tracks = [
+      { id: "abcdefghijk", title: "Rotation contract track", channel: "Test Artist" },
+      { id: "lmnopqrstuv", title: "Rotation queue two", channel: "Another Artist" },
+      { id: "12345678901", title: "Rotation queue three", channel: "Third Artist" },
+    ];
     localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
       version: 1,
       owner: "account:test-a",
       savedAt: Date.now(),
-      youtubeVideo: track,
-      youtubeQueue: [track],
+      youtubeVideo: tracks[0],
+      youtubeQueue: tracks,
       position: 42,
     }));
   });
@@ -386,10 +390,54 @@ test("rotated phone keeps the phone shell, mobile dock and touch volume controls
   await expect(shell).toHaveAttribute("data-phone", "true");
   await expect(page.locator(".app-tabbar")).toBeVisible();
   await expect(dock).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Expand player: Rotation contract track" })).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
+  const before = await page.evaluate(() => {
+    window.__rotationDeckHost = document.querySelector('[data-testid="youtube-decks"]');
+    const snapshot = JSON.parse(localStorage.getItem("heykasa:playback:v1:account%3Atest-a"));
+    return {
+      track: snapshot.youtubeVideo?.id,
+      queue: snapshot.youtubeQueue?.map((item) => item.id),
+      position: snapshot.position,
+    };
+  });
+  expect(before).toEqual({
+    track: "abcdefghijk",
+    queue: ["abcdefghijk", "lmnopqrstuv", "12345678901"],
+    position: 42,
+  });
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(shell).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Expand player: Rotation contract track" })).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
+  expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__rotationDeckHost)).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(shell).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Expand player: Rotation contract track" })).toBeVisible();
+  await expect(dock.getByRole("button", { name: "Play", exact: true }).first()).toBeVisible();
+  expect(await page.getByTestId("youtube-decks").evaluate((element) => element === window.__rotationDeckHost)).toBe(true);
+  const after = await page.evaluate(() => {
+    const snapshot = JSON.parse(localStorage.getItem("heykasa:playback:v1:account%3Atest-a"));
+    return {
+      track: snapshot.youtubeVideo?.id,
+      queue: snapshot.youtubeQueue?.map((item) => item.id),
+      position: snapshot.position,
+    };
+  });
+  expect(after).toEqual(before);
+
+  await page.setViewportSize({ width: 1080, height: 480 });
+  await expect(shell).toHaveAttribute("data-phone", "true");
+  await expect(page.locator(".app-tabbar")).toBeVisible();
+  await expect(dock).toBeVisible();
   await expect(dock.getByRole("button", { name: "Shuffle", exact: true })).toBeHidden();
   await expect(dock.getByRole("button", { name: "Next song", exact: true })).toBeVisible();
 
-  await dock.getByRole("button", { name: "Expand player: Landscape contract track" }).click();
+  await dock.getByRole("button", { name: "Expand player: Rotation contract track" }).click();
   const dialog = page.getByRole("dialog", { name: "Now playing" });
   await expect(dialog).toHaveAttribute("aria-modal", "true");
   const volumeButton = dialog.getByRole("button", { name: "Volume controls" });
