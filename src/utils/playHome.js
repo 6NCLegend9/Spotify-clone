@@ -44,11 +44,14 @@ export function playHomeTracks(dispatch, tracks, startIndex = 0, options = {}) {
         }
       : null;
 
+    const collection = options.queueMode === "collection" || Boolean(playlistContext)
+      || options.context?.type === "playlist";
     dispatch(startYoutubePlayback({
       queue,
       track: radioTrack,
       index: 0,
-      queueMode: "radio",
+      queueMode: collection ? "collection" : "radio",
+      autoExtend: true,
       context: options.context || playlistContext || {
         type: "radio",
         id: String(start.id),
