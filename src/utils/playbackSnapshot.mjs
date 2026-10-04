@@ -75,6 +75,9 @@ export function normalizePlaybackSnapshot(value) {
     : typeof value?.queueManualEnd === "boolean"
       ? (value.queueManualEnd ? "collection" : "radio")
       : youtubeQueue.length > 1 ? "collection" : "radio";
+  const queueManualEnd = typeof value?.queueManualEnd === "boolean"
+    ? value.queueManualEnd
+    : queueMode === "collection";
   const userQueue = normalizeQueue(
     Array.isArray(value?.userQueue)
       ? value.userQueue
@@ -90,7 +93,7 @@ export function normalizePlaybackSnapshot(value) {
     youtubeQueue,
     position,
     queueMode,
-    queueManualEnd: queueMode === "collection",
+    queueManualEnd,
     playbackContext,
     userQueue,
     history,
