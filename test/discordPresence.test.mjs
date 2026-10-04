@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -107,4 +109,21 @@ test("validates Discord app configuration and redirect origins", () => {
     parseDiscordAccessToken({ access_token: "discord-access-token-value", expires_in: 3600 }).accessToken,
     "discord-access-token-value",
   );
+});
+
+
+test("production Discord presence is owned by the native Desktop boundary", async () => {
+  const [client, settings, nextConfig, bridgeReadme] = await Promise.all([
+    readFile(new URL("../src/lib/discordPresenceClient.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/settings/page.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../next.config.js", import.meta.url), "utf8"),
+    readFile(new URL("../desktop-bridge/README.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(client, /localBrowserBridgeAllowed/);
+  assert.match(client, /production browser must never probe 127\.0\.0\.1/);
+  assert.doesNotMatch(settings, /\/api\/discord\/config/);
+  assert.equal(existsSync(new URL("../src/app/api/discord/config/route.js", import.meta.url)), false);
+  assert.match(nextConfig, /const discordBridgeSources = isProduction\s*\?\s*\[\]\s*:\s*\[/);
+  assert.match(bridgeReadme, /development-only/i);
 });
