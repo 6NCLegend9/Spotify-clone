@@ -2688,59 +2688,6 @@ select:-webkit-autofill {
   font-size: clamp(0.8rem, 1.6vw, 1.05rem);
 }
 
-.one-more-layer {
-  position: fixed;
-  inset: auto 16px calc(108px + env(safe-area-inset-bottom, 0px));
-  z-index: 130;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.one-more-card {
-  pointer-events: auto;
-  width: min(100%, 420px);
-  padding: 18px 20px 16px;
-  border: 1px solid var(--hairline-cyan);
-  border-radius: 16px;
-  background: linear-gradient(160deg, rgba(8, 24, 36, 0.96), rgba(2, 10, 18, 0.96));
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
-}
-
-.one-more-kicker {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--teal);
-}
-
-.one-more-title {
-  margin: 8px 0 4px;
-  font-size: 1.15rem;
-  font-weight: 750;
-  color: #fff;
-}
-
-.one-more-channel {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.one-more-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-@media (max-width: 767px) {
-  .one-more-layer {
-    inset: auto 12px calc(var(--mobile-player-h, 72px) + 12px + env(safe-area-inset-bottom, 0px));
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .caption-karaoke-now,
