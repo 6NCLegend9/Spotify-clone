@@ -76,13 +76,23 @@ export function isHeyKasaDesktop() {
   return Boolean(desktopShellApi());
 }
 
+export function discordPresenceTransport() {
+  const nativeApi = nativeDiscordApi();
+  if (nativeApi) return "desktop-native";
+  if (desktopShellApi()) return "desktop-unsupported";
+  if (localBrowserBridgeAllowed()) return "local-development-bridge";
+  return "unavailable";
+}
+
 export function createDiscordPresenceClient() {
   const nativeApi = nativeDiscordApi();
   if (nativeApi) return new DesktopDiscordClient(nativeApi);
-  if (desktopShellApi()) return new UnsupportedDesktopDiscordClient();
+
+  const transport = discordPresenceTransport();
+  if (transport === "desktop-unsupported") return new UnsupportedDesktopDiscordClient();
 
   // The localhost WebSocket bridge is a development-only migration aid. A
   // production browser must never probe 127.0.0.1 on a visitor's machine.
-  if (localBrowserBridgeAllowed()) return new DiscordBridgeClient();
+  if (transport === "local-development-bridge") return new DiscordBridgeClient();
   return new BrowserDiscordUnavailableClient();
 }
