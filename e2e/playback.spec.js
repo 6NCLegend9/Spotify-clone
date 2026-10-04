@@ -501,6 +501,12 @@ test("small Desktop window keeps volume controls reachable", async ({ page }, te
   const slider = popover.getByRole("slider", { name: "Volume" });
   await expect(slider).toBeVisible();
   await expect(slider).toHaveValue("0.35");
+  await page.keyboard.press("Escape");
+
+  await dock.getByRole("button", { name: "Expand player: Compact Desktop volume" }).click();
+  const dialog = page.getByRole("dialog", { name: "Now playing" });
+  await expect(dialog.getByRole("button", { name: "Show live lyrics" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Queue", exact: true })).toBeVisible();
 });
 
 test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
