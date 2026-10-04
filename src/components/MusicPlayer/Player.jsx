@@ -240,7 +240,7 @@ const Player = ({
         ref={ref}
         crossOrigin="anonymous"
         loop={repeat}
-        onEnded={(event) => { insights.finish("completed"); onEnded?.(event); }
+        onEnded={(event) => { insights.finish("completed"); onEnded?.(event); }}
         onPlaying={() => recordDiagnostic("playback_state", { code: "playing" })}
         onPause={() => recordDiagnostic("playback_state", { code: "paused" })}
         onWaiting={() => recordDiagnostic("playback_state", { code: "buffering" })}
