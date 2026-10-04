@@ -216,12 +216,7 @@ the current player session. Saving the queue creates a private playlist. Jam
 guests cannot reorder host playback; host edits reuse Jam's existing broadcast.
 Validate two-device Jam synchronization separately.
 
-Sleep timers offer 15/30/60 minutes or the end of the selected track. They are
-tab-local, survive refresh via session storage and are disabled during Jams.
-Account changes drop the prior owner's timer; skipping cancels end-of-track mode.
-The deadline is checked again on return or Play. An exact stop while the OS has
-suspended JavaScript cannot be guaranteed. Native Play resumes its audio context
-through an explicit playback action, not a hidden-page keepalive.
+Native Play resumes its audio context through an explicit playback action, not a hidden-page keepalive.
 
 ## Support and operations
 
