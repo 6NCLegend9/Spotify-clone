@@ -32,6 +32,14 @@
 .nowPlaying, .queuePane { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1.25rem; }
 .dialog[data-panel="queue"] .nowPlaying, .dialog[data-panel="player"] .queuePane { display: none; }
 .art { aspect-ratio: 1; width: 100%; border-radius: 12px; object-fit: cover; }
+@media (max-width: 767px) and (pointer: fine) {
+ .dock { grid-template-columns: minmax(0, 1fr) auto auto; }
+ .tools { display: flex; align-items: center; min-width: 48px; justify-content: flex-end; }
+ .tools > :not(.volume) { display: none; }
+ .volume { display: flex; width: 48px; min-width: 48px; max-width: 48px; }
+ .volume :global(.player-volume) { min-width: 0; max-width: 48px; }
+}
+
 @media (min-width: 1181px), (min-width: 768px) and (pointer: fine) {
  .dock { grid-template-columns: minmax(0, 1fr) minmax(230px, 1.3fr) minmax(144px, 1fr); width: 100%; height: 90px; margin: 0; padding: 8px 16px; gap: 12px; border-radius: 0; border-width: 1px 0 0; background: linear-gradient(110deg, var(--navy-deep), var(--navy-surface)); }
  .dock:has(~ [data-kasa-media-view="drawer"]) { visibility: visible; pointer-events: auto; }
