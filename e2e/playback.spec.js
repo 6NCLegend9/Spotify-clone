@@ -537,6 +537,8 @@ test("video expansion fits desktop and mobile without replacing the media host",
     await dock.getByRole("button", { name: /^Expand player:/ }).click();
     const drawer = page.getByRole("dialog", { name: "Now playing" });
     await expect(drawer).toBeVisible();
+    await expect(drawer).not.toHaveClass(/sheetEntering/);
+    await expect(page.getByTestId("youtube-decks")).toHaveAttribute("aria-hidden", "false");
     const expandVideo = page.getByTestId("mobile-expand-video");
     await expect(expandVideo).toBeVisible();
     const buttonBox = await expandVideo.boundingBox();
