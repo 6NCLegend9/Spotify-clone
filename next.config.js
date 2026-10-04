@@ -7,19 +7,18 @@ const scriptSources = [
   "'unsafe-inline'",
   "https://www.youtube.com",
 ];
-const discordBridgeSources = [
-  "ws://127.0.0.1:64650",
-];
+const discordBridgeSources = isProduction
+  ? []
+  : ["ws://127.0.0.1:64650"];
 
 if (!isProduction) {
   scriptSources.push("'unsafe-eval'");
 }
 
-// HayKasa intentionally connects from the HTTPS web app to a loopback-only
-// WebSocket bridge for Discord Rich Presence. Do not add the CSP
-// `upgrade-insecure-requests` directive here: it rewrites that ws:// URL to
-// wss://, while the local bridge intentionally does not terminate TLS.
-// HSTS below still protects the public HayKasa origin.
+// The loopback Discord bridge is a development-only migration aid. Production
+// browsers use the native Electron boundary instead and must not receive a
+// loopback WebSocket allowance. Do not add `upgrade-insecure-requests` in
+// development because the local bridge intentionally does not terminate TLS.
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src ${scriptSources.join(" ")}`,
