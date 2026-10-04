@@ -156,6 +156,12 @@ test("desktop window can traverse responsive breakpoints without crushing conten
 });
 
 
+test("Desktop update UI does not present fallback metadata as a published stable release", () => {
+  const card = readFileSync(join(projectRoot, "src/components/DesktopAppCard.jsx"), "utf8");
+  assert.match(card, /manifest\?\.published\s*&&\s*manifest\?\.latest/);
+  assert.match(card, /No stable release published/);
+});
+
 test("desktop release workflow pins supply-chain actions to reviewed immutable commits", () => {
   const release = readFileSync(join(projectRoot, ".github/workflows/desktop-release.yml"), "utf8");
   assert.match(release, /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/);

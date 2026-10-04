@@ -1,6 +1,6 @@
-# HayKasa Discord Bridge
+# HayKasa Discord Bridge — Development Only
 
-HayKasa's web player cannot rely on Discord's legacy browser WebSocket RPC for new Discord applications. This local bridge keeps the website isolated from Discord IPC while still allowing Rich Presence on Discord Desktop.
+This bridge is a development-only migration aid for testing the web app on localhost. Production HayKasa uses the native Electron Discord IPC boundary and does not connect a visitor's browser to a loopback WebSocket.
 
 ## Windows quick start
 

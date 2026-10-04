@@ -467,6 +467,48 @@ test("rotated phone preserves playback state, phone chrome and touch volume cont
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
+test("small Desktop window keeps volume controls reachable", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile-"), "Requires a fine-pointer Desktop browser context.");
+  await page.setViewportSize({ width: 640, height: 520 });
+  await page.addInitScript(() => {
+    localStorage.setItem("persist:settings", JSON.stringify({
+      owner: JSON.stringify("account:test-a"),
+      audioOnly: "true",
+      dataSaver: "false",
+      masterVolume: "0.35",
+    }));
+    const track = { id: "abcdefghijk", title: "Compact Desktop volume", channel: "Test Artist" };
+    localStorage.setItem("heykasa:playback:v1:account%3Atest-a", JSON.stringify({
+      version: 1,
+      owner: "account:test-a",
+      savedAt: Date.now(),
+      youtubeVideo: track,
+      youtubeQueue: [track],
+      position: 12,
+    }));
+  });
+
+  await page.goto("/search", { waitUntil: "domcontentloaded" });
+  const dock = page.getByTestId("player-dock");
+  await expect(dock).toBeVisible();
+
+  const volumeButton = dock.getByRole("button", { name: "Volume controls" });
+  await expect(volumeButton).toBeVisible();
+  await volumeButton.click();
+
+  const popover = page.getByTestId("player-volume-popover");
+  await expect(popover).toBeVisible();
+  const slider = popover.getByRole("slider", { name: "Volume" });
+  await expect(slider).toBeVisible();
+  await expect(slider).toHaveValue("0.35");
+  await page.keyboard.press("Escape");
+
+  await dock.getByRole("button", { name: "Expand player: Compact Desktop volume" }).click();
+  const dialog = page.getByRole("dialog", { name: "Now playing" });
+  await expect(dialog.getByRole("button", { name: "Show live lyrics" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Queue", exact: true })).toBeVisible();
+});
+
 test("video expansion fits desktop and mobile without replacing the media host", async ({ page }, testInfo) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));

@@ -108,11 +108,13 @@ export default function DesktopAppCard() {
     };
   }, []);
 
+  const publishedReleaseVersion = manifest?.published && manifest?.latest ? `v${manifest.latest}` : "";
   const releaseLabel = useMemo(() => {
     if (!manifest) return "Checking release…";
-    const details = [manifest.latest ? `v${manifest.latest}` : "", formatBytes(manifest.sizeBytes)].filter(Boolean);
+    if (!manifest.published) return "No stable release published";
+    const details = [publishedReleaseVersion, formatBytes(manifest.sizeBytes)].filter(Boolean);
     return details.join(" · ") || "Windows x64";
-  }, [manifest]);
+  }, [manifest, publishedReleaseVersion]);
 
   const checkUpdates = async () => {
     if (!desktopApi?.updates?.check || busy) return;
@@ -209,7 +211,9 @@ export default function DesktopAppCard() {
           </div>
           <div className="rounded-lg border border-white/10 bg-black/10 p-4">
             <p className="text-xs uppercase tracking-[0.14em] text-[#778899]">Latest stable release</p>
-            <p className="mt-1 text-lg font-semibold">{manifest?.latest ? `v${manifest.latest}` : "Checking…"}</p>
+            <p className="mt-1 text-lg font-semibold">
+              {!manifest ? "Checking…" : publishedReleaseVersion || "No stable release published"}
+            </p>
             <p className="mt-1 text-xs text-[#9aa8b5]">{updateCopy(updateStatus)}</p>
           </div>
 
