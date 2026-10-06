@@ -1,4 +1,4 @@
-const UI_TRACK = { id: "abcdefghijk", title: "A very long track title — מוזיקה לבדיקה — responsive interface verification", channel: "A very long artist name", thumbnail: "/icon-192x192.png" };
+const UI_TRACK = { id: "abcdefghijk", title: "A very long track title — Music for testing — responsive interface verification", channel: "A very long artist name", thumbnail: "/icon-192x192.png" };
 
 async function installUiFixtures(page, { playback = false, accent = null } = {}) {
   await page.addInitScript(({ track, playbackEnabled, customAccent }) => {
