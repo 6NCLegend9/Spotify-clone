@@ -110,7 +110,7 @@ const ResetPasswordPage = () => {
             hrefLabel="Request a new password link"
           />
           <div>
-            <label htmlFor="new-password" className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+            <label htmlFor="new-password" className="text-sm font-semibold tracking-wide text-[#9aa8b5] ml-1">
               New password
             </label>
             <input
@@ -131,7 +131,7 @@ const ResetPasswordPage = () => {
             />
           </div>
           <div>
-            <label htmlFor="confirm-password" className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+            <label htmlFor="confirm-password" className="text-sm font-semibold tracking-wide text-[#9aa8b5] ml-1">
               Confirm password
             </label>
             <input

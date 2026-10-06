@@ -37,7 +37,7 @@ function PlaylistTrackRow({
   const artist = cleanTitle(track.channel);
   return (
     <ContextMenuTarget
-      className={`playlist-track-row group grid min-h-[66px] grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px] ${active ? "bg-white/[0.06]" : ""}`}
+      className={`playlist-track-row group grid min-h-[66px] items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/[0.075] ${active ? "bg-white/[0.06]" : ""}`}
     >
       <button
         type="button"

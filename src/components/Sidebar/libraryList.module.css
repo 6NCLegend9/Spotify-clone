@@ -1,10 +1,10 @@
 .library { min-width: 0; }
 .toolbar { display: flex; gap: 6px; align-items: center; margin: 6px 0 14px; }
-.search { display: flex; align-items: center; min-width: 0; flex: 1; height: 36px; gap: 7px; padding: 0 10px; background: var(--navy-surface); color: var(--teal); border: 1px solid var(--hairline-cyan); border-radius: 999px; }
+.search { display: flex; align-items: center; min-width: 0; flex: 1; height: 44px; gap: 7px; padding: 0 10px; background: var(--navy-surface); color: var(--teal); border: 1px solid var(--hairline-cyan); border-radius: 12px; }
 .search:focus-within { border-color: var(--accent); }
-.search input { background: transparent; border: 0; outline: none; width: 100%; min-width: 0; font-size: 11px; color: var(--text); }
+.search input { background: transparent; border: 0; outline: none; width: 100%; min-width: 0; font-size: 14px; color: var(--text); }
 .search input::placeholder { color: var(--muted); }
-.toggle { display: grid; place-items: center; min-width: 36px; min-height: 36px; border-radius: 50%; color: var(--teal); }
+.toggle { display: grid; place-items: center; min-width: 36px; min-height: 44px; border-radius: 50%; color: var(--teal); }
 .toggle:hover, .toggle[aria-pressed="true"] { background: var(--navy-panel); color: var(--accent); }
 .items { display: flex; flex-direction: column; gap: 3px; }
 .items > div { min-width: 0; border-radius: 7px; }

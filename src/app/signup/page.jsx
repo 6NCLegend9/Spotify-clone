@@ -206,7 +206,7 @@ const SignupPage = () => {
             href="/login"
             hrefLabel="Log in instead"
           />
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]" htmlFor="userName">
+          <label className="text-sm font-semibold tracking-wide text-[#9aa8b5]" htmlFor="userName">
             Username
             <input
               onChange={onchange}
@@ -220,10 +220,10 @@ const SignupPage = () => {
               name="userName"
               aria-invalid={Boolean(formError)}
               aria-describedby={formError ? "signup-error" : undefined}
-              className="field mt-2"
+              className="field mt-2 normal-case tracking-normal"
             />
           </label>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]" htmlFor="signup-email">
+          <label className="text-sm font-semibold tracking-wide text-[#9aa8b5]" htmlFor="signup-email">
             Email
             <input
               onChange={onchange}
@@ -237,10 +237,10 @@ const SignupPage = () => {
               maxLength={254}
               aria-invalid={Boolean(formError)}
               aria-describedby={formError ? "signup-error" : undefined}
-              className="field mt-2"
+              className="field mt-2 normal-case tracking-normal"
             />
           </label>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]" htmlFor="signup-password">
+          <label className="text-sm font-semibold tracking-wide text-[#9aa8b5]" htmlFor="signup-password">
             Password
             <input
               onChange={onchange}
@@ -255,7 +255,7 @@ const SignupPage = () => {
               maxLength={72}
               aria-invalid={Boolean(formError)}
               aria-describedby={formError ? "signup-error" : undefined}
-              className="field mt-2"
+              className="field mt-2 normal-case tracking-normal"
             />
           </label>
           <button type="submit" disabled={submitting || googleSubmitting} className="btn-primary w-full">

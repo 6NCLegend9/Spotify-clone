@@ -34,20 +34,20 @@ function playlistHref(query) {
 
 export default function BrowseAll() {
   return (
-    <main className="page mx-auto w-full max-w-[1500px] text-gray-200">
+    <main className="page page-search mx-auto w-full max-w-[1500px] text-gray-200">
       <header className="mb-5 pt-0 sm:mb-7">
         <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Search</h1>
         <p className="mt-1.5 text-sm text-[var(--muted)]">Browse playlists by genre, mood, or style.</p>
       </header>
       <section aria-labelledby="browse-all-title">
         <h2 id="browse-all-title" className="mb-4 text-xl font-bold text-white sm:text-2xl">Browse all</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+        <div className="browse-grid">
           {CATEGORIES.map((category) => (
             <Link key={category.id} href={playlistHref(category.query)}
-              className="group relative min-h-[108px] overflow-hidden rounded-lg p-4 shadow-lg transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] sm:min-h-[142px]"
+              className="browse-category group relative overflow-hidden rounded-xl p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text)]"
               style={{ background: `linear-gradient(135deg, ${category.colors[0]}, ${category.colors[1]})` }}
               aria-label={`Browse ${category.title} playlists`}>
-              <h3 className="relative z-10 max-w-[75%] text-base font-extrabold leading-tight text-white sm:text-xl">{category.title}</h3>
+              <h3 className="relative z-10 max-w-[85%] text-base font-semibold leading-snug text-white">{category.title}</h3>
               <span aria-hidden="true"
                 className="absolute -bottom-3 -right-3 grid h-[72px] w-[72px] rotate-[18deg] place-items-center rounded-md bg-black/25 text-lg font-black text-white/90 shadow-xl transition duration-300 group-hover:rotate-[13deg] group-hover:scale-105 sm:h-[88px] sm:w-[88px] sm:text-xl">
                 {category.mark}
@@ -58,7 +58,7 @@ export default function BrowseAll() {
       </section>
       <section className="mt-8 pb-8" aria-labelledby="quick-picks-title">
         <h2 id="quick-picks-title" className="mb-4 text-xl font-bold text-white sm:text-2xl">Popular playlists</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="browse-picks">
           {QUICK_PICKS.map((pick) => (
             <Link key={pick.id} href={playlistHref(pick.query)}
               className="group flex min-h-[88px] items-center justify-between overflow-hidden rounded-lg border border-white/10 p-4 transition hover:border-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
