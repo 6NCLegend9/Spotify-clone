@@ -172,7 +172,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
         }
         const ids = validYouTubeIds(nextCollection[isLiked ? "favourites" : "songs"]);
         if (isLiked) ids.reverse();
-        const hydratedTracks = await hydrateYouTubeTracks(ids);
+        const hydratedTracks = await hydrateYouTubeTracks(ids, { retainUnavailable: true });
         const dateMap = nextCollection[isLiked ? "favouriteAddedAt" : "songAddedAt"];
         const datedTracks = hydratedTracks.map((track) => ({
           ...track,
@@ -256,9 +256,10 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   };
 
   const createQueue = async () => {
-    if (!discoveryShuffle) return tracks;
+    const playableTracks = tracks.filter((track) => track.unavailable !== true && track.playable !== false);
+    if (!discoveryShuffle) return playableTracks;
     const smartTracks = await fetchDiscoveryRecommendations();
-    return interleaveRecommendations(tracks, [...smartTracks]);
+    return interleaveRecommendations(playableTracks, [...smartTracks]);
   };
 
   const seedTracks = (items) =>
@@ -275,6 +276,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   };
 
   const playTrack = async (track) => {
+    if (track.unavailable === true || track.playable === false) return;
     const queue = seedTracks(await createQueue());
     if (!live.current) return;
     const selected = queue.find((item) => item.id === track.id) || {

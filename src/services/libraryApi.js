@@ -36,7 +36,7 @@ function libraryLoadError(error, fallback) {
     : toUserError(error, fallback);
 }
 
-export async function hydrateYouTubeTracks(values = []) {
+export async function hydrateYouTubeTracks(values = [], { retainUnavailable = false } = {}) {
   const ids = validYouTubeIds(values);
   if (ids.length === 0) return [];
   const cache = typeof window === "undefined" ? {} : readTrackCache();
@@ -92,7 +92,13 @@ export async function hydrateYouTubeTracks(values = []) {
     ...hydrated.map((track) => [track.id, track]),
     ...fetched.map((track) => [track.id, track]),
   ]);
-  return ids.map((id) => tracksById.get(id)).filter(Boolean);
+  // A successful details response omits deleted/private videos. Keep their saved
+  // positions visible; request failures still throw instead of marking songs unavailable.
+  if (!retainUnavailable) return ids.map((id) => tracksById.get(id)).filter(Boolean);
+  return ids.map((id) => tracksById.get(id) || {
+    id, title: "Unavailable song", channel: "Video unavailable or private",
+    thumbnail: "", duration: 0, unavailable: true,
+  });
 }
 
 export async function getFavouriteLibrary() {

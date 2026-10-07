@@ -89,6 +89,7 @@ const AccountPlaylists = ({ owner, status }) => {
         <button type="button" onClick={() => setShow(true)} className="icon-btn h-11 w-11" aria-label="Create playlist"><FaPlus aria-hidden="true" className="text-xs" /></button>
       </div>
       <div className="flex min-h-0 flex-col">
+        {status === "authenticated" && <Link href="/library/liked" onClick={() => setShowNav(false)} className="mb-2 flex min-h-16 items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--navy-panel)]"><span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-[var(--navy-panel)] text-xl text-[var(--accent)]">♥</span><span><span className="block text-sm font-semibold">Liked Songs</span><span className="block text-xs text-[var(--muted)]">Your saved songs</span></span></Link>}
         {loading ? <p className="px-2 py-3 text-xs text-[var(--muted)]">Loading playlists…</p> : null}
         {!loading && error ? <div className="px-2 py-2"><UserMessage compact title={error.title} message={error.message} onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined} href={error.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
         {!loading && !error && playlists.length === 0 ? <div className="px-2 py-2"><EmptyState title="No playlists yet" message="Create one to keep songs together." actionLabel="Create playlist" onAction={() => setShow(true)} /></div> : null}

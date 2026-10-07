@@ -75,3 +75,19 @@ The first combined auth/routes run ended with exit 1 without an aggregate report
 | pr23-ui/after-narrow-login.png | 320x740 desktop-pointer viewport |
 
 Both pointer contexts also ran the behavioral visual matrix. The checked-in images are the desktop-context samples; coarse-pointer phone rotation/provider identity is covered by the existing mobile playback suite.
+
+## October 7 owner review follow-up
+
+Requested fixes: collapse empty desktop player space (including the Now Playing panel), align navbar controls, include the built-in Liked Songs collection in library views, retain duration in compact playlist columns, and dim unavailable saved songs while preventing play/queue actions.
+
+Root causes: fixed 90px shell row; inherited named navbar grid areas; duration hidden below a 640px content width; Liked Songs omitted from playlist/liked filters and sidebar list; successful video-details responses dropped missing saved IDs during hydration.
+
+This follow-up expressly includes minimal behavior needed by the owner's unavailable-song request: client hydration retains omitted IDs as unavailable placeholders; row play/queue actions are disabled; collection queues exclude these known-unavailable rows. It also adjusts built-in library item inclusion. This supersedes the initial className-only boundary for those specific changes. No backend, provider lifecycle, radio algorithm, persisted playlist mutation or native code is changed.
+
+Unavailable detection here means a saved ID omitted by a successful details response, or an explicit unavailable/playable=false track flag. Transient request errors remain errors, not unavailable-song classifications. Region/account-specific playback failures are not predicted by metadata alone; no live provider verification is claimed. Unknown durations remain an em dash rather than fabricated time.
+
+Follow-up validation (Node 22): 694 unit tests passed; lint, typecheck, production build and diff whitespace checks passed. Desktop shell/visual/playlist/500-row suite exited 0 with the runner recording passed and no failed tests (23 cases). Final desktop/mobile playback/theater/virtualization/review run: 36 passed, 3 device-specific skips, 1 stale test-locator failure. The trace showed the mobile compact header had its existing Show queue control while the test requested Queue only; the test now accepts both existing labels. The affected mobile case reran and passed (6.7s). No production media component changed to resolve that test mismatch.
+
+Updated screenshots show the collapsed empty desktop player, aligned phone header and built-in Liked Songs. Missing-video placeholders are opt-in for playlist details; other hydration callers retain their previous omission behavior. Firefox/WebKit/native/live-provider limitations from the initial ledger still apply.
+
+The final built-in Liked Songs/unavailable rows/duration/player-appearance check passed again on the final build (5.0s). Screenshot: pr23-ui/after-unavailable-playlist.png. Playable entries retain their duration and actions; the unavailable entry stays in order with dimmed text/artwork and disabled playback.

@@ -333,7 +333,7 @@ function AccountLibraryView({ session, status, owner }) {
       if (sort === "added") return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
       return new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0);
     });
-    return filter === "all" ? [likedItem, ...visible] : visible;
+    return ["all", "playlists", "by-you", "liked"].includes(filter) ? [likedItem, ...visible] : visible;
   }, [covers, favourites, filter, playlists, session?.user?.id, sort, status]);
 
   return (

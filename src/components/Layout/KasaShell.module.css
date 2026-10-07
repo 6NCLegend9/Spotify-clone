@@ -1,8 +1,8 @@
 /* Shared responsive workspace presentation. Every rule is scoped to this navbar's mounted application.
    Existing authentication, settings, data and media-controller modules stay intact. */
 :global(body):has(.navbar) { font-family: var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-:global(.app-shell):has(.navbar) { --accent: var(--appearance-accent, #00e6e6); --play-ink: var(--appearance-play-ink, #001014); --teal: #64c9d7; --teal-mid: #22a6b3; --navy: #0c1018; --navy-deep: #0c1018; --navy-surface: #141a24; --navy-raised: #1c2430; --navy-panel: #283343; --text: #f4f7fb; --muted: #b4bfcd; --hairline-cyan: rgb(180 191 205 / 18%); --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: var(--navy-deep); }
-:global(.app-shell[data-has-track="false"]):has(.navbar) { --mobile-player-h: 0px; }
+:global(.app-shell):has(.navbar) { --accent: var(--appearance-accent, #00e6e6); --play-ink: var(--appearance-play-ink, #001014); --teal: #64c9d7; --teal-mid: #22a6b3; --navy: #0c1018; --navy-deep: #0c1018; --navy-surface: #141a24; --navy-raised: #1c2430; --navy-panel: #283343; --text: #f4f7fb; --muted: #b4bfcd; --hairline-cyan: rgb(180 191 205 / 18%); --desktop-player-h: 90px; --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: var(--navy-deep); }
+:global(.app-shell[data-has-track="false"]):has(.navbar) { --desktop-player-h: 0px; --mobile-player-h: 0px; }
 .navbar { margin: 0; border-radius: 0; background: var(--navy-surface); border: 0; border-bottom: 1px solid var(--hairline-cyan); box-shadow: none; min-height: 72px; padding: 12px 24px; gap: 12px; grid-template-columns: auto minmax(0, 1fr) auto; min-width: 0; }
 .navbar :global(.navbar-search-cluster) { width: 100%; max-width: 640px; min-width: 0; justify-self: stretch; gap: 0; }
 .navbar :global(.navbar-slot-start),
@@ -109,13 +109,13 @@
  .history { display: flex; }
  .navbar :global(.nav-home-btn),
  .navbar :global(.brand-mark) { display: none; }
- :global(.app-shell):has(.navbar) { display: grid; grid-template-columns: min(var(--sidebar-live-w, 260px), 25vw) 8px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 90px; gap: 8px 0; padding: 12px 12px 0; }
+ :global(.app-shell):has(.navbar) { display: grid; grid-template-columns: min(var(--sidebar-live-w, 260px), 25vw) 8px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--desktop-player-h); gap: 8px 0; padding: 12px 12px 0; }
  :global(.app-shell.is-sidebar-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr); }
  :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: relative; inset: auto; grid-column: 1; grid-row: 1; width: 100%; height: 100%; transform: none; min-height: 0; }
  :global(.app-shell):has(.navbar) :global(.sidebar-resizer) { grid-column: 2; grid-row: 1; position: relative; display: block; width: 8px; margin: 0; inset: auto; }
  :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 3; grid-row: 1; min-width: 0; min-height: 0; }
- :global(.app-shell:not([data-player="full"])):has(.navbar) :global(.app-player) { height: 90px; max-height: 90px; }
- :global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: 90px; min-height: 90px; }
+ :global(.app-shell:not([data-player="full"])):has(.navbar) :global(.app-player) { height: var(--desktop-player-h); max-height: var(--desktop-player-h); }
+ :global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: var(--desktop-player-h); min-height: var(--desktop-player-h); }
  :global(.app-shell):has(.navbar) :global(.now-playing-panel), :global(.app-shell):has(.navbar) :global(.right-panel-resizer) { display: none; }
  :global(.app-shell):has(.navbar) :global(.app-tabbar) { display: none; }
 }
@@ -138,12 +138,11 @@
  :global(.app-shell:not([data-player="full"])):has(.navbar) :global(.app-player) { grid-column: 1; grid-row: 2; height: var(--mobile-player-h); max-height: var(--mobile-player-h); }
  :global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: var(--mobile-player-h); min-height: var(--mobile-player-h); }
  .navbar { min-height: 56px; padding: 8px 12px; gap: 8px; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: none; }
- .navbar :global(.navbar-slot-start) { display: flex; gap: 0; }
+ .navbar :global(.navbar-slot-start) { display: flex; gap: 0; grid-area: auto; }
  .navbar :global(.navbar-search-cluster) { grid-area: auto; width: 100%; max-width: none; justify-self: stretch; }
  .navbar :global(.navbar-slot-end) { grid-area: auto; }
  .navbar :global(.search-field) { min-height: 44px; height: 44px; }
  .navbar :global(.navbar-slot-start) > :not(button),
- .navbar :global(.navbar-slot-start) > button:first-child,
  .navbar :global(.search-split),
  .navbar :global(.search-browse) { display: none; }
 
@@ -182,4 +181,20 @@
 }
 @media (max-width: 767px), (orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px) {
  .history { display: none; }
+}
+
+/* Cancel inherited named mobile grid areas: all controls share one row. */
+.navbar :global(.navbar-slot-start), .navbar :global(.navbar-slot-end), .navbar :global(.navbar-search-cluster) { grid-area: auto; }
+@media (max-width: 767px), (orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px) {
+ .navbar { padding: 8px; gap: 4px; align-items: center; }
+ .navbar :global(.navbar-slot-start) > button:nth-child(2) { display: none; }
+ .navbar :global(.navbar-slot-start) > button:nth-child(2):not(:disabled) { display: grid; }
+ .navbar :global(.navbar-slot-end) > :not(:last-child) { display: none; }
+ .searchRoute { grid-template-columns: auto minmax(0, 1fr); }
+}
+@media (min-width: 1181px) {
+ :global(.app-shell[data-has-track="false"]):has(.navbar) { grid-template-columns: min(var(--sidebar-live-w, 260px), 25vw) 8px minmax(0, 1fr); row-gap: 0; }
+ :global(.app-shell[data-has-track="false"].is-sidebar-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr); }
+ :global(.app-shell[data-has-track="false"]):has(.navbar) :global(.now-playing-panel),
+ :global(.app-shell[data-has-track="false"]):has(.navbar) :global(.right-panel-resizer) { display: none; }
 }

@@ -33,22 +33,26 @@ function PlaylistTrackRow({
   onPlay,
   onRemove,
 }) {
+  const unavailable = track.unavailable === true || track.playable === false;
   const title = cleanTitle(track.title);
   const artist = cleanTitle(track.channel);
   return (
     <ContextMenuTarget
+      data-unavailable={unavailable}
+      title={unavailable ? "This song is unavailable" : undefined}
       className={`playlist-track-row group grid min-h-[66px] items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/[0.075] ${active ? "bg-white/[0.06]" : ""}`}
     >
       <button
         type="button"
-        aria-label={`Play ${title}`}
+        disabled={unavailable}
+        aria-label={unavailable ? `${title} unavailable` : `Play ${title}`}
         onClick={() => onPlay(track)}
         className={`grid h-11 w-11 place-items-center rounded-full text-sm ${active ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}
       >
         <span className="group-hover:hidden">{index + 1}</span>
         <FiPlay className="hidden fill-current group-hover:block" />
       </button>
-      <button type="button" onClick={() => onPlay(track)} className="flex min-w-0 items-center gap-3 text-left">
+      <button type="button" disabled={unavailable} onClick={() => onPlay(track)} className="flex min-w-0 items-center gap-3 text-left">
         <MediaImage
           src={track.thumbnail}
           size="mq"
@@ -65,12 +69,12 @@ function PlaylistTrackRow({
       <span className="hidden text-xs text-gray-400 lg:block">{formatAddedDate(track.addedAt)}</span>
       <span className="hidden text-right text-xs tabular-nums text-gray-400 md:block">{formatDuration(track.duration)}</span>
       <div className="flex items-center justify-end gap-1">
-        <AddToQueueButton
+        {!unavailable && <AddToQueueButton
           track={track}
           onRemove={removable ? () => onRemove(track) : undefined}
           removeLabel={liked ? "Remove from Liked Songs" : "Remove from playlist"}
           className="pointer-hover-action text-gray-500 hover:text-white"
-        />
+        />}
         {removable ? (
           <button
             type="button"

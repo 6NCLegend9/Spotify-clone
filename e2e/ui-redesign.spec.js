@@ -26,7 +26,7 @@ async function expectInViewport(locator, page) {
 }
 
 test("shell reflows at policy boundaries without exposing conflicting navigation", async ({ page, isMobile }) => {
-  await installUiFixtures(page);
+  await installUiFixtures(page, { playback: true });
   await page.goto("/search", { waitUntil: "domcontentloaded" });
   for (const width of [320, 390, 640, 767, 768, 1024, 1180, 1181, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });

@@ -79,3 +79,7 @@ Review final diff for changes outside the presentation allowlist. Pull request d
 ## Review checkpoint
 
 Design and implementation-plan reviews are complete following the user review of 2026-10-06. Execute sequentially with baseline evidence and targeted validation per surface; production changes remain UI-only.
+
+## Owner-requested follow-up — October 7
+
+Empty desktop playback chrome must collapse until a track is selected; phone navbar controls must align; built-in Liked Songs stays visible in library views; compact collection rows retain duration; known-unavailable songs remain dimmed and disabled rather than disappearing. These requests authorize the minimal client-side library inclusion, metadata placeholder and playback-eligibility changes required by those states. Provider mounting, backend, radio logic and persisted user playlist data remain outside this follow-up. See docs/qa/pr23-ui-redesign.md for validation and detection limits.
