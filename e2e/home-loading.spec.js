@@ -129,7 +129,7 @@ for (const destination of ["/library", "/following", "/library/liked"]) {
       if (pathname === "/api/settings") return route.fulfill({ json: { authenticated: true, settings: {} } });
       if (pathname === "/api/favourite") return route.fulfill({ json: { success: true, data: { favourites: accountId === "nav-a" ? [track.id] : [] } } });
       if (pathname === "/api/userPlaylists") return route.fulfill({ json: { success: true, data: { playlists: accountId === "nav-a" ? [{ _id: "aaaaaaaaaaaaaaaaaaaaaaaa", name: "Private saved playlist from A", songs: [], user: "nav-a" }] : [] } } });
-      if (pathname === "/api/followedArtists") return route.fulfill({ json: { success: true, data: accountId === "nav-a" ? ["Private followed artist from A"] : [], artists: [{ name: "Private followed artist from A", channelId: "channel-a", thumbnail: "/icon-192x192.png" }] } });
+      if (pathname === "/api/followedArtists") return route.fulfill({ json: { success: true, data: accountId === "nav-a" ? ["Private followed artist from A"] : [], artists: accountId === "nav-a" ? [{ name: "Private followed artist from A", channelId: "channel-a", thumbnail: "/icon-192x192.png" }] : [] } });
       if (pathname === "/api/youtube-videos") return route.fulfill({ json: { tracks: [track] } });
       if (pathname === "/api/recommendations") return route.fulfill({ json: { sections: {}, mode: "personalized" } });
       return route.fulfill({ json: { success: true, data: [], releases: [], genres: [], tree: [] } });
