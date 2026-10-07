@@ -1,6 +1,6 @@
 const UI_TRACK = { id: "abcdefghijk", title: "A very long track title — Music for testing — responsive interface verification", channel: "A very long artist name", thumbnail: "/icon-192x192.png" };
 
-async function installUiFixtures(page, { playback = false, accent = null } = {}) {
+async function installUiFixtures(page, { playback = false, accent = null, track = UI_TRACK } = {}) {
   await page.addInitScript(({ track, playbackEnabled, customAccent }) => {
     delete Navigator.prototype.serviceWorker;
     if (playbackEnabled) {
@@ -14,7 +14,7 @@ async function installUiFixtures(page, { playback = false, accent = null } = {})
         appearance: { get: async () => ({ available: true, resolvedAccent: customAccent, accentForeground: "#001014", profiles: [], activeProfile: null, backgroundUrl: "" }), onChanged: () => () => {} },
       };
     }
-  }, { track: UI_TRACK, playbackEnabled: playback, customAccent: accent });
+  }, { track, playbackEnabled: playback, customAccent: accent });
   await page.route(/https:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\//, (route) => route.abort());
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;

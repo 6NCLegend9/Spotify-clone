@@ -42,6 +42,8 @@ test('liked collection is built in and unavailable tracks keep their rows', asyn
   await page.goto('/library/liked');
   const missing = page.locator('.playlist-track-row[data-unavailable="true"]');
   await expect(missing).toContainText('Unavailable song');
+  await expect(missing).toContainText('Video unavailable or private');
+  await expect(missing.getByRole('link')).toHaveCount(0);
   expect(await missing.locator('button').first().evaluate(el => Number(getComputedStyle(el).opacity))).toBeLessThanOrEqual(.4);
   await expect(missing.getByRole('button', { name: 'Unavailable song unavailable', exact: true })).toBeDisabled();
   await expect(missing.locator('button[data-item-menu-trigger]')).toHaveCount(0);

@@ -80,3 +80,17 @@ test("missing, corrupt, expired and unavailable storage are nonfatal", () => {
   writePlaybackSnapshot(storage, "account-a", { youtubeVideo: track }, 1);
   assert.equal(readPlaybackSnapshot(storage, "account-a", 32 * 86400000), null);
 });
+
+test("artist credits survive refresh without persisting arbitrary artist fields", () => {
+  const artists = [
+    { name: "2Pac", channelId: "UCMIdeeBjp_60Jv7ROpRxK6Q", token: "private" },
+    { name: "Dr. Dre", channelId: "UCbbbbbbbbbbbbbbbbbbbbbb" },
+  ];
+  const storage = memoryStorage();
+  writePlaybackSnapshot(storage, "artist-test", { youtubeVideo: { ...track, artists }, youtubeQueue: [{ ...track, artists }] });
+  const restored = readPlaybackSnapshot(storage, "artist-test");
+  assert.deepEqual(restored.youtubeVideo.artists, [
+    { name: "2Pac", channelId: "UCMIdeeBjp_60Jv7ROpRxK6Q" },
+    { name: "Dr. Dre", channelId: "UCbbbbbbbbbbbbbbbbbbbbbb" },
+  ]);
+});

@@ -1,14 +1,9 @@
 import React from "react";
 import { cleanTitle } from "@/utils/text";
 import FxEq from "@/components/FxEq";
+import ArtistNameLink from "@/components/ArtistNameLink";
 
 const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
-  const primaryArtists = Array.isArray(activeSong?.artists?.primary)
-    ? activeSong.artists.primary
-    : Array.isArray(activeSong?.artists)
-    ? activeSong.artists
-    : [];
-
   return (
     <div
       className={`flex-1 flex items-center justify-start ${
@@ -36,16 +31,7 @@ const Track = ({ isPlaying, isActive, activeSong, fullScreen }) => {
           {isPlaying && isActive ? <FxEq className="mr-2" /> : null}
           {cleanTitle(activeSong?.name || activeSong?.title, "Song")}
         </p>
-        <p className="truncate text-gray-300">
-          {primaryArtists.length > 0
-            ? primaryArtists
-                .map((artist) => cleanTitle(artist?.name))
-                .filter(Boolean)
-                .join(", ")
-            : typeof activeSong?.artists === "string"
-            ? cleanTitle(activeSong.artists, "Artist")
-            : "Artist"}
-        </p>
+        <ArtistNameLink track={activeSong} className="text-gray-300" />
       </div>
     </div>
   );

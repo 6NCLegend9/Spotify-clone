@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import MediaImage from "@/components/MediaImage";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { SongRowsSkeleton } from "@/components/Skeleton";
@@ -157,10 +158,12 @@ export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist"
                 <button type="button" aria-label={`Play ${cleanTitle(track.title)}`} onClick={() => playTrack(track)} className="grid h-11 w-11 place-items-center rounded-full text-sm text-gray-400 hover:text-white">
                   <span className="group-hover:hidden">{seededTracks.indexOf(track) + 1}</span><FiPlay className="hidden fill-current group-hover:block" />
                 </button>
-                <button type="button" onClick={() => playTrack(track)} className="flex min-w-0 items-center gap-3 text-left">
+                <div className="flex min-w-0 items-center gap-3 text-left">
+                  <button type="button" onClick={() => playTrack(track)} aria-label={`Play artwork for ${cleanTitle(track.title)}`} className="shrink-0">
                   <MediaImage src={track.thumbnail} size="mq" alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
-                  <span className="min-w-0"><span className="block truncate text-sm font-semibold">{cleanTitle(track.title)}</span><span className="mt-1 block truncate text-xs text-gray-400">{cleanArtist(track.channel)}</span></span>
-                </button>
+                  </button>
+                  <div className="min-w-0 flex-1"><button type="button" onClick={() => playTrack(track)} className="block w-full truncate text-left text-sm font-semibold">{cleanTitle(track.title)}</button><ArtistNameLink track={track} className="mt-1 text-xs text-gray-400" /></div>
+                </div>
                 <span className="text-right text-xs tabular-nums text-gray-400">{formatDuration(track.duration)}</span>
                 <AddToQueueButton track={track} className="text-gray-400 hover:text-white" />
               </div>
@@ -174,4 +177,3 @@ export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist"
     </main>
   );
 }
-

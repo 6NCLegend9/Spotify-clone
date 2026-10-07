@@ -14,7 +14,7 @@ test("real provider pipeline recovers from HTTP failure without inventing embed 
   globalThis.__youtubeSearchFixture = async (query) => {
     libraryCalls += 1;
     assert.equal(query, "guest search regression");
-    return { results: [{ video_id: "abcdefghijk", title: "Requested song", author: { name: "Artist" } }] };
+    return { results: [{ video_id: "abcdefghijk", title: "Requested song", author: { name: "Artist", id: "UCMIdeeBjp_60Jv7ROpRxK6Q" } }] };
   };
   try {
     const result = await youtubeFetch("search", { type: "video", q: "guest search regression" });
@@ -22,6 +22,7 @@ test("real provider pipeline recovers from HTTP failure without inventing embed 
     assert.equal(result.source, "fallback");
     assert.equal(libraryCalls, 1);
     assert.equal(result.data.items[0].snippet.title, "Requested song");
+    assert.equal(result.data.items[0].snippet.channelId, "UCMIdeeBjp_60Jv7ROpRxK6Q");
     assert.equal(result.data.items[0].status.embeddable, undefined);
 
     const filtered = await youtubeFetch("search", { type: "video", q: "filter regression" }, { requireOfficial: true });

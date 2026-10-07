@@ -5,6 +5,7 @@ import { FiHeart, FiPlay, FiTrash2 } from "react-icons/fi";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import MediaImage from "@/components/MediaImage";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import { cleanTitle } from "@/utils/text";
 
 function formatDuration(seconds) {
@@ -35,7 +36,6 @@ function PlaylistTrackRow({
 }) {
   const unavailable = track.unavailable === true || track.playable === false;
   const title = cleanTitle(track.title);
-  const artist = cleanTitle(track.channel);
   return (
     <ContextMenuTarget
       data-unavailable={unavailable}
@@ -52,7 +52,8 @@ function PlaylistTrackRow({
         <span className="group-hover:hidden">{index + 1}</span>
         <FiPlay className="hidden fill-current group-hover:block" />
       </button>
-      <button type="button" disabled={unavailable} onClick={() => onPlay(track)} className="flex min-w-0 items-center gap-3 text-left">
+      <div className="flex min-w-0 items-center gap-3 text-left">
+        <button type="button" disabled={unavailable} aria-label={`Play artwork for ${title}`} onClick={() => onPlay(track)} className="shrink-0">
         <MediaImage
           src={track.thumbnail}
           size="mq"
@@ -60,11 +61,13 @@ function PlaylistTrackRow({
           onError={(event) => { event.currentTarget.hidden = true; }}
           className="h-11 w-11 shrink-0 rounded object-cover"
         />
-        <span className="min-w-0">
-          <span className={`block truncate text-sm font-semibold ${active ? "text-[#00e6e6]" : "text-white"}`}>{title}</span>
-          <span className="mt-1 block truncate text-xs text-gray-400">{artist}</span>
-        </span>
-      </button>
+        </button>
+        <div className="min-w-0 flex-1">
+          <button type="button" disabled={unavailable} onClick={() => onPlay(track)} className={`block w-full truncate text-left text-sm font-semibold ${active ? "text-[#00e6e6]" : "text-white"}`}>{title}</button>
+          <ArtistNameLink track={track} className="mt-1 text-xs text-gray-400" />
+          {unavailable && cleanTitle(track.unavailableReason) && <span className="mt-1 block truncate text-xs text-gray-400">{cleanTitle(track.unavailableReason)}</span>}
+        </div>
+      </div>
       <span className="hidden truncate text-xs text-gray-400 md:block">-</span>
       <span className="hidden text-xs text-gray-400 lg:block">{formatAddedDate(track.addedAt)}</span>
       <span className="hidden text-right text-xs tabular-nums text-gray-400 md:block">{formatDuration(track.duration)}</span>

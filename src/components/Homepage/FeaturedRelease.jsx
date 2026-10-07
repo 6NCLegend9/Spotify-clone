@@ -119,8 +119,7 @@ export default function FeaturedRelease({ video, queue }) {
             New release from
           </p>
           <ArtistNameLink
-            channelId={video.channelId}
-            name={artist}
+            track={video}
             className="block truncate text-base font-bold text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00e6e6] sm:text-lg"
           />
         </div>
@@ -145,8 +144,7 @@ export default function FeaturedRelease({ video, queue }) {
                 <p className="mt-1 line-clamp-2 text-sm font-bold text-white sm:text-base">{title}</p>
               </button>
               <ArtistNameLink
-                channelId={video.channelId}
-                name={artist}
+                track={video}
                 className="mt-1 block truncate text-xs text-[#9aa8b5] hover:text-[#00e6e6] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00e6e6]"
               />
             </div>

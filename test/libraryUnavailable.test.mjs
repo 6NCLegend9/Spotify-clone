@@ -17,6 +17,8 @@ test('unavailable placeholders are opt-in and preserve saved order', async () =>
   assert.equal(tracks.length, 2);
   assert.equal(tracks[0].id, missing);
   assert.equal(tracks[0].unavailable, true);
+  assert.equal(tracks[0].channel, "", "An unavailable reason is not an artist credit");
+  assert.equal(tracks[0].unavailableReason, "Video unavailable or private");
   assert.deepEqual(tracks[1], available);
 });
 

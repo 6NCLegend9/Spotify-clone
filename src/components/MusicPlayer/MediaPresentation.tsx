@@ -517,7 +517,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       : track.id === props.track.id,
   );
   const upcoming = props.queue.slice(upcomingIndex < 0 ? 0 : upcomingIndex + 1, upcomingIndex < 0 ? 3 : upcomingIndex + 4);
-  const metadata = <div className={styles.metadata}><div><h2>{props.track.title}</h2><ArtistNameLink channelId={props.track.channelId} name={props.track.channel} className={styles.artistLink} /></div>{props.favourite}</div>;
+  const metadata = <div className={styles.metadata}><div><h2>{props.track.title}</h2><ArtistNameLink track={props.track} onNavigate={dismiss} className={styles.artistLink} /></div>{props.favourite}</div>;
   const sourceLabel = view === "player"
     ? (playbackContext?.name ? "PLAYING FROM" : "NOW PLAYING")
     : view.toUpperCase();
@@ -536,7 +536,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const content = <>
     {overlay && <header className={`${styles.overlayHeader} ${expanded ? styles.theaterChrome : ""} ${mobile && !expanded && compactHeader && view === "player" ? styles.compactHeader : ""}`} onTouchStart={startGesture} onTouchMove={moveGesture} onTouchEnd={endGesture} onTouchCancel={cancelGesture} data-sheet-handle>
       <PlayerIconButton label={view !== "player" ? "Back to player" : expanded ? (showingVideo ? "Collapse video" : "Collapse player") : "Close player"} onClick={close}>{expanded ? <Minimize2 size={21} /> : <ChevronDown size={25} />}</PlayerIconButton>
-      <span className={styles.source}><small>{mobile && compactHeader && !expanded && view === "player" ? (props.track.channel ? <ArtistNameLink channelId={props.track.channelId} name={props.track.channel} className={styles.compactArtist} /> : "NOW PLAYING") : sourceLabel}</small><strong>{mobile && compactHeader && !expanded && view === "player" ? props.track.title : sourceName}</strong></span>
+      <span className={styles.source}><small>{mobile && compactHeader && !expanded && view === "player" ? (props.track.channel ? <ArtistNameLink track={props.track} onNavigate={dismiss} className={styles.compactArtist} /> : "NOW PLAYING") : sourceLabel}</small><strong>{mobile && compactHeader && !expanded && view === "player" ? props.track.title : sourceName}</strong></span>
       {mobile && compactHeader && !expanded && view === "player" ? <PlayerIconButton label={props.playing ? "Pause" : "Play"} disabled={props.disabled} onClick={props.onPlayPause}>{props.playing ? <Pause size={21} /> : <Play size={21} />}</PlayerIconButton> : expanded ? <div className={styles.topTools}>{modeButton}
         <Link href="/settings" onClick={dismiss} aria-label="Playback settings" className={styles.modeButton}><Settings2 size={17} /><span>Playback settings</span></Link>
       </div> : <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={21} /></PlayerIconButton>}
@@ -569,14 +569,14 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
               </button>
               <div className={styles.queueCopy}>
                 <button type="button" disabled={props.disabled} onClick={() => props.onSelect(track)} className={styles.queueTitle}>{track.title}</button>
-                <ArtistNameLink channelId={track.channelId} name={track.channel} className={styles.queueArtist} />
+                <ArtistNameLink track={track} onNavigate={dismiss} className={styles.queueArtist} />
               </div>
             </div>) : <p className={styles.empty}>Your queue is empty.</p>}
           </section>
           {mobile && props.track.channel && <section className={styles.detailCard} aria-label="Explore artist">
             <div><h3>Explore {props.track.channel}</h3><Music2 size={20} /></div>
             <p>Find more music from this artist.</p>
-            <Link href={`/search/${encodeURIComponent(props.track.channel)}`} onClick={dismiss}>Explore music</Link>
+            <ArtistNameLink track={props.track} onNavigate={dismiss} />
           </section>}
           {mobile && <section className={styles.detailCard} aria-label="Track information">
             <h3>Track information</h3><dl><dt>Title</dt><dd>{props.track.title}</dd>

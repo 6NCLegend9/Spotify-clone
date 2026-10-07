@@ -10,6 +10,7 @@ export interface PlayerTrack {
   title: string;
   channel?: string;
   channelId?: string;
+  artists?: { name: string; channelId?: string }[];
   thumbnail?: string;
   queueEntryId?: string;
   queueSource?: "user" | "context";

@@ -96,8 +96,8 @@ export async function hydrateYouTubeTracks(values = [], { retainUnavailable = fa
   // positions visible; request failures still throw instead of marking songs unavailable.
   if (!retainUnavailable) return ids.map((id) => tracksById.get(id)).filter(Boolean);
   return ids.map((id) => tracksById.get(id) || {
-    id, title: "Unavailable song", channel: "Video unavailable or private",
-    thumbnail: "", duration: 0, unavailable: true,
+    id, title: "Unavailable song", channel: "",
+    thumbnail: "", duration: 0, unavailable: true, unavailableReason: "Video unavailable or private",
   });
 }
 

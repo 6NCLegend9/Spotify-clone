@@ -91,3 +91,36 @@ Follow-up validation (Node 22): 694 unit tests passed; lint, typecheck, producti
 Updated screenshots show the collapsed empty desktop player, aligned phone header and built-in Liked Songs. Missing-video placeholders are opt-in for playlist details; other hydration callers retain their previous omission behavior. Firefox/WebKit/native/live-provider limitations from the initial ledger still apply.
 
 The final built-in Liked Songs/unavailable rows/duration/player-appearance check passed again on the final build (5.0s). Screenshot: pr23-ui/after-unavailable-playlist.png. Playable entries retain their duration and actions; the unavailable entry stays in order with dimmed text/artwork and disabled playback.
+
+## October 7 artist-navigation follow-up
+
+The owner authorized artist navigation as the first item in the next review: each credited artist should open their own HayKasa artist page, including featured artists. Artist-profile design is a separate next step. Work started from PR23 head cf9d8303367aa8e077cf6e3d4a0b31fae3ca4248; the branch and draft PR already exist at this checkpoint.
+
+### Iceberg investigation and change
+
+The existing shared link only accepted one uploader name and a channel ID. Some video/playlist/fallback mappings discarded that ID, playback snapshots discarded structured artist arrays, and other song surfaces rendered plain text or placed artist text inside a play button. The owner's title-credit example therefore displayed the upload channel instead of the primary and featured performers. Song-menu gestures also intercepted link context menus, and player/queue overlays could cover the destination after navigation.
+
+The shared renderer now uses separate native links for structured artist credits, preserves each valid channel identity, and handles common title `feat.`/`ft.` credits when structured metadata is absent. It deliberately preserves band names containing commas, `&`, or `and`. Title inference is best effort; the upstream provider does not supply complete authoritative performer credits for every upload.
+
+Known identities go directly to `/artist/<channelId>?name=<encoded name>`. Missing identities use an on-demand `/artist?name=...` lookup through the existing channel-search API. A single exact normalized match opens the existing artist profile; ambiguous or non-exact matches require a choice, failed requests are retryable, and empty results offer a search recovery link. Rendering a long playlist does not launch per-row channel lookups.
+
+The change retains uploader identity in the existing API projections and fallback mappings and stores only bounded artist names/validated channel IDs in the optional playback-snapshot field. It separates artist links from play buttons, preserves native link-menu/modifier behavior, and uses existing dismiss callbacks for player and queue dialogs. An unavailable placeholder's reason is now plain text in a separate field rather than a fake artist credit.
+
+### Observed validation
+
+- RED: metadata and snapshot regressions reproduced missing channel IDs and artist arrays; the browser reproduced the missing featured-artist link.
+- RED: a song context-menu gesture prevented the artist link's native menu. The shared gesture exclusion fixes this case.
+- RED: queue-dialog artist navigation left the dialog mounted over the artist destination. The existing close callback now handles a normal artist-link activation.
+- Final Node 22 `npm run check`: exit 0; 703 unit tests passed, ESLint passed, Next type generation/TypeScript passed, and the production build generated all 66 pages.
+- Before the queue-dialog correction, the focused desktop/mobile artist and owner-review run recorded 19 passed, one intentional desktop skip for the mobile-only sheet test, and no failures (37.7s).
+- Final production desktop/mobile Chromium run after the queue-dialog correction: exit 0; the complete Playwright JSON report records 60 passed, four device-specific skips, zero unexpected failures, zero flaky tests, and no report errors (138.9s). Each project recorded 30 passes and two skips. This includes artist navigation, owner-review regressions, playlist browsing, playback, theater controls, and 500-song virtualization; the runner's final status is passed with no failed tests.
+
+Artist browser fixtures exercise the real application router, components, playback snapshot, and provider mounting path, while isolating remote APIs and the YouTube player. Checks cover separate destinations, refresh restoration, keyboard activation/Back, unchanged queue/current song, one mounted provider with no destroy on navigation, no accidental row playback, phone-sheet dismissal, ambiguous/retry/empty lookup states, and 320x740, 640x520, and 844x390 overflow/focus checks. They do not establish live YouTube/channel correctness or physical-device behavior.
+
+Screenshots: `pr23-ui/after-artists-desktop.png` (1440x900, desktop pointer) and `pr23-ui/after-artists-phone.png` (Pixel 7 emulation, coarse pointer). Both show deterministic primary/featured credits with distinct links; artist/channel data is a fixture.
+
+### Scope, remaining gates, and rollback
+
+This explicitly authorized navigation follow-up extends the initial presentation-only boundary to small metadata projections, an optional artist snapshot field, and the name-lookup route. No provider/radio algorithms, queue-edit logic, authentication, database schema, dependencies, responsivePolicy.mjs, native code, or existing artist-profile implementation is changed. Existing appearance preferences remain authoritative. Reverting this follow-up restores prior navigation; the optional snapshot field is backward compatible and ignored by older clients.
+
+The production dependency audit remains a separate blocking gate: `npm run audit:production` exited 1 with two high-severity findings in the unchanged dependencies, `sharp` and `source-map-js`. No audit suppression or dependency upgrade is included in the artist-navigation change. Chromium uses the previously documented isolated runner fallback. Firefox/WebKit/Safari, physical devices, packaged Electron, live providers, and other manual acceptance limits remain as documented above.

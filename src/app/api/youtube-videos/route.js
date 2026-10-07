@@ -69,6 +69,7 @@ export async function GET(request) {
         id: item.id,
         title: cleanTitle(item.snippet.title || ""),
         channel: cleanTitle(item.snippet.channelTitle || ""),
+        channelId: item.snippet.channelId || "",
         description: cleanTitle(item.snippet.description || ""),
         publishedAt: item.snippet.publishedAt || "",
         thumbnail:

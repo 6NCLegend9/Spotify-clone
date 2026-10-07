@@ -137,6 +137,7 @@ function mapSearchResult(item, type) {
     snippet: {
       title: itemTitle(item),
       channelTitle: itemChannel(item),
+      channelId: item?.author?.id || "",
       description: itemDescription(item),
       publishedAt: textValue(item?.published),
       thumbnails: { high: { url: bestThumbnail(item) } },
@@ -157,6 +158,7 @@ function mapPlaylistItem(item) {
       title: itemTitle(item),
       channelTitle: itemChannel(item),
       videoOwnerChannelTitle: itemChannel(item),
+      videoOwnerChannelId: item?.author?.id || "",
       resourceId: { videoId },
       publishedAt: textValue(item?.published) || "",
       thumbnails: { high: { url: bestThumbnail(item) } },
@@ -349,6 +351,9 @@ function mapVideoRenderer(renderer) {
     snippet: {
       title: runsText(renderer.title),
       channelTitle: runsText(renderer.ownerText || renderer.shortBylineText || renderer.longBylineText) || "YouTube",
+      channelId: (renderer.ownerText || renderer.shortBylineText || renderer.longBylineText)?.runs
+        ?.find(run => /^UC[A-Za-z0-9_-]{20,24}$/.test(run?.navigationEndpoint?.browseEndpoint?.browseId))
+        ?.navigationEndpoint?.browseEndpoint?.browseId || "",
       description: runsText(renderer.descriptionSnippet),
       publishedAt: runsText(renderer.publishedTimeText),
       thumbnails: { high: { url: thumbnailUrl(renderer.thumbnail || renderer) } },
@@ -683,7 +688,7 @@ function mapPlaylistItemsToTracks(items, extras = {}) {
       id: item.snippet.resourceId.videoId,
       title: cleanTitle(item.snippet.title || ""),
       channel: cleanTitle(item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle || extras.channel || ""),
-      channelId: extras.channelId || "",
+      channelId: item.snippet.videoOwnerChannelId || extras.channelId || "",
       description: cleanTitle(item.snippet.description || ""),
       publishedAt: item.snippet.publishedAt || "",
       thumbnail:
@@ -1157,4 +1162,3 @@ export async function fetchYouTubeCaptionLines(videoId) {
     return [];
   }
 }
-

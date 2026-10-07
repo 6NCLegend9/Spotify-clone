@@ -51,7 +51,7 @@ export default function PictureInPictureWindow({
           </button>
         </div>
         <p className="yt-pip-title">{cleanTitle(video.title)}</p>
-        <ArtistNameLink channelId={video.channelId} name={cleanTitle(video.channel)} className="yt-pip-artist" />
+        <ArtistNameLink track={video} className="yt-pip-artist" />
         <div className="yt-pip-lyric">
           <p className="yt-pip-lyric-now">{currentLine || ""}</p>
           {nextLine && <p className="yt-pip-lyric-next">{nextLine}</p>}
@@ -80,7 +80,7 @@ export default function PictureInPictureWindow({
                   <img src={item.thumbnail || THUMB_FALLBACK} alt="" onError={handleThumbError} />
                   <span>{cleanTitle(item.title)}</span>
                 </button>
-                <ArtistNameLink channelId={item.channelId} name={cleanTitle(item.channel)} className="yt-pip-queue-artist" />
+                <ArtistNameLink track={item} className="yt-pip-queue-artist" />
               </div>
             ))}
           </div>
@@ -103,7 +103,10 @@ export const PIP_DOCUMENT_STYLES = `
   .yt-pip-doc-top button, .yt-pip-controls button { appearance: none; border: 0; background: rgba(255,255,255,.08); color: #fff; border-radius: 8px; width: 48px; height: 48px; flex-shrink: 0; font-size: 20px; display: grid; place-items: center; cursor: pointer; }
   .yt-pip-title { margin: 10px 0 2px; font-size: 15px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .yt-pip-artist { display: block; margin: 0; font-size: 12px; color: #9aa8b5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
-  a.yt-pip-artist:hover { color: #00e6e6; text-decoration: underline; }
+  .artist-links { max-width: 100%; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+  .artist-links a { display: inline-block; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+  .artist-links a:focus-visible { outline: 2px solid #00e6e6; outline-offset: -2px; }
+  .yt-pip-artist a:hover { color: #00e6e6; }
   .yt-pip-lyric { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }
   .yt-pip-lyric-now { margin: 0; font-size: 16px; font-weight: 650; color: #00e6e6; line-height: 1.35; }
   .yt-pip-lyric-next { margin: 8px 0 0; font-size: 12px; color: #9aa8b5; }
@@ -119,5 +122,5 @@ export const PIP_DOCUMENT_STYLES = `
   .yt-pip-queue-item span, .yt-pip-queue-artist { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .yt-pip-queue-play span { min-width: 0; }
   .yt-pip-queue-artist { display: block; margin: 2px 0 0 40px; color: #9aa8b5; text-decoration: none; }
-  a.yt-pip-queue-artist:hover { color: #00e6e6; text-decoration: underline; }
+  .yt-pip-queue-artist a:hover { color: #00e6e6; }
 `;

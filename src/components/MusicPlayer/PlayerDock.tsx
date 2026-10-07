@@ -65,7 +65,7 @@ export default function PlayerDock(props: PlayerDockProps) {
         </button>
         <div className={styles.trackText}>
           <strong className={styles.trackTitle}>{props.track.title}</strong>
-          <ArtistNameLink channelId={props.track.channelId} name={props.track.channel} className={styles.artistName} />
+          <ArtistNameLink track={props.track} className={styles.artistName} />
         </div>
         <div className={styles.favourite}>{props.favourite}</div>
         <div className={styles.pip}><PlayerIconButton label={props.pipLabel} active={props.pipActive} disabled={props.pipDisabled} onClick={props.onPip}><PictureInPicture2 size={18} /></PlayerIconButton></div>

@@ -17,6 +17,7 @@ import {
   getUserPlaylists,
 } from "@/services/playlistApi";
 import { cleanTitle } from "@/utils/text";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import { toast } from "react-hot-toast";
 import { MdOutlineDeleteOutline } from "react-icons/md";
 import EmptyState from "./EmptyState";
@@ -180,13 +181,8 @@ const SongsList = ({
                 activeSong?.id === song?.id && " text-[#00e6e6]"
               }`}
             >
-              <button
-                type="button"
-                onClick={() => handlePlayClick(song, index)}
-                className="flex min-w-0 flex-1 items-center gap-5 text-left"
-                aria-label={`Play ${trackName}`}
-              >
-                <div className=" relative mb-3">
+              <div className="flex min-w-0 flex-1 items-center gap-5 text-left">
+                <button type="button" onClick={() => handlePlayClick(song, index)} aria-label={`Play artwork for ${trackName}`} className="relative mb-3 shrink-0">
                   <img
                     src={song?.image?.[2]?.url || song?.image?.[1]?.url || song?.image?.[0]?.url || ""}
                     alt=""
@@ -208,20 +204,14 @@ const SongsList = ({
                       className=" group-hover:block hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200"
                     />
                   )}
-                </div>
+                </button>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm lg:text-lg font-semibold truncate">
+                  <button type="button" onClick={() => handlePlayClick(song, index)} className="block w-full truncate text-left text-sm font-semibold lg:text-lg">
                     {trackName}
-                  </p>
-                  <p className="text-gray-400 truncate text-xs">
-                    {Array.isArray(song?.artists?.primary)
-                      ? song.artists.primary.map((artist) => artist?.name).join(", ")
-                      : Array.isArray(song?.artists)
-                      ? song.artists.map((artist) => artist?.name).join(", ")
-                      : song?.artists?.primary || ""}
-                  </p>
+                  </button>
+                  <ArtistNameLink track={song} className="text-xs text-gray-400" />
                 </div>
-              </button>
+              </div>
               <div
                 className={`hidden w-36 ${
                   hidePlays ? "lg:hidden" : "lg:block"

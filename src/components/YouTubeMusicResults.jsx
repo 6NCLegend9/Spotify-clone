@@ -10,6 +10,7 @@ import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
 import PlayFab from "@/components/PlayFab";
 import AddToQueueButton from "@/components/AddToQueueButton";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -439,17 +440,7 @@ export default function YouTubeMusicResults({ query }) {
               </button>
               <div className="flex min-w-0 items-center gap-1">
               <div className="min-w-0 flex-1">
-              {video.channelId ? (
-                <Link
-                  href={`/artist/${encodeURIComponent(video.channelId)}?name=${encodeURIComponent(channel || "")}`}
-                  prefetch={false}
-                  className="mt-2 block truncate text-xs text-gray-400 hover:text-[#00e6e6]"
-                >
-                  {channel}
-                </Link>
-              ) : (
-                <p className="mt-2 truncate text-xs text-gray-400">{channel}</p>
-              )}
+              <ArtistNameLink track={video} className="mt-2 text-xs text-gray-400 hover:text-[var(--accent)]" />
               </div>
               <AddToQueueButton track={video} className="text-gray-400 hover:text-white" />
               </div>
@@ -579,4 +570,3 @@ export default function YouTubeMusicResults({ query }) {
     </section>
   );
 }
-

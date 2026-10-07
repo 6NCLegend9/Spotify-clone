@@ -13,7 +13,7 @@ export default function FloatingPlayer({ track, playing, disabled, onPlayPause, 
   return createPortal(<section aria-label="Floating player" className="fixed bottom-40 right-3 z-[90] w-[min(320px,calc(100vw-24px))] rounded-lg border border-[var(--hairline-cyan)] bg-[var(--navy-surface)] p-3 text-[var(--text)] shadow-xl lg:bottom-32">
     <div className="flex items-start gap-3">
       <img src={track.thumbnail || "/icon-192x192.png"} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded object-cover" />
-      <div className="min-w-0 flex-1 pt-1"><p className="line-clamp-2 break-words text-sm font-semibold">{track.title}</p><ArtistNameLink channelId={track.channelId} name={track.channel} className="block truncate text-xs text-[var(--muted)] hover:text-[var(--teal)] hover:underline" /></div>
+      <div className="min-w-0 flex-1 pt-1"><p className="line-clamp-2 break-words text-sm font-semibold">{track.title}</p><ArtistNameLink track={track} className="block truncate text-xs text-[var(--muted)] hover:text-[var(--teal)] hover:underline" /></div>
       <button type="button" aria-label="Close floating player" title="Close floating player" className={buttonClass} onClick={onClose}><X size={20} /></button>
     </div>
     <div className="mt-2 flex justify-center gap-2">
