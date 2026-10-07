@@ -124,3 +124,55 @@ Screenshots: `pr23-ui/after-artists-desktop.png` (1440x900, desktop pointer) and
 This explicitly authorized navigation follow-up extends the initial presentation-only boundary to small metadata projections, an optional artist snapshot field, and the name-lookup route. No provider/radio algorithms, queue-edit logic, authentication, database schema, dependencies, responsivePolicy.mjs, native code, or existing artist-profile implementation is changed. Existing appearance preferences remain authoritative. Reverting this follow-up restores prior navigation; the optional snapshot field is backward compatible and ignored by older clients.
 
 The production dependency audit remains a separate blocking gate: `npm run audit:production` exited 1 with two high-severity findings in the unchanged dependencies, `sharp` and `source-map-js`. No audit suppression or dependency upgrade is included in the artist-navigation change. Chromium uses the previously documented isolated runner fallback. Firefox/WebKit/Safari, physical devices, packaged Electron, live providers, and other manual acceptance limits remain as documented above.
+
+## October 7 artist-profile redesign
+
+The owner requested the artist-page rework after the individual artist-link checkpoint. Work started from PR23 head `e6743a84fffe8dcf1ae18ec03bf86bd4eeabf153` on the existing branch and draft PR. Ponytail and UI/UX Pro Max guided a bounded presentation change, using the Iceberg investigation before implementation.
+
+### Root cause and presentation change
+
+The previous artist page used a large portrait and truncated biography above two-column video tiles on phones. Song tiles omitted supplied duration, separate credited-artist links, and the shared queue controls. The biography's line clamp hid its remaining content without an expansion control. These were presentation limitations, not evidence of a broken player or channel-fetch algorithm.
+
+The new header places artist identity and the existing Play/Follow actions together, with a login link for guests. Responsive song rows keep supplied duration, per-artist navigation, and queue options available. The full biography uses a native keyboard-operable disclosure; it appears beside the list only when the actual content pane has at least 900px. The discovery section uses the existing related-song results with separate play, artist-link, duration, and queue controls.
+
+An isolated CSS module uses container queries for the content pane, so resizable desktop panels do not force a phone-sized page into a desktop arrangement. It uses the existing appearance and accessibility tokens, 44px primary/play/menu controls, wrapping text, reserved image dimensions, and reduced-motion treatment. Loading, error, retry, empty, and missing-biography states have explicit presentation; actions cannot play stale page content while loading or after an error.
+
+The channel API supplies songs/videos and a biography. It does not supply albums, a verification badge, listener statistics, or an authoritative catalog count, so these are not invented. Counts describe the loaded list. Supplied numeric durations are shown; missing duration remains an em dash. This change does not fetch additional duration metadata or claim all upstream tracks have it.
+
+### Evidence and protected behavior
+
+- Baseline RED: the duration/credited-artist browser case failed in both desktop and phone contexts because `4:03` was absent, despite the fixture supplying a 243-second song. Baseline screenshots were captured before product edits.
+- Baseline navigation passed in both normal and reduced-motion checks. A suspected page-state leak was not reproduced, so the artist route and page/player mounting were left intact.
+- A TypeScript AST comparison verified that all 23 original page setup, state, effect, and handler statements are unchanged. The new display-title normalization and duration formatting are presentation helpers. API routes, Redux, player/provider mounting, responsivePolicy.mjs, persistence, dependencies, and native code are unchanged in this artist-page commit.
+- The new UI calls the existing shared artist-link and queue components. The original collection play, pagination/deduplication, follow save/rollback, and discovery selection handlers remain in place.
+- Initial post-change focused run: 25 passed, one existing device-specific skip, and two test failures. The error-state test used an unscoped alert locator that matched the app's empty announcement region before its channel request completed; switching the fixture then raced the response. Scoping the locator to the artist error message and retry button fixed the test without changing error-handling code.
+- An extra baseline run overlapped a rebuild of its served output and timed out. That run is inconclusive and is not used as evidence of a product defect.
+- Final Node 22 `npm run check`: exit 0; 703 unit tests passed, lint and typecheck passed, and the production build generated all 66 pages. Subsequent test-only screenshot/coverage edits passed targeted ESLint.
+- Focused artist-profile rerun on the final production build: 16 passed, zero skips, zero unexpected or flaky results (35.4s), confirmed by the complete Playwright JSON report.
+- The first broader 90-case run recorded 83 passed, six existing device-specific skips, and one immediate-resize overflow assertion failure (218.1s). Its trace shows the 320px shell before resize layout settled. The test now waits for the same one-pixel pane-overflow limit; compact screenshots also wait for the sidebar to finish moving offscreen. The affected layout and screenshot cases reran in both pointer contexts: four passed (13.4s). No production code was changed for that test timing correction.
+- Final full production desktop/mobile Chromium run after the test correction: exit 0; 84 passed, six existing device-specific skips, zero unexpected or flaky tests, and no report errors (220.6s). The complete Playwright JSON report records 43 passes/two skips for desktop and 41 passes/four skips for phone emulation. This includes the new artist page, artist navigation, prior owner-review fixes, shell boundaries/appearance, playback/theater, playlist browsing, and 500-song virtualization.
+
+The focused cases exercise supplied/unknown duration, distinct artist links, collection queue context, deduplicated pagination without replacing playback, explicit discovery playback, queue addition without changing the current song, reduced-motion navigation with one provider mount and zero destroys, follow failure/retry, channel failure/retry/empty recovery, guest playback/login affordance, native biography keyboard activation, long names, custom accent, content overflow, and 44px play/menu controls at 320x740, 640x520, 844x390, 1024x768, and 1920x1080. Doubled CSS content scale is a stress check, not native browser zoom certification.
+
+The production dependency audit was rerun and still exited 1 with the same two high-severity findings in unchanged `sharp` and `source-map-js`. This remains a draft acceptance gate. Chromium is the isolated fallback described above; API/player fixtures do not establish live-provider correctness, physical devices, packaged Electron, or Firefox/WebKit/Safari coverage. Full customized-background contrast remains a manual acceptance check.
+
+Reverting the artist-page commit restores its prior presentation. No backend or provider migration is needed.
+
+### Artist-page screenshot matrix
+
+| File | Context |
+| --- | --- |
+| pr23-ui/baseline-artist-page-desktop.png | Prior artist page, 1440x900 desktop pointer |
+| pr23-ui/baseline-artist-page-phone.png | Prior artist page, Pixel 7 coarse-pointer emulation |
+| pr23-ui/after-artist-page-desktop.png | Redesigned artist page, 1440x900 desktop pointer |
+| pr23-ui/after-artist-page-phone.png | Redesigned artist page, Pixel 7 coarse-pointer emulation |
+| pr23-ui/after-artist-page-compact.png | Settled 640x520 desktop-pointer viewport |
+| pr23-ui/after-artist-page-wide.png | 1920x1080 desktop-pointer viewport with the biography beside the list |
+
+These use deterministic artist/channel data and the existing artwork fallback. Viewport screenshots show the visible portion of the scrollable content pane; the entire song list and full biography remain reachable by scrolling.
+
+### Publication recovery
+
+A workspace reset interrupted publication before the PR branch moved. Both production files and all three test files were recovered byte for byte, matching the recorded Git blob hashes of the validated source. The existing desktop, phone, and compact after images and this ledger were recovered from Git objects; the baseline images were recaptured against the restored pre-redesign production build, reproducing the same missing-duration failures. A fresh Node 22 `npm run check` again exited 0 with 703 unit tests, lint, typecheck, and the 66-page production build passing. The previous temporary credit-related automatic approval review failure was resolved by retrying through normal review after the owner resumed; no approval check was bypassed.
+
+The final fresh desktop/phone Chromium regression run against that rebuilt output exited 0: 84 passed, six device-specific skips, zero unexpected failures, zero flaky tests, and no report errors (250.2s). It covered the same eight artist, navigation, shell, playlist, playback, theater, and virtualization suites listed above. The wide after image was recaptured from this run. The desktop baseline image captured artist content before the restored player finished loading; its empty player area is a capture limitation and is not evidence of a player lifecycle change. The separate playback and provider-identity assertions establish those behaviors.
