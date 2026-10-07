@@ -186,13 +186,14 @@ test("a pending favourite removal cannot publish the previous account's list", a
   });
   try {
     await page.goto("/library/liked", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Remove Account A track from Liked Songs", exact: true }).press("Enter");
+    await page.getByRole("button", { name: "Queue options", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Remove from Liked Songs", exact: true }).press("Enter");
     await expect.poll(() => removalStarted).toBe(true);
     accountId = "mutation-b";
     await page.evaluate(() => window.dispatchEvent(new StorageEvent("storage", {
       key: "nextauth.message", newValue: JSON.stringify({ event: "session", data: { trigger: "getSession" }, timestamp: Date.now() }),
     })));
-    await expect(page.getByRole("button", { name: "Remove Account B track from Liked Songs", exact: true })).toBeAttached();
+    await expect(page.getByRole("button", { name: "Account B track", exact: true })).toBeVisible();
     const completed = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/favourite" && response.request().method() === "POST");
     releaseRemoval();
     await (await completed).finished();
