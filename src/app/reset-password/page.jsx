@@ -87,7 +87,7 @@ const ForgotPasswordPage = () => {
             busy={submitting}
           />
           <div>
-            <label htmlFor="reset-email" className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5] ml-1">
+            <label htmlFor="reset-email" className="text-sm font-semibold tracking-wide text-[#9aa8b5] ml-1">
               Email Address
             </label>
             <input

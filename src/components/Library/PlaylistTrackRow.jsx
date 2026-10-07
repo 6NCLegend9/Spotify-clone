@@ -5,6 +5,7 @@ import { FiHeart, FiPlay, FiTrash2 } from "react-icons/fi";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import MediaImage from "@/components/MediaImage";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import { cleanTitle } from "@/utils/text";
 
 function formatDuration(seconds) {
@@ -33,22 +34,26 @@ function PlaylistTrackRow({
   onPlay,
   onRemove,
 }) {
+  const unavailable = track.unavailable === true || track.playable === false;
   const title = cleanTitle(track.title);
-  const artist = cleanTitle(track.channel);
   return (
     <ContextMenuTarget
-      className={`playlist-track-row group grid min-h-[66px] grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075] md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px] ${active ? "bg-white/[0.06]" : ""}`}
+      data-unavailable={unavailable}
+      title={unavailable ? "This song is unavailable" : undefined}
+      className={`playlist-track-row group grid min-h-[66px] items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/[0.075] ${active ? "bg-white/[0.06]" : ""}`}
     >
       <button
         type="button"
-        aria-label={`Play ${title}`}
+        disabled={unavailable}
+        aria-label={unavailable ? `${title} unavailable` : `Play ${title}`}
         onClick={() => onPlay(track)}
         className={`grid h-11 w-11 place-items-center rounded-full text-sm ${active ? "text-[#00e6e6]" : "text-gray-400 group-hover:text-white"}`}
       >
         <span className="group-hover:hidden">{index + 1}</span>
         <FiPlay className="hidden fill-current group-hover:block" />
       </button>
-      <button type="button" onClick={() => onPlay(track)} className="flex min-w-0 items-center gap-3 text-left">
+      <div className="flex min-w-0 items-center gap-3 text-left">
+        <button type="button" disabled={unavailable} aria-label={`Play artwork for ${title}`} onClick={() => onPlay(track)} className="shrink-0">
         <MediaImage
           src={track.thumbnail}
           size="mq"
@@ -56,21 +61,23 @@ function PlaylistTrackRow({
           onError={(event) => { event.currentTarget.hidden = true; }}
           className="h-11 w-11 shrink-0 rounded object-cover"
         />
-        <span className="min-w-0">
-          <span className={`block truncate text-sm font-semibold ${active ? "text-[#00e6e6]" : "text-white"}`}>{title}</span>
-          <span className="mt-1 block truncate text-xs text-gray-400">{artist}</span>
-        </span>
-      </button>
+        </button>
+        <div className="min-w-0 flex-1">
+          <button type="button" disabled={unavailable} onClick={() => onPlay(track)} className={`block w-full truncate text-left text-sm font-semibold ${active ? "text-[#00e6e6]" : "text-white"}`}>{title}</button>
+          <ArtistNameLink track={track} className="mt-1 text-xs text-gray-400" />
+          {unavailable && cleanTitle(track.unavailableReason) && <span className="mt-1 block truncate text-xs text-gray-400">{cleanTitle(track.unavailableReason)}</span>}
+        </div>
+      </div>
       <span className="hidden truncate text-xs text-gray-400 md:block">-</span>
       <span className="hidden text-xs text-gray-400 lg:block">{formatAddedDate(track.addedAt)}</span>
       <span className="hidden text-right text-xs tabular-nums text-gray-400 md:block">{formatDuration(track.duration)}</span>
       <div className="flex items-center justify-end gap-1">
-        <AddToQueueButton
+        {!unavailable && <AddToQueueButton
           track={track}
           onRemove={removable ? () => onRemove(track) : undefined}
           removeLabel={liked ? "Remove from Liked Songs" : "Remove from playlist"}
           className="pointer-hover-action text-gray-500 hover:text-white"
-        />
+        />}
         {removable ? (
           <button
             type="button"

@@ -227,7 +227,7 @@ function AccountSettings({ owner, status }) {
           : "Save";
 
   return (
-    <main className="page text-white">
+    <main className="page page-settings text-white">
       <header className="page-hero border-b border-white/10 pb-6">
         <div>
           <p className="eyebrow mb-3 flex items-center gap-2"><FiSettings /> Settings</p>
@@ -267,7 +267,7 @@ function AccountSettings({ owner, status }) {
 
       <AppearanceSettings />
 
-      <section className="mb-8 grid gap-8 lg:grid-cols-2">
+      <section className="settings-grid mb-8 grid gap-6">
         <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">
           <h2 className="mb-2 text-xl font-semibold">Playback sound</h2>
           <SelectControl label="Playback level" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
@@ -359,7 +359,7 @@ function AccountSettings({ owner, status }) {
         </label>
       </section>
 
-      <section className="grid gap-8 lg:grid-cols-2 mb-8">
+      <section className="settings-grid mb-8 grid gap-6">
         <div className="glass-panel rounded-xl p-5 sm:p-7">
           <h2 className="mb-2 text-xl font-semibold">Playback & data</h2>
           <Toggle

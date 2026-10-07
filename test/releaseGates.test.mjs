@@ -151,7 +151,9 @@ test("desktop window can traverse responsive breakpoints without crushing conten
   assert.match(main, /minWidth:\s*640/);
   assert.match(main, /minHeight:\s*520/);
   assert.match(css, /min-width:\s*768px\) and \(max-width:\s*1099px/);
-  assert.match(css, /min-width:\s*1100px\) and \(max-width:\s*1359px/);
+  // Shell visibility is exercised at exact boundaries by ui-redesign.spec.js.
+  // A blanket !important hide defeats the shared shell even when its grid is correct.
+  assert.doesNotMatch(css, /\.now-playing-panel,\s*\.right-panel-resizer\s*\{\s*display:\s*none\s*!important/);
   assert.match(css, /@media \(min-width:\s*1360px\)/);
 });
 

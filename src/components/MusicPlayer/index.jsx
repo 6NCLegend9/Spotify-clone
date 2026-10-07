@@ -618,6 +618,8 @@ const MusicPlayer = () => {
           video={{
             title: nativeTitle,
             channel: nativeArtist,
+            artists: activeSong?.artists,
+            primaryArtists: activeSong?.primaryArtists,
             thumbnail: activeSong?.image?.[2]?.url || activeSong?.image?.[1]?.url || activeSong?.image?.[0]?.url || "",
           }}
           currentTime={appTime}

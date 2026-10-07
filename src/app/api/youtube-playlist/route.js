@@ -25,6 +25,7 @@ function mapPlaylistTracks(items) {
       id: item.snippet.resourceId.videoId,
       title: cleanTitle(item.snippet.title || ""),
       channel: cleanTitle(item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle || ""),
+      channelId: item.snippet.videoOwnerChannelId || "",
       description: cleanTitle(item.snippet.description || ""),
       thumbnail:
         item.snippet.thumbnails?.high?.url ||

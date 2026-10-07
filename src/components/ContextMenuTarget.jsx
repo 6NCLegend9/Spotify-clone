@@ -11,7 +11,7 @@ export default function ContextMenuTarget({ as: Tag = "div", children, ...props 
     if (button?.getAttribute("aria-expanded") !== "true") button?.click();
   });
   useEffect(() => () => gesture.current.cancel(), []);
-  const excluded = (event) => event.target.closest("input, textarea, select, [contenteditable=true], [role=menu], [role=dialog], [data-item-menu-trigger]");
+  const excluded = (event) => event.target.closest("input, textarea, select, [contenteditable=true], [role=menu], [role=dialog], [data-item-menu-trigger], .artist-links a");
   const open = (event) => {
     if (excluded(event)) return;
     const trigger = root.current?.querySelector("[data-item-menu-trigger]:not(:disabled)");

@@ -10,12 +10,12 @@
 .metadata { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 22px; }
 .metadata > div { min-width: 0; }
 .metadata h2 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin: 0; font-size: 20px; font-weight: 750; line-height: 1.3; letter-spacing: -.025em; }
-.metadata p, .artistLink { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--teal); margin-top: 5px; font-size: 13px; }
+.metadata p, .artistLink { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--teal); margin-top: 5px; font-size: 14px; }
 .artistLink { display: block; width: fit-content; max-width: 100%; text-decoration: none; }
 .artistLink:hover { text-decoration: underline; }
 .queue { padding: 12px 8px 8px; border: 1px solid var(--hairline-cyan); border-radius: 10px; background: var(--navy-raised); }
 .queue header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 8px; }
-.queue h3 { margin: 0; font-size: 13px; font-weight: 700; }
+.queue h3 { margin: 0; font-size: 14px; font-weight: 700; }
 .queue header button { min-height: 44px; color: var(--teal); font-size: 12px; }
 .queueRow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 4px; text-align: left; border-radius: 6px; }
 .queueRow:hover { background: var(--navy-panel); }
@@ -24,15 +24,15 @@
 .queueArt img { display: block; width: 44px; height: 44px; border-radius: 5px; object-fit: cover; }
 .queueCopy { min-width: 0; flex: 1; }
 .queueTitle, .queueArtist { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.queueTitle { font-size: 12px; font-weight: 600; }
-.queueArtist { margin-top: 4px; font-size: 11px; color: var(--teal); text-decoration: none; }
+.queueTitle { font-size: 14px; font-weight: 600; }
+.queueArtist { margin-top: 4px; font-size: 12px; color: var(--teal); text-decoration: none; }
 .queueArtist:hover { text-decoration: underline; }
-.empty { padding: 12px 4px; font-size: 13px; color: var(--muted); }
-.overlay { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; min-width: 0; color: var(--text); background: linear-gradient(160deg, var(--navy-panel), var(--navy-deep) 65%); font-family: Inter, Figtree, system-ui, sans-serif; overflow: hidden; }
+.empty { padding: 12px 4px; font-size: 14px; color: var(--muted); }
+.overlay { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; min-width: 0; color: var(--text); background: var(--navy-surface); font-family: var(--font-poppins), system-ui, sans-serif; overflow: hidden; }
 .overlayHeader { display: flex; flex-shrink: 0; min-height: 64px; gap: 12px; align-items: center; padding: max(8px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
 .source { min-width: 0; flex: 1; }
-.source small { display: block; margin-bottom: 3px; font-size: 10px; font-weight: 650; letter-spacing: .13em; color: var(--teal); }
-.source strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.source small { display: block; margin-bottom: 3px; font-size: 12px; font-weight: 650; letter-spacing: .13em; color: var(--teal); }
+.source strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .topTools { display: flex; align-items: center; gap: 10px; }
 .drawer .body { overflow-y: auto; padding: 16px 24px max(28px, env(safe-area-inset-bottom, 0px)); }
 .drawer .art { max-width: 460px; margin: 0 auto; }
@@ -52,7 +52,7 @@
 .lyrics { display: flex; flex-direction: column; min-height: 0; height: 100%; }
 .lyrics :global(.lyrics-live) { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .lyrics :global(.lyrics-live-list) { position: relative; min-height: 140px; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
-.notice { padding: 8px 20px; color: var(--teal); font-size: 13px; }
+.notice { padding: 8px 20px; color: var(--teal); font-size: 14px; }
 
 /* Theater is a true viewport presentation. Chrome floats over the media instead
    of shrinking it, so portrait/landscape rotation keeps the same geometry. */
@@ -78,7 +78,7 @@
  .drawer .body:not(.utilityBody) { width: min(100%, 620px); margin: 0 auto; }
 }
 @media (max-width: 767px) {
- .topTools { gap: 4px; } .topTools .modeButton { font-size: 11px; padding: 6px 10px; }
+ .topTools { gap: 4px; } .topTools .modeButton { font-size: 12px; padding: 6px 10px; }
  .topTools a span { display: none; } .theater .source { display: none; }
  .theater .overlayHeader { justify-content: space-between; gap: 4px; }
  .theater .mobileExtras { display: none; }
@@ -141,7 +141,7 @@
 .mobileSheet .source strong { font-size: 12px; }
 .mobileSheet .compactHeader { background: #12303c; box-shadow: 0 6px 20px rgb(0 0 0 / 16%); }
 .mobileSheet .compactHeader .source { text-align: left; }
-.mobileSheet .compactHeader .source strong { font-size: 13px; }
+.mobileSheet .compactHeader .source strong { font-size: 14px; }
 .mobileSheet .body {
   flex: 1; width: 100%; min-height: 0; margin: 0;
   padding: 12px max(20px, env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
@@ -159,15 +159,15 @@
 .mobileSheet .queue, .detailCard { margin: 16px 0; padding: 16px; border: 1px solid rgb(255 255 255 / 7%); border-radius: 16px; background: rgb(255 255 255 / 6%); }
 .mobileSheet .queue h3, .detailCard h3 { margin: 0; font-size: 15px; font-weight: 750; line-height: 1.4; }
 .mobileSheet .queueRow { min-height: 64px; }
-.mobileSheet .queueTitle { font-size: 13px; }
-.mobileSheet .queueArtist { font-size: 13px; line-height: 1.3; padding: 4px 0 2px; }
+.mobileSheet .queueTitle { font-size: 14px; }
+.mobileSheet .queueArtist { font-size: 14px; line-height: 1.3; padding: 4px 0 2px; }
 .compactArtist { color: inherit; font-size: 12px; line-height: 1.3; text-decoration: none; }
 .compactArtist:hover { text-decoration: underline; }
 .detailCard > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .detailCard > p { margin: 12px 0; font-size: 14px; line-height: 1.5; color: #bdd0d5; }
 .detailCard > button, .detailCard > a { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; padding: 8px 16px; border: 1px solid rgb(255 255 255 / 30%); border-radius: 999px; font-size: 12px; font-weight: 700; }
 .detailCard dl { margin: 16px 0 0; }
-.detailCard dt { margin-top: 14px; color: #a5bfc8; font-size: 11px; }
+.detailCard dt { margin-top: 14px; color: #a5bfc8; font-size: 12px; }
 .detailCard dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.5; }
 .mobileSheet.sheetEntering { animation: sheetEnter var(--motion-sheet, 300ms) cubic-bezier(.22, 1, .36, 1) both; }
 .mobileSheet[data-dragging="true"] { animation: none; transition: none; }

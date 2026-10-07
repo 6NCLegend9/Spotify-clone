@@ -7,6 +7,7 @@ import { useDispatch } from "react-redux";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
+import ArtistNameLink from "@/components/ArtistNameLink";
 import MixCard from "./MixCard";
 import { playHomeTracks } from "@/utils/playHome";
 import { cleanTitle } from "@/utils/text";
@@ -49,7 +50,6 @@ export function HomeSquareCard({ video, queue }) {
   const dispatch = useDispatch();
   if (!video?.id) return null;
   const title = cleanTitle(video.title || video.name, "Track");
-  const subtitle = cleanTitle(video.channel || video.primaryArtists || "", "");
   const cover =
     video.thumbnail ||
     video.image?.[2]?.url ||
@@ -72,8 +72,8 @@ export function HomeSquareCard({ video, queue }) {
         </span>
         <span className="home-shelf-title">{title}</span>
         {video.kicker ? <span className="home-shelf-kicker">{video.kicker}</span> : null}
-        {subtitle ? <span className="home-shelf-subtitle">{subtitle}</span> : null}
       </button>
+      <ArtistNameLink track={video} className="home-shelf-subtitle" />
       <AddToQueueButton track={video} className="pointer-hover-action absolute right-1 top-1 z-20 rounded-full bg-[var(--navy-deep)]/90" />
     </ContextMenuTarget>
   );
@@ -106,4 +106,3 @@ export function TrackRail({ title, videos, seeAllHref }) {
     </HomeRail>
   );
 }
-

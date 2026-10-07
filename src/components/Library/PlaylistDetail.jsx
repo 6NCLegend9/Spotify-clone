@@ -172,7 +172,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
         }
         const ids = validYouTubeIds(nextCollection[isLiked ? "favourites" : "songs"]);
         if (isLiked) ids.reverse();
-        const hydratedTracks = await hydrateYouTubeTracks(ids);
+        const hydratedTracks = await hydrateYouTubeTracks(ids, { retainUnavailable: true });
         const dateMap = nextCollection[isLiked ? "favouriteAddedAt" : "songAddedAt"];
         const datedTracks = hydratedTracks.map((track) => ({
           ...track,
@@ -256,9 +256,10 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   };
 
   const createQueue = async () => {
-    if (!discoveryShuffle) return tracks;
+    const playableTracks = tracks.filter((track) => track.unavailable !== true && track.playable !== false);
+    if (!discoveryShuffle) return playableTracks;
     const smartTracks = await fetchDiscoveryRecommendations();
-    return interleaveRecommendations(tracks, [...smartTracks]);
+    return interleaveRecommendations(playableTracks, [...smartTracks]);
   };
 
   const seedTracks = (items) =>
@@ -275,6 +276,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   };
 
   const playTrack = async (track) => {
+    if (track.unavailable === true || track.playable === false) return;
     const queue = seedTracks(await createQueue());
     if (!live.current) return;
     const selected = queue.find((item) => item.id === track.id) || {
@@ -475,10 +477,10 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   if (!loading && isLiked && status === "unauthenticated") return <AccessGate />;
 
   return (
-    <main className="text-white">
+    <main className="page-collection text-white">
       {!error && collection ? (
-        <ContextMenuTarget as="section" className="bg-[linear-gradient(180deg,rgba(100,201,215,0.28),rgba(7,18,29,0.92))] px-[3vw] pb-8 pt-8">
-          <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 sm:flex-row sm:items-end">
+        <ContextMenuTarget as="section" className="collection-hero px-[3vw] pb-8 pt-8">
+          <div className="collection-hero-content mx-auto flex w-full max-w-[1440px] flex-col gap-6">
             {isLiked ? (
               <LikedCover className="aspect-square w-40 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60" />
             ) : (
@@ -493,7 +495,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             )}
             <div className="min-w-0 pb-1">
               <p className="text-xs font-bold uppercase text-white/80">{typeLabel}</p>
-              <h1 className="mt-3 break-words text-4xl font-black sm:text-5xl lg:text-7xl">{title}</h1>
+              <h1 className="collection-title mt-3 break-words font-bold">{title}</h1>
               <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-gray-200">
                 {ownerImage ? <img src={ownerImage} alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10"><FiMusic /></span>}
                 <strong className="text-white">{ownerName}</strong>
@@ -606,8 +608,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               </label>
             )}
 
-            <section aria-label={`${title} tracks`}>
-              <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400 md:grid-cols-[44px_minmax(160px,2fr)_minmax(100px,1fr)_60px_96px] lg:grid-cols-[44px_minmax(200px,2fr)_minmax(120px,1fr)_120px_70px_96px]">
+            <section className="collection-tracks" aria-label={`${title} tracks`}>
+              <div className="playlist-track-heading grid items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400">
                 <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><span className="mx-auto hidden md:inline"><FiClock aria-hidden="true" className="inline" /><span className="sr-only">Duration</span></span><span />
               </div>
               <VirtualizedPlaylistTrackList

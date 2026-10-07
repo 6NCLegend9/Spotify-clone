@@ -12,7 +12,7 @@ import TrackQueueMenu from "@/components/TrackQueueMenu";
 type DragState = { pointerId: number; index: number };
 type Point = { x: number; y: number };
 
-export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "track" | "disabled" | "onSelect" | "queueSearch" | "onQueueEdit" | "onQueueUndo" | "canUndoQueue" | "onSaveQueue">) {
+export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "track" | "disabled" | "onSelect" | "queueSearch" | "onQueueEdit" | "onQueueUndo" | "canUndoQueue" | "onSaveQueue"> & { onClose: () => void }) {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -257,7 +257,7 @@ export default function QueueEditor(props: Pick<PlayerDockProps, "queue" | "trac
                 </button>
                 <span className="min-w-0 flex-1">
                   <button type="button" disabled={props.disabled} onClick={() => props.onSelect(track)} className="block w-full break-words text-left text-sm disabled:opacity-50">{track.title}</button>
-                  <ArtistNameLink channelId={track.channelId} name={track.channel} className="mt-0.5 block truncate text-xs text-[var(--muted)] hover:text-[var(--teal)] hover:underline" />
+                  <ArtistNameLink track={track} onNavigate={props.onClose} className="mt-0.5 block truncate text-xs text-[var(--muted)] hover:text-[var(--teal)] hover:underline" />
                 </span>
                 {track.queueSource === "user" && <span className="shrink-0 rounded-full border border-[var(--hairline-cyan)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--teal)]">Queued</span>}
               </div>

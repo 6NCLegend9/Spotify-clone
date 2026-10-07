@@ -4,6 +4,7 @@ import { setFullScreen } from "@/redux/features/playerSlice";
 import { updateSetting, EQ_PRESETS } from "@/redux/features/settingsSlice";
 import { useSwipeable } from "react-swipeable";
 import { cleanTitle } from "@/utils/text";
+import ArtistNameLink from "@/components/ArtistNameLink";
 
 const FullscreenTrack = ({
   fullScreen,
@@ -24,21 +25,6 @@ const FullscreenTrack = ({
     preventScrollOnSwipe: true,
     trackMouse: true,
   });
-
-  const primaryArtists = Array.isArray(activeSong?.artists?.primary)
-    ? activeSong.artists.primary
-    : Array.isArray(activeSong?.artists)
-    ? activeSong.artists
-    : [];
-  const artistDisplay =
-    cleanTitle(
-      primaryArtists
-        .map((artist) => artist?.name?.trim())
-        .filter(Boolean)
-        .join(", ") ||
-      (typeof activeSong?.artists === "string" ? activeSong.artists : ""),
-      "Artist",
-    );
 
   return (
     <div
@@ -64,9 +50,7 @@ const FullscreenTrack = ({
           <p className="truncate text-white font-bold text-2xl mx-3 mb-1">
             {cleanTitle(activeSong?.name || activeSong?.title, "Song")}
           </p>
-          <p className="truncate text-gray-300">
-            {artistDisplay}
-          </p>
+          <ArtistNameLink track={activeSong} className="text-gray-300" onNavigate={() => dispatch(setFullScreen(false))} />
           <div className="mt-3 flex items-center justify-center gap-2 text-xs">
             <span className="font-semibold text-[#9aa8b5]">EQ Preset:</span>
             <select

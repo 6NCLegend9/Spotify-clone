@@ -1,38 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { artistPageHref, trackArtistCredits } from "@/utils/artistNavigation.mjs";
 
-const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{20,24}$/;
+export { artistPageHref };
 
-export function artistPageHref(channelId, name) {
-  const id = typeof channelId === "string" ? channelId.trim() : "";
-  if (!CHANNEL_ID_PATTERN.test(id)) return "";
-  const artist = typeof name === "string" ? name.trim() : "";
-  return artist
-    ? `/artist/${encodeURIComponent(id)}?name=${encodeURIComponent(artist)}`
-    : `/artist/${encodeURIComponent(id)}`;
-}
-
-export default function ArtistNameLink({ channelId, name, className = "" }) {
-  const router = useRouter();
-  const label = typeof name === "string" ? name.trim() : "";
-  if (!label) return null;
-  const href = artistPageHref(channelId, label);
-  if (!href) return <span className={className}>{label}</span>;
-  return (
-    <Link
-      href={href}
-      prefetch={false}
-      className={className}
-      onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-        router.push(href);
-      }}
-    >
-      {label}
-    </Link>
-  );
+/** @param {{ track?: object | null, channelId?: string, name?: string, className?: string, onNavigate?: () => void }} props */
+export default function ArtistNameLink({ track = null, channelId = "", name = "", className = "", onNavigate = undefined }) {
+  const artists = trackArtistCredits(track || { channelId, channel: name });
+  if (!artists.length) return null;
+  return <span className={`artist-links ${className}`}>
+    {artists.map((artist, index) => <span key={`${artist.channelId || ""}:${artist.name}`}>
+      {index > 0 && <span aria-hidden="true">, </span>}
+      <Link href={artistPageHref(artist.channelId, artist.name)} prefetch={false}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) onNavigate?.();
+        }}>{artist.name}</Link>
+    </span>)}
+  </span>;
 }

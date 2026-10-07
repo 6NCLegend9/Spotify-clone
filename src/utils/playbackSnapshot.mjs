@@ -1,3 +1,5 @@
+import { normalizeArtistCredits } from "./artistNavigation.mjs";
+
 const PREFIX = "heykasa:playback:v1:";
 const CURRENT_VERSION = 3;
 const MAX_AGE = 30 * 86400000;
@@ -29,11 +31,17 @@ function normalizeTrack(track, fallbackEntryId) {
   const seedQuery = optionalText(track.seedQuery, 200);
   const genre = optionalText(track.genre, 120);
   const channelId = optionalText(track.channelId, 120);
+  const artists = normalizeArtistCredits(Array.isArray(track.artists) ? track.artists : [
+    ...(Array.isArray(track.artists?.primary) ? track.artists.primary : []),
+    ...(Array.isArray(track.artists?.featured) ? track.artists.featured : []),
+    ...(Array.isArray(track.primaryArtists) ? track.primaryArtists : []),
+  ]);
   const radioSeedArtist = optionalText(track.radioSeedArtist, 200);
   const queueEntryId = optionalText(track.queueEntryId, 220) || fallbackEntryId;
   if (seedQuery) normalized.seedQuery = seedQuery;
   if (genre) normalized.genre = genre;
   if (channelId) normalized.channelId = channelId;
+  if (artists.length) normalized.artists = artists;
   if (radioSeedArtist) normalized.radioSeedArtist = radioSeedArtist;
   if (track.source === "youtube") normalized.source = "youtube";
   if (queueEntryId) normalized.queueEntryId = queueEntryId;

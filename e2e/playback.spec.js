@@ -221,7 +221,7 @@ test("responsive player expands, exposes queue modes and preserves deck hosts", 
   await expect(transportScope.getByRole("button", { name: "Repeat queue" })).toHaveAttribute("aria-pressed", "true");
   expect(favouriteRequests).toHaveLength(1);
   await page.screenshot({ path: testInfo.outputPath("player-expanded.png") });
-  await dialog.getByRole("button", { name: "Queue", exact: true }).click();
+  await dialog.getByRole("button", { name: /^(Queue|Show queue)$/ }).first().click();
   const queueDialog = page.getByRole("dialog", { name: "Queue" });
   await expect(queueDialog.getByRole("button", { name: /^Second track/ })).toBeVisible();
   await page.keyboard.press("Escape");

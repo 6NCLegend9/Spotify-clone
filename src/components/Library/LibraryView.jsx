@@ -333,7 +333,7 @@ function AccountLibraryView({ session, status, owner }) {
       if (sort === "added") return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
       return new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0);
     });
-    return filter === "all" ? [likedItem, ...visible] : visible;
+    return ["all", "playlists", "by-you", "liked"].includes(filter) ? [likedItem, ...visible] : visible;
   }, [covers, favourites, filter, playlists, session?.user?.id, sort, status]);
 
   return (
@@ -376,7 +376,7 @@ function AccountLibraryView({ session, status, owner }) {
                 <select
                   value={PLAYLIST_CATEGORIES.includes(filter) ? filter : ""}
                   onChange={(event) => setFilter(event.target.value || "playlists")}
-                  className="h-10 appearance-none rounded-full border border-white/10 bg-[#0b1722] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#00e6e6]"
+                  className="min-h-11 appearance-none rounded-full border border-white/10 bg-[#0b1722] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#00e6e6]"
                 >
                   <option value="">All types</option>
                   {PLAYLIST_CATEGORIES.map((item) => (
@@ -386,12 +386,12 @@ function AccountLibraryView({ session, status, owner }) {
                 <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
               </label>
               <div className="flex rounded-md bg-white/[0.07] p-1" aria-label="Library view">
-                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
-                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded sm:h-9 sm:w-9 ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
+                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
+                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
               </div>
               <label className="relative flex items-center">
                 <span className="sr-only">Sort library</span>
-                <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-10 appearance-none rounded-md border border-white/10 bg-[#0b1722] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#00e6e6]">
+                <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-11 appearance-none rounded-md border border-white/10 bg-[#0b1722] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#00e6e6]">
                   {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
                 <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
@@ -422,7 +422,7 @@ function AccountLibraryView({ session, status, owner }) {
             </div>
           )}
           {!loading && !error && view === "grid" && (
-            <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" aria-label="Library collections">
+            <section className="collection-grid mt-6" aria-label="Library collections">
               {items.map((item) => <GridItem key={item.id} item={item} />)}
             </section>
           )}

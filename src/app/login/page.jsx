@@ -215,7 +215,7 @@ const LoginPage = () => {
             busy={submitting || googleSubmitting}
             href="/reset-password"
           />
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]" htmlFor="login-email">
+          <label className="text-sm font-semibold tracking-wide text-[#9aa8b5]" htmlFor="login-email">
             Email
             <input
               ref={emailRef}
@@ -230,10 +230,10 @@ const LoginPage = () => {
               maxLength={254}
               aria-invalid={Boolean(formError)}
               aria-describedby={formError ? "login-error" : undefined}
-              className="field mt-2"
+              className="field mt-2 normal-case tracking-normal"
             />
           </label>
-          <label className="text-xs font-semibold uppercase tracking-wide text-[#9aa8b5]" htmlFor="login-password">
+          <label className="text-sm font-semibold tracking-wide text-[#9aa8b5]" htmlFor="login-password">
             Password
             <input
               onChange={onchange}
@@ -248,7 +248,7 @@ const LoginPage = () => {
               maxLength={72}
               aria-invalid={Boolean(formError)}
               aria-describedby={formError ? "login-error" : undefined}
-              className="field mt-2"
+              className="field mt-2 normal-case tracking-normal"
             />
           </label>
           <div className="flex flex-wrap items-center justify-between gap-2">

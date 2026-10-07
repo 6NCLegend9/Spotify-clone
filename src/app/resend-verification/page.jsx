@@ -36,11 +36,11 @@ export default function ResendVerificationPage() {
           Enter the email used for your HayKasa account. The new link expires after one hour.
         </p>
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]" htmlFor="resend-email">
+          <label className="block text-sm font-semibold tracking-wide text-[var(--muted)]" htmlFor="resend-email">
             Email
             <input id="resend-email" type="email" autoComplete="email" required maxLength={254}
               value={email} onChange={(event) => setEmail(event.target.value)}
-              className="field mt-2" placeholder="you@email.com" />
+              className="field mt-2 normal-case tracking-normal" placeholder="you@email.com" />
           </label>
           {state.message && <p role="status" className="rounded-xl border border-[var(--hairline-cyan)] bg-[var(--fill)] p-3 text-sm text-[var(--text)]">{state.message}</p>}
           {state.error && <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{state.error}</p>}
