@@ -86,7 +86,7 @@ test("unavailable track keeps artist navigation readable and playback disabled",
   const link = row.getByRole("link", { name: "Artist", exact: true });
   await expect(link).toBeVisible();
   await expect(row.getByRole("button", { name: "Unavailable track unavailable", exact: true })).toBeDisabled();
-  const appearance = await link.evaluate(element => {
+  const readAppearance = () => link.evaluate(element => {
     let opacity = 1;
     for (let current = element; current; current = current.parentElement) opacity *= Number(getComputedStyle(current).opacity);
     const rgb = value => value.match(/[\d.]+/g).slice(0, 3).map(Number);
@@ -95,6 +95,9 @@ test("unavailable track keeps artist navigation readable and playback disabled",
     const luminance = color => color.map(c => c / 255).map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4).reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
     return { opacity, contrast: (Math.max(luminance(fg), luminance(bg)) + 0.05) / (Math.min(luminance(fg), luminance(bg)) + 0.05) };
   });
+  // Page entry motion fades the entire route; measure the settled link styling.
+  await expect.poll(async () => (await readAppearance()).opacity).toBe(1);
+  const appearance = await readAppearance();
   expect(appearance.opacity).toBe(1);
   expect(appearance.contrast).toBeGreaterThanOrEqual(4.5);
   await link.focus();
