@@ -3992,7 +3992,9 @@ body {
 
 .playlist-track-row > :nth-child(5), .playlist-track-heading > :nth-child(5) { display: block; }
 .playlist-track-row[data-unavailable="true"] { color: var(--muted); background: transparent; }
-.playlist-track-row[data-unavailable="true"] > :not(:last-child) { opacity: .4; }
+.playlist-track-row[data-unavailable="true"] button:disabled,
+.playlist-track-row[data-unavailable="true"] > span { opacity: .4; }
+.playlist-track-row[data-unavailable="true"] .artist-links { color: var(--text); }
 .playlist-track-row[data-unavailable="true"] button:disabled { cursor: not-allowed; }
 .playlist-track-row[data-unavailable="true"] .group-hover\:block { display: none; }
 .playlist-track-row[data-unavailable="true"] .group-hover\:hidden { display: inline; }

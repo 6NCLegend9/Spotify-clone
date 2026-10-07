@@ -5,10 +5,12 @@ import { readFile } from 'node:fs/promises';
 // Exercise the real route with isolated upstream responses; no YouTube credentials.
 const source = (await readFile(new URL('../src/app/api/youtube-playlist/route.js', import.meta.url), 'utf8'))
   .replace(/^import .*;\n/gm, '');
-const makeRoute = new Function('NextResponse', 'hasYouTubeApiKey', 'youtubeFetch', 'cleanTitle', 'filterMusicPlaybackResults', 'getClientKey', 'isRateLimited', 'apiError', 'handleApiError',
+const durationSource = (await readFile(new URL('../src/utils/youtubeApi.js', import.meta.url), 'utf8')).match(/export function parseIsoDuration[\s\S]*?\n}/)[0];
+const parseIsoDuration = new Function(durationSource.replace('export ', '') + '; return parseIsoDuration;')();
+const makeRoute = new Function('NextResponse', 'hasYouTubeApiKey', 'youtubeFetch', 'hydrateYoutubeCatalogTracks', 'parseIsoDuration', 'cleanTitle', 'filterMusicPlaybackResults', 'getClientKey', 'isRateLimited', 'apiError', 'handleApiError',
   source.replace(/export /g, '') + '\nreturn GET;');
 function routeFor(upstream) {
-  return makeRoute({ json: Response.json }, () => true, upstream, x => x, tracks => tracks, () => 'fixture', async () => ({ limited: false }),
+  return makeRoute({ json: Response.json }, () => true, upstream, async tracks => tracks, parseIsoDuration, x => x, tracks => tracks, () => 'fixture', async () => ({ limited: false }),
     (code, detail) => Response.json({ code, ...detail }, { status: code === 'VALIDATION_ERROR' ? 400 : 404 }),
     () => Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 }));
 }
@@ -47,4 +49,11 @@ test('a valid empty playlist is distinct from a deleted playlist', async () => {
     const response = await get({ nextUrl: new URL('https://example.com/api?id=PL_test') });
     assert.equal(response.status, exists ? 200 : 404);
   }
+});
+test('playlist route retains duration supplied by the fallback listing', async () => {
+  const get = routeFor(async resource => ({ ok: true, data: { items: resource === 'playlistItems'
+    ? [{ ...item('abcdefghijk'), contentDetails: { duration: 'PT4M3S' } }]
+    : [{ snippet: { title: 'Playlist' } }] } }));
+  const data = await (await get({ nextUrl: new URL('https://example.com/api?id=PL_test') })).json();
+  assert.equal(data.tracks[0].duration, 243);
 });

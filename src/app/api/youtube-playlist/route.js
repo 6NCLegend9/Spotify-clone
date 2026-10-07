@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { hasYouTubeApiKey, youtubeFetch, hydrateYoutubeCatalogTracks, parseIsoDuration } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
 import { filterMusicPlaybackResults } from "@/utils/officialMusicSearch.mjs";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
@@ -10,7 +10,7 @@ const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,64}$/;
 const MAX_PLAYLIST_TRACKS = 100;
 
 export const runtime = "nodejs";
-export const maxDuration = 20;
+export const maxDuration = 30;
 
 function upstreamCode(status) {
   if (status === 429) return "RATE_LIMITED";
@@ -26,6 +26,7 @@ function mapPlaylistTracks(items) {
       title: cleanTitle(item.snippet.title || ""),
       channel: cleanTitle(item.snippet.videoOwnerChannelTitle || item.snippet.channelTitle || ""),
       channelId: item.snippet.videoOwnerChannelId || "",
+      duration: parseIsoDuration(item.contentDetails?.duration),
       description: cleanTitle(item.snippet.description || ""),
       thumbnail:
         item.snippet.thumbnails?.high?.url ||
@@ -64,6 +65,7 @@ async function fetchPlaylistTracks(playlistId, { pageToken = "", limit = MAX_PLA
     };
     const { ok, status, data } = await youtubeFetch("playlistItems", params, {
       next: { revalidate: 900 },
+      requireOfficial: Boolean(token),
     });
     lastStatus = status;
     if (!ok) return { ok: false, status: lastStatus, tracks, nextPageToken: "" };
@@ -147,7 +149,7 @@ export async function GET(request) {
 
     return NextResponse.json(
       {
-        tracks: result.tracks,
+        tracks: await hydrateYoutubeCatalogTracks(result.tracks),
         playlist,
         nextPageToken: result.nextPageToken,
         limit: pageToken ? 50 : MAX_PLAYLIST_TRACKS,

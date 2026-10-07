@@ -21,6 +21,8 @@ import { toUserError } from "@/utils/userError";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import { SITE_BRAND, SITE_NAME } from "@/utils/siteConfig";
 import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
+import { isArtistFollowed, updateArtistMembership } from "@/utils/followedArtistsList.mjs";
+import { accountOwner } from "@/utils/accountCache.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 
 export default function YouTubeMusicResults({ query }) {
@@ -45,7 +47,10 @@ export default function YouTubeMusicResults({ query }) {
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
   const dispatch = useDispatch();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const followOwner = accountOwner(session, status);
+  const followOwnerRef = useRef(followOwner);
+  followOwnerRef.current = followOwner;
   const [loading, setLoading] = useState(false);
   const [songError, setSongError] = useState(null);
   const [searchSource, setSearchSource] = useState("");
@@ -54,7 +59,7 @@ export default function YouTubeMusicResults({ query }) {
   const [extrasLoaded, setExtrasLoaded] = useState(false);
   const [loadingExtras, setLoadingExtras] = useState(false);
   const [extrasError, setExtrasError] = useState(null);
-  const [followedArtists, setFollowedArtists] = useState([]);
+  const [followedArtists, setFollowedArtists] = useState({ followedArtists: [], followedArtistsMeta: [] });
   const [followError, setFollowError] = useState(null);
   const [loadingFollows, setLoadingFollows] = useState(false);
   const [followRetryKey, setFollowRetryKey] = useState(0);
@@ -62,9 +67,14 @@ export default function YouTubeMusicResults({ query }) {
   const extrasRequestId = useRef(0);
 
   useEffect(() => {
+    setUpdatingArtists([]);
+    setFollowedArtists({ followedArtists: [], followedArtistsMeta: [] });
+  }, [followOwner]);
+
+  useEffect(() => {
     if (status !== "authenticated") {
       setFollowError(null);
-      setFollowedArtists([]);
+      setFollowedArtists({ followedArtists: [], followedArtistsMeta: [] });
       setLoadingFollows(false);
       return;
     }
@@ -82,7 +92,7 @@ export default function YouTubeMusicResults({ query }) {
         if (json?.success !== true || !Array.isArray(json.data)) {
           throw new Error("Follow status did not return usable data.");
         }
-        if (!cancelled) setFollowedArtists(json.data);
+        if (!cancelled) setFollowedArtists({ followedArtists: json.data, followedArtistsMeta: json.artists });
       } catch (error) {
         if (!cancelled && !controller.signal.aborted) {
           setFollowError(
@@ -101,56 +111,34 @@ export default function YouTubeMusicResults({ query }) {
       cancelled = true;
       controller.abort();
     };
-  }, [followRetryKey, status]);
+  }, [followOwner, followRetryKey, status]);
 
   const toggleFollow = async (name, channelId = "", thumbnail = "") => {
-    if (status !== "authenticated") return;
-    const isFollowing = followedArtists.some((value) => value.toLowerCase() === name.toLowerCase());
-    const normalizedName = name.toLowerCase();
-    if (updatingArtists.includes(normalizedName)) return;
-    setUpdatingArtists((current) => [...current, normalizedName]);
-    setFollowedArtists((current) =>
-      isFollowing ? current.filter((value) => value.toLowerCase() !== name.toLowerCase()) : [...current, name],
-    );
+    if (status !== "authenticated" || loadingFollows || followError || updatingArtists.length) return;
+    const artist = { name, channelId, thumbnail };
+    const isFollowing = isArtistFollowed(followedArtists, artist);
+    const key = channelId || name.toLowerCase();
+    const owner = followOwner;
+    const previous = followedArtists;
     try {
+      setFollowedArtists(updateArtistMembership(previous, artist, !isFollowing));
+      setUpdatingArtists([key]);
       const data = await requestJson("/api/followedArtists", {
-        method: "POST",
-        body: { name, channelId, thumbnail },
+        method: "POST", body: { name, channelId, thumbnail, followed: !isFollowing },
         fallbackTitle: "Follow couldn’t be updated",
         fallbackMessage: "Your follow change wasn’t saved. Please try again.",
       });
-      if (data?.success !== true || !Array.isArray(data.data)) {
-        throw new Error("Follow update did not return usable data.");
-      }
-      setFollowedArtists(data.data);
+      if (followOwnerRef.current !== owner) return;
+      if (data?.success !== true || !Array.isArray(data.data)) throw new Error("Follow update did not return usable data.");
+      setFollowedArtists({ followedArtists: data.data, followedArtistsMeta: data.artists });
       window.dispatchEvent(new Event(FOLLOWS_CHANGED_EVENT));
-      const successMessage =
-        typeof data?.message === "string" && data.message.trim()
-          ? data.message
-          : isFollowing
-            ? "Unfollowed"
-            : "Followed";
-      toast.success(successMessage);
+      toast.success(isFollowing ? "Unfollowed" : "Followed");
     } catch (error) {
-      setFollowedArtists((current) => {
-        const containsArtist = current.some(
-          (value) => value.toLowerCase() === normalizedName,
-        );
-        if (isFollowing && !containsArtist) return [...current, name];
-        if (!isFollowing && containsArtist) {
-          return current.filter((value) => value.toLowerCase() !== normalizedName);
-        }
-        return current;
-      });
-      const userError = toUserError(error, {
-        title: "Follow couldn’t be updated",
-        message: "Your follow change wasn’t saved. Please try again.",
-      });
-      toast.error(userError.message);
+      if (followOwnerRef.current !== owner) return;
+      setFollowedArtists(previous);
+      toast.error(toUserError(error, { title: "Follow couldn’t be updated", message: "Your follow change wasn’t saved. Please try again." }).message);
     } finally {
-      setUpdatingArtists((current) =>
-        current.filter((value) => value !== normalizedName),
-      );
+      if (followOwnerRef.current === owner) setUpdatingArtists([]);
     }
   };
 
@@ -506,8 +494,8 @@ export default function YouTubeMusicResults({ query }) {
           <h3 className="mb-4 text-xl font-semibold text-white">Artists</h3>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
             {artists.map((artist) => {
-              const isFollowing = followedArtists.some((value) => value.toLowerCase() === artist.title.toLowerCase());
-              const isUpdating = updatingArtists.includes(artist.title.toLowerCase());
+              const isFollowing = isArtistFollowed(followedArtists, { name: artist.title, channelId: artist.id });
+              const isUpdating = updatingArtists.includes(artist.id || artist.title.toLowerCase());
               return (
               <div key={artist.id} className="home-shelf-card group text-center">
                 <Link href={`/artist/${encodeURIComponent(artist.id)}?name=${encodeURIComponent(artist.title || "")}`} prefetch={false}>
@@ -518,7 +506,7 @@ export default function YouTubeMusicResults({ query }) {
                   <button
                     type="button"
                     onClick={() => void toggleFollow(artist.title, artist.id, artist.thumbnail)}
-                    disabled={isUpdating}
+                    disabled={loadingFollows || Boolean(followError) || updatingArtists.length > 0}
                     aria-pressed={isFollowing}
                     className={`home-chip mt-1 ${isFollowing ? "is-active" : ""}`}
                   >

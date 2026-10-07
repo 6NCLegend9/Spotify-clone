@@ -10,6 +10,7 @@ import { requestJson } from "@/services/http";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { toUserError } from "@/utils/userError";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
+import { followedArtistsForDisplay } from "@/utils/followedArtistsList.mjs";
 import { accountOwner } from "@/utils/accountCache.mjs";
 
 const FOLLOWING_CACHE_KEY = "following";
@@ -49,16 +50,7 @@ function AccountFollowing({ status, owner }) {
           fallbackMessage: "We couldn’t load the artists you follow.",
         });
         if (!active) return;
-        const meta = Array.isArray(json?.artists) ? json.artists : [];
-        const names = Array.isArray(json?.data) ? json.data : [];
-        const merged = names.map((name) => {
-          const match = meta.find((item) => (item?.name || "").toLowerCase() === name.toLowerCase());
-          return {
-            name,
-            channelId: match?.channelId || "",
-            thumbnail: match?.thumbnail || "",
-          };
-        });
+        const merged = followedArtistsForDisplay({ followedArtists: json?.data, followedArtistsMeta: json?.artists });
         setArtists(merged);
         writeNavCache(cacheKey, merged);
       } catch (loadError) {
