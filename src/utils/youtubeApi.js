@@ -8,6 +8,7 @@ import { filterMusicPlaybackResults } from "./officialMusicSearch.mjs";
 import { firstSuccessfulSearch } from "./youtubeSearchFallback.mjs";
 import { isYoutubeVideoId } from "./youtubeComments.mjs";
 import { videoIdsMentionedInText } from "./commentVideoIds.mjs";
+import { createMusicCatalogReader } from "./artistMusicCatalog.mjs";
 import {
   captionLinesFromJson3,
   captionLinesFromTranscript,
@@ -40,6 +41,7 @@ const searchCache = new Map();
 const SEARCH_CACHE_TTL_MS = 15 * 60 * 1000;
 const MAX_SEARCH_CACHE_ENTRIES = 80;
 let innertubePromise = null;
+let musicCatalogReader = null;
 
 Log.setLevel(Log.Level.ERROR);
 
@@ -72,6 +74,19 @@ async function getInnertube() {
     });
   }
   return innertubePromise;
+}
+
+function artistMusicReader() {
+  if (!musicCatalogReader) musicCatalogReader = createMusicCatalogReader(getInnertube);
+  return musicCatalogReader;
+}
+
+export async function fetchYouTubeArtistSections(channelId) {
+  return artistMusicReader().artist(channelId);
+}
+
+export async function fetchYouTubeMusicAlbum(albumId) {
+  return artistMusicReader().album(albumId);
 }
 
 function textValue(value) {
@@ -631,6 +646,27 @@ async function fetchFromInnertube(endpoint, params = {}) {
       .filter(Boolean)
       .slice(0, maxResults);
     return { ok: true, status: 200, data: { items } };
+  }
+
+  if (endpoint === "playlists" && params.id) {
+    const playlist = await innertube.getPlaylist(params.id);
+    const info = playlist.info || {};
+    const title = textValue(info.title);
+    if (!title) return { ok: true, status: 200, data: { items: [] } };
+    return {
+      ok: true,
+      status: 200,
+      data: { items: [{
+        id: params.id,
+        snippet: {
+          title,
+          description: textValue(info.description),
+          channelTitle: textValue(info.author?.name),
+          channelId: info.author?.id || "",
+          thumbnails: { high: { url: bestThumbnail(info) } },
+        },
+      }] },
+    };
   }
 
   return { ok: false, status: 400, data: null };

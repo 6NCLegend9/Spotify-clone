@@ -6,7 +6,7 @@ import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { apiError, handleApiError } from "@/utils/apiResponse";
 
 const PAGE_TOKEN_PATTERN = /^[A-Za-z0-9_=-]{1,512}$/;
-const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,64}$/;
+const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,128}$/;
 const MAX_PLAYLIST_TRACKS = 100;
 
 export const runtime = "nodejs";

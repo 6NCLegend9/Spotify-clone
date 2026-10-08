@@ -5,6 +5,12 @@ const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{20,24}$/;
 const FEATURE_MARKER = /\s*\b(?:feat(?:uring)?|ft)\.?\s+/i;
 const MEDIA_SEGMENT = /^(?:official\s+(?:music\s+)?(?:video|audio)|music\s+video|lyrics?|audio|visuali[sz]er)\b/i;
 
+export function musicReleaseHref(albumId) {
+  return typeof albumId === "string" && /^MPR[A-Za-z0-9_-]{3,125}$/.test(albumId)
+    ? `/album/${encodeURIComponent(albumId)}`
+    : "";
+}
+
 export function artistPageHref(channelId, name) {
   const id = typeof channelId === "string" ? channelId.trim() : "";
   const artist = cleanTitle(name).slice(0, 120);

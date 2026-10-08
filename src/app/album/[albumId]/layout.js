@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Album unavailable",
-  description: "This legacy album page is no longer available on HayKasa.",
+  title: "Music release",
+  description: "Browse and play music releases on HayKasa.",
   robots: {
     index: false,
     follow: false,

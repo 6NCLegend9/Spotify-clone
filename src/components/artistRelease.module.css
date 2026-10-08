@@ -1,0 +1,331 @@
+.page[class] {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding: 0 0 3rem;
+  color: var(--text);
+  container-type: inline-size;
+  background: var(--navy-deep);
+}
+
+.hero {
+  padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 2rem;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--accent) 24%, var(--navy-panel)) 0%, var(--navy-raised) 70%, var(--navy-deep) 100%);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 44px;
+  padding: 0 .75rem;
+  margin: 0 0 1.5rem -.75rem;
+  color: var(--text);
+  font-size: .875rem;
+  border-radius: 999px;
+}
+
+.back:hover, .copyLink:hover {
+  background: var(--fill-hover);
+}
+
+.heroIdentity {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(1.25rem, 3vw, 2rem);
+  min-width: 0;
+}
+
+.cover {
+  width: clamp(180px, 23cqw, 260px);
+  height: auto;
+  flex-shrink: 0;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 10px 40px #0006;
+}
+
+.heroCopy {
+  flex: 1;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-size: .8125rem;
+  font-weight: 700;
+}
+
+.heroCopy h1 {
+  margin: .75rem 0 1.25rem;
+  font-size: clamp(2.25rem, 6cqw, 5rem);
+  font-weight: 900;
+  line-height: 1.03;
+  letter-spacing: -.055em;
+  overflow-wrap: anywhere;
+}
+
+.metadata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .875rem;
+  color: var(--muted);
+  font-size: .875rem;
+}
+
+.artistCredits {
+  max-width: 100%;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.description {
+  margin-top: .875rem;
+  max-width: 70ch;
+  color: var(--muted);
+  font-size: .875rem;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.loadingTitle {
+  min-height: 160px;
+  display: flex;
+  align-items: flex-end;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.content {
+  min-width: 0;
+  padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0 0 1.75rem;
+}
+
+.playAll {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--play-ink);
+  transition: transform var(--motion-fast) ease;
+}
+
+.playAll svg {
+  width: 24px;
+  height: 24px;
+  margin-left: 3px;
+  fill: currentColor;
+}
+
+.playAll:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+
+.playAll:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.copyLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: .5rem;
+  padding: 0 .875rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: .875rem;
+}
+
+.rowHeading, .trackRow {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 48px 58px 44px;
+  align-items: center;
+  gap: .75rem;
+  padding: .25rem .5rem;
+}
+
+.rowHeading {
+  padding-bottom: .875rem;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: .5rem;
+  color: var(--muted);
+  font-size: .75rem;
+}
+
+.rowHeading > :first-child {
+  text-align: center;
+}
+
+.rowHeading svg {
+  justify-self: end;
+}
+
+.trackList {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.trackRow {
+  min-height: 80px;
+  border-radius: 6px;
+}
+
+.trackRow:hover, .trackRow:focus-within {
+  background: var(--fill-hover);
+}
+
+.rowPlay {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: .875rem;
+}
+
+.rowPlayIcon {
+  display: none;
+  fill: currentColor;
+}
+
+.trackRow:hover .rowNumber, .rowPlay:focus-visible .rowNumber {
+  display: none;
+}
+
+.trackRow:hover .rowPlayIcon, .rowPlay:focus-visible .rowPlayIcon {
+  display: block;
+}
+
+.songIdentity {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  min-width: 0;
+}
+
+.trackArt {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.songCopy {
+  min-width: 0;
+  flex: 1;
+}
+
+.trackTitle {
+  display: block;
+  min-height: 44px;
+  max-width: 100%;
+  width: 100%;
+  padding: .375rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: .9375rem;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.trackTitle:hover {
+  text-decoration: underline;
+}
+
+.trackCredits, .duration, .mobileDuration {
+  color: var(--muted);
+  font-size: .8125rem;
+}
+
+.duration, .mobileDuration {
+  font-variant-numeric: tabular-nums;
+}
+
+.duration {
+  text-align: right;
+}
+
+.mobileDuration {
+  display: none;
+}
+
+.favourite {
+  color: var(--muted);
+}
+
+.favourite svg[class*="fill-current"] {
+  color: var(--accent);
+}
+
+@container (max-width: 600px) {
+  .heroIdentity {
+    display: block;
+  }
+
+  .cover {
+    width: min(62cqw, 260px);
+    margin: 0 auto 1.5rem;
+  }
+
+  .heroCopy h1 {
+    font-size: clamp(2rem, 7cqw, 3rem);
+  }
+
+  .hero {
+    padding-bottom: 1.5rem;
+  }
+
+  .rowHeading, .trackRow {
+    grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+    gap: .375rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .rowHeading svg, .duration {
+    display: none;
+  }
+
+  .trackRow {
+    min-height: 96px;
+  }
+
+  .trackArt {
+    display: none;
+  }
+
+  .mobileDuration {
+    display: block;
+    padding-top: .25rem;
+    font-size: .75rem;
+  }
+
+  .favourite[class] {
+    height: 44px;
+    width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playAll {
+    transition: none;
+  }
+}

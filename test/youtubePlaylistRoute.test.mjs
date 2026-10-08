@@ -43,6 +43,14 @@ test('invalid page tokens are rejected before upstream requests', async () => {
   const response = await get({ nextUrl: new URL('https://example.com/api?id=PL_test&pageToken=%3Cscript%3E') });
   assert.equal(response.status, 400);
 });
+test('real music mix playlist IDs longer than 64 characters can open their songs', async () => {
+  const playlistId = `RDCLAK5uy_${'a'.repeat(65)}`;
+  const get = routeFor(async resource => ({ ok: true, data: { items: resource === 'playlistItems'
+    ? [item('abcdefghijk')] : [{ snippet: { title: 'Real mix' } }] } }));
+  const response = await get({ nextUrl: new URL(`https://example.com/api?id=${playlistId}`) });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).playlist.id, playlistId);
+});
 test('a valid empty playlist is distinct from a deleted playlist', async () => {
   for (const exists of [true, false]) {
     const get = routeFor(async resource => ({ ok: true, data: { items: resource === 'playlists' && exists ? [{ snippet: { title: 'Empty playlist' } }] : [] } }));

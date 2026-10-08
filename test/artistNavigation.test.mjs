@@ -1,9 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { artistPageHref, artistChannelChoices, normalizeArtistCredits, trackArtistCredits } from "../src/utils/artistNavigation.mjs";
+import { artistPageHref, artistChannelChoices, musicReleaseHref, normalizeArtistCredits, trackArtistCredits } from "../src/utils/artistNavigation.mjs";
 
 const PAC = "UCMIdeeBjp_60Jv7ROpRxK6Q";
 const DRE = "UCbbbbbbbbbbbbbbbbbbbbbb";
+
+test("release destinations accept playable music browse IDs and reject legacy catalog IDs", () => {
+  assert.equal(musicReleaseHref("MPREb_catalog-album"), "/album/MPREb_catalog-album");
+  for (const id of ["", "spotify-album", "MPR", "MPR../../private", "javascript:alert(1)", "MPR" + "a".repeat(126)]) {
+    assert.equal(musicReleaseHref(id), "");
+  }
+});
 
 test("artist destinations use validated identities or a safely encoded name lookup", () => {
   assert.equal(artistPageHref(PAC, "2Pac"), `/artist/${PAC}?name=2Pac`);
