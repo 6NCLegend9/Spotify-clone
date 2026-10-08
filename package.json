@@ -39,7 +39,7 @@
     "jszip": "^3.10.1",
     "lucide-react": "^1.41.0",
     "mongoose": "^8.24.4",
-    "next": "^15.5.25",
+    "next": "^15.5.27",
     "next-auth": "^4.24.15",
     "nodemailer": "^10.0.13",
     "ogl": "^1.0.11",
@@ -54,7 +54,7 @@
     "react-use-downloader": "^1.2.4",
     "redux": "^4.2.1",
     "redux-persist": "^6.0.0",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "swiper": "^14.2.0",
     "taglib-wasm": "^1.2.1",
     "tailwind-merge": "^3.6.0",
@@ -62,14 +62,14 @@
     "youtubei.js": "^18.0.0"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "^15.5.25",
+    "@next/bundle-analyzer": "^15.5.27",
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.2",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.14",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^15.5.25",
+    "eslint-config-next": "^15.5.27",
     "postcss": "^8.5.26",
     "serwist": "^9.5.12",
     "tailwindcss": "^3.3.3",
@@ -88,7 +88,8 @@
     },
     "@serwist/next": {
       "browserslist": "4.28.7"
-    }
+    },
+    "source-map-js": "1.2.2"
   },
   "browserslist": {
     "production": [

@@ -1,3 +1,4 @@
+import { ApiRouteError } from "./apiResponseCore.mjs";
 import { createProviderTransport } from "./providerTransport.mjs";
 import { reportProvider } from "./providerRequestContext.mjs";
 import { cachedYoutubeRead } from "./providerCache.js";
@@ -127,6 +128,14 @@ function itemDescription(item) {
   return textValue(item?.description_snippet || item?.description);
 }
 
+function listingDurationSeconds(item) {
+  const seconds = Number(item?.duration?.seconds ?? item?.length_seconds ?? item?.duration);
+  if (Number.isFinite(seconds) && seconds > 0) return seconds;
+  const text = textValue(item?.duration?.text || item?.length_text);
+  if (!/^\d+(?::[0-5]\d){1,2}$/.test(text)) return 0;
+  return text.split(":").reduce((total, part) => total * 60 + Number(part), 0);
+}
+
 function mapSearchResult(item, type) {
   const id = itemId(item);
   if (!id) return null;
@@ -142,6 +151,7 @@ function mapSearchResult(item, type) {
       publishedAt: textValue(item?.published),
       thumbnails: { high: { url: bestThumbnail(item) } },
     },
+    ...(type === "video" ? { contentDetails: { duration: secondsToIso(listingDurationSeconds(item)) } } : {}),
     status: {
       // Search metadata does not prove that embedding is permitted.
       privacyStatus: "public",
@@ -163,6 +173,7 @@ function mapPlaylistItem(item) {
       publishedAt: textValue(item?.published) || "",
       thumbnails: { high: { url: bestThumbnail(item) } },
     },
+    contentDetails: { duration: secondsToIso(listingDurationSeconds(item)) },
     status: { privacyStatus: "public" },
   };
 }
@@ -626,6 +637,7 @@ async function fetchFromInnertube(endpoint, params = {}) {
 }
 
 function mapChannelSnippet(item, fallbackId = "") {
+  if (!item) return null;
   const id = item?.id || fallbackId;
   if (!id) return null;
   return {
@@ -652,6 +664,7 @@ function mapSearchItemsToTracks(items, extras = {}) {
         channelId: item.snippet?.channelId || extras.channelId || "",
         description: cleanTitle(item.snippet?.description || ""),
         publishedAt: item.snippet?.publishedAt || "",
+        duration: parseIsoDuration(item.contentDetails?.duration),
         thumbnail:
           item.snippet?.thumbnails?.high?.url
           || item.snippet?.thumbnails?.medium?.url
@@ -691,6 +704,7 @@ function mapPlaylistItemsToTracks(items, extras = {}) {
       channelId: item.snippet.videoOwnerChannelId || extras.channelId || "",
       description: cleanTitle(item.snippet.description || ""),
       publishedAt: item.snippet.publishedAt || "",
+      duration: parseIsoDuration(item.contentDetails?.duration),
       thumbnail:
         item.snippet.thumbnails?.high?.url
         || item.snippet.thumbnails?.medium?.url
@@ -715,15 +729,15 @@ async function fetchPlaylistPages(playlistId, extras, maxResults, pageToken = ""
       maxResults: String(Math.min(50, maxResults - tracks.length)),
     };
     if (token) params.pageToken = token;
-    const result = await youtubeFetch("playlistItems", params);
-    if (!result?.ok) break;
+    const result = await youtubeFetch("playlistItems", params, { requireOfficial: Boolean(token) });
+    if (!result?.ok) return { ok: false, status: result?.status || 503, tracks: mergeTracks([tracks]), nextPageToken: token };
     tracks.push(...mapPlaylistItemsToTracks(result.data?.items, extras));
     token = result.data?.nextPageToken || "";
     nextPageToken = token;
     if (!token) break;
   }
 
-  return { tracks: mergeTracks([tracks]), nextPageToken };
+  return { ok: true, tracks: mergeTracks([tracks]), nextPageToken };
 }
 
 async function channelFromInnertube(id, maxResults = 50) {
@@ -777,9 +791,10 @@ export async function fetchYouTubeChannel(id, { name = "", maxResults = 50, page
       channel: artist?.title || name,
       seedQuery: artist?.title || name,
     }, maxResults, pageToken);
+    if (!page.ok) throw new ApiRouteError("SERVICE_UNAVAILABLE", { message: "More artist songs could not be loaded. Please try again." });
     return {
       artist: artist || { id, title: name || "Artist", description: "", thumbnail: "" },
-      tracks: filterMusicPlaybackResults(page.tracks, name),
+      tracks: await hydrateYoutubeCatalogTracks(filterMusicPlaybackResults(page.tracks, name)),
       nextPageToken: page.nextPageToken,
     };
   }
@@ -818,6 +833,9 @@ export async function fetchYouTubeChannel(id, { name = "", maxResults = 50, page
     channelFromInnertube(id, maxResults),
   ]);
 
+  if (![popular, uploads, audioSearch, songsSearch].some(result => result?.ok) && !innertubeChannel && !uploads.tracks.length) {
+    throw new ApiRouteError("SERVICE_UNAVAILABLE", { message: "Artist songs could not be loaded. Please try again." });
+  }
   if (!artist && innertubeChannel?.artist) artist = innertubeChannel.artist;
   extras.channel = artist?.title || name;
   extras.seedQuery = artist?.title || name;
@@ -842,7 +860,7 @@ export async function fetchYouTubeChannel(id, { name = "", maxResults = 50, page
 
   return {
     artist,
-    tracks,
+    tracks: await hydrateYoutubeCatalogTracks(tracks),
     nextPageToken: uploads.nextPageToken || "",
   };
 }
@@ -931,7 +949,7 @@ async function youtubeFetchUncached(endpoint, params, fetchOptions) {
   }
 }
 
-function parseIsoDuration(value = "") {
+export function parseIsoDuration(value = "") {
   const match = String(value).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 0;
   return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
@@ -961,14 +979,17 @@ function isSafeCaptionUrl(value) {
   }
 }
 
-export async function fetchYoutubeTracksByIds(ids) {
-  const unique = [...new Set((ids || []).filter((id) => isYoutubeVideoId(id)))].slice(0, 12);
+export async function fetchYoutubeTracksByIds(ids, { limit = 12, requireOfficial = false, signal } = {}) {
+  const unique = [...new Set((ids || []).filter((id) => isYoutubeVideoId(id)))].slice(0, Math.min(50, limit));
   if (unique.length === 0) return [];
   const { ok, data } = await youtubeFetch("videos", {
     part: "snippet,contentDetails",
     id: unique.join(","),
-  }, { next: { revalidate: 3600 } });
+  }, { next: { revalidate: 3600 }, requireOfficial, ...(signal ? { signal } : {}) });
   if (!ok) return [];
+  for (const item of data?.items || []) {
+    if (isYoutubeVideoId(item?.id) && item.snippet?.title && parseIsoDuration(item.contentDetails?.duration) > 0) cacheVideo(item.id, item);
+  }
   const tracks = (Array.isArray(data?.items) ? data.items : []).map((item) => {
     const id = typeof item?.id === "string" ? item.id : "";
     if (!isYoutubeVideoId(id) || !item?.snippet) return null;
@@ -976,6 +997,7 @@ export async function fetchYoutubeTracksByIds(ids) {
       id,
       title: cleanTitle(item.snippet.title || ""),
       channel: cleanTitle(item.snippet.channelTitle || ""),
+      channelId: item.snippet.channelId || "",
       description: cleanTitle(item.snippet.description || ""),
       publishedAt: item.snippet.publishedAt || "",
       thumbnail:
@@ -989,6 +1011,36 @@ export async function fetchYoutubeTracksByIds(ids) {
   const order = new Map(unique.map((id, index) => [id, index]));
   tracks.sort((left, right) => (order.get(left.id) ?? 99) - (order.get(right.id) ?? 99));
   return tracks;
+}
+
+// Enrich at the catalog boundary, never from each rendered row. Only add missing
+// metadata so provider IDs, ordering and structured artist credits stay authoritative.
+export async function hydrateYoutubeCatalogTracks(tracks) {
+  const details = new Map();
+  const ids = [...new Set(tracks.filter(track => !(Number.isFinite(Number(track.duration)) && Number(track.duration) > 0)).map(track => track.id).filter(isYoutubeVideoId))];
+  const missing = ids.filter(id => {
+    const cached = getCachedVideo(id);
+    const duration = parseIsoDuration(cached?.contentDetails?.duration);
+    if (duration > 0) details.set(id, { duration, channelId: cached.snippet?.channelId || "" });
+    return !(duration > 0);
+  });
+  // Enrichment must not fan out through oEmbed/player requests for each video.
+  // Keep a shared four-second deadline and at most four concurrent batch reads.
+  const signal = AbortSignal.timeout(4000);
+  const deadline = new Promise(resolve => signal.addEventListener("abort", () => resolve([]), { once: true }));
+  for (let offset = 0; offset < missing.length && !signal.aborted; offset += 200) {
+    const batches = [];
+    for (let index = offset; index < Math.min(offset + 200, missing.length); index += 50) {
+      batches.push(fetchYoutubeTracksByIds(missing.slice(index, index + 50), { limit: 50, requireOfficial: true, signal }));
+    }
+    const results = await Promise.race([Promise.all(batches), deadline]);
+    results.flat().forEach(track => details.set(track.id, track));
+  }
+  return tracks.map(track => {
+    const detail = details.get(track.id);
+    if (!detail) return track;
+    return { ...track, duration: detail.duration, channelId: track.channelId || detail.channelId || "" };
+  });
 }
 
 async function fetchYouTubeCommentTexts(videoId, maxResults = 20) {

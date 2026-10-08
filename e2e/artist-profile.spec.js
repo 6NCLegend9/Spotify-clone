@@ -117,10 +117,13 @@ test("reduced-motion artist navigation resets page-local content while keeping t
 test("artist follow failures recover and retry persists the requested artist", async ({ page }) => {
   await fixtures(page);
   let fail = true;
+  let followed = false;
   await page.route("**/api/followedArtists", route => {
-    if (route.request().method() === "GET") return route.fulfill({ json: { success: true, data: [] } });
-    expect(route.request().postDataJSON()).toMatchObject({ name: "2Pac", channelId: PAC });
-    return fail ? route.fulfill({ status: 503, json: { code: "SERVICE_UNAVAILABLE", message: "Please retry" } }) : route.fulfill({ json: { success: true, data: ["2Pac"] } });
+    if (route.request().method() === "GET") return route.fulfill({ json: { success: true, data: followed ? ["2Pac"] : [], artists: followed ? [{ name: "2Pac", channelId: PAC }] : [] } });
+    expect(route.request().postDataJSON()).toMatchObject({ name: "2Pac", channelId: PAC, followed: true });
+    if (fail) return route.fulfill({ status: 503, json: { code: "SERVICE_UNAVAILABLE", message: "Please retry" } });
+    followed = true;
+    return route.fulfill({ json: { success: true, data: ["2Pac"], artists: [{ name: "2Pac", channelId: PAC }] } });
   });
   await page.goto(`/artist/${PAC}?name=2Pac`);
   await expect(songSection(page).getByRole("button", { name: "Play California Love", exact: true })).toBeVisible();

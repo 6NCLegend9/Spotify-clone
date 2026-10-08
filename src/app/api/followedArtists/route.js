@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import UserData from "@/models/UserData";
+import { mutateDocument } from "@/utils/documentMutation.mjs";
+import { isArtistFollowed, updateArtistMembership } from "@/utils/followedArtistsList.mjs";
 import { allowlistedMediaUrl } from "@/utils/mediaUrl.mjs";
 
 export const runtime = "nodejs";
@@ -25,107 +28,52 @@ export async function GET(request) {
   }
 }
 
-// Toggles a followed channel/artist by name (the name is the recommendations seed);
-// channelId/thumbnail are also stored so the UI can link to the profile and show releases.
-export async function POST(request) {
-  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
+function readArtist(body) {
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const channelId = typeof body.channelId === "string" ? body.channelId.trim() : "";
+  if (!name || name.length > 100 || (channelId && !/^UC[A-Za-z0-9_-]{20,24}$/.test(channelId))
+      || (body.channelId != null && typeof body.channelId !== "string")
+      || (body.followed !== undefined && typeof body.followed !== "boolean")) return null;
+  return { name, channelId, thumbnail: allowlistedMediaUrl(body.thumbnail) };
+}
+
+async function updateFollow(request, backfill) {
   try {
     const { userData, email } = await getAuthenticatedAccount(request);
-    const rateLimit = await isRateLimited(`followed-artists:${email}`, {
-      windowMs: 15 * 60_000,
-      max: 40,
+    const rateLimit = await isRateLimited(`followed-artists${backfill ? "-meta" : ""}:${email}`, {
+      windowMs: 15 * 60_000, max: backfill ? 80 : 40,
     });
-    if (rateLimit.limited) {
-      return apiError("RATE_LIMITED", {
-        retryAfter: rateLimit.retryAfter,
-        message: "Too many follow updates. Please wait before trying again.",
-      });
-    }
+    if (rateLimit.limited) return apiError("RATE_LIMITED", { retryAfter: rateLimit.retryAfter, message: "Too many follow updates. Please try again later." });
     const body = await readRequestJson(request);
-    const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
-    const channelId = typeof body.channelId === "string" ? body.channelId.trim().slice(0, 48) : "";
-    const thumbnail = allowlistedMediaUrl(body.thumbnail);
-    if (!name) {
-      return apiError("VALIDATION_ERROR", { message: "An artist name is required" });
-    }
-
-    const existing = Array.isArray(userData.followedArtists) ? userData.followedArtists : [];
-    const existingMeta = Array.isArray(userData.followedArtistsMeta) ? userData.followedArtistsMeta : [];
-    const alreadyFollowing = existing.some((value) => value.toLowerCase() === name.toLowerCase());
-    if (alreadyFollowing) {
-      userData.followedArtists = existing.filter((value) => value.toLowerCase() !== name.toLowerCase());
-      userData.followedArtistsMeta = existingMeta.filter(
-        (item) => (item?.name || "").toLowerCase() !== name.toLowerCase(),
-      );
-    } else {
-      userData.followedArtists = [...existing, name].slice(-MAX_FOLLOWED_ARTISTS);
-      userData.followedArtistsMeta = [
-        ...existingMeta.filter((item) => (item?.name || "").toLowerCase() !== name.toLowerCase()),
-        { name, channelId, thumbnail, followedAt: new Date() },
-      ].slice(-MAX_FOLLOWED_ARTISTS);
-    }
-    await userData.save();
+    const artist = readArtist(body);
+    if (!artist) return apiError("VALIDATION_ERROR", { message: "A valid artist and follow state are required." });
+    let enabled;
+    const updated = await mutateDocument(UserData, userData._id, current => {
+      const present = isArtistFollowed(current, artist);
+      if (backfill && !present) return null;
+      enabled = backfill ? true : body.followed ?? !present;
+      return updateArtistMembership(current, artist, enabled, MAX_FOLLOWED_ARTISTS);
+    });
+    if (backfill && enabled === undefined) return apiError("VALIDATION_ERROR", { message: "You are not following this artist." });
     return NextResponse.json({
       success: true,
-      message: alreadyFollowing ? "Unfollowed" : "Followed",
-      data: userData.followedArtists,
-      artists: userData.followedArtistsMeta,
+      message: backfill ? "Updated" : enabled ? "Followed" : "Unfollowed",
+      data: updated.followedArtists || [],
+      artists: updated.followedArtistsMeta || [],
     }, { headers: NO_STORE });
-  } catch (e) {
-    return handleApiError(e, "update followed artist");
+  } catch (error) {
+    return handleApiError(error, backfill ? "backfill followed artist" : "update followed artist");
   }
 }
 
-// Backfills channel metadata (channelId/thumbnail) for an artist the user already
-// follows, without toggling the follow. Used to repair legacy follows that were saved
-// with only a name so the Following page can show avatars and link to the channel.
+// New callers send explicit membership. Missing followed retains legacy toggle behavior.
+export async function POST(request) {
+  if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
+  return updateFollow(request, false);
+}
+
+// Upgrade legacy name-only membership without toggling or replacing other artists.
 export async function PATCH(request) {
   if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
-  try {
-    const { userData, email } = await getAuthenticatedAccount(request);
-    const rateLimit = await isRateLimited(`followed-artists-meta:${email}`, {
-      windowMs: 15 * 60_000,
-      max: 80,
-    });
-    if (rateLimit.limited) {
-      return apiError("RATE_LIMITED", {
-        retryAfter: rateLimit.retryAfter,
-        message: "Too many updates. Please wait before trying again.",
-      });
-    }
-    const body = await readRequestJson(request);
-    const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : "";
-    const channelId = typeof body.channelId === "string" ? body.channelId.trim().slice(0, 48) : "";
-    const thumbnail = allowlistedMediaUrl(body.thumbnail);
-    if (!name) {
-      return apiError("VALIDATION_ERROR", { message: "An artist name is required" });
-    }
-
-    const existing = Array.isArray(userData.followedArtists) ? userData.followedArtists : [];
-    const isFollowed = existing.some((value) => value.toLowerCase() === name.toLowerCase());
-    if (!isFollowed) {
-      return apiError("VALIDATION_ERROR", { message: "You are not following this artist." });
-    }
-
-    const existingMeta = Array.isArray(userData.followedArtistsMeta) ? userData.followedArtistsMeta : [];
-    const current = existingMeta.find((item) => (item?.name || "").toLowerCase() === name.toLowerCase());
-    userData.followedArtistsMeta = [
-      ...existingMeta.filter((item) => (item?.name || "").toLowerCase() !== name.toLowerCase()),
-      {
-        name,
-        channelId: channelId || current?.channelId || "",
-        thumbnail: thumbnail || current?.thumbnail || "",
-        followedAt: current?.followedAt || new Date(),
-      },
-    ].slice(-MAX_FOLLOWED_ARTISTS);
-    await userData.save();
-    return NextResponse.json({
-      success: true,
-      message: "Updated",
-      data: userData.followedArtists,
-      artists: userData.followedArtistsMeta,
-    }, { headers: NO_STORE });
-  } catch (e) {
-    return handleApiError(e, "backfill followed artist");
-  }
+  return updateFollow(request, true);
 }

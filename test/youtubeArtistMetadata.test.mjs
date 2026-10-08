@@ -5,8 +5,10 @@ import { readFile } from "node:fs/promises";
 // Keep the actual route mapping; isolate only the external provider/security services.
 async function routeFor(file, replies) {
   const source = (await readFile(new URL(file, import.meta.url), "utf8")).replace(/^import .*;\n/gm, "").replace(/export /g, "");
-  return new Function("NextResponse", "hasYouTubeApiKey", "youtubeFetch", "cleanTitle", "filterMusicPlaybackResults", "getClientKey", "isRateLimited", "apiError", "handleApiError", `${source}\nreturn GET;`)(
-    { json: Response.json }, () => true, async resource => ({ ok: true, data: replies[resource] }), x => x, tracks => tracks,
+  const durationSource = (await readFile(new URL('../src/utils/youtubeApi.js', import.meta.url), 'utf8')).match(/export function parseIsoDuration[\s\S]*?\n}/)[0];
+  const parseIsoDuration = new Function(durationSource.replace('export ', '') + '; return parseIsoDuration;')();
+  return new Function("NextResponse", "hasYouTubeApiKey", "youtubeFetch", "hydrateYoutubeCatalogTracks", "parseIsoDuration", "cleanTitle", "filterMusicPlaybackResults", "getClientKey", "isRateLimited", "apiError", "handleApiError", `${source}\nreturn GET;`)(
+    { json: Response.json }, () => true, async resource => ({ ok: true, data: replies[resource] }), async tracks => tracks, parseIsoDuration, x => x, tracks => tracks,
     () => "fixture", async () => ({ limited: false }), code => Response.json({ code }, { status: 400 }), error => { throw error; },
   );
 }

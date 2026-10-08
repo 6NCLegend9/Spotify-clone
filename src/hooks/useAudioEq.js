@@ -48,6 +48,10 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio }
 
       const splitter = context.createChannelSplitter(2);
       const merger = context.createChannelMerger(2);
+      const monoGain = context.createGain();
+      monoGain.gain.value = 0.5;
+      monoGain.channelCount = 1;
+      monoGain.channelCountMode = "explicit";
 
       source.connect(filters[0]);
       filters.reduce((previous, next) => {
@@ -71,6 +75,7 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio }
         compressor,
         splitter,
         merger,
+        monoGain,
         mono: false,
       };
       graphRef.current = graph;
@@ -101,11 +106,15 @@ export default function useAudioEq(audioRef, { bands, normalization, monoAudio }
     graph.compressor.disconnect();
     graph.splitter.disconnect();
     graph.merger.disconnect();
+    graph.monoGain.disconnect();
 
     if (monoAudio) {
       graph.compressor.connect(graph.splitter);
-      graph.splitter.connect(graph.merger, 0, 0);
-      graph.splitter.connect(graph.merger, 0, 1);
+      // Average L + R with headroom, then duplicate the mono mix to both outputs.
+      graph.splitter.connect(graph.monoGain, 0);
+      graph.splitter.connect(graph.monoGain, 1);
+      graph.monoGain.connect(graph.merger, 0, 0);
+      graph.monoGain.connect(graph.merger, 0, 1);
       graph.merger.connect(graph.context.destination);
     } else {
       graph.compressor.connect(graph.context.destination);

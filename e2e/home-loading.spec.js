@@ -129,7 +129,7 @@ for (const destination of ["/library", "/following", "/library/liked"]) {
       if (pathname === "/api/settings") return route.fulfill({ json: { authenticated: true, settings: {} } });
       if (pathname === "/api/favourite") return route.fulfill({ json: { success: true, data: { favourites: accountId === "nav-a" ? [track.id] : [] } } });
       if (pathname === "/api/userPlaylists") return route.fulfill({ json: { success: true, data: { playlists: accountId === "nav-a" ? [{ _id: "aaaaaaaaaaaaaaaaaaaaaaaa", name: "Private saved playlist from A", songs: [], user: "nav-a" }] : [] } } });
-      if (pathname === "/api/followedArtists") return route.fulfill({ json: { success: true, data: accountId === "nav-a" ? ["Private followed artist from A"] : [], artists: [{ name: "Private followed artist from A", channelId: "channel-a", thumbnail: "/icon-192x192.png" }] } });
+      if (pathname === "/api/followedArtists") return route.fulfill({ json: { success: true, data: accountId === "nav-a" ? ["Private followed artist from A"] : [], artists: accountId === "nav-a" ? [{ name: "Private followed artist from A", channelId: "channel-a", thumbnail: "/icon-192x192.png" }] : [] } });
       if (pathname === "/api/youtube-videos") return route.fulfill({ json: { tracks: [track] } });
       if (pathname === "/api/recommendations") return route.fulfill({ json: { sections: {}, mode: "personalized" } });
       return route.fulfill({ json: { success: true, data: [], releases: [], genres: [], tree: [] } });
@@ -186,13 +186,14 @@ test("a pending favourite removal cannot publish the previous account's list", a
   });
   try {
     await page.goto("/library/liked", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Remove Account A track from Liked Songs", exact: true }).press("Enter");
+    await page.getByRole("button", { name: "Queue options", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Remove from Liked Songs", exact: true }).press("Enter");
     await expect.poll(() => removalStarted).toBe(true);
     accountId = "mutation-b";
     await page.evaluate(() => window.dispatchEvent(new StorageEvent("storage", {
       key: "nextauth.message", newValue: JSON.stringify({ event: "session", data: { trigger: "getSession" }, timestamp: Date.now() }),
     })));
-    await expect(page.getByRole("button", { name: "Remove Account B track from Liked Songs", exact: true })).toBeAttached();
+    await expect(page.getByRole("button", { name: "Account B track", exact: true })).toBeVisible();
     const completed = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/favourite" && response.request().method() === "POST");
     releaseRemoval();
     await (await completed).finished();

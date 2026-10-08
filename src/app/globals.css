@@ -3979,7 +3979,7 @@ body {
 [data-context-target] { -webkit-touch-callout: none; }
 
 /* Artist credits remain separately operable without changing fixed-height song rows. */
-.artist-links[class] { display: block; min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: thin; }
+.artist-links[class] { display: block; min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; white-space: nowrap; text-overflow: clip; scrollbar-width: thin; }
 .artist-links a { display: inline-block; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .artist-links a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 2px; }
 
@@ -3992,7 +3992,9 @@ body {
 
 .playlist-track-row > :nth-child(5), .playlist-track-heading > :nth-child(5) { display: block; }
 .playlist-track-row[data-unavailable="true"] { color: var(--muted); background: transparent; }
-.playlist-track-row[data-unavailable="true"] > :not(:last-child) { opacity: .4; }
+.playlist-track-row[data-unavailable="true"] button:disabled,
+.playlist-track-row[data-unavailable="true"] > span { opacity: .4; }
+.playlist-track-row[data-unavailable="true"] .artist-links { color: var(--text); }
 .playlist-track-row[data-unavailable="true"] button:disabled { cursor: not-allowed; }
 .playlist-track-row[data-unavailable="true"] .group-hover\:block { display: none; }
 .playlist-track-row[data-unavailable="true"] .group-hover\:hidden { display: inline; }

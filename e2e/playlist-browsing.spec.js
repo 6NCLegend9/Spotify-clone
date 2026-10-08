@@ -9,7 +9,10 @@ test.afterEach(async ({ page }, testInfo) => {
 });
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => { delete Navigator.prototype.serviceWorker; });
+  await page.addInitScript(() => {
+    delete Navigator.prototype.serviceWorker;
+    localStorage.setItem("toturialComplete", "true");
+  });
   await page.route(/https:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\//, route => route.abort());
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());

@@ -1,3 +1,5 @@
+import { ApiRouteError } from "./apiResponseCore.mjs";
+
 export const FOLLOWED_RELEASE_ARTIST_LIMIT = 10;
 
 function asArtist(name, channelId = "", thumbnail = "", followedAt = null) {
@@ -9,32 +11,60 @@ function asArtist(name, channelId = "", thumbnail = "", followedAt = null) {
   };
 }
 
-export function followedArtistsForReleases(userData) {
-  const byName = new Map();
-  const names = Array.isArray(userData?.followedArtists) ? userData.followedArtists : [];
-  for (const name of names) {
-    if (typeof name !== "string" || !name.trim()) continue;
-    const key = name.trim().toLowerCase();
-    if (!byName.has(key)) byName.set(key, asArtist(name));
-  }
+export function followedArtistKey(artist) {
+  return artist.channelId ? `channel:${artist.channelId}` : `name:${artist.name.toLowerCase()}`;
+}
 
+// Channel metadata is authoritative; names remain descriptive recommendation
+// seeds and a compatibility path for records saved before channel IDs existed.
+export function followedArtistsForDisplay(userData) {
+  const artists = new Map();
   const meta = Array.isArray(userData?.followedArtistsMeta) ? userData.followedArtistsMeta : [];
   for (const item of meta) {
     const artist = asArtist(item?.name, item?.channelId, item?.thumbnail, item?.followedAt);
-    if (!artist.name && !artist.channelId) continue;
-    const key = (artist.name || artist.channelId).toLowerCase();
-    const current = byName.get(key) || asArtist(artist.name);
-    byName.set(key, {
-      ...current,
-      ...artist,
-      name: artist.name || current.name,
-      channelId: artist.channelId || current.channelId,
-      thumbnail: artist.thumbnail || current.thumbnail,
-      followedAt: artist.followedAt || current.followedAt,
-    });
+    if (artist.name || artist.channelId) artists.set(followedArtistKey(artist), artist);
   }
+  const names = Array.isArray(userData?.followedArtists) ? userData.followedArtists : [];
+  for (const name of names) {
+    const artist = asArtist(name);
+    if (artist.name && ![...artists.values()].some(item => item.name.toLowerCase() === artist.name.toLowerCase())) {
+      artists.set(followedArtistKey(artist), artist);
+    }
+  }
+  return [...artists.values()];
+}
 
-  return [...byName.values()].slice(0, FOLLOWED_RELEASE_ARTIST_LIMIT);
+export function isArtistFollowed(userData, artist) {
+  return followedArtistsForDisplay(userData).some(item => artist.channelId
+    ? item.channelId === artist.channelId || (!item.channelId && item.name.toLowerCase() === artist.name.toLowerCase())
+    : item.name.toLowerCase() === artist.name.toLowerCase());
+}
+
+export function updateArtistMembership(userData, artist, followed, limit = 100) {
+  const items = followedArtistsForDisplay(userData);
+  const matches = items.filter(item => artist.channelId
+    ? item.channelId === artist.channelId || (!item.channelId && item.name.toLowerCase() === artist.name.toLowerCase())
+    : item.name.toLowerCase() === artist.name.toLowerCase());
+  if (!artist.channelId && matches.length > 1) throw new ApiRouteError("VALIDATION_ERROR", { message: "A channel ID is required to update this artist." });
+  const existing = matches.find(item => item.channelId === artist.channelId) || matches[0];
+  let next = items.filter(item => !matches.includes(item));
+  if (followed) {
+    if (!existing && items.length >= limit) throw new ApiRouteError("VALIDATION_ERROR", { message: `You can follow up to ${limit} artists.` });
+    const updated = {
+      ...artist,
+      channelId: artist.channelId || existing?.channelId || "",
+      thumbnail: artist.thumbnail || existing?.thumbnail || "",
+      followedAt: existing?.followedAt || new Date(),
+    };
+    if (existing) next.splice(Math.min(items.indexOf(existing), next.length), 0, updated);
+    else next.push(updated);
+  }
+  const names = new Map(next.filter(item => item.name).map(item => [item.name.toLowerCase(), item.name]));
+  return { followedArtists: [...names.values()], followedArtistsMeta: next };
+}
+
+export function followedArtistsForReleases(userData) {
+  return followedArtistsForDisplay(userData).slice(0, FOLLOWED_RELEASE_ARTIST_LIMIT);
 }
 
 function relatedReleaseKey(release) {

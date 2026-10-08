@@ -573,6 +573,8 @@ test("video expansion fits desktop and mobile without replacing the media host",
       await page.mouse.click(center.x, center.y);
     }
     await expect(expanded).toHaveAttribute("data-controls", "visible");
+    // Keep the layout check's collapse target visible while its idle timer runs.
+    await expanded.getByRole("button", { name: "Collapse video", exact: true }).focus();
   };
 
   if (testInfo.project.name.startsWith("mobile-")) {

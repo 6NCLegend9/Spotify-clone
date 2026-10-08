@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -19,6 +19,8 @@ import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
+import { accountOwner } from "@/utils/accountCache.mjs";
+import { isArtistFollowed } from "@/utils/followedArtistsList.mjs";
 import styles from "./artistProfile.module.css";
 
 function formatDuration(seconds) {
@@ -28,9 +30,14 @@ function formatDuration(seconds) {
     : "—";
 }
 
-export default function ArtistProfile({ artistId, initialName = "" }) {
+export default function ArtistProfile(props) {
+  const { data: session, status } = useSession();
+  const owner = accountOwner(session, status);
+  return <AccountArtistProfile key={`${owner || status}:${props.artistId}`} {...props} status={status} />;
+}
+
+function AccountArtistProfile({ artistId, initialName = "", status }) {
   const dispatch = useDispatch();
-  const { status } = useSession();
   const [artist, setArtist] = useState({ id: artistId, title: initialName, description: "", thumbnail: "" });
   const [tracks, setTracks] = useState([]);
   const [nextPageToken, setNextPageToken] = useState("");
@@ -40,6 +47,11 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
   const [retryKey, setRetryKey] = useState(0);
   const [followed, setFollowed] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [followLoading, setFollowLoading] = useState(status === "authenticated");
+  const [followError, setFollowError] = useState(null);
+  const [followRetryKey, setFollowRetryKey] = useState(0);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [alsoPlay, setAlsoPlay] = useState([]);
 
   useEffect(() => {
@@ -99,17 +111,28 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
   useEffect(() => {
     if (status !== "authenticated" || !artist.title) return undefined;
     const controller = new AbortController();
+    setFollowLoading(true);
+    setFollowError(null);
     requestJson("/api/followedArtists", {
       signal: controller.signal,
       fallbackTitle: "Follow status unavailable",
       fallbackMessage: "You can still play this artist.",
-    }).then((json) => {
-      if (json?.success === true && Array.isArray(json.data)) {
-        setFollowed(json.data.some((value) => value.toLowerCase() === artist.title.toLowerCase()));
-      }
-    }).catch(() => {});
+    }).then(json => {
+      if (controller.signal.aborted) return;
+      if (json?.success !== true || !Array.isArray(json.data)) throw new Error("Follow status did not return usable data.");
+      setFollowed(isArtistFollowed({ followedArtists: json.data, followedArtistsMeta: json.artists }, { name: artist.title, channelId: artist.id || artistId }));
+    }).catch(loadError => {
+      if (!controller.signal.aborted) setFollowError(toUserError(loadError, { title: "Follow status unavailable", message: "We couldn’t load your follow status. Try again." }));
+    }).finally(() => { if (!controller.signal.aborted) setFollowLoading(false); });
     return () => controller.abort();
-  }, [artist.title, status]);
+  }, [artist.id, artist.title, artistId, followRetryKey, status]);
+
+  useEffect(() => {
+    const refresh = () => setFollowRetryKey(value => value + 1);
+    window.addEventListener(FOLLOWS_CHANGED_EVENT, refresh);
+    window.addEventListener("focus", refresh);
+    return () => { window.removeEventListener(FOLLOWS_CHANGED_EVENT, refresh); window.removeEventListener("focus", refresh); };
+  }, []);
 
   const title = artist.title || initialName || "Artist";
   const displayTitle = cleanTitle(title, "Artist");
@@ -162,53 +185,56 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
   };
 
   const toggleFollow = async () => {
-    if (status !== "authenticated" || !artist.title || followBusy) return;
+    if (status !== "authenticated" || !artist.title || followBusy || followLoading || followError) return;
     const next = !followed;
     setFollowBusy(true);
     setFollowed(next);
     try {
       const data = await requestJson("/api/followedArtists", {
         method: "POST",
-        body: { name: artist.title, channelId: artist.id, thumbnail: artist.thumbnail },
+        body: { name: artist.title, channelId: artist.id || artistId, thumbnail: artist.thumbnail, followed: next },
         fallbackTitle: "Follow couldn’t be updated",
         fallbackMessage: "Your follow change wasn’t saved. Please try again.",
       });
-      if (data?.success === true && Array.isArray(data.data)) {
-        setFollowed(data.data.some((value) => value.toLowerCase() === artist.title.toLowerCase()));
-      }
+      if (!mounted.current) return;
+      if (data?.success !== true || !Array.isArray(data.data)) throw new Error("Follow update did not return usable data.");
+      setFollowed(isArtistFollowed({ followedArtists: data.data, followedArtistsMeta: data.artists }, { name: artist.title, channelId: artist.id || artistId }));
       window.dispatchEvent(new Event(FOLLOWS_CHANGED_EVENT));
       toast.success(next ? "Followed" : "Unfollowed");
     } catch (followError) {
+      if (!mounted.current) return;
       setFollowed(!next);
       toast.error(toUserError(followError).message);
     } finally {
-      setFollowBusy(false);
+      if (mounted.current) setFollowBusy(false);
     }
   };
 
   return (
     <div className={`page ${styles.page}`} aria-labelledby="artist-title">
-      <header className={styles.hero}>
-        <MediaImage src={artist.thumbnail} size="hq" alt="" loading="eager" width={192} height={192} className={styles.portrait} />
-        <div className={styles.heroCopy}>
-          <p className="eyebrow">Artist</p>
-          <h1 id="artist-title" className={styles.title}>{displayTitle}</h1>
-          <p className={styles.subtitle}>Songs and videos from this artist.</p>
-          {!loading && !error && tracks.length > 0 && <p className={styles.count}>{tracks.length} {tracks.length === 1 ? "song" : "songs"}{nextPageToken ? " loaded" : ""}</p>}
+      <header className={styles.header}>
+        <div className={styles.hero}>
+          {artist.thumbnail && <MediaImage src={artist.thumbnail} size="hq" alt="" loading="eager" className={styles.heroArtwork} />}
+          <div className={styles.heroCopy}>
+            <p className={styles.artistLabel}>Artist</p>
+            <h1 id="artist-title" className={styles.title}>{displayTitle}</h1>
+            {!loading && !error && tracks.length > 0 && <p className={styles.count}>{tracks.length} {tracks.length === 1 ? "song" : "songs"}{nextPageToken ? " loaded" : ""}</p>}
+          </div>
         </div>
         <div className={styles.actions}>
-          <button type="button" onClick={playAll} disabled={loading || Boolean(error) || tracks.length === 0} aria-label={`Play songs by ${displayTitle}`} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"><FiPlay aria-hidden="true" className={styles.playIcon} />Play</button>
-          {status === "authenticated" ? <button type="button" onClick={() => void toggleFollow()} disabled={followBusy || loading || Boolean(error)} aria-pressed={followed} className="btn-ghost disabled:cursor-not-allowed disabled:opacity-50">{followed ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}{followBusy ? "Saving…" : followed ? "Following" : "Follow"}</button> : status === "unauthenticated" ? <Link href="/login" className="btn-ghost">Log in to follow</Link> : null}
+          <button type="button" onClick={playAll} disabled={loading || Boolean(error) || tracks.length === 0} aria-label={`Play songs by ${displayTitle}`} className={styles.playButton}><FiPlay aria-hidden="true" className={styles.playIcon} /></button>
+          {status === "authenticated" ? <button type="button" onClick={() => void toggleFollow()} disabled={followBusy || followLoading || Boolean(followError) || loading || Boolean(error)} aria-pressed={followed} className="btn-ghost disabled:cursor-not-allowed disabled:opacity-50">{followed ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}{followBusy ? "Saving…" : followLoading ? "Loading follow…" : followed ? "Following" : "Follow"}</button> : status === "unauthenticated" ? <Link href="/login" className="btn-ghost">Log in to follow</Link> : null}
           {!loading && !error && artist.description && <a href="#artist-about" className={styles.aboutLink}>About the artist</a>}
         </div>
       </header>
 
+      {followError && <UserMessage title={followError.title} message={followError.message} onRetry={() => setFollowRetryKey(value => value + 1)} busy={followLoading} compact />}
       {loading && <div className={styles.feedback} role="status" aria-label="Loading artist songs"><p>Loading songs…</p><div aria-hidden="true"><SongRowsSkeleton count={5} /></div></div>}
       {!loading && error && <div className={styles.feedback}><UserMessage title={error.title} message={error.message} onRetry={() => setRetryKey((value) => value + 1)} busy={loading} /></div>}
       {!loading && !error && <div className={styles.body}>
         <section className={styles.songs} aria-labelledby={tracks.length ? "artist-songs-title" : undefined} aria-label={tracks.length ? undefined : "Artist songs"}>
           {tracks.length === 0 ? <EmptyState eyebrow="Artist" title={`No songs found for ${displayTitle}`} message="Try another search to find playable tracks." href="/" actionLabel="Back to Home" /> : <>
-          <div className={styles.sectionHeading}><h2 id="artist-songs-title">Songs &amp; videos</h2><span className={styles.count}>{tracks.length} loaded</span></div>
+          <div className={styles.sectionHeading}><h2 id="artist-songs-title">Popular</h2></div>
           <div className={styles.rowHeading} aria-hidden="true"><span>#</span><span>Title</span><FiClock /><span /></div>
           <ol className={styles.songList}>
             {tracks.map((video, index) => <ContextMenuTarget as="li" key={video.id} className={styles.songRow}>
@@ -227,13 +253,6 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
           {nextPageToken && <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className={`btn-ghost ${styles.loadMore} disabled:opacity-60`}>{loadingMore ? "Loading more…" : "Load more songs"}</button>}
           </>}
         </section>
-
-        <aside className={styles.about}>
-          {artist.description ? <details>
-            <summary id="artist-about" className={styles.aboutSummary}><h2>About {displayTitle}</h2><FiChevronDown aria-hidden="true" /></summary>
-            <p className={styles.biography}>{cleanTitle(artist.description)}</p>
-          </details> : <><h2>About {displayTitle}</h2><p className={styles.biography}>This channel hasn’t provided a biography yet.</p></>}
-        </aside>
       </div>}
 
       {!loading && !error && alsoPlayVisible.length > 0 && <section className={styles.related} aria-labelledby="artist-comments-title">
@@ -247,6 +266,18 @@ export default function ArtistProfile({ artistId, initialName = "" }) {
               <div className={styles.relatedTools}><span className={styles.duration}>{formatDuration(video.duration)}</span><AddToQueueButton track={video} className={styles.queueButton} /></div>
             </div>
           </ContextMenuTarget>)}
+        </div>
+      </section>}
+
+      {!loading && !error && <section className={styles.about} aria-labelledby="artist-about-title">
+        <h2 id="artist-about-title">About</h2>
+        <div className={styles.aboutCard}>
+          <MediaImage src={artist.thumbnail} size="hq" alt="" width={96} height={96} className={styles.portrait} />
+          {artist.description && <p className={styles.aboutPreview}>{cleanTitle(artist.description).slice(0, 180)}{cleanTitle(artist.description).length > 180 ? "…" : ""}</p>}
+          {artist.description ? <details>
+            <summary id="artist-about" className={styles.aboutSummary}><span>About {displayTitle}</span><FiChevronDown aria-hidden="true" /></summary>
+            <p className={styles.biography}>{cleanTitle(artist.description)}</p>
+          </details> : <><h3>{displayTitle}</h3><p className={styles.biography}>This channel hasn’t provided a biography yet.</p></>}
         </div>
       </section>}
     </div>
