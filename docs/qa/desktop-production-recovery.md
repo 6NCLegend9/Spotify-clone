@@ -48,8 +48,9 @@ It preserves the release verification and updater trust checks.
 2. Verify the protected GitHub `desktop-release` environment has
    `HEYKASA_WINDOWS_CSC_LINK`, `HEYKASA_WINDOWS_CSC_PASSWORD`, and
    `HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET`. Verify production Vercel shares the
-   same HMAC secret. Secret presence/equality was not established by this
-   investigation; do not print their values.
+   same HMAC secret. The GitHub integration returned HTTP 403 when listing
+   protected environment secret names, so secret presence/equality was not
+   established by this investigation; do not print their values.
 3. After release approval, dispatch `.github/workflows/desktop-release.yml`
    **from main**, with channel `stable`, version `1.1.0`, minimum version
    `1.0.0`, and an approved public HTTPS release-notes URL. Recheck the live
@@ -67,7 +68,16 @@ It preserves the release verification and updater trust checks.
    tray behavior, signed update check, and live catalog/audio playback. The
    Linux fixture smoke does not establish those results.
 
-No stable release, workflow dispatch, merge, or production deployment was
+An unsigned Windows Package CI was dispatched for the recovery branch
+([37845337876](https://github.com/6NCLegend9/Spotify-clone/actions/runs/37845337876));
+it passed installer construction, packaged Windows runtime verification,
+and release-bundle preparation and uploaded the CI artifact. PR25's Windows
+package check also passed
+([37844903468](https://github.com/6NCLegend9/Spotify-clone/actions/runs/37844903468)).
+These verify Windows CI packaging and the production native boundary, not
+manual Windows installation, signed automatic updates, or live audio playback.
+CI artifacts do not publish a public release. No signed-release
+workflow dispatch, stable publication, merge, or production deployment was
 performed. Restoring the public installer requires the signed publication
 above; changing the download card alone cannot restore it.
 
