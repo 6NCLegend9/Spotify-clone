@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDuration, formatElapsedTime } from "@/utils/trackDuration.mjs";
 import { createPortal } from "react-dom";
 import { FiPause, FiPlay, FiRotateCcw, FiRotateCw, FiX } from "react-icons/fi";
 import { MdSkipNext } from "react-icons/md";
@@ -14,10 +15,6 @@ const handleThumbError = (event) => {
   }
 };
 
-function formatTime(seconds) {
-  const value = Math.max(0, Math.floor(seconds || 0));
-  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
-}
 
 export default function PictureInPictureWindow({
   container,
@@ -60,8 +57,8 @@ export default function PictureInPictureWindow({
           <span style={{ width: `${progress}%` }} />
         </div>
         <div className="yt-pip-times">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
+          <span>{formatElapsedTime(currentTime)}</span>
+          <span>{formatDuration(duration)}</span>
         </div>
         <div className="yt-pip-controls">
           <button type="button" aria-label="Back 10 seconds" onClick={() => onSeekBy(-10)}><FiRotateCcw /></button>

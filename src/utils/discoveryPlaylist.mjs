@@ -7,12 +7,17 @@ export function discoveryPlaylistHref(playlist) {
 }
 
 export function mergePlaylistTracks(previous, incoming) {
-  const seen = new Set();
-  return [...previous, ...(Array.isArray(incoming) ? incoming : [])].filter((track) => {
-    if (!track?.id || seen.has(track.id)) return false;
-    seen.add(track.id);
-    return true;
-  });
+  const merged = new Map();
+  for (const track of [...previous, ...(Array.isArray(incoming) ? incoming : [])]) {
+    if (!track?.id) continue;
+    const first = merged.get(track.id);
+    if (!first) merged.set(track.id, track);
+    else if (!(Number.isFinite(Number(first.duration)) && Number(first.duration) > 0)
+      && Number.isFinite(Number(track.duration)) && Number(track.duration) > 0) {
+      merged.set(track.id, { ...first, duration: track.duration });
+    }
+  }
+  return [...merged.values()];
 }
 
 export function collectionPlayback(collection, tracks, trackId) {

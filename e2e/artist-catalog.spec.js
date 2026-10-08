@@ -26,8 +26,8 @@ const sectionData = {
 };
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem("heykasa:playback:v1:account%3Aui-test") || "{}"));
 
-async function fixtures(page, { sectionsFail = false } = {}) {
-  await installArtistPlayer(page, tracks[0]);
+async function fixtures(page, { sectionsFail = false, durationById = {} } = {}) {
+  await installArtistPlayer(page, tracks[0], { durationById });
   await page.route("**/api/youtube-channel?**", route => route.fulfill({ json: { artist: sectionData.artist, tracks, nextPageToken: "" } }));
   await page.route("**/api/artist-sections?**", route => sectionsFail
     ? route.fulfill({ status: 503, json: { code: "SERVICE_UNAVAILABLE", message: "Catalog temporarily unavailable" } })
@@ -178,4 +178,16 @@ test("switching accounts while liked songs load cannot show the previous account
     await expect(liked).toContainText("No liked songs yet");
     await expect(liked.getByRole("button")).toHaveCount(0);
   } finally { release(); }
+});
+
+test("Popular reuses channel durations without replacing artist credits and formats hours", async ({ page }) => {
+  await fixtures(page, { durationById: { [tracks[1].id]: 3723.9 } });
+  await page.route("**/api/artist-sections?**", route => route.fulfill({ json: { ...sectionData, popularTracks: tracks.map((track, index) => ({ ...track, duration: index === 0 ? 0 : index === 1 ? 3723.9 : track.duration })) } }));
+  await page.goto(`/artist/${ARTIST}?name=Catalog%20Artist`);
+  const popular = page.getByRole("region", { name: "Popular", exact: true });
+  await expect(popular).toContainText("3:00");
+  await expect(popular).toContainText("1:02:03");
+  await expect(popular.getByRole("link", { name: "Catalog Artist", exact: true }).first()).toHaveAttribute("href", `/artist/${ARTIST}?name=Catalog%20Artist`);
+  await popular.getByRole("button", { name: "Play Catalog song 2", exact: true }).click();
+  await expect(page.getByTestId("player-dock")).toContainText("1:02:03");
 });

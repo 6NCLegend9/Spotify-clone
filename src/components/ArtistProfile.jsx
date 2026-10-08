@@ -1,5 +1,7 @@
 "use client";
 
+import { mergePlaylistTracks } from "@/utils/discoveryPlaylist.mjs";
+import { formatDuration, withKnownDurations } from "@/utils/trackDuration.mjs";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
@@ -26,13 +28,6 @@ import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import { isArtistFollowed } from "@/utils/followedArtistsList.mjs";
 import styles from "./artistProfile.module.css";
-
-function formatDuration(seconds) {
-  const value = Number(seconds);
-  return Number.isFinite(value) && value > 0
-    ? `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`
-    : "—";
-}
 
 export default function ArtistProfile(props) {
   const { data: session, status } = useSession();
@@ -222,10 +217,10 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
   const displayTitle = cleanTitle(title, "Artist");
   const playbackContext = { type: "artist", id: String(artist.id || artistId), name: title };
   const alsoPlayVisible = alsoPlay.filter((video) => video?.id && !tracks.some((track) => track.id === video.id));
-  const popularTracks = Array.isArray(sections?.popularTracks) ? sections.popularTracks : [];
+  const popularTracks = withKnownDurations(Array.isArray(sections?.popularTracks) ? sections.popularTracks : [], tracks);
   const releases = (Array.isArray(sections?.releases) ? sections.releases : []).filter(release => musicReleaseHref(release?.id));
   const playlists = Array.isArray(sections?.playlists) ? sections.playlists : [];
-  const musicVideos = Array.isArray(sections?.musicVideos) ? sections.musicVideos : [];
+  const musicVideos = withKnownDurations(Array.isArray(sections?.musicVideos) ? sections.musicVideos : [], [...tracks, ...popularTracks]);
   const relatedArtists = Array.isArray(sections?.relatedArtists) ? sections.relatedArtists : [];
   const byThisArtist = track => trackArtistCredits(track).some(credit => credit.channelId === artistId);
   const knownArtistTracks = new Map([...tracks, ...popularTracks, ...musicVideos].filter(byThisArtist).map(track => [track.id, track]));
@@ -233,7 +228,7 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
     const known = knownArtistTracks.get(track.id);
     // Video details identify the uploader; Music shelves identify the artist.
     // Preserve those authoritative credits when a label uploaded the recording.
-    return known ? [{ ...track, artists: trackArtistCredits(known), title: known.title || track.title }] : byThisArtist(track) ? [track] : [];
+    return known ? [{ ...withKnownDurations([track], [known])[0], artists: trackArtistCredits(known), title: known.title || track.title }] : byThisArtist(track) ? [track] : [];
   });
   const artistWatchMore = alsoPlayVisible.filter(byThisArtist);
   const moreToExplore = alsoPlayVisible.filter(track => !byThisArtist(track));
@@ -311,10 +306,7 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
       const extra = Array.isArray(data?.tracks) ? data.tracks : [];
       if (!mounted.current) return;
       setExpandedSongs(true);
-      setTracks((current) => {
-        const seen = new Set(current.map((track) => track.id));
-        return [...current, ...extra.filter((track) => track?.id && !seen.has(track.id))];
-      });
+      setTracks(current => mergePlaylistTracks(current, extra));
       setNextPageToken(typeof data?.nextPageToken === "string" ? data.nextPageToken : "");
     } catch (loadError) {
       if (mounted.current) toast.error(toUserError(loadError, { title: "More songs unavailable", message: "We couldn’t load more songs. Please try again." }).message);

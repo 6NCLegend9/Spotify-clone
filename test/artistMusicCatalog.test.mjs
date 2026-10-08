@@ -199,3 +199,11 @@ test("album reads preserve their provider browse ID and return real songs", asyn
   } } }));
   assert.deepEqual((await reader.album("MPREb_album")).tracks.map(track => track.id), ["abcdefghijk"]);
 });
+
+test("duplicate Popular entries upgrade only missing durations", () => {
+  const first = { id: "abcdefghijk", title: "Original title", artists: [{ name: "Original artist", channel_id: "UCaaaaaaaaaaaaaaaaaaaaaa" }], duration: { seconds: 0 } };
+  const result = catalog.normalizeArtistMusicSections("UCaaaaaaaaaaaaaaaaaaaaaa", { sections: [{ header: { title: { text: "Top songs" } }, contents: [first, { ...first, title: "Later title", duration: { seconds: 243 } }] }] });
+  assert.equal(result.popularTracks.length, 1);
+  assert.equal(result.popularTracks[0].duration, 243);
+  assert.equal(result.popularTracks[0].title, "Original title");
+});

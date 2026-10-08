@@ -1,3 +1,4 @@
+import { smokeArtistRenderer } from "./smoke-artist-renderer.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -69,7 +70,7 @@ try {
 
   page.on("pageerror", (error) => errors.push(`page: ${error.message}`));
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    if (message.type() === "error") errors.push(`console: ${message.text()} (${message.location().url})`);
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -83,6 +84,8 @@ try {
   assert.ok(Number.isInteger(info.apiVersion) && info.apiVersion >= 1);
   assert.ok(Array.isArray(info.capabilities));
 
+  const artistSmoke = await smokeArtistRenderer(page, origin);
+
   if (errors.length) {
     throw new Error(`Electron renderer reported errors:\n${errors.join("\n")}`);
   }
@@ -93,6 +96,7 @@ try {
     url: page.url(),
     apiVersion: info.apiVersion,
     capabilities: info.capabilities,
+    artistSmoke,
   }) + "\n");
 } finally {
   await app.close();

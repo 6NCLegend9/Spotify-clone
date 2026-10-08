@@ -302,7 +302,10 @@ test("mobile video defaults on and exposes the live iframe only after sheet moti
   await expect(dock).toBeVisible();
   // Freeze application timers before opening the mobile sheet. clock.install()
   // virtualizes time but still advances it in real time until pauseAt().
-  await page.clock.pauseAt(new Date("2026-01-01T00:00:05.000Z"));
+  // Startup may take more than five seconds on a busy runner. Freeze ahead
+  // of the browser's current virtual time, before the sheet animation begins.
+  const freezeAt = await page.evaluate(() => Date.now() + 1000);
+  await page.clock.pauseAt(new Date(freezeAt));
 
   await page.getByTestId("youtube-decks").evaluate((host) => {
     const frame = document.createElement("iframe");

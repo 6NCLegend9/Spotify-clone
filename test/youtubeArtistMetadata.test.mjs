@@ -1,3 +1,4 @@
+import { mergePlaylistTracks } from "../src/utils/discoveryPlaylist.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -7,8 +8,8 @@ async function routeFor(file, replies) {
   const source = (await readFile(new URL(file, import.meta.url), "utf8")).replace(/^import .*;\n/gm, "").replace(/export /g, "");
   const durationSource = (await readFile(new URL('../src/utils/youtubeApi.js', import.meta.url), 'utf8')).match(/export function parseIsoDuration[\s\S]*?\n}/)[0];
   const parseIsoDuration = new Function(durationSource.replace('export ', '') + '; return parseIsoDuration;')();
-  return new Function("NextResponse", "hasYouTubeApiKey", "youtubeFetch", "hydrateYoutubeCatalogTracks", "parseIsoDuration", "cleanTitle", "filterMusicPlaybackResults", "getClientKey", "isRateLimited", "apiError", "handleApiError", `${source}\nreturn GET;`)(
-    { json: Response.json }, () => true, async resource => ({ ok: true, data: replies[resource] }), async tracks => tracks, parseIsoDuration, x => x, tracks => tracks,
+  return new Function("mergePlaylistTracks", "NextResponse", "hasYouTubeApiKey", "youtubeFetch", "hydrateYoutubeCatalogTracks", "parseIsoDuration", "cleanTitle", "filterMusicPlaybackResults", "getClientKey", "isRateLimited", "apiError", "handleApiError", `${source}\nreturn GET;`)(
+    mergePlaylistTracks, { json: Response.json }, () => true, async resource => ({ ok: true, data: replies[resource] }), async tracks => tracks, parseIsoDuration, x => x, tracks => tracks,
     () => "fixture", async () => ({ limited: false }), code => Response.json({ code }, { status: 400 }), error => { throw error; },
   );
 }

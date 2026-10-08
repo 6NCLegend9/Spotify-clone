@@ -146,9 +146,20 @@ function itemDescription(item) {
 function listingDurationSeconds(item) {
   const seconds = Number(item?.duration?.seconds ?? item?.length_seconds ?? item?.duration);
   if (Number.isFinite(seconds) && seconds > 0) return seconds;
-  const text = textValue(item?.duration?.text || item?.length_text);
-  if (!/^\d+(?::[0-5]\d){1,2}$/.test(text)) return 0;
-  return text.split(":").reduce((total, part) => total * 60 + Number(part), 0);
+  const candidates = [item?.duration?.text, item?.length_text, item?.lengthText];
+  // Both raw WEB responses and youtubei.js parsed LockupView thumbnails.
+  for (const image of [{ overlays: item?.thumbnailOverlays || item?.thumbnail_overlays }, item?.thumbnail, item?.content_image, item?.contentImage?.thumbnailViewModel]) {
+    for (const overlay of image?.overlays || []) {
+      candidates.push(overlay?.thumbnailOverlayTimeStatusRenderer?.text, overlay?.text);
+      const badges = overlay?.badges || overlay?.thumbnailOverlayBadgeViewModel?.thumbnailBadges || [];
+      for (const badge of badges) candidates.push(badge?.text || badge?.thumbnailBadgeViewModel?.text);
+    }
+  }
+  for (const candidate of candidates) {
+    const text = runsText(candidate) || textValue(candidate);
+    if (/^\d+(?::[0-5]\d){1,2}$/.test(text)) return text.split(":").reduce((total, part) => total * 60 + Number(part), 0);
+  }
+  return 0;
 }
 
 function mapSearchResult(item, type) {
@@ -373,6 +384,7 @@ function thumbnailUrl(node) {
 function mapVideoRenderer(renderer) {
   if (!renderer?.videoId) return null;
   return {
+    contentDetails: { duration: secondsToIso(listingDurationSeconds(renderer)) },
     id: { videoId: renderer.videoId },
     snippet: {
       title: runsText(renderer.title),
@@ -450,13 +462,23 @@ function mapLockupView(view, type) {
     return { ...mapped, id: { playlistId: id } };
   }
   if (type !== "playlist" && /^[A-Za-z0-9_-]{11}$/.test(id)) {
-    return { ...mapped, id: { videoId: id } };
+    return { ...mapped, id: { videoId: id }, contentDetails: { duration: secondsToIso(listingDurationSeconds(view)) } };
   }
   return null;
 }
 
+function addSearchItem(item, id, items, seen) {
+  if (seen.has(id)) {
+    const first = items.find(value => (value.id.videoId || value.id.playlistId) === id);
+    if (first && !parseIsoDuration(first.contentDetails?.duration) && parseIsoDuration(item.contentDetails?.duration) > 0) first.contentDetails = item.contentDetails;
+  } else if (items.length < 50) {
+    seen.add(id);
+    items.push(item);
+  }
+}
+
 function collectSearchItems(node, type, items, seen) {
-  if (!node || items.length >= 50) return items;
+  if (!node) return items;
   if (Array.isArray(node)) {
     node.forEach((child) => collectSearchItems(child, type, items, seen));
     return items;
@@ -466,10 +488,7 @@ function collectSearchItems(node, type, items, seen) {
   const video = mapVideoRenderer(
     node.videoRenderer || node.compactVideoRenderer || node.videoWithContextRenderer,
   );
-  if (type === "video" && video && !seen.has(video.id.videoId)) {
-    seen.add(video.id.videoId);
-    items.push(video);
-  }
+  if (type === "video" && video) addSearchItem(video, video.id.videoId, items, seen);
 
   const playlist = mapPlaylistRenderer(node.playlistRenderer || node.compactPlaylistRenderer);
   if (type === "playlist" && playlist && !seen.has(playlist.id.playlistId)) {
@@ -488,10 +507,7 @@ function collectSearchItems(node, type, items, seen) {
   if (node.lockupViewModel) {
     const lockup = mapLockupView(node.lockupViewModel, type);
     const lockupId = lockup?.id?.videoId || lockup?.id?.playlistId;
-    if (lockup && lockupId && !seen.has(lockupId)) {
-      seen.add(lockupId);
-      items.push(lockup);
-    }
+    if (lockup && lockupId) addSearchItem(lockup, lockupId, items, seen);
   }
 
   Object.values(node).forEach((child) => {
@@ -618,10 +634,13 @@ async function fetchFromInnertube(endpoint, params = {}) {
     if (cached) return cached;
     const innertube = await getInnertube();
     const search = await innertube.search(params.q || "", { type });
-    const items = (search.results || [])
-      .map((item) => mapSearchResult(item, type))
-      .filter(Boolean)
-      .slice(0, maxResults);
+    const items = [];
+    const seen = new Set();
+    for (const raw of search.results || []) {
+      const item = mapSearchResult(raw, type);
+      if (item) addSearchItem(item, item.id.videoId || item.id.playlistId, items, seen);
+    }
+    items.splice(maxResults);
     const result = { ok: true, status: 200, data: { items } };
     cacheSearch(cacheKey, result);
     return result;
@@ -721,7 +740,12 @@ function mergeTracks(lists) {
   const merged = [];
   for (const list of lists) {
     for (const track of list || []) {
-      if (!track?.id || seen.has(track.id)) continue;
+      if (!track?.id) continue;
+      if (seen.has(track.id)) {
+        const index = merged.findIndex(item => item.id === track.id);
+        if (!(merged[index].duration > 0) && track.duration > 0) merged[index] = { ...merged[index], duration: track.duration };
+        continue;
+      }
       if (track.title === "Private video" || track.title === "Deleted video") continue;
       seen.add(track.id);
       merged.push(track);
@@ -937,6 +961,36 @@ export async function fetchLatestChannelVideos(channelId, { name = "", maxResult
   ).slice(0, maxResults);
 }
 
+async function hydrateSearchItems(items) {
+  const missing = [...new Set(items.filter(item => !parseIsoDuration(item.contentDetails?.duration)).map(item => item.id?.videoId).filter(isYoutubeVideoId))].slice(0, 50);
+  const details = new Map();
+  const ids = missing.filter(id => {
+    const cached = getCachedVideo(id);
+    if (cached) details.set(id, cached);
+    return !cached || !parseIsoDuration(cached.contentDetails?.duration);
+  });
+  if (ids.length) {
+    const signal = AbortSignal.timeout(4000);
+    const deadline = new Promise(resolve => signal.addEventListener("abort", () => resolve(null), { once: true }));
+    try {
+      const result = await Promise.race([fetchFromOfficialApi("videos", { part: "snippet,contentDetails,status", id: ids.join(",") }, { signal }), deadline]);
+      for (const item of result?.data?.items || []) {
+        if (!ids.includes(item.id)) continue;
+        // Keep the complete response, including region and embed restrictions.
+        cacheVideo(item.id, item);
+        details.set(item.id, item);
+      }
+    } catch { /* Optional metadata must never make search unavailable. */ }
+  }
+  return items.map(item => {
+    const detail = details.get(item.id?.videoId);
+    if (!detail) return item;
+    return { ...item, contentDetails: { ...detail.contentDetails, ...item.contentDetails,
+      duration: parseIsoDuration(item.contentDetails?.duration) > 0 ? item.contentDetails.duration : detail.contentDetails?.duration || "PT0S" },
+      status: { ...item.status, ...detail.status } };
+  });
+}
+
 export async function youtubeFetch(endpoint, params = {}, fetchOptions = {}) {
   return cachedYoutubeRead(endpoint, params, fetchOptions, () => youtubeFetchUncached(endpoint, params, fetchOptions));
 }
@@ -946,7 +1000,12 @@ async function youtubeFetchUncached(endpoint, params, fetchOptions) {
   try {
     const { requireOfficial = false, ...requestOptions } = fetchOptions;
     const officialResult = await fetchFromOfficialApi(endpoint, params, requestOptions);
-    if (officialResult) return { ...officialResult, source: "official" };
+    if (officialResult) {
+      if (endpoint === "search" && params.type === "video" && officialResult.ok) {
+        return { ...officialResult, data: { ...officialResult.data, items: await hydrateSearchItems(officialResult.data?.items || []) }, source: "official" };
+      }
+      return { ...officialResult, source: "official" };
+    }
     if (requireOfficial) return { ok: false, status: 503, source: "fallback", data: null };
 
     const maxResults = Math.min(
@@ -986,7 +1045,7 @@ async function youtubeFetchUncached(endpoint, params, fetchOptions) {
 }
 
 export function parseIsoDuration(value = "") {
-  const match = String(value).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  const match = String(value).match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
   if (!match) return 0;
   return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
 }
@@ -1019,7 +1078,7 @@ export async function fetchYoutubeTracksByIds(ids, { limit = 12, requireOfficial
   const unique = [...new Set((ids || []).filter((id) => isYoutubeVideoId(id)))].slice(0, Math.min(50, limit));
   if (unique.length === 0) return [];
   const { ok, data } = await youtubeFetch("videos", {
-    part: "snippet,contentDetails",
+    part: "snippet,contentDetails,status",
     id: unique.join(","),
   }, { next: { revalidate: 3600 }, requireOfficial, ...(signal ? { signal } : {}) });
   if (!ok) return [];

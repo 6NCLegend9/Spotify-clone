@@ -1,11 +1,11 @@
 const UI_TRACK = { id: "abcdefghijk", title: "A very long track title — Music for testing — responsive interface verification", channel: "A very long artist name", thumbnail: "/icon-192x192.png" };
 
-async function installUiFixtures(page, { playback = false, accent = null, track = UI_TRACK } = {}) {
-  await page.addInitScript(({ track, playbackEnabled, customAccent }) => {
+async function installUiFixtures(page, { playback = false, accent = null, track = UI_TRACK, preserveSavedPlayback = false } = {}) {
+  await page.addInitScript(({ track, playbackEnabled, customAccent, preserveSavedPlayback }) => {
     delete Navigator.prototype.serviceWorker;
     if (playbackEnabled) {
       localStorage.setItem("persist:settings", JSON.stringify({ owner: JSON.stringify("account:ui-test"), audioOnly: "true", dataSaver: "false", masterVolume: "0.35" }));
-      localStorage.setItem("heykasa:playback:v1:account%3Aui-test", JSON.stringify({ version: 1, owner: "account:ui-test", savedAt: Date.now(), youtubeVideo: track, youtubeQueue: [track], position: 12 }));
+      if (!preserveSavedPlayback || !localStorage.getItem("heykasa:playback:v1:account%3Aui-test")) localStorage.setItem("heykasa:playback:v1:account%3Aui-test", JSON.stringify({ version: 1, owner: "account:ui-test", savedAt: Date.now(), youtubeVideo: track, youtubeQueue: [track], position: 12 }));
     }
     if (customAccent) {
       // AppearanceSync consumes the existing desktop bridge, not an invented storage key.
@@ -14,7 +14,7 @@ async function installUiFixtures(page, { playback = false, accent = null, track 
         appearance: { get: async () => ({ available: true, resolvedAccent: customAccent, accentForeground: "#001014", profiles: [], activeProfile: null, backgroundUrl: "" }), onChanged: () => () => {} },
       };
     }
-  }, { track, playbackEnabled: playback, customAccent: accent });
+  }, { track, playbackEnabled: playback, customAccent: accent, preserveSavedPlayback });
   await page.route(/https:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\//, (route) => route.abort());
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;

@@ -55,12 +55,14 @@ function track(item, fallback = {}) {
 }
 
 function unique(items) {
-  const seen = new Set();
-  return items.filter(item => {
-    if (!item?.id || seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
+  const merged = new Map();
+  for (const item of items) {
+    if (!item?.id) continue;
+    const first = merged.get(item.id);
+    if (!first) merged.set(item.id, item);
+    else if (!(first.duration > 0) && item.duration > 0) merged.set(item.id, { ...first, duration: item.duration });
+  }
+  return [...merged.values()];
 }
 
 function releaseType(value, fallback = "album") {

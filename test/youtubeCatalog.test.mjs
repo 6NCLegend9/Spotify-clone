@@ -11,7 +11,7 @@ const CHANNEL = "UCaaaaaaaaaaaaaaaaaaaaaa";
 const video = (id) => ({ id: { videoId: id }, snippet: { title: "Artist - Song (Official Audio)", channelTitle: "Artist", channelId: CHANNEL } });
 function catalog({ official = async () => ({ ok: false, status: 503 }), upstream = async () => ({ ok: false, status: 503 }), fallback = async () => null } = {}) {
   return new Function("ApiRouteError", "createProviderTransport", "reportProvider", "cleanTitle", "filterMusicPlaybackResults", "isYoutubeVideoId", "official", "upstream", "fallback",
-    `${source}\nfetchFromOfficialApi = official; youtubeFetch = upstream; channelFromInnertube = fallback; return { fetchYouTubeChannel, fetchYoutubeTracksByIds, hydrateYoutubeCatalogTracks, mapSearchResult, mapPlaylistItem };`)(
+    `${source}\nfetchFromOfficialApi = official; youtubeFetch = upstream; channelFromInnertube = fallback; return { fetchYouTubeChannel, fetchYoutubeTracksByIds, hydrateYoutubeCatalogTracks, mapSearchResult, mapPlaylistItem, mapVideoRenderer, mapLockupView, collectSearchItems, mergeTracks };`)(
     ApiRouteError, () => null, () => {}, cleanTitle, filterMusicPlaybackResults, id => /^[A-Za-z0-9_-]{11}$/.test(id), official, upstream, fallback,
   );
 }
@@ -79,5 +79,32 @@ test("Innertube catalog listings retain supplied duration without a second metad
   const api = catalog();
   const item = { id: "abcdefghijk", title: "Artist - Song", duration: { seconds: 243 }, author: { name: "Artist", id: CHANNEL } };
   assert.equal(api.mapSearchResult(item, "video").contentDetails?.duration, "PT4M3S");
+  assert.equal(api.mapSearchResult({ id: "bcdefghijkl", thumbnail_overlays: [{ text: { text: "1:02:03" } }] }, "video").contentDetails?.duration, "PT1H2M3S");
   assert.equal(api.mapPlaylistItem(item).contentDetails?.duration, "PT4M3S");
+});
+
+
+test("raw video and Lockup duration badges survive search normalization", () => {
+  const api = catalog();
+  assert.equal(api.mapVideoRenderer({ videoId: "abcdefghijk", lengthText: { simpleText: "1:02:03" } }).contentDetails?.duration, "PT1H2M3S");
+  assert.equal(api.mapVideoRenderer({ videoId: "bcdefghijkl", thumbnailOverlays: [{ thumbnailOverlayTimeStatusRenderer: { text: { simpleText: "4:03" } } }] }).contentDetails?.duration, "PT4M3S");
+  const view = { contentId: "abcdefghijk", contentImage: { thumbnailViewModel: { overlays: [{ thumbnailOverlayBadgeViewModel: { thumbnailBadges: [{ thumbnailBadgeViewModel: { text: "4:03" } }] } }] } } };
+  assert.equal(api.mapLockupView(view, "video").contentDetails?.duration, "PT4M3S");
+});
+
+test("parsed Lockup duration badges survive search normalization", () => {
+  const api = catalog();
+  const item = { content_id: "abcdefghijk", content_image: { overlays: [{ badges: [{ text: "4:03" }] }] } };
+  assert.equal(api.mapSearchResult(item, "video").contentDetails?.duration, "PT4M3S");
+});
+
+test("duplicate listings add known duration while keeping the first identity and order", () => {
+  const api = catalog();
+  const first = { id: "abcdefghijk", title: "First title", duration: 0, artists: [{ name: "Artist" }] };
+  assert.deepEqual(api.mergeTracks([[first], [{ ...first, title: "Later title", duration: 243 }]]), [{ ...first, duration: 243 }]);
+  assert.deepEqual(api.mergeTracks([[{ ...first, duration: 120 }], [{ ...first, duration: 243 }]]), [{ ...first, duration: 120 }]);
+  const items = api.collectSearchItems([{ videoRenderer: { videoId: first.id, title: { simpleText: first.title } } }, { videoRenderer: { videoId: first.id, lengthText: { simpleText: "4:03" } } }], "video", [], new Set());
+  assert.equal(items.length, 1);
+  assert.equal(items[0].snippet.title, first.title);
+  assert.equal(items[0].contentDetails?.duration, "PT4M3S");
 });

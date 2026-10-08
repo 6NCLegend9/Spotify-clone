@@ -1,3 +1,4 @@
+import { formatDuration, formatElapsedTime } from "@/utils/trackDuration.mjs";
 import React from "react";
 import { GiFastBackwardButton, GiFastForwardButton } from "react-icons/gi";
 
@@ -10,9 +11,6 @@ const Seekbar = ({
   appTime,
   fullScreen,
 }) => {
-  // converts the time to format 0:00
-  const getTime = (time) =>
-    `${Math.floor(time / 60)}:${`0${Math.floor(time % 60)}`.slice(-2)}`;
 
   return (
     <div
@@ -30,7 +28,7 @@ const Seekbar = ({
         <GiFastBackwardButton size={20} aria-hidden="true" className=" text-gray-300" />
       </button>
       <p className="text-white text-xs sm:text-base w-5">
-        {value === 0 ? "0:00" : getTime(value)}
+        {formatElapsedTime(value)}
       </p>
       <input
         onClick={(event) => {
@@ -43,11 +41,11 @@ const Seekbar = ({
         max={max}
         onInput={onInput}
         aria-label="Song progress"
-        aria-valuetext={value === 0 ? "0:00" : getTime(value)}
+        aria-valuetext={formatElapsedTime(value)}
         className="md:block w-[70vw] min-[1085px]:w-[650px] md:w-[250px] 2xl:w-[50vw] h-1 mx-4 2xl:mx-6 rounded-lg accent-[#00e6e6] cursor-pointer"
       />
       <p className="text-white text-xs sm:text-base">
-        {max === 0 ? "0:00" : getTime(max)}
+        {formatDuration(max)}
       </p>
       <button
         type="button"

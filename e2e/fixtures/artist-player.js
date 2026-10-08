@@ -3,7 +3,7 @@ const { installUiFixtures } = require("./ui-redesign");
 // Keep the real provider lifecycle/router; isolate only the remote YouTube player.
 async function installArtistPlayer(page, track, options = {}) {
   await installUiFixtures(page, { ...options, playback: true, track });
-  await page.addInitScript(() => {
+  await page.addInitScript(({ durationById }) => {
     window.__artistProviderMounts = 0;
     window.__artistProviderDestroys = 0;
     window.YT = {
@@ -20,7 +20,7 @@ async function installArtistPlayer(page, track, options = {}) {
           setTimeout(() => options.events.onReady({ target: this }), 0);
         }
         getIframe() { return this.frame; }
-        getDuration() { return 180; }
+        getDuration() { return durationById[this.videoId] ?? 180; }
         getCurrentTime() { return 12; }
         getPlayerState() { return 2; }
         getVideoData() { return { video_id: this.videoId }; }
@@ -32,7 +32,7 @@ async function installArtistPlayer(page, track, options = {}) {
         destroy() { window.__artistProviderDestroys += 1; this.frame.remove(); }
       },
     };
-  });
+  }, { durationById: options.durationById || {} });
 }
 
 module.exports = { installArtistPlayer };

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDuration } from "@/utils/trackDuration.mjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
@@ -18,12 +19,6 @@ import { cleanArtist, cleanTitle } from "@/utils/text";
 import { collectionPlayback, mergePlaylistTracks } from "@/utils/discoveryPlaylist.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { SITE_BRAND, SITE_URL } from "@/utils/siteConfig";
-
-function formatDuration(seconds) {
-  const value = Math.max(0, Number(seconds) || 0);
-  if (!value) return "—";
-  return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`;
-}
 
 export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist", thumbnail: initialThumbnail = "", creator: initialCreator = SITE_BRAND, query = "", href }) {
   const router = useRouter();

@@ -19,7 +19,8 @@ export const isRateLimited = async (key, options = {}) => {
 const mocks = {
   "next/server": "export const NextResponse = { json: (body, options) => Response.json(body, options) };",
   "@/utils/rateLimit": rateLimitMock,
-  "@/utils/youtubeApi": `export const hasYouTubeApiKey = () => true;
+  "@/utils/youtubeApi": `export const parseIsoDuration = value => value === "PT4M3S" ? 243 : 0;
+    export const hasYouTubeApiKey = () => true;
     export const youtubeFetch = async () => ({
       ok: true, status: 200, source: "official",
       data: { items: [

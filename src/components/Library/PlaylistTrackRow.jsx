@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDuration } from "@/utils/trackDuration.mjs";
 import { memo } from "react";
 import { FiHeart, FiPlay, FiTrash2 } from "react-icons/fi";
 import AddToQueueButton from "@/components/AddToQueueButton";
@@ -7,12 +8,6 @@ import ContextMenuTarget from "@/components/ContextMenuTarget";
 import MediaImage from "@/components/MediaImage";
 import ArtistNameLink from "@/components/ArtistNameLink";
 import { cleanTitle } from "@/utils/text";
-
-function formatDuration(seconds) {
-  const value = Math.max(0, Number(seconds) || 0);
-  if (value === 0) return "—";
-  return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`;
-}
 
 function formatAddedDate(value) {
   if (!value) return "-";

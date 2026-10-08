@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDuration } from "@/utils/trackDuration.mjs";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
@@ -19,13 +20,6 @@ import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 import { isYoutubeVideoId } from "@/utils/youtubeComments.mjs";
 import styles from "./artistRelease.module.css";
-
-function formatDuration(seconds) {
-  const value = Number(seconds);
-  return Number.isFinite(value) && value > 0
-    ? `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`
-    : "—";
-}
 
 const RELEASE_TYPES = { album: "Album", single: "Single", ep: "EP" };
 
