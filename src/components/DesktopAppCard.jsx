@@ -295,7 +295,7 @@ export default function DesktopAppCard() {
                     : manifest.signed === false
                       ? "Windows installer. Open the downloaded file to install HayKasa, add Start Menu and desktop shortcuts, and launch it like a normal app. Windows may show a publisher warning until the production signing certificate is configured."
                       : "Signed desktop installer. Open the downloaded file to install HayKasa. Updates are handled by the app after setup."
-                  : "The Windows installer is being prepared. This card will enable the download as soon as it is available."}
+                  : "A signed Windows installer is not available yet. Already-installed desktop apps can still use HayKasa. The download will become available when a signed release is published."}
               </p>
             </div>
             {manifest?.published && manifest.downloadUrl ? (
@@ -309,7 +309,7 @@ export default function DesktopAppCard() {
               </a>
             ) : (
               <button type="button" disabled className="btn-primary min-h-11 shrink-0 gap-2 px-4 opacity-50">
-                <FiDownload aria-hidden="true" /> Preparing Windows installer
+                <FiDownload aria-hidden="true" /> Installer unavailable
               </button>
             )}
           </div>
