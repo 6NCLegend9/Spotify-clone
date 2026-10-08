@@ -9,6 +9,8 @@ on:
       - "desktop/**"
       - "contracts/**"
       - "scripts/generate-desktop-contract.mjs"
+      - "scripts/desktop-dev*.mjs"
+      - "test/desktopDev.test.mjs"
       - "src/generated/desktopContract.mjs"
       - "src/app/api/desktop/**"
       - "src/utils/desktop*.mjs"
@@ -19,6 +21,8 @@ on:
       - "desktop/**"
       - "contracts/**"
       - "scripts/generate-desktop-contract.mjs"
+      - "scripts/desktop-dev*.mjs"
+      - "test/desktopDev.test.mjs"
       - "src/generated/desktopContract.mjs"
       - "src/app/api/desktop/**"
       - "src/utils/desktop*.mjs"
@@ -47,6 +51,8 @@ jobs:
           node-version: 22.x
       - name: Validate canonical desktop contract
         run: npm run check:desktop-contract
+      - name: Test desktop development launcher on Windows
+        run: node --test test/desktopDev.test.mjs
       - name: Install desktop dependencies
         run: npm --prefix desktop ci --no-audit --no-fund
       - name: Test native boundary

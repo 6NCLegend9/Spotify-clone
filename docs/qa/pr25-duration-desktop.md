@@ -48,3 +48,15 @@ catalog probes of the older deployment, not playback verification of PR25.
 Installed clients load this production renderer. PR25 improvements require a
 production deployment after review. No merge or production deployment was
 performed.
+
+## Combined desktop recovery follow-up
+
+At the owner's request, PR26's availability message and production recovery
+procedure were moved into this branch. Root desktop commands now expose locked
+dependency installation, native tests, Windows packaging, and installer build.
+The development launcher runs npm's JS CLI through Node rather than directly
+spawning `npm.cmd`, avoiding Node 22's Windows command-file restriction.
+Windows Package CI covers the launcher tests. The combined `npm run check`
+passed 757 tests, lint, TypeScript, and production build; root `desktop:test`
+passed 58 native tests. See `desktop-production-recovery.md` for the public
+installer/update outage and the separate signed-publication prerequisites.

@@ -38,6 +38,16 @@ any evidence of an active build. The recovery change explains that the signed
 installer is unavailable and that existing installed clients remain usable.
 It preserves the release verification and updater trust checks.
 
+The owner's follow-up identified the root `package.json` commands. Those only
+exposed desktop launch/development; root `build` was a web build. The combined
+PR25 recovery adds `desktop:install`, `desktop:build`, `desktop:pack`, and
+`desktop:test`, delegating to the existing desktop toolchain. Windows installer
+builds remain Windows operations; these commands do not publish releases.
+`desktop:dev` also directly spawned `npm.cmd`, which Node 22 rejects on Windows.
+It now launches npm's JavaScript CLI through Node without a shell. Focused
+launcher tests cover paths with spaces and missing npm invocation context;
+Windows Package CI now runs these tests as well.
+
 ## Concrete recovery procedure (not executed)
 
 1. Review and merge renderer changes separately. PR25 (`479b499`) contains

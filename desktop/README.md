@@ -177,11 +177,27 @@ From the repository root, start the shared Next.js renderer and the Electron she
 
 ```powershell
 npm install
-npm --prefix desktop install
+npm run desktop:install
 npm run desktop:dev
 ```
 
 `desktop:dev` starts the root HayKasa app on port 3003, waits for it to become ready, launches Electron against that same renderer, and cleans up the paired development processes when the Desktop process exits.
+
+Run these commands from the repository root with Node 22:
+
+| Command | Purpose |
+| --- | --- |
+| `npm run desktop` | Launch Electron using the production renderer |
+| `npm run desktop:dev` | Launch the local renderer and Electron together |
+| `npm run desktop:install` | Install locked desktop dependencies |
+| `npm run desktop:test` | Run native unit tests |
+| `npm run desktop:pack` | Create an unpacked Windows x64 application |
+| `npm run desktop:build` | Build the Windows NSIS installer in `desktop/dist/` |
+
+Use Windows for installer builds and packaged runtime verification. The root
+`npm run build` builds the Next.js web renderer. Neither build command publishes
+an installer or updates installed clients. Signed public updates use the
+protected Desktop Release workflow described below.
 
 For native-only testing:
 
