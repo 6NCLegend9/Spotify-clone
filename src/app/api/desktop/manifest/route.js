@@ -1,3 +1,4 @@
+import { fetchManualDesktopDownload } from "../../../../utils/desktopManualDownload.mjs";
 import { CURRENT_DESKTOP_API_VERSION } from "../../../../generated/desktopContract.mjs";
 import {
   desktopAppDownloadUrl,
@@ -166,7 +167,19 @@ async function loadManifest(channel) {
   }
 
   if (channel === "stable") {
+    let manualDownload = null;
+    try {
+      const manual = await fetchManualDesktopDownload();
+      if (manual) {
+        const { installerUrl: _installerUrl, ...publicDownload } = manual;
+        manualDownload = publicDownload;
+      }
+    } catch (error) {
+      console.error(JSON.stringify({ level: "error", msg: "desktop_manual_download_lookup_failed",
+        error: error instanceof Error ? error.message : String(error) }));
+    }
     return {
+      manualDownload,
       ...configured,
       downloadUrl: "",
       releaseNotesUrl: "",

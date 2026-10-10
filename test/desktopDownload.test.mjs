@@ -107,3 +107,66 @@ test("public desktop download redirects only after the stable release manifest v
     "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-v2.0.0/HayKasa-Setup-2.0.0-x64.exe",
   );
 });
+
+const legacyUrl = "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-latest/HayKasa-Setup-x64.exe";
+function legacyRelease(overrides = {}) {
+  return {
+    tag_name: "desktop-latest", draft: false, prerelease: true,
+    published_at: "2026-09-22T07:50:02Z",
+    assets: [{ name: "HayKasa-Setup-x64.exe", state: "uploaded", size: 110799796,
+      digest: "sha256:5f163cdf097b30ecc5a83e48602ed301890f8df66f04751dae034f90e7c9f36b", browser_download_url: legacyUrl }],
+    ...overrides,
+  };
+}
+function mockLegacy(value = legacyRelease()) {
+  globalThis.fetch = async url => new Response(JSON.stringify(
+    String(url).endsWith("/releases/tags/desktop-latest") ? value : []
+  ), { status: 200, headers: { "content-type": "application/json" } });
+}
+
+test("manual download redirects to the existing pinned installer without publishing an automatic update", async () => {
+  mockLegacy();
+  const response = await GET();
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), legacyUrl);
+  const { GET: manifest } = await import("../src/app/api/desktop/manifest/route.js");
+  const data = await (await manifest()).json();
+  assert.equal(data.published, false);
+  assert.equal(data.signed, false);
+  assert.equal(data.downloadUrl, "");
+  assert.equal(data.manualDownload.downloadUrl, "/api/desktop/download");
+  assert.equal(data.manualDownload.sizeBytes, 110799796);
+});
+
+test("manual installer fallback rejects replacement assets and external URLs", async () => {
+  for (const changes of [
+    { name: "Other-Setup.exe" }, { digest: undefined },
+    { digest: "sha256:" + "0".repeat(64) },
+    { browser_download_url: "https://example.com/installer.exe" },
+    { state: "new" }, { size: 0 },
+  ]) {
+    const value = legacyRelease();
+    Object.assign(value.assets[0], changes);
+    mockLegacy(value);
+    assert.equal((await GET()).status, 404);
+  }
+  for (const changes of [{ draft: true }, { tag_name: "other-release" }, { assets: [] }]) {
+    mockLegacy(legacyRelease(changes));
+    assert.equal((await GET()).status, 404);
+  }
+});
+
+test("HEAD offers the same existing installer as GET", async () => {
+  mockLegacy();
+  const { HEAD } = await import("../src/app/api/desktop/download/route.js");
+  const response = await HEAD();
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), legacyUrl);
+  assert.equal(await response.text(), "");
+});
+
+
+test("manual download stays unavailable when GitHub fails", async () => {
+  globalThis.fetch = async () => new Response("Unavailable", { status: 503 });
+  assert.equal((await GET()).status, 404);
+});

@@ -108,13 +108,17 @@ export default function DesktopAppCard() {
     };
   }, []);
 
+  const manualDownload = manifest?.manualDownload;
+  const availableDownload = manifest?.published ? manifest : manualDownload;
   const publishedReleaseVersion = manifest?.published && manifest?.latest ? `v${manifest.latest}` : "";
   const releaseLabel = useMemo(() => {
     if (!manifest) return "Checking release…";
-    if (!manifest.published) return "No stable release published";
+    if (!manifest.published) return manualDownload
+      ? ["Legacy installer", formatBytes(manualDownload.sizeBytes)].filter(Boolean).join(" · ")
+      : "No installer available";
     const details = [publishedReleaseVersion, formatBytes(manifest.sizeBytes)].filter(Boolean);
     return details.join(" · ") || "Windows x64";
-  }, [manifest, publishedReleaseVersion]);
+  }, [manifest, manualDownload, publishedReleaseVersion]);
 
   const checkUpdates = async () => {
     if (!desktopApi?.updates?.check || busy) return;
@@ -295,12 +299,14 @@ export default function DesktopAppCard() {
                     : manifest.signed === false
                       ? "Windows installer. Open the downloaded file to install HayKasa, add Start Menu and desktop shortcuts, and launch it like a normal app. Windows may show a publisher warning until the production signing certificate is configured."
                       : "Signed desktop installer. Open the downloaded file to install HayKasa. Updates are handled by the app after setup."
-                  : "A signed Windows installer is not available yet. Already-installed desktop apps can still use HayKasa. The download will become available when a signed release is published."}
+                  : manualDownload
+                    ? "Previously published Windows installer. Automatic updates are not available for this download. Windows may show a publisher warning."
+                    : "A Windows installer is not available right now. Already-installed desktop apps can still use HayKasa."}
               </p>
             </div>
-            {manifest?.published && manifest.downloadUrl ? (
+            {availableDownload?.downloadUrl ? (
               <a
-                href={manifest.downloadUrl}
+                href={availableDownload.downloadUrl}
                 className="btn-primary min-h-11 shrink-0 gap-2 px-4"
                 rel="noopener noreferrer"
                 {...(manifest.portable ? {} : { download: "HayKasa-Setup-x64.exe" })}
@@ -313,8 +319,8 @@ export default function DesktopAppCard() {
               </button>
             )}
           </div>
-          {manifest?.releaseNotesUrl ? (
-            <a href={manifest.releaseNotesUrl} className="mt-4 inline-block text-xs font-semibold text-[#00e6e6] hover:underline" rel="noopener noreferrer">
+          {availableDownload?.releaseNotesUrl ? (
+            <a href={availableDownload.releaseNotesUrl} className="mt-4 inline-block text-xs font-semibold text-[#00e6e6] hover:underline" rel="noopener noreferrer">
               View release notes
             </a>
           ) : null}
