@@ -8,11 +8,7 @@ const NON_RUNTIME_PREFIXES = Object.freeze([
   "desktop-bridge/",
   "docs/",
   "scripts/",
-  "e2e/",
-  "test/",
   "artifacts/",
-  "playwright-report/",
-  "test-results/",
 ]);
 
 function normalizedPath(value) {

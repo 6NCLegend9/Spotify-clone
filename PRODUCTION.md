@@ -132,15 +132,10 @@
 
 - [ ] Run `npm run audit:production`. CI rejects high/critical production
   advisories. Also review `npm audit` for development/build-tool advisories.
-- [ ] Run `npm run check` for unit/handler tests, lint, type checks and the build.
+- [ ] Run `npm run check` for lint, type checks and the build.
 - [ ] Run `npm run check:deployment` in the production environment before
   promotion. It reports setting names only and does not test network connectivity
   or credential validity. Missing optional integrations produce warnings.
-- [ ] Run `npm test` and `npm run test:e2e`. Local browser tests use an existing
-  server at `http://localhost:3000` (override with `PLAYWRIGHT_BASE_URL`). CI
-  starts the built application on port 3100 in an isolated browser context.
-  The auth matrix runs on Chromium, Firefox, WebKit, mobile Chrome, and mobile
-  Safari using local request fixtures; it does not call the live website.
 - [ ] To build locally without touching a running dev server's `.next` output,
   set `NEXT_BUILD_DIR=.next-check` and `DISABLE_PWA=1` for that build only.
   CI runs the normal PWA-enabled production build.
@@ -161,15 +156,6 @@
   does not include `X-Powered-By`.
 - [ ] Exercise login, signup, verification, reset, database writes, YouTube
   search/playback, lyrics, session revocation, and PWA update behavior.
-- [ ] Run `npm run benchmark:production` after building. For isolated output,
-  set `NEXT_BUILD_DIR=.next-check`. The runner allocates and cleans up its own
-  loopback server. `node scripts/benchmark-dev.mjs --production --browser` also
-  runs the browser suite against that server.
-- [ ] Review `artifacts/performance.json`: build ID, commit, dirty-worktree flag,
-  raw server timings and synthetic navigation samples. CI uploads it by commit.
-  Establish repeated staging/field baselines before setting regression thresholds;
-  the local report is evidence, not a production latency guarantee.
-
 ## Dependency maintenance
 
 The 2026-09-10 security pass resolved Next.js/tooling to 15.5.25 and Nodemailer
@@ -193,17 +179,8 @@ replacing framework dependencies, then start a fresh process.
 
 ## Playback verification boundaries
 
-Browser regression tests use synthetic sessions and block YouTube requests.
-They verify paused queue restoration, account separation and manual chunk-error
-recovery, not provider decoding, live database authentication or screen-off playback.
-Unit tests exercise the real auth callbacks and route handlers with model/token
-fixtures, including reset replay, version revocation and playlist access changes.
-They do not prove live database concurrency or exercise the Google OAuth exchange.
-Most browser tests expose service workers as unavailable so API fixtures stay
-isolated. A separate worker-enabled test verifies production registration and
-that account API responses are not cached. Set `PLAYWRIGHT_PWA=1` when running
-that test against a local PWA-enabled build; CI enables it automatically.
-Test those separately on physical iOS and Android devices and desktop browsers.
+Automated unit, browser, Electron smoke, and benchmark suites have been removed at the owner's request. Lint, type checks, builds, and dependency audits do not prove live playback or authentication. Verify those manually on desktop browsers, actual Electron, and physical iOS and Android devices before promoting playback changes.
+
 Queue snapshots are local, account-scoped metadata, expire after 30 days, and
 contain at most 200 tracks. Private sessions and active Jams are not saved.
 Browser storage is not encrypted account storage; clear site data on shared
@@ -271,7 +248,6 @@ durable public pages without artificial `lastModified` dates. Robots is not auth
 Development now uses `npm run dev` (Turbopack); `npm run dev:webpack` retains the
 previous compiler. Restart the process to switch. See `docs/PERFORMANCE_REVIEW.md`
 for compiler comparisons, the 167-role review dispositions and known limitations.
-`npm run benchmark:dev` measures an isolated dev server and cleans it up afterward.
 
 Use `npm run build` followed by `npm start` to evaluate production loading.
 `npm run dev` compiles routes and API handlers on first use; those compilation
@@ -291,4 +267,4 @@ Local checks on 2026-09-10 found:
   same async bundle, removing one serial import. Optional Three.js, Supabase and
   tagging chunks were absent from the observed initial search downloads.
 - YouTube playback no longer performs the native player's redundant favourites
-  request. The browser test checks one successful favourites read through expansion.
+  request. Verify favourites reads manually when expanding the player.

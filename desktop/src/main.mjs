@@ -60,7 +60,6 @@ import {
 import { DesktopUpdater } from "./updater.mjs";
 import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
 import { shouldResetRendererCache } from "./cachePolicy.mjs";
-import { isPackagedCiSmoke, runPackagedCiSmoke } from "./ciSmoke.mjs";
 import { effectiveUpdateChannel, rendererSelectableUpdateChannel } from "./updateChannel.mjs";
 import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
 
@@ -80,7 +79,6 @@ const appUrl = desktopAppUrl({
   overrideUrl: process.env.HEYKASA_DESKTOP_URL || "",
 });
 const trustedOrigins = buildTrustedOrigins({ appUrl, isPackaged: app.isPackaged });
-const packagedCiSmoke = app.isPackaged && isPackagedCiSmoke(process.argv, process.env);
 
 let mainWindow = null;
 let store = null;
@@ -1191,15 +1189,7 @@ if (registerSingleInstance()) {
       rolloutPercent: () => effectiveUpdateRolloutPercent(policy?.snapshot()),
     });
     registerIpcHandlers();
-    const window = await createMainWindow();
-    if (packagedCiSmoke) {
-      await runPackagedCiSmoke({
-        app,
-        window,
-        trustedRenderer: isTrustedRendererUrl(window.webContents.getURL(), trustedOrigins),
-      });
-      return;
-    }
+    await createMainWindow();
     createTray();
     if (runtimeFeature("updater")) updater.start();
     policy.start();

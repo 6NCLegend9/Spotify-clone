@@ -10,7 +10,6 @@ on:
       - "contracts/**"
       - "scripts/generate-desktop-contract.mjs"
       - "scripts/desktop-dev*.mjs"
-      - "test/desktopDev.test.mjs"
       - "src/generated/desktopContract.mjs"
       - "src/app/api/desktop/**"
       - "src/utils/desktop*.mjs"
@@ -22,7 +21,6 @@ on:
       - "contracts/**"
       - "scripts/generate-desktop-contract.mjs"
       - "scripts/desktop-dev*.mjs"
-      - "test/desktopDev.test.mjs"
       - "src/generated/desktopContract.mjs"
       - "src/app/api/desktop/**"
       - "src/utils/desktop*.mjs"
@@ -51,12 +49,8 @@ jobs:
           node-version: 22.x
       - name: Validate canonical desktop contract
         run: npm run check:desktop-contract
-      - name: Test desktop development launcher on Windows
-        run: node --test test/desktopDev.test.mjs
       - name: Install desktop dependencies
         run: npm --prefix desktop ci --no-audit --no-fund
-      - name: Test native boundary
-        run: npm --prefix desktop test
       - name: Audit runtime dependencies
         run: npm --prefix desktop audit --omit=dev --audit-level=high
       - name: Stamp internal preview channel
@@ -74,11 +68,6 @@ jobs:
           $exe = Get-ChildItem -Path desktop/dist -Recurse -Filter "HayKasa.exe" | Select-Object -First 1
           if (-not $exe) { throw "HayKasa.exe was not produced" }
           Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
-      # Packaged clients intentionally pin the production renderer. Exact PR
-      # renderer compatibility is exercised separately by Desktop CI against
-      # the shared renderer; do not add a packaged URL override here.
-      - name: Verify packaged Windows runtime against pinned production renderer
-        run: npm --prefix desktop run smoke:packaged
       - name: Validate GitHub release bundle preparation
         run: npm --prefix desktop run prepare-github-release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
