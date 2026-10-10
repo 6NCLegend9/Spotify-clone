@@ -1,0 +1,13 @@
+FROM node:22.22.0-bookworm-slim AS javascript
+FROM python:3.12.14-slim-bookworm
+COPY --from=javascript /usr/local/bin/node /usr/local/bin/node
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /service
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+RUN useradd --uid 10001 --create-home media && mkdir /cache && chown media:media /cache
+COPY app ./app
+USER media
+ENV MEDIA_CACHE_DIR=/cache MEDIA_JS_RUNTIME=node:/usr/local/bin/node PYTHONDONTWRITEBYTECODE=1
+EXPOSE 8090
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090", "--workers", "1", "--no-access-log"]
