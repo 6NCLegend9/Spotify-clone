@@ -34,6 +34,7 @@ export interface PlayerDockProps {
   favourite?: ReactNode;
   trackActions?: ReactNode;
   volume?: ReactNode;
+  qualityControl?: ReactNode;
   queue: PlayerTrack[];
   queueSearch?: ReactNode;
   onQueueEdit?: (edit: {

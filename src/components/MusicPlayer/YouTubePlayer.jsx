@@ -10,6 +10,10 @@ import {
   youtubeRecoveryScopeMatches,
 } from "@/utils/youtubePlaybackError.mjs";
 import PlayerDock from "./PlayerDock";
+import { MEDIA_PLAYER_STATES } from "./media/mediaPlayerStates.mjs";
+import { createNativeMediaDeck } from "./media/nativeMediaDeck.mjs";
+import { automaticMediaHeight, supportedMediaProfile } from "./media/mediaCapabilities.mjs";
+import PlaybackQualityControl from "./media/PlaybackQualityControl";
 import {
   nextQueueTrack,
   queueAdvanceDecision,
@@ -47,7 +51,7 @@ import PlayerVolume from "@/components/MusicPlayer/PlayerVolume";
 import { useJam } from "@/components/Jam/JamProvider";
 import useSyncedLyrics from "@/hooks/useSyncedLyrics";
 import { requestJson } from "@/services/http";
-import { applyLatestOutputVolume, armVolumeRestore, youtubePlaybackVolume } from "@/utils/eqPresets";
+import { applyLatestOutputVolume, armVolumeRestore, youtubePlaybackVolume, bandsForPreset } from "@/utils/eqPresets";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import {
   DESKTOP_PREV_EVENT,
@@ -158,6 +162,9 @@ function YouTubePlayer() {
     dataSaver,
     audioOnly,
     normalization,
+    eqPreset,
+    eqBands,
+    monoAudio,
     syncedLyrics,
     pictureInPicture,
     masterVolume,
@@ -192,7 +199,7 @@ function YouTubePlayer() {
     enabled: status === "authenticated" && settingsOwner === playbackOwner && listeningInsights === true && !privateSession && !jam?.code,
     getSample: () => {
       const player = getActivePlayer();
-      return { position: player?.getCurrentTime?.(), playing: player?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING && isPlayingRef.current };
+      return { position: player?.getCurrentTime?.(), playing: player?.getPlayerState?.() === MEDIA_PLAYER_STATES.PLAYING && isPlayingRef.current };
     },
   });
   const manualEndRef = useRef(queueManualEnd);
@@ -228,6 +235,16 @@ function YouTubePlayer() {
   const durationRef = useRef(0);
   durationRef.current = duration;
   const [apiReady, setApiReady] = useState(false);
+  const [nativeAvailable, setNativeAvailable] = useState(false);
+  const [mediaAsset, setMediaAsset] = useState(null);
+  const [mediaQualities, setMediaQualities] = useState([]);
+  const [qualitySelection, setQualitySelection] = useState("auto");
+  const [sourceRevision, setSourceRevision] = useState(0);
+  const sourceSwitchRef = useRef(null);
+  const fallbackOccurrenceRef = useRef(null);
+  const sourceContextRef = useRef("");
+  const audioSettingsRef = useRef({});
+  audioSettingsRef.current = { bands: bandsForPreset(eqPreset, eqBands), normalization, monoAudio };
   const [deliveredVideoQuality, setDeliveredVideoQuality] = useState("");
   const [playerError, setPlayerError] = useState(null);
   const [addQuery, setAddQuery] = useState("");
@@ -443,7 +460,7 @@ function YouTubePlayer() {
   const applyPlaybackVolume = (player, ratio = 1) => {
     // Background/focus listeners live longer than a single render. Read the
     // current levels at call time so they never restore the startup volume.
-    applyLatestOutputVolume(player, volumeLevelsRef.current, ratio);
+    applyLatestOutputVolume(player, player?.provider === "native" ? { ...volumeLevelsRef.current, playbackVolume: 100 } : volumeLevelsRef.current, ratio);
   };
 
   // Fade-in/out is a simple volume ramp on the active player; it never touches deck/crossfade logic.
@@ -539,7 +556,7 @@ function YouTubePlayer() {
   ) => {
     if (!player || !videoId || !key) return false;
     if (playerVideoId(player) !== videoId) return false;
-    if (player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING) return false;
+    if (player.getPlayerState?.() !== MEDIA_PLAYER_STATES.PLAYING) return false;
     const progress = noteIncomingProgress(key, player);
     const now = performance.now();
     return (
@@ -557,7 +574,7 @@ function YouTubePlayer() {
     const player = deckPlayerRefs[key].current;
     const want = videoRef.current?.id;
     if (!player || !want || playerVideoId(player) !== want) return false;
-    if (player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING) return false;
+    if (player.getPlayerState?.() !== MEDIA_PLAYER_STATES.PLAYING) return false;
     const started = activeTrackStartedRef.current;
     const recovery = activeRecoveryRef.current;
     const now = performance.now();
@@ -653,7 +670,7 @@ function YouTubePlayer() {
         deckGenerationRef.current[key] === generation &&
         deckPlayerRefs[key].current === player &&
         playerVideoId(player) === videoId &&
-        player.getPlayerState?.() === window.YT?.PlayerState?.PLAYING &&
+        player.getPlayerState?.() === MEDIA_PLAYER_STATES.PLAYING &&
         latest.videoId === videoId &&
         latest.lastAdvancedAt > 0 &&
         performance.now() - latest.lastAdvancedAt <= 1500
@@ -669,6 +686,7 @@ function YouTubePlayer() {
   };
 
   const scheduleActiveBufferRecovery = (key, player, generation) => {
+    if (player?.provider === "native" && player.isResolving) return;
     if (isPageHidden()) {
       markBackgroundPlayback();
       return;
@@ -738,14 +756,14 @@ function YouTubePlayer() {
         !recovery.lastAdvancedAt ||
         performance.now() - recovery.lastAdvancedAt >= STALL_NUDGE_MS;
       const recoverable =
-        state === window.YT?.PlayerState?.BUFFERING ||
+        state === MEDIA_PLAYER_STATES.BUFFERING ||
         (
           stalledClock &&
           (
-            state === window.YT?.PlayerState?.PLAYING ||
-            state === window.YT?.PlayerState?.CUED ||
-            state === window.YT?.PlayerState?.UNSTARTED ||
-            state === window.YT?.PlayerState?.PAUSED
+            state === MEDIA_PLAYER_STATES.PLAYING ||
+            state === MEDIA_PLAYER_STATES.CUED ||
+            state === MEDIA_PLAYER_STATES.UNSTARTED ||
+            state === MEDIA_PLAYER_STATES.PAUSED
           )
         );
       if (!recoverable) return;
@@ -785,6 +803,7 @@ function YouTubePlayer() {
   };
 
   const watchActiveProgress = (key, player, generation) => {
+    if (player?.provider === "native" && player.isResolving) return;
     if (isPageHidden()) {
       markBackgroundPlayback();
       return;
@@ -925,6 +944,13 @@ function YouTubePlayer() {
   };
 
   const handlePlaybackFailure = async ({ code = null, kind = "playback" } = {}) => {
+    if (kind !== "autoplay" && getActivePlayer()?.provider === "native") {
+      const player = getActivePlayer();
+      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player.getCurrentTime(), playing: isPlayingRef.current, forceIframe: true };
+      fallbackOccurrenceRef.current = sourceSwitchRef.current.occurrence;
+      setSourceRevision((value) => value + 1);
+      return;
+    }
     // userPausedRef stops the PAUSED handler from auto-resuming into the same failure.
     const stopWithError = (error) => {
       userPausedRef.current = true;
@@ -1035,7 +1061,7 @@ function YouTubePlayer() {
   ) => {
     if (!nextVideo?.id) return;
     stopFadeTimers();
-    const player = deckPlayerRefs[key].current;
+    let player = deckPlayerRefs[key].current;
     if (!player) {
       dispatch(setYoutubeVideo(nextVideo));
       return;
@@ -1057,9 +1083,15 @@ function YouTubePlayer() {
     syncPlaybackClock(0, 0);
     setDeliveredVideoQuality("");
     markExpectPlaying();
-    player.unMute?.();
-    applyPlaybackVolume(player);
-    player.loadVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
+    const preferNative = nativeAvailable && supportedMediaProfile(videoVisible ? "video" : "audio") && fallbackOccurrenceRef.current !== queueEntryIdentity(nextVideo);
+    if (preferNative && player.provider !== "native") {
+      player = mountDeck(key, nextVideo.id, { title: nextVideo.title });
+    } else {
+      setMediaAsset(null); setMediaQualities([]);
+      player?.unMute?.();
+      applyPlaybackVolume(player);
+      player?.loadVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
+    }
     resumePlayer(player);
     dispatch(playPause(true));
     dispatch(setYoutubeVideo(nextVideo));
@@ -1068,7 +1100,7 @@ function YouTubePlayer() {
   const mountDeck = (
     key,
     videoId,
-    { onFirstPlaying, onDeckReady, autoplay = true, title } = {},
+    { onFirstPlaying, onDeckReady, autoplay = true, title, forceIframe = false, startSeconds = 0 } = {},
   ) => {
     const host = deckHostRefs[key].current;
     if (!host) return null;
@@ -1078,6 +1110,7 @@ function YouTubePlayer() {
 
     const playerParams = new URLSearchParams({
       autoplay: autoplay ? "1" : "0",
+      start: String(Math.floor(startSeconds)),
       cc_load_policy: captionsEnabled ? "1" : "0",
       controls: "0",
       disablekb: "1",
@@ -1102,7 +1135,7 @@ function YouTubePlayer() {
 
     let hasUnmutedOnce = false;
     let firstPlayingHandled = false;
-    const player = new window.YT.Player(mount.id, {
+    const options = {
       host: "https://www.youtube.com",
       videoId,
       width: "100%",
@@ -1126,7 +1159,7 @@ function YouTubePlayer() {
         },
         onStateChange: (event) => {
           if (!isCurrent()) return;
-          if (event.data === window.YT.PlayerState.PLAYING) {
+          if (event.data === MEDIA_PLAYER_STATES.PLAYING) {
             if (!hasUnmutedOnce) {
               hasUnmutedOnce = true;
               if (key === activeDeckRef.current) {
@@ -1172,7 +1205,7 @@ function YouTubePlayer() {
           if (key !== activeDeckRef.current) return;
           const stateCode = ({ 0: "ended", 1: "playing", 2: "paused", 3: "buffering" })[event.data];
           if (stateCode) recordDiagnostic("playback_state", { code: stateCode });
-          if (event.data === window.YT.PlayerState.PLAYING) {
+          if (event.data === MEDIA_PLAYER_STATES.PLAYING) {
             if (userPausedRef.current && !isPlayingRef.current) {
               event.target.pauseVideo?.();
               return;
@@ -1181,16 +1214,16 @@ function YouTubePlayer() {
             dispatch(playPause(true));
           }
           if (
-            event.data === window.YT.PlayerState.CUED ||
-            event.data === window.YT.PlayerState.UNSTARTED
+            event.data === MEDIA_PLAYER_STATES.CUED ||
+            event.data === MEDIA_PLAYER_STATES.UNSTARTED
           ) {
             if (wantsPlayback()) resumePlayer(event.target);
           }
-          if (event.data === window.YT.PlayerState.BUFFERING) {
+          if (event.data === MEDIA_PLAYER_STATES.BUFFERING) {
             scheduleActiveBufferRecovery(key, event.target, generation);
           }
           if (
-            event.data === window.YT.PlayerState.PAUSED &&
+            event.data === MEDIA_PLAYER_STATES.PAUSED &&
             !crossfadeInProgressRef.current &&
             !isSeekGuarded()
           ) {
@@ -1213,7 +1246,7 @@ function YouTubePlayer() {
               return;
             }
           }
-          if (event.data === window.YT.PlayerState.ENDED) {
+          if (event.data === MEDIA_PLAYER_STATES.ENDED) {
             clearActiveBufferTimers();
             if (isRealTrackEnd(event.target)) insights.finish("completed");
             if (!isRealTrackEnd(event.target)) {
@@ -1341,7 +1374,37 @@ function YouTubePlayer() {
           }
         },
       },
-    });
+    };
+    const occurrence = queueEntryIdentity(videoRef.current);
+    const mode = videoVisible ? "video" : "audio";
+    const profile = supportedMediaProfile(mode);
+    const useNative = nativeAvailable && profile && !forceIframe && fallbackOccurrenceRef.current !== occurrence;
+    let player;
+    if (useNative) {
+      player = createNativeMediaDeck({
+        host, videoId, mode, profile, title, autoplay, startSeconds,
+        maxHeight: qualitySelection === "auto" ? automaticMediaHeight() : Number(qualitySelection),
+        audioSettings: audioSettingsRef.current,
+        events: options.events,
+        onAsset: (result) => {
+          if (!isCurrent()) return;
+          setMediaAsset(result.asset); setMediaQualities(result.qualities || []);
+          setDeliveredVideoQuality(result.asset.height ? `${result.asset.height}p` : result.asset.codec);
+        },
+        onFallback: ({ position, playing }) => {
+          if (!isCurrent() || key !== activeDeckRef.current) return;
+          const currentOccurrence = queueEntryIdentity(videoRef.current);
+          recordDiagnostic("provider", { code: "native_fallback", status: "unavailable" });
+          fallbackOccurrenceRef.current = currentOccurrence;
+          sourceSwitchRef.current = { occurrence: currentOccurrence, position, playing, forceIframe: true };
+          setSourceRevision((value) => value + 1);
+        },
+      });
+    } else {
+      if (!window.YT?.Player) return null;
+      player = new window.YT.Player(mount.id, options);
+      setMediaAsset(null); setMediaQualities([]);
+    }
     deckPlayerRefs[key].current = player;
     return player;
   };
@@ -1416,7 +1479,7 @@ function YouTubePlayer() {
         ? noteIncomingProgress(incomingKey, incomingPlayer)
         : null;
       const incomingReady =
-        incomingState === window.YT?.PlayerState?.PLAYING &&
+        incomingState === MEDIA_PLAYER_STATES.PLAYING &&
         incomingProgress?.lastAdvancedAt > 0 &&
         now - incomingProgress.lastAdvancedAt <= INCOMING_STALL_MS;
 
@@ -1620,7 +1683,7 @@ function YouTubePlayer() {
   };
 
   const preloadNext = (nextVideo) => {
-    if (!nextVideo?.id || !apiReady || transitionMode === "off" || dataSaver) return;
+    if (!nextVideo?.id || !apiReady || transitionMode === "off" || dataSaver || getActivePlayer()?.provider === "native") return;
     if (nextVideo.thumbnail && typeof window !== "undefined") {
       try {
         const image = new Image();
@@ -1668,8 +1731,8 @@ function YouTubePlayer() {
         const cueReady =
           playerVideoId(player) === nextVideo.id &&
           (
-            state === window.YT?.PlayerState?.CUED ||
-            (state === window.YT?.PlayerState?.PAUSED && (player.getDuration?.() || 0) > 0)
+            state === MEDIA_PLAYER_STATES.CUED ||
+            (state === MEDIA_PLAYER_STATES.PAUSED && (player.getDuration?.() || 0) > 0)
           );
         if (cueReady) {
           clearPreloadTimers();
@@ -1709,6 +1772,17 @@ function YouTubePlayer() {
   preloadNextRef.current = preloadNext;
 
   useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/media/resolve", { cache: "no-store", signal: controller.signal })
+      .then((response) => response.ok ? response.json() : { enabled: false })
+      .then(({ enabled }) => { if (!controller.signal.aborted && enabled && supportedMediaProfile(videoVisible ? "video" : "audio")) { setNativeAvailable(true); setApiReady(true); } })
+      .catch(() => {});
+    return () => controller.abort();
+    // Availability does not change with player presentation or track selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (window.YT?.Player) {
       setApiReady(true);
       return;
@@ -1723,11 +1797,25 @@ function YouTubePlayer() {
     window.onYouTubeIframeAPIReady = () => {
       previousReady?.();
       setApiReady(true);
+      if (sourceSwitchRef.current?.forceIframe) setSourceRevision((value) => value + 1);
     };
     return () => {
       window.onYouTubeIframeAPIReady = previousReady;
     };
   }, []);
+
+  useEffect(() => {
+    const context = `${playbackOwner}:${jam?.code || ""}:${jam?.role || ""}:${Boolean(privateSession)}:${videoVisible}:${nativeAvailable}`;
+    const previous = sourceContextRef.current;
+    sourceContextRef.current = context;
+    if (previous && previous !== context && videoRef.current?.id) {
+      const player = getActivePlayer();
+      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player?.getCurrentTime?.() ?? restorePosition ?? playbackClock.read().position ?? 0, playing: isPlayingRef.current, forceIframe: false };
+      destroyDeck("A"); destroyDeck("B");
+      setSourceRevision((value) => value + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playbackOwner, jam?.code, jam?.role, privateSession, videoVisible, nativeAvailable]);
 
   useEffect(() => {
     if (!video?.id) {
@@ -1738,6 +1826,33 @@ function YouTubePlayer() {
       return;
     }
     if (!apiReady) return;
+    const requestedSwitch = sourceSwitchRef.current;
+    if (requestedSwitch && requestedSwitch.occurrence === queueEntryIdentity(video)) {
+      cancelFade(); cancelCrossfade(); clearActiveBufferTimers();
+      destroyDeck("A"); destroyDeck("B");
+      activeDeckRef.current = "A"; setActiveDeck("A");
+      if (requestedSwitch.forceIframe && !window.YT?.Player) {
+        userPausedRef.current = true;
+        dispatch(playPause(false));
+        setPlayerError({ message: "Source playback is unavailable. Waiting for the YouTube player; retry playback if it cannot load." });
+        return;
+      }
+      sourceSwitchRef.current = null;
+      userPausedRef.current = !requestedSwitch.playing;
+      syncPlaybackClock(requestedSwitch.position, 0);
+      setPlayerError(null);
+      mountDeck("A", video.id, {
+        title: video.title, autoplay: requestedSwitch.playing,
+        forceIframe: requestedSwitch.forceIframe, startSeconds: requestedSwitch.position,
+        onDeckReady: (player) => {
+          player.seekTo?.(requestedSwitch.position, true);
+          if (requestedSwitch.playing) resumePlayer(player); else player.pauseVideo?.();
+          dispatch(playPause(requestedSwitch.playing));
+        },
+      });
+      return;
+    }
+    sourceSwitchRef.current = null;
     if (restorePosition !== null && restorePosition !== undefined) {
       cancelCrossfade();
       clearActiveBufferTimers();
@@ -1881,7 +1996,9 @@ function YouTubePlayer() {
     setDeliveredVideoQuality("");
     dispatch(playPause(true));
     const existing = getActivePlayer();
-    if (existing?.loadVideoById) {
+    const preferNative = nativeAvailable && supportedMediaProfile(videoVisible ? "video" : "audio") && fallbackOccurrenceRef.current !== occurrenceIdentity;
+    if (existing?.loadVideoById && (existing.provider === "native" || !preferNative)) {
+      setMediaAsset(null); setMediaQualities([]);
       existing.unMute?.();
       applyPlaybackVolume(existing);
       existing.loadVideoById({ videoId: video.id, startSeconds: 0 });
@@ -1896,7 +2013,7 @@ function YouTubePlayer() {
     setActiveDeck("A");
     mountDeck("A", video.id, { title: video.title });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video?.id, video?.queueEntryId, apiReady, playbackOwner]);
+  }, [video?.id, video?.queueEntryId, apiReady, playbackOwner, sourceRevision]);
 
   useEffect(() => () => {
     cancelFade();
@@ -1931,7 +2048,7 @@ function YouTubePlayer() {
       );
       if (id === want && activeOccurrenceStarted && Number.isFinite(time) && time >= 0
         && (progressIdentity !== savedProgressRef.current.identity || Math.abs(time - savedProgressRef.current.position) >= 5)
-        && activePlayer.getPlayerState?.() !== window.YT?.PlayerState?.CUED) {
+        && activePlayer.getPlayerState?.() !== MEDIA_PLAYER_STATES.CUED) {
         savedProgressRef.current = { identity: progressIdentity, position: time };
         dispatch(setPlaybackPosition({ id, queueEntryId: progressQueueEntryId, position: time }));
       }
@@ -1996,7 +2113,7 @@ function YouTubePlayer() {
         deckGenerationRef.current[activeDeckRef.current],
       );
       if (
-        activePlayer.getPlayerState?.() === window.YT?.PlayerState?.BUFFERING
+        activePlayer.getPlayerState?.() === MEDIA_PLAYER_STATES.BUFFERING
       ) {
         scheduleActiveBufferRecovery(
           activeDeckRef.current,
@@ -2333,9 +2450,11 @@ function YouTubePlayer() {
   }, []);
 
   useEffect(() => {
-    applyPlaybackVolume(getActivePlayer());
+    const player = getActivePlayer();
+    player?.configureAudio?.(audioSettingsRef.current);
+    applyPlaybackVolume(player);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playbackVolume, masterVolume]);
+  }, [playbackVolume, masterVolume, eqPreset, eqBands, normalization, monoAudio]);
 
   useEffect(() => {
     applyYouTubeCaptions(getActivePlayer(), captionsEnabled && !karaokeHasLines);
@@ -2439,7 +2558,7 @@ function YouTubePlayer() {
     const tryFadeIn = () => {
       if (cancelled) return;
       const player = getActivePlayer();
-      const ready = player?.getPlayerState?.() === window.YT?.PlayerState?.PLAYING
+      const ready = player?.getPlayerState?.() === MEDIA_PLAYER_STATES.PLAYING
         && playerVideoId(player) === video.id;
       if (ready) {
         rampVolume(player, 0, 1);
@@ -2944,6 +3063,14 @@ function YouTubePlayer() {
         onShuffle={toggleShuffle} onRepeat={() => setRepeat((value) => !value)}
         onPlayPause={handlePlayPause} onPrevious={handlePrev} onNext={() => handleNext()}
         onSeek={seekOnCurrentTrack} favourite={<FavouriteTrackButton track={video} className="!h-12 !w-12" />}
+        qualityControl={<PlaybackQualityControl provider={getActivePlayer()?.provider} asset={mediaAsset} qualities={mediaQualities} selection={qualitySelection} disabled={isJamGuest} onChange={(selection) => {
+          const player = getActivePlayer();
+          if (!player || isJamGuest) return;
+          setQualitySelection(selection);
+          sourceSwitchRef.current = { occurrence: queueEntryIdentity(video), position: player.getCurrentTime(), playing: isPlayingRef.current, forceIframe: false };
+          fallbackOccurrenceRef.current = null;
+          setSourceRevision((value) => value + 1);
+        }} />}
         volume={<PlayerVolume />} queue={safeQueue} onSelect={playQueueItem}
         onQueueEdit={queueControls.onQueueEdit} onQueueUndo={queueControls.onQueueUndo}
         canUndoQueue={queueControls.canUndoQueue} onSaveQueue={queueControls.onSaveQueue}

@@ -77,7 +77,7 @@ export default function PlayerDock(props: PlayerDockProps) {
       <div className={styles.tools}>
         {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={openLyrics}><Mic2 size={18} /></PlayerIconButton>}
         <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={19} /></PlayerIconButton>
-        <div className={styles.volume}>{props.volume}</div>
+        <div className={styles.volume}>{props.qualityControl}{props.volume}</div>
       </div>
       <div className={styles.mobile}>
         <PlayerIconButton label="Previous song" disabled={props.disabled} onClick={props.onPrevious} className={`${styles.mobileButton} ${styles.mobilePrevious}`}><SkipBack size={20} /></PlayerIconButton>
