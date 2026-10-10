@@ -1154,8 +1154,8 @@ function YouTubePlayer() {
           }
           event.target.mute();
           applyYouTubeCaptions(event.target, captionsEnabled && !karaokeHasLinesRef.current);
-          onDeckReady?.(event.target);
-          if (autoplay) event.target.playVideo();
+          if (playerVideoId(event.target) === videoId && occurrence === queueEntryIdentity(videoRef.current)) onDeckReady?.(event.target);
+          if (event.target.provider === "native" ? wantsPlayback() : autoplay) event.target.playVideo();
         },
         onStateChange: (event) => {
           if (!isCurrent()) return;
@@ -1845,9 +1845,8 @@ function YouTubePlayer() {
         title: video.title, autoplay: requestedSwitch.playing,
         forceIframe: requestedSwitch.forceIframe, startSeconds: requestedSwitch.position,
         onDeckReady: (player) => {
-          player.seekTo?.(requestedSwitch.position, true);
-          if (requestedSwitch.playing) resumePlayer(player); else player.pauseVideo?.();
-          dispatch(playPause(requestedSwitch.playing));
+          // Initial position belongs to the deck; a later seek or pause takes precedence.
+          if (wantsPlayback()) resumePlayer(player); else player.pauseVideo?.();
         },
       });
       return;
@@ -1866,9 +1865,10 @@ function YouTubePlayer() {
       mountDeck("A", video.id, {
         title: video.title,
         autoplay: false,
+        startSeconds: restorePosition,
         onDeckReady: (player) => {
-          player.cueVideoById?.({ videoId: video.id, startSeconds: restorePosition });
-          if (isPlayingRef.current) resumePlayer(player);
+          if (player.provider !== "native") player.cueVideoById?.({ videoId: video.id, startSeconds: restorePosition });
+          if (wantsPlayback()) resumePlayer(player);
         },
       });
       return;

@@ -24,7 +24,7 @@ app.add_middleware(CORSMiddleware, allow_origins=config.origins, allow_methods=[
 
 
 def subscriber(authorization: str = Header(default=""), x_media_subscriber: str = Header(default="")):
-    if not hmac.compare_digest(authorization, f"Bearer {config.api_key}") or not re.fullmatch(r"[a-f0-9]{64}", x_media_subscriber):
+    if not hmac.compare_digest(authorization.encode(), f"Bearer {config.api_key}".encode()) or not re.fullmatch(r"[a-f0-9]{64}", x_media_subscriber):
         raise HTTPException(401, "unauthorized")
     return x_media_subscriber
 
@@ -36,7 +36,7 @@ def manager(request: Request):
 @app.middleware("http")
 async def no_store(request, call_next):
     if request.url.path.startswith("/v1/jobs"):
-        if not hmac.compare_digest(request.headers.get("authorization", ""), f"Bearer {config.api_key}"):
+        if not hmac.compare_digest(request.headers.get("authorization", "").encode(), f"Bearer {config.api_key}".encode()):
             return JSONResponse({"detail": "unauthorized"}, status_code=401)
         if request.method == "POST" and request.url.path == "/v1/jobs":
             length = request.headers.get("content-length", "")
@@ -80,6 +80,6 @@ async def cancel_job(job_id: str, who=Depends(subscriber), jobs=Depends(manager)
 @app.api_route("/v1/assets/{asset_id}", methods=["GET", "HEAD"])
 async def asset(asset_id: str, request: Request, expires: int = 0, signature: str = "", jobs=Depends(manager)):
     value = jobs.assets.get(asset_id)
-    if not value or len(signature) != 64:
+    if not value or not re.fullmatch(r"[a-f0-9]{64}", signature):
         raise HTTPException(404, "asset_unavailable")
     return deliver(config, value, request, expires, signature)

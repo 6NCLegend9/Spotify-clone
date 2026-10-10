@@ -237,7 +237,7 @@ Stable/beta preparation additionally requires `HEYKASA_DESKTOP_MANIFEST_HMAC_SEC
 Desktop releases use the signed GitHub release workflow below. The retired Vercel
 Blob publishing scripts and their npm commands are no longer supported.
 
-`.github/workflows/desktop-ci.yml` validates the server/desktop contract, native tests, runtime dependency audit, and Windows packaging. It uploads unsigned CI artifacts only; it does not publish an end-user update feed.
+`.github/workflows/desktop-ci.yml` validates the server/desktop contract, native syntax, runtime dependency audit, and Windows packaging. It uploads unsigned CI artifacts only; it does not publish an end-user update feed.
 
 `.github/workflows/desktop-preview.yml` is also an unsigned Actions-artifact smoke path.
 
@@ -309,3 +309,7 @@ This descriptor does not set `published`, `signed`, or the updater's
 verified signed release bundle. A verified stable installer takes precedence
 and replaces the manual fallback automatically. Deploy the web change before
 expecting the production download button to change.
+
+### Source-quality playback
+
+The shared renderer can use the separately hosted `media-service/` for compatible source audio/video. Electron uses the same resolver, queues, restoration, and quality controls as the website; no yt-dlp binary or credentials are exposed to the renderer. This change does not publish a new installer or update feed. Installed clients receive renderer changes after an authorized production deployment, and source playback also requires configured service hosting. See [production configuration](../PRODUCTION.md#yt-dlp-source-playback) and [verification evidence](../docs/superpowers/verification/2026-10-10-ytdlp-playback.md).

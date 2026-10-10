@@ -11,7 +11,7 @@ export function mediaServiceConfig(env = process.env) {
   } catch { return { enabled: false, origin: "", apiKey, secret }; }
 }
 export function validateMediaRequest(body) {
-  if (!body || !/^[A-Za-z0-9_-]{11}$/.test(body.videoId || "") || !["audio", "video"].includes(body.mode) || ![1080, 1440, 2160].includes(body.maxHeight) || !["webm-opus", "mp4-aac"].includes(body.profile)) return null;
+  if (!body || typeof body.videoId !== "string" || !/^[A-Za-z0-9_-]{11}$/.test(body.videoId || "") || !["audio", "video"].includes(body.mode) || ![1080, 1440, 2160].includes(body.maxHeight) || !["webm-opus", "mp4-aac"].includes(body.profile)) return null;
   return { videoId: body.videoId, mode: body.mode, maxHeight: body.maxHeight, profile: body.profile };
 }
 export async function callMediaService(config, path, { method = "GET", body, subscriber }) {

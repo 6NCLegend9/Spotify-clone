@@ -18,7 +18,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   const setState = (next) => { state = next; emit("onStateChange", next); };
   const fallback = (reason) => {
     if (destroyed) return;
-    const snapshot = { position: media.currentTime || position, playing: intent, reason };
+    const snapshot = { position: ready ? media.currentTime : position, playing: intent, reason };
     media.pause();
     controller?.abort();
     clearTimeout(renewTimer);
@@ -97,7 +97,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     mute() { media.muted = true; },
     unMute() { media.muted = false; },
     getCurrentTime: () => ready ? media.currentTime : position,
-    getDuration: () => Number.isFinite(media.duration) ? media.duration : asset?.duration || 0,
+    getDuration: () => ready && Number.isFinite(media.duration) ? media.duration : asset?.duration || 0,
     getPlayerState: () => state,
     getVideoData: () => ({ video_id: id, title }),
     getIframe: () => media,
@@ -105,7 +105,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     loadVideoById(value) {
       const nextId = typeof value === "string" ? value : value.videoId;
       if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }
-      media.pause(); cancelMediaReceipt(receipt); receipt = null; asset = null;
+      ready = false; media.pause(); media.removeAttribute("src"); media.load(); cancelMediaReceipt(receipt); receipt = null; asset = null;
       id = nextId; position = Number(value?.startSeconds) || 0; intent = true; refreshed = false;
       void resolve();
     },
