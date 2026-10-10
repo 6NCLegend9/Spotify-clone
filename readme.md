@@ -23,7 +23,7 @@ HayKasa combines a Next.js music application with YouTube-backed discovery/playb
   <img src="./public/haykasa-og.png" alt="HayKasa product preview" width="100%" />
 </div>
 
-The README uses a clean repository-owned HayKasa preview instead of a compressed screenshot collage. Product behavior is verified separately by the Playwright browser suite across desktop and mobile projects.
+The README uses a clean repository-owned HayKasa preview instead of a compressed screenshot collage. Verify product behavior manually in desktop and mobile browsers and the Electron app.
 
 ## What HayKasa includes
 
@@ -94,7 +94,7 @@ See [desktop/README.md](./desktop/README.md) for the native security boundary, r
 | Playback/discovery | YouTube APIs / `youtubei.js`, browser media APIs |
 | Realtime | Supabase Realtime with server-signed Jam events |
 | Desktop | Electron, electron-builder, electron-updater |
-| Testing | Node test runner, Playwright, ESLint, TypeScript |
+| Code checks | ESLint, TypeScript, production builds |
 | Deployment | Vercel + GitHub Actions + GitHub Releases |
 
 ## Requirements
@@ -150,10 +150,9 @@ npm run desktop:dev
 The development command starts the local web renderer and Electron together.
 Use `npm run desktop` to launch the production renderer instead.
 
-Native tests and Windows installer build, also from the root:
+Windows installer build, also from the root:
 
 ```powershell
-npm run desktop:test
 npm run desktop:build
 ```
 
@@ -170,16 +169,7 @@ Run the complete repository gate:
 npm run check
 ```
 
-That executes unit/contract tests, ESLint, Next.js-generated type checks, TypeScript validation, and a production Next.js build.
-
-Run browser tests after installing Playwright browsers:
-
-```sh
-npx playwright install chromium firefox webkit
-npm run test:e2e
-```
-
-The CI matrix covers Chromium, Firefox, WebKit, mobile Chrome/Safari projects, production dependency auditing, and performance checks. Desktop CI separately tests the web/native contract, native Electron code, dependency audit, and Windows packaging.
+That executes ESLint, Next.js-generated type checks, TypeScript validation, and a production Next.js build. Automated unit, browser, and Electron smoke suites have been removed at the owner's request. CI retains dependency auditing, desktop contract generation checks, native syntax checks, and Windows packaging.
 
 ## Production and release operations
 

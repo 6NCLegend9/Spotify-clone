@@ -36,8 +36,6 @@ jobs:
           node-version: 22.x
       - name: Install desktop dependencies
         run: npm ci --no-audit --no-fund
-      - name: Test native boundary
-        run: npm test
       - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
       - name: Stamp preview version and build channel

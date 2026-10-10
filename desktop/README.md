@@ -190,7 +190,6 @@ Run these commands from the repository root with Node 22:
 | `npm run desktop` | Launch Electron using the production renderer |
 | `npm run desktop:dev` | Launch the local renderer and Electron together |
 | `npm run desktop:install` | Install locked desktop dependencies |
-| `npm run desktop:test` | Run native unit tests |
 | `npm run desktop:pack` | Create an unpacked Windows x64 application |
 | `npm run desktop:build` | Build the Windows NSIS installer in `desktop/dist/` |
 
@@ -199,11 +198,7 @@ Use Windows for installer builds and packaged runtime verification. The root
 an installer or updates installed clients. Signed public updates use the
 protected Desktop Release workflow described below.
 
-For native-only testing:
-
-```powershell
-npm --prefix desktop test
-```
+Automated native and Electron smoke tests have been removed at the owner's request. Desktop CI retains syntax, contract, audit, and packaging checks; verify runtime behavior manually in Electron.
 
 Advanced/manual fallback:
 
