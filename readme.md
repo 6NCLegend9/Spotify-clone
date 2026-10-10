@@ -140,20 +140,27 @@ Open `http://localhost:3000`.
 
 ### Desktop development
 
-With the web dev server available:
+From the repository root:
 
 ```powershell
-cd desktop
-npm install
-$env:HEYKASA_DESKTOP_URL="http://localhost:3000"
-npm start
+npm run desktop:install
+npm run desktop:dev
 ```
 
-Native tests:
+The development command starts the local web renderer and Electron together.
+Use `npm run desktop` to launch the production renderer instead.
+
+Native tests and Windows installer build, also from the root:
 
 ```powershell
-npm test
+npm run desktop:test
+npm run desktop:build
 ```
+
+`desktop:pack` creates an unpacked Windows application. `desktop:build` writes
+the NSIS installer to `desktop/dist/`; root `build` builds only the web app.
+Packaging does not publish downloads or updates. Public desktop releases use
+the protected signed-release workflow.
 
 ## Verification
 

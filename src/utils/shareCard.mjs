@@ -4,7 +4,7 @@ import {
   SOCIAL_IMAGE,
   absoluteUrl,
 } from "./siteConfig.js";
-import { isYoutubeVideoId } from "./youtubeComments.mjs";
+import { isYoutubeVideoId } from "./youtubeVideoId.mjs";
 
 export const LISTEN_ON_HEYKASA = "Listen on HayKasa";
 

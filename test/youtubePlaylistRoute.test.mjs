@@ -1,3 +1,4 @@
+import { mergePlaylistTracks } from "../src/utils/discoveryPlaylist.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -7,10 +8,10 @@ const source = (await readFile(new URL('../src/app/api/youtube-playlist/route.js
   .replace(/^import .*;\n/gm, '');
 const durationSource = (await readFile(new URL('../src/utils/youtubeApi.js', import.meta.url), 'utf8')).match(/export function parseIsoDuration[\s\S]*?\n}/)[0];
 const parseIsoDuration = new Function(durationSource.replace('export ', '') + '; return parseIsoDuration;')();
-const makeRoute = new Function('NextResponse', 'hasYouTubeApiKey', 'youtubeFetch', 'hydrateYoutubeCatalogTracks', 'parseIsoDuration', 'cleanTitle', 'filterMusicPlaybackResults', 'getClientKey', 'isRateLimited', 'apiError', 'handleApiError',
+const makeRoute = new Function('mergePlaylistTracks', 'NextResponse', 'hasYouTubeApiKey', 'youtubeFetch', 'hydrateYoutubeCatalogTracks', 'parseIsoDuration', 'cleanTitle', 'filterMusicPlaybackResults', 'getClientKey', 'isRateLimited', 'apiError', 'handleApiError',
   source.replace(/export /g, '') + '\nreturn GET;');
 function routeFor(upstream) {
-  return makeRoute({ json: Response.json }, () => true, upstream, async tracks => tracks, parseIsoDuration, x => x, tracks => tracks, () => 'fixture', async () => ({ limited: false }),
+  return makeRoute(mergePlaylistTracks, { json: Response.json }, () => true, upstream, async tracks => tracks, parseIsoDuration, x => x, tracks => tracks, () => 'fixture', async () => ({ limited: false }),
     (code, detail) => Response.json({ code, ...detail }, { status: code === 'VALIDATION_ERROR' ? 400 : 404 }),
     () => Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 }));
 }
@@ -43,6 +44,14 @@ test('invalid page tokens are rejected before upstream requests', async () => {
   const response = await get({ nextUrl: new URL('https://example.com/api?id=PL_test&pageToken=%3Cscript%3E') });
   assert.equal(response.status, 400);
 });
+test('real music mix playlist IDs longer than 64 characters can open their songs', async () => {
+  const playlistId = `RDCLAK5uy_${'a'.repeat(65)}`;
+  const get = routeFor(async resource => ({ ok: true, data: { items: resource === 'playlistItems'
+    ? [item('abcdefghijk')] : [{ snippet: { title: 'Real mix' } }] } }));
+  const response = await get({ nextUrl: new URL(`https://example.com/api?id=${playlistId}`) });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).playlist.id, playlistId);
+});
 test('a valid empty playlist is distinct from a deleted playlist', async () => {
   for (const exists of [true, false]) {
     const get = routeFor(async resource => ({ ok: true, data: { items: resource === 'playlists' && exists ? [{ snippet: { title: 'Empty playlist' } }] : [] } }));
@@ -56,4 +65,16 @@ test('playlist route retains duration supplied by the fallback listing', async (
     : [{ snippet: { title: 'Playlist' } }] } }));
   const data = await (await get({ nextUrl: new URL('https://example.com/api?id=PL_test') })).json();
   assert.equal(data.tracks[0].duration, 243);
+});
+
+test('duplicate playlist pages upgrade missing duration and preserve the first title', async () => {
+  const get = routeFor(async (resource, params) => ({ ok: true, data: resource === 'playlistItems'
+    ? params.pageToken ? { items: [{ ...item('abcdefghijk'), contentDetails: { duration: 'PT4M3S' } }] }
+      : { items: [{ ...item('abcdefghijk'), snippet: { ...item('abcdefghijk').snippet, title: 'First title' } }], nextPageToken: 'page2' }
+    : { items: [{ snippet: { title: 'Playlist' } }] } }));
+  const response = await get({ nextUrl: new URL('https://example.com/api/youtube-playlist?id=PL_test') });
+  const body = await response.json();
+  assert.equal(body.tracks.length, 1);
+  assert.equal(body.tracks[0].duration, 243);
+  assert.equal(body.tracks[0].title, 'First title');
 });

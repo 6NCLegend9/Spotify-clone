@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { withProviderRequest } from "@/utils/providerRequestContext.mjs";
 import { logServerDiagnostic } from "@/utils/diagnostics.mjs";
 import { NextResponse } from "next/server";
-import { hasYouTubeApiKey, youtubeFetch, searchYouTubeChannels } from "@/utils/youtubeApi";
+import { hasYouTubeApiKey, youtubeFetch, searchYouTubeChannels, parseIsoDuration } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { normalizeYoutubeSearchPurpose, youtubeSearchLimitFor } from "@/utils/youtubeSearchPurpose.mjs";
@@ -128,6 +128,7 @@ async function searchResponse(request) {
           || item.snippet?.thumbnails?.medium?.url
           || item.snippet?.thumbnails?.default?.url
           || "",
+        ...(type === "video" ? { duration: parseIsoDuration(item.contentDetails?.duration) } : {}),
         seedQuery: query,
         genre: query,
       }));

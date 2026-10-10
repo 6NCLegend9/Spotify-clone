@@ -1,4 +1,5 @@
 "use client";
+import { formatDuration } from "@/utils/trackDuration.mjs";
 import { useCallback, useEffect, useState } from "react";
 import {
   playPause,
@@ -48,19 +49,6 @@ const SongsList = ({
     dispatch(setFullScreen(true));
     dispatch(playPause(true));
   };
-
-  function formatDuration(durationInSeconds) {
-    const duration = Math.max(0, Number(durationInSeconds) || 0);
-    if (duration === 0) return "—";
-    const minutes = Math.floor(duration / 60);
-    const seconds = Math.round(duration % 60);
-
-    if (minutes > 0) {
-      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    } else {
-      return `${seconds}`;
-    }
-  }
 
   const loadPlaylists = useCallback(async () => {
     if (isUserPlaylist) {

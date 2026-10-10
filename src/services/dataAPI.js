@@ -79,21 +79,3 @@ export async function getUserInfo() {
     return null;
   }
 }
-
-export async function resetPassword(password, confirmPassword, token) {
-  return requestJson("/api/forgotPassword", {
-    method: "PUT",
-    body: { password, confirmPassword, token },
-    fallbackTitle: "Couldn't reset password",
-    fallbackMessage: "We couldn't reset your password. Please try again.",
-  });
-}
-
-export async function sendResetPasswordLink(email) {
-  return requestJson("/api/forgotPassword", {
-    method: "POST",
-    body: { email },
-    fallbackTitle: "Couldn't send link",
-    fallbackMessage: "We couldn't send a reset link. Please try again.",
-  });
-}

@@ -133,10 +133,6 @@ export function matchPlaylistCategory(text = "") {
   return null;
 }
 
-export function inferPlaylistCategory(name = "", fallback = "Pop") {
-  return matchPlaylistCategory(name) || normalizePlaylistCategory(fallback);
-}
-
 // Derives a playlist category from a listener's saved genres, or null when none map cleanly.
 export function categoryFromGenres(genres = []) {
   const list = Array.isArray(genres) ? genres : [];

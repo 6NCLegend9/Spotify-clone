@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { stopChild, waitForHttp } from "./desktop-dev-lib.mjs";
+import { desktopNpmInvocation, stopChild, waitForHttp } from "./desktop-dev-lib.mjs";
 
 const port = 3003;
 const origin = `http://127.0.0.1:${port}`;
+const npmInvocation = desktopNpmInvocation();
 let web;
 let desktop;
 let closing = false;
@@ -31,8 +32,8 @@ web = spawn(process.execPath, [
 try {
   await waitForHttp(origin);
   desktop = spawn(
-    process.platform === "win32" ? "npm.cmd" : "npm",
-    ["--prefix", "desktop", "start"],
+    npmInvocation.command,
+    npmInvocation.args,
     {
       stdio: "inherit",
       env: { ...process.env, HEYKASA_DESKTOP_URL: origin },

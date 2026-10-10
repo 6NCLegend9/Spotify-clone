@@ -1,13 +1,23 @@
 "use client";
 
 import EmptyState from "@/components/EmptyState";
+import { useParams } from "next/navigation";
+import ArtistRelease from "@/components/ArtistRelease";
+
+const MUSIC_ALBUM_ID = /^MPR[A-Za-z0-9_-]{3,125}$/;
 
 export default function AlbumPage() {
+  const params = useParams();
+  const albumId = typeof params?.albumId === "string" ? params.albumId : "";
   const focusSearch = () => {
     const searchInput = document.querySelector('input[name="search-field"]');
     searchInput?.focus();
     searchInput?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
+
+  if (MUSIC_ALBUM_ID.test(albumId)) {
+    return <ArtistRelease key={albumId} albumId={albumId} />;
+  }
 
   return (
     <div className="page text-gray-200">

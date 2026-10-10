@@ -1,4 +1,4 @@
-import { isYoutubeVideoId } from "./youtubeComments.mjs";
+import { isYoutubeVideoId } from "./youtubeVideoId.mjs";
 
 export function likedOnThisDay(favouriteAddedAt, now = new Date()) {
   const month = now.getMonth();

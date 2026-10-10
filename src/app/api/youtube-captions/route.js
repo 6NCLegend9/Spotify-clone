@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { apiError, handleApiError } from "@/utils/apiResponse";
-import { isYoutubeVideoId } from "@/utils/youtubeComments.mjs";
+import { isYoutubeVideoId } from "@/utils/youtubeVideoId.mjs";
 import { fetchYouTubeCaptionLines } from "@/utils/youtubeApi";
 
 export const runtime = "nodejs";

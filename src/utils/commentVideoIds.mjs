@@ -1,4 +1,4 @@
-import { isYoutubeVideoId } from "./youtubeComments.mjs";
+import { isYoutubeVideoId } from "./youtubeVideoId.mjs";
 
 const WATCH_ID = /(?:youtube\.com\/watch\?(?:[^#\s]*&)?v=|youtu\.be\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/gi;
 

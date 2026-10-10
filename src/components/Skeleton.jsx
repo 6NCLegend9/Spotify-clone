@@ -87,7 +87,3 @@ export function HomeFeedSkeleton() {
     </div>
   );
 }
-
-export function HomeSectionSkeleton() {
-  return <HomeFeedSkeleton />;
-}

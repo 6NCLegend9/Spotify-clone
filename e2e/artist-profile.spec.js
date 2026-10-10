@@ -23,18 +23,32 @@ async function fixtures(page, { title = "2Pac", description = biography, accent 
     } });
   });
   await page.route("**/api/channel-rabbit-hole?**", route => route.fulfill({ json: { tracks: [songs[0], discovery] } }));
+  await page.route("**/api/artist-sections?**", route => route.fulfill({ json: {
+    artist: { id: new URL(route.request().url()).searchParams.get("id"), title },
+    popularTracks: [], releases: [], playlists: [], musicVideos: [], relatedArtists: [],
+  } }));
   await page.route("**/api/followedArtists", route => route.fulfill({ json: { success: true, data: [] } }));
 }
 
 const songSection = page => page.locator('section[aria-labelledby="artist-songs-title"]');
-const hero = page => page.locator("#main-content .page > header");
+const hero = page => page.getByRole("region", { name: "Artist actions", exact: true });
 const snapshot = page => page.evaluate(() => JSON.parse(localStorage.getItem("heykasa:playback:v1:account%3Aui-test") || "{}"));
+
+test("high contrast keeps a visible white navigation border", async ({ page }) => {
+  await fixtures(page);
+  await page.goto(`/artist/${PAC}?name=2Pac`);
+  await expect(songSection(page).getByRole("button", { name: "Play California Love", exact: true })).toBeVisible();
+  await page.evaluate(() => document.documentElement.setAttribute("data-a11y-contrast", "high"));
+  await expect(page.locator(".app-navbar")).toHaveCSS("border-top-color", "rgb(255, 255, 255)");
+  await expect(page.locator(".app-navbar")).toHaveCSS("border-top-width", "1px");
+});
 
 test("artist songs expose duration and separate credited artist destinations", async ({ page }, testInfo) => {
   await fixtures(page);
   await page.goto(`/artist/${PAC}?name=2Pac`);
   await expect(songSection(page).getByRole("button", { name: "Play California Love", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /from the comments|more to explore/i })).toBeVisible();
+  await expect(page.locator('#main-content [class~="undefined"]')).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "More to explore", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("artist-profile.png") });
   await expect(songSection(page)).toContainText("4:03", { timeout: 5000 });
   await expect(songSection(page)).toContainText("4:29");
@@ -70,7 +84,7 @@ test("artist collection playback and pagination retain the current queue until a
   const saved = await snapshot(page);
   expect(saved.youtubeQueue.map(track => track.id)).toEqual(["abcdefghijk", "lmnopqrstuv", "wxyzabcdefg", "hijklmnopqr"]);
   expect(saved.playbackContext).toMatchObject({ type: "artist", id: PAC });
-  const related = page.getByRole("region", { name: "More to explore", exact: true });
+  const related = page.locator("section").filter({ has: page.getByRole("heading", { name: "More to explore", exact: true }) });
   await expect(related.getByRole("button", { name: "Play California Love", exact: true })).toHaveCount(0);
   await related.getByRole("button", { name: "Play A related discovery", exact: true }).click();
   await expect.poll(async () => (await snapshot(page)).youtubeVideo?.id).toBe(discovery.id);

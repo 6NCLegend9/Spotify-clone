@@ -193,7 +193,3 @@ export async function requestJson(url, options = {}) {
     signal?.removeEventListener("abort", forwardAbort);
   }
 }
-
-export function isUserError(error, code) {
-  return error?.name === "UserFacingError" && (!code || error.code === code);
-}

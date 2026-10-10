@@ -221,7 +221,3 @@ export function analyzePcm(samples, sampleRate = 44100) {
     onsets,
   };
 }
-
-export function emptyChart(seed = "arcade") {
-  return buildRhythmChart({ duration: 180, seed });
-}

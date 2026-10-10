@@ -1,3 +1,4 @@
+import { mergePlaylistTracks } from "@/utils/discoveryPlaylist.mjs";
 import { NextResponse } from "next/server";
 import { hasYouTubeApiKey, youtubeFetch, hydrateYoutubeCatalogTracks, parseIsoDuration } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
@@ -6,7 +7,7 @@ import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { apiError, handleApiError } from "@/utils/apiResponse";
 
 const PAGE_TOKEN_PATTERN = /^[A-Za-z0-9_=-]{1,512}$/;
-const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,64}$/;
+const PLAYLIST_ID_PATTERN = /^[A-Za-z0-9_-]{2,128}$/;
 const MAX_PLAYLIST_TRACKS = 100;
 
 export const runtime = "nodejs";
@@ -38,14 +39,7 @@ function mapPlaylistTracks(items) {
 }
 
 function mergeTracks(previous, incoming) {
-  const seen = new Set(previous.map((track) => track.id));
-  const next = [...previous];
-  for (const track of incoming) {
-    if (!track?.id || seen.has(track.id)) continue;
-    seen.add(track.id);
-    next.push(track);
-  }
-  return next;
+  return mergePlaylistTracks(previous, incoming);
 }
 
 async function fetchPlaylistTracks(playlistId, { pageToken = "", limit = MAX_PLAYLIST_TRACKS } = {}) {

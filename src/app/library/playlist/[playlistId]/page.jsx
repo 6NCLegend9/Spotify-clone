@@ -1,6 +1,6 @@
 import PlaylistDetail from "@/components/Library/PlaylistDetail";
 import { resolveParams } from "@/utils/routeParams";
-import { kasaShareMetadata, youtubeShareArt } from "@/utils/shareCard.mjs";
+import { kasaShareMetadata, privateShareMetadata, youtubeShareArt } from "@/utils/shareCard.mjs";
 import { loadPublicPlaylistShare } from "@/utils/publicPlaylistShare.mjs";
 
 export async function generateMetadata({ params }) {
@@ -8,11 +8,7 @@ export async function generateMetadata({ params }) {
   try {
     const playlist = await loadPublicPlaylistShare(playlistId);
     if (!playlist) {
-      return kasaShareMetadata({
-        title: "Playlist",
-        path: "/",
-        indexable: false,
-      });
+      return privateShareMetadata();
     }
     return kasaShareMetadata({
       title: playlist.name,
@@ -21,11 +17,7 @@ export async function generateMetadata({ params }) {
       indexable: true,
     });
   } catch {
-    return kasaShareMetadata({
-      title: "Playlist",
-      path: "/",
-      indexable: false,
-    });
+    return privateShareMetadata();
   }
 }
 

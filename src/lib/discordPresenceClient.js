@@ -72,10 +72,6 @@ class BrowserDiscordUnavailableClient {
   disconnect() {}
 }
 
-export function isHeyKasaDesktop() {
-  return Boolean(desktopShellApi());
-}
-
 export function discordPresenceTransport() {
   const nativeApi = nativeDiscordApi();
   if (nativeApi) return "desktop-native";

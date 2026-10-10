@@ -54,10 +54,6 @@ const settingsSlice = createSlice({
         state.eqBands = EQ_PRESET_BANDS[value];
       }
     },
-    requestDiscordPresenceConnect: (state) => {
-      if (!state.discordPresence || !state.discordPresenceConsent) return;
-      state.discordPresenceConnectRequest += 1;
-    },
     updateEqBands: (state, action) => {
       state.eqBands = migrateEqBands(action.payload);
       state.eqPreset = "Custom";
@@ -106,7 +102,6 @@ const settingsSlice = createSlice({
 
 export const {
   updateSetting,
-  requestDiscordPresenceConnect,
   updateEqBands,
   hydrateSettings,
   setSettingsOwner,

@@ -44,3 +44,11 @@ test("radio discovery excludes the seed artist and returns different artists", a
   const body = await response.json();
   assert.deepEqual(body.results.map((item) => item.channel), ["Sam Smith", "Lewis Capaldi"]);
 });
+
+
+test("search responses include known duration and zero for genuinely unknown tracks", async () => {
+  const response = await GET(new Request("http://localhost/api/youtube-search?q=Adele+Hello&type=video"));
+  const body = await response.json();
+  assert.equal(body.results.find(track => track.id === "abcdefghijk").duration, 243);
+  assert.equal(body.results.find(track => track.id === "bcdefghijkl").duration, 0);
+});

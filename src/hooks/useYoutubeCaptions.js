@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { requestJson } from "@/services/http";
-import { isYoutubeVideoId } from "@/utils/youtubeComments.mjs";
+import { isYoutubeVideoId } from "@/utils/youtubeVideoId.mjs";
 
 export default function useYoutubeCaptions(videoId, enabled = true) {
   const [lines, setLines] = useState([]);

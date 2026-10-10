@@ -3,7 +3,6 @@ import path from "node:path";
 
 export const DESKTOP_INSTALLER_APP_PATH = "/api/desktop/download";
 export const DESKTOP_INSTALLER_PUBLIC_NAME = "HayKasa-Setup-x64.exe";
-export const DESKTOP_INSTALLER_NOTES_URL = "";
 
 const INSTALLER_FILE = /^HayKasa-Setup-(?:[\w.-]+-)?x64\.exe$/i;
 
@@ -36,20 +35,6 @@ export function findLocalDesktopInstaller(cwd = process.cwd()) {
     return { filePath, fileName: preferred, sizeBytes: stat.size };
   } catch {
     return null;
-  }
-}
-
-export function hostedDesktopInstallerUrl(downloadEnv) {
-  const text = typeof downloadEnv === "string" ? downloadEnv.trim() : "";
-  if (!text) return "";
-  try {
-    const url = new URL(text);
-    if (url.protocol !== "https:" || url.username || url.password || !url.pathname.toLowerCase().endsWith(".exe")) {
-      return "";
-    }
-    return url.href;
-  } catch {
-    return "";
   }
 }
 
