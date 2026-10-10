@@ -68,7 +68,3 @@ export async function resizeCoverFile(file) {
   }
   return output;
 }
-
-export function isCoverDataUrl(value) {
-  return typeof value === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(value) && value.length <= 320_000;
-}

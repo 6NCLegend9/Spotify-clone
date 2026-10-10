@@ -1,4 +1,4 @@
-import { isYoutubeVideoId } from "./youtubeComments.mjs";
+import { isYoutubeVideoId } from "./youtubeVideoId.mjs";
 
 export const MAX_PULSE_TRACKS = 40;
 export const PUBLIC_PULSE_LIMIT = 12;

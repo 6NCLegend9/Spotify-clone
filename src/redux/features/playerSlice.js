@@ -559,23 +559,6 @@ const playerSlice = createSlice({
       syncUserQueue(state);
     },
 
-    clearUserQueue: (state) => {
-      if (!state.userQueue.length) return;
-      const userIds = new Set(state.userQueue.map((item) => item.queueEntryId).filter(Boolean));
-      state.youtubeQueue = state.youtubeQueue.filter((item) => !userIds.has(item.queueEntryId));
-      state.userQueue = [];
-      state.queueUndo = null;
-    },
-
-    setPlaybackContext: (state, action) => {
-      state.playbackContext = normalizeContext(action.payload);
-    },
-
-    setQueueMode: (state, action) => {
-      state.queueMode = action.payload === 'collection' ? 'collection' : 'radio';
-      syncLegacyQueueMode(state);
-    },
-
     setFullScreen: (state, action) => {
       state.fullScreen = action.payload;
     },
@@ -601,9 +584,6 @@ export const {
   addToQueue,
   appendToQueue,
   playNextToQueue,
-  clearUserQueue,
-  setPlaybackContext,
-  setQueueMode,
   setFullScreen,
 } = playerSlice.actions;
 

@@ -47,6 +47,7 @@ test("artist catalog exposes Spotify sections, release filters and genuine liked
   await fixtures(page);
   await page.goto(`/artist/${ARTIST}?name=Catalog%20Artist`);
   await expect(page.getByRole("heading", { name: "Discography", exact: true })).toBeVisible({ timeout: 8000 });
+  await expect(page.locator('#main-content [class~="undefined"]')).toHaveCount(0);
   const popular = page.locator('section[aria-labelledby="artist-songs-title"]');
   await expect(popular.getByRole("button", { name: "Play Catalog song 1", exact: true })).toBeVisible();
   await expect(popular.getByRole("button", { name: "Play Catalog song 6", exact: true })).toHaveCount(0);
@@ -180,13 +181,23 @@ test("switching accounts while liked songs load cannot show the previous account
   } finally { release(); }
 });
 
-test("Popular reuses channel durations without replacing artist credits and formats hours", async ({ page }) => {
+test("Popular and video rails preserve credits and format known, unknown and hour durations", async ({ page }) => {
   await fixtures(page, { durationById: { [tracks[1].id]: 3723.9 } });
-  await page.route("**/api/artist-sections?**", route => route.fulfill({ json: { ...sectionData, popularTracks: tracks.map((track, index) => ({ ...track, duration: index === 0 ? 0 : index === 1 ? 3723.9 : track.duration })) } }));
+  await page.route("**/api/artist-sections?**", route => route.fulfill({ json: {
+    ...sectionData,
+    popularTracks: tracks.map((track, index) => ({ ...track, duration: index === 0 ? 0 : index === 1 ? 3723.9 : track.duration })),
+    musicVideos: [
+      { ...sectionData.musicVideos[0], duration: 3723.9 },
+      { ...tracks[4], id: "qrstuvwxyzz", title: "Unknown duration video", duration: 0 },
+    ],
+  } }));
   await page.goto(`/artist/${ARTIST}?name=Catalog%20Artist`);
   const popular = page.getByRole("region", { name: "Popular", exact: true });
   await expect(popular).toContainText("3:00");
   await expect(popular).toContainText("1:02:03");
+  const videos = page.getByRole("region", { name: "Music videos", exact: true });
+  await expect(videos).toContainText("1:02:03");
+  await expect(videos).toContainText("—");
   await expect(popular.getByRole("link", { name: "Catalog Artist", exact: true }).first()).toHaveAttribute("href", `/artist/${ARTIST}?name=Catalog%20Artist`);
   await popular.getByRole("button", { name: "Play Catalog song 2", exact: true }).click();
   await expect(page.getByTestId("player-dock")).toContainText("1:02:03");

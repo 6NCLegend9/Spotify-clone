@@ -1,5 +1,6 @@
 import { smokeArtistRenderer } from "./smoke-artist-renderer.mjs";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +16,7 @@ const requireFromDesktop = createRequire(path.join(desktopRoot, "package.json"))
 const executablePath = requireFromDesktop("electron");
 const errors = [];
 const startedAt = performance.now();
+const fixtureArtwork = await readFile(path.join(desktopRoot, "../public/icon-192x192.png"));
 
 const app = await electron.launch({
   executablePath,
@@ -27,6 +29,8 @@ const app = await electron.launch({
 });
 
 try {
+  await app.context().route(/^https:\/\/(?:i\d*\.ytimg\.com|yt3\.(?:ggpht|googleusercontent)\.com)\//, (route) =>
+    route.fulfill({ contentType: "image/png", body: fixtureArtwork }));
   await app.context().route("**/api/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
     const headers = { "Cache-Control": "private, no-store" };

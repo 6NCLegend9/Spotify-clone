@@ -36,7 +36,7 @@
 - `YouTubePlayer.jsx` imports synced lyrics, document PiP and floating controls on demand.
 - `src/app/loading.tsx` supplies an App Router fallback without converting server pages to client components.
 - Existing Next.js chunk splitting and optimized icon imports remain in place. No custom vendor cache groups were added.
-- The shared workspace retains its global GhostFibers background; it is not deferred by this implementation.
+- The shared workspace uses the LightPillar background; the unmounted GhostFibers implementation has been retired.
 
 ## Verification
 

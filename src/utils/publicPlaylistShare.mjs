@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import dbConnect from "@/utils/dbconnect";
 import Playlist from "@/models/Playlist";
-import { isYoutubeVideoId } from "@/utils/youtubeComments.mjs";
+import { isYoutubeVideoId } from "@/utils/youtubeVideoId.mjs";
 import { youtubeShareArt } from "@/utils/shareCard.mjs";
 
 const EMBED_TRACK_LIMIT = 8;

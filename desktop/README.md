@@ -239,6 +239,9 @@ Stable/beta preparation additionally requires `HEYKASA_DESKTOP_MANIFEST_HMAC_SEC
 
 ## CI and release workflow
 
+Desktop releases use the signed GitHub release workflow below. The retired Vercel
+Blob publishing scripts and their npm commands are no longer supported.
+
 `.github/workflows/desktop-ci.yml` validates the server/desktop contract, native tests, runtime dependency audit, and Windows packaging. It uploads unsigned CI artifacts only; it does not publish an end-user update feed.
 
 `.github/workflows/desktop-preview.yml` is also an unsigned Actions-artifact smoke path.

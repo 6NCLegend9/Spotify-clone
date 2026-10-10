@@ -6,7 +6,7 @@ import { Innertube, Log, UniversalCache } from "youtubei.js";
 import { cleanTitle } from "./text.js";
 import { filterMusicPlaybackResults } from "./officialMusicSearch.mjs";
 import { firstSuccessfulSearch } from "./youtubeSearchFallback.mjs";
-import { isYoutubeVideoId } from "./youtubeComments.mjs";
+import { isYoutubeVideoId } from "./youtubeVideoId.mjs";
 import { videoIdsMentionedInText } from "./commentVideoIds.mjs";
 import { createMusicCatalogReader } from "./artistMusicCatalog.mjs";
 import {

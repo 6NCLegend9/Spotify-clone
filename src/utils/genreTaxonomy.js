@@ -149,10 +149,3 @@ export const MAJOR_GENRES = [
     subgenres: ["Avant-Garde", "Noise", "Musique Concrete", "Minimalism", "Industrial", "Glitch"],
   },
 ];
-
-export function resolveMajorGenre(value) {
-  const normalized = normalizeGenreName(value);
-  return MAJOR_GENRES.find((genre) =>
-    [genre.name, genre.slug, ...genre.aliases].some((candidate) => normalizeGenreName(candidate) === normalized),
-  ) || null;
-}

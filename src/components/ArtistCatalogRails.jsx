@@ -10,6 +10,7 @@ import AddToQueueButton from "@/components/AddToQueueButton";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import { artistPageHref, musicReleaseHref } from "@/utils/artistNavigation.mjs";
 import { cleanTitle } from "@/utils/text";
+import { formatDuration } from "@/utils/trackDuration.mjs";
 import styles from "./artistProfile.module.css";
 
 function Rail({ title, id, items, children, controls }) {
@@ -67,7 +68,7 @@ export function ArtistVideoRail({ title, id, videos, onPlay }) {
       </button>
       <button type="button" onClick={() => onPlay(video, videos)} className={styles.cardTitle}>{cleanTitle(video.title, "Untitled video")}</button>
       <ArtistNameLink track={video} className={styles.cardDescription} />
-      <div className={styles.videoTools}><span className={styles.duration}>{Number(video.duration) > 0 ? `${Math.floor(Number(video.duration) / 60)}:${String(Math.floor(Number(video.duration) % 60)).padStart(2, "0")}` : "—"}</span><AddToQueueButton track={video} className={styles.queueButton} /></div>
+      <div className={styles.videoTools}><span className={styles.duration}>{formatDuration(video.duration)}</span><AddToQueueButton track={video} className={styles.queueButton} /></div>
     </ContextMenuTarget>)}
   </Rail>;
 }

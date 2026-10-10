@@ -8,7 +8,6 @@ import {
   DESKTOP_INSTALLER_PUBLIC_NAME,
   desktopAppDownloadUrl,
   findLocalDesktopInstaller,
-  hostedDesktopInstallerUrl,
 } from "../src/utils/desktopInstaller.mjs";
 
 test("desktop app download URL allows the local installer route and HTTPS installers", () => {
@@ -21,15 +20,6 @@ test("desktop app download URL allows the local installer route and HTTPS instal
   assert.equal(desktopAppDownloadUrl("https://user:pass@evil.example/HayKasa-Setup-x64.exe"), "");
 });
 
-test("hosted installer override accepts only a public HTTPS executable", () => {
-  assert.equal(
-    hostedDesktopInstallerUrl("https://downloads.example.com/HayKasa-Setup-x64.exe"),
-    "https://downloads.example.com/HayKasa-Setup-x64.exe",
-  );
-  assert.equal(hostedDesktopInstallerUrl("https://downloads.example.com/HayKasa.zip"), "");
-  assert.equal(hostedDesktopInstallerUrl("http://downloads.example.com/HayKasa-Setup-x64.exe"), "");
-  assert.equal(hostedDesktopInstallerUrl(""), "");
-});
 
 test("local installer lookup stays inside desktop/dist and prefers the stable Setup name", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "heykasa-installer-"));

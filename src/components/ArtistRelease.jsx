@@ -18,7 +18,7 @@ import { SongRowsSkeleton } from "@/components/Skeleton";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
-import { isYoutubeVideoId } from "@/utils/youtubeComments.mjs";
+import { isYoutubeVideoId } from "@/utils/youtubeVideoId.mjs";
 import styles from "./artistRelease.module.css";
 
 const RELEASE_TYPES = { album: "Album", single: "Single", ep: "EP" };

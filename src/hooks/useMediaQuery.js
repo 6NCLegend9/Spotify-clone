@@ -43,8 +43,6 @@ export function useIsMobile() {
   return useMediaQuery(PHONE_QUERY);
 }
 
-export const PHONE_VIEWPORT_QUERY = PHONE_QUERY;
-
 export function useIsPhoneViewport() {
   return useMediaQuery(PHONE_QUERY);
 }

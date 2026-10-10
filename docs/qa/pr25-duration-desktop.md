@@ -60,3 +60,50 @@ Windows Package CI covers the launcher tests. The combined `npm run check`
 passed 757 tests, lint, TypeScript, and production build; root `desktop:test`
 passed 58 native tests. See `desktop-production-recovery.md` for the public
 installer/update outage and the separate signed-publication prerequisites.
+
+## Dead-code cleanup verification — 2026-10-10
+
+The approved artist/release UI, active Redux player, catalog/provider metadata,
+Discord desktop boundary and signed GitHub release workflow remain in use. Shared
+palette values are unchanged. The cleanup removes orphan components/helpers,
+unused actions and selectors, the unintegrated audio-engine prototype and its
+isolated tests, GhostFibers and its tests, template assets, and the obsolete Blob
+publishing commands. Six root dependencies and the desktop Blob dependency were
+removed with matching lockfiles; surviving package versions did not change.
+
+Useful code is retained or connected: responsive-policy tests still check layout
+contracts, and private playlist metadata now uses the existing privacy-safe share
+helper. Artist banner markup no longer emits an undefined class; release queue
+controls use the existing 44px target pattern. High-contrast borders retain their
+existing white value instead of being overwritten by a neutral border shorthand.
+Artist video rails now use the shared duration formatter: the new browser check
+first reproduced `3723.9` as `62:03`, then verified `1:02:03` and unknown `—` after
+the fix.
+
+Node 22 `npm run check` passed on the final implementation: 657 tests, lint,
+TypeScript and production build. The lower test count reflects removal of tests
+for retired implementations. The desktop suite passed 58 tests, and canonical
+web/native contract generation produced no diff. Independent review found no
+mistaken removals or dependency/CSS regressions; the post-cleanup scanner's only
+unused-file/dependency flags were the retained bundler stub and Next.js `sharp`.
+
+Affected browser coverage across Chromium desktop and mobile Safari recorded 81
+passing cases and three intentional project skips. Six final serial reruns passed
+against the final build, including banner classes, video-rail durations and media
+controls. Initial WebKit launch failures were environment failures: locally
+extracted libraries had to be linked into its tool bundle, and the host-package
+check was skipped only after an actual WebKit launch succeeded. One Chromium
+catalog readiness timeout and one expanded-controls auto-hide race occurred under
+concurrent load; both passed with unchanged timeouts and interaction code in the
+final isolated run. The trace showed the delayed click exceeded the existing
+6.5-second hide timer. These initial failures are not counted as passes.
+
+Browser and Electron catalog/player coverage uses controlled fixtures. It does
+not establish live YouTube audio, manual Windows installation, signed-update
+delivery or production deployment. This cleanup does not merge or deploy PR25.
+
+The final actual Electron smoke passed artist/release pages, durations, collection
+queues and player persistence against the rebuilt renderer. Its artwork fixture
+now serves the existing local icon for exact YouTube image hosts. This fixes an
+initial proxy failure for fake video-ID thumbnails without weakening console or
+page-error checks; remote artwork delivery is outside this fixture verification.

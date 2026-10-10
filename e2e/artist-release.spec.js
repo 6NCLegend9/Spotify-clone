@@ -57,6 +57,7 @@ test("release artwork, long titles and track controls fit compact and landscape 
   await page.goto(`/album/${releaseId}`);
   const release = page.locator("#main-content .page");
   await expect(release.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  await expect(release.locator('[class~="undefined"]')).toHaveCount(0);
 
   for (const viewport of [{ width: 320, height: 740 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport);

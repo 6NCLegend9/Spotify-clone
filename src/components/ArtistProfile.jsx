@@ -362,7 +362,7 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
     <div className={styles.stickyHeader} hidden={!compactHeader} role="region" aria-label="Artist quick controls">
       <div className={styles.stickyContent}><button type="button" onClick={playAll} disabled={mainPlayDisabled} aria-label={`Play songs by ${displayTitle}`} className={styles.compactPlay}><FiPlay aria-hidden="true" /></button><span className={styles.compactTitle}>{displayTitle}</span></div>
     </div>
-    <header ref={heroRef} className={`${styles.hero} ${banner ? styles.withBanner : styles.withoutBanner}`}>
+    <header ref={heroRef} className={`${styles.hero} ${banner ? "" : styles.withoutBanner}`}>
       {banner ? <MediaImage src={banner} size="maxres" alt="" loading="eager" className={styles.banner} /> : artist.thumbnail ? <MediaImage src={artist.thumbnail} size="hq" alt="" loading="eager" className={styles.portrait} /> : null}
       <div className={styles.heroCopy}>
         <p className={styles.artistLabel}>Artist</p><h1 id="artist-title" className={styles.title}>{displayTitle}</h1>
@@ -408,13 +408,13 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
           </section>
 
           <aside className={styles.sidebar}>
-            <section aria-labelledby="artist-liked-title" className={styles.liked}>
+            <section aria-labelledby="artist-liked-title">
               <h2 id="artist-liked-title">You liked</h2>
               {status === "authenticated" ? likesError ? <UserMessage title={likesError.title} message={likesError.message} onRetry={() => setLikesRetryKey(value => value + 1)} busy={likesLoading} compact /> : likesLoading ? <p className={styles.sidebarHint} role="status">Loading your liked songs…</p> : likedTracks.length ? <button type="button" onClick={() => playTrack(likedTracks[0], likedTracks)} className={styles.likedCollection} aria-label={`Play ${likedTracks.length} liked ${likedTracks.length === 1 ? "song" : "songs"} by ${displayTitle}`}>
                 <span className={styles.likedArt}><MediaImage src={artist.thumbnail || sectionArtist?.thumbnail} size="hq" alt="" className={styles.likedPortrait} /><FiHeart aria-hidden="true" /></span><span><strong>{likedTracks.length} {likedTracks.length === 1 ? "song" : "songs"}</strong><span className={styles.sidebarHint}>By {displayTitle}</span></span>
               </button> : <p className={styles.sidebarHint}><strong>No liked songs yet</strong><br />Save a song by {displayTitle} to find it here.</p> : <p className={styles.sidebarHint}><Link href="/login">Log in</Link> to see songs you liked.</p>}
             </section>
-            {latestRelease && <section className={styles.spotlight} aria-labelledby="artist-latest-title"><h2 id="artist-latest-title">Release spotlight</h2><Link href={musicReleaseHref(latestRelease.id)} prefetch={false} className={styles.spotlightLink}><MediaImage src={latestRelease.thumbnail} size="hq" alt="" className={styles.spotlightArt} /><span><strong>{cleanTitle(latestRelease.title)}</strong><span className={styles.sidebarHint}>{[latestRelease.year, latestRelease.type === "ep" ? "EP" : latestRelease.type === "single" ? "Single" : "Album"].filter(Boolean).join(" · ")}</span></span></Link></section>}
+            {latestRelease && <section aria-labelledby="artist-latest-title"><h2 id="artist-latest-title">Release spotlight</h2><Link href={musicReleaseHref(latestRelease.id)} prefetch={false} className={styles.spotlightLink}><MediaImage src={latestRelease.thumbnail} size="hq" alt="" className={styles.spotlightArt} /><span><strong>{cleanTitle(latestRelease.title)}</strong><span className={styles.sidebarHint}>{[latestRelease.year, latestRelease.type === "ep" ? "EP" : latestRelease.type === "single" ? "Single" : "Album"].filter(Boolean).join(" · ")}</span></span></Link></section>}
           </aside>
         </div>
 
