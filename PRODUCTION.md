@@ -268,3 +268,9 @@ Local checks on 2026-09-10 found:
   tagging chunks were absent from the observed initial search downloads.
 - YouTube playback no longer performs the native player's redundant favourites
   request. Verify favourites reads manually when expanding the player.
+
+## yt-dlp source playback
+
+The optional media service is independently hosted; Vercel does not run its Python/FFmpeg jobs. Follow `media-service/README.md`, then configure `MEDIA_SERVICE_URL`, `MEDIA_SERVICE_API_KEY`, and `MEDIA_RECEIPT_SECRET` server-side. Use HTTPS in production and rebuild to include the origin in CSP. Missing/unhealthy service configuration preserves the YouTube player. Add the exact renderer origin to the service CORS allowlist; previews also need their exact Vercel origin. API credentials never belong in public environment variables.
+
+Run one media-service instance with bounded persistent cache storage. Verify anonymous live extraction and actual media decoding from that host before activation. Local synthetic files and build checks cannot establish live YouTube quality. Keep leased media URLs out of proxy/access logs and service-worker caches. Source formats may be limited by upload quality, codecs, or YouTube access restrictions.
