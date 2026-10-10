@@ -107,3 +107,5 @@ queues and player persistence against the rebuilt renderer. Its artwork fixture
 now serves the existing local icon for exact YouTube image hosts. This fixes an
 initial proxy failure for fake video-ID thumbnails without weakening console or
 page-error checks; remote artwork delivery is outside this fixture verification.
+
+Desktop CI follow-up: the first cleanup-head Linux smoke reached real API handlers during service-worker takeover and failed the Popular assertion. The fixture smoke now uses Chromium’s `Network.setBypassServiceWorker` before controlled navigation so even an already controlling worker cannot bypass catalog/session fixtures. Actual Electron smoke passes at `http://127.0.0.1:3003`; smoke contract and lint pass. Production service-worker behavior is unchanged and this fixture smoke does not verify it. Fresh GitHub CI is required for confirmation. Windows package CI at cleanup commit `8629dfe` passed installer construction, artifact verification, and packaged runtime against its pinned production renderer; this does not verify signed updates or deploy the PR renderer.

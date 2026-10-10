@@ -61,6 +61,13 @@ try {
   assert.equal(bridge.hasDesktop, true, "Electron preload bridge should be available.");
   assert.equal(bridge.hasNodeRequire, false, "Renderer must not expose Node require.");
 
+  // Keep fixture requests on the renderer network stack. A service worker from
+  // the initial app navigation can otherwise forward them outside Playwright's
+  // routing, racing the authenticated catalog fixtures installed below.
+  const rendererNetwork = await app.context().newCDPSession(page);
+  await rendererNetwork.send("Network.enable");
+  await rendererNetwork.send("Network.setBypassServiceWorker", { bypass: true });
+
   // The Electron main process may start its first navigation before Playwright
   // can install routes on the BrowserContext. Establish one controlled mocked
   // navigation first, then monitor a fresh reload so startup-only network noise
