@@ -1,6 +1,6 @@
 # HayKasa yt-dlp playback design
 
-Status: proposed architecture; awaiting written-spec review before implementation.
+Status: approved by the owner on 2026-10-10; implementation plan review pending.
 Target: PR28, based on main after PR27. No merge or production deployment is included.
 
 ## Outcome and constraints
