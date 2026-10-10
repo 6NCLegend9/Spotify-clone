@@ -298,3 +298,19 @@ If no valid signed GitHub stable release is available, the stable manifest stays
 ## License
 
 The desktop shell uses the repository's [MIT License](../LICENSE). Packaged builds include `licenses/LICENSE` in the application resources. Preserve this file when redistributing the desktop package.
+
+### Manual download during release migration
+
+When no verified signed stable release is available, `/api/desktop/manifest`
+can expose a separate `manualDownload` descriptor for the existing
+`desktop-latest/HayKasa-Setup-x64.exe` asset. Its repository, tag, filename,
+uploaded state, size, SHA-256, and canonical GitHub asset URL are pinned and
+validated before `/api/desktop/download` redirects. Mismatched asset metadata fails closed. GitHub metadata is cached for up to
+five minutes; the redirect does not independently verify downloaded bytes. The website labels this as a legacy installer and does not promise
+automatic updates or a verified publisher signature.
+
+This descriptor does not set `published`, `signed`, or the updater's
+`downloadUrl`. Stable and beta automatic updates continue to require the
+verified signed release bundle. A verified stable installer takes precedence
+and replaces the manual fallback automatically. Deploy the web change before
+expecting the production download button to change.
