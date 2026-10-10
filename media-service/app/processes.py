@@ -18,8 +18,16 @@ async def run_tool(argv, deadline_seconds, output_limit_bytes=4 * 1024 * 1024, d
     async def disk_guard():
         while True:
             await asyncio.sleep(.2)
-            if directory and disk_limit and sum(p.stat().st_size for p in directory.rglob("*") if p.is_file()) > disk_limit:
-                raise ValueError("temporary_disk_limit")
+            size = 0
+            if directory and disk_limit:
+                for path in directory.rglob("*"):
+                    try:
+                        if path.is_file():
+                            size += path.stat().st_size
+                    except FileNotFoundError:
+                        pass  # Downloader/FFmpeg can atomically rename a part.
+                if size > disk_limit:
+                    raise ValueError("temporary_disk_limit")
 
     stdout = asyncio.create_task(collect(process.stdout))
     stderr = asyncio.create_task(collect(process.stderr))

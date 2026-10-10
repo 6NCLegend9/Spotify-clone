@@ -3,6 +3,7 @@ import hmac
 import re
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from .assets import deliver
 from .config import Config
 from .jobs import JobManager
@@ -34,6 +35,13 @@ def manager(request: Request):
 
 @app.middleware("http")
 async def no_store(request, call_next):
+    if request.url.path.startswith("/v1/jobs"):
+        if not hmac.compare_digest(request.headers.get("authorization", ""), f"Bearer {config.api_key}"):
+            return JSONResponse({"detail": "unauthorized"}, status_code=401)
+        if request.method == "POST" and request.url.path == "/v1/jobs":
+            length = request.headers.get("content-length", "")
+            if not length.isdecimal() or int(length) > 4096:
+                return JSONResponse({"detail": "request_size_invalid"}, status_code=413)
     response = await call_next(request)
     response.headers["Cache-Control"] = "private, no-store"
     return response

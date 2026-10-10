@@ -4,9 +4,11 @@ COPY --from=javascript /usr/local/bin/node /usr/local/bin/node
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /service
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=secret,id=custom_ca \
+    if [ -f /run/secrets/custom_ca ]; then cat /run/secrets/custom_ca >> /etc/ssl/certs/ca-certificates.crt; fi && \
+    PIP_CERT=/etc/ssl/certs/ca-certificates.crt pip install --no-cache-dir -r requirements.txt
 RUN useradd --uid 10001 --create-home media && mkdir /cache && chown media:media /cache
-COPY app ./app
+COPY --chown=media:media app ./app
 USER media
 ENV MEDIA_CACHE_DIR=/cache MEDIA_JS_RUNTIME=node:/usr/local/bin/node PYTHONDONTWRITEBYTECODE=1
 EXPOSE 8090
