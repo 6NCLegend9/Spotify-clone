@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { isTrackAllowed } from "@/utils/explicitContent.mjs";
 import {
   alternateSearchQuery,
   youtubePlaybackFailurePolicy,
@@ -23,7 +24,7 @@ import {
   restoreQueueOrder,
   shuffleUpcoming,
 } from "@/utils/playerQueue.mjs";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch, useSelector, useStore } from "react-redux";
 import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import {
@@ -143,6 +144,7 @@ const recordPlayEvent = (id, event) => {
 
 function YouTubePlayer() {
   const dispatch = useDispatch();
+  const store = useStore();
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const repeatRef = useRef(false);
@@ -1020,7 +1022,7 @@ function YouTubePlayer() {
         alternateState.rejectedIds.add(current.id);
         const alternate = await resolveAlternateUpload(current, alternateState.rejectedIds);
         if (!youtubeRecoveryScopeMatches(recoveryScope, videoRef.current)) return;
-        if (alternate?.id) {
+        if (alternate?.id && isTrackAllowed(alternate, store.getState().settings.explicitContent)) {
           alternateState.rejectedIds.add(alternate.id);
           toast(`Trying another upload of “${current.title || "this song"}”.`);
           setPlayerError(null);
@@ -1059,7 +1061,7 @@ function YouTubePlayer() {
     nextVideo,
     { recordCompletion = true } = {},
   ) => {
-    if (!nextVideo?.id) return;
+    if (!nextVideo?.id || !isTrackAllowed(nextVideo, store.getState().settings.explicitContent)) return;
     stopFadeTimers();
     let player = deckPlayerRefs[key].current;
     if (!player) {
@@ -1102,6 +1104,8 @@ function YouTubePlayer() {
     videoId,
     { onFirstPlaying, onDeckReady, autoplay = true, title, forceIframe = false, startSeconds = 0 } = {},
   ) => {
+    const track = [videoRef.current, ...queueRef.current].find((item) => item?.id === videoId) || { title };
+    if (!isTrackAllowed(track, store.getState().settings.explicitContent)) return null;
     const host = deckHostRefs[key].current;
     if (!host) return null;
     destroyDeck(key);
@@ -1683,6 +1687,7 @@ function YouTubePlayer() {
   };
 
   const preloadNext = (nextVideo) => {
+    if (!isTrackAllowed(nextVideo, store.getState().settings.explicitContent)) return;
     if (!nextVideo?.id || !apiReady || transitionMode === "off" || dataSaver || getActivePlayer()?.provider === "native") return;
     if (nextVideo.thumbnail && typeof window !== "undefined") {
       try {
@@ -2289,7 +2294,7 @@ function YouTubePlayer() {
         }
       }
 
-      const nextTracks = diversifyRadioTracks(pool, {
+      const nextTracks = diversifyRadioTracks(pool.filter((track) => isTrackAllowed(track, store.getState().settings.explicitContent)), {
         seedArtist: originArtist,
         excludeArtists: excludedArtists,
         excludeTracks: list,

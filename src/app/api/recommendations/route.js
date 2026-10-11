@@ -4,6 +4,7 @@ import UserData from "@/models/UserData";
 import Genre from "@/models/Genre";
 import { youtubeFetch } from "@/utils/youtubeApi";
 import { cleanArtist, cleanTitle } from "@/utils/text";
+import { isTrackAllowed } from "@/utils/explicitContent.mjs";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { ensureSystemGenres } from "@/services/genreCatalog";
 import { normalizeGenreName } from "@/utils/genreTaxonomy";
@@ -160,10 +161,10 @@ export async function GET(request) {
     const snoozed = new Set(activeSnoozedTracks(profile));
     const skipped = new Set(profile?.skippedTracks || []);
     const recent = new Set((profile?.songHistory || []).map((song) => song?.id || song));
-    const explicitDisabled = mode === "guest" || profile?.settings?.explicitContent === false;
+    const explicitDisabled = mode === "guest" || profile?.settings?.explicitContent !== true;
     const filterRecommendations = (videos) => uniqueSongs(videos
       .filter((video) => !excluded.has(video.id) && !snoozed.has(video.id) && !skipped.has(video.id) && !recent.has(video.id))
-      .filter((video) => !explicitDisabled || !/explicit|uncensored|18\+/i.test(`${video.title} ${video.description}`)));
+      .filter((video) => isTrackAllowed(video, !explicitDisabled)));
 
     let source = "search";
     let recommendations = [];

@@ -2,7 +2,7 @@
 
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import { useEffect, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
@@ -24,6 +24,7 @@ import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
 import { isArtistFollowed, updateArtistMembership } from "@/utils/followedArtistsList.mjs";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
+import { isTrackAllowed } from "@/utils/explicitContent.mjs";
 
 export default function YouTubeMusicResults({ query }) {
   const searchParams = useSearchParams();
@@ -40,6 +41,8 @@ export default function YouTubeMusicResults({ query }) {
     router.push(`${pathname}?${parameters}`, { scroll: false });
   };
   const [results, setResults] = useState([]);
+  const allowExplicit = useSelector((state) => state.settings.explicitContent === true);
+  const visibleResults = results.filter((track) => isTrackAllowed(track, allowExplicit));
   const [nextPageToken, setNextPageToken] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState(null);
@@ -378,7 +381,7 @@ export default function YouTubeMusicResults({ query }) {
       </div>
 
       {loading && <CardGridSkeleton count={6} aspect="aspect-video" />}
-      {!loading && !songError && resultType === "video" && searchSource === "fallback" && results.length > 0 && (
+      {!loading && !songError && resultType === "video" && searchSource === "fallback" && visibleResults.length > 0 && (
         <p className="mb-4 text-sm text-gray-400" role="status">
           These results are unverified for in-app playback. Some may fail here even when they work on YouTube. HayKasa will try another upload or skip automatically.
         </p>
@@ -391,7 +394,7 @@ export default function YouTubeMusicResults({ query }) {
           busy={loading}
         />
       )}
-      {!loading && !songError && (resultType === "video" ? results : resultType === "channel" ? artists : albums).length === 0 && (
+      {!loading && !songError && (resultType === "video" ? visibleResults : resultType === "channel" ? artists : albums).length === 0 && (
         <EmptyState
           eyebrow="Search"
           title="No music found"
@@ -402,7 +405,7 @@ export default function YouTubeMusicResults({ query }) {
       )}
 
       {resultType === "video" && <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {results.map((video) => {
+        {visibleResults.map((video) => {
           const title = cleanTitle(video.title);
           const channel = cleanArtist(video.channel);
           const playVideo = () => {
@@ -438,7 +441,7 @@ export default function YouTubeMusicResults({ query }) {
         })}
       </div>}
 
-      {!loading && resultType === "video" && results.length > 0 && !extrasLoaded && (
+      {!loading && resultType === "video" && visibleResults.length > 0 && !extrasLoaded && (
         <button
           type="button"
           onClick={() => void loadExtras()}

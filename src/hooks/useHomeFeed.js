@@ -9,6 +9,7 @@ import { requestJson } from "@/services/http";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { toUserError } from "@/utils/userError";
 import { accountOwner, readAccountCache, writeAccountCache } from "@/utils/accountCache.mjs";
+import { isTrackAllowed } from "@/utils/explicitContent.mjs";
 
 const HOME_CACHE_KEY = "HayKasa-home-recommendations-v3";
 const HOME_CACHE_TTL = 5 * 60_000;
@@ -44,6 +45,7 @@ export default function useHomeFeed() {
   const dispatch = useDispatch();
   const { data: session, status } = useSession();
   const privateSession = useSelector((state) => state.settings.privateSession);
+  const allowExplicit = useSelector((state) => state.settings.explicitContent === true);
   const owner = accountOwner(session, status);
   const [home, setHome] = useState({ owner: null, data: null });
   const data = owner && home.owner === owner && home.privateSession === privateSession ? home.data : null;
@@ -239,14 +241,18 @@ export default function useHomeFeed() {
 
   const feed = useMemo(() => {
     const sections = data?.sections || {};
+    const allowed = (tracks) => (Array.isArray(tracks) ? tracks : []).filter((track) => isTrackAllowed(track, allowExplicit));
     return {
-      trending: sections.trending || [],
-      charts: sections.charts || [],
-      newReleases: sections.newReleases || [],
+      trending: allowed(sections.trending),
+      charts: allowed(sections.charts),
+      newReleases: allowed(sections.newReleases),
       featuredPlaylists: sections.featuredPlaylists || [],
-      genreSections: Array.isArray(sections.genres) ? sections.genres : [],
+      genreSections: (Array.isArray(sections.genres) ? sections.genres : []).map((section) => ({ ...section, videos: allowed(section.videos) })),
     };
-  }, [data]);
+  }, [data, allowExplicit]);
+
+  const visibleHistory = libraryOwner === owner ? history.filter((track) => isTrackAllowed(track, allowExplicit)) : [];
+  const visibleReleases = libraryOwner === owner ? releases.filter((track) => isTrackAllowed(track, allowExplicit)) : [];
 
   return {
     status,
@@ -255,9 +261,9 @@ export default function useHomeFeed() {
     error: home.owner === owner ? error : null,
     retry: () => setRetryKey((value) => value + 1),
     isPersonalized,
-    history: libraryOwner === owner ? history : [],
+    history: visibleHistory,
     playlists: libraryOwner === owner ? playlists : [],
-    releases: libraryOwner === owner ? releases : [],
+    releases: visibleReleases,
     ...feed,
     hasAny:
       (feed.trending?.length || 0) +
@@ -265,7 +271,7 @@ export default function useHomeFeed() {
         (feed.newReleases?.length || 0) +
         (feed.featuredPlaylists?.length || 0) +
         (feed.genreSections || []).reduce((sum, section) => sum + (section.videos?.length || 0), 0) +
-        (libraryOwner === owner ? history.length + playlists.length + releases.length : 0) >
+        visibleHistory.length + visibleReleases.length + (libraryOwner === owner ? playlists.length : 0) >
       0,
   };
 }

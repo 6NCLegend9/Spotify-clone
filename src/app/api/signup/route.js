@@ -59,10 +59,10 @@ export async function POST(request) {
                 message: "Please enter a valid email address.",
             });
         }
-        if (validatePassword(password)) {
+        const passwordError = validatePassword(password);
+        if (passwordError) {
             return apiError("VALIDATION_ERROR", {
-                title: "Invalid password",
-                message: "Use a password between 8 and 72 characters.",
+                ...passwordError,
             });
         }
 
