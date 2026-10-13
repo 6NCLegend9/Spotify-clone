@@ -50,6 +50,8 @@ function DesktopToggle({ label, description, checked, disabled, onChange }) {
 
 export default function DesktopAppCard() {
   const [manifest, setManifest] = useState(null);
+  const [manifestState, setManifestState] = useState("loading");
+  const [manifestRefresh, setManifestRefresh] = useState(0);
   const [desktopInfo, setDesktopInfo] = useState(null);
   const [updateStatus, setUpdateStatus] = useState(null);
   const [startupEnabled, setStartupEnabled] = useState(null);
@@ -63,20 +65,35 @@ export default function DesktopAppCard() {
   const supportsStartup = hasDesktopCapability(desktopInfo, "autoLaunchV1");
   const supportsPreferences = hasDesktopCapability(desktopInfo, "desktopPreferencesV1");
   const supportsTray = hasDesktopCapability(desktopInfo, "trayV1");
+  const updateChannel = preferences?.updateChannel || desktopInfo?.buildChannel || "stable";
+  const allowsInternal = desktopInfo?.buildChannel === "internal" || desktopInfo?.packaged === false;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setManifest(null);
+    setManifestState("loading");
+    requestJson(`/api/desktop/manifest?channel=${encodeURIComponent(updateChannel)}`, {
+      signal: controller.signal,
+      useCache: false,
+      fallbackTitle: "Desktop release information unavailable",
+      fallbackMessage: "Could not load the current HayKasa Desktop release.",
+    }).then((value) => {
+      if (controller.signal.aborted) return;
+      setManifest(value);
+      setManifestState("loaded");
+    }).catch(() => {
+      if (!controller.signal.aborted) setManifestState("error");
+    });
+    return () => controller.abort();
+  }, [updateChannel, manifestRefresh]);
 
   useEffect(() => {
     let active = true;
     let unsubscribe = null;
 
     const load = async () => {
-      const manifestPromise = requestJson("/api/desktop/manifest", {
-        fallbackTitle: "Desktop release information unavailable",
-        fallbackMessage: "Could not load the current HayKasa Desktop release.",
-      }).catch(() => null);
-      const infoPromise = getHeyKasaDesktopInfo();
-      const [nextManifest, nextInfo] = await Promise.all([manifestPromise, infoPromise]);
+      const nextInfo = await getHeyKasaDesktopInfo();
       if (!active) return;
-      setManifest(nextManifest);
       setDesktopInfo(nextInfo);
 
       const api = getHeyKasaDesktopApi();
@@ -112,13 +129,13 @@ export default function DesktopAppCard() {
   const availableDownload = manifest?.published ? manifest : manualDownload;
   const publishedReleaseVersion = manifest?.published && manifest?.latest ? `v${manifest.latest}` : "";
   const releaseLabel = useMemo(() => {
-    if (!manifest) return "Checking release…";
+    if (!manifest) return manifestState === "error" ? "Release information unavailable" : "Checking release…";
     if (!manifest.published) return manualDownload
       ? ["Legacy installer", formatBytes(manualDownload.sizeBytes)].filter(Boolean).join(" · ")
       : "No installer available";
     const details = [publishedReleaseVersion, formatBytes(manifest.sizeBytes)].filter(Boolean);
     return details.join(" · ") || "Windows x64";
-  }, [manifest, manualDownload, publishedReleaseVersion]);
+  }, [manifest, manifestState, manualDownload, publishedReleaseVersion]);
 
   const checkUpdates = async () => {
     if (!desktopApi?.updates?.check || busy) return;
@@ -130,6 +147,7 @@ export default function DesktopAppCard() {
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Could not check for updates.");
     } finally {
+      setManifestRefresh((value) => value + 1);
       setBusy("");
     }
   };
@@ -214,9 +232,11 @@ export default function DesktopAppCard() {
             </p>
           </div>
           <div className="rounded-lg border border-white/10 bg-black/10 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-[#778899]">Latest stable release</p>
+            <p className="text-xs uppercase tracking-[0.14em] text-[#778899]">Latest {updateChannel} release</p>
             <p className="mt-1 text-lg font-semibold">
-              {!manifest ? "Checking…" : publishedReleaseVersion || "No stable release published"}
+              {!manifest
+                ? manifestState === "error" ? "Release information unavailable" : "Checking…"
+                : publishedReleaseVersion || `No ${updateChannel} release published`}
             </p>
             <p className="mt-1 text-xs text-[#9aa8b5]">{updateCopy(updateStatus)}</p>
           </div>
@@ -252,10 +272,20 @@ export default function DesktopAppCard() {
           ) : null}
 
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/10 px-4 py-3">
-            <span className="text-xs text-[#9aa8b5]">Update channel</span>
-            <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-gray-200">
-              {preferences?.updateChannel || manifest?.channel || "stable"}
-            </span>
+            <label htmlFor="desktop-update-channel" className="text-xs text-[#9aa8b5]">Update channel</label>
+            {supportsPreferences && supportsUpdater ? (
+              <select
+                id="desktop-update-channel"
+                value={updateChannel}
+                disabled={!preferences || Boolean(busy)}
+                onChange={(event) => void setPreference("updateChannel", event.target.value)}
+                className="min-h-11 rounded-lg border border-white/10 bg-[#181818] px-3 text-sm text-gray-200 disabled:opacity-50"
+              >
+                <option value="stable">Stable</option>
+                <option value="beta">Beta</option>
+                {allowsInternal ? <option value="internal">Internal test builds</option> : null}
+              </select>
+            ) : <span className="text-xs font-semibold text-gray-200">{updateChannel}</span>}
           </div>
 
           <div className="flex flex-wrap gap-3 lg:col-span-2">

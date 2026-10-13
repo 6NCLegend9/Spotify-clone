@@ -970,6 +970,7 @@ function registerIpcHandlers() {
   secureHandle("heykasa:get-info", () => ({
     productName: PRODUCT_NAME,
     desktopVersion: app.getVersion(),
+    buildChannel: DESKTOP_BUILD_CHANNEL,
     apiVersion: DESKTOP_API_VERSION,
     capabilities: effectiveCapabilities(),
     platform: process.platform,

@@ -30,6 +30,9 @@ export async function getHeyKasaDesktopInfo() {
     return {
       productName: typeof info.productName === "string" ? info.productName : "HayKasa",
       desktopVersion: typeof info.desktopVersion === "string" ? info.desktopVersion : "",
+      buildChannel: ["stable", "beta", "internal"].includes(info.buildChannel)
+        ? info.buildChannel
+        : "stable",
       apiVersion: Number.isInteger(info.apiVersion) ? info.apiVersion : 0,
       capabilities: Array.isArray(info.capabilities)
         ? info.capabilities.filter((value) => typeof value === "string")

@@ -1,6 +1,6 @@
 {
   "name": "heykasa-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "private": true,
   "description": "Secure Windows desktop shell for HayKasa",

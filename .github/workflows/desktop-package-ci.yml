@@ -55,9 +55,12 @@ jobs:
         run: npm --prefix desktop audit --omit=dev --audit-level=high
       - name: Stamp internal preview channel
         run: npm --prefix desktop pkg set heykasaReleaseChannel=internal
-      - name: Stamp main-channel update version
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npm --prefix desktop version "1.0.${{ github.run_number }}" --no-git-tag-version
+      - name: Stamp internal test version
+        shell: pwsh
+        run: |
+          $baseVersion = (Get-Content desktop/package.json -Raw | ConvertFrom-Json).version.Split('-')[0]
+          npm --prefix desktop version "$baseVersion-internal.${{ github.run_number }}" --no-git-tag-version
+          if ($LASTEXITCODE -ne 0) { throw "Could not stamp the internal test version" }
       - name: Build unsigned Windows installer
         run: npm --prefix desktop run dist
       - name: Verify Windows installer
