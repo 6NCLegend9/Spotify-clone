@@ -1,3 +1,4 @@
+import { canWriteAccountCache } from "./accountStorage.mjs";
 export const JAM_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 export const JAM_CODE_LENGTH = 6;
 export const EMPTY_JAM_MS = 10 * 60 * 1000;
@@ -112,7 +113,7 @@ export function readJamSession() {
 }
 
 export function writeJamSession(session) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !canWriteAccountCache(`account:${session?.participantId}`)) return;
   try {
     if (!isJamCode(session?.code) || (session?.role !== "host" && session?.role !== "guest")) {
       window.sessionStorage.removeItem(JAM_SESSION_KEY);

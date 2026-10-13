@@ -1,6 +1,9 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
+import { displayName } from "@/utils/inputText.mjs";
+
+import { useSession } from "next-auth/react";
+import { signOutWithPrivacy as signOut } from "@/utils/signOut";
 import { useRouter } from "next/navigation";
 import { getUserInfo } from "@/services/dataAPI";
 import { MdLogout } from "react-icons/md";
@@ -16,10 +19,7 @@ const AccountProfile = ({ status, data }) => {
   const [user, setUser] = useState(null);
   const [imageFailed, setImageFailed] = useState(false);
   const rawUserName = data?.user?.name || data?.userName || user?.userName;
-  const userName =
-    typeof rawUserName === "string" && rawUserName.trim()
-      ? rawUserName.trim()
-      : "Account";
+  const userName = displayName(rawUserName, 80, { truncate: true }) || "Account";
   const rawUserEmail = data?.user?.email || data?.email || user?.email;
   const userEmail = typeof rawUserEmail === "string" ? rawUserEmail : "";
   const rawImageUrl =

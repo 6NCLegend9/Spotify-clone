@@ -1,3 +1,4 @@
+import { accountStorageGeneration } from "@/utils/accountStorage.mjs";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 
@@ -39,6 +40,7 @@ function libraryLoadError(error, fallback) {
 export async function hydrateYouTubeTracks(values = [], { retainUnavailable = false } = {}) {
   const ids = validYouTubeIds(values);
   if (ids.length === 0) return [];
+  const cacheGeneration = accountStorageGeneration();
   const cache = typeof window === "undefined" ? {} : readTrackCache();
   const now = Date.now();
   const missing = [];
@@ -86,7 +88,7 @@ export async function hydrateYouTubeTracks(values = [], { retainUnavailable = fa
   fetched.forEach((track) => {
     cache[track.id] = { track, expiresAt: now + TRACK_CACHE_TTL_MS };
   });
-  if (typeof window !== "undefined") writeTrackCache(cache);
+  if (typeof window !== "undefined" && cacheGeneration === accountStorageGeneration()) writeTrackCache(cache);
 
   const tracksById = new Map([
     ...hydrated.map((track) => [track.id, track]),

@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useJam } from "@/components/Jam/JamProvider";
 import { playPause, restorePlayback } from "@/redux/features/playerSlice";
 import { readPlaybackSnapshot, writePlaybackSnapshot } from "@/utils/playbackSnapshot.mjs";
+import { ACCOUNT_DATA_CLEARED } from "@/utils/accountStorage.mjs";
 import { accountOwner } from "@/utils/accountCache.mjs";
 
 export default function PlaybackPersistence() {
@@ -15,6 +16,15 @@ export default function PlaybackPersistence() {
   const owner = accountOwner(session, status);
   const inJam = Boolean(jam?.code);
   const wasInJam = useRef(inJam);
+
+  useEffect(() => {
+    const clearPlayback = () => {
+      store.dispatch(restorePlayback({ owner: null, snapshot: null }));
+      store.dispatch(playPause(false));
+    };
+    window.addEventListener(ACCOUNT_DATA_CLEARED, clearPlayback);
+    return () => window.removeEventListener(ACCOUNT_DATA_CLEARED, clearPlayback);
+  }, [store]);
 
   useEffect(() => {
     const leavingJam = wasInJam.current && !inJam;

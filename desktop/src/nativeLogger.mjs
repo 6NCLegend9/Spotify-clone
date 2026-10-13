@@ -5,9 +5,19 @@ const MAX_LOG_BYTES = 2 * 1024 * 1024;
 const MAX_FIELD_LENGTH = 1000;
 const SENSITIVE_KEY = /token|cookie|password|secret|authorization|credential|verifier|challenge|code$/i;
 
+function safeText(value) {
+  return value.replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\b(?:https?|wss?):\/\/[^\s"'<>]+/gi, "[url redacted]")
+    .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[token redacted]")
+    .replace(/\b(token|cookie|password|secret|authorization|credential|verifier|challenge|code)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi, "$1=[redacted]")
+    .replace(/[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[email redacted]")
+    .slice(0, MAX_FIELD_LENGTH);
+}
+
 function safePrimitive(value) {
   if (value === null || typeof value === "boolean" || typeof value === "number") return value;
-  if (typeof value === "string") return value.replace(/[\u0000-\u001f\u007f]+/g, " ").slice(0, MAX_FIELD_LENGTH);
+  if (typeof value === "string") return safeText(value);
   return undefined;
 }
 
@@ -19,7 +29,8 @@ function sanitizeFields(value) {
       output[key] = "[redacted]";
       continue;
     }
-    const primitive = safePrimitive(raw);
+    const primitive = /^(?:error|stack|message|description)$/i.test(key) && typeof raw === "string"
+      ? "operation_failed" : safePrimitive(raw);
     if (primitive !== undefined) output[key] = primitive;
   }
   return output;
@@ -29,6 +40,13 @@ export class NativeLogger {
   constructor(userDataDir) {
     this.directory = path.join(userDataDir, "logs");
     this.file = path.join(this.directory, "desktop.log");
+    for (const file of [this.file, `${this.file}.1`]) {
+      try {
+        const entries = this.readEntries(file).map((entry) => JSON.stringify(entry));
+        fs.writeFileSync(file, entries.length ? `${entries.join("\n")}\n` : "", { encoding: "utf8", mode: 0o600 });
+        fs.chmodSync(file, 0o600);
+      } catch { /* Existing diagnostics may be inaccessible. */ }
+    }
   }
 
   rotateIfNeeded() {
@@ -72,20 +90,23 @@ export class NativeLogger {
     this.write("error", event, fields);
   }
 
+  readEntries(file = this.file) {
+    const descriptor = fs.openSync(file, "r");
+    try {
+      const size = fs.fstatSync(descriptor).size;
+      const buffer = Buffer.alloc(Math.min(size, MAX_LOG_BYTES));
+      fs.readSync(descriptor, buffer, 0, buffer.length, Math.max(0, size - buffer.length));
+      const lines = buffer.toString("utf8").split("\n");
+      if (size > MAX_LOG_BYTES) lines.shift();
+      return lines.filter(Boolean).flatMap((line) => {
+        try { return [sanitizeFields(JSON.parse(line))]; } catch { return []; }
+      });
+    } finally { fs.closeSync(descriptor); }
+  }
+
   tail(limit = 100) {
     const count = Math.max(1, Math.min(250, Number(limit) || 100));
-    try {
-      const lines = fs.readFileSync(this.file, "utf8").trim().split("\n").filter(Boolean);
-      return lines.slice(-count).map((line) => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          return null;
-        }
-      }).filter(Boolean);
-    } catch {
-      return [];
-    }
+    try { return this.readEntries().slice(-count); } catch { return []; }
   }
 
   clear() {

@@ -3,6 +3,8 @@ import hmac
 import re
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from .body_limit import JobBodyLimit
 from fastapi.responses import JSONResponse
 from .assets import deliver
 from .config import Config
@@ -20,6 +22,7 @@ async def lifespan(application):
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app.add_middleware(JobBodyLimit)
 app.add_middleware(CORSMiddleware, allow_origins=config.origins, allow_methods=["GET", "HEAD"], allow_headers=["Range"], expose_headers=["Accept-Ranges", "Content-Range", "Content-Length"], max_age=600)
 
 
@@ -38,13 +41,17 @@ async def no_store(request, call_next):
     if request.url.path.startswith("/v1/jobs"):
         if not hmac.compare_digest(request.headers.get("authorization", "").encode(), f"Bearer {config.api_key}".encode()):
             return JSONResponse({"detail": "unauthorized"}, status_code=401)
-        if request.method == "POST" and request.url.path == "/v1/jobs":
-            length = request.headers.get("content-length", "")
-            if not length.isdecimal() or int(length) > 4096:
-                return JSONResponse({"detail": "request_size_invalid"}, status_code=413)
     response = await call_next(request)
     response.headers["Cache-Control"] = "private, no-store"
     return response
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(_request, error):
+    errors = [{"type": str(item.get("type", "invalid"))[:64],
+               "loc": [str(part)[:64] for part in item.get("loc", [])[:6]]}
+              for item in error.errors()[:10]]
+    return JSONResponse({"detail": "request_invalid", "errors": errors}, status_code=422)
 
 
 @app.get("/health")

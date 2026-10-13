@@ -1,0 +1,34 @@
+name: Security Regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sandbox-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Web and native security regression cases
+        run: node docs/qa/security-audit/run.cjs /tmp/heykasa-web-regressions.json --verify-fixes
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Install pinned media service runtime and test transport
+        run: python3 -m pip install -r media-service/requirements.txt httpx==0.28.1
+      - name: Media service security regression cases
+        run: python3 docs/qa/security-audit/run_media.py /tmp/heykasa-media-regressions.json --verify-fixes

@@ -1,5 +1,6 @@
 "use client";
 
+import { decodeArcadeAudio, validateArcadeAudioFile } from "@/utils/arcadeAudioFile.mjs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -88,25 +89,17 @@ function ArcadeProgress({ clockRef, durationHint, active }) {
   );
 }
 
-async function chartFromFile(file) {
-  const buffer = await file.arrayBuffer();
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) return null;
-  const context = new AudioContextClass();
-  try {
-    const decoded = await context.decodeAudioData(buffer.slice(0));
-    const analysis = analyzePcm(decoded.getChannelData(0), decoded.sampleRate);
-    return buildRhythmChart({
-      duration: analysis.duration || decoded.duration,
-      bpm: analysis.bpm,
-      seed: file.name,
-      title: file.name,
-      lanes: 4,
-      onsets: analysis.onsets,
-    });
-  } finally {
-    context.close?.().catch(() => {});
-  }
+async function chartFromFile(file, signal) {
+  const decoded = await decodeArcadeAudio(file, { signal, AudioContextClass: window.AudioContext || window.webkitAudioContext });
+  const analysis = analyzePcm(decoded.getChannelData(0), decoded.sampleRate);
+  return buildRhythmChart({
+    duration: analysis.duration || decoded.duration,
+    bpm: analysis.bpm,
+    seed: file.name,
+    title: file.name,
+    lanes: 4,
+    onsets: analysis.onsets,
+  });
 }
 
 function chartFromTrack(track) {
@@ -132,6 +125,7 @@ export default function ArcadeStage() {
   const rootRef = useRef(null);
   const audioRef = useRef(null);
   const objectUrlRef = useRef(null);
+  const fileImportRef = useRef(null);
   const resumeOnExitRef = useRef(false);
   const mainTrackRef = useRef(null);
 
@@ -226,6 +220,9 @@ export default function ArcadeStage() {
   }, [controlMainPlayer, countdown, followLive, result, source, step]);
 
   useEffect(() => () => {
+    const controller = fileImportRef.current;
+    fileImportRef.current = null;
+    controller?.abort();
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
   }, []);
 
@@ -288,32 +285,44 @@ export default function ArcadeStage() {
   }, [analyzer, controlMainPlayer, countdown, followLive, result, roundKey, source, step]);
 
   const pickFile = useCallback(async (file) => {
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    const url = URL.createObjectURL(file);
-    objectUrlRef.current = url;
-    setTrackLabel(file.name.replace(/\.[^.]+$/, ""));
-    setSource("file");
-    setVideoId("");
-    setQueueEntryId("");
+    try { validateArcadeAudioFile(file); } catch (error) { toast.error(error.message); return; }
+    fileImportRef.current?.abort();
+    const controller = new AbortController();
+    fileImportRef.current = controller;
+    const deadline = setTimeout(() => controller.abort(), 30_000);
     setChartStatus("analyzing");
-    setFollowLive(false);
-    controlMainPlayer(false);
-    const audio = audioRef.current;
-    if (audio) {
-      audio.src = url;
-      analyzer.attach(audio);
-    }
     try {
-      const nextChart = await chartFromFile(file);
-      setChart(nextChart || buildRhythmChart({ seed: file.name, title: file.name }));
+      const nextChart = await chartFromFile(file, controller.signal);
+      if (controller.signal.aborted) return;
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      const url = URL.createObjectURL(file);
+      objectUrlRef.current = url;
+      setTrackLabel(file.name.replace(/\.[^.]+$/, ""));
+      setSource("file");
+      setVideoId("");
+      setQueueEntryId("");
+      setFollowLive(false);
+      controlMainPlayer(false);
+      const audio = audioRef.current;
+      if (audio) { audio.src = url; analyzer.attach(audio); }
+      setChart(nextChart);
       setChartStatus("ready");
-    } catch {
-      setChart(buildRhythmChart({ seed: file.name, title: file.name }));
-      setChartStatus("ready");
+    } catch (error) {
+      if (fileImportRef.current === controller) {
+        toast.error(controller.signal.aborted ? "Audio import timed out or was cancelled." : "That audio file could not be read. Choose another supported file.");
+      }
+    } finally {
+      clearTimeout(deadline);
+      if (fileImportRef.current === controller) {
+        fileImportRef.current = null;
+        setChartStatus("ready");
+      }
     }
   }, [analyzer, controlMainPlayer]);
 
   const pickTrack = useCallback((track, { live = false } = {}) => {
+    fileImportRef.current?.abort();
+    fileImportRef.current = null;
     analyzer.release();
     if (audioRef.current) {
       audioRef.current.pause();

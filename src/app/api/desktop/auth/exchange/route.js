@@ -1,3 +1,4 @@
+import { readRequestJson, ApiRouteError } from "@/utils/apiResponseCore.mjs";
 import { encode } from "next-auth/jwt";
 import DesktopAuthGrant from "@/models/DesktopAuthGrant";
 import User from "@/models/User";
@@ -35,9 +36,9 @@ function jsonError(message, status = 400) {
 export async function POST(request) {
   let body;
   try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid desktop sign-in payload.");
+    body = await readRequestJson(request, { maxBytes: 4096 });
+  } catch (error) {
+    return jsonError("Invalid desktop sign-in payload.", error instanceof ApiRouteError ? error.status : 400);
   }
 
   const code = normalizeDesktopAuthCode(body?.code);

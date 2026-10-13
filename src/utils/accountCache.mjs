@@ -1,3 +1,4 @@
+import { canWriteAccountCache } from "./accountStorage.mjs";
 export function accountOwner(session, status) {
   if (status === "unauthenticated") return "guest";
   const id = session?.user?.id;
@@ -20,7 +21,7 @@ export function readAccountCache(storage, namespace, owner, maxAge = 300_000, no
 }
 
 export function writeAccountCache(storage, namespace, owner, data, now = Date.now()) {
-  if (!owner) return false;
+  if (!canWriteAccountCache(owner)) return false;
   try {
     const raw = JSON.stringify({ version: 1, owner, savedAt: now, data });
     if (raw.length > 300_000) return false;

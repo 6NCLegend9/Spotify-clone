@@ -1,0 +1,926 @@
+{
+  "cases": 91,
+  "results": [
+    {
+      "name": "job-payload:0",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 82
+        }
+      },
+      "ms": 4.72
+    },
+    {
+      "name": "job-payload:1",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 158
+        }
+      },
+      "ms": 0.8
+    },
+    {
+      "name": "job-payload:2",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 82
+        }
+      },
+      "ms": 1.24
+    },
+    {
+      "name": "job-payload:3",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 147
+        }
+      },
+      "ms": 1.19
+    },
+    {
+      "name": "job-payload:4",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 149
+        }
+      },
+      "ms": 1.33
+    },
+    {
+      "name": "job-payload:5",
+      "observation": {
+        "status": 500,
+        "body": "Internal Server Error"
+      },
+      "ms": 1.18
+    },
+    {
+      "name": "job-payload:6",
+      "observation": {
+        "status": 200,
+        "body": {
+          "jobId": "6939ee6f61ff4001b0e58d91b7f54515",
+          "state": "pending"
+        }
+      },
+      "ms": 1.25
+    },
+    {
+      "name": "job-payload:7",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 112
+        }
+      },
+      "ms": 1.25
+    },
+    {
+      "name": "job-payload:8",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 150
+        }
+      },
+      "ms": 1.07
+    },
+    {
+      "name": "job-payload:9",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 153
+        }
+      },
+      "ms": 1.44
+    },
+    {
+      "name": "job-payload:10",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 156
+        }
+      },
+      "ms": 1.25
+    },
+    {
+      "name": "job-payload:11",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 110
+        }
+      },
+      "ms": 1.07
+    },
+    {
+      "name": "job-payload:12",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 111
+        }
+      },
+      "ms": 1.14
+    },
+    {
+      "name": "job-payload:13",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 209
+        }
+      },
+      "ms": 1.33
+    },
+    {
+      "name": "job-payload:14",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 155
+        }
+      },
+      "ms": 1.07
+    },
+    {
+      "name": "job-payload:15",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 192
+        }
+      },
+      "ms": 1.07
+    },
+    {
+      "name": "job-payload:16",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 173
+        }
+      },
+      "ms": 1.25
+    },
+    {
+      "name": "job-payload:17",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.29
+    },
+    {
+      "name": "job-payload:18",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.28
+    },
+    {
+      "name": "job-payload:19",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 120
+        }
+      },
+      "ms": 1.03
+    },
+    {
+      "name": "job-payload:20",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 113
+        }
+      },
+      "ms": 1.04
+    },
+    {
+      "name": "job-payload:21",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 155
+        }
+      },
+      "ms": 1.26
+    },
+    {
+      "name": "job-payload:22",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 153
+        }
+      },
+      "ms": 1.45
+    },
+    {
+      "name": "job-payload:23",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 156
+        }
+      },
+      "ms": 1.11
+    },
+    {
+      "name": "job-payload:24",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 159
+        }
+      },
+      "ms": 1.4
+    },
+    {
+      "name": "job-payload:25",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 153
+        }
+      },
+      "ms": 1.13
+    },
+    {
+      "name": "job-payload:26",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 154
+        }
+      },
+      "ms": 1.09
+    },
+    {
+      "name": "job-payload:27",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 252
+        }
+      },
+      "ms": 1.75
+    },
+    {
+      "name": "job-payload:28",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 158
+        }
+      },
+      "ms": 1.09
+    },
+    {
+      "name": "job-payload:29",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 164
+        }
+      },
+      "ms": 1.14
+    },
+    {
+      "name": "job-payload:30",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 178
+        }
+      },
+      "ms": 14.3
+    },
+    {
+      "name": "job-payload:31",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.38
+    },
+    {
+      "name": "job-payload:32",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.26
+    },
+    {
+      "name": "job-payload:33",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 163
+        }
+      },
+      "ms": 1.17
+    },
+    {
+      "name": "job-payload:34",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 156
+        }
+      },
+      "ms": 1.52
+    },
+    {
+      "name": "job-payload:35",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 160
+        }
+      },
+      "ms": 1.22
+    },
+    {
+      "name": "job-payload:36",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 158
+        }
+      },
+      "ms": 2.01
+    },
+    {
+      "name": "job-payload:37",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 161
+        }
+      },
+      "ms": 1.32
+    },
+    {
+      "name": "job-payload:38",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 164
+        }
+      },
+      "ms": 1.09
+    },
+    {
+      "name": "job-payload:39",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 158
+        }
+      },
+      "ms": 1.16
+    },
+    {
+      "name": "job-payload:40",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 159
+        }
+      },
+      "ms": 1.3
+    },
+    {
+      "name": "job-payload:41",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 251
+        }
+      },
+      "ms": 1.06
+    },
+    {
+      "name": "job-payload:42",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 163
+        }
+      },
+      "ms": 1.12
+    },
+    {
+      "name": "job-payload:43",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 169
+        }
+      },
+      "ms": 1.24
+    },
+    {
+      "name": "job-payload:44",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 183
+        }
+      },
+      "ms": 1.33
+    },
+    {
+      "name": "job-payload:45",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.29
+    },
+    {
+      "name": "job-payload:46",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.25
+    },
+    {
+      "name": "job-payload:47",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 168
+        }
+      },
+      "ms": 1.13
+    },
+    {
+      "name": "job-payload:48",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 161
+        }
+      },
+      "ms": 1.41
+    },
+    {
+      "name": "job-payload:49",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 170
+        }
+      },
+      "ms": 1.06
+    },
+    {
+      "name": "job-payload:50",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 168
+        }
+      },
+      "ms": 1.14
+    },
+    {
+      "name": "job-payload:51",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 171
+        }
+      },
+      "ms": 1.25
+    },
+    {
+      "name": "job-payload:52",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 174
+        }
+      },
+      "ms": 1.36
+    },
+    {
+      "name": "job-payload:53",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 168
+        }
+      },
+      "ms": 1.13
+    },
+    {
+      "name": "job-payload:54",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 169
+        }
+      },
+      "ms": 1.28
+    },
+    {
+      "name": "job-payload:55",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 267
+        }
+      },
+      "ms": 1.09
+    },
+    {
+      "name": "job-payload:56",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 173
+        }
+      },
+      "ms": 1.03
+    },
+    {
+      "name": "job-payload:57",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 179
+        }
+      },
+      "ms": 1.35
+    },
+    {
+      "name": "job-payload:58",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 193
+        }
+      },
+      "ms": 1.08
+    },
+    {
+      "name": "job-payload:59",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.28
+    },
+    {
+      "name": "job-payload:60",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.24
+    },
+    {
+      "name": "job-payload:61",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 178
+        }
+      },
+      "ms": 1.04
+    },
+    {
+      "name": "job-payload:62",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 171
+        }
+      },
+      "ms": 1.35
+    },
+    {
+      "name": "jobs-oversize-correct-length",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.32
+    },
+    {
+      "name": "jobs-oversize-forged-length",
+      "observation": {
+        "status": 422,
+        "body": {
+          "errorCount": 1,
+          "echoBytes": 1048690
+        }
+      },
+      "ms": 10.29
+    },
+    {
+      "name": "jobs-overflow-content-length",
+      "observation": {
+        "status": 500,
+        "body": "Internal Server Error"
+      },
+      "ms": 0.54
+    },
+    {
+      "name": "jobs-negative-content-length",
+      "observation": {
+        "status": 413,
+        "body": {
+          "detail": "request_size_invalid"
+        }
+      },
+      "ms": 0.3
+    },
+    {
+      "name": "unauthorized-job",
+      "observation": {
+        "status": 401
+      },
+      "ms": 0.25
+    },
+    {
+      "name": "range:",
+      "observation": {
+        "status": 200,
+        "bodyLength": 10,
+        "contentRange": null
+      },
+      "ms": 1.41
+    },
+    {
+      "name": "range:bytes=",
+      "observation": {
+        "status": 416,
+        "bodyLength": 0,
+        "contentRange": "bytes */10"
+      },
+      "ms": 0.69
+    },
+    {
+      "name": "range:bytes=-0",
+      "observation": {
+        "status": 416,
+        "bodyLength": 0,
+        "contentRange": "bytes */10"
+      },
+      "ms": 0.53
+    },
+    {
+      "name": "range:bytes=9-2",
+      "observation": {
+        "status": 416,
+        "bodyLength": 0,
+        "contentRange": "bytes */10"
+      },
+      "ms": 0.73
+    },
+    {
+      "name": "range:bytes=100000-",
+      "observation": {
+        "status": 416,
+        "bodyLength": 0,
+        "contentRange": "bytes */10"
+      },
+      "ms": 0.53
+    },
+    {
+      "name": "range:bytes=0-1,3-4",
+      "observation": {
+        "status": 416,
+        "bodyLength": 0,
+        "contentRange": "bytes */10"
+      },
+      "ms": 0.53
+    },
+    {
+      "name": "range:bytes=0-1",
+      "observation": {
+        "status": 206,
+        "bodyLength": 2,
+        "contentRange": "bytes 0-1/10"
+      },
+      "ms": 0.81
+    },
+    {
+      "name": "range:bytes=-3",
+      "observation": {
+        "status": 206,
+        "bodyLength": 3,
+        "contentRange": "bytes 7-9/10"
+      },
+      "ms": 0.98
+    },
+    {
+      "name": "range:bytes=0-",
+      "observation": {
+        "status": 206,
+        "bodyLength": 10,
+        "contentRange": "bytes 0-9/10"
+      },
+      "ms": 0.87
+    },
+    {
+      "name": "range:bytes=999999999999999999999999999999999999999999999999999999",
+      "observation": {
+        "status": 416,
+        "bodyLength": 0,
+        "contentRange": "bytes */10"
+      },
+      "ms": 0.56
+    },
+    {
+      "name": "asset-invalid-lease:00000000",
+      "observation": {
+        "status": 403
+      },
+      "ms": 0.57
+    },
+    {
+      "name": "asset-invalid-lease:9a40824f",
+      "observation": {
+        "status": 403
+      },
+      "ms": 0.55
+    },
+    {
+      "name": "asset-invalid-lease:bad",
+      "observation": {
+        "status": 404
+      },
+      "ms": 0.48
+    },
+    {
+      "name": "path:/v1/assets/../../etc/passwd",
+      "observation": {
+        "status": 404,
+        "bodyLength": 22
+      },
+      "ms": 0.37
+    },
+    {
+      "name": "path:/v1/assets/%2e%2e%2fetc%2fpasswd",
+      "observation": {
+        "status": 404,
+        "bodyLength": 22
+      },
+      "ms": 0.52
+    },
+    {
+      "name": "path:/v1/jobs/../../health",
+      "observation": {
+        "status": 200,
+        "bodyLength": 14
+      },
+      "ms": 0.44
+    },
+    {
+      "name": "path:/v1/jobs/%00",
+      "observation": {
+        "status": 404,
+        "bodyLength": 28
+      },
+      "ms": 1.45
+    },
+    {
+      "name": "path:/v1/assets/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "observation": {
+        "status": 404,
+        "bodyLength": 30
+      },
+      "ms": 1.77
+    },
+    {
+      "name": "subscriber-boundary",
+      "observation": {
+        "wrongSubscriberBlocked": true,
+        "cancelled": true
+      },
+      "ms": 0.11
+    },
+    {
+      "name": "queue-capacity",
+      "observation": {
+        "pending": 5,
+        "limit": 5,
+        "newAccepted": 4
+      },
+      "ms": 0.1
+    },
+    {
+      "name": "subprocess-output-limit",
+      "observation": {
+        "supervisorTimeout": true,
+        "expectedDeadlineSeconds": 0.5,
+        "elapsedSeconds": 3.0
+      },
+      "ms": 3004.64
+    },
+    {
+      "name": "subprocess-deadline",
+      "observation": {
+        "reason": "tool_timeout"
+      },
+      "ms": 51.58
+    },
+    {
+      "name": "asset-truncated-during-delivery",
+      "observation": {
+        "status": 200,
+        "declaredLength": "100",
+        "actualBytes": 0
+      },
+      "ms": 0.24
+    }
+  ]
+}

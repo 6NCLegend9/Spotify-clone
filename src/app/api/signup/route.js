@@ -1,3 +1,4 @@
+import { displayName } from "@/utils/inputText.mjs";
 import dbConnect from "@/utils/dbconnect";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
@@ -40,10 +41,7 @@ export async function POST(request) {
         }
 
         const payload = await readRequestJson(request);
-        const userName =
-            typeof payload.userName === "string"
-                ? payload.userName.trim().slice(0, 50)
-                : "";
+        const userName = displayName(payload.userName, 50, { truncate: true });
         const email = normalizeEmail(payload.email);
         const password = typeof payload.password === "string" ? payload.password : "";
 

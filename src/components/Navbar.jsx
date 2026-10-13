@@ -1,7 +1,10 @@
 "use client";
 
+import { displayName } from "@/utils/inputText.mjs";
+
 import { useEffect, useState } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutWithPrivacy as signOut } from "@/utils/signOut";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { GoHome, GoHomeFill } from "react-icons/go";
@@ -23,10 +26,7 @@ const Navbar = () => {
   const [imageFailed, setImageFailed] = useState(false);
   const [canBack, setCanBack] = useState(false);
   const homeActive = pathname === "/";
-  const userName =
-    typeof session?.user?.name === "string" && session.user.name.trim()
-      ? session.user.name.trim()
-      : "Account";
+  const userName = displayName(session?.user?.name, 80, { truncate: true }) || "Account";
   const rawImageUrl = session?.user?.image || session?.user?.imageUrl;
   const imageUrl = typeof rawImageUrl === "string" ? rawImageUrl : "";
 

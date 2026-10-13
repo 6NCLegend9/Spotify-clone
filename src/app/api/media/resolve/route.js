@@ -1,3 +1,4 @@
+import { readRequestJson, ApiRouteError } from "@/utils/apiResponseCore.mjs";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
@@ -60,10 +61,8 @@ export async function POST(request) {
   if (!trusted(request)) return reply({ state: "failed", reason: "forbidden" }, 403);
   let body;
   try {
-    const text = await request.text();
-    if (text.length > 4096) return reply({ state: "failed", reason: "invalid_request" }, 400);
-    body = JSON.parse(text);
-  } catch { return reply({ state: "failed", reason: "invalid_request" }, 400); }
+    body = await readRequestJson(request, { maxBytes: 4096 });
+  } catch (error) { return reply({ state: "failed", reason: "invalid_request" }, error instanceof ApiRouteError ? error.status : 400); }
   if (!body || typeof body !== "object" || Array.isArray(body)) return reply({ state: "failed", reason: "invalid_request" }, 400);
   const action = body.action || "create";
   if (!["create", "poll", "renew", "cancel"].includes(action)) return reply({ state: "failed", reason: "invalid_request" }, 400);
@@ -72,8 +71,6 @@ export async function POST(request) {
 export async function DELETE(request) {
   if (!trusted(request)) return reply({ state: "failed", reason: "forbidden" }, 403);
   try {
-    const text = await request.text();
-    if (text.length > 4096) return reply({ state: "failed", reason: "invalid_request" }, 400);
-    return handle(request, "cancel", JSON.parse(text));
-  } catch { return reply({ state: "failed", reason: "invalid_request" }, 400); }
+    return handle(request, "cancel", await readRequestJson(request, { maxBytes: 4096 }));
+  } catch (error) { return reply({ state: "failed", reason: "invalid_request" }, error instanceof ApiRouteError ? error.status : 400); }
 }

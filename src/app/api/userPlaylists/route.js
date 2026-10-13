@@ -1,3 +1,5 @@
+import { displayName } from "@/utils/inputText.mjs";
+import { validatedCover } from "@/utils/coverValidation";
 import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
@@ -16,7 +18,6 @@ import {
     categoryFromGenres,
     normalizePlaylistCategory,
     serializePlaylist,
-    isCoverDataUrl,
     PLAYLIST_SEED_QUERIES,
 } from "@/utils/playlistThemes";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
@@ -114,15 +115,14 @@ export async function POST(req){
                 message: "Too many playlist changes. Please wait before trying again.",
             });
         }
-        const body = await readRequestJson(req);
-        const name = typeof body.name === "string" ? body.name.trim() : "";
+        const body = await readRequestJson(req, { maxBytes: 384 * 1024 });
+        const name = displayName(body.name, 80);
         if (body.description !== undefined && (typeof body.description !== "string" || body.description.length > 300)) {
             return apiError("VALIDATION_ERROR", { message: "Playlist descriptions can contain up to 300 characters." });
         }
         const description = typeof body.description === "string" ? body.description.trim() : "";
         const category = resolvePlaylistCategory(name, body.category, userData?.genres);
         const subgenre = typeof body.subgenre === "string" ? body.subgenre.trim().slice(0, 48) : "";
-        const coverImage = isCoverDataUrl(body.coverImage) ? body.coverImage : "";
         const autoFill = body.autoFill === true;
         if (!name || name.length > 80) {
             return apiError("VALIDATION_ERROR", {
@@ -140,6 +140,7 @@ export async function POST(req){
             || body.songs.some((id) => typeof id !== "string" || !YOUTUBE_ID_PATTERN.test(id)))) {
             return apiError("VALIDATION_ERROR", { message: "A queue can contain up to 500 valid tracks." });
         }
+        const coverImage = await validatedCover(body.coverImage);
         let songs = [...new Set(body.songs || [])];
         const songAddedAt = {};
         if (autoFill && !songs.length) {
@@ -189,7 +190,7 @@ export async function DELETE(req){
                 message: "Too many playlist changes. Please wait before trying again.",
             });
         }
-        const body = await readRequestJson(req);
+        const body = await readRequestJson(req, { maxBytes: 384 * 1024 });
         const playlistId = requirePlaylistId(body.playlistId);
         const playlist = await Playlist.findById(playlistId);
         if (!playlist) {
@@ -238,7 +239,7 @@ export async function PATCH(req){
                 message: "Too many playlist changes. Please wait before trying again.",
             });
         }
-        const body = await readRequestJson(req);
+        const body = await readRequestJson(req, { maxBytes: 384 * 1024 });
         const playlistId = requirePlaylistId(body.playlistId);
         const { action, value, email } = body;
         const playlist = await Playlist.findById(playlistId);
@@ -253,21 +254,19 @@ export async function PATCH(req){
 
         if (action === "details") {
             if (!value || typeof value !== "object" || Array.isArray(value)
-                || typeof value.name !== "string" || !value.name.trim() || value.name.trim().length > 80
+                || !displayName(value.name, 80)
                 || typeof value.description !== "string" || value.description.length > 300) {
                 return apiError("VALIDATION_ERROR", { message: "Use a name between 1 and 80 characters and a description of up to 300 characters." });
             }
-            if (value.coverImage !== undefined && value.coverImage !== "" && !isCoverDataUrl(value.coverImage)) {
-                return apiError("VALIDATION_ERROR", { message: "Choose a supported cover image under the size limit." });
-            }
-            playlist.name = value.name.trim();
+            const coverImage = value.coverImage === undefined ? playlist.coverImage : await validatedCover(value.coverImage);
+            playlist.name = displayName(value.name, 80);
             playlist.description = value.description.trim();
-            if (value.coverImage !== undefined) playlist.coverImage = value.coverImage;
+            playlist.coverImage = coverImage;
         } else if (action === "name") {
-            if (typeof value !== "string" || !value.trim() || value.trim().length > 80) {
+            if (!displayName(value, 80)) {
                 return apiError("VALIDATION_ERROR", { message: "A playlist name between 1 and 80 characters is required" });
             }
-            playlist.name = value.trim();
+            playlist.name = displayName(value, 80);
         } else if (action === "pinned") {
             if (typeof value !== "boolean") {
                 return apiError("VALIDATION_ERROR", { message: "Pinned must be true or false" });
@@ -287,15 +286,7 @@ export async function PATCH(req){
         } else if (action === "subgenre") {
             playlist.subgenre = typeof value === "string" ? value.trim().slice(0, 48) : "";
         } else if (action === "cover") {
-            if (value === "" || value == null) {
-                playlist.coverImage = "";
-            } else if (!isCoverDataUrl(value)) {
-                return apiError("VALIDATION_ERROR", {
-                    message: "That cover image is too large or not a supported type.",
-                });
-            } else {
-                playlist.coverImage = value;
-            }
+            playlist.coverImage = await validatedCover(value == null ? "" : value);
         } else if (action === "addCollaborator") {
             const collaboratorEmail = typeof email === "string"
                 ? email.trim().toLowerCase().slice(0, 254)

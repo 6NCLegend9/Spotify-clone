@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FiImage, FiX } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { resizeCoverFile } from "@/utils/imageOptimize";
@@ -8,23 +8,36 @@ import { toUserError } from "@/utils/userError";
 
 export default function CoverUploader({ value, onChange, disabled }) {
   const inputRef = useRef(null);
+  const preparationRef = useRef(null);
+  useEffect(() => () => {
+    const controller = preparationRef.current;
+    preparationRef.current = null;
+    controller?.abort();
+  }, []);
   const [busy, setBusy] = useState(false);
 
   const onFile = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    preparationRef.current?.abort();
+    const controller = new AbortController();
+    preparationRef.current = controller;
     setBusy(true);
     try {
-      const dataUrl = await resizeCoverFile(file);
-      onChange?.(dataUrl);
+      const dataUrl = await resizeCoverFile(file, { signal: controller.signal });
+      if (!controller.signal.aborted) onChange?.(dataUrl);
     } catch (error) {
+      if (controller.signal.aborted) return;
       toast.error(toUserError(error, {
         title: "Cover image not ready",
         message: "We couldn’t prepare that image. Try another JPG, PNG, or WebP file.",
       }).message);
     } finally {
-      setBusy(false);
+      if (preparationRef.current === controller) {
+        preparationRef.current = null;
+        setBusy(false);
+      }
     }
   };
 

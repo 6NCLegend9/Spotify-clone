@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { canWriteAccountCache } from "@/utils/accountStorage.mjs";
 import { LIBRARY_SORTS } from "@/utils/libraryPresentation.mjs";
 
 export default function useLibraryPresentation(owner, surface = "page") {
@@ -19,7 +20,7 @@ export default function useLibraryPresentation(owner, surface = "page") {
   const change = (field, value) => {
     const next = { ...preferences, [field]: value };
     setPreferences(next);
-    try { window.localStorage.setItem(key, JSON.stringify(next)); } catch { /* Storage is optional. */ }
+    try { if (canWriteAccountCache(owner || "guest")) window.localStorage.setItem(key, JSON.stringify(next)); } catch { /* Storage is optional. */ }
   };
   return { ...preferences, setSort: (sort) => change("sort", sort), setView: (view) => change("view", view) };
 }
