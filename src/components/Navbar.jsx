@@ -5,8 +5,8 @@ import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { GoHome, GoHomeFill } from "react-icons/go";
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import { MdOutlineMenu, MdSportsEsports } from "react-icons/md";
+import { FiChevronLeft } from "react-icons/fi";
+import { CircleArrowDown } from "lucide-react";
 import BrandMark from "./Layout/BrandMark";
 import { useNav } from "./Layout/AppShell";
 import Searchbar from "./Searchbar";
@@ -21,7 +21,7 @@ const Navbar = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [imageFailed, setImageFailed] = useState(false);
-  const [historyState, setHistoryState] = useState({ canBack: false, canForward: true });
+  const [canBack, setCanBack] = useState(false);
   const homeActive = pathname === "/";
   const userName =
     typeof session?.user?.name === "string" && session.user.name.trim()
@@ -35,10 +35,7 @@ const Navbar = () => {
   useEffect(() => {
     const sync = () => {
       const navigation = window.navigation;
-      setHistoryState({
-        canBack: typeof navigation?.canGoBack === "boolean" ? navigation.canGoBack : window.history.length > 1,
-        canForward: typeof navigation?.canGoForward === "boolean" ? navigation.canGoForward : true,
-      });
+      setCanBack(typeof navigation?.canGoBack === "boolean" ? navigation.canGoBack : window.history.length > 1);
     };
     sync();
     const navigation = window.navigation;
@@ -62,32 +59,16 @@ const Navbar = () => {
     if (window.history.length > 1) router.back();
   };
 
-  const goForward = () => {
-    const navigation = window.navigation;
-    if (typeof navigation?.canGoForward === "boolean") {
-      if (navigation.canGoForward) void navigation.forward();
-      return;
-    }
-    router.forward();
-  };
-
   return (
     <header inert={navModal ? "" : undefined} className={`app-navbar ${styles.navbar}`}>
       <div className="navbar-slot navbar-slot-start">
         <div className={styles.brand}><BrandMark compact /></div>
-        <button type="button" onClick={() => setShowNav(true)} className="icon-btn phone-only-grid h-11 w-11 shrink-0" aria-label="Open menu" aria-expanded={navModal} aria-controls="app-sidebar">
-          <MdOutlineMenu aria-hidden="true" className="text-xl" />
+        <button type="button" onClick={() => setShowNav(true)} className={`phone-only-grid ${styles.mobileAvatar}`} aria-label="Open navigation" aria-expanded={navModal} aria-controls="app-sidebar">
+          {status === "authenticated" && imageUrl && !imageFailed ? <img src={imageUrl} alt="" onError={() => setImageFailed(true)} /> : <span aria-hidden="true">{status === "authenticated" ? userName.charAt(0).toUpperCase() : "H"}</span>}
         </button>
-        <button type="button" onClick={goBack} disabled={!historyState.canBack} className="icon-btn phone-only-grid h-11 w-11 shrink-0 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Go back" title="Go back">
+        <button type="button" onClick={goBack} disabled={!canBack} className="icon-btn phone-only-grid h-11 w-11 shrink-0 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Go back" title="Go back">
           <FiChevronLeft aria-hidden="true" size={22} />
         </button>
-        <div className="phone-wide-only-flex shrink-0">
-          <BrandMark compact />
-        </div>
-        <div className={styles.history} aria-label="Navigation history">
-          <button type="button" onClick={goBack} disabled={!historyState.canBack} aria-label="Go back" title="Go back"><FiChevronLeft size={20} /></button>
-          <button type="button" onClick={goForward} disabled={!historyState.canForward} aria-label="Go forward" title="Go forward"><FiChevronRight size={20} /></button>
-        </div>
       </div>
       <div className="navbar-search-cluster">
         <Link href="/" aria-label="Home" title="Home" aria-current={homeActive ? "page" : undefined} className={`nav-home-btn ${homeActive ? "is-active" : ""}`}>
@@ -96,15 +77,15 @@ const Navbar = () => {
         <Searchbar />
       </div>
       <div className="navbar-slot navbar-slot-end">
-        <Link href="/open-desktop" className={styles.install}>Install app</Link>
-        <Link href="/arcade" className={`icon-btn h-11 w-11 shrink-0 ${canUseArcade(session?.user?.email) ? "max-lg:hidden" : "hidden"}`} aria-label="Open Beat Arcade" title="Beat Arcade"><MdSportsEsports aria-hidden="true" className="text-xl" /></Link>
-        <UpdatesBell />
+        <Link href="/open-desktop" className={styles.install}><CircleArrowDown aria-hidden="true" size={18} />Install app</Link>
+        {status === "authenticated" && <UpdatesBell />}
         {status === "authenticated" ? (
           <ItemMenu label={`Account menu for ${userName}`} className={styles.account} actions={[
             { label: "Your library", onSelect: () => router.push("/library") },
             { label: "Recently played", onSelect: () => router.push("/recently-played") },
             { label: "Following", onSelect: () => router.push("/following") },
             { label: "Settings", onSelect: () => router.push("/settings") },
+            canUseArcade(session?.user?.email) && { label: "Beat Arcade", onSelect: () => router.push("/arcade") },
             { label: "Log out", onSelect: () => signOut({ callbackUrl: "/" }) },
           ]}>
             {imageUrl && !imageFailed ? <img src={imageUrl} alt="" onError={() => setImageFailed(true)} /> : <span aria-hidden="true">{userName.charAt(0).toUpperCase()}</span>}

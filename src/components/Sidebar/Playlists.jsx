@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FaPlus } from "react-icons/fa";
 import { BsPinAngleFill } from "react-icons/bs";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import PlaylistModal from "./PlaylistModal";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { useNav } from "../Layout/AppShell";
@@ -22,7 +22,8 @@ import LibraryList from "./LibraryList";
 // flashing "Loading playlists…" on every route transition.
 let cachedPlaylists = null;
 
-const AccountPlaylists = ({ owner, status }) => {
+const AccountPlaylists = ({ owner, status, compact }) => {
+  const pathname = usePathname();
   const { setShowNav } = useNav();
   const cached = cachedPlaylists?.owner === owner && Date.now() - cachedPlaylists.savedAt < 300_000
     ? cachedPlaylists.data : null;
@@ -82,12 +83,15 @@ const AccountPlaylists = ({ owner, status }) => {
     };
   }, [refreshKey, status, owner]);
 
+  if (compact) return <nav className="compact-library" aria-label="Your library shortcuts">
+    <Link href="/library/liked" title="Liked Songs" aria-label="Liked Songs" aria-current={pathname === "/library/liked" ? "page" : undefined} className="compact-library-liked"><span aria-hidden="true">♥</span></Link>
+    {playlists.map((playlist) => <Link key={playlist._id} href={`/library/playlist/${playlist._id}`} title={playlist.name} aria-label={`Open playlist ${playlist.name}`} aria-current={pathname === `/library/playlist/${playlist._id}` ? "page" : undefined} className="compact-library-cover"><PlaylistCover playlist={playlist} className="h-full w-full" /></Link>)}
+    {loading && <span role="status" aria-label="Loading library" className="h-12 w-12 animate-pulse rounded bg-white/10" />}
+    {error?.retryable && <button type="button" onClick={() => setRefreshKey((value) => value + 1)} className="min-h-11 text-xs" title="Retry library">Retry</button>}
+  </nav>;
+
   return (
     <>
-      <div className="flex items-center justify-between px-2 py-2">
-        <Link href="/library" className="text-sm text-[var(--muted)] hover:text-white">Your playlists</Link>
-        <button type="button" onClick={() => setShow(true)} className="flex min-h-11 items-center gap-2 rounded-full bg-white/10 px-3 text-sm font-semibold hover:bg-white/15" aria-label="Create playlist"><FaPlus aria-hidden="true" className="text-xs" /> Create</button>
-      </div>
       <div className="flex min-h-0 flex-col">
         {status === "authenticated" && <Link href="/library/liked" onClick={() => setShowNav(false)} className="mb-2 flex min-h-16 items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--navy-panel)]"><span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-[var(--navy-panel)] text-xl text-[var(--accent)]">♥</span><span><span className="block text-sm font-semibold">Liked Songs</span><span className="block text-xs text-[var(--muted)]">Your saved songs</span></span></Link>}
         {loading ? <p className="px-2 py-3 text-xs text-[var(--muted)]">Loading playlists…</p> : null}
@@ -95,7 +99,7 @@ const AccountPlaylists = ({ owner, status }) => {
         {!loading && !error && playlists.length === 0 ? <div className="px-2 py-2"><EmptyState title="No playlists yet" message="Create one to keep songs together." actionLabel="Create playlist" onAction={() => setShow(true)} /></div> : null}
         {!loading && !error && <LibraryList playlists={playlists} owner={owner}>{(playlist) => (
           <ContextMenuTarget key={playlist._id} className="group flex items-center justify-between rounded-lg pr-1 hover:bg-[var(--navy-panel)]">
-            <Link href={`/library/playlist/${playlist._id}`} onClick={() => setShowNav(false)} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
+            <Link data-library-playlist="true" href={`/library/playlist/${playlist._id}`} onClick={() => setShowNav(false)} aria-current={pathname === `/library/playlist/${playlist._id}` ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
               <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md"><PlaylistCover playlist={playlist} className="h-full w-full" /></span>
               <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">{playlist.name}</span><span className="mt-1 flex items-center gap-1 truncate text-xs text-[var(--muted)]">{playlist.pinned && <BsPinAngleFill aria-label="Pinned" className="shrink-0 text-[var(--accent)]" />}Playlist · {playlist.user?.userName || "You"}</span></span>
             </Link>
@@ -107,10 +111,10 @@ const AccountPlaylists = ({ owner, status }) => {
     </>
   );
 };
-const Playlists = () => {
+const Playlists = ({ compact = false }) => {
   const { data: session, status } = useSession();
   const owner = accountOwner(session, status);
-  return <AccountPlaylists key={owner || status} owner={owner} status={status} />;
+  return <AccountPlaylists key={owner || status} owner={owner} status={status} compact={compact} />;
 };
 export default Playlists;
 

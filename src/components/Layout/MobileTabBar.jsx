@@ -2,21 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FiDisc, FiHome, FiPlus, FiSearch } from "react-icons/fi";
+import { GoHome, GoHomeFill } from "react-icons/go";
+import { LibraryBig, Plus, Search } from "lucide-react";
 
 export default function MobileTabBar({ hidden = false }) {
   const pathname = usePathname();
 
   const homeActive = pathname === "/";
   const searchActive = pathname.startsWith("/search");
-  const libraryActive = pathname.startsWith("/library");
+  const libraryActive = pathname.startsWith("/library") || pathname.startsWith("/following") || pathname.startsWith("/recently-played");
 
   return (
     <nav
       className={`app-tabbar phone-only-flex${hidden ? " is-hidden" : ""}`}
       aria-label="Primary"
       hidden={hidden}
-      inert={hidden || undefined}
+      inert={hidden ? "" : undefined}
       aria-hidden={hidden || undefined}
     >
       <Link
@@ -24,7 +25,7 @@ export default function MobileTabBar({ hidden = false }) {
         aria-current={homeActive ? "page" : undefined}
         className={`app-tab ${homeActive ? "is-active" : ""}`}
       >
-        <FiHome aria-hidden="true" className="text-xl" />
+        {homeActive ? <GoHomeFill aria-hidden="true" size={26} /> : <GoHome aria-hidden="true" size={26} />}
         <span>Home</span>
       </Link>
       <Link
@@ -33,7 +34,7 @@ export default function MobileTabBar({ hidden = false }) {
         onClick={() => window.dispatchEvent(new Event("heykasa:open-search"))}
         className={`app-tab ${searchActive ? "is-active" : ""}`}
       >
-        <FiSearch aria-hidden="true" className="text-xl" />
+        <Search aria-hidden="true" size={26} strokeWidth={searchActive ? 3 : 2} />
         <span>Search</span>
       </Link>
       <Link
@@ -41,16 +42,16 @@ export default function MobileTabBar({ hidden = false }) {
         aria-current={libraryActive ? "page" : undefined}
         className={`app-tab ${libraryActive ? "is-active" : ""}`}
       >
-        <FiDisc aria-hidden="true" className="text-xl" />
+        <LibraryBig aria-hidden="true" size={26} strokeWidth={libraryActive ? 2.5 : 2} />
         <span>Your Library</span>
       </Link>
       <button
         type="button"
         onClick={() => window.dispatchEvent(new Event("heykasa:open-create"))}
         className="app-tab"
-        aria-label="Create playlist"
+        aria-label="Create playlist or Jam"
       >
-        <FiPlus aria-hidden="true" className="text-xl" />
+        <Plus aria-hidden="true" size={26} />
         <span>Create</span>
       </button>
     </nav>
