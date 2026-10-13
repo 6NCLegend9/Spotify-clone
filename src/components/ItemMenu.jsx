@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { FiMoreHorizontal } from "react-icons/fi";
 import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
 
-export default function ItemMenu({ label = "Item options", actions = [], className = "" }) {
+export default function ItemMenu({ label = "Item options", actions = [], className = "", children }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -48,10 +48,10 @@ export default function ItemMenu({ label = "Item options", actions = [], classNa
   return <>
     <button ref={trigger} data-item-menu-trigger type="button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open}
       className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-gray-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${className}`}
-      onClick={(event) => { event.preventDefault(); event.stopPropagation(); setError(""); setOpen((value) => !value); }}><FiMoreHorizontal aria-hidden="true" /></button>
+      onClick={(event) => { event.preventDefault(); event.stopPropagation(); setError(""); setOpen((value) => !value); }}>{children || <FiMoreHorizontal aria-hidden="true" />}</button>
     {open && createPortal(<div ref={menu} role="menu" aria-label={label} data-item-actions-menu="true"
       style={{ position: "fixed", ...position, width: "min(240px, calc(100vw - 16px))" }}
-      className="z-[10000] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-xl border border-white/15 bg-[#111d28] p-1.5 text-sm text-white shadow-2xl"
+      className="item-actions-menu z-[10000] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-md bg-[#282828] p-1 text-sm text-white shadow-2xl"
       onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); }

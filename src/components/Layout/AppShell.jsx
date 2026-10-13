@@ -10,6 +10,7 @@ import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar/Sidebar";
 import MobileTabBar from "@/components/Layout/MobileTabBar";
 import DesktopNowPlayingPanel from "@/components/Layout/DesktopNowPlayingPanel";
+import EmptyPlayerDock from "@/components/Layout/EmptyPlayerDock";
 import CreateHub from "@/components/Layout/CreateHub";
 import Atmosphere from "@/components/Layout/Atmosphere";
 import PageTransit from "@/components/Layout/PageTransit";
@@ -33,11 +34,6 @@ const MusicPlayer = dynamic(
   { ssr: false, loading: () => <div role="status" aria-label="Loading player" className="h-20 w-full animate-pulse bg-white/5 motion-reduce:animate-none" /> },
 );
 
-const LightPillar = dynamic(
-  () => import("@/components/Backgrounds/LightPillar"),
-  { ssr: false },
-);
-
 const JamController = dynamic(
   () => import("@/components/Jam/JamController"),
   { ssr: false },
@@ -52,23 +48,11 @@ function AppearanceScene() {
     if (!root) return;
     root.style.setProperty("--appearance-accent", resolvedAccent);
     root.style.setProperty("--appearance-play-ink", accentForeground);
+    document.documentElement.style.setProperty("--appearance-accent", resolvedAccent);
+    document.documentElement.style.setProperty("--appearance-play-ink", accentForeground);
   }, [accentForeground, resolvedAccent]);
 
-  return (
-    <LightPillar
-      className="app-ghost-fibers"
-      topColor={resolvedAccent}
-      bottomColor={resolvedAccent}
-      intensity={0.52}
-      rotationSpeed={0.1}
-      glowAmount={0.003}
-      pillarWidth={3.2}
-      pillarHeight={0.42}
-      noiseIntensity={0.14}
-      pillarRotation={10}
-      quality="medium"
-    />
-  );
+  return null;
 }
 
 const NavContext = createContext(null);
@@ -264,8 +248,8 @@ export default function AppShell({ children }) {
   }, [navModal]);
 
   const value = useMemo(
-    () => ({ showNav, setShowNav, navModal, collapsed: effectiveCollapsed, toggleCollapsed }),
-    [effectiveCollapsed, navModal, showNav],
+    () => ({ showNav, setShowNav, navModal, collapsed: effectiveCollapsed, toggleCollapsed, rightPanelCollapsed, toggleRightPanel }),
+    [effectiveCollapsed, navModal, showNav, rightPanelCollapsed],
   );
 
   if (embedRoute) {
@@ -288,6 +272,7 @@ export default function AppShell({ children }) {
         data-has-track={hasTrack ? "true" : "false"}
         data-player={fullScreen ? "full" : "dock"}
       >
+        <Navbar />
         <Sidebar />
         <div
           className="sidebar-resizer"
@@ -309,12 +294,11 @@ export default function AppShell({ children }) {
           className={`app-overlay phone-only-block ${showNav ? "is-open" : ""}`}
           onClick={() => setShowNav(false)}
         />
-        <div className="app-stage" inert={navModal}>
+        <div className="app-stage" inert={navModal ? "" : undefined}>
           <AppearanceScene />
           <AppearanceBackdrop isHome={pathname === "/"} />
           <div className="app-ghost-fibers-shade" aria-hidden="true" />
           <Atmosphere />
-          <Navbar />
           <div className="app-content" id="main-content" tabIndex={-1} data-app-scroll-container>
             <PullToRefresh />
             <OnlineStatus />
@@ -351,7 +335,7 @@ export default function AppShell({ children }) {
             title="The music player stopped"
             message="Reload the player to keep listening. Your queue and library are safe."
           >
-            {hasTrack && <MusicPlayer />}
+            {hasTrack ? <MusicPlayer /> : <EmptyPlayerDock />}
           </ErrorBoundary>
         </div>
         <MobileTabBar hidden={fullScreen} />

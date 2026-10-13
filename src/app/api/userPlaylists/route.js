@@ -116,6 +116,10 @@ export async function POST(req){
         }
         const body = await readRequestJson(req);
         const name = typeof body.name === "string" ? body.name.trim() : "";
+        if (body.description !== undefined && (typeof body.description !== "string" || body.description.length > 300)) {
+            return apiError("VALIDATION_ERROR", { message: "Playlist descriptions can contain up to 300 characters." });
+        }
+        const description = typeof body.description === "string" ? body.description.trim() : "";
         const category = resolvePlaylistCategory(name, body.category, userData?.genres);
         const subgenre = typeof body.subgenre === "string" ? body.subgenre.trim().slice(0, 48) : "";
         const coverImage = isCoverDataUrl(body.coverImage) ? body.coverImage : "";
@@ -151,7 +155,7 @@ export async function POST(req){
             if ((profile.playlists || []).length >= MAX_USER_PLAYLISTS) {
                 throw new ApiRouteError("VALIDATION_ERROR", { message: `You can create up to ${MAX_USER_PLAYLISTS} playlists` });
             }
-            [playlist] = await Playlist.create([{ name, user: user._id, category, subgenre, coverImage, songs, songAddedAt }], { session });
+            [playlist] = await Playlist.create([{ name, description, user: user._id, category, subgenre, coverImage, songs, songAddedAt }], { session });
             await UserData.updateOne({ _id: profile._id }, {
                 $set: { playlists: [...(profile.playlists || []), playlist._id] }, $inc: { __v: 1 },
             }, { session });
@@ -247,7 +251,19 @@ export async function PATCH(req){
             });
         }
 
-        if (action === "name") {
+        if (action === "details") {
+            if (!value || typeof value !== "object" || Array.isArray(value)
+                || typeof value.name !== "string" || !value.name.trim() || value.name.trim().length > 80
+                || typeof value.description !== "string" || value.description.length > 300) {
+                return apiError("VALIDATION_ERROR", { message: "Use a name between 1 and 80 characters and a description of up to 300 characters." });
+            }
+            if (value.coverImage !== undefined && value.coverImage !== "" && !isCoverDataUrl(value.coverImage)) {
+                return apiError("VALIDATION_ERROR", { message: "Choose a supported cover image under the size limit." });
+            }
+            playlist.name = value.name.trim();
+            playlist.description = value.description.trim();
+            if (value.coverImage !== undefined) playlist.coverImage = value.coverImage;
+        } else if (action === "name") {
             if (typeof value !== "string" || !value.trim() || value.trim().length > 80) {
                 return apiError("VALIDATION_ERROR", { message: "A playlist name between 1 and 80 characters is required" });
             }

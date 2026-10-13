@@ -8,7 +8,6 @@ import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
-import PlayFab from "@/components/PlayFab";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import ArtistNameLink from "@/components/ArtistNameLink";
 import { CardGridSkeleton } from "@/components/Skeleton";
@@ -50,6 +49,14 @@ export default function YouTubeMusicResults({ query }) {
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
   const dispatch = useDispatch();
+  const playResult = (video) => {
+    const title = cleanTitle(video.title);
+    const channel = cleanArtist(video.channel);
+    const seedQuery = video.seedQuery || video.genre || [channel, title].filter(Boolean).join(" ");
+    const track = { ...video, channel: channel || video.channel, seedQuery, genre: video.genre || channel || seedQuery };
+    dispatch(startYoutubePlayback({ queue: [track], track }));
+    dispatch(playPause(true));
+  };
   const { data: session, status } = useSession();
   const followOwner = accountOwner(session, status);
   const followOwnerRef = useRef(followOwner);
@@ -404,41 +411,36 @@ export default function YouTubeMusicResults({ query }) {
         />
       )}
 
-      {resultType === "video" && <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {visibleResults.map((video) => {
-          const title = cleanTitle(video.title);
-          const channel = cleanArtist(video.channel);
-          const playVideo = () => {
-            const seedQuery = video.seedQuery || video.genre || [channel, title].filter(Boolean).join(" ");
-            const radioTrack = {
-              ...video,
-              channel: channel || video.channel,
-              seedQuery,
-              genre: video.genre || channel || seedQuery,
-            };
-            dispatch(startYoutubePlayback({ queue: [radioTrack], track: radioTrack }));
-            dispatch(playPause(true));
-          };
-          return (
-          <ContextMenuTarget as="article" key={video.id} className="card group text-left">
-            <button type="button" aria-label={`Play ${title}`} onClick={playVideo} className="relative aspect-video w-full overflow-hidden rounded-[4px] bg-black">
-              <MediaImage src={video.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
-              <PlayFab />
-            </button>
-            <div className="p-3">
-              <button type="button" onClick={playVideo} className="block w-full text-left">
-                <p className="home-shelf-title mt-0">{title}</p>
-              </button>
-              <div className="flex min-w-0 items-center gap-1">
-              <div className="min-w-0 flex-1">
-              <ArtistNameLink track={video} className="mt-2 text-xs text-gray-400 hover:text-[var(--accent)]" />
-              </div>
-              <AddToQueueButton track={video} className="text-gray-400 hover:text-white" />
-              </div>
-            </div>
+      {!loading && resultType === "video" && visibleResults.length > 0 && <div className="search-results-layout">
+        <section aria-label="Top result">
+          <h2 className="mb-4 text-2xl font-bold">Top result</h2>
+          <ContextMenuTarget className="search-top-result group relative rounded-lg bg-[var(--navy-raised)] p-5 hover:bg-[var(--navy-panel)]">
+            <MediaImage src={visibleResults[0].thumbnail} size="hq" alt="" className="mb-5 h-24 w-24 rounded-md object-cover shadow-xl" />
+            <button type="button" onClick={() => playResult(visibleResults[0])} className="block w-full text-left text-2xl font-bold leading-tight hover:underline">{cleanTitle(visibleResults[0].title)}</button>
+            <div className="mt-3 flex items-center gap-2 text-sm text-[var(--muted)]"><span className="rounded-full bg-black/25 px-3 py-1 text-white">Song</span><ArtistNameLink track={visibleResults[0]} /></div>
+            <button type="button" aria-label={"Play " + cleanTitle(visibleResults[0].title)} onClick={() => playResult(visibleResults[0])} className="play-fab play-fab--static absolute bottom-4 right-4 h-12 w-12"><BsPlayFill size={26} /></button>
           </ContextMenuTarget>
-          );
-        })}
+        </section>
+        <section aria-label="Songs">
+          <h2 className="mb-4 text-2xl font-bold">Songs</h2>
+          <div role="list">
+            {visibleResults.map((video, index) => {
+              const title = cleanTitle(video.title);
+              const seconds = Number(video.duration);
+              const duration = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds / 60) + ":" + String(Math.floor(seconds % 60)).padStart(2, "0") : "—";
+              return <ContextMenuTarget key={video.id} role="listitem" className="search-song-row group">
+                <button type="button" onClick={() => playResult(video)} aria-label={"Play " + title} className="relative flex min-h-11 items-center gap-3">
+                  <span className="search-song-number text-sm text-[var(--muted)]">{index + 1}</span>
+                  <MediaImage src={video.thumbnail} size="hq" alt="" className="h-10 w-10 rounded object-cover" />
+                  <span className="search-song-play"><BsPlayFill size={22} /></span>
+                </button>
+                <div className="min-w-0"><button type="button" onClick={() => playResult(video)} className="block w-full truncate text-left text-sm font-medium hover:underline" title={title}>{title}</button><ArtistNameLink track={video} className="mt-1 block truncate text-xs text-[var(--muted)] hover:text-white" /></div>
+                <AddToQueueButton track={video} className="text-[var(--muted)] hover:text-white" />
+                <span className="text-right text-xs tabular-nums text-[var(--muted)]">{duration}</span>
+              </ContextMenuTarget>;
+            })}
+          </div>
+        </section>
       </div>}
 
       {!loading && resultType === "video" && visibleResults.length > 0 && !extrasLoaded && (

@@ -1,6 +1,7 @@
 "use client";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
+import EditPlaylistDetails from "@/components/EditPlaylistDetails";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -124,6 +125,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const cacheKey = `${isLiked ? "liked" : `playlist:${playlistId || ""}`}:${owner}`;
   const cached = owner ? readNavCache(cacheKey) : null;
   const [collection, setCollection] = useState(() => cached?.collection ?? null);
+  const [editDetails, setEditDetails] = useState(false);
   const [tracks, setTracks] = useState(() => cached?.tracks ?? []);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(() => !cached);
@@ -478,6 +480,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
 
   return (
     <main className="page-collection text-white">
+      {editDetails && isOwner && !isLiked && collection && <EditPlaylistDetails playlist={collection} onClose={() => setEditDetails(false)} onSaved={setCollection} />}
       {!error && collection ? (
         <ContextMenuTarget as="section" className="collection-hero px-[3vw] pb-8 pt-8">
           <div className="collection-hero-content mx-auto flex w-full max-w-[1440px] flex-col gap-6">
@@ -495,7 +498,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             )}
             <div className="min-w-0 pb-1">
               <p className="text-xs font-bold uppercase text-white/80">{typeLabel}</p>
-              <h1 className="collection-title mt-3 break-words font-bold">{title}</h1>
+              <h1 className="collection-title mt-3 break-words font-bold">{isOwner && !isLiked ? <button type="button" onClick={() => setEditDetails(true)} title="Edit playlist details" className="text-left hover:underline">{title}</button> : title}</h1>
+              {!isLiked && collection.description && <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-white/70">{collection.description}</p>}
               <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-gray-200">
                 {ownerImage ? <img src={ownerImage} alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10"><FiMusic /></span>}
                 <strong className="text-white">{ownerName}</strong>
@@ -505,7 +509,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               </div>
             </div>
           </div>
-          {!isLiked && collection && <PlaylistItemMenu playlist={collection} onChanged={() => setRefreshKey((value) => value + 1)} onDeleted={() => router.push("/library")} />}
+          {!isLiked && collection && <PlaylistItemMenu playlist={collection} onChanged={(updated) => { if (updated) setCollection(updated); setRefreshKey((value) => value + 1); }} onDeleted={() => router.push("/library")} />}
         </ContextMenuTarget>
       ) : null}
 

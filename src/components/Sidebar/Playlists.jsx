@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FaPlus } from "react-icons/fa";
-import { MdPlaylistPlay } from "react-icons/md";
+import { BsPinAngleFill } from "react-icons/bs";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
@@ -85,19 +85,19 @@ const AccountPlaylists = ({ owner, status }) => {
   return (
     <>
       <div className="flex items-center justify-between px-2 py-2">
-        <p className="flex items-center gap-2 text-sm font-semibold text-white"><MdPlaylistPlay aria-hidden="true" className="text-lg" />Your Library</p>
-        <button type="button" onClick={() => setShow(true)} className="icon-btn h-11 w-11" aria-label="Create playlist"><FaPlus aria-hidden="true" className="text-xs" /></button>
+        <Link href="/library" className="text-sm text-[var(--muted)] hover:text-white">Your playlists</Link>
+        <button type="button" onClick={() => setShow(true)} className="flex min-h-11 items-center gap-2 rounded-full bg-white/10 px-3 text-sm font-semibold hover:bg-white/15" aria-label="Create playlist"><FaPlus aria-hidden="true" className="text-xs" /> Create</button>
       </div>
       <div className="flex min-h-0 flex-col">
         {status === "authenticated" && <Link href="/library/liked" onClick={() => setShowNav(false)} className="mb-2 flex min-h-16 items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--navy-panel)]"><span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-[var(--navy-panel)] text-xl text-[var(--accent)]">♥</span><span><span className="block text-sm font-semibold">Liked Songs</span><span className="block text-xs text-[var(--muted)]">Your saved songs</span></span></Link>}
         {loading ? <p className="px-2 py-3 text-xs text-[var(--muted)]">Loading playlists…</p> : null}
-        {!loading && error ? <div className="px-2 py-2"><UserMessage compact title={error.title} message={error.message} onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined} href={error.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
+        {!loading && status === "unauthenticated" ? <div className="my-3 rounded-lg bg-[var(--navy-raised)] p-4"><p className="font-bold">Create your first playlist</p><p className="my-3 text-sm">It’s easy. We’ll help you.</p><Link href="/signup" className="inline-flex min-h-11 items-center rounded-full bg-white px-4 text-sm font-bold text-black">Sign up free</Link></div> : !loading && error ? <div className="px-2 py-2"><UserMessage compact title={error.title} message={error.message} onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined} href={error.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
         {!loading && !error && playlists.length === 0 ? <div className="px-2 py-2"><EmptyState title="No playlists yet" message="Create one to keep songs together." actionLabel="Create playlist" onAction={() => setShow(true)} /></div> : null}
-        {!loading && !error && <LibraryList playlists={playlists}>{(playlist) => (
+        {!loading && !error && <LibraryList playlists={playlists} owner={owner}>{(playlist) => (
           <ContextMenuTarget key={playlist._id} className="group flex items-center justify-between rounded-lg pr-1 hover:bg-[var(--navy-panel)]">
             <Link href={`/library/playlist/${playlist._id}`} onClick={() => setShowNav(false)} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
               <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md"><PlaylistCover playlist={playlist} className="h-full w-full" /></span>
-              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">{playlist.name}</span><span className="mt-1 block truncate text-xs text-[var(--teal)]">Playlist</span></span>
+              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">{playlist.name}</span><span className="mt-1 flex items-center gap-1 truncate text-xs text-[var(--muted)]">{playlist.pinned && <BsPinAngleFill aria-label="Pinned" className="shrink-0 text-[var(--accent)]" />}Playlist · {playlist.user?.userName || "You"}</span></span>
             </Link>
             <PlaylistItemMenu playlist={playlist} />
           </ContextMenuTarget>

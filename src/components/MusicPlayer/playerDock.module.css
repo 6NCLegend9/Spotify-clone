@@ -1,4 +1,4 @@
-.dock { position: relative; grid-area: dock; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; width: calc(100% - 16px); height: 60px; min-width: 0; margin: 0 8px; padding: 6px 8px; color: var(--text); border: 1px solid var(--hairline-cyan); border-radius: 12px; background: var(--navy-raised); letter-spacing: 0; }
+.dock { position: relative; grid-area: dock; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; width: calc(100% - 16px); height: 60px; min-width: 0; margin: 0 8px; padding: 6px 8px; color: var(--text); border: 0; border-radius: 8px; background: var(--navy-panel); letter-spacing: 0; }
 .track { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .trackButton { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; min-width: 48px; min-height: 48px; flex: 0 0 48px; border: 0; background: transparent; color: inherit; padding: 0; text-align: left; cursor: pointer; }
 .trackText { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; }
@@ -15,14 +15,15 @@
 .iconButton:focus-visible, .trackButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .active { color: var(--accent); }
 .active::after { content: ""; position: absolute; bottom: 1px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
-.playButton { background: var(--accent); color: var(--play-ink); }
-.playButton:hover:not(:disabled) { background: var(--accent); color: var(--play-ink); filter: brightness(1.06); }
+.playButton { background: transparent; color: #fff; }
+.playButton:hover:not(:disabled) { background: transparent; color: #fff; transform: scale(1.06); }
 .transport { display: flex; align-items: center; justify-content: center; gap: 5px; }
 .mobileButton { width: 48px; height: 48px; }
 .mobilePrevious { display: none; }
 .mobileProgress { position: absolute; inset: auto 0 0; height: 2px; overflow: hidden; border-radius: 99px; background: var(--navy-panel); pointer-events: none; }
 .mobileProgress span { display: block; height: 100%; background: var(--accent); transition: width 180ms linear; }
 .volume { display: none; }
+.nowPlayingToggle { display: none; }
 .dock:has(~ [data-kasa-media-view="drawer"]), .dock:has(~ [data-kasa-media-view="expanded"]) { visibility: hidden; pointer-events: none; }
 .queueBackdrop { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; background: rgb(0 8 20 / 78%); }
 .dialog { position: relative; display: flex; flex-direction: column; width: min(100%, 480px); max-width: 100%; height: min(100dvh, 800px); max-height: calc(100dvh - 48px); padding: 0 0 env(safe-area-inset-bottom); overflow: hidden; color: var(--text); background: var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 12px; letter-spacing: 0; box-shadow: 0 28px 70px rgb(0 0 0 / 45%); }
@@ -37,7 +38,8 @@
 }
 
 @media (min-width: 1181px), (min-width: 768px) and (pointer: fine) {
- .dock { grid-template-columns: minmax(0, 1fr) minmax(230px, 1.3fr) minmax(144px, 1fr); width: 100%; height: 90px; margin: 0; padding: 8px 16px; gap: 12px; border-radius: 0; border-width: 1px 0 0; background: var(--navy-surface); }
+ .dock { grid-template-columns: minmax(0, 1fr) minmax(230px, 1.3fr) minmax(144px, 1fr); width: 100%; height: 88px; margin: 0; padding: 8px 8px; gap: 12px; border-radius: 0; border: 0; background: #000; }
+ .playButton, .playButton:hover:not(:disabled) { background: radial-gradient(circle,#fff 0 16px,transparent 16.5px); color: #000; }
  .dock:has(~ [data-kasa-media-view="drawer"]) { visibility: visible; pointer-events: auto; }
  .dock:has(~ [data-kasa-media-view="expanded"]) { visibility: hidden; pointer-events: none; }
  .center { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 3px; }
@@ -56,7 +58,9 @@
 }
 @media (min-width: 1181px), (min-width: 1024px) and (pointer: fine) { .dock { grid-template-columns: minmax(0,1fr) minmax(250px,560px) minmax(216px,1fr); } }
 @media (min-width: 1181px), (min-width: 1180px) and (pointer: fine) { .favourite, .pip { display: block; } .dock { grid-template-columns: minmax(0,1fr) minmax(280px,560px) minmax(216px,1fr); } }
+@media (min-width: 1181px) { .nowPlayingToggle { display: inline-flex; } }
+@media (min-width: 768px) and (max-width: 1023px) { .lyricsToggle { display: none; } .tools .iconButton { width: 44px; min-width: 44px; } .volume { max-width: 120px; } }
 @media (max-width: 479px) { .queueBackdrop { padding: 0; } .dialog { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; } }
 @media (prefers-reduced-motion: no-preference) { .dialog { animation: player-enter 160ms ease-out; } }
 @keyframes player-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .iconButton, .mobileProgress span { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .iconButton, .mobileProgress span { transition: none; } .playButton:hover:not(:disabled) { transform: none; } }

@@ -25,6 +25,7 @@ export interface PlayerDockProps {
   nextDisabled?: boolean;
   shuffle: boolean;
   repeat: boolean;
+  repeatOne?: boolean;
   onShuffle: () => void;
   onRepeat: () => void;
   onPlayPause: () => void;

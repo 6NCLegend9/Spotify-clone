@@ -8,7 +8,6 @@ import { FiChevronLeft, FiChevronRight, FiDisc, FiHeart, FiHome, FiSearch, FiSet
 import { MdSportsEsports } from "react-icons/md";
 import { canUseArcade } from "@/utils/arcadeAccess";
 import { IoClose } from "react-icons/io5";
-import BrandMark from "../Layout/BrandMark";
 import { useNav } from "../Layout/AppShell";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import Profile from "./Profile";
@@ -36,7 +35,7 @@ const Sidebar = () => {
   return (
     <aside ref={sidebarRef} id="app-sidebar" className={`app-sidebar kasa-sidebar ${showNav ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`} aria-label="Main menu" {...(navModal ? { role: "dialog", "aria-modal": true } : {})}>
       <div className="sidebar-head"><div className="sidebar-brand">
-        <BrandMark onClick={go} compact={collapsed} />
+        <button type="button" onClick={toggleCollapsed} className="sidebar-library-title" aria-label={collapsed ? "Expand your library" : "Collapse your library"} title="Your Library"><FiDisc aria-hidden="true" size={24} />{!collapsed && <span>Your Library</span>}</button>
         <div className="sidebar-head-actions">
           <button type="button" onClick={toggleCollapsed} className="sidebar-toggle icon-btn non-phone-only-inline-flex items-center justify-center" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
             {collapsed ? <FiChevronRight aria-hidden="true" /> : <FiChevronLeft aria-hidden="true" />}
@@ -56,7 +55,7 @@ const Sidebar = () => {
           <Link href="/library/liked" onClick={go} aria-current={isActive("/library/liked") ? "page" : undefined}>Liked Songs</Link>
         </div>
         <Playlists />
-        <details className="kasa-sidebar-extra"><summary>More from KASA</summary>
+        <details className="kasa-sidebar-extra"><summary>More from HayKasa</summary>
           <nav aria-label="Library and account">
             {links.filter(([, href]) => href !== "/").map(([label, href, Icon]) => (
               <Link key={href} href={href} onClick={go} aria-current={isActive(href) ? "page" : undefined} className={`nav-link ${isActive(href) ? "is-active" : ""}`}><Icon aria-hidden="true" className="text-lg shrink-0" /><span>{label}</span></Link>

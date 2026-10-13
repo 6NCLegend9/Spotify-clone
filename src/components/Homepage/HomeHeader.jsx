@@ -11,7 +11,7 @@ import { selectEffectiveAppearance } from "@/redux/features/appearanceSlice";
 const FILTERS = [
   { id: "all", label: "All" },
   { id: "music", label: "Music" },
-  { id: "podcasts", label: "Podcasts" },
+  { id: "for-you", label: "Made for you" },
 ];
 function greetingForHour(hour) {
   if (hour < 12) return "Good morning";
@@ -59,20 +59,13 @@ export default function HomeHeader({ filter, onFilter }) {
       <div className="home-header-row">
         <div className={`home-title-copy appearance-home-text--${homeAlign}`}>
           <h1 className={`home-display ${customMessage ? `appearance-home-text--${homeSize}` : ""}`}>
-            {customMessage || (guest ? "Free. No ads. Jam." : hello)}
+            {customMessage || hello}
           </h1>
           <p className="home-subtitle">
             {guest
               ? "Listen now. Save, follow, and Jam when you make an account."
               : "Music for a brighter today."}
           </p>
-          {guest ? (
-            <p className="home-guest-beats">
-              <span>Free</span>
-              <span>No ads</span>
-              <span>Jam</span>
-            </p>
-          ) : null}
         </div>
       </div>
     </header>

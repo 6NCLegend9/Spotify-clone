@@ -9,21 +9,23 @@
 }
 
 :root {
-  --accent: #00e6e6;
-  --teal: #64c9d7;
-  --teal-mid: #22a6b3;
-  --navy: #0c1018;
-  --navy-deep: #0c1018;
-  --navy-surface: #141a24;
-  --navy-raised: #1c2430;
-  --navy-panel: #283343;
+  --font-poppins: Arial, Helvetica, system-ui, sans-serif;
+  --font-righteous: Arial, Helvetica, system-ui, sans-serif;
+  --accent: var(--appearance-accent, #1ed760);
+  --teal: #b3b3b3;
+  --teal-mid: #a7a7a7;
+  --navy: #000000;
+  --navy-deep: #000000;
+  --navy-surface: #121212;
+  --navy-raised: #1f1f1f;
+  --navy-panel: #282828;
   --sidebar-w: 16.25rem;
   --sidebar-collapsed-w: 5.25rem;
   --topbar-h: 64px;
   --mobile-tabbar-h: calc(3.5rem + env(safe-area-inset-bottom, 0px));
   --mobile-player-h: 3.75rem;
-  --text: #f4f7fb;
-  --muted: #b4bfcd;
+  --text: #ffffff;
+  --muted: #b3b3b3;
   --motion-fast: 180ms;
   --motion-ui: 220ms;
   --motion-sheet: 300ms;
@@ -38,7 +40,7 @@
   --fill: rgba(255, 255, 255, 0.07);
   --fill-hover: rgba(255, 255, 255, 0.08);
   --fill-strong: rgba(255, 255, 255, 0.14);
-  --play-ink: #001014;
+  --play-ink: var(--appearance-play-ink, #000000);
 }
 
 html,
@@ -46,7 +48,7 @@ body {
   height: 100%;
   max-height: 100dvh;
   overflow: hidden;
-  font-family: var(--font-poppins), Poppins, system-ui, sans-serif;
+  font-family: Arial, Helvetica, system-ui, sans-serif;
   background: transparent; /* Keep the shared LightPillar background visible. */
   color: var(--text);
   color-scheme: dark;

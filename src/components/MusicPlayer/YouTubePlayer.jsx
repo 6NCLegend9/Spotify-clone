@@ -146,7 +146,10 @@ function YouTubePlayer() {
   const dispatch = useDispatch();
   const store = useStore();
   const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState(false);
+  const [repeatMode, setRepeatMode] = useState("off");
+  const repeat = repeatMode !== "off";
+  const repeatModeRef = useRef(repeatMode);
+  repeatModeRef.current = repeatMode;
   const repeatRef = useRef(false);
   const unshuffledRef = useRef([]);
   repeatRef.current = repeat;
@@ -2339,6 +2342,10 @@ function YouTubePlayer() {
     if (status === "authenticated" && current?.id) {
       recordPlayEvent(current.id, completed ? "completed" : "skipped");
     }
+    if (completed && !avoidId && current?.id && repeatModeRef.current === "one") {
+      replayCurrent();
+      return true;
+    }
     markExpectPlaying();
     dispatch(playPause(true));
     const immediate = getNextVideo({ avoidId });
@@ -3064,8 +3071,8 @@ function YouTubePlayer() {
       )}
       <PlayerDock
         track={video} playing={isPlaying} position={currentTime} duration={duration}
-        disabled={isJamGuest} nextDisabled={jamLocked} shuffle={shuffle} repeat={repeat}
-        onShuffle={toggleShuffle} onRepeat={() => setRepeat((value) => !value)}
+        disabled={isJamGuest} nextDisabled={jamLocked} shuffle={shuffle} repeat={repeat} repeatOne={repeatMode === "one"}
+        onShuffle={toggleShuffle} onRepeat={() => setRepeatMode((value) => value === "off" ? "queue" : value === "queue" ? "one" : "off")}
         onPlayPause={handlePlayPause} onPrevious={handlePrev} onNext={() => handleNext()}
         onSeek={seekOnCurrentTrack} favourite={<FavouriteTrackButton track={video} className="!h-12 !w-12" />}
         qualityControl={<PlaybackQualityControl provider={getActivePlayer()?.provider} asset={mediaAsset} qualities={mediaQualities} selection={qualitySelection} disabled={isJamGuest} onChange={(selection) => {

@@ -10,7 +10,7 @@ import { HiOutlineViewGrid, HiViewGrid } from "react-icons/hi";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
@@ -21,6 +21,7 @@ import { interactiveYoutubeSearchCache, normalizeSearchRequestKey } from "@/util
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
+import { isTrackAllowed } from "@/utils/explicitContent.mjs";
 
 const Searchbar = () => {
   const { data: session, status } = useSession();
@@ -32,6 +33,7 @@ const Searchbar = () => {
 
 const AccountSearchbar = ({ accountKey }) => {
   const dispatch = useDispatch();
+  const allowExplicit = useSelector((state) => state.settings.explicitContent === true);
   const router = useRouter();
   const pathname = usePathname();
   const browseActive = pathname === "/search";
@@ -218,9 +220,9 @@ const AccountSearchbar = ({ accountKey }) => {
   }, [searchTerm, open]);
 
   const items = useMemo(() => {
-    if (searchTerm.trim()) return songs.map((song) => ({ type: "song", key: `song-${song.id}`, song }));
+    if (searchTerm.trim()) return songs.filter((song) => isTrackAllowed(song, allowExplicit)).map((song) => ({ type: "song", key: `song-${song.id}`, song }));
     return recentQueries.map((query, index) => ({ type: "recent-query", key: `recent-query-${index}-${query}`, query }));
-  }, [searchTerm, songs, recentQueries]);
+  }, [searchTerm, songs, recentQueries, allowExplicit]);
 
   const go = (query) => {
     const next = String(query || "").trim();

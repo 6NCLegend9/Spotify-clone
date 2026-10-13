@@ -4,8 +4,10 @@ const fileSchema = new mongoose.Schema(
   {
     name: {
         type: String,
-        required: true
+        required: true,
+        maxlength: 80,
     },
+    description: { type: String, default: "", maxlength: 300 },
     songs: {
       type: [String],
       default: [],

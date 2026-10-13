@@ -169,6 +169,7 @@ export function serializePlaylist(playlist, userId) {
   return {
     _id: obj._id,
     name: obj.name,
+    description: typeof obj.description === "string" ? obj.description : "",
     songs: Array.isArray(obj.songs) ? obj.songs : [],
     songAddedAt: obj.songAddedAt || {},
     user: publicUser(obj.user),

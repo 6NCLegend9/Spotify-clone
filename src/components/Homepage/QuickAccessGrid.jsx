@@ -39,7 +39,7 @@ export default function QuickAccessGrid({ items }) {
 
   return (
     <div className="home-quick">
-      {items.slice(0, 6).map((item) => {
+      {items.slice(0, 8).map((item) => {
         if (item.type === "liked") {
           return (
             <QuickCard key="liked" href="/library/liked" aria-label="Open Liked Songs">
