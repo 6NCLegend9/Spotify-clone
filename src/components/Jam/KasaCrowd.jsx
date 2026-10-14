@@ -17,7 +17,7 @@ export default function KasaCrowd({ jam }) {
     <section className="rounded-xl border border-[#00e6e6]/25 bg-[#00e6e6]/[0.04] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-          <GiMusicalNotes aria-hidden="true" className="text-[#00e6e6]" /> Kasa Crowd
+          <GiMusicalNotes aria-hidden="true" className="text-[#00e6e6]" /> HayKasa Crowd
         </h3>
         <span className="flex items-center gap-1 text-[11px] text-[#9aa8b5]">
           <FiUsers aria-hidden="true" /> {crowd.members.length} sharing

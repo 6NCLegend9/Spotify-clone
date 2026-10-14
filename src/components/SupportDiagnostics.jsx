@@ -55,7 +55,7 @@ export default function SupportDiagnostics() {
           <button type="button" className="btn-ghost min-h-12 gap-2 px-4" onClick={() => void refresh()}><RefreshCw size={18} aria-hidden="true" />Refresh</button>
           <button type="button" className="btn-ghost min-h-12 gap-2 px-4" onClick={() => {
             const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
-            const link = document.createElement("a"); link.href = url; link.download = "heykasa-diagnostics.json"; link.click();
+            const link = document.createElement("a"); link.href = url; link.download = "haykasa-diagnostics.json"; link.click();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
           }}><Download size={18} aria-hidden="true" />Download report</button>
           <button type="button" className="btn-ghost min-h-12 px-4" onClick={() => void clearReport()}>Clear report</button>

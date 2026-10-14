@@ -328,7 +328,7 @@ export default function AppearanceSettings() {
             disabled={!draft.home.visible}
             onChange={(event) => updateDraft((next) => { next.home.message = event.target.value; })}
             className="field mt-3 w-full resize-y p-3 disabled:opacity-50"
-            placeholder="Kasa’s music room"
+            placeholder="HayKasa’s music room"
           />
           <p className="mt-1 text-right text-xs text-[var(--muted)]">{draft.home.message.length}/160</p>
           <div className="mt-3 grid grid-cols-2 gap-3">

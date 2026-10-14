@@ -9,7 +9,7 @@ export default function OpenDesktopPage() {
   }, []);
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#07111f] px-6 text-center text-white">
+    <main className="grid min-h-screen place-items-center bg-[var(--navy-surface)] px-6 text-center text-white">
       <div className="max-w-md">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00e6e6]">HayKasa Desktop</p>
         <h1 className="mt-3 text-3xl font-semibold">Opening the desktop app</h1>

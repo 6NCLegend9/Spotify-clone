@@ -13,7 +13,7 @@ export default function WeekOnKasa() {
     let active = true;
     requestJson("/api/week-on-kasa", {
       signal: controller.signal,
-      fallbackTitle: "This week on Kasa is unavailable",
+      fallbackTitle: "This week on HayKasa is unavailable",
       fallbackMessage: "We couldn’t load this week’s listening pulse.",
     })
       .then(async (response) => {
@@ -30,5 +30,5 @@ export default function WeekOnKasa() {
     };
   }, []);
 
-  return <TrackRail title="This week on Kasa" videos={videos} />;
+  return <TrackRail title="This week on HayKasa" videos={videos} />;
 }

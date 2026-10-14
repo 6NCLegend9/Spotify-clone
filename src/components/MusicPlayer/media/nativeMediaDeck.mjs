@@ -13,11 +13,13 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   media.muted = true;
   host.replaceChildren(media);
   let id = videoId, state = STATES.UNSTARTED, intent = autoplay, position = startSeconds;
+  let playAttempt = 0;
   let generation = 0, controller, receipt, asset, ready = false, destroyed = false, refreshed = false, renewTimer, graph, announcedReady = false;
   const emit = (name, data) => { if (!destroyed) events[name]?.({ target: deck, data }); };
   const setState = (next) => { state = next; emit("onStateChange", next); };
   const fallback = (reason) => {
     if (destroyed) return;
+    playAttempt++;
     const snapshot = { position: ready ? media.currentTime : position, playing: intent, reason };
     media.pause();
     controller?.abort();
@@ -28,17 +30,24 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   const listen = (name, callback) => { listeners.set(name, callback); media.addEventListener(name, callback); };
   const resume = () => {
     if (!ready || destroyed || !intent) return;
-    try { graph ||= createNativeAudioGraph(media, audioSettings); } catch { /* Native output remains available. */ }
-    const context = graph?.resume();
-    const playback = media.play();
-    Promise.all([context, playback]).catch((error) => {
-      if (destroyed || error?.name === "AbortError") return;
+    const attempt = ++playAttempt;
+    const ownGeneration = generation;
+    const fail = (error) => {
+      if (destroyed || !intent || attempt !== playAttempt || ownGeneration !== generation || error?.name === "AbortError") return;
       if (error?.name === "NotAllowedError") {
         intent = false;
         media.pause();
         emit("onAutoplayBlocked");
       } else fallback("native_playback_failed");
-    });
+    };
+    try {
+      try { graph ||= createNativeAudioGraph(media, audioSettings); } catch { /* Native output remains available. */ }
+      const context = graph?.resume();
+      // The executor calls play synchronously, preserving user activation,
+      // while also capturing throws before observing both resume promises.
+      const playback = new Promise((resolve) => resolve(media.play()));
+      Promise.all([context, playback]).catch(fail);
+    } catch (error) { fail(error); }
   };
   async function resolve(renew = false) {
     const own = ++generation;
@@ -91,7 +100,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     provider: "native",
     get isResolving() { return !ready; },
     playVideo() { intent = true; resume(); },
-    pauseVideo() { intent = false; media.pause(); },
+    pauseVideo() { playAttempt++; intent = false; media.pause(); },
     seekTo(seconds) { position = Math.max(0, Number(seconds) || 0); if (ready) media.currentTime = Math.min(position, Math.max(0, deck.getDuration() - .1)); },
     setVolume(value) { media.volume = Math.max(0, Math.min(1, (Number(value) || 0) / 100)); },
     mute() { media.muted = true; },
@@ -118,7 +127,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     },
     loadModule() {}, unloadModule() {}, setOption() {},
     destroy() {
-      destroyed = true; generation++; controller?.abort(); clearTimeout(renewTimer);
+      destroyed = true; generation++; playAttempt++; controller?.abort(); clearTimeout(renewTimer);
       cancelMediaReceipt(receipt);
       for (const [name, callback] of listeners) media.removeEventListener(name, callback);
       media.pause(); media.removeAttribute("src"); media.load(); media.remove(); graph?.close();

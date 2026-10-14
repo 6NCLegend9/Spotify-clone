@@ -51,7 +51,7 @@ export default function ItemMenu({ label = "Item options", actions = [], classNa
       onClick={(event) => { event.preventDefault(); event.stopPropagation(); setError(""); setOpen((value) => !value); }}>{children || <FiMoreHorizontal aria-hidden="true" />}</button>
     {open && createPortal(<div ref={menu} role="menu" aria-label={label} data-item-actions-menu="true"
       style={{ position: "fixed", ...position, width: "min(240px, calc(100vw - 16px))" }}
-      className="item-actions-menu z-[10000] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-md bg-[#282828] p-1 text-sm text-white shadow-2xl"
+      className="item-actions-menu z-[10000] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-md bg-[var(--navy-panel)] p-1 text-sm text-white shadow-2xl"
       onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); }

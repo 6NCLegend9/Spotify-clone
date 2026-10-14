@@ -27,7 +27,7 @@ export default function EditPlaylistDetails({ playlist, onClose, onSaved }) {
     } catch (cause) { setError(cause.message || "Your changes could not be saved. Try again."); }
     finally { setBusy(false); }
   };
-  return <AccessibleDialog open onClose={onClose} disableClose={busy} titleId={`edit-playlist-${playlist._id}`} panelClassName="w-full max-w-lg rounded-lg bg-[#282828] p-6 text-white shadow-2xl">
+  return <AccessibleDialog open onClose={onClose} disableClose={busy} titleId={`edit-playlist-${playlist._id}`} panelClassName="w-full max-w-lg rounded-lg bg-[var(--navy-panel)] p-6 text-white shadow-2xl">
     <form onSubmit={save}>
       <div className="mb-5 flex items-center justify-between"><h2 id={`edit-playlist-${playlist._id}`} className="text-2xl font-bold">Edit details</h2><button type="button" disabled={busy} onClick={onClose} aria-label="Close playlist details" className="icon-btn h-11 w-11"><FiX /></button></div>
       <label className="block text-sm font-semibold">Name<input autoFocus required maxLength={80} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} className="field mt-2 w-full" /></label>
