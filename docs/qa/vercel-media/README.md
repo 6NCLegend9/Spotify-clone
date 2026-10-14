@@ -1,5 +1,7 @@
 # Vercel mobile media deployment
 
+Current live verification: [results and remaining blocker](RESULTS.md).
+
 The frontend and Python/FFmpeg/yt-dlp container deploy atomically using Vercel
 Services (Beta). Only signed-in mobile browsers can use `/api/media/resolve`.
 Desktop, Electron, and anonymous playback continue to use the embedded provider.
