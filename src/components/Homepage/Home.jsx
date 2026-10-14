@@ -97,7 +97,7 @@ const Home = () => {
   return (
     <div className="page-home">
       <div className="home-wash" aria-hidden="true" />
-      <HomeHeader filter={filter} onFilter={setFilter} />
+      <HomeHeader filter={filter} onFilter={setFilter} onRefresh={retry} refreshing={refreshing || loading} />
 
       {filter === "for-you" && status === "unauthenticated" ? (
         <EmptyState

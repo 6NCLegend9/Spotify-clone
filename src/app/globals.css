@@ -3274,6 +3274,8 @@ body {
 
 .home-header-row {
   align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .home-title-copy {

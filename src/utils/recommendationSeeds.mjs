@@ -24,11 +24,11 @@ function addSeed(seeds, seen, query, reason, extra = {}) {
   seeds.push({ query: normalized, reason, ...extra });
 }
 
-export function resolveRecommendationPlan(mode, profile) {
+export function resolveRecommendationPlan(mode, profile, options) {
   if (mode === "personalized") {
     return {
       kind: "personalized",
-      seeds: buildPersonalizedSeeds(profile),
+      seeds: buildPersonalizedSeeds(profile, options),
     };
   }
 
@@ -38,7 +38,7 @@ export function resolveRecommendationPlan(mode, profile) {
   };
 }
 
-export function buildPersonalizedSeeds(profile) {
+export function buildPersonalizedSeeds(profile, { rotation = 0 } = {}) {
   const seeds = [];
   const seen = new Set();
   const savedGenres = (profile?.genres || []).filter(
@@ -46,32 +46,33 @@ export function buildPersonalizedSeeds(profile) {
   );
   const privateSession = profile?.settings?.privateSession === true;
 
-  if (savedGenres.length > 0) {
-    addSeed(
-      seeds,
-      seen,
-      savedGenres[0],
-      `Based on your ${savedGenres[0]} taste`,
-      { genre: savedGenres[0] },
-    );
-  }
-  (profile?.followedArtists || []).forEach((artist) => {
-    addSeed(seeds, seen, artist, `Because you follow ${artist}`);
-  });
-  if (!privateSession) {
-    (profile?.songHistory || []).forEach((song) => {
-      const channel = typeof song?.channel === "string" ? song.channel : "";
-      addSeed(seeds, seen, channel, `Because you listened to ${channel}`);
+  // Rotate both signal families and their members so long follow lists cannot
+  // permanently crowd out recent listening, searches, or later saved genres.
+  const pools = [
+    savedGenres.map((genre) => ({ query: genre, reason: `Based on your ${genre} taste`, genre })),
+    (profile?.followedArtists || []).map((artist) => ({ query: artist, reason: `Because you follow ${artist}` })),
+    privateSession ? [] : (profile?.songHistory || []).map((song) => ({ query: song?.channel, reason: `Because you listened to ${song?.channel}` })),
+    privateSession ? [] : [...(profile?.searches || [])].reverse().map((term) => ({ query: term, reason: `Because you searched for ${term}` })),
+  ].map((pool) => {
+    const keys = new Set();
+    return pool.filter((seed) => {
+      const key = typeof seed.query === "string" ? seed.query.trim().toLowerCase() : "";
+      if (!key || keys.has(key)) return false;
+      keys.add(key);
+      return true;
     });
-    (profile?.searches || []).forEach((term) => {
-      addSeed(seeds, seen, term, `Because you searched for ${term}`);
+  }).filter((pool) => pool.length);
+  const offset = Number.isSafeInteger(rotation) ? Math.abs(rotation) : 0;
+  const orderedPools = pools.map((_, index) => pools[(index + offset) % pools.length]);
+  for (let round = 0; round < Math.max(0, ...pools.map((pool) => pool.length)) && seeds.length < 3; round += 1) {
+    orderedPools.forEach((pool) => {
+      if (round >= pool.length) return;
+      const seed = pool[(round + Math.floor(offset / pools.length)) % pool.length];
+      addSeed(seeds, seen, seed.query, seed.reason, seed.genre ? { genre: seed.genre } : {});
     });
   }
-  savedGenres.slice(1).forEach((genre) => {
-    addSeed(seeds, seen, genre, `Based on your ${genre} taste`, { genre });
-  });
 
-  return seeds.length ? seeds : buildGenreSeeds(null);
+  return seeds.length ? seeds : buildPersonalizedSeeds({ genres: DEFAULT_GENRES }, { rotation });
 }
 
 export function resolveGenrePreferences(values, catalog) {

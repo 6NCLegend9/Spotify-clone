@@ -22,6 +22,8 @@ import {
 } from "@/utils/apiResponse";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 import { activeSnoozedTracks } from "@/utils/recommendationFeedback.mjs";
+import { randomInt } from "node:crypto";
+import { discoverySeenIds, MAX_DISCOVERY_SEEN, selectHomeDiscovery } from "@/utils/homeDiscovery.mjs";
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_SEARCH_CACHE_ENTRIES = 40;
@@ -67,13 +69,16 @@ function normalizeVideo(item, reason, extra = {}) {
 }
 
 async function searchYouTube(query, reason, extra = {}) {
+  const cacheKey = `videos:${query.toLowerCase()}`;
+  const cached = getCachedSearches(cacheKey);
+  if (cached) return cached.map((video) => ({ ...video, reason, ...extra }));
   const params = {
     part: "snippet",
     type: "video",
     videoCategoryId: "10",
     videoEmbeddable: "true",
     videoSyndicated: "true",
-    maxResults: "12",
+    maxResults: "32",
     q: buildOfficialMusicQuery(query),
     safeSearch: "moderate",
   };
@@ -81,8 +86,10 @@ async function searchYouTube(query, reason, extra = {}) {
   if (!ok) return [];
   const videos = (Array.isArray(data?.items) ? data.items : [])
     .filter((item) => item?.id?.videoId)
-    .map((item) => normalizeVideo(item, reason, extra));
-  return rankOfficialMusicResults(filterMusicPlaybackResults(videos, query), query).slice(0, 8);
+    .map((item) => normalizeVideo(item));
+  const ranked = rankOfficialMusicResults(filterMusicPlaybackResults(videos, query), query);
+  if (ranked.length) cacheSearches(cacheKey, ranked);
+  return ranked.map((video) => ({ ...video, reason, ...extra }));
 }
 
 async function getPopularMusic() {
@@ -91,7 +98,7 @@ async function getPopularMusic() {
     chart: "mostPopular",
     videoCategoryId: "10",
     regionCode: "US",
-    maxResults: "24",
+    maxResults: "50",
   };
   const { ok, data } = await youtubeFetch("videos", params, { next: { revalidate: 900 } });
   if (!ok) return [];
@@ -107,6 +114,9 @@ async function getPopularMusic() {
 }
 
 async function searchPlaylists(query) {
+  const cacheKey = `playlists:${query.toLowerCase()}`;
+  const cached = getCachedSearches(cacheKey);
+  if (cached) return cached;
   const params = {
     part: "snippet",
     type: "playlist",
@@ -115,7 +125,7 @@ async function searchPlaylists(query) {
   };
   const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
   if (!ok) return [];
-  return (Array.isArray(data?.items) ? data.items : [])
+  const playlists = (Array.isArray(data?.items) ? data.items : [])
     .filter((item) => item?.id?.playlistId)
     .map((item) => ({
       id: item.id.playlistId,
@@ -127,6 +137,8 @@ async function searchPlaylists(query) {
         item.snippet?.thumbnails?.default?.url ||
         "",
     }));
+  if (playlists.length) cacheSearches(cacheKey, playlists);
+  return playlists;
 }
 
 function uniqueSongs(videos) {
@@ -156,14 +168,22 @@ export async function GET(request) {
     const mode = account ? "personalized" : "guest";
     const profile = account?.userData || null;
 
-    const plan = resolveRecommendationPlan(mode, profile);
+    const rawSeen = new URL(request.url).searchParams.get("seen") || "";
+    if (rawSeen.length > MAX_DISCOVERY_SEEN * 12) {
+      return apiError("VALIDATION_ERROR", { message: "Too many discovery exclusions." });
+    }
+    const seenIds = discoverySeenIds(rawSeen.split(","));
+    const rotation = randomInt(0x7fffffff);
+    const plan = resolveRecommendationPlan(mode, profile, { rotation });
     const excluded = new Set(profile?.notInterested || []);
     const snoozed = new Set(activeSnoozedTracks(profile));
     const skipped = new Set(profile?.skippedTracks || []);
     const recent = new Set((profile?.songHistory || []).map((song) => song?.id || song));
+    const recentIdentities = new Set((profile?.songHistory || []).filter((song) => song && typeof song === "object").map(canonicalSongIdentity).filter(Boolean));
     const explicitDisabled = mode === "guest" || profile?.settings?.explicitContent !== true;
     const filterRecommendations = (videos) => uniqueSongs(videos
       .filter((video) => !excluded.has(video.id) && !snoozed.has(video.id) && !skipped.has(video.id) && !recent.has(video.id))
+      .filter((video) => !recentIdentities.has(canonicalSongIdentity(video)))
       .filter((video) => isTrackAllowed(video, !explicitDisabled)));
 
     let source = "search";
@@ -195,40 +215,26 @@ export async function GET(request) {
           await searchYouTube("popular music", "Popular right now"),
         );
       }
-      recommendations = recommendations.slice(0, 24);
+      recommendations = selectHomeDiscovery([recommendations], { seenIds, rotation }).recommendations;
     } else {
       const seeds = plan.seeds;
-      const cacheKey = seeds.map((seed) => seed.query).join("|");
-      let groups;
-      const cached = getCachedSearches(cacheKey);
-      if (cached?.groups) {
-        groups = cached.groups;
-        playlists = cached.playlists;
-      } else {
-        const [searchGroups, featuredPlaylists] = await Promise.all([
-          Promise.all(
-            seeds.map(({ query, reason, genre }) =>
-              searchYouTube(query, reason, { seedQuery: query, genre }),
-            ),
-          ),
-          searchPlaylists(seeds[0].query),
-        ]);
-        groups = searchGroups;
-        playlists = featuredPlaylists;
-        cacheSearches(cacheKey, { groups, playlists });
-      }
-
-      recommendations = filterRecommendations(groups.flat());
+      const [groups, featuredPlaylists] = await Promise.all([
+        Promise.all(seeds.map(({ query, reason, genre }) => searchYouTube(query, reason, { seedQuery: query, genre }))),
+        searchPlaylists(seeds[0].query),
+      ]);
+      playlists = featuredPlaylists;
+      const filteredGroups = groups.map(filterRecommendations);
+      const selection = selectHomeDiscovery(filteredGroups, { seenIds, rotation });
+      recommendations = selection.recommendations;
       if (recommendations.length === 0) {
         source = "youtube-chart";
-        recommendations = filterRecommendations(await getPopularMusic());
+        recommendations = selectHomeDiscovery([filterRecommendations(await getPopularMusic())], { seenIds, rotation }).recommendations;
       }
-      recommendations = recommendations.slice(0, 24);
       genreSections = seeds
         .map((seed, index) => ({
           id: seed.query.toLowerCase().replace(/\s+/g, "-"),
           title: seed.query,
-          videos: filterRecommendations(groups[index] || []),
+          videos: selection.genreVideos[index] || [],
         }))
         .filter((section) => section.videos.length > 0);
     }
@@ -251,12 +257,8 @@ export async function GET(request) {
           }
         : null,
     }, {
-      headers: profile
-        ? { "Cache-Control": "private, no-store" }
-        : {
-            "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
-            Vary: "Cookie",
-          },
+      // Cache provider candidates, never a user's rotated/excluded selection.
+      headers: { "Cache-Control": "private, no-store", Vary: "Cookie" },
     });
   } catch (error) {
     return handleApiError(error, "Load recommendations");
