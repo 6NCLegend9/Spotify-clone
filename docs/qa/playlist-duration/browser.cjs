@@ -52,7 +52,7 @@ const results = [];
         }
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
-      await page.goto(origin + (liked ? '/library/liked' : '/library/playlist/507f1f77bcf86cd799439012'), { waitUntil: 'domcontentloaded' });
+      await page.goto(origin + (liked ? '/library/liked' : '/library/playlist/507f1f77bcf86cd799439012'), { waitUntil: 'domcontentloaded', timeout: 90000 });
       await page.locator('.playlist-track-row').first().waitFor({ timeout: 90000 });
       const row = page.locator('.playlist-track-row').first();
       await row.scrollIntoViewIfNeeded();
