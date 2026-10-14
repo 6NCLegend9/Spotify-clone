@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { FiSettings } from "react-icons/fi";
+import { FiRefreshCw, FiSettings } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import { useNav } from "../Layout/AppShell";
 import { selectEffectiveAppearance } from "@/redux/features/appearanceSlice";
@@ -18,7 +18,7 @@ function greetingForHour(hour) {
   if (hour < 18) return "Good afternoon";
   return "Good evening";
 }
-export default function HomeHeader({ filter, onFilter }) {
+export default function HomeHeader({ filter, onFilter, onRefresh, refreshing }) {
   const { data: session, status } = useSession();
   const { setShowNav, navModal } = useNav();
   const [imageFailed, setImageFailed] = useState(false);
@@ -67,6 +67,16 @@ export default function HomeHeader({ filter, onFilter }) {
               : "Music for a brighter today."}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          aria-label={refreshing ? "Refreshing discovery" : "Refresh discovery"}
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-wait disabled:opacity-50"
+        >
+          <FiRefreshCw aria-hidden="true" className={refreshing ? "animate-spin" : ""} />
+          <span>{refreshing ? "Refreshing" : "Refresh"}</span>
+        </button>
       </div>
     </header>
   );

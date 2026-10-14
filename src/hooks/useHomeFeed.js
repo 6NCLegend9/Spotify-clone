@@ -10,6 +10,7 @@ import { getUserPlaylists } from "@/services/playlistApi";
 import { toUserError } from "@/utils/userError";
 import { accountOwner, readAccountCache, writeAccountCache } from "@/utils/accountCache.mjs";
 import { isTrackAllowed } from "@/utils/explicitContent.mjs";
+import { discoverySeenIds, homeDiscoveryIds, discoveryPlaylistIds, homeDiscoveryPlaylistIds } from "@/utils/homeDiscovery.mjs";
 
 const HOME_CACHE_KEY = "HayKasa-home-recommendations-v3";
 const HOME_CACHE_TTL = 5 * 60_000;
@@ -25,9 +26,9 @@ const normalizeHistory = (value) =>
         (typeof song.title === "string" && song.title.trim())),
   );
 
-const readHomeCache = (owner) => {
+const readHomeCache = (owner, maxAge = HOME_CACHE_TTL) => {
   try {
-    return readAccountCache(sessionStorage, HOME_CACHE_KEY, owner, HOME_CACHE_TTL);
+    return readAccountCache(sessionStorage, HOME_CACHE_KEY, owner, maxAge);
   } catch {
     return null;
   }
@@ -67,6 +68,9 @@ export default function useHomeFeed() {
     const controller = new AbortController();
     let cancelled = false;
     const cached = privateSession ? null : readHomeCache(owner);
+    const previous = privateSession ? null : readHomeCache(owner, 24 * 60 * 60_000);
+    const seenIds = discoverySeenIds([...(previous?.seenIds || []), ...homeDiscoveryIds(previous?.sections)]);
+    const seenPlaylistIds = discoveryPlaylistIds([...(previous?.seenPlaylistIds || []), ...homeDiscoveryPlaylistIds(previous?.sections)]);
     if (cached) {
       setHome({ owner, privateSession, data: cached });
       setLoading(false);
@@ -79,15 +83,23 @@ export default function useHomeFeed() {
         dispatch(setProgress(70));
       }
       try {
-        const res = await requestJson("/api/recommendations", {
+        const query = new URLSearchParams();
+        if (seenIds.length) query.set("seen", seenIds.join(","));
+        if (seenPlaylistIds.length) query.set("seenPlaylists", seenPlaylistIds.join(","));
+        const res = await requestJson(`/api/recommendations${query.toString() ? `?${query}` : ""}`, {
           signal: controller.signal,
+          cache: "no-store",
           fallbackTitle: "Home is temporarily unavailable",
           fallbackMessage: "We couldn’t load your recommendations. Please try again.",
         });
         if (cancelled) return;
         if (res?.sections) {
           setHome({ owner, privateSession, data: res });
-          if (!privateSession) writeHomeCache(owner, res);
+          if (!privateSession) writeHomeCache(owner, {
+            ...res,
+            seenIds: discoverySeenIds([...seenIds, ...homeDiscoveryIds(res.sections)]),
+            seenPlaylistIds: discoveryPlaylistIds([...seenPlaylistIds, ...homeDiscoveryPlaylistIds(res.sections)]),
+          });
         } else {
           throw toUserError(
             { code: "INTERNAL_ERROR" },
@@ -241,15 +253,19 @@ export default function useHomeFeed() {
 
   const feed = useMemo(() => {
     const sections = data?.sections || {};
-    const allowed = (tracks) => (Array.isArray(tracks) ? tracks : []).filter((track) => isTrackAllowed(track, allowExplicit));
+    const recentIds = new Set(libraryOwner === owner ? history.map((track) => track.id) : []);
+    const allowed = (tracks) => (Array.isArray(tracks) ? tracks : []).filter((track) => !recentIds.has(track.id) && isTrackAllowed(track, allowExplicit));
     return {
+      basis: data?.basis || "popular",
+      forYou: sections.forYou ? { ...sections.forYou, tracks: allowed(sections.forYou.tracks) } : { tracks: allowed(sections.trending), playlists: sections.featuredPlaylists || [] },
+      explore: sections.explore ? { ...sections.explore, tracks: allowed(sections.explore.tracks) } : { tracks: allowed([...(sections.charts || []), ...(sections.newReleases || [])]), playlists: [] },
       trending: allowed(sections.trending),
       charts: allowed(sections.charts),
       newReleases: allowed(sections.newReleases),
       featuredPlaylists: sections.featuredPlaylists || [],
       genreSections: (Array.isArray(sections.genres) ? sections.genres : []).map((section) => ({ ...section, videos: allowed(section.videos) })),
     };
-  }, [data, allowExplicit]);
+  }, [data, allowExplicit, history, libraryOwner, owner]);
 
   const visibleHistory = libraryOwner === owner ? history.filter((track) => isTrackAllowed(track, allowExplicit)) : [];
   const visibleReleases = libraryOwner === owner ? releases.filter((track) => isTrackAllowed(track, allowExplicit)) : [];
@@ -266,6 +282,8 @@ export default function useHomeFeed() {
     releases: visibleReleases,
     ...feed,
     hasAny:
+      (feed.forYou.tracks?.length || 0) + (feed.forYou.playlists?.length || 0) +
+      (feed.explore.tracks?.length || 0) + (feed.explore.playlists?.length || 0) +
       (feed.trending?.length || 0) +
         (feed.charts?.length || 0) +
         (feed.newReleases?.length || 0) +

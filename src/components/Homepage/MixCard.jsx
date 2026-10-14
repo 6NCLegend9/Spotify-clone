@@ -78,6 +78,7 @@ export default function MixCard({ mix }) {
   return (
     <div
       className="home-mix group w-full text-left"
+      data-home-playlist={mix.playlistId ? `youtube:${mix.playlistId}` : `mix:${mix.id}`}
       style={{ background: mixBackground(palette) }}
     >
       <Link

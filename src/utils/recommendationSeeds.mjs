@@ -1,4 +1,5 @@
 import { normalizeGenreName } from "./genreNormalization.mjs";
+import { MAJOR_GENRES } from "./genreTaxonomy.js";
 
 export const DEFAULT_GENRES = [
   "Pop",
@@ -19,59 +20,89 @@ export function buildGenreSeeds(profile) {
 function addSeed(seeds, seen, query, reason, extra = {}) {
   const normalized = typeof query === "string" ? query.trim() : "";
   const key = normalized.toLowerCase();
-  if (!normalized || seen.has(key) || seeds.length >= 3) return;
+  if (!normalized || seen.has(key) || seeds.length >= 2) return;
   seen.add(key);
   seeds.push({ query: normalized, reason, ...extra });
 }
 
-export function resolveRecommendationPlan(mode, profile) {
+export function resolveRecommendationPlan(mode, profile, options) {
   if (mode === "personalized") {
+    const seeds = buildPersonalizedSeeds(profile, options);
     return {
-      kind: "personalized",
-      seeds: buildPersonalizedSeeds(profile),
+      kind: seeds.length ? "personalized" : "popular",
+      seeds,
+      explorationSeeds: buildExplorationSeeds(seeds, profile, options),
+      basis: seeds[0]?.basis || "popular",
     };
   }
 
   return {
     kind: "popular",
     seeds: [],
+    explorationSeeds: [],
+    basis: "popular",
   };
 }
 
-export function buildPersonalizedSeeds(profile) {
+export function buildPersonalizedSeeds(profile, { rotation = 0 } = {}) {
   const seeds = [];
   const seen = new Set();
   const savedGenres = (profile?.genres || []).filter(
     (genre) => typeof genre === "string" && genre.trim(),
   );
   const privateSession = profile?.settings?.privateSession === true;
+  const artists = [...(profile?.followedArtists || []), ...(profile?.followedArtistsMeta || []).map((artist) => artist?.name)];
+  const hasTaste = savedGenres.length > 0 || artists.some((artist) => typeof artist === "string" && artist.trim());
 
-  if (savedGenres.length > 0) {
-    addSeed(
-      seeds,
-      seen,
-      savedGenres[0],
-      `Based on your ${savedGenres[0]} taste`,
-      { genre: savedGenres[0] },
-    );
-  }
-  (profile?.followedArtists || []).forEach((artist) => {
-    addSeed(seeds, seen, artist, `Because you follow ${artist}`);
-  });
-  if (!privateSession) {
-    (profile?.songHistory || []).forEach((song) => {
-      const channel = typeof song?.channel === "string" ? song.channel : "";
-      addSeed(seeds, seen, channel, `Because you listened to ${channel}`);
+  // Saved taste leads. With no saved taste, recent listening and searches lead.
+  // Rotate within each family so later genres/artists can also contribute.
+  const pools = (hasTaste ? [
+    savedGenres.map((genre) => ({ query: genre, reason: `Based on your ${genre} taste`, genre, basis: "taste", kind: "genre" })),
+    artists.map((artist) => ({ query: artist, reason: `Because you follow ${artist}`, basis: "taste", kind: "artist" })),
+  ] : privateSession ? [] : [
+    (profile?.songHistory || []).slice(0, 20).map((song) => ({ query: song?.channel || song?.title || song?.name, reason: `Inspired by your recent listening`, basis: "activity", kind: song?.channel ? "artist" : "search" })),
+    [...(profile?.searches || [])].slice(-10).reverse().map((term) => ({ query: term, reason: `Because you searched for ${term}`, basis: "activity", kind: "search" })),
+  ]).map((pool) => {
+    const keys = new Set();
+    return pool.filter((seed) => {
+      const key = typeof seed.query === "string" ? seed.query.trim().toLowerCase() : "";
+      if (!key || keys.has(key)) return false;
+      keys.add(key);
+      return true;
     });
-    (profile?.searches || []).forEach((term) => {
-      addSeed(seeds, seen, term, `Because you searched for ${term}`);
+  }).filter((pool) => pool.length);
+  const offset = Number.isSafeInteger(rotation) ? Math.abs(rotation) : 0;
+  const orderedPools = pools.map((_, index) => pools[(index + offset) % pools.length]);
+  for (let round = 0; round < Math.max(0, ...pools.map((pool) => pool.length)) && seeds.length < 2; round += 1) {
+    orderedPools.forEach((pool) => {
+      if (round >= pool.length) return;
+      const seed = pool[(round + Math.floor(offset / pools.length)) % pool.length];
+      addSeed(seeds, seen, seed.query, seed.reason, { ...seed, query: seed.query.trim() });
     });
   }
-  savedGenres.slice(1).forEach((genre) => {
-    addSeed(seeds, seen, genre, `Based on your ${genre} taste`, { genre });
-  });
 
-  return seeds.length ? seeds : buildGenreSeeds(null);
+  return seeds;
+}
+
+export function buildExplorationSeeds(seeds, profile, { rotation = 0 } = {}) {
+  const saved = new Set((profile?.genres || []).map(normalizeGenreName));
+  const offset = Number.isSafeInteger(rotation) ? Math.abs(rotation) : 0;
+  return seeds.map((seed, index) => {
+    const key = normalizeGenreName(seed.query);
+    const family = MAJOR_GENRES.find((genre) => [genre.name, ...genre.aliases, ...genre.subgenres].some((name) => normalizeGenreName(name) === key));
+    const styles = (family?.subgenres || []).filter((name) => !saved.has(normalizeGenreName(name)) && normalizeGenreName(name) !== key);
+    const style = styles.length ? styles[(offset + index) % styles.length] : null;
+    const query = style || `${seed.query} ${seed.kind === "artist" ? "similar artists songs" : "new music discoveries"}`;
+    return {
+      query,
+      genre: style || seed.genre,
+      reason: style ? `Explore ${style}, inspired by ${seed.query}` : `New discoveries inspired by ${seed.query}`,
+      basis: seed.basis,
+      kind: style ? "genre" : seed.kind,
+      fresh: true,
+      ...(seed.kind === "artist" ? { excludeArtist: seed.query } : {}),
+    };
+  });
 }
 
 export function resolveGenrePreferences(values, catalog) {

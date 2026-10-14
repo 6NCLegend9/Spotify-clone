@@ -12,6 +12,7 @@ import FxEq from "@/components/FxEq";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import { playHomeTracks } from "@/utils/playHome";
 import { cleanTitle } from "@/utils/text";
+import { canonicalSongIdentity } from "@/utils/songIdentity.mjs";
 
 function QuickCard({ children, className = "", playing, ...props }) {
   const Tag = props.href ? Link : "button";
@@ -54,7 +55,7 @@ export default function QuickAccessGrid({ items }) {
         if (item.type === "playlist") {
           return (
             <ContextMenuTarget key={`playlist-${item.playlist._id}`} className="home-quick-item">
-            <QuickCard href={`/library/playlist/${item.playlist._id}`} aria-label={`Open playlist ${item.playlist.name}`}>
+            <QuickCard href={`/library/playlist/${item.playlist._id}`} aria-label={`Open playlist ${item.playlist.name}`} data-home-playlist={`library:${item.playlist._id}`}>
               <span className="h-16 w-16 shrink-0 overflow-hidden">
                 <PlaylistCover playlist={item.playlist} className="h-full w-full" />
               </span>
@@ -72,6 +73,8 @@ export default function QuickAccessGrid({ items }) {
             <QuickCard
               playing={playing}
               aria-label={`Play ${title}`}
+              data-home-track={item.id}
+              data-home-recording={canonicalSongIdentity(item)}
               className="w-full"
               onClick={() => playHomeTracks(dispatch, item.queue || [item], item.queueIndex || 0)}
             >
