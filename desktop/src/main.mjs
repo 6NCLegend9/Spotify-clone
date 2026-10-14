@@ -585,7 +585,7 @@ async function createMainWindow() {
     minWidth: 640,
     minHeight: 520,
     show: false,
-    backgroundColor: "#07111f",
+    backgroundColor: "#07121d",
     title: PRODUCT_NAME,
     icon: resourceIconPath(),
     autoHideMenuBar: true,
@@ -702,7 +702,7 @@ function createMiniPlayer() {
     fullscreenable: false,
     minimizable: false,
     maximizable: false,
-    backgroundColor: "#07111f",
+    backgroundColor: "#07121d",
     webPreferences: {
       preload: path.join(__dirname, "miniPreload.cjs"),
       partition: MINI_PARTITION,

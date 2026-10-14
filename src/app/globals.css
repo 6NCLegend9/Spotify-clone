@@ -11,14 +11,14 @@
 :root {
   --font-poppins: Arial, Helvetica, system-ui, sans-serif;
   --font-righteous: Arial, Helvetica, system-ui, sans-serif;
-  --accent: var(--appearance-accent, #1ed760);
-  --teal: #b3b3b3;
-  --teal-mid: #a7a7a7;
-  --navy: #000000;
-  --navy-deep: #000000;
-  --navy-surface: #121212;
-  --navy-raised: #1f1f1f;
-  --navy-panel: #282828;
+  --accent: #00e6e6;
+  --teal: #64c9d7;
+  --teal-mid: #22a6b3;
+  --navy: #000814;
+  --navy-deep: #020813;
+  --navy-surface: #07121d;
+  --navy-raised: #0b1722;
+  --navy-panel: #101c28;
   --sidebar-w: 16.25rem;
   --sidebar-collapsed-w: 5.25rem;
   --topbar-h: 64px;

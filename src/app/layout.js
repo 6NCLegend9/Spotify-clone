@@ -107,14 +107,14 @@ export const metadata = {
     "apple-mobile-web-app-status-bar-style": "black-translucent",
     "apple-mobile-web-app-title": SITE_NAME,
     "mobile-web-app-capable": "yes",
-    "msapplication-TileColor": "#000000",
+    "msapplication-TileColor": "#000814",
     "msapplication-TileImage": "/icon-256x256.png",
-    "theme-color": "#000000",
+    "theme-color": "#000814",
   },
 };
 
 export const viewport = {
-  themeColor: "#000000",
+  themeColor: "#000814",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
