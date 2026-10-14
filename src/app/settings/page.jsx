@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/settingsSlice";
 import { EQ_BAND_FREQS, bandsForPreset } from "@/utils/eqPresets";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutWithPrivacy as signOut } from "@/utils/signOut";
 import Link from "next/link";
 import { FaDiscord } from "react-icons/fa";
 import { FiCheck, FiLogOut, FiSave, FiSettings } from "react-icons/fi";
@@ -18,6 +19,7 @@ import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
 import AccessibleDialog from "@/components/AccessibleDialog";
 import { accountOwner } from "@/utils/accountCache.mjs";
+import { browserNotificationPermission, browserNotificationsEnabled, requestBrowserNotificationPermission } from "@/utils/browserNotifications.mjs";
 
 const normalizationOptions = [["quiet", "Quiet"], ["normal", "Original"], ["loud", "Loud"]];
 const eqPresetOptions = EQ_PRESETS.map((preset) => [preset, preset]);
@@ -138,6 +140,9 @@ function AccountSettings({ owner, status }) {
   const [signingOut, setSigningOut] = useState(false);
   const [signingOutHere, setSigningOutHere] = useState(false);
   const [sessionError, setSessionError] = useState(null);
+  const [notificationPermission, setNotificationPermission] = useState("unsupported");
+  const [notificationPending, setNotificationPending] = useState(false);
+  const [notificationError, setNotificationError] = useState(null);
   const [discordTransport, setDiscordTransport] = useState("checking");
   const discordPresenceAvailable = ["desktop-native", "local-development-bridge"].includes(discordTransport);
   const live = useRef(true);
@@ -159,6 +164,37 @@ function AccountSettings({ owner, status }) {
   useEffect(() => {
     setDiscordTransport(discordPresenceTransport());
   }, []);
+
+  useEffect(() => {
+    const readPermission = () => setNotificationPermission(browserNotificationPermission());
+    readPermission();
+    window.addEventListener("focus", readPermission);
+    return () => window.removeEventListener("focus", readPermission);
+  }, []);
+
+  const changeBrowserNotifications = async (enabled) => {
+    if (notificationPending) return;
+    setNotificationError(null);
+    if (!enabled) {
+      set("browserNotifications", false);
+      return;
+    }
+    if (browserNotificationPermission() === "unsupported") return;
+    setNotificationPending(true);
+    try {
+      const permission = await requestBrowserNotificationPermission();
+      setNotificationPermission(permission);
+      set("browserNotifications", permission === "granted");
+      if (permission !== "granted") setNotificationError({
+        title: "Notifications are off",
+        message: "Allow notifications in your browser's site settings, then try again.",
+      });
+    } catch {
+      setNotificationError({ title: "Notifications unavailable", message: "This browser could not enable notifications. Try again or check its site settings." });
+    } finally {
+      setNotificationPending(false);
+    }
+  };
 
   const saveSettings = async () => {
     if (status !== "authenticated" || settings.owner !== owner || saveState === "saving") return;
@@ -382,24 +418,20 @@ function AccountSettings({ owner, status }) {
         </div>
         <div className="glass-panel rounded-xl p-5 sm:p-7">
           <h2 className="mb-2 text-xl font-semibold">Taste & privacy</h2>
-          <Toggle label="Allow explicit content" checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} />
+          <Toggle label="Allow explicit content" description="When off, hides tracks marked explicit from search and recommendations and blocks them in playback and queues. Unlabelled tracks may still contain explicit lyrics." checked={settings.explicitContent} onChange={(value) => set("explicitContent", value)} />
           <Toggle label="Private session" checked={settings.privateSession} onChange={(value) => set("privateSession", value)} />
           <Toggle
             label="Browser notifications"
-            description="Alert you when artists you follow drop a new song, even if HayKasa is in another tab. Private session keeps these quiet."
-            checked={settings.browserNotifications === true}
-            onChange={(value) => {
-              void (async () => {
-                if (value && typeof Notification !== "undefined") {
-                  const permission = Notification.permission === "granted"
-                    ? "granted"
-                    : await Notification.requestPermission();
-                  if (permission !== "granted") return;
-                }
-                set("browserNotifications", value);
-              })();
-            }}
+            description={notificationPermission === "unsupported"
+              ? "Notifications are not supported in this browser."
+              : notificationPermission === "denied"
+                ? "Notifications are blocked. Allow them in your browser's site settings to enable alerts."
+                : "Alert you when artists you follow drop a new song, even if HayKasa is in another tab. Private session keeps these quiet."}
+            checked={browserNotificationsEnabled(settings.browserNotifications, notificationPermission)}
+            disabled={notificationPermission === "unsupported" || notificationPending}
+            onChange={(value) => { void changeBrowserNotifications(value); }}
           />
+          {notificationError && <UserMessage title={notificationError.title} message={notificationError.message} />}
           <Toggle
             label="Discord listening activity"
             description={discordPresenceAvailable

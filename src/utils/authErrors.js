@@ -134,7 +134,7 @@ export function validateEmail(email) {
 
 export function validatePassword(password, { confirm } = {}) {
   const value = typeof password === "string" ? password : "";
-  if (!value) {
+  if (!value.trim()) {
     return {
       title: "Password required",
       message: "Please enter your password.",
@@ -146,10 +146,10 @@ export function validatePassword(password, { confirm } = {}) {
       message: "Use at least 8 characters.",
     };
   }
-  if (value.length > 72) {
+  if (new TextEncoder().encode(value).length > 72) {
     return {
       title: "Password too long",
-      message: "Passwords must be 72 characters or fewer.",
+      message: "This password is too long. Use fewer characters, especially emoji or accented letters.",
     };
   }
   if (confirm != null && value !== confirm) {

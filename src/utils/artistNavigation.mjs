@@ -42,7 +42,12 @@ export function trackArtistCredits(track = {}) {
     ...(Array.isArray(track.artists?.featured) ? track.artists.featured : []),
     ...(Array.isArray(track.primaryArtists) ? track.primaryArtists : []),
   ];
-  let credits = normalizeArtistCredits(explicit);
+  const individual = explicit.flatMap(artist => {
+    const name = cleanArtist(typeof artist === "string" ? artist : artist?.name || artist?.title);
+    const names = name.split(/\s*,\s*/).filter(Boolean);
+    return names.length > 1 ? names.map(name => ({ name })) : [artist];
+  });
+  let credits = normalizeArtistCredits(individual);
   if (!credits.length) {
     const channel = cleanArtist(track.channel || track.channelTitle);
     const artist = cleanArtist(typeof track.artists === "string" ? track.artists : typeof track.artists?.primary === "string" ? track.artists.primary : typeof track.primaryArtists === "string" ? track.primaryArtists : track.artist);
@@ -54,11 +59,11 @@ export function trackArtistCredits(track = {}) {
       : "";
     const main = artist || prefix || channel;
     const featured = parts.map(part => part.match(/\b(?:feat(?:uring)?|ft)\.?\s+([^()[\]]+)/i)?.[1]?.trim()).find(Boolean);
-    const names = main.split(FEATURE_MARKER);
-    if (featured && !names.includes(featured)) names.push(featured);
+    const names = main.split(FEATURE_MARKER).flatMap(part => part.split(/\s*,\s*/));
+    if (featured && !names.includes(featured)) names.push(...featured.split(/\s*,\s*/));
     credits = normalizeArtistCredits(names);
   }
-  const channelKey = normalizeRadioArtist(track.channel || track.channelTitle);
+  const channelKey = normalizeRadioArtist(track.channelTitle || track.channel);
   return credits.map(credit => !credit.channelId && channelKey && normalizeRadioArtist(credit.name) === channelKey && CHANNEL_ID_PATTERN.test(track.channelId)
     ? { ...credit, channelId: track.channelId }
     : credit);
@@ -72,4 +77,24 @@ export function artistChannelChoices(results, name) {
   }
   const exact = choices.filter(item => normalizeRadioArtist(item.title) === normalizeRadioArtist(name));
   return exact.length ? exact : choices;
+}
+
+// Prefer the artist's own channel over a duplicate Topic/VEVO label. Only
+// exact normalized identities qualify for automatic general-search navigation.
+function artistIdentity(value) {
+  return normalizeRadioArtist(cleanArtist(value).replace(/\$/g, "s").replace(/vevo$/i, ""))
+    .replace(/\s+/g, "");
+}
+
+export function preferredArtistChannel(results, name) {
+  const choices = artistChannelChoices(results, "");
+  const identity = artistIdentity(name);
+  if (!identity) return null;
+  const matches = choices.filter(item => artistIdentity(item.title) === identity);
+  matches.sort((a, b) => {
+    const rank = item => cleanTitle(item.title).toLocaleLowerCase() === cleanTitle(name).toLocaleLowerCase()
+      ? 3 : /[-–—]\s*Topic\s*$/i.test(item.title) ? 1 : 2;
+    return rank(b) - rank(a);
+  });
+  return matches[0] || null;
 }

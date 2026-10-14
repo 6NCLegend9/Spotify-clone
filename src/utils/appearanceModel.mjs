@@ -1,4 +1,4 @@
-export const DEFAULT_APPEARANCE_ACCENT = "#00e6e6";
+export const DEFAULT_APPEARANCE_ACCENT = "#1ed760";
 
 export function effectiveAppearance(value) {
   const appearance = value && typeof value === "object" ? value : {};
@@ -20,6 +20,6 @@ export function effectiveAppearance(value) {
     accentForeground:
       /^#[0-9a-f]{6}$/i.test(preview.accentForeground || "")
         ? preview.accentForeground
-        : appearance.accentForeground || "#001014",
+        : appearance.accentForeground || "#000000",
   };
 }

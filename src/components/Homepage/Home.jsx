@@ -6,7 +6,6 @@ import QuickAccessGrid from "./QuickAccessGrid";
 import FeaturedRelease from "./FeaturedRelease";
 import { MixRail, TrackRail } from "./HomeRail";
 import WeekOnKasa from "./WeekOnKasa";
-import ThisDayOnKasa from "./ThisDayOnKasa";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { HomeFeedSkeleton } from "@/components/Skeleton";
@@ -100,19 +99,18 @@ const Home = () => {
       <div className="home-wash" aria-hidden="true" />
       <HomeHeader filter={filter} onFilter={setFilter} />
 
-      {filter === "podcasts" ? (
+      {filter === "for-you" && status === "unauthenticated" ? (
         <EmptyState
-          eyebrow="Podcasts"
-          title="Podcasts aren’t here yet"
-          message="HayKasa is built for music right now. Switch back to All or Music to keep listening."
-          actionLabel="Show all"
-          onAction={() => setFilter("all")}
+          eyebrow="Made for you"
+          title="Your music, your way"
+          message="Sign in to get recommendations based on your listening and the artists you follow."
+          actionLabel="Log in"
+          href="/login"
         />
       ) : (
         <div className="fx-stack">
           <QuickAccessGrid items={quickItems} />
-          <ThisDayOnKasa />
-          <WeekOnKasa />
+          {filter === "for-you" && <WeekOnKasa />}
           {loading && <HomeFeedSkeleton />}
 
           {!loading && error && !hasAny && (
@@ -139,7 +137,7 @@ const Home = () => {
 
           {!loading && (
             <TrackRail
-              title="Recently Played"
+              title="Jump back in"
               seeAllHref="/recently-played"
               videos={history.map((song) => ({
                 ...song,
@@ -153,7 +151,7 @@ const Home = () => {
 
           {!loading && (
             <TrackRail
-              title={isPersonalized ? "Made For You" : "Featured Editorial"}
+              title={isPersonalized ? "Made for you" : "Popular right now"}
               seeAllHref="/search"
               videos={trending.filter((video) => video.id !== featured?.id)}
             />

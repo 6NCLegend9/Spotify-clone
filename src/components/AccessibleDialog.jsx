@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 export default function AccessibleDialog({
@@ -14,17 +15,19 @@ export default function AccessibleDialog({
   disableClose = false,
 }) {
   const panelRef = useRef(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const handleClose = disableClose ? undefined : onClose;
 
   useFocusTrap({
-    enabled: open,
+    enabled: open && mounted,
     onClose: handleClose,
     containerRef: panelRef,
   });
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[80] grid place-items-center px-4">
       <button
         type="button"
@@ -45,6 +48,6 @@ export default function AccessibleDialog({
       >
         {children}
       </div>
-    </div>
+    </div>, document.body,
   );
 }

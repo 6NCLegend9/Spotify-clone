@@ -527,7 +527,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
   const mobileTransport = <div className={styles.mobileTransport}>
     <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
     <Transport {...props} />
-    <div className={styles.mobileExtras}>{props.volume}
+    <div className={styles.mobileExtras}>{props.qualityControl}{props.volume}
       {canLyrics && <PlayerIconButton label={view === "lyrics" ? "Close lyrics" : "Show live lyrics"} active={view === "lyrics"} onClick={view === "lyrics" ? close : openLyrics}><Mic2 size={20} /></PlayerIconButton>}
       <PlayerIconButton label="Show queue" onClick={openQueue}><ListMusic size={20} /></PlayerIconButton>
       {props.trackActions}

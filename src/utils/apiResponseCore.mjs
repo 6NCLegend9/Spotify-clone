@@ -1,5 +1,6 @@
 export const API_ERROR_CODES = {
   VALIDATION_ERROR: "VALIDATION_ERROR",
+  PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE",
   UNAUTHORIZED: "UNAUTHORIZED",
   FORBIDDEN: "FORBIDDEN",
   NOT_FOUND: "NOT_FOUND",
@@ -12,6 +13,11 @@ export const API_ERROR_CODES = {
 };
 
 export const DEFAULT_API_ERRORS = {
+  PAYLOAD_TOO_LARGE: {
+    status: 413,
+    title: "Request too large",
+    message: "The submitted information exceeds the size limit.",
+  },
   VALIDATION_ERROR: {
     status: 400,
     title: "Check your request",
@@ -96,12 +102,51 @@ export function apiErrorStatus(code = "INTERNAL_ERROR", options = {}) {
   return options.status || defaults.status;
 }
 
+export async function readRequestText(request, { maxBytes = 64 * 1024 } = {}) {
+  const length = request.headers?.get?.("content-length");
+  if (length !== null && length !== undefined && (!/^\d{1,10}$/.test(length) || Number(length) > maxBytes)) {
+    await request.body?.cancel().catch(() => {});
+    throw new ApiRouteError("PAYLOAD_TOO_LARGE");
+  }
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let size = 0;
+  let text = "";
+  let complete = false;
+  const abort = () => { void reader.cancel().catch(() => {}); };
+  request.signal?.addEventListener("abort", abort, { once: true });
+  try {
+    while (true) {
+      if (request.signal?.aborted) throw new Error("Request cancelled");
+      const { value, done } = await reader.read();
+      if (request.signal?.aborted) throw new Error("Request cancelled");
+      if (done) { complete = true; break; }
+      size += value.byteLength;
+      if (size > maxBytes) throw new ApiRouteError("PAYLOAD_TOO_LARGE");
+      text += decoder.decode(value, { stream: true });
+    }
+    return text + decoder.decode();
+  } catch (error) {
+    if (error instanceof ApiRouteError) throw error;
+    throw new ApiRouteError("VALIDATION_ERROR", { message: "The request body could not be read." });
+  } finally {
+    request.signal?.removeEventListener("abort", abort);
+    if (!complete) await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 export async function readRequestJson(request, options = {}) {
-  const body = await request.json().catch(() => {
+  let body;
+  try {
+    body = JSON.parse(await readRequestText(request, options));
+  } catch (error) {
+    if (error instanceof ApiRouteError) throw error;
     throw new ApiRouteError("VALIDATION_ERROR", {
       message: options.message || "The request body must be valid JSON.",
     });
-  });
+  }
   const validObject = body && typeof body === "object" && !Array.isArray(body);
   if (!validObject && options.allowPrimitive !== true) {
     throw new ApiRouteError("VALIDATION_ERROR", {

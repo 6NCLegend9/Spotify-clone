@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOutWithPrivacy as signOut } from "@/utils/signOut";
 import { store, persistor, RESET_STORE } from "@/redux/store";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";

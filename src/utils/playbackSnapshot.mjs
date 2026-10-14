@@ -1,3 +1,4 @@
+import { canWriteAccountCache } from "./accountStorage.mjs";
 import { normalizeArtistCredits } from "./artistNavigation.mjs";
 
 const PREFIX = "heykasa:playback:v1:";
@@ -125,7 +126,7 @@ export function readPlaybackSnapshot(storage, owner, now = Date.now()) {
 }
 
 export function writePlaybackSnapshot(storage, owner, value, now = Date.now()) {
-  if (!owner) return false;
+  if (!canWriteAccountCache(owner)) return false;
   try {
     storage.setItem(`${PREFIX}${encodeURIComponent(owner)}`, JSON.stringify({
       version: CURRENT_VERSION,

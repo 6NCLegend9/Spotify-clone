@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ListMusic, Mic2, Pause, PictureInPicture2, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { ListMusic, Mic2, PanelRight, Pause, PictureInPicture2, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 import ArtistNameLink from "@/components/ArtistNameLink";
+import { useNav } from "@/components/Layout/AppShell";
 import type { PlayerDockProps } from "./player.types";
 import PlayerTimeline from "./PlayerTimeline";
 import MediaPresentation from "./MediaPresentation";
@@ -24,11 +25,12 @@ export function Transport(props: PlayerDockProps) {
     <PlayerIconButton label="Previous song" disabled={props.disabled} onClick={props.onPrevious}><SkipBack size={21} /></PlayerIconButton>
     <PlayerIconButton label={props.playing ? "Pause" : "Play"} disabled={props.disabled} onClick={props.onPlayPause} className={styles.playButton}>{props.playing ? <Pause size={23} fill="currentColor" /> : <Play size={23} fill="currentColor" />}</PlayerIconButton>
     <PlayerIconButton label="Next song" disabled={props.nextDisabled ?? props.disabled} onClick={props.onNext}><SkipForward size={21} /></PlayerIconButton>
-    <PlayerIconButton label="Repeat queue" active={props.repeat} disabled={props.disabled} onClick={props.onRepeat}><Repeat size={18} /></PlayerIconButton>
+    <PlayerIconButton label={props.repeatOne ? "Repeat one: turn repeat off" : props.repeat ? "Repeat queue: repeat one song" : "Repeat off: repeat queue"} active={props.repeat} disabled={props.disabled} onClick={props.onRepeat}>{props.repeatOne ? <Repeat1 size={18} /> : <Repeat size={18} />}</PlayerIconButton>
   </div>;
 }
 
 export default function PlayerDock(props: PlayerDockProps) {
+  const { rightPanelCollapsed, toggleRightPanel } = useNav();
   const [queueOpen, setQueueOpen] = useState(false);
   const presentationRef = useRef<MediaPresentationHandle>(null);
   const closeQueue = useCallback(() => setQueueOpen(false), []);
@@ -75,9 +77,10 @@ export default function PlayerDock(props: PlayerDockProps) {
         <PlayerTimeline position={props.position} duration={props.duration} disabled={props.disabled} onSeek={props.onSeek} />
       </div>
       <div className={styles.tools}>
-        {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={openLyrics}><Mic2 size={18} /></PlayerIconButton>}
+        {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={openLyrics} className={styles.lyricsToggle}><Mic2 size={18} /></PlayerIconButton>}
         <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={19} /></PlayerIconButton>
-        <div className={styles.volume}>{props.volume}</div>
+        <PlayerIconButton label="Now playing view" active={!rightPanelCollapsed} onClick={toggleRightPanel} className={styles.nowPlayingToggle}><PanelRight size={18} /></PlayerIconButton>
+        <div className={styles.volume}>{props.qualityControl}{props.volume}</div>
       </div>
       <div className={styles.mobile}>
         <PlayerIconButton label="Previous song" disabled={props.disabled} onClick={props.onPrevious} className={`${styles.mobileButton} ${styles.mobilePrevious}`}><SkipBack size={20} /></PlayerIconButton>

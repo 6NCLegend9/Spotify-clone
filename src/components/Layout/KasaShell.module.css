@@ -1,200 +1,157 @@
-/* Shared responsive workspace presentation. Every rule is scoped to this navbar's mounted application.
-   Existing authentication, settings, data and media-controller modules stay intact. */
-:global(body):has(.navbar) { font-family: var(--font-poppins), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-:global(.app-shell):has(.navbar) { --accent: var(--appearance-accent, #00e6e6); --play-ink: var(--appearance-play-ink, #001014); --teal: #64c9d7; --teal-mid: #22a6b3; --navy: #0c1018; --navy-deep: #0c1018; --navy-surface: #141a24; --navy-raised: #1c2430; --navy-panel: #283343; --text: #f4f7fb; --muted: #b4bfcd; --hairline-cyan: rgb(180 191 205 / 18%); --desktop-player-h: 90px; --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: var(--navy-deep); }
-:global(.app-shell[data-has-track="false"]):has(.navbar) { --desktop-player-h: 0px; --mobile-player-h: 0px; }
-.navbar { margin: 0; border-radius: 0; background: var(--navy-surface); border: 0; border-bottom: 1px solid var(--hairline-cyan); box-shadow: none; min-height: 72px; padding: 12px 24px; gap: 12px; grid-template-columns: auto minmax(0, 1fr) auto; min-width: 0; }
-.navbar :global(.navbar-search-cluster) { width: 100%; max-width: 640px; min-width: 0; justify-self: stretch; gap: 0; }
-.navbar :global(.navbar-slot-start),
-.navbar :global(.navbar-slot-end) { flex-shrink: 0; flex-wrap: nowrap; min-width: max-content; }
-.navbar :global(.search-field) { width: 100%; height: 48px; min-height: 48px; border: 1px solid var(--hairline-cyan); border-radius: 12px; background: var(--navy-raised); box-shadow: none; padding: 0 8px 0 14px; gap: 10px; }
-.navbar :global(.search-field:hover) { background: var(--navy-panel); }
-.navbar :global(.search-field:focus-within) { border-color: var(--text); background: var(--navy-panel); box-shadow: none; }
-.navbar :global(.search-field.is-browse) { border-color: var(--hairline-cyan); background: var(--navy-raised); }
-.navbar :global(.search-field-icon) { color: var(--muted); width: 22px; height: 22px; }
-.navbar :global(.search-field-input) { color: #fff; font-size: 14px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.navbar :global(.search-field-input::placeholder) { color: var(--muted); opacity: 1; }
-.navbar :global(.search-clear) { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border-radius: 50%; color: var(--muted); }
-.navbar :global(.search-clear:hover) { color: #fff; background: rgba(255,255,255,.08); }
-.navbar :global(.search-split) { height: 24px; background: #727272; }
-.navbar :global(.search-browse) { width: 44px; height: 44px; min-width: 44px; color: var(--muted); }
-.navbar :global(.search-browse:hover),
-.navbar :global(.search-browse.is-active) { color: #fff; background: transparent; }
-.navbar :global(.search-suggest) { margin-top: 8px; border: 0; border-radius: 8px; background: var(--navy-raised); box-shadow: 0 16px 40px rgba(0,0,0,.55); }
-.history { display: none; align-items: center; gap: 8px; }
-.history button { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--navy-deep); color: var(--teal); }
-.history button:hover { color: var(--text); background: var(--navy-panel); }
-.account { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; color: var(--text); }
-.account img, .account > span:first-child { width: 34px; height: 34px; border: 1px solid var(--accent); border-radius: 50%; object-fit: cover; }
-.account > span:first-child { display: grid; place-items: center; background: var(--accent); color: var(--play-ink); font-weight: 700; }
-.accountName { max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-:global(.app-shell):has(.navbar) :global(.app-stage) { background: var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 12px; }
-:global(.app-shell):has(.navbar) :global(.app-content) { background: transparent; }
-:global(.app-shell):has(.navbar) :global(.app-ghost-fibers) { opacity: .1; }
-:global(.app-shell):has(.navbar) :global(.app-atmosphere) { opacity: .22; }
-:global(.app-shell):has(.navbar) :global(.app-player) { grid-row: 2; grid-column: 1 / -1; min-width: 0; }
-:global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { padding: 0; min-height: var(--mobile-player-h); height: var(--mobile-player-h); border: 0; border-radius: 0; background: var(--navy-deep); box-shadow: none; }
-:global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full))::before,
-:global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full))::after { content: none; }
-:global(.app-shell):has(.navbar) :global(.now-playing-panel) { background: var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 16px; min-width: 0; min-height: 0; overflow: hidden; }
-:global(.app-shell):has(.navbar) :global(.now-playing-panel__header) { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; min-height: 56px; padding: 8px 14px; border: 0; }
-:global(.app-shell):has(.navbar) :global(.now-playing-panel__header h2) { font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0; }
-:global(.app-shell):has(.navbar) :global(.now-playing-panel.is-collapsed .now-playing-panel__header) { justify-content: center; padding-inline: 4px; }
-:global(.app-shell):has(.navbar) :global(.now-playing-panel.is-collapsed .icon-btn) { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
-:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot) { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot:not(:empty) + .kasa-now-playing-fallback) { display: none; }
-:global(.app-shell):has(.navbar) :global(.kasa-sidebar) { background: var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 12px; }
-:global(.app-shell):has(.navbar) :global(.sidebar-head) { min-height: 72px; padding: 12px 16px; }
-:global(.app-shell):has(.navbar) :global(.nav-link) { border: 0; border-radius: 8px; background: transparent; min-height: 44px; font-weight: 600; font-size: 14px; box-shadow: none; animation: none; }
-:global(.app-shell):has(.navbar) :global(.nav-link:hover),
-:global(.app-shell):has(.navbar) :global(.nav-link.is-active) { background: var(--navy-panel); color: var(--accent); }
-:global(.app-shell):has(.navbar) :global(.kasa-sidebar-nav) { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--hairline-cyan); }
-:global(.app-shell):has(.navbar) :global(.kasa-library-scroll) { overflow-y: auto; min-height: 0; flex: 1; padding: 12px 10px; }
-:global(.app-shell):has(.navbar) :global(.kasa-library-pills) { display: flex; gap: 6px; padding: 0 2px 12px; overflow-x: auto; }
-:global(.app-shell):has(.navbar) :global(.kasa-library-pills a) { min-height: 44px; padding: 8px 12px; display: flex; align-items: center; border: 1px solid var(--hairline-cyan); border-radius: 999px; font-size: 12px; white-space: nowrap; }
-:global(.app-shell):has(.navbar) :global(.kasa-library-pills a:hover) { color: var(--accent); background: var(--navy-panel); }
-:global(.app-shell):has(.navbar) :global(.kasa-library-pills a[aria-current="page"]) { border-color: var(--accent); color: var(--accent); background: var(--navy-panel); }
-:global(.app-shell):has(.navbar) :global(.kasa-sidebar-extra) { margin: 14px 2px; border-top: 1px solid var(--hairline-cyan); padding-top: 12px; }
-:global(.app-shell):has(.navbar) :global(.kasa-sidebar-extra summary) { cursor: pointer; color: var(--teal); font-size: 12px; padding: 8px; }
-:global(.app-shell):has(.navbar) :global(.page-home) { padding: 24px 32px 32px; max-width: 1600px; }
-:global(.app-shell):has(.navbar) :global(.home-wash) { opacity: .15; }
+/* Shared music workspace: toolbar, independently scrolling panels and persistent transport. */
+:global(body):has(.navbar) { font-family: Arial, Helvetica, system-ui, sans-serif; background: #000; }
+:global(.app-shell):has(.navbar) { --accent: var(--appearance-accent, #1ed760); --play-ink: var(--appearance-play-ink, #000); --teal: #b3b3b3; --teal-mid: #a7a7a7; --navy: #000; --navy-deep: #000; --navy-surface: #121212; --navy-raised: #1f1f1f; --navy-panel: #282828; --text: #fff; --muted: #b3b3b3; --hairline: rgb(255 255 255 / 10%); --hairline-cyan: rgb(255 255 255 / 10%); --desktop-player-h: 88px; --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: #000; }
+.navbar { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: minmax(48px,1fr) minmax(280px,546px) minmax(220px,1fr); align-items: center; min-width: 0; height: 64px; min-height: 64px; padding: 8px 12px; gap: 16px; background: #000; border: 0; border-radius: 0; margin: 0; z-index: 40; }
+.navbar :global(.navbar-slot-start), .navbar :global(.navbar-slot-end), .navbar :global(.navbar-search-cluster) { grid-area: auto; min-width: 0; }
+.navbar :global(.navbar-slot-start) { display: flex; gap: 12px; }
+.navbar :global(.navbar-slot-end) { display: flex; justify-content: flex-end; gap: 12px; }
+.brand { display: flex; width: 44px; flex-shrink: 0; }
+.brand :global(.brand-mark) { color: #fff; }
+.mobileAvatar { width: 44px; height: 44px; place-items: center; border-radius: 50%; padding: 6px; }
+.mobileAvatar img, .mobileAvatar span { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.mobileAvatar span { display: grid; place-items: center; background: var(--accent); color: var(--play-ink); font-size: 13px; font-weight: 700; }
+.brand :global(.brand-mark-lockup) { height: 36px; width: 36px; }
+.navbar :global(.navbar-search-cluster) { width: 100%; max-width: none; display: flex; gap: 8px; justify-self: center; }
+.navbar :global(.nav-home-btn) { display: grid; width: 48px; height: 48px; min-width: 48px; background: #1f1f1f; border: 0; color: #fff; box-shadow: none; }
+.navbar :global(.search-field) { flex: 1; width: 100%; height: 48px; min-height: 48px; border: 2px solid transparent; border-radius: 999px; background: #1f1f1f; padding: 0 10px 0 14px; gap: 10px; box-shadow: none; }
+.navbar :global(.search-field:hover) { background: #2a2a2a; border-color: #444; }
+.navbar :global(.search-field:focus-within) { background: #2a2a2a; border-color: #fff; }
+.navbar :global(.search-field-input) { color: #fff; font-size: 15px; font-weight: 400; min-width: 0; letter-spacing: 0; }
+.navbar :global(.search-field-input::placeholder), .navbar :global(.search-field-icon) { color: #b3b3b3; }
+.navbar :global(.search-clear), .navbar :global(.search-browse) { min-width: 44px; width: 44px; height: 44px; color: #b3b3b3; }
+.navbar :global(.search-split) { background: #7c7c7c; height: 24px; }
+.navbar :global(.search-suggest) { background: #282828; border: 0; border-radius: 8px; box-shadow: 0 16px 40px #0008; }
+.account { background: #1f1f1f; width: 48px; height: 48px; padding: 8px; }
+.account img, .account > span { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.account > span { display: grid; place-items: center; background: var(--accent); color: var(--play-ink); font-weight: 700; }
+.accountName { display: none; }
+.install, .signup { color: #b3b3b3; font-size: 14px; font-weight: 700; white-space: nowrap; min-height: 44px; display: flex; align-items: center; gap: 8px; }
+.install:hover, .signup:hover { color: #fff; }
+.login { display: flex; align-items: center; min-height: 48px; padding: 0 28px; background: #fff; color: #000; border-radius: 999px; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.login:hover { transform: scale(1.03); background: #f0f0f0; }
+:global(.app-shell):has(.navbar) :global(.search-results-layout) { display: grid; grid-template-columns: minmax(220px,.8fr) minmax(0,1.2fr); gap: 24px; align-items: start; }
+:global(.app-shell):has(.navbar) :global(.search-song-row) { display: grid; grid-template-columns: 78px minmax(0,1fr) 44px 42px; align-items: center; gap: 8px; min-height: 64px; padding: 4px 8px; border-radius: 4px; }
+:global(.app-shell):has(.navbar) :global(.search-song-row:hover), :global(.app-shell):has(.navbar) :global(.search-song-row:focus-within) { background: #ffffff12; }
+:global(.app-shell):has(.navbar) :global(.search-song-play) { display: none; position: absolute; left: 20px; width: 40px; height: 40px; align-items: center; justify-content: center; background: #0008; }
+:global(.app-shell):has(.navbar) :global(.search-song-row:hover .search-song-play), :global(.app-shell):has(.navbar) :global(.search-song-row:focus-within .search-song-play) { display: flex; }
+:global(.app-shell):has(.navbar) :global(.app-stage) { border: 0; border-radius: 8px; background: #121212; min-width: 0; min-height: 0; }
+:global(.app-shell):has(.navbar) :global(.app-content) { background: transparent; padding-top: 0; }
+:global(.app-shell):has(.navbar) :global(.app-ghost-fibers), :global(.app-shell):has(.navbar) :global(.app-atmosphere), :global(.app-shell):has(.navbar) :global(.home-wash), :global(.app-shell):has(.navbar) :global(.app-ghost-fibers-shade) { display: none; }
+:global(.app-shell):has(.navbar) :global(.appearance-backdrop) { opacity: .16; }
+:global(.app-shell):has(.navbar) :global(.kasa-sidebar), :global(.app-shell):has(.navbar) :global(.now-playing-panel) { border: 0; border-radius: 8px; background: #121212; min-width: 0; min-height: 0; overflow: hidden; }
+:global(.app-shell):has(.navbar) :global(.sidebar-head) { min-height: 64px; padding: 8px 16px; }
+:global(.app-shell):has(.navbar) :global(.sidebar-brand) { justify-content: space-between; }
+:global(.app-shell):has(.navbar) :global(.sidebar-head-actions) { display: flex; align-items: center; gap: 0; }
+:global(.app-shell):has(.navbar) :global(.compact-library) { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 4px 0; }
+:global(.app-shell):has(.navbar) :global(.compact-library-cover), :global(.app-shell):has(.navbar) :global(.compact-library-liked) { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 4px; overflow: hidden; }
+:global(.app-shell):has(.navbar) :global(.compact-library-liked) { background: linear-gradient(135deg,#450af5,#c4efd9); color: #fff; font-size: 24px; }
+:global(.app-shell):has(.navbar) :global(.compact-library a[aria-current="page"]) { outline: 2px solid #fff; outline-offset: 2px; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-scroll a[data-library-playlist][aria-current="page"]) { background: #ffffff12; border-radius: 4px; }
+:global(.app-shell.is-sidebar-collapsed):has(.navbar) :global(.sidebar-head-actions) { display: none; }
+:global(.app-shell.is-sidebar-collapsed):has(.navbar) :global(.sidebar-head) { padding-inline: 8px; }
+:global(.app-shell):has(.navbar) :global(.sidebar-library-title) { display: flex; align-items: center; gap: 12px; min-height: 44px; color: #b3b3b3; font-size: 16px; font-weight: 700; }
+:global(.app-shell):has(.navbar) :global(.sidebar-library-title:hover) { color: #fff; }
+:global(.app-shell):has(.navbar) :global(.kasa-sidebar-nav) { display: none; }
+:global(.app-shell.is-sidebar-collapsed):has(.navbar) :global(.kasa-sidebar-nav) { display: flex; flex-direction: column; padding: 8px; }
+:global(.app-shell):has(.navbar) :global(.nav-link) { border: 0; background: transparent; border-radius: 4px; box-shadow: none; animation: none; min-height: 44px; color: #b3b3b3; font-size: 14px; }
+:global(.app-shell):has(.navbar) :global(.nav-link:hover), :global(.app-shell):has(.navbar) :global(.nav-link.is-active) { background: #ffffff12; color: #fff; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-scroll) { overflow-y: auto; min-height: 0; flex: 1; padding: 0 8px 12px; scrollbar-gutter: stable; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-pills) { display: flex; gap: 8px; padding: 0 8px 8px; overflow-x: auto; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-pills a) { display: flex; align-items: center; min-height: 36px; padding: 6px 12px; border-radius: 999px; font-size: 13px; background: #ffffff12; white-space: nowrap; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-pills a[aria-current="page"]) { background: #fff; color: #000; }
+:global(.app-shell):has(.navbar) :global(.kasa-sidebar-extra) { padding: 16px 8px; color: #b3b3b3; }
+:global(.app-shell):has(.navbar) :global(.kasa-sidebar-extra summary) { min-height: 44px; font-size: 12px; cursor: pointer; }
+:global(.app-shell):has(.navbar) :global(.page-home) { max-width: none; padding: 16px 24px 32px; }
+:global(.app-shell):has(.navbar) :global(.page) { max-width: none; padding-inline: 24px; }
 :global(.app-shell):has(.navbar) :global(.home-header) { padding: 0; margin-bottom: 20px; }
-:global(.app-shell):has(.navbar) :global(.home-display) { margin: 0; color: var(--text); font-size: clamp(28px, 3vw, 44px); line-height: 1.2; font-weight: 750; letter-spacing: -.035em; background: none; -webkit-text-fill-color: currentColor; animation: none; }
-:global(.app-shell):has(.navbar) :global(.home-subtitle) { margin-top: 6px; font-size: 14px; font-weight: 400; color: var(--muted); line-height: 1.6; }
-:global(.app-shell):has(.navbar) :global(.kasa-home-filters) { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
-:global(.app-shell):has(.navbar) :global(.home-chips) { min-width: 0; display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 0; margin: 0; }
-:global(.app-shell):has(.navbar) :global(.home-chip) { border: 1px solid var(--hairline-cyan); border-radius: 999px; background: var(--navy-raised); color: var(--text); padding: 7px 14px; min-height: 44px; font-size: 12px; white-space: nowrap; box-shadow: none; }
-:global(.app-shell):has(.navbar) :global(.home-chip.is-active) { color: var(--play-ink); background: var(--accent); border-color: var(--accent); }
-:global(.app-shell):has(.navbar) :global(.home-avatar) { width: 44px; height: 44px; min-width: 44px; flex-shrink: 0; border-radius: 50%; overflow: hidden; background: var(--navy-panel); color: var(--accent); }
-:global(.app-shell):has(.navbar) :global(.home-quick) { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin-bottom: 28px; }
-:global(.app-shell):has(.navbar) :global(.home-quick-card) { min-width: 0; min-height: 80px; height: auto; border: 1px solid var(--hairline-cyan); border-radius: 8px; padding: 8px; gap: 12px; background: var(--navy-raised); box-shadow: none; transform: none; }
-:global(.app-shell):has(.navbar) :global(.home-quick-card:hover) { background: var(--navy-panel); border-color: var(--teal-mid); }
-:global(.app-shell):has(.navbar) :global(.home-quick-art) { width: 64px; height: 64px; border-radius: 5px; object-fit: cover; }
-:global(.app-shell):has(.navbar) :global(.home-quick-title) { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
-:global(.app-shell):has(.navbar) :global(.home-quick-card:nth-child(n+7)) { display: none; }
-:global(.app-shell):has(.navbar) :global(.home-quick-play) { background: var(--accent); color: var(--play-ink); }
-:global(.app-shell):has(.navbar) :global(.home-rail) { margin-bottom: 28px; }
-:global(.app-shell):has(.navbar) :global(.home-rail-title) { font-size: 22px; letter-spacing: -.025em; }
-:global(.app-shell):has(.navbar) :global(.home-rail-track) { gap: 16px; }
-:global(.app-shell):has(.navbar) :global(.app-tabbar) { border-top: 1px solid var(--hairline-cyan); background: var(--navy); box-shadow: none; }
-:global(.app-shell):has(.navbar) :global(.app-tab.is-active) { color: var(--accent); background: transparent; box-shadow: none; }
-:global(.app-shell):has(.navbar) :global(.app-tab.is-active svg) { animation: none; }
-:global(.app-shell):has(.navbar) :global(.app-content),
-:global(.app-shell):has(.navbar) :global(.kasa-library-scroll),
-:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot) { scrollbar-width: thin; scrollbar-color: var(--navy-panel) transparent; }
-:global(.app-shell):has(.navbar) :global(.app-content:hover),
-:global(.app-shell):has(.navbar) :global(.kasa-library-scroll:hover),
-:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot:hover) { scrollbar-color: var(--navy-panel) transparent; }
-
-:global(.app-shell):has(.navbar) :global(.home-rail-wrap) { margin-bottom: 24px; }
-:global(.app-shell):has(.navbar) :global(.home-rail) { display: flex; gap: 14px; overflow-x: auto; padding: 0 0 8px; }
-:global(.app-shell):has(.navbar) :global(.home-rail-card) { width: clamp(160px, 15vw, 208px); flex: 0 0 clamp(160px, 15vw, 208px); min-width: 0; }
-:global(.app-shell):has(.navbar) :global(.home-rail-heading) { margin-bottom: 12px; }
-:global(.app-shell):has(.navbar) :global(.home-shelf-card) { min-width: 0; padding: 8px; background: var(--navy-raised); border: 1px solid var(--hairline-cyan); border-radius: 12px; box-shadow: none; transform: none; }
-:global(.app-shell):has(.navbar) :global(.home-square) { display: block; position: relative; aspect-ratio: 1; width: 100%; overflow: hidden; border: 1px solid var(--hairline-cyan); border-radius: 8px; }
-:global(.app-shell):has(.navbar) :global(.home-shelf-title) { display: block; margin-top: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 14px; font-weight: 650; }
-:global(.app-shell):has(.navbar) :global(.home-shelf-subtitle) { margin-top: 3px; font-size: 14px; color: var(--muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-:global(.app-shell):has(.navbar) :global(.home-square-play) { position: absolute; bottom: 8px; right: 8px; display: grid; place-items: center; width: 44px; height: 44px; background: var(--accent); color: var(--play-ink); border-radius: 50%; opacity: 0; transform: translateY(8px); transition: opacity 200ms, transform 200ms; }
-:global(.app-shell):has(.navbar) :global(.home-shelf-card:hover .home-square-play), :global(.app-shell):has(.navbar) :global(.home-shelf-card:focus-within .home-square-play) { opacity: 1; transform: translateY(0); }
-:global(.app-shell):has(.navbar) :global(.home-feature-card) { border: 1px solid var(--hairline-cyan); background: var(--navy-raised); border-radius: 12px; box-shadow: none; }
-:global(.app-shell):has(.navbar) :global(.home-feature-art) { border-radius: 8px; }
-
-@media (max-width: 1180px) {
- .accountName { display: none; }
+:global(.app-shell):has(.navbar) :global(.kasa-home-filters) { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+:global(.app-shell):has(.navbar) :global(.home-chips) { margin: 0; padding: 0; display: flex; gap: 8px; }
+:global(.app-shell):has(.navbar) :global(.home-chip) { border: 0; background: #ffffff12; color: #fff; min-height: 36px; padding: 8px 14px; font-size: 14px; font-weight: 500; box-shadow: none; }
+:global(.app-shell):has(.navbar) :global(.home-chip.is-active) { background: #fff; color: #000; }
+:global(.app-shell):has(.navbar) :global(.home-display) { font-size: 28px; font-weight: 750; line-height: 1.2; letter-spacing: -.7px; color: #fff; background: none; -webkit-text-fill-color: currentColor; animation: none; }
+:global(.app-shell):has(.navbar) :global(.home-display), :global(.app-shell):has(.navbar) :global(.home-rail-title), :global(.app-shell):has(.navbar) :global(.page-hero h1) { font-family: Arial, Helvetica, system-ui, sans-serif; }
+:global(.app-shell):has(.navbar) :global(.home-subtitle) { font-size: 14px; margin-top: 6px; color: #b3b3b3; }
+:global(.app-shell):has(.navbar) :global(.home-quick) { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; }
+:global(.app-shell):has(.navbar) :global(.home-quick) > :nth-child(-n+8) { display: flex; }
+:global(.app-shell):has(.navbar) :global(.home-quick-card) { width: 100%; min-height: 64px; height: 64px; gap: 12px; background: #ffffff12; border: 0; border-radius: 4px; box-shadow: none; transform: none; }
+:global(.app-shell):has(.navbar) :global(.home-quick-card:hover) { background: #ffffff24; }
+:global(.app-shell):has(.navbar) :global(.home-quick-art), :global(.app-shell):has(.navbar) :global(.home-quick-card > span:first-child) { width: 64px; height: 64px; }
+:global(.app-shell):has(.navbar) :global(.home-quick-title) { font-size: 14px; font-weight: 700; }
+:global(.app-shell):has(.navbar) :global(.home-rail-title) { font-size: 24px; font-weight: 750; letter-spacing: -.5px; }
+:global(.app-shell):has(.navbar) :global(.home-rail-all) { font-size: 13px; color: #b3b3b3; font-weight: 700; }
+:global(.app-shell):has(.navbar) :global(.home-rail-card) { width: 180px; flex-basis: 180px; }
+:global(.app-shell):has(.navbar) :global(.home-shelf-card), :global(.app-shell):has(.navbar) :global(.library-tile), :global(.app-shell):has(.navbar) :global(.card) { padding: 12px; background: transparent; border: 0; border-radius: 6px; box-shadow: none; transform: none; }
+:global(.app-shell):has(.navbar) :global(.home-shelf-card:hover), :global(.app-shell):has(.navbar) :global(.library-tile:hover), :global(.app-shell):has(.navbar) :global(.card:hover) { background: #ffffff0d; }
+:global(.app-shell):has(.navbar) :global(.home-square), :global(.app-shell):has(.navbar) :global(.home-square img) { border-radius: 6px; }
+:global(.app-shell):has(.navbar) :global(.home-shelf-title) { font-size: 16px; font-weight: 650; letter-spacing: 0; }
+:global(.app-shell):has(.navbar) :global(.home-shelf-subtitle) { font-size: 14px; color: #b3b3b3; }
+:global(.app-shell):has(.navbar) :global(.btn-primary) { box-shadow: none; background: var(--accent); color: var(--play-ink); }
+:global(.app-shell):has(.navbar) :global(.app-footer) { border-top: 1px solid #ffffff12; color: #b3b3b3; margin: 40px 24px 0; padding: 32px 0; }
+:global(.app-shell):has(.navbar) :global(.now-playing-panel__header) { display: flex; align-items: center; justify-content: space-between; min-height: 64px; padding: 8px 16px; }
+:global(.app-shell):has(.navbar) :global(.now-playing-panel__header h2) { font-size: 16px; text-transform: none; letter-spacing: 0; }
+:global(.app-shell):has(.navbar) :global(#kasa-now-playing-slot) { min-height: 0; overflow-y: auto; }
+:global(.app-shell):has(.navbar) :global(.app-player) { grid-column: 1 / -1; grid-row: 3; min-width: 0; }
+:global(.app-shell):has(.navbar) :global(.empty-player-dock) { display: none; }
+:global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: var(--desktop-player-h); min-height: var(--desktop-player-h); padding: 0; background: #000; border: 0; border-radius: 0; box-shadow: none; }
+:global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full))::before, :global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full))::after { content: none; }
+@media (min-width:768px) {
+ :global(.app-shell):has(.navbar) { display: grid; grid-template-columns: min(var(--sidebar-live-w,280px),28vw) 8px minmax(0,1fr); grid-template-rows: 64px minmax(0,1fr) var(--desktop-player-h); gap: 0; padding: 0 8px; }
+ :global(.app-shell[data-has-track="false"]):has(.navbar) { --desktop-player-h: 88px; }
+ :global(.app-shell):has(.navbar) :global(.empty-player-dock) { display: grid; grid-template-columns: minmax(0,1fr) minmax(240px,560px) minmax(0,1fr); gap: 16px; height: 88px; align-items: center; padding: 8px; }
+ :global(.app-shell.is-sidebar-collapsed):has(.navbar) { grid-template-columns: 72px 8px minmax(0,1fr); }
+ :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: relative; inset: auto; grid-column: 1; grid-row: 2; width: 100%; height: 100%; transform: none; }
+ :global(.app-shell):has(.navbar) :global(.sidebar-resizer) { display: block; position: relative; grid-column: 2; grid-row: 2; width: 8px; inset: auto; margin: 0; }
+ :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 3; grid-row: 2; }
+ :global(.app-shell):has(.navbar) :global(.right-panel-resizer), :global(.app-shell):has(.navbar) :global(.now-playing-panel), :global(.app-shell):has(.navbar) :global(.app-tabbar) { display: none; }
 }
-@media (min-width: 768px) and (max-width: 1099px) {
- .navbar { padding: 8px 12px; gap: 8px; }
+@media (min-width:1181px) {
+ :global(.app-shell[data-has-track="true"]:not(.is-right-panel-collapsed)):has(.navbar) { grid-template-columns: min(var(--sidebar-live-w,280px),25vw) 8px minmax(0,1fr) 8px min(var(--right-panel-live-w,320px),27vw); }
+ :global(.app-shell[data-has-track="true"].is-sidebar-collapsed:not(.is-right-panel-collapsed)):has(.navbar) { grid-template-columns: 72px 8px minmax(0,1fr) 8px min(var(--right-panel-live-w,320px),27vw); }
+ :global(.app-shell[data-has-track="true"]:not(.is-right-panel-collapsed)):has(.navbar) :global(.right-panel-resizer) { display: block; position: relative; inset: auto; grid-column: 4; grid-row: 2; width: 8px; margin: 0; }
+ :global(.app-shell[data-has-track="true"]:not(.is-right-panel-collapsed)):has(.navbar) :global(.now-playing-panel) { display: flex; flex-direction: column; grid-column: 5; grid-row: 2; position: relative; inset: auto; height: 100%; width: 100%; }
 }
-@media (min-width: 768px) {
- .history { display: flex; }
- .navbar :global(.nav-home-btn),
- .navbar :global(.brand-mark) { display: none; }
- :global(.app-shell):has(.navbar) { display: grid; grid-template-columns: min(var(--sidebar-live-w, 260px), 25vw) 8px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--desktop-player-h); gap: 8px 0; padding: 12px 12px 0; }
- :global(.app-shell.is-sidebar-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr); }
- :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: relative; inset: auto; grid-column: 1; grid-row: 1; width: 100%; height: 100%; transform: none; min-height: 0; }
- :global(.app-shell):has(.navbar) :global(.sidebar-resizer) { grid-column: 2; grid-row: 1; position: relative; display: block; width: 8px; margin: 0; inset: auto; }
- :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 3; grid-row: 1; min-width: 0; min-height: 0; }
- :global(.app-shell:not([data-player="full"])):has(.navbar) :global(.app-player) { height: var(--desktop-player-h); max-height: var(--desktop-player-h); }
- :global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: var(--desktop-player-h); min-height: var(--desktop-player-h); }
- :global(.app-shell):has(.navbar) :global(.now-playing-panel), :global(.app-shell):has(.navbar) :global(.right-panel-resizer) { display: none; }
- :global(.app-shell):has(.navbar) :global(.app-tabbar) { display: none; }
-}
-@media (min-width: 1181px) {
- :global(.app-shell):has(.navbar) { grid-template-columns: min(var(--sidebar-live-w, 260px), 25vw) 8px minmax(0, 1fr) 8px min(var(--right-panel-live-w, 320px), 27vw); }
- :global(.app-shell.is-sidebar-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr) 8px min(var(--right-panel-live-w, 320px), 27vw); }
- :global(.app-shell.is-right-panel-collapsed):has(.navbar) { grid-template-columns: min(var(--sidebar-live-w, 260px), 25vw) 8px minmax(0, 1fr) 8px 48px; }
- :global(.app-shell.is-sidebar-collapsed.is-right-panel-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr) 8px 48px; }
- :global(.app-shell):has(.navbar) :global(.right-panel-resizer) { display: block; position: relative; inset: auto; grid-column: 4; grid-row: 1; width: 8px; margin: 0; }
- :global(.app-shell):has(.navbar) :global(.now-playing-panel) { display: flex; flex-direction: column; grid-column: 5; grid-row: 1; position: relative; inset: auto; height: 100%; width: 100%; }
-}
-@media (max-width: 767px), (orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px) {
- :global(.app-shell):has(.navbar) { padding: 0; gap: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
- :global(.app-shell.is-sidebar-collapsed):has(.navbar) { grid-template-columns: minmax(0, 1fr); }
- :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: fixed; inset: 0 auto 0 0; z-index: 50; grid-column: auto; grid-row: auto; width: min(280px, 86vw); height: 100%; min-height: 0; transform: translateX(-100%); }
+@media (max-width:1180px) { .install { display: none; } .navbar { grid-template-columns: 48px minmax(0,1fr) auto; } }
+@media (max-width:767px), (orientation:landscape) and (pointer:coarse) and (max-height:540px) and (max-width:1100px) {
+ :global(.app-shell):has(.navbar), :global(.app-shell.is-sidebar-collapsed):has(.navbar) { display: grid; padding: 0; gap: 0; grid-template-columns: minmax(0,1fr); grid-template-rows: 56px minmax(0,1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
+ :global(.app-shell[data-has-track="false"]):has(.navbar) { --mobile-player-h: 0px; }
+ .navbar { height: 56px; min-height: 56px; padding: 4px 8px; grid-template-columns: auto minmax(0,1fr) auto; gap: 4px; }
+ .brand, .signup, .install, .navbar :global(.nav-home-btn), .navbar :global(.search-browse), .navbar :global(.search-split), .navbar :global(.navbar-slot-start) > :not(button), .navbar :global(.navbar-slot-start) > button:nth-of-type(2), .navbar :global(.navbar-slot-end) > :not(:last-child) { display: none; }
+ .navbar :global(.search-field) { height: 44px; min-height: 44px; }
+ .navbar :global(.search-field-input) { font-size: 13px; }
+ .login { min-height: 44px; padding: 0 14px; font-size: 13px; }
+ :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: fixed; inset: 0 auto 0 0; z-index: 50; width: min(320px,86vw); height: 100%; transform: translateX(-100%); }
  :global(.app-shell):has(.navbar) :global(.app-sidebar.is-open) { transform: translateX(0); }
- :global(.app-shell):has(.navbar) :global(.sidebar-resizer),
- :global(.app-shell):has(.navbar) :global(.right-panel-resizer),
- :global(.app-shell):has(.navbar) :global(.now-playing-panel) { display: none; }
- :global(.app-shell:not([data-player="full"])):has(.navbar) :global(.app-player) { grid-column: 1; grid-row: 2; height: var(--mobile-player-h); max-height: var(--mobile-player-h); }
+ :global(.app-shell):has(.navbar) :global(.sidebar-resizer), :global(.app-shell):has(.navbar) :global(.right-panel-resizer), :global(.app-shell):has(.navbar) :global(.now-playing-panel) { display: none; }
+ :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 1; grid-row: 2; border-radius: 0; }
+ :global(.app-shell):has(.navbar) :global(.app-player) { grid-column: 1; grid-row: 3; height: var(--mobile-player-h); }
+ :global(.app-shell):has(.navbar) :global(.empty-player-dock) { display: none; }
  :global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: var(--mobile-player-h); min-height: var(--mobile-player-h); }
- .navbar { min-height: 56px; padding: 8px 12px; gap: 8px; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: none; }
- .navbar :global(.navbar-slot-start) { display: flex; gap: 0; grid-area: auto; }
- .navbar :global(.navbar-search-cluster) { grid-area: auto; width: 100%; max-width: none; justify-self: stretch; }
- .navbar :global(.navbar-slot-end) { grid-area: auto; }
- .navbar :global(.search-field) { min-height: 44px; height: 44px; }
- .navbar :global(.navbar-slot-start) > :not(button),
- .navbar :global(.search-split),
- .navbar :global(.search-browse) { display: none; }
-
- .searchRoute { min-height: 64px; padding: 8px 16px; grid-template-columns: auto minmax(0, 1fr); background: var(--navy-surface); }
- .searchRoute :global(.navbar-slot-end) { display: none; }
- .searchRoute :global(.navbar-search-cluster) { width: 100%; max-width: none; }
- .searchRoute :global(.search-field),
- .searchRoute :global(.search-field:hover),
- .searchRoute :global(.search-field:focus-within),
- .searchRoute :global(.search-field.is-browse) { height: 48px; min-height: 48px; border: 1px solid var(--hairline-cyan); border-radius: 12px; background: var(--navy-raised); box-shadow: none; }
- .searchRoute :global(.search-field-icon),
- .searchRoute :global(.search-clear) { color: var(--text); }
- .searchRoute :global(.search-field-input) { color: var(--text); font-size: 15px; font-weight: 700; }
- .searchRoute :global(.search-field-input::placeholder) { color: var(--muted); opacity: 1; }
- .searchRoute :global(.search-clear:hover) { color: var(--text); background: rgba(0,0,0,.08); }
- .accountName { display: none; }
- :global(.app-shell[data-route="home"]):has(.navbar) .navbar { display: grid; }
- :global(.app-shell):has(.navbar) :global(.app-stage) { grid-column: 1; grid-row: 1; border: 0; border-radius: 0; }
- :global(.app-shell):has(.navbar) :global(.page-home) { padding: max(16px, env(safe-area-inset-top)) 16px 24px; }
- :global(.app-shell):has(.navbar) :global(.home-quick) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 8px; }
- :global(.app-shell):has(.navbar) :global(.home-quick-card) { min-height: 72px; height: auto; gap: 8px; }
- :global(.app-shell):has(.navbar) :global(.home-quick-art) { width: 52px; height: 52px; }
- :global(.app-shell):has(.navbar) :global(.home-quick-card > span:first-child) { width: 52px; height: 52px; }
+ :global(.app-shell):has(.navbar) :global(.app-tabbar) { display: grid; grid-column: 1; grid-row: 4; background: linear-gradient(#121212ef,#121212); }
+ :global(.app-shell):has(.navbar) :global(.app-tab.is-active) { color: #fff; }
+ :global(.app-shell):has(.navbar) :global(.app-tab) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 56px; padding: 6px 4px; color: #b3b3b3; font-size: 11px; font-weight: 400; letter-spacing: 0; }
+ :global(.app-shell):has(.navbar) :global(.app-tab.is-active) { color: #fff; font-weight: 600; }
+ :global(.app-shell):has(.navbar) :global(.app-tab.is-active svg) { filter: none; animation: none; }
+ :global(.app-shell):has(.navbar) :global(.kasa-sidebar-nav) { display: flex; flex-direction: column; }
+ :global(.app-shell):has(.navbar) :global(.page-home), :global(.app-shell):has(.navbar) :global(.page) { padding: 16px 16px 24px; }
+ :global(.app-shell):has(.navbar) :global(.home-quick) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ :global(.app-shell):has(.navbar) :global(.home-quick-card) { height: 56px; min-height: 56px; gap: 8px; }
+ :global(.app-shell):has(.navbar) :global(.home-quick-art), :global(.app-shell):has(.navbar) :global(.home-quick-card > span:first-child) { height: 56px; width: 56px; }
  :global(.app-shell):has(.navbar) :global(.home-quick-title) { font-size: 12px; }
  :global(.app-shell):has(.navbar) :global(.home-quick-play) { display: none; }
- :global(.app-shell):has(.navbar) :global(.home-subtitle) { font-size: 13px; }
- :global(.app-shell):has(.navbar) :global(.home-chip) { padding: 7px 12px; }
- :global(.app-shell):has(.navbar) :global(.app-tabbar) { grid-row: 3; grid-column: 1; }
+ :global(.app-shell):has(.navbar) :global(.home-rail-card) { width: 156px; flex-basis: 156px; }
+ :global(.app-shell):has(.navbar) :global(.home-rail-title) { font-size: 21px; }
+ :global(.app-shell):has(.navbar) :global(.home-display) { font-size: 25px; }
+ .account { width: 44px; height: 44px; }
+ :global(.app-shell):has(.navbar) :global(.search-results-layout) { grid-template-columns: minmax(0,1fr); }
+ :global(.app-shell):has(.navbar) :global(.search-song-row) { grid-template-columns: 44px minmax(0,1fr) 44px; gap: 8px; padding: 4px 0; }
+ :global(.app-shell):has(.navbar) :global(.search-song-number), :global(.app-shell):has(.navbar) :global(.search-song-row > span:last-child) { display: none; }
+ :global(.app-shell):has(.navbar) :global(.search-song-play) { left: 0; }
+ :global(.app-shell[data-route="home"]):has(.navbar) { grid-template-rows: 0 minmax(0,1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
+ :global(.app-shell[data-route="home"]):has(.navbar) .navbar { display: none; }
+ :global(.app-shell[data-route="home"]):has(.navbar) :global(.page-home) { padding-top: max(16px,env(safe-area-inset-top,0px)); }
 }
-/* Preserve user accessibility overrides rather than overwriting their palette. */
-:global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) { --accent: #6affff; --play-ink: #000; --teal: #a7ffff; --teal-mid: #6affff; --navy: #000; --navy-deep: #000; --navy-surface: #000; --navy-raised: #000; --navy-panel: #000; --text: #fff; --muted: #fff; --hairline-cyan: #fff; }
-
-@media (min-width: 768px) and (max-width: 1099px) {
- :global(.app-shell:not(.is-sidebar-collapsed)):has(.navbar) :global(.nav-link) { justify-content: flex-start; gap: 12px; padding-inline: 12px; }
- :global(.app-shell:not(.is-sidebar-collapsed)):has(.navbar) :global(.nav-link span) { display: inline; }
-}
-@media (max-width: 767px), (orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px) {
- .history { display: none; }
-}
-
-/* Cancel inherited named mobile grid areas: all controls share one row. */
-.navbar :global(.navbar-slot-start), .navbar :global(.navbar-slot-end), .navbar :global(.navbar-search-cluster) { grid-area: auto; }
-@media (max-width: 767px), (orientation: landscape) and (pointer: coarse) and (max-height: 540px) and (max-width: 1100px) {
- .navbar { padding: 8px; gap: 4px; align-items: center; }
- .navbar :global(.navbar-slot-start) > button:nth-child(2) { display: none; }
- .navbar :global(.navbar-slot-start) > button:nth-child(2):not(:disabled) { display: grid; }
- .navbar :global(.navbar-slot-end) > :not(:last-child) { display: none; }
- .searchRoute { grid-template-columns: auto minmax(0, 1fr); }
-}
-@media (min-width: 1181px) {
- :global(.app-shell[data-has-track="false"]):has(.navbar) { grid-template-columns: min(var(--sidebar-live-w, 260px), 25vw) 8px minmax(0, 1fr); row-gap: 0; }
- :global(.app-shell[data-has-track="false"].is-sidebar-collapsed):has(.navbar) { grid-template-columns: 76px 8px minmax(0, 1fr); }
- :global(.app-shell[data-has-track="false"]):has(.navbar) :global(.now-playing-panel),
- :global(.app-shell[data-has-track="false"]):has(.navbar) :global(.right-panel-resizer) { display: none; }
-}
+@media (prefers-reduced-motion:reduce) { .login:hover { transform: none; } }
+@media (pointer:coarse) { :global(.app-shell):has(.navbar) :global(.home-chip), :global(.app-shell):has(.navbar) :global(.kasa-library-pills a) { min-height: 44px; } }
+:global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) { --accent: #fff; --play-ink: #000; --text: #fff; --muted: #fff; --hairline: #fff; --hairline-cyan: #fff; }
+:global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) :global(.app-stage), :global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) :global(.kasa-sidebar), :global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) :global(.now-playing-panel) { background: #000; border: 1px solid #fff; }
+:global(.app-shell[data-player="full"]):has(.navbar) :global(.app-player) { height: 100dvh; max-height: none; }

@@ -1,3 +1,4 @@
+import { displayName } from "./inputText.mjs";
 export const PLAYLIST_CATEGORIES = [
   "Sports",
   "Workout",
@@ -103,9 +104,9 @@ const CATEGORY_ALIASES = {
 export function normalizePlaylistCategory(value) {
   if (typeof value !== "string") return "Pop";
   const trimmed = value.trim();
-  if (PLAYLIST_THEMES[trimmed]) return trimmed;
-  const alias = CATEGORY_ALIASES[trimmed.toLowerCase()];
-  return alias || "Pop";
+  if (Object.hasOwn(PLAYLIST_THEMES, trimmed)) return trimmed;
+  const key = trimmed.toLowerCase();
+  return Object.hasOwn(CATEGORY_ALIASES, key) ? CATEGORY_ALIASES[key] : "Pop";
 }
 
 export function getPlaylistTheme(category) {
@@ -153,7 +154,9 @@ export const PLAYLIST_SEED_QUERIES = {
 };
 
 export function isCoverDataUrl(value) {
-  return typeof value === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(value) && value.length <= 320_000;
+  if (typeof value !== "string" || value.length > 320_000) return false;
+  const match = value.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+  return Boolean(match && match[2].length % 4 === 0);
 }
 
 export function serializePlaylist(playlist, userId) {
@@ -168,7 +171,8 @@ export function serializePlaylist(playlist, userId) {
   };
   return {
     _id: obj._id,
-    name: obj.name,
+    name: displayName(obj.name, 80) || "Untitled playlist",
+    description: typeof obj.description === "string" ? obj.description : "",
     songs: Array.isArray(obj.songs) ? obj.songs : [],
     songAddedAt: obj.songAddedAt || {},
     user: publicUser(obj.user),

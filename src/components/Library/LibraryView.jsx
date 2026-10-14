@@ -12,6 +12,7 @@ import {
   FiList,
   FiLock,
   FiPlus,
+  FiSearch,
   FiUsers,
   FiZap,
 } from "react-icons/fi";
@@ -35,13 +36,10 @@ import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
 import { accountOwner } from "@/utils/accountCache.mjs";
+import useLibraryPresentation from "@/hooks/useLibraryPresentation";
+import { LIBRARY_SORTS, sortLibraryItems } from "@/utils/libraryPresentation.mjs";
 
-const SORT_OPTIONS = [
-  ["recents", "Recents"],
-  ["added", "Recently Added"],
-  ["alphabetical", "Alphabetical"],
-  ["creator", "Creator"],
-];
+const SORT_OPTIONS = LIBRARY_SORTS;
 
 const LIBRARY_CACHE_KEY = "library";
 
@@ -190,8 +188,8 @@ function AccountLibraryView({ session, status, owner }) {
   const cacheKey = `${LIBRARY_CACHE_KEY}:${owner}`;
   const cached = owner ? readNavCache(cacheKey) : null;
   const [filter, setFilter] = useState("all");
-  const [view, setView] = useState("grid");
-  const [sort, setSort] = useState("recents");
+  const { view, sort, setView, setSort } = useLibraryPresentation(owner);
+  const [query, setQuery] = useState("");
   const [favourites, setFavourites] = useState(() => cached?.favourites ?? null);
   const [playlists, setPlaylists] = useState(() => cached?.playlists ?? []);
   const [publicPlaylists, setPublicPlaylists] = useState(() => cached?.publicPlaylists ?? []);
@@ -202,10 +200,15 @@ function AccountLibraryView({ session, status, owner }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    const onPlaylistsChanged = () => setRefreshKey((value) => value + 1);
+    const onPlaylistsChanged = (event) => {
+      if (event.detail?.owner && event.detail.owner !== owner) return;
+      const created = event.detail?.playlist;
+      if (created?._id) setPlaylists((current) => [created, ...current.filter((item) => item._id !== created._id)]);
+      setRefreshKey((value) => value + 1);
+    };
     window.addEventListener("heykasa:playlists-changed", onPlaylistsChanged);
     return () => window.removeEventListener("heykasa:playlists-changed", onPlaylistsChanged);
-  }, []);
+  }, [owner]);
 
   useEffect(() => {
     if (!owner) return;
@@ -326,15 +329,9 @@ function AccountLibraryView({ session, status, owner }) {
       if (PLAYLIST_CATEGORIES.includes(filter)) return item.category === filter;
       return true;
     });
-    visible.sort((left, right) => {
-      if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
-      if (sort === "alphabetical") return left.title.localeCompare(right.title);
-      if (sort === "creator") return left.creator.localeCompare(right.creator);
-      if (sort === "added") return new Date(right.createdAt || 0) - new Date(left.createdAt || 0);
-      return new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0);
-    });
-    return ["all", "playlists", "by-you", "liked"].includes(filter) ? [likedItem, ...visible] : visible;
-  }, [covers, favourites, filter, playlists, session?.user?.id, sort, status]);
+    const list = ["all", "playlists", "by-you", "liked"].includes(filter) ? [likedItem, ...visible] : visible;
+    return sortLibraryItems(list.filter((item) => `${item.title} ${item.creator}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())), sort);
+  }, [covers, favourites, filter, playlists, session?.user?.id, sort, status, query]);
 
   return (
     <main className="page text-white">
@@ -371,6 +368,7 @@ function AccountLibraryView({ session, status, owner }) {
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <label className="flex min-h-11 items-center gap-2 rounded bg-[var(--navy-raised)] px-3 text-[var(--muted)]"><FiSearch aria-hidden="true" /><span className="sr-only">Search your library</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your library" className="w-40 min-w-0 bg-transparent text-sm text-white outline-none" /></label>
               <label className="relative flex items-center">
                 <span className="sr-only">Filter by playlist type</span>
                 <select
@@ -414,10 +412,10 @@ function AccountLibraryView({ session, status, owner }) {
           {!loading && !error && items.length === 0 && (
             <div className="mt-8">
               <EmptyState
-                title="No playlists here yet"
-                message={filter === "all" ? "Create a playlist to start building your library." : "Try another filter or create a new playlist."}
-                actionLabel={filter === "all" ? "Create playlist" : "Show all"}
-                onAction={filter === "all" ? () => setShowCreate(true) : () => setFilter("all")}
+                title={query ? "No results found" : "No playlists here yet"}
+                message={query ? `Nothing matches “${query}”. Try another name or artist.` : filter === "all" ? "Create a playlist to start building your library." : "Try another filter or create a new playlist."}
+                actionLabel={query ? "Clear search" : filter === "all" ? "Create playlist" : "Show all"}
+                onAction={query ? () => setQuery("") : filter === "all" ? () => setShowCreate(true) : () => setFilter("all")}
               />
             </div>
           )}
@@ -433,7 +431,7 @@ function AccountLibraryView({ session, status, owner }) {
           )}
         </>
       )}
-      <PlaylistModal show={showCreate} setShow={setShowCreate} onCreated={() => setRefreshKey((value) => value + 1)} />
+      <PlaylistModal show={showCreate} setShow={setShowCreate} />
     </main>
   );
 }

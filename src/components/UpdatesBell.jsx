@@ -12,6 +12,7 @@ import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { requestJson } from "@/services/http";
 import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
+import { browserNotificationPermission, browserNotificationsEnabled } from "@/utils/browserNotifications.mjs";
 
 const GUEST_SEEN_KEY = "heykasa.notifications.seen";
 const POLL_MS = 10 * 60 * 1000;
@@ -67,7 +68,7 @@ function applyLocalSeen(payload, seenIds) {
 }
 
 function showDesktopAlert(item) {
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  if (!browserNotificationsEnabled(true, browserNotificationPermission())) return;
   try {
     const notification = new Notification(item.title, {
       body: item.body,

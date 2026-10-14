@@ -13,8 +13,16 @@ export class SessionLookupUnavailableError extends Error {
 }
 
 const SESSION_LOOKUP_TTL_MS = 4_000;
+const MAX_SESSION_LOOKUPS = 1000;
 const lookupCache = globalThis.__HeyKasaSessionLookup || new Map();
 globalThis.__HeyKasaSessionLookup = lookupCache;
+
+function pruneLookups(now, limit = MAX_SESSION_LOOKUPS) {
+  for (const [key, entry] of lookupCache) {
+    if (!entry || entry.expiresAt <= now) lookupCache.delete(key);
+  }
+  while (lookupCache.size > limit) lookupCache.delete(lookupCache.keys().next().value);
+}
 
 function lookupKey(token) {
   return `${token.id}:${token.sessionVersion}`;
@@ -22,6 +30,7 @@ function lookupKey(token) {
 
 export async function resolveSessionUser(token, { fresh = false } = {}) {
   if (!hasSessionIdentity(token)) return null;
+  pruneLookups(Date.now());
   const key = lookupKey(token);
   if (!fresh) {
     const cached = lookupCache.get(key);
@@ -37,6 +46,8 @@ export async function resolveSessionUser(token, { fresh = false } = {}) {
     await dbConnect();
     const user = await User.findById(token.id);
     const current = isCurrentSession(token, user) ? user : null;
+    lookupCache.delete(key);
+    pruneLookups(Date.now(), MAX_SESSION_LOOKUPS - 1);
     lookupCache.set(key, {
       user: current,
       expiresAt: Date.now() + SESSION_LOOKUP_TTL_MS,

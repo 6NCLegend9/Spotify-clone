@@ -25,6 +25,7 @@ export interface PlayerDockProps {
   nextDisabled?: boolean;
   shuffle: boolean;
   repeat: boolean;
+  repeatOne?: boolean;
   onShuffle: () => void;
   onRepeat: () => void;
   onPlayPause: () => void;
@@ -34,6 +35,7 @@ export interface PlayerDockProps {
   favourite?: ReactNode;
   trackActions?: ReactNode;
   volume?: ReactNode;
+  qualityControl?: ReactNode;
   queue: PlayerTrack[];
   queueSearch?: ReactNode;
   onQueueEdit?: (edit: {

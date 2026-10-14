@@ -1,16 +1,20 @@
 "use client";
 
+import { displayName } from "@/utils/inputText.mjs";
+
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { signOutWithPrivacy as signOut } from "@/utils/signOut";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { GoHome, GoHomeFill } from "react-icons/go";
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import { MdOutlineMenu, MdSportsEsports } from "react-icons/md";
+import { FiChevronLeft } from "react-icons/fi";
+import { CircleArrowDown } from "lucide-react";
 import BrandMark from "./Layout/BrandMark";
 import { useNav } from "./Layout/AppShell";
 import Searchbar from "./Searchbar";
 import UpdatesBell from "./UpdatesBell";
+import ItemMenu from "./ItemMenu";
 import { canUseArcade } from "@/utils/arcadeAccess";
 import styles from "./Layout/KasaShell.module.css";
 
@@ -20,12 +24,9 @@ const Navbar = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [imageFailed, setImageFailed] = useState(false);
-  const [historyState, setHistoryState] = useState({ canBack: false, canForward: true });
+  const [canBack, setCanBack] = useState(false);
   const homeActive = pathname === "/";
-  const userName =
-    typeof session?.user?.name === "string" && session.user.name.trim()
-      ? session.user.name.trim()
-      : "Account";
+  const userName = displayName(session?.user?.name, 80, { truncate: true }) || "Account";
   const rawImageUrl = session?.user?.image || session?.user?.imageUrl;
   const imageUrl = typeof rawImageUrl === "string" ? rawImageUrl : "";
 
@@ -34,10 +35,7 @@ const Navbar = () => {
   useEffect(() => {
     const sync = () => {
       const navigation = window.navigation;
-      setHistoryState({
-        canBack: typeof navigation?.canGoBack === "boolean" ? navigation.canGoBack : window.history.length > 1,
-        canForward: typeof navigation?.canGoForward === "boolean" ? navigation.canGoForward : true,
-      });
+      setCanBack(typeof navigation?.canGoBack === "boolean" ? navigation.canGoBack : window.history.length > 1);
     };
     sync();
     const navigation = window.navigation;
@@ -61,31 +59,16 @@ const Navbar = () => {
     if (window.history.length > 1) router.back();
   };
 
-  const goForward = () => {
-    const navigation = window.navigation;
-    if (typeof navigation?.canGoForward === "boolean") {
-      if (navigation.canGoForward) void navigation.forward();
-      return;
-    }
-    router.forward();
-  };
-
   return (
-    <header className={`app-navbar ${styles.navbar} ${pathname?.startsWith("/search") ? styles.searchRoute : ""}`}>
+    <header inert={navModal ? "" : undefined} className={`app-navbar ${styles.navbar}`}>
       <div className="navbar-slot navbar-slot-start">
-        <button type="button" onClick={() => setShowNav(true)} className="icon-btn phone-only-grid h-11 w-11 shrink-0" aria-label="Open menu" aria-expanded={navModal} aria-controls="app-sidebar">
-          <MdOutlineMenu aria-hidden="true" className="text-xl" />
+        <div className={styles.brand}><BrandMark compact /></div>
+        <button type="button" onClick={() => setShowNav(true)} className={`phone-only-grid ${styles.mobileAvatar}`} aria-label="Open navigation" aria-expanded={navModal} aria-controls="app-sidebar">
+          {status === "authenticated" && imageUrl && !imageFailed ? <img src={imageUrl} alt="" onError={() => setImageFailed(true)} /> : <span aria-hidden="true">{status === "authenticated" ? userName.charAt(0).toUpperCase() : "H"}</span>}
         </button>
-        <button type="button" onClick={goBack} disabled={!historyState.canBack} className="icon-btn phone-only-grid h-11 w-11 shrink-0 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Go back" title="Go back">
+        <button type="button" onClick={goBack} disabled={!canBack} className="icon-btn phone-only-grid h-11 w-11 shrink-0 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Go back" title="Go back">
           <FiChevronLeft aria-hidden="true" size={22} />
         </button>
-        <div className="phone-wide-only-flex shrink-0">
-          <BrandMark compact />
-        </div>
-        <div className={styles.history} aria-label="Navigation history">
-          <button type="button" onClick={goBack} disabled={!historyState.canBack} aria-label="Go back" title="Go back"><FiChevronLeft size={20} /></button>
-          <button type="button" onClick={goForward} disabled={!historyState.canForward} aria-label="Go forward" title="Go forward"><FiChevronRight size={20} /></button>
-        </div>
       </div>
       <div className="navbar-search-cluster">
         <Link href="/" aria-label="Home" title="Home" aria-current={homeActive ? "page" : undefined} className={`nav-home-btn ${homeActive ? "is-active" : ""}`}>
@@ -94,15 +77,21 @@ const Navbar = () => {
         <Searchbar />
       </div>
       <div className="navbar-slot navbar-slot-end">
-        <Link href="/arcade" className={`icon-btn h-11 w-11 shrink-0 ${canUseArcade(session?.user?.email) ? "max-lg:hidden" : "hidden"}`} aria-label="Open Beat Arcade" title="Beat Arcade"><MdSportsEsports aria-hidden="true" className="text-xl" /></Link>
-        <UpdatesBell />
+        <Link href="/open-desktop" className={styles.install}><CircleArrowDown aria-hidden="true" size={18} />Install app</Link>
+        {status === "authenticated" && <UpdatesBell />}
         {status === "authenticated" ? (
-          <Link href="/settings" aria-label={`Open settings for ${userName}`} title="Open settings" className={styles.account}>
+          <ItemMenu label={`Account menu for ${userName}`} className={styles.account} actions={[
+            { label: "Your library", onSelect: () => router.push("/library") },
+            { label: "Recently played", onSelect: () => router.push("/recently-played") },
+            { label: "Following", onSelect: () => router.push("/following") },
+            { label: "Settings", onSelect: () => router.push("/settings") },
+            canUseArcade(session?.user?.email) && { label: "Beat Arcade", onSelect: () => router.push("/arcade") },
+            { label: "Log out", onSelect: () => signOut({ callbackUrl: "/" }) },
+          ]}>
             {imageUrl && !imageFailed ? <img src={imageUrl} alt="" onError={() => setImageFailed(true)} /> : <span aria-hidden="true">{userName.charAt(0).toUpperCase()}</span>}
-            <span className={styles.accountName}>{userName}</span>
-          </Link>
+          </ItemMenu>
         ) : status === "unauthenticated" ? (
-          <Link href="/login" prefetch className="btn-primary h-8 shrink-0 whitespace-nowrap px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm">Log in</Link>
+          <><Link href="/signup" className={styles.signup}>Sign up</Link><Link href="/login" prefetch className={styles.login}>Log in</Link></>
         ) : <span className="h-8 w-8 animate-pulse rounded-full bg-white/10 sm:h-10 sm:w-10" role="status" aria-label="Loading account" />}
       </div>
     </header>

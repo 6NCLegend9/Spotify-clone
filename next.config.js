@@ -1,4 +1,11 @@
 const isProduction = process.env.NODE_ENV === "production";
+const mediaSources = [];
+if (process.env.MEDIA_SERVICE_URL) {
+  const mediaUrl = new URL(process.env.MEDIA_SERVICE_URL);
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(mediaUrl.hostname);
+  if ((mediaUrl.protocol !== "https:" && !(local && !isProduction && mediaUrl.protocol === "http:")) || mediaUrl.username || mediaUrl.password || mediaUrl.search || mediaUrl.hash || !["", "/"].includes(mediaUrl.pathname)) throw new Error("MEDIA_SERVICE_URL must be an HTTPS origin (HTTP loopback for development only)");
+  mediaSources.push(mediaUrl.origin);
+}
 const disablePwa =
   process.env.NODE_ENV === "development"
   || process.env.DISABLE_PWA === "1";
@@ -25,8 +32,8 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: heykasa-media: https://i.ytimg.com https://yt3.ggpht.com https://lh3.googleusercontent.com https://api.dicebear.com https://avatars.githubusercontent.com https://images.unsplash.com",
   "font-src 'self' data:",
-  "media-src 'self' blob: https://*.googlevideo.com",
-  `connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.supabase.co wss://*.supabase.co ${discordBridgeSources.join(" ")}`,
+  `media-src 'self' blob: https://*.googlevideo.com ${mediaSources.join(" ")}`,
+  `connect-src 'self' https://www.googleapis.com https://*.youtube.com https://*.googlevideo.com https://*.supabase.co wss://*.supabase.co ${discordBridgeSources.join(" ")} ${mediaSources.join(" ")}`,
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",

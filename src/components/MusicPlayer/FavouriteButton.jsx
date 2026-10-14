@@ -20,7 +20,7 @@ const FavouriteButton = ({favouriteSongs, activeSong, loading, handleAddToFavour
           className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
         >
            {isSaved ? (
-             <AiFillHeart size={25} color={'#00e6e6'} className={`${style}`} />
+             <AiFillHeart size={25} color={'var(--accent)'} className={`${style}`} />
            ) : (
              <AiOutlineHeart size={25} color={'white'} className={`${style}`} />
            )}

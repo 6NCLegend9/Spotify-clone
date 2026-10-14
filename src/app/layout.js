@@ -1,4 +1,3 @@
-import { Poppins, Righteous } from "next/font/google";
 import "./globals.css";
 import "./motion.css";
 import SongsHistory from "@/components/SongsHistory";
@@ -113,24 +112,6 @@ export const metadata = {
     "theme-color": "#000000",
   },
 };
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-poppins",
-  display: "swap",
-  // Skip <link rel=preload> for the 5 weights: most aren't used above the fold,
-  // which spams Chrome's "preloaded but not used" warning. swap keeps text visible.
-  preload: false,
-});
-
-const righteous = Righteous({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-righteous",
-  display: "swap",
-  preload: false,
-});
 
 export const viewport = {
   themeColor: "#000000",
@@ -251,7 +232,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${poppins.variable} ${righteous.variable}`} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="heykasa-build" content={WEB_BUILD_ID} />
         <link rel="preconnect" href="https://i.ytimg.com" />
@@ -265,7 +246,7 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className={poppins.className}>
+      <body>
         <nav className="skip-links" aria-label="Skip links">
           <a href="#main-content" className="skip-link">
             Skip to main content

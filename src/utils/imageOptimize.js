@@ -25,34 +25,64 @@ export function youtubeThumb(url, size = "mq") {
   return `https://i.ytimg.com/vi/${match[1]}/${file}`;
 }
 
-function loadImage(src) {
+function preparationStep(create, signal) {
   return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("That image could not be read. Try a JPG or PNG file."));
-    image.src = src;
+    let settled = false;
+    let dispose = () => {};
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", cancel);
+      dispose(error);
+      if (error) reject(error); else resolve(value);
+    };
+    const cancel = () => finish(new DOMException("Image preparation cancelled", "AbortError"));
+    const timer = setTimeout(() => finish(new Error("Image preparation timed out. Try another image.")), 15_000);
+    signal?.addEventListener("abort", cancel, { once: true });
+    if (signal?.aborted) { cancel(); return; }
+    try {
+      dispose = create(finish) || dispose;
+      if (settled) dispose();
+    } catch (error) { finish(error); }
   });
 }
 
-export async function resizeCoverFile(file) {
-  if (!file) {
-    throw new Error("Choose an image to use as a cover.");
-  }
-  if (!ALLOWED_TYPES.has(file.type)) {
-    throw new Error("Use a JPG, PNG, or WebP image.");
-  }
-  if (file.size > MAX_INPUT_BYTES) {
-    throw new Error("Keep cover images under 8 MB.");
-  }
+function loadImage(src, signal) {
+  return preparationStep((finish) => {
+    const image = new Image();
+    image.onload = () => finish(null, image);
+    image.onerror = () => finish(new Error("That image could not be read. Try a JPG or PNG file."));
+    image.src = src;
+    return (error) => { image.onload = null; image.onerror = null; if (error) image.src = ""; };
+  }, signal);
+}
 
-  const dataUrl = await new Promise((resolve, reject) => {
+export async function resizeCoverFile(file, { signal } = {}) {
+  if (!file || !Number.isFinite(file.size) || file.size <= 0) {
+    throw new Error("Choose a nonempty image to use as a cover.");
+  }
+  if (!ALLOWED_TYPES.has(file.type)) throw new Error("Use a JPG, PNG, or WebP image.");
+  if (file.size > MAX_INPUT_BYTES) throw new Error("Keep cover images under 8 MB.");
+
+  const dataUrl = await preparationStep((finish) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("The image could not be read."));
+    reader.onload = () => finish(null, String(reader.result || ""));
+    reader.onerror = () => finish(new Error("The image could not be read."));
+    reader.onabort = () => finish(new DOMException("Image preparation cancelled", "AbortError"));
     reader.readAsDataURL(file);
-  });
+    return () => {
+      reader.onload = null;
+      reader.onerror = null;
+      reader.onabort = null;
+      if (reader.readyState === 1) reader.abort();
+    };
+  }, signal);
 
-  const image = await loadImage(dataUrl);
+  const image = await loadImage(dataUrl, signal);
+  if (!image.width || !image.height || image.width > 8192 || image.height > 8192 || image.width * image.height > 16_000_000) {
+    throw new Error("Choose an image under 16 megapixels and 8,192 pixels per side.");
+  }
   const side = Math.min(image.width, image.height);
   const sx = Math.floor((image.width - side) / 2);
   const sy = Math.floor((image.height - side) / 2);

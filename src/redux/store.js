@@ -10,6 +10,7 @@ import settingsReducer from "./features/settingsSlice";
 import appearanceReducer from "./features/appearanceSlice";
 import { migrateEqBands } from "@/utils/eqPresets";
 import { migrateLegacySettings } from "@/utils/settingsMigration.mjs";
+import { applyExplicitContentPolicy } from "@/utils/explicitContent.mjs";
 
 const createNoopStorage = () => {
   return {
@@ -69,8 +70,11 @@ const combinedReducer = combineReducers({
 });
 
 // Passing undefined state makes every slice fall back to its initial state.
-const rootReducer = (state, action) =>
-  combinedReducer(action.type === RESET_STORE ? undefined : state, action);
+const rootReducer = (state, action) => {
+  const next = combinedReducer(action.type === RESET_STORE ? undefined : state, action);
+  const player = applyExplicitContentPolicy(next.player, next.settings.explicitContent);
+  return player === next.player ? next : { ...next, player };
+};
 
 export const store = configureStore({
   reducer: rootReducer,

@@ -1,65 +1,34 @@
-# HayKasa design system
+# HayKasa interface system
 
-HayKasa is a free dark music streaming web app. Visual identity is deep navy with a single electric cyan accent (`#00e6e6`). This language is **global** — Home, Library, Search, artist/playlist pages, Settings, auth, and the player all share the same recipes. Do not introduce Spotify green, extra brand colors, or light mode unless asked.
+The requested reference is Spotify desktop/web first, followed by mobile. The application keeps the HayKasa name, logo and existing music providers. This supersedes the earlier cyan/navy presentation.
 
-## Product
-- Name: HayKasa / HayKasa Music
-- Tagline: Free Music Streaming
-- Logo: `src/assets/HayKasa-logo-removebg.png` (compact mark), `src/assets/HayKasa-banner-removebg.png` (wordmark). Always use the real lockup, never initials or a generic note icon in logo positions.
-- Live: https://haykasa.vercel.app
+## Shared workspace
 
-## Color
-- Canvas / page: `#000814` (`navy`)
-- Surfaces: `#07121d` surface, `#0b1722` raised, `#101c28` panel
-- Text: `#f4f7fb`; secondary `#9aa8b5`
-- Accent / CTAs / active nav / play button: `#00e6e6` on `#001014` text
-- Supporting teal: `#64c9d7` / `#22a6b3` for atmosphere only, not primary buttons
-- Hairline: `rgba(255, 255, 255, 0.1)` on chrome (sidebar, navbar, dock, panels)
-- Fill: `rgba(255,255,255,0.07)` idle, `0.08` hover, `0.14` press
-- Glass: `rgba(7,18,29,0.72)` + 12px blur
-- Glow: reserved for primary CTAs, not cards
+Desktop uses a full-width 64px toolbar above rounded, independently scrolling library and content panels. A Now playing panel can open at wide desktop sizes. The transport remains visible along the bottom, including a disabled empty state before selecting music. Sidebar and Now playing widths remain resizable.
 
-## Type
-- UI: Poppins 400–800
-- Page titles, greetings, and shelf titles: Poppins 700, tight tracking
-- Display (Righteous) only for decorative mix stamps
-- Tabular time in the player: `tabular-nums`
+Mobile uses the existing Home/Search/Library/Create tab bar, compact playback and a navigation drawer. Home puts its avatar and filters inside the feed. Search results stack vertically. Respect safe areas, touch targets, reduced motion and keyboard navigation.
 
-## Shape & density
-- Media art: **4px** radius everywhere
-- Cards / library tiles / shelves: transparent, hover fill, no cyan border or lift-glow
-- Filter chips: pill; **active is white on black**, inactive is white/8% — not cyan
-- Play FAB: cyan circle (`#00e6e6` on `#001014`) — HayKasa stand-in for Spotify green
-- Icon buttons: 44×44 minimum; hover is white fill, not cyan glow
-- Sidebar 260px (16.25rem); collapsed ~84px
-- Top bar 64px desktop, 56px + safe-area mobile
-- Player dock ~80–184px; mobile tab bar ~60px + safe-area
+## Appearance
 
-## Motion
-- 180–220ms, `cubic-bezier(0.22, 1, 0.36, 1)`
-- Respect `prefers-reduced-motion` and scrolling pause of decorative animation
-- Atmosphere (Ghost Fibers) stays quiet (~32% opacity) on every route
+- Canvas and transport: #000000.
+- Main panels: #121212.
+- Raised surfaces: #1f1f1f; hover/menu surfaces: #282828.
+- Primary text: #ffffff; secondary text: #b3b3b3.
+- Default accent: #1ed760 with black foreground. Saved custom appearance profiles continue to apply.
+- Active filter chips: white with black text.
+- Media art: 4–6px corners. Cards use a subtle hover fill rather than borders, glow or perspective.
+- Interface typography: Arial/Helvetica/system sans-serif, bold headings and tabular player times.
+- Desktop playback has a white play control; artwork play actions use the accent.
+- High-contrast and reduced-motion choices remain supported.
 
-## Layout
-Desktop: collapsible left sidebar + top navbar (home circle + pill search + account) + scrollable content + bottom player dock.
+## Working flows
 
-Home (Spotify-close): All/Music/Podcasts chips → “Good morning/afternoon/evening” → 8 recently-played shortcuts → New release from → Jump back in / Made For You / mixes with **Show all**.
+Home uses eight shortcuts, Jump back in and music shelves. Made for you leads guests to sign in instead of presenting an unavailable content type. Search has a Top result and compact song rows with real play/queue actions. Full-page and sidebar libraries have search, pinned-first sorting and account-scoped local view preferences. Account menus reuse the keyboard-accessible item-menu primitive.
 
-Mobile: hamburger + compact brand in navbar, bottom tab bar (Home / Search / Your Library / Create), compact dock (art + title + cyan play/next/expand). Expanded now playing is a `dialog`: stacked Now playing / Queue under 1024px (full-bleed under 480px); **desktop split** (art + transport | queue).
+Owners can edit playlist name, optional description and cover in one authenticated API mutation. Existing collaborator, visibility, likes, playlist/song actions, lyrics, queue editing and Jam flows remain connected to their existing APIs. Repeat cycles off, queue, then one.
 
-## Components
-- Primary button: cyan pill, bold, light glow
-- Ghost: translucent pill, white hover fill
-- Chips (`.home-chip`): white when selected — Home, Library, Search
-- Nav active: cyan text + 3px left accent bar
-- Cards (`.card`, `.library-tile`, `.home-shelf-card`): shared shelf recipe
-- Play control (`.play-fab`): cyan overlay on covers; static on playlist heroes
-- Empty states: glass panel, eyebrow, title, muted body, primary + ghost
-- Player: lucide transport, 48px 4px-radius thumb in dock, cyan circular play, `#00e6e6` range accent
+## Boundaries
 
-## Do not
-- Do not use Spotify green (`#1DB954` / `#1ed760`) — cyan is the brand play color
-- Do not replace HayKasa logo with a music-note glyph or letter H
-- Do not drop below 44px hit targets on controls
-- Do not invent a second accent color
-- Do not restyle a single page away from this system
+Keep HayKasa branding. Do not introduce decorative controls with no behavior, advertise unavailable downloads or invent Spotify Connect or podcast service support. Unlabelled explicit lyrics remain undetectable by metadata filters.
+
+The implementation is a music-interface parity pass. Pixel-level fidelity needs browser comparison against a concrete Spotify reference; CI compilation cannot establish it.

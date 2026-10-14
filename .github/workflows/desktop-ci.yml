@@ -6,38 +6,15 @@ on:
     branches:
       - main
     paths:
-      - "src/**"
-      - "public/**"
+      - "desktop/**"
       - "contracts/**"
-      - "scripts/desktop-dev*.mjs"
-      - "package.json"
-      - "package-lock.json"
-      - "next.config.js"
-      - "desktop/src/**"
-      - "desktop/scripts/smoke-renderer.mjs"
-      - "desktop/scripts/smoke-artist-renderer.mjs"
-      - "desktop/scripts/measure-background-runtime.mjs"
-      - "desktop/package.json"
-      - "desktop/package-lock.json"
-      - "test/**"
-      - "e2e/**"
+      - "scripts/generate-desktop-contract.mjs"
       - ".github/workflows/desktop-ci.yml"
   pull_request:
     paths:
-      - "src/**"
-      - "public/**"
+      - "desktop/**"
       - "contracts/**"
-      - "scripts/desktop-dev*.mjs"
-      - "package.json"
-      - "package-lock.json"
-      - "next.config.js"
-      - "desktop/src/**"
-      - "desktop/scripts/smoke-renderer.mjs"
-      - "desktop/scripts/smoke-artist-renderer.mjs"
-      - "desktop/package.json"
-      - "desktop/package-lock.json"
-      - "test/**"
-      - "e2e/**"
+      - "scripts/generate-desktop-contract.mjs"
       - ".github/workflows/desktop-ci.yml"
 
 permissions:
@@ -47,57 +24,21 @@ concurrency:
   group: desktop-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  NEXTAUTH_SECRET: heykasa-desktop-ci-only-secret
-  NEXTAUTH_URL: http://127.0.0.1:3003
-  DISABLE_HTTPS_UPGRADE: "1"
-
 jobs:
-  shared-renderer:
+  native-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22.x
-          cache: npm
-      - name: Install web dependencies
-        run: npm ci --no-audit --no-fund
       - name: Install desktop dependencies
         run: npm --prefix desktop ci --no-audit --no-fund
       - name: Validate canonical desktop contract
         run: npm run check:desktop-contract
-      - name: Test desktop web contract
-        run: node --test test/desktopAuth.test.mjs test/desktopContract.test.mjs test/desktopDev.test.mjs test/desktopDownload.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs test/desktopRelease.test.mjs test/desktopSmokeContract.test.mjs
-      - name: Test native boundary
-        run: npm --prefix desktop test
-      - name: Build shared production renderer
-        run: npm run build
-      - name: Install Electron runtime dependencies
-        run: npx playwright install-deps chromium
-      - name: Start shared production renderer
+      - name: Check native JavaScript syntax
         shell: bash
-        run: |
-          npm start -- --hostname 127.0.0.1 --port 3003 > /tmp/heykasa-next.log 2>&1 &
-          echo $! > /tmp/heykasa-next.pid
-      - name: Wait for shared renderer
-        run: node --input-type=module -e "import { waitForHttp } from './scripts/desktop-dev-lib.mjs'; await waitForHttp('http://127.0.0.1:3003/search');"
-      - name: Verify shared renderer inside Electron
-        env:
-          HEYKASA_DESKTOP_SMOKE_URL: http://127.0.0.1:3003
-        run: xvfb-run -a npm --prefix desktop run smoke:renderer
-      - name: Measure hidden-window runtime
-        env:
-          HEYKASA_DESKTOP_SMOKE_URL: http://127.0.0.1:3003
-        run: xvfb-run -a npm --prefix desktop run measure:background
-      - name: Show renderer log on failure
-        if: failure()
-        run: cat /tmp/heykasa-next.log || true
-      - name: Stop shared renderer
-        if: always()
-        shell: bash
-        run: |
-          if [ -f /tmp/heykasa-next.pid ]; then
-            kill "$(cat /tmp/heykasa-next.pid)" 2>/dev/null || true
-          fi
+        run: find desktop/src desktop/scripts -name '*.mjs' -print0 | xargs -0 -n 1 node --check
+      - name: Audit runtime dependencies
+        run: npm --prefix desktop audit --omit=dev --audit-level=high

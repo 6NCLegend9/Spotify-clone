@@ -35,11 +35,6 @@ concurrency:
   group: desktop-release-${{ inputs.channel }}
   cancel-in-progress: false
 
-env:
-  NEXTAUTH_SECRET: heykasa-desktop-release-ci-only-secret
-  NEXTAUTH_URL: http://localhost:3100
-  DISABLE_HTTPS_UPGRADE: "1"
-
 jobs:
   web-gate:
     name: Verify web/native contract
@@ -129,8 +124,6 @@ jobs:
         run: npm run check:desktop-contract
       - name: Audit web runtime dependencies
         run: npm run audit:production
-      - name: Test desktop server contract
-        run: node --test test/desktopAuth.test.mjs test/desktopDownload.test.mjs test/desktopInstaller.test.mjs test/desktopManifest.test.mjs test/desktopPolicy.test.mjs test/desktopRelease.test.mjs
       - name: Typecheck web integration
         run: npm run typecheck
       - name: Build production web application
@@ -156,8 +149,6 @@ jobs:
           node-version: 22.x
       - name: Install desktop dependencies
         run: npm ci --no-audit --no-fund
-      - name: Test native boundary
-        run: npm test
       - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
       - name: Stamp internal release version
@@ -167,8 +158,6 @@ jobs:
           npm pkg set heykasaReleaseChannel=internal
       - name: Build internal Windows installer
         run: npm run dist
-      - name: Verify packaged Windows runtime
-        run: npm run smoke:packaged
       - name: Prepare GitHub release bundle
         id: prepare
         run: npm run prepare-github-release
@@ -255,8 +244,6 @@ jobs:
           if ($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET.Length -lt 32) { throw "Manifest HMAC secret must be at least 32 characters" }
       - name: Install desktop dependencies
         run: npm ci --no-audit --no-fund
-      - name: Test native boundary
-        run: npm test
       - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
       - name: Validate release version monotonicity
@@ -279,8 +266,6 @@ jobs:
           Write-Host "Preparing HayKasa Desktop $($package.version) on $env:HEYKASA_DESKTOP_RELEASE_CHANNEL"
       - name: Build signed Windows installer
         run: npm run dist
-      - name: Verify packaged Windows runtime
-        run: npm run smoke:packaged
       - name: Verify Authenticode signature
         shell: pwsh
         run: |

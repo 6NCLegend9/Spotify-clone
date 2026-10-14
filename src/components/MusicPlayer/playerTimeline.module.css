@@ -14,7 +14,7 @@
 .time { width: 40px; flex: 0 0 40px; }
 .time:first-child { text-align: right; }
 .range {
-  --seek-fill: var(--teal);
+  --seek-fill: #b3b3b3;
   display: block;
   flex: 1;
   min-width: 32px;
@@ -47,11 +47,11 @@
   border-radius: 50%;
   appearance: none;
   -webkit-appearance: none;
-  background: var(--accent);
+  background: #fff;
 }
 .range::-moz-range-track { height: 4px; border-radius: 999px; background: var(--navy-panel); }
 .range::-moz-range-progress { height: 4px; border-radius: 999px; background: var(--seek-fill); }
-.range::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: var(--accent); }
+.range::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: #fff; }
 @media (max-width: 767px) {
   .range { height: 44px; min-height: 44px; }
 }

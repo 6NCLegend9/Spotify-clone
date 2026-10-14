@@ -17,8 +17,13 @@ export default function CreateHub() {
 
   useEffect(() => {
     const open = () => setPickerOpen(true);
+    const playlist = () => setPlaylistOpen(true);
     window.addEventListener("heykasa:open-create", open);
-    return () => window.removeEventListener("heykasa:open-create", open);
+    window.addEventListener("heykasa:create-playlist", playlist);
+    return () => {
+      window.removeEventListener("heykasa:open-create", open);
+      window.removeEventListener("heykasa:create-playlist", playlist);
+    };
   }, []);
 
   const openPlaylist = () => {
@@ -75,9 +80,6 @@ export default function CreateHub() {
       <PlaylistModal
         show={playlistOpen}
         setShow={setPlaylistOpen}
-        onCreated={() => {
-          window.dispatchEvent(new Event("heykasa:playlists-changed"));
-        }}
       />
     </>
   );

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import {
   FiActivity,
   FiHeart,
@@ -25,15 +27,17 @@ const ICONS = {
 };
 
 export default function PlaylistCover({ playlist, className = "", showLabel = false }) {
+  const [failed, setFailed] = useState("");
   const custom = playlist?.coverImage;
   const trackCover = playlist?.cover;
-  if (custom) {
-    return <img src={custom} alt="" className={`aspect-square w-full object-cover ${className}`} />;
+  if (custom && custom !== failed) {
+    return <img src={custom} onError={() => setFailed(custom)} alt="" className={`aspect-square w-full object-cover ${className}`} />;
   }
-  if (trackCover) {
+  if (trackCover && trackCover !== failed) {
     return (
       <img
         src={trackCover}
+        onError={() => setFailed(trackCover)}
         alt=""
         loading="lazy"
         decoding="async"

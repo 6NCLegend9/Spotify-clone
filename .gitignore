@@ -6,10 +6,7 @@
 /.pnp
 .pnp.js
 
-# testing
-/coverage
-/test-results/
-/playwright-report/
+# generated artifacts
 /artifacts/
 
 # next.js
