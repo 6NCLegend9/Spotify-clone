@@ -4,6 +4,22 @@ import os
 import signal
 
 
+def failure_reason(stderr):
+    """Classify upstream failures without exposing stderr, URLs, or cookies."""
+    text = stderr.decode("utf-8", errors="replace").lower()
+    if "confirm you're not a bot" in text or "confirm you’re not a bot" in text:
+        return "source_access_restricted"
+    if "certificate verify failed" in text or "certificate_verify_failed" in text:
+        return "source_tls_failed"
+    if any(value in text for value in ("video unavailable", "private video", "video has been removed", "this video is not available")):
+        return "source_unavailable"
+    if "challenge solving failed" in text or "javascript runtime" in text:
+        return "source_challenge_failed"
+    if "http error 403" in text:
+        return "source_http_forbidden"
+    return "upstream_tool_failed"
+
+
 async def run_tool(argv, deadline_seconds, output_limit_bytes=4 * 1024 * 1024, directory=None, disk_limit=None):
     process = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, start_new_session=True)
 
@@ -72,5 +88,5 @@ async def run_tool(argv, deadline_seconds, output_limit_bytes=4 * 1024 * 1024, d
         await asyncio.gather(stdout, stderr, guard, waiter, completion, limiter, return_exceptions=True)
     if process.returncode:
         # yt-dlp errors can contain signed URLs or authentication details.
-        raise ValueError("upstream_tool_failed")
+        raise ValueError(failure_reason(stderr.result()))
     return stdout.result()

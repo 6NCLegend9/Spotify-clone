@@ -122,3 +122,12 @@ async def main():
     assert media.byte_range('bytes=4-',20)==(4,19,206)
     print('PASS: actual SDK signatures, private uploads, completed request-scoped jobs, cross-instance poll/renew, account isolation, signed lease rejection before storage, HEAD/ranges, malformed bodies, cancellation, bounded TTL cleanup')
 asyncio.run(main())
+
+from app.processes import failure_reason
+assert failure_reason(b"ERROR: Sign in to confirm you're not a bot; https://signed.example/?credential=private") == 'source_access_restricted'
+assert failure_reason(b'certificate verify failed') == 'source_tls_failed'
+assert failure_reason(b'ERROR: Private video') == 'source_unavailable'
+assert failure_reason(b'challenge solving failed') == 'source_challenge_failed'
+assert failure_reason(b'HTTP Error 403: Forbidden') == 'source_http_forbidden'
+assert failure_reason(b'signed URL or unknown private details') == 'upstream_tool_failed'
+print('PASS: safe upstream failure classification without returning stderr or secrets')
