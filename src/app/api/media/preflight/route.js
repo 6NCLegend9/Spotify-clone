@@ -40,7 +40,7 @@ export async function GET(request) {
     const profiles = {};
     for (const profile of ["mp4-aac", "webm-opus"]) {
       stage = `extraction_${profile}`;
-      const value = await callMediaService(config, "/v1/jobs", { method: "POST", subscriber, body: { videoId: "BaW_jenozKc", mode: "audio", maxHeight: 1080, profile } });
+      const value = await callMediaService(config, "/v1/jobs", { method: "POST", subscriber, body: { videoId: "aqz-KE-bpKQ", mode: "audio", maxHeight: 1080, profile } });
       if (value.state !== "ready") return reply({ ready: false, storage: "passed", range: "passed", stage, reason: value.reason || "source_unavailable" }, 503);
       const result = await inspect(value, `source_${profile}`);
       profiles[profile] = { mimeType: result.asset.mimeType, duration: result.asset.duration, bytes: 1024 };

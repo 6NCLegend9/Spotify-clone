@@ -45,7 +45,8 @@ extraction or Blob availability.
 
 For a live preview-only check, temporarily set `MEDIA_SERVICE_DEPLOYMENT_PROBE=1`
 on the preview branch and fetch `/api/media/preflight` once. The rate-limited
-probe prepares one fixed yt-dlp test video, reads the persisted job through a
+probe prepares the fixed public Big Buck Bunny sample (`aqz-KE-bpKQ`) in AAC
+and Opus, reads each persisted job through a
 new request, checks a signed 1 KiB byte range, and cancels its objects. It accepts
 no custom source IDs or credentials and is always 404 in production. Disable the
 flag after verification. A successful probe validates the deployed backend;

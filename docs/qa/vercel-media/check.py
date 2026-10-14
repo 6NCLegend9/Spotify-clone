@@ -136,6 +136,7 @@ from app.processes import failure_reason
 assert failure_reason(b"ERROR: Sign in to confirm you're not a bot; https://signed.example/?credential=private") == 'source_access_restricted'
 assert failure_reason(b'certificate verify failed') == 'source_tls_failed'
 assert failure_reason(b'ERROR: Private video') == 'source_unavailable'
+assert failure_reason(b'ERROR: [youtube] BaW_jenozKc: This video is unavailable') == 'source_unavailable'
 assert failure_reason(b'challenge solving failed') == 'source_challenge_failed'
 assert failure_reason(b'HTTP Error 403: Forbidden') == 'source_http_forbidden'
 assert failure_reason(b'signed URL or unknown private details') == 'upstream_tool_failed'

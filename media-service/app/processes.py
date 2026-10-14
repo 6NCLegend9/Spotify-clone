@@ -24,7 +24,7 @@ def failure_reason(stderr):
         return "source_access_restricted"
     if "certificate verify failed" in text or "certificate_verify_failed" in text:
         return "source_tls_failed"
-    if any(value in text for value in ("video unavailable", "private video", "video has been removed", "this video is not available")):
+    if any(value in text for value in ("video unavailable", "this video is unavailable", "private video", "video has been removed", "this video is not available")):
         return "source_unavailable"
     if "challenge solving failed" in text or "javascript runtime" in text:
         return "source_challenge_failed"
