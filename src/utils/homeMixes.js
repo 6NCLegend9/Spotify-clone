@@ -2,13 +2,13 @@ import { MOOD_OPTIONS } from "@/utils/moods";
 import { PLAYLIST_CATEGORIES, PLAYLIST_THEMES } from "@/utils/playlistThemes";
 
 export const MIX_PALETTES = [
-  { from: "#0b1629", via: "#2563eb", to: "#3b82f6", bar: "#93c5fd" },
+  { from: "#0b1629", via: "#2563eb", to: "#2563eb", bar: "#93c5fd" },
   { from: "#030814", via: "#162943", to: "#2563eb", bar: "#93c5fd" },
-  { from: "#101f36", via: "#3b82f6", to: "#93c5fd", bar: "#93c5fd" },
-  { from: "#162943", via: "#2563eb", to: "#93c5fd", bar: "#93c5fd" },
-  { from: "#060d1b", via: "#101f36", to: "#3b82f6", bar: "#93c5fd" },
-  { from: "#0b1629", via: "#162943", to: "#93c5fd", bar: "#93c5fd" },
-  { from: "#101f36", via: "#2563eb", to: "#3b82f6", bar: "#93c5fd" },
+  { from: "#101f36", via: "#2563eb", to: "#2563eb", bar: "#93c5fd" },
+  { from: "#162943", via: "#2563eb", to: "#2563eb", bar: "#93c5fd" },
+  { from: "#060d1b", via: "#101f36", to: "#2563eb", bar: "#93c5fd" },
+  { from: "#0b1629", via: "#162943", to: "#2563eb", bar: "#93c5fd" },
+  { from: "#101f36", via: "#2563eb", to: "#2563eb", bar: "#93c5fd" },
   { from: "#030814", via: "#0b1629", to: "#2563eb", bar: "#93c5fd" },
 ];
 
