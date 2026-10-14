@@ -13,6 +13,7 @@ import re
 import tempfile
 import time
 import uuid
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlsplit
@@ -28,7 +29,7 @@ from .body_limit import JobBodyLimit
 from .config import origin
 from .jobs import JobManager
 from .models import ResolveRequest
-from .processes import run_tool
+from .processes import run_tool, redacted_preview_error
 
 PREFIX = "haykasa/mobile-media/v1/"
 TTL = 6 * 3600
@@ -84,7 +85,12 @@ def public_origin(request):
 async def protect(request, call_next):
     if request.url.path.startswith("/v1/jobs") and not hmac.compare_digest(request.headers.get("authorization", "").encode(), f"Bearer {API_KEY}".encode()):
         return JSONResponse({"detail": "unauthorized"}, status_code=401)
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as error:
+        if os.environ.get("VERCEL_ENV") == "preview" and os.environ.get("MEDIA_SERVICE_DEPLOYMENT_PROBE") == "1":
+            logging.getLogger("haykasa.media.preview").warning("Preview service failure: %s", redacted_preview_error(str(error).encode()))
+        response = JSONResponse({"detail": "service_unavailable"}, status_code=503)
     response.headers["Cache-Control"] = "private, no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
@@ -188,7 +194,8 @@ async def storage_probe(request: Request, who=Depends(subscriber)):
 @app.get("/health")
 @app.get("/media-health")
 async def health():
-    return {"ready": True, "storage": "private-blob", "jobs": "request-scoped"}
+    return {"ready": True, "storage": "private-blob", "jobs": "request-scoped",
+        "probeEnabled": os.environ.get("VERCEL_ENV") == "preview" and os.environ.get("MEDIA_SERVICE_DEPLOYMENT_PROBE") == "1"}
 
 
 @app.post("/v1/jobs")

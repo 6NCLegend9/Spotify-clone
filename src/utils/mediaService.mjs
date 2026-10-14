@@ -25,7 +25,11 @@ export async function callMediaService(config, path, { method = "GET", body, sub
     headers: { Authorization: `Bearer ${config.apiKey}`, "X-Media-Subscriber": subscriber, "Content-Type": "application/json", ...(config.internal ? { "X-Media-Public-Origin": config.deliveryOrigin } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  if (!response.ok) throw new Error("Media service unavailable");
+  if (!response.ok) {
+    const error = new Error("Media service unavailable");
+    error.status = response.status;
+    throw error;
+  }
   const raw = await response.text();
   if (raw.length > 64_000) throw new Error("Media response too large");
   return JSON.parse(raw);

@@ -21,10 +21,12 @@ export async function GET(request) {
   const jobs = [];
   let stage = "storage";
   let storagePassed = false;
-  const inspect = async (value) => {
+  const inspect = async (value, prefix) => {
     jobs.push(value.jobId);
     const result = normalizeMediaResult(value, config);
+    stage = `${prefix}_renew`;
     const renewed = normalizeMediaResult(await callMediaService(config, `/v1/jobs/${value.jobId}/renew`, { method: "POST", subscriber }), config);
+    stage = `${prefix}_range`;
     const asset = new URL(renewed.asset.url);
     const url = new URL(`${asset.pathname.replace(/^\//, "")}${asset.search}`, config.baseUrl);
     const response = await fetch(url, { headers: { Range: "bytes=0-1023" }, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000) });
@@ -33,15 +35,15 @@ export async function GET(request) {
     return result;
   };
   try {
-    await inspect(await callMediaService(config, "/v1/probes/storage", { method: "POST", subscriber }));
+    await inspect(await callMediaService(config, "/v1/probes/storage", { method: "POST", subscriber }), "storage");
     storagePassed = true;
     stage = "extraction";
     const value = await callMediaService(config, "/v1/jobs", { method: "POST", subscriber, body: { videoId: "BaW_jenozKc", mode: "audio", maxHeight: 1080, profile: "mp4-aac" } });
     if (value.state !== "ready") return reply({ ready: false, storage: "passed", range: "passed", stage, reason: value.reason || "source_unavailable" }, 503);
     stage = "source_delivery";
-    const result = await inspect(value);
+    const result = await inspect(value, "source");
     return reply({ ready: true, extraction: "passed", storage: "passed", persistence: "passed", range: "passed", mimeType: result.asset.mimeType, duration: result.asset.duration, bytes: 1024 });
-  } catch { return reply({ ready: false, storage: storagePassed ? "passed" : "failed", stage }, 503); }
+  } catch (error) { return reply({ ready: false, storage: storagePassed ? "passed" : "failed", stage, upstreamStatus: Number.isInteger(error.status) ? error.status : null }, 503); }
   finally {
     for (const jobId of jobs) {
       try { await callMediaService(config, `/v1/jobs/${jobId}`, { method: "DELETE", subscriber }); } catch { /* TTL sweep also bounds interrupted probes. */ }
