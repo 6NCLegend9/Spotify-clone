@@ -30,6 +30,19 @@ jobs:
           python-version: "3.12"
       - name: Install pinned media service runtime and test transport
         run: python3 -m pip install -r media-service/requirements.vercel.txt
+      - name: Inspect installed Blob response contract
+        run: |
+          python3 - <<'PYSDK'
+          from pathlib import Path
+          import vercel.blob, inspect
+          root = Path(inspect.getfile(vercel.blob)).parent
+          for path in root.rglob('*.py'):
+              source = path.read_text()
+              if 'class GetBlobResult' in source:
+                  start = source.index('class GetBlobResult')
+                  print(source[start:start + 5000])
+          print(inspect.getsource(vercel.blob.AsyncBlobClient.get))
+          PYSDK
       - name: Media service security regression cases
         run: python3 docs/qa/security-audit/run_media.py /tmp/heykasa-media-regressions.json --verify-fixes
 
