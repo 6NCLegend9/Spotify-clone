@@ -58,6 +58,8 @@ the entire homepage DOM for duplicate recordings, IDs, and playlists, horizontal
 overflow, both discovery halves, correct fallback copy, Refresh requests, and UI
 exceptions. External network traffic is blocked. Screenshots and results are
 uploaded by `.github/workflows/home-discovery-vm.yml`.
+The CI browser run uses the compiled production build to avoid development-server
+recompilation during scenarios. Failures include the page state and a screenshot.
 
 These are controlled VM checks, not an authenticated live-catalog test. Vercel
 preview has no MongoDB connection (`MONGODB_URL` is production-only), so its

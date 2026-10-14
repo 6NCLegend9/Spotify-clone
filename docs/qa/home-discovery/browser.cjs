@@ -10,8 +10,9 @@ fs.mkdirSync(output, { recursive: true });
 const fixtures = JSON.parse(fs.readFileSync(process.argv[2] || '/tmp/haykasa-home-fixtures.json', 'utf8'));
 const port = 3012, origin = `http://127.0.0.1:${port}`;
 const serverLog = fs.createWriteStream(path.join(output, 'server.log'));
-const server = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '--hostname', '127.0.0.1', '--port', String(port)], {
-  cwd: root, env: { ...process.env, NODE_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1', NEXTAUTH_URL: origin, NEXTAUTH_SECRET: 'isolated-homepage-browser-session-secret', JWT_SECRET: 'isolated-homepage-browser-session-secret' }, stdio: ['ignore', 'pipe', 'pipe'],
+const production = process.env.HAYKASA_QA_PRODUCTION === '1';
+const server = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), production ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', String(port)], {
+  cwd: root, env: { ...process.env, NODE_ENV: production ? 'production' : 'development', NEXT_TELEMETRY_DISABLED: '1', NEXTAUTH_URL: origin, NEXTAUTH_SECRET: 'isolated-homepage-browser-session-secret', JWT_SECRET: 'isolated-homepage-browser-session-secret' }, stdio: ['ignore', 'pipe', 'pipe'],
 });
 server.stdout.pipe(serverLog); server.stderr.pipe(serverLog);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -41,7 +42,7 @@ function verify(state) {
     try { if ((await fetch(origin, { signal: AbortSignal.timeout(1000) })).ok) { ready = true; break; } } catch {}
     await wait(1000);
   }
-  assert(ready, 'Next dev server starts');
+  assert(ready, 'Next server starts');
   browser = await chromium.launch({ headless: true });
   for (const [device, viewport] of Object.entries({ desktop: { width: 1440, height: 1000 }, mobile: { width: 390, height: 844 } })) {
     for (const [name, fixture] of Object.entries(fixtures)) {
@@ -68,7 +69,13 @@ function verify(state) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
       await page.goto(origin, { waitUntil: 'domcontentloaded' });
-      await page.locator('[data-home-section="explore"] [data-home-track]').first().waitFor({ timeout: 90000 });
+      await page.locator('[data-home-section="explore"] [data-home-track]').first().waitFor({ timeout: 90000 }).catch(async error => {
+        const state = { device, scenario: name, errors, recommendationRequests, text: await page.locator('body').innerText().catch(() => '') };
+        fs.writeFileSync(path.join(output, 'page-failure.json'), JSON.stringify(state, null, 2));
+        await page.screenshot({ path: path.join(output, 'page-failure.png') }).catch(() => {});
+        console.error(JSON.stringify(state));
+        throw error;
+      });
       await page.getByRole('button', { name: 'Refresh discovery', exact: true }).waitFor();
       // Wait for the independent history/library/release requests to settle.
       await page.waitForFunction(() => document.querySelector('.home-quick [data-home-playlist]'));
