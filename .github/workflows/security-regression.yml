@@ -35,3 +35,15 @@ jobs:
 
       - name: Stateless Vercel media regression cases
         run: python3 docs/qa/vercel-media/check.py
+
+      - name: Build Vercel container and verify runtime startup
+        run: |
+          docker build -f media-service/Dockerfile.vercel -t haykasa-vercel-media media-service
+          docker run -d --name haykasa-vercel-media -p 127.0.0.1:8090:8000 -e JWT_SECRET=isolated-container-secret-00000000000000000000 -e BLOB_READ_WRITE_TOKEN=isolated-storage-token haykasa-vercel-media
+          trap 'docker logs haykasa-vercel-media; docker rm -f haykasa-vercel-media' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8090/media-health; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8090/media-health
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST http://127.0.0.1:8090/v1/jobs)" = 401
