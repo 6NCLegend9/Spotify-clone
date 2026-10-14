@@ -30,7 +30,7 @@ jobs:
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: node docs/qa/mobile-source-playback/check.cjs
       - run: node docs/qa/background-playback/check.cjs
-      - run: sudo apt-get install -y openbox xdotool
+      - run: sudo apt-get install -y openbox xdotool x11-utils
       - name: Test browser playback with real window minimization
         run: |
           xvfb-run -a bash -c '

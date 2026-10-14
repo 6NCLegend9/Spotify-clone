@@ -67,11 +67,12 @@ async function waitFor(page, predicate) {await page.waitForFunction(predicate,nu
     assert.ok(windowTitle.includes('HayKasa VM audio'),'Minimize the test browser window, not another application');
     execFileSync('xdotool',['windowminimize',windowId]);
     await new Promise(resolve=>setTimeout(resolve,1800));
+    const minimizedWindow=execFileSync('xprop',['-id',windowId,'WM_STATE'],{encoding:'utf8'}).includes('Iconic');
+    assert.equal(minimizedWindow,true,'The window manager must confirm that the browser is minimized');
     const background=await page.evaluate(()=>vmSample());
     const hidden=background.visibility==='hidden';
-    console.log('BACKGROUND '+JSON.stringify({engine:name,windowTitle,before,background}));
-    if(name==='chromium')assert.equal(hidden,true,name+' must enter a real minimized-window state');
-    if(hidden){assert.ok(background.time>before.time+0.5,'Audio must advance while hidden');assert.equal(background.paused,false);}
+    console.log('BACKGROUND '+JSON.stringify({engine:name,windowTitle,minimizedWindow,before,background}));
+    assert.ok(background.time>before.time+0.5,'Audio must advance while the browser window is minimized');assert.equal(background.paused,false);
     await page.evaluate(()=>vmDeck.seekTo(7.8));await waitFor(page,()=>vmResult.tracks===2 && vmDeck.getCurrentTime()>0.2);
     const advance=await page.evaluate(()=>vmSample());assert.equal(advance.errors.length,0);
     await page.evaluate(()=>document.querySelector('#pause').click());const pause=await page.evaluate(()=>vmSample());
@@ -80,12 +81,13 @@ async function waitFor(page, predicate) {await page.waitForFunction(predicate,nu
     await page.click('#play');await waitFor(page,()=>vmDeck.getPlayerState()===1);await page.click('#logout');assert.equal(await page.locator('audio').count(),0);
     assert.deepEqual(errors,[]);assert.deepEqual(network,[]);
     await page.screenshot({path:path.join(output,name+'.png')});
-    results.push({engine:name,windowTitle,mobileEmulation:true,syntheticAudio:true,backgroundVisibility:background.visibility,backgroundProgress:hidden?'passed':'not_observed',playPause:true,trackAdvance:true,logoutCleanup:true,networkRequests:network.length,before,background,advance});
+    results.push({engine:name,windowTitle,minimizedWindow,minimizedPlayback:'passed',mobileEmulation:true,syntheticAudio:true,backgroundVisibility:background.visibility,backgroundProgress:hidden?'passed':'not_observed',playPause:true,trackAdvance:true,logoutCleanup:true,networkRequests:network.length,before,background,advance});
     console.log('MEASUREMENTS '+JSON.stringify(results.at(-1)));
     console.log('PASS '+name+': native decode/play, routing, track advance, explicit pause, logout; background visibility='+background.visibility);
     await context.close();
-   } finally {await browser.close();}
+   } catch(error){results.push({engine:name,status:'failed',error:error.stack});console.error('ENGINE_FAILURE '+name+' '+error.message);} finally {await browser.close();}
   }
+  if(results.some(result=>result.status==='failed'))throw new Error('One or more browser engine checks failed');
   fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({status:'passed',physicalMobileDevice:false,liveYtDlp:false,results},null,2));
  } catch(error){fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({status:'failed',error:error.stack,physicalMobileDevice:false,liveYtDlp:false,results},null,2));throw error;}
 })().catch(error=>{console.error(error);process.exitCode=1});
