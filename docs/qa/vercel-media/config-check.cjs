@@ -15,6 +15,8 @@ const media=load('src/utils/mediaService.mjs');
 const secret='isolated-runtime-secret-'.repeat(3);
 const config=media.mediaServiceConfig({MEDIA_SERVICE_INTERNAL_URL:'https://binding.example.test/service-prefix/',JWT_SECRET:secret,NODE_ENV:'production'});
 assert.equal(config.enabled,true);
+assert.equal(config.playbackEnabled,false);
+assert.equal(media.mediaServiceConfig({MEDIA_SERVICE_INTERNAL_URL:'https://binding.example.test',JWT_SECRET:secret,MEDIA_SERVICE_PLAYBACK_ENABLED:'1'}).playbackEnabled,true);
 assert.equal(config.apiKey,crypto.createHmac('sha256',secret).update('HayKasa/media-service/api/v1').digest('hex'));
 assert.equal(new URL('v1/jobs',config.baseUrl).href,'https://binding.example.test/service-prefix/v1/jobs');
 config.deliveryOrigin='https://public.example.test';

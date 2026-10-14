@@ -14,6 +14,9 @@ Mobile native playback requests audio unless the user opens the video view.
 - Keep the existing `JWT_SECRET` (at least 32 characters) configured. The two
   server components derive separate API and lease signing keys from this secret;
   it is never copied into browser code or returned by diagnostics.
+- Native playback stays disabled by default while provider access is blocked.
+  Set `MEDIA_SERVICE_PLAYBACK_ENABLED=1` only after real extraction succeeds;
+  deploying the container does not automatically switch users to it.
 - `MEDIA_SERVICE_INTERNAL_URL` is supplied at runtime by the frontend service
   binding. Do not set a deployment hostname manually.
 - Existing external `MEDIA_SERVICE_URL`/`MEDIA_SERVICE_API_KEY` setups remain

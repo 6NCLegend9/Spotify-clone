@@ -1,7 +1,8 @@
 # Vercel mobile media verification — 2026-10-14
 
-Status: infrastructure verified on preview; YouTube extraction blocked. Do not
-enable this candidate in production until a working authorized source is available.
+Status: infrastructure verified on preview; YouTube extraction blocked. The
+worker can be deployed to production with native playback disabled. Do not enable
+source playback until a working authorized source is available. See `WORKERS.md`.
 
 Code verified by CI: `ac750ffa394b426f2e775fff9e705ae5af672311`.
 The live backend check ran against commit
@@ -64,6 +65,8 @@ No provider authentication was bypassed and no personal cookies were requested.
   They now use a bounded preview-only memory limiter; production authentication
   and its persistent limits retain their existing database checks.
 
-Production remains on the existing main deployment. Physical Android/iOS app
+At the time of these preview checks, production remained on the existing main
+deployment. The subsequent worker rollout keeps source playback disabled.
+Physical Android/iOS app
 switching and lock-screen playback have not been verified. A desktop browser
 with a mobile user agent does not establish those behaviors.

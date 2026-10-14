@@ -28,6 +28,7 @@ async function handle(request, action, body) {
   const config = mediaServiceConfig();
   if (config.internal) config.deliveryOrigin = request.nextUrl.origin;
   if (!config.enabled) return reply({ state: "failed", reason: "service_unconfigured" }, 503);
+  if (config.internal && !config.playbackEnabled && action !== "cancel") return reply({ state: "failed", reason: "service_disabled" }, 503);
   try {
     const token = await getToken(tokenOptions(request));
     const user = token?.id ? await resolveSessionUser(token) : null;
@@ -57,7 +58,8 @@ async function handle(request, action, body) {
 }
 export async function GET(request) {
   if (!request.nextUrl.searchParams.has("receipt")) {
-    if (!isMobileMediaRequest(request.headers) || !mediaServiceConfig().enabled) return reply({ enabled: false });
+    const config = mediaServiceConfig();
+    if (!isMobileMediaRequest(request.headers) || !config.enabled || (config.internal && !config.playbackEnabled)) return reply({ enabled: false });
     try {
       const token = await getToken(tokenOptions(request));
       const user = token?.id ? await resolveSessionUser(token) : null;

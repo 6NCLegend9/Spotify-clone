@@ -12,7 +12,7 @@ export function mediaServiceConfig(env = process.env) {
     const url = new URL(raw);
     const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     if ((url.protocol !== "https:" && !(local && url.protocol === "http:" && env.NODE_ENV !== "production")) || url.username || url.password || url.search || url.hash || (!internal && !["", "/"].includes(url.pathname))) throw new Error();
-    return { enabled: apiKey.length >= 32 && secret.length >= 32, origin: url.origin, baseUrl: internal ? `${url.href.replace(/\/$/, "")}/` : `${url.origin}/`, internal: Boolean(internal), apiKey, secret };
+    return { enabled: apiKey.length >= 32 && secret.length >= 32, origin: url.origin, baseUrl: internal ? `${url.href.replace(/\/$/, "")}/` : `${url.origin}/`, internal: Boolean(internal), playbackEnabled: !internal || env.MEDIA_SERVICE_PLAYBACK_ENABLED === "1", apiKey, secret };
   } catch { return { enabled: false, origin: "", apiKey, secret }; }
 }
 export function validateMediaRequest(body) {
