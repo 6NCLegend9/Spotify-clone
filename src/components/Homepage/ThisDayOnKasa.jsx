@@ -36,5 +36,5 @@ export default function ThisDayOnKasa() {
   }, [status]);
 
   if (status !== "authenticated") return null;
-  return <TrackRail title="This day on Kasa" videos={videos} />;
+  return <TrackRail title="This day on HayKasa" videos={videos} />;
 }

@@ -15,7 +15,7 @@ export default function ExportDataButton() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "heykasa-data.json";
+      link.download = "haykasa-data.json";
       document.body.appendChild(link);
       link.click();
       link.remove();

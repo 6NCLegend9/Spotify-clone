@@ -140,7 +140,7 @@ export async function POST(request) {
     if (rateLimit.limited) {
       return apiError("RATE_LIMITED", {
         retryAfter: rateLimit.retryAfter,
-        message: "Kasa Crowd is refreshing too often. Please wait a moment.",
+        message: "HayKasa Crowd is refreshing too often. Please wait a moment.",
       });
     }
 
@@ -172,7 +172,7 @@ export async function POST(request) {
     if (tracks.length === 0) {
       const rateLimited = settled.some((entry) => entry.status === "rejected" && entry.reason?.status === 429);
       throw new ApiRouteError(rateLimited ? "RATE_LIMITED" : "BAD_GATEWAY", {
-        message: "Kasa Crowd could not reach YouTube right now. Please try again shortly.",
+        message: "HayKasa Crowd could not reach YouTube right now. Please try again shortly.",
       });
     }
 
@@ -189,6 +189,6 @@ export async function POST(request) {
     writeCache(key, value);
     return NextResponse.json({ ...value, cached: false });
   } catch (error) {
-    return handleApiError(error, "Kasa Crowd radio");
+    return handleApiError(error, "HayKasa Crowd radio");
   }
 }

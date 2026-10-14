@@ -28,7 +28,7 @@ function crowdChannelName(code) {
 }
 
 /**
- * Kasa Crowd: every listener in a Jam publishes a small taste profile on a
+ * HayKasa Crowd: every listener in a Jam publishes a small taste profile on a
  * dedicated presence channel, and the host blends them into one shared station.
  *
  * This deliberately runs on its own channel so the Jam playback sync is
@@ -72,7 +72,7 @@ export default function useCrowdRadio({ code, role, status, enabled = true }) {
     };
   }, [active, authStatus, taste]);
 
-  // Share taste and read the room's roster over a Kasa Crowd-only channel.
+  // Share taste and read the room's roster over a HayKasa Crowd-only channel.
   useEffect(() => {
     if (!active || !taste || !isSupabaseConfigured()) return undefined;
     let cancelled = false;
@@ -133,7 +133,7 @@ export default function useCrowdRadio({ code, role, status, enabled = true }) {
       const data = await requestJson("/api/crowd-radio", {
         method: "POST",
         body: { code, seeds },
-        fallbackTitle: "Kasa Crowd unavailable",
+        fallbackTitle: "HayKasa Crowd unavailable",
         fallbackMessage: "We couldn't build the room's station. Please try again.",
       });
       // Rank for quality first, then interleave so nobody's taste gets buried.

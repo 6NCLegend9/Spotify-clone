@@ -92,7 +92,7 @@ export async function GET(request) {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": 'attachment; filename="heykasa-account-data.json"',
+        "Content-Disposition": 'attachment; filename="haykasa-account-data.json"',
         "Cache-Control": "no-store",
       },
     });
