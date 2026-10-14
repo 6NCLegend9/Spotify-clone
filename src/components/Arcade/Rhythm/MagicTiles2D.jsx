@@ -6,7 +6,7 @@ import { approachSeconds, chartEnergy, notesInWindow } from "@/utils/arcadeChart
 
 const LANES = 4;
 const LANE_KEYS = ["d", "f", "j", "k"];
-const LANE_COLORS = ["#3b82f6", "#7c5cff", "#ff4ecd", "#ffb648"];
+const LANE_COLORS = ["#3b82f6", "#93c5fd", "#2563eb", "#f1f5ff"];
 const JUDGMENT_RATIO = 0.76;
 const TILE_HEIGHT_RATIO = 0.12;
 const PERFECT_WINDOW = 0.09;

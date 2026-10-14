@@ -64,7 +64,7 @@ function applyLook(material, look) {
 
 export default function LightPillar({
   topColor = "#3b82f6",
-  bottomColor = "#156d7a",
+  bottomColor = "#2563eb",
   intensity = 0.7,
   rotationSpeed = 0.16,
   glowAmount = 0.004,

@@ -16,10 +16,10 @@ function clone(value) {
 
 function foregroundFor(hex) {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ""));
-  if (!match) return "#001014";
+  if (!match) return "#030814";
   const [red, green, blue] = match.slice(1).map((value) => Number.parseInt(value, 16));
   const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-  return luminance >= 0.56 ? "#001014" : "#ffffff";
+  return luminance >= 0.56 ? "#030814" : "#ffffff";
 }
 
 function missingCopy(warning) {

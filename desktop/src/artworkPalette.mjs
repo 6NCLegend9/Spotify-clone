@@ -79,7 +79,7 @@ export function accentFromBitmap(bitmap, { fallback = "#3b82f6" } = {}) {
 
 export function foregroundForAccent(hex) {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ""));
-  if (!match) return "#001014";
+  if (!match) return "#030814";
   const rgb = match.slice(1).map((value) => Number.parseInt(value, 16));
-  return contrastRatio(rgb, [0, 16, 20]) >= 4.5 ? "#001014" : "#ffffff";
+  return contrastRatio(rgb, [3, 8, 20]) >= 4.5 ? "#030814" : "#ffffff";
 }

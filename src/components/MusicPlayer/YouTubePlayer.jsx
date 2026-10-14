@@ -3048,7 +3048,7 @@ function YouTubePlayer() {
               <p className="mt-1 text-[11px] text-gray-300">You may need to allow autoplay in your browser settings.</p>
             )}
             <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#3b82f6] px-3 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>}
+              {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#3b82f6] px-3 text-xs font-semibold text-black hover:bg-[#93c5fd]">Retry</button>}
               <Link href={`/search/${encodeURIComponent(`${video.title || ""} ${video.channel || ""}`.trim().slice(0, 100))}`} className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white">Search other versions</Link>
               <button type="button" onClick={handleSkipPlaybackFailure} disabled={jamLocked} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
               <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-[#3b82f6] hover:bg-white/20">Open YouTube</a>
@@ -3069,7 +3069,7 @@ function YouTubePlayer() {
             <p className="mt-1 text-xs text-gray-300">You may need to allow autoplay in your browser settings.</p>
           )}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#3b82f6] px-3 text-xs font-semibold text-black hover:bg-[#33ebeb]">Retry</button>}
+            {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#3b82f6] px-3 text-xs font-semibold text-black hover:bg-[#93c5fd]">Retry</button>}
             <Link href={`/search/${encodeURIComponent(`${video.title || ""} ${video.channel || ""}`.trim().slice(0, 100))}`} className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white">Search other versions</Link>
             <button type="button" onClick={handleSkipPlaybackFailure} disabled={jamLocked} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
             <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-[#3b82f6] hover:bg-white/20">Open YouTube</a>

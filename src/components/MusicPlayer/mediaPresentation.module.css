@@ -4,7 +4,7 @@
 .art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .videoArt { aspect-ratio: 16 / 9; }
 .mediaTools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 16px; }
-.modeButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--teal-mid); border-radius: 999px; background: rgb(2 8 19 / 88%); color: var(--text); font-size: 12px; font-weight: 650; white-space: nowrap; backdrop-filter: blur(12px); }
+.modeButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--teal-mid); border-radius: 999px; background: rgb(3 8 20 / 88%); color: var(--text); font-size: 12px; font-weight: 650; white-space: nowrap; backdrop-filter: blur(12px); }
 .modeButton:hover { background: var(--navy-panel); color: var(--accent); }
 .modeButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .metadata { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 22px; }
@@ -115,7 +115,7 @@
 .viewport[data-testid="youtube-decks"] :global(iframe) { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-width: 0 !important; min-height: 0 !important; max-width: 100% !important; max-height: 100% !important; transform: none !important; border: 0; }
 .viewport :global(.yt-chrome-mask), .viewport :global([data-testid="video-tap-target"]) { display: none !important; }
 .gestureSurface { position: absolute; inset: 0; z-index: 20; pointer-events: auto; touch-action: pan-y; cursor: pointer; }
-.expandButton { position: absolute; top: 8px; right: 8px; z-index: 50; display: grid; place-items: center; width: 48px; height: 48px; min-width: 48px; min-height: 48px; border: 1px solid var(--hairline-cyan); border-radius: 8px; background: rgb(2 8 19 / 82%); color: var(--text); backdrop-filter: blur(10px); }
+.expandButton { position: absolute; top: 8px; right: 8px; z-index: 50; display: grid; place-items: center; width: 48px; height: 48px; min-width: 48px; min-height: 48px; border: 1px solid var(--hairline-cyan); border-radius: 8px; background: rgb(3 8 20 / 82%); color: var(--text); backdrop-filter: blur(10px); }
 .expandButton:hover { color: var(--accent); background: var(--navy-panel); }
 .expandButton:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 
@@ -136,9 +136,9 @@
   touch-action: none;
 }
 .mobileSheet .source { text-align: center; }
-.mobileSheet .source small { font-size: 9px; letter-spacing: .12em; color: #b2ced5; }
+.mobileSheet .source small { font-size: 9px; letter-spacing: .12em; color: #a3b4cc; }
 .mobileSheet .source strong { font-size: 12px; }
-.mobileSheet .compactHeader { background: #12303c; box-shadow: 0 6px 20px rgb(0 0 0 / 16%); }
+.mobileSheet .compactHeader { background: #162943; box-shadow: 0 6px 20px rgb(0 0 0 / 16%); }
 .mobileSheet .compactHeader .source { text-align: left; }
 .mobileSheet .compactHeader .source strong { font-size: 14px; }
 .mobileSheet .body {

@@ -73,7 +73,7 @@ export default function VerifyEmailClient({ token }) {
               <button
                 type="button"
                 onClick={() => void verify()}
-                className="mt-7 rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2]"
+                className="mt-7 rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#93c5fd]"
               >
                 Verify email
               </button>
@@ -115,7 +115,7 @@ export default function VerifyEmailClient({ token }) {
               </p>
               <Link
                 href="/login"
-                className="mt-7 inline-block rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2]"
+                className="mt-7 inline-block rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#93c5fd]"
               >
                 Continue to login
               </Link>
@@ -147,7 +147,7 @@ export default function VerifyEmailClient({ token }) {
               <div className="mt-6">
                 <Link
                   href="/login"
-                  className="inline-block rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2] shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+                  className="inline-block rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#93c5fd] shadow-[0_0_15px_rgba(59,130,246,0.4)]"
                 >
                   Return to Login
                 </Link>

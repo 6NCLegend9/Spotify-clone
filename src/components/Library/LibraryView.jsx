@@ -69,7 +69,7 @@ function CollectionBadges({ item }) {
         <span className="inline-flex items-center gap-1"><BsPinAngleFill className="text-[#3b82f6]" /> Pinned</span>
       )}
       {item.smartShuffle && (
-        <span className="inline-flex items-center gap-1"><FiZap className="text-emerald-400" /> Shuffle + Discovery</span>
+        <span className="inline-flex items-center gap-1"><FiZap className="text-[var(--accent)]" /> Shuffle + Discovery</span>
       )}
       {item.collaborative && (
         <span className="inline-flex items-center gap-1"><FiUsers /> Collaborative</span>
@@ -81,7 +81,7 @@ function CollectionBadges({ item }) {
 function CollectionCover({ item }) {
   if (item.type === "liked") {
     return (
-      <div className="grid aspect-square w-full place-items-center bg-gradient-to-br from-[#3426a8] via-[#654be5] to-[#b9e7e5]">
+      <div className="grid aspect-square w-full place-items-center bg-gradient-to-br from-[#2563eb] via-[#3b82f6] to-[#93c5fd]">
         <FiHeart className="h-16 w-16 fill-white text-white" />
       </div>
     );

@@ -124,7 +124,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
       const laneMats = [];
       LANE_X.forEach((x, index) => {
         const mat = new THREE.MeshBasicMaterial({
-          color: index === 1 ? "#0a2a30" : "#0b1822",
+          color: index === 1 ? "#101f36" : "#0b1822",
           transparent: true,
           opacity: 0.95,
         });

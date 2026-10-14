@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { youtubeThumb } from "@/utils/imageOptimize";
 
 const FALLBACK_IMAGE =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%2307121d'/%3E%3Ccircle cx='200' cy='200' r='88' fill='%2300e6e6' fill-opacity='.16'/%3E%3Cpath d='M229 114v155a42 42 0 1 1-18-34V146l95-20v109a42 42 0 1 1-18-34V104z' fill='%23a7ffff'/%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%230b1629'/%3E%3Ccircle cx='200' cy='200' r='88' fill='%233b82f6' fill-opacity='.16'/%3E%3Cpath d='M229 114v155a42 42 0 1 1-18-34V146l95-20v109a42 42 0 1 1-18-34V104z' fill='%2393c5fd'/%3E%3C/svg%3E";
 
 export default function MediaImage({
   src,

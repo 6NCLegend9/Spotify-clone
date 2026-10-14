@@ -205,7 +205,7 @@ export default function DesktopAppCard() {
           </p>
         </div>
         {isDesktop ? (
-          <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+          <div className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-300">
             <FiCheckCircle className="mr-1.5 inline" aria-hidden="true" /> Desktop detected
           </div>
         ) : null}

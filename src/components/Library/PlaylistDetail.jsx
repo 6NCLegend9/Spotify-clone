@@ -85,7 +85,7 @@ function interleaveRecommendations(tracks, recommendations) {
 
 function LikedCover({ className = "" }) {
   return (
-    <div className={`grid place-items-center bg-gradient-to-br from-[#3426a8] via-[#654be5] to-[#b9e7e5] ${className}`}>
+    <div className={`grid place-items-center bg-gradient-to-br from-[#2563eb] via-[#3b82f6] to-[#93c5fd] ${className}`}>
       <FiHeart className="h-16 w-16 fill-white text-white sm:h-20 sm:w-20" />
     </div>
   );

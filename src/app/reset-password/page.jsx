@@ -113,7 +113,7 @@ const ForgotPasswordPage = () => {
             {submitting ? "Sending..." : "Send reset link"}
           </button>
           <div className="text-center mt-2">
-            <Link href="/login" className="text-sm font-semibold text-[#3b82f6] hover:text-[#00c2c2] transition">
+            <Link href="/login" className="text-sm font-semibold text-[#3b82f6] hover:text-[#93c5fd] transition">
               Back to login
             </Link>
           </div>

@@ -26,12 +26,12 @@ const MAX_PERSONAL_GENRES = 40;
 const SAVED_STATUS_DURATION = 2200;
 
 const CATEGORY_TONES = [
-  "from-cyan-400/25 via-cyan-400/10 to-transparent",
-  "from-violet-400/25 via-violet-400/10 to-transparent",
-  "from-fuchsia-400/25 via-fuchsia-400/10 to-transparent",
-  "from-amber-400/25 via-amber-400/10 to-transparent",
-  "from-emerald-400/25 via-emerald-400/10 to-transparent",
-  "from-rose-400/25 via-rose-400/10 to-transparent",
+  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
+  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
+  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
+  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
+  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
+  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
 ];
 
 function genreKey(value) {
@@ -103,7 +103,7 @@ function GenreChoice({ item, selected, parentName, onToggle, disabled = false })
         aria-hidden="true"
         className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs transition ${
           selected
-            ? "border-[#3b82f6] bg-[#3b82f6] text-[#001014]"
+            ? "border-[#3b82f6] bg-[#3b82f6] text-[#030814]"
             : "border-white/15 text-white/70 group-hover:border-[#3b82f6]/60 group-hover:text-[#3b82f6]"
         }`}
       >
@@ -148,7 +148,7 @@ function CategoryCard({ item, index, selected, onBrowse, onToggle }) {
           onClick={() => onToggle(item)}
           className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs transition ${
             selected
-              ? "border-[#3b82f6] bg-[#3b82f6] text-[#001014]"
+              ? "border-[#3b82f6] bg-[#3b82f6] text-[#030814]"
               : "border-white/20 bg-black/20 text-white hover:border-[#3b82f6] hover:text-[#3b82f6]"
           }`}
         >
@@ -811,7 +811,7 @@ export default function GenrePreferences({ status }) {
                         key={`${item.id}-${name}`}
                         type="button"
                         onClick={() => toggleGenre(item)}
-                        className="group inline-flex items-center gap-1.5 rounded-full border border-[#3b82f6]/50 bg-[#3b82f6]/10 px-3 py-2 text-xs font-medium text-[#bdfbff] transition hover:border-[#3b82f6] hover:bg-[#3b82f6]/15"
+                        className="group inline-flex items-center gap-1.5 rounded-full border border-[#3b82f6]/50 bg-[#3b82f6]/10 px-3 py-2 text-xs font-medium text-[#dbeafe] transition hover:border-[#3b82f6] hover:bg-[#3b82f6]/15"
                         aria-label={`Remove ${name} from your picks`}
                       >
                         {name}

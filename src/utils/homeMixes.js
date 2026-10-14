@@ -2,14 +2,14 @@ import { MOOD_OPTIONS } from "@/utils/moods";
 import { PLAYLIST_CATEGORIES, PLAYLIST_THEMES } from "@/utils/playlistThemes";
 
 export const MIX_PALETTES = [
-  { from: "#4c1d95", via: "#7c3aed", to: "#22d3ee", bar: "#67e8f9" },
-  { from: "#9f1239", via: "#e11d48", to: "#fb7185", bar: "#fda4af" },
-  { from: "#0f766e", via: "#155e75", to: "#3b82f6", bar: "#67e8f9" },
-  { from: "#1e3a8a", via: "#2563eb", to: "#38bdf8", bar: "#7dd3fc" },
-  { from: "#7c2d12", via: "#ea580c", to: "#fbbf24", bar: "#fde68a" },
-  { from: "#111827", via: "#334155", to: "#3b82f6", bar: "#5eead4" },
-  { from: "#6d28d9", via: "#db2777", to: "#3b82f6", bar: "#f9a8d4" },
-  { from: "#14532d", via: "#16a34a", to: "#67e8f9", bar: "#86efac" },
+  { from: "#0b1629", via: "#2563eb", to: "#3b82f6", bar: "#93c5fd" },
+  { from: "#030814", via: "#162943", to: "#2563eb", bar: "#93c5fd" },
+  { from: "#101f36", via: "#3b82f6", to: "#93c5fd", bar: "#93c5fd" },
+  { from: "#162943", via: "#2563eb", to: "#93c5fd", bar: "#93c5fd" },
+  { from: "#060d1b", via: "#101f36", to: "#3b82f6", bar: "#93c5fd" },
+  { from: "#0b1629", via: "#162943", to: "#93c5fd", bar: "#93c5fd" },
+  { from: "#101f36", via: "#2563eb", to: "#3b82f6", bar: "#93c5fd" },
+  { from: "#030814", via: "#0b1629", to: "#2563eb", bar: "#93c5fd" },
 ];
 
 function paletteFromGradient(gradient, bar) {

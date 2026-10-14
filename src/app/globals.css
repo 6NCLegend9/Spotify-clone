@@ -174,9 +174,9 @@ html[data-a11y-text-size="large"] {
 }
 
 html[data-a11y-contrast="high"] {
-  --accent: #6affff;
-  --teal: #a7ffff;
-  --teal-mid: #6affff;
+  --accent: #bfdbfe;
+  --teal: #dbeafe;
+  --teal-mid: #bfdbfe;
   --navy: #000;
   --navy-deep: #000;
   --navy-surface: #000;
@@ -875,7 +875,7 @@ select:-webkit-autofill {
   .page-collection { container-type: inline-size; min-width: 0; }
   .collection-title { font-size: clamp(28px, 6cqi, 80px); line-height: 1.08; letter-spacing: -0.035em; overflow-wrap: anywhere; }
   .collection-hero { background: linear-gradient(180deg, var(--navy-raised), var(--navy-panel)); }
-  .is-liked-collection .collection-hero { background: linear-gradient(180deg, #5038a0, var(--navy-panel)); }
+  .is-liked-collection .collection-hero { background: linear-gradient(180deg, #2563eb, var(--navy-panel)); }
   .collection-artwork { align-self: center; }
   .collection-tracks { container-type: inline-size; }
   .playlist-track-row, .playlist-track-heading { grid-template-columns: minmax(0, 1fr) 44px 44px; }
@@ -1140,7 +1140,7 @@ select:-webkit-autofill {
     place-items: center;
     border-radius: 999px;
     background: var(--accent);
-    color: #001014;
+    color: #030814;
     opacity: 0;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
     transition: opacity var(--motion-fast) ease, transform var(--motion-fast) var(--motion-ease);
@@ -1521,7 +1521,7 @@ select:-webkit-autofill {
     place-items: center;
     border-radius: 999px;
     background: var(--accent);
-    color: #001014;
+    color: #030814;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
     transition: transform var(--motion-fast) var(--motion-ease);
   }
@@ -2597,7 +2597,7 @@ select:-webkit-autofill {
 }
 
 .caption-karaoke-now {
-  color: #021114;
+  color: #030814;
   background: rgba(141, 255, 248, 0.92);
   font-size: clamp(1rem, 2.4vw, 1.65rem);
   font-weight: 750;
@@ -3356,7 +3356,7 @@ body {
   padding: 16px;
   background:
     var(--navy-surface);
-  color: #e8f4f2;
+  color: #f1f5ff;
 }
 
 .kasa-embed-hero {
@@ -3604,7 +3604,7 @@ body {
 }
 
 :where(button, a, input, [tabindex]):focus-visible {
-  outline: 2px solid #73fff7;
+  outline: 2px solid #93c5fd;
   outline-offset: 3px;
 }
 

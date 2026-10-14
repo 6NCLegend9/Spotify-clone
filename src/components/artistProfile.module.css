@@ -9,7 +9,7 @@
 .heroCount { margin-top: 18px; color: #fff; font-size: 14px; line-height: 1.5; }
 .stickyHeader { position: sticky; top: 0; height: 0; z-index: 8; }
 .stickyHeader[hidden] { display: none; }
-.stickyContent { display: flex; align-items: center; gap: 16px; height: 64px; padding: 8px clamp(16px, 2.8cqi, 40px); background: rgb(12 24 33 / .97); border-bottom: 1px solid var(--hairline); box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
+.stickyContent { display: flex; align-items: center; gap: 16px; height: 64px; padding: 8px clamp(16px, 2.8cqi, 40px); background: rgb(22 41 67 / .97); border-bottom: 1px solid var(--hairline); box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
 .compactTitle { min-width: 0; color: #fff; font-size: 20px; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mainPlay, .compactPlay, .cardPlay { display: grid; place-items: center; flex-shrink: 0; border-radius: 50%; color: var(--navy); background: var(--accent); }
 .mainPlay { width: 64px; height: 64px; }
@@ -18,7 +18,7 @@
 .compactPlay svg, .cardPlay svg { width: 22px; height: 22px; margin-left: 2px; fill: currentColor; }
 .mainPlay:hover, .compactPlay:hover, .cardPlay:hover { filter: brightness(1.1); }
 .page button:disabled { cursor: not-allowed; opacity: .5; }
-.content { min-width: 0; padding: 0 clamp(16px, 2.5cqi, 36px) 48px; background: linear-gradient(180deg, rgb(106 133 149 / .15), transparent 340px); }
+.content { min-width: 0; padding: 0 clamp(16px, 2.5cqi, 36px) 48px; background: linear-gradient(180deg, rgb(147 197 253 / .15), transparent 340px); }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; min-height: 108px; padding: 24px 0; }
 .shuffle { display: grid; place-items: center; width: 44px; height: 44px; color: var(--muted); border-radius: 50%; }
 .shuffle svg { width: 28px; height: 28px; }

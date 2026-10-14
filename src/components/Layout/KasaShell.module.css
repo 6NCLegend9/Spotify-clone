@@ -44,7 +44,7 @@
 :global(.app-shell):has(.navbar) :global(.sidebar-head-actions) { display: flex; align-items: center; gap: 0; }
 :global(.app-shell):has(.navbar) :global(.compact-library) { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 4px 0; }
 :global(.app-shell):has(.navbar) :global(.compact-library-cover), :global(.app-shell):has(.navbar) :global(.compact-library-liked) { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 4px; overflow: hidden; }
-:global(.app-shell):has(.navbar) :global(.compact-library-liked) { background: linear-gradient(135deg,#450af5,#c4efd9); color: #fff; font-size: 24px; }
+:global(.app-shell):has(.navbar) :global(.compact-library-liked) { background: linear-gradient(135deg,#2563eb,#93c5fd); color: #fff; font-size: 24px; }
 :global(.app-shell):has(.navbar) :global(.compact-library a[aria-current="page"]) { outline: 2px solid #fff; outline-offset: 2px; }
 :global(.app-shell):has(.navbar) :global(.kasa-library-scroll a[data-library-playlist][aria-current="page"]) { background: #ffffff12; border-radius: 4px; }
 :global(.app-shell.is-sidebar-collapsed):has(.navbar) :global(.sidebar-head-actions) { display: none; }

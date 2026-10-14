@@ -5,7 +5,7 @@ import useArcadeCanvas from "@/hooks/useArcadeCanvas";
 import { approachSeconds, chartEnergy, notesInWindow } from "@/utils/arcadeChart.mjs";
 
 const LANES = 4;
-const LANE_COLORS = ["#3b82f6", "#7c5cff", "#ff4ecd", "#ffb648"];
+const LANE_COLORS = ["#3b82f6", "#93c5fd", "#2563eb", "#f1f5ff"];
 const LOCK_RATIO = 0.72;
 const PERFECT_WINDOW = 0.09;
 const GOOD_WINDOW = 0.18;

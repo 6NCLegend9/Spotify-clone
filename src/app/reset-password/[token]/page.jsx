@@ -151,7 +151,7 @@ const ResetPasswordPage = () => {
               className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#3b82f6] focus:outline-none focus:ring-1 focus:ring-[#3b82f6] sm:text-sm"
             />
           </div>
-          <button type="submit" disabled={submitting || !tokenIsValid} className="mt-2 w-full rounded-full bg-[#3b82f6] px-4 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2] disabled:cursor-wait disabled:opacity-60 shadow-[0_0_15px_rgba(59,130,246,0.4)]">
+          <button type="submit" disabled={submitting || !tokenIsValid} className="mt-2 w-full rounded-full bg-[#3b82f6] px-4 py-3 text-sm font-bold text-black transition hover:bg-[#93c5fd] disabled:cursor-wait disabled:opacity-60 shadow-[0_0_15px_rgba(59,130,246,0.4)]">
             {submitting ? "Saving password..." : "Save password"}
           </button>
         </form>

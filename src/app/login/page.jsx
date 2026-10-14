@@ -197,7 +197,7 @@ const LoginPage = () => {
         <p className="eyebrow">Welcome back</p>
         <h1 className="mt-2 text-3xl font-bold">
           <GradientText
-            colors={["#3b82f6", "#ffffff", "#008080", "#3b82f6"]}
+            colors={["#3b82f6", "#ffffff", "#2563eb", "#3b82f6"]}
             animationSpeed={4}
           >
             Log in
