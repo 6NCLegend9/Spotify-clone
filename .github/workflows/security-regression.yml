@@ -29,6 +29,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install pinned media service runtime and test transport
-        run: python3 -m pip install -r media-service/requirements.txt httpx==0.28.1
+        run: python3 -m pip install -r media-service/requirements.vercel.txt
       - name: Media service security regression cases
         run: python3 docs/qa/security-audit/run_media.py /tmp/heykasa-media-regressions.json --verify-fixes
+
+      - name: Stateless Vercel media regression cases
+        run: python3 docs/qa/vercel-media/check.py

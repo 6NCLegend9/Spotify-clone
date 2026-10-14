@@ -21,7 +21,7 @@ function delay(ms, signal) {
   });
 }
 export async function resolveMediaAsset(request, { signal, receipt, onPending } = {}) {
-  const combined = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(180_000)]);
+  const combined = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(270_000)]);
   let currentReceipt = receipt;
   try {
     let result = await mediaRequest(receipt ? { action: "renew", receipt } : request, combined);

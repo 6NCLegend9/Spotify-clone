@@ -1,17 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "installCommand": "npm ci",
-  "buildCommand": "npm run build",
   "git": {
     "deploymentEnabled": {
       "main": true,
       "desktop-app-development": false
-    }
-  },
-  "functions": {
-    "src/app/api/**/*.js": {
-      "maxDuration": 30
     }
   },
   "redirects": [
@@ -21,5 +13,54 @@
       "permanent": false
     }
   ],
-  "ignoreCommand": "node scripts/vercel-ignore-build.mjs"
+  "services": {
+    "frontend": {
+      "framework": "nextjs",
+      "installCommand": "npm ci",
+      "buildCommand": "npm run build",
+      "functions": {
+        "src/app/api/media/resolve/route.js": {
+          "maxDuration": 300
+        },
+        "src/app/api/**/*.js": {
+          "maxDuration": 30
+        }
+      },
+      "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
+      "root": ".",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "media",
+          "format": "url",
+          "env": "MEDIA_SERVICE_INTERNAL_URL"
+        }
+      ]
+    },
+    "media": {
+      "root": "media-service",
+      "runtime": "container",
+      "entrypoint": "Dockerfile.vercel"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/v1/assets/(.*)",
+      "destination": {
+        "service": "media"
+      }
+    },
+    {
+      "source": "/media-health",
+      "destination": {
+        "service": "media"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    }
+  ]
 }
