@@ -23,7 +23,7 @@ import {
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 import { activeSnoozedTracks } from "@/utils/recommendationFeedback.mjs";
 import { randomInt } from "node:crypto";
-import { discoverySeenIds, MAX_DISCOVERY_SEEN, selectHomeDiscovery } from "@/utils/homeDiscovery.mjs";
+import { discoverySeenIds, discoveryPlaylistIds, MAX_DISCOVERY_SEEN, MAX_DISCOVERY_PLAYLISTS_SEEN, isNewDiscoveryArtist, selectBalancedHomeDiscovery, selectHomePlaylists } from "@/utils/homeDiscovery.mjs";
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_SEARCH_CACHE_ENTRIES = 40;
@@ -58,6 +58,7 @@ function normalizeVideo(item, reason, extra = {}) {
     channel: cleanArtist(item?.snippet?.channelTitle || ""),
     channelId: item?.snippet?.channelId || "",
     description: cleanTitle(item?.snippet?.description || ""),
+    publishedAt: item?.snippet?.publishedAt || "",
     thumbnail:
       item?.snippet?.thumbnails?.high?.url ||
       item?.snippet?.thumbnails?.medium?.url ||
@@ -68,8 +69,9 @@ function normalizeVideo(item, reason, extra = {}) {
   };
 }
 
-async function searchYouTube(query, reason, extra = {}) {
-  const cacheKey = `videos:${query.toLowerCase()}`;
+async function searchYouTube(query, reason, extra = {}, { fresh = false } = {}) {
+  const cutoff = new Date(Date.now() - 180 * 86400_000).toISOString().slice(0, 10) + "T00:00:00Z";
+  const cacheKey = `videos:${query.toLowerCase()}:${fresh ? cutoff : "relevance"}`;
   const cached = getCachedSearches(cacheKey);
   if (cached) return cached.map((video) => ({ ...video, reason, ...extra }));
   const params = {
@@ -81,11 +83,13 @@ async function searchYouTube(query, reason, extra = {}) {
     maxResults: "32",
     q: buildOfficialMusicQuery(query),
     safeSearch: "moderate",
+    ...(fresh ? { order: "date", publishedAfter: cutoff } : {}),
   };
   const { ok, data } = await youtubeFetch("search", params, { next: { revalidate: 3600 } });
   if (!ok) return [];
   const videos = (Array.isArray(data?.items) ? data.items : [])
     .filter((item) => item?.id?.videoId)
+    .filter((item) => !fresh || Date.parse(item?.snippet?.publishedAt) >= Date.parse(cutoff))
     .map((item) => normalizeVideo(item));
   const ranked = rankOfficialMusicResults(filterMusicPlaybackResults(videos, query), query);
   if (ranked.length) cacheSearches(cacheKey, ranked);
@@ -173,6 +177,11 @@ export async function GET(request) {
       return apiError("VALIDATION_ERROR", { message: "Too many discovery exclusions." });
     }
     const seenIds = discoverySeenIds(rawSeen.split(","));
+    const rawSeenPlaylists = new URL(request.url).searchParams.get("seenPlaylists") || "";
+    if (rawSeenPlaylists.length > MAX_DISCOVERY_PLAYLISTS_SEEN * 101) {
+      return apiError("VALIDATION_ERROR", { message: "Too many playlist exclusions." });
+    }
+    const seenPlaylistIds = discoveryPlaylistIds(rawSeenPlaylists.split(","));
     const rotation = randomInt(0x7fffffff);
     const plan = resolveRecommendationPlan(mode, profile, { rotation });
     const excluded = new Set(profile?.notInterested || []);
@@ -189,7 +198,9 @@ export async function GET(request) {
     let source = "search";
     let recommendations = [];
     let playlists = [];
-    let genreSections = [];
+    const genreSections = [];
+    let forYou = { tracks: [], playlists: [] };
+    let explore = { tracks: [], playlists: [] };
 
     if (plan.kind === "popular") {
       const cacheKey = "guest:popular";
@@ -215,34 +226,47 @@ export async function GET(request) {
           await searchYouTube("popular music", "Popular right now"),
         );
       }
-      recommendations = selectHomeDiscovery([recommendations], { seenIds, rotation }).recommendations;
+      const selected = selectBalancedHomeDiscovery([recommendations], [recommendations], { seenIds, rotation });
+      const selectedPlaylists = selectHomePlaylists(playlists, playlists, { rotation, seenPlaylistIds });
+      forYou = { tracks: selected.forYou, playlists: selectedPlaylists.forYou };
+      explore = { tracks: selected.explore, playlists: selectedPlaylists.explore };
     } else {
       const seeds = plan.seeds;
-      const [groups, featuredPlaylists] = await Promise.all([
+      const explorationSeeds = plan.explorationSeeds;
+      const [groups, explorationGroups, familiarPlaylists, explorationPlaylists] = await Promise.all([
         Promise.all(seeds.map(({ query, reason, genre }) => searchYouTube(query, reason, { seedQuery: query, genre }))),
-        searchPlaylists(seeds[0].query),
+        Promise.all(explorationSeeds.map(async (seed) => {
+          const extra = { seedQuery: seed.query, genre: seed.genre };
+          const knownArtists = [...(profile?.followedArtists || []), ...(profile?.followedArtistsMeta || []).map((artist) => artist?.name), ...(seed.excludeArtist ? [seed.excludeArtist] : [])].filter(Boolean);
+          const allowed = (video) => isNewDiscoveryArtist(video, knownArtists);
+          const fresh = (await searchYouTube(seed.query, seed.reason, extra, { fresh: true })).filter(allowed);
+          return fresh.length ? fresh : (await searchYouTube(seed.query, seed.reason, extra)).filter(allowed);
+        })),
+        Promise.all(seeds.map((seed) => searchPlaylists(seed.query))),
+        Promise.all(explorationSeeds.map((seed) => searchPlaylists(seed.query))),
       ]);
-      playlists = featuredPlaylists;
-      const filteredGroups = groups.map(filterRecommendations);
-      const selection = selectHomeDiscovery(filteredGroups, { seenIds, rotation });
-      recommendations = selection.recommendations;
-      if (recommendations.length === 0) {
+      const selection = selectBalancedHomeDiscovery(groups.map(filterRecommendations), explorationGroups.map(filterRecommendations), { seenIds, rotation });
+      const selectedPlaylists = selectHomePlaylists(familiarPlaylists.flat(), explorationPlaylists.flat(), { rotation, seenPlaylistIds });
+      forYou = { tracks: selection.forYou, playlists: selectedPlaylists.forYou };
+      explore = { tracks: selection.explore, playlists: selectedPlaylists.explore };
+      if (forYou.tracks.length + explore.tracks.length === 0) {
         source = "youtube-chart";
-        recommendations = selectHomeDiscovery([filterRecommendations(await getPopularMusic())], { seenIds, rotation }).recommendations;
+        const popular = filterRecommendations(await getPopularMusic());
+        const fallback = selectBalancedHomeDiscovery([popular], [popular], { seenIds, rotation });
+        forYou.tracks = fallback.forYou;
+        explore.tracks = fallback.explore;
       }
-      genreSections = seeds
-        .map((seed, index) => ({
-          id: seed.query.toLowerCase().replace(/\s+/g, "-"),
-          title: seed.query,
-          videos: selection.genreVideos[index] || [],
-        }))
-        .filter((section) => section.videos.length > 0);
     }
+    recommendations = [...forYou.tracks, ...explore.tracks];
+    playlists = [...forYou.playlists, ...explore.playlists];
 
     return NextResponse.json({
       mode,
       source,
+      basis: source === "youtube-chart" ? "popular" : plan.basis,
       sections: {
+        forYou,
+        explore,
         trending: recommendations.slice(0, 8),
         charts: recommendations.slice(8, 16),
         newReleases: recommendations.slice(16, 24),

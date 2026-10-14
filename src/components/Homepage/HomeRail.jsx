@@ -12,6 +12,7 @@ import MixCard from "./MixCard";
 import { playHomeTracks } from "@/utils/playHome";
 import { cleanTitle } from "@/utils/text";
 import useHorizontalRail from "@/hooks/useHorizontalRail";
+import { canonicalSongIdentity } from "@/utils/songIdentity.mjs";
 
 export function HomeRail({ title, children, seeAllHref }) {
   const railRef = useRef(null);
@@ -99,7 +100,7 @@ export function TrackRail({ title, videos, seeAllHref }) {
   return (
     <HomeRail title={title} seeAllHref={seeAllHref}>
       {videos.map((video) => (
-        <div key={video.id} className="home-rail-card">
+        <div key={video.id} className="home-rail-card" data-home-track={video.id} data-home-recording={canonicalSongIdentity(video)}>
           <HomeSquareCard video={video} queue={videos} />
         </div>
       ))}
