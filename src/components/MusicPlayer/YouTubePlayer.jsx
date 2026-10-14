@@ -70,7 +70,8 @@ import useYoutubeCaptions from "@/hooks/useYoutubeCaptions";
 import useWakeLock from "@/hooks/useWakeLock";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import { updateSetting } from "@/redux/features/settingsSlice";
-import { shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
+import { authenticatedPlaybackOwner, shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
+import { publishMediaMetadata, publishMediaPlaybackState } from "@/utils/mediaSessionCompatibility.mjs";
 import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
 import { hiddenYoutubeViewportStyle, HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
 const ClockedCaptionKaraoke = dynamic(() => import("./ClockedCaptionKaraoke"), { ssr: false });
@@ -153,11 +154,13 @@ function YouTubePlayer() {
   const repeatRef = useRef(false);
   const unshuffledRef = useRef([]);
   repeatRef.current = repeat;
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const jam = useJam();
   const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner, queueUndo, queueManualEnd, queueMode, playbackContext, history: playbackHistory } = useSelector(
     (state) => state.player,
   );
+  const backgroundAccountRef = useRef(false);
+  backgroundAccountRef.current = authenticatedPlaybackOwner(session, status, playbackOwner);
   const video = useMemo(() => decodeTrackFields(rawVideo), [rawVideo]);
   const queue = useMemo(
     () => (Array.isArray(rawQueue) ? rawQueue.map((item) => decodeTrackFields(item)) : []),
@@ -387,7 +390,7 @@ function YouTubePlayer() {
 
   const resumePlayer = (player, { explicitUserAction = false } = {}) => {
     const hidden = isPageHidden();
-    if (shouldDeferYoutubeResume({ hidden, explicitUserAction })) {
+    if (shouldDeferYoutubeResume({ hidden, explicitUserAction, provider: player?.provider, authenticated: backgroundAccountRef.current })) {
       markBackgroundPlayback();
       return;
     }
@@ -1238,7 +1241,7 @@ function YouTubePlayer() {
               markBackgroundPlayback();
               // Keep foreground-resume intent, but report the actual paused
               // engine state to the UI and notification controls.
-              if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+              publishMediaPlaybackState(navigator.mediaSession, false);
               dispatch(playPause(false));
               return;
             }
@@ -2494,7 +2497,7 @@ function YouTubePlayer() {
     if (!player?.getPlayerState) return;
     if (isPlaying) {
       userPausedRef.current = false;
-      if (!isPageHidden()) resumePlayer(player);
+      resumePlayer(player);
       return;
     }
     if (userPausedRef.current && !fadeTimerRef.current) {
@@ -2873,14 +2876,14 @@ function YouTubePlayer() {
 
   useEffect(() => {
     if (!("mediaSession" in navigator) || !video) return undefined;
-    navigator.mediaSession.metadata = new window.MediaMetadata({
+    publishMediaMetadata(navigator.mediaSession, {
       title: video.title || "HayKasa",
       artist: video.channel || "",
       artwork: video.thumbnail
         ? [{ src: video.thumbnail, sizes: "480x360", type: "image/jpeg" }]
         : [],
-    });
-    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+    }, window.MediaMetadata);
+    publishMediaPlaybackState(navigator.mediaSession, isPlaying);
     const setAction = (action, handler) => {
       try {
         navigator.mediaSession.setActionHandler(action, handler);
@@ -2898,7 +2901,7 @@ function YouTubePlayer() {
       userPausedRef.current = true;
       pageHiddenWhilePlayingRef.current = false;
       clearActiveBufferTimers();
-      navigator.mediaSession.playbackState = "paused";
+      publishMediaPlaybackState(navigator.mediaSession, false);
       dispatch(playPause(false));
       getActivePlayer()?.pauseVideo?.();
     });
