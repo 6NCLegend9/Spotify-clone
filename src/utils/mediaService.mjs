@@ -21,7 +21,7 @@ export function validateMediaRequest(body) {
 }
 export async function callMediaService(config, path, { method = "GET", body, subscriber }) {
   const response = await fetch(new URL(path.replace(/^\//, ""), config.baseUrl || `${config.origin}/`), {
-    method, signal: AbortSignal.timeout(config.internal && method === "POST" && path === "/v1/jobs" ? 240_000 : 8000), cache: "no-store", redirect: "error",
+    method, signal: AbortSignal.timeout(config.internal && method === "POST" && (path === "/v1/jobs" || path === "/v1/probes/storage") ? 240_000 : 8000), cache: "no-store", redirect: "error",
     headers: { Authorization: `Bearer ${config.apiKey}`, "X-Media-Subscriber": subscriber, "Content-Type": "application/json", ...(config.internal ? { "X-Media-Public-Origin": config.deliveryOrigin } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });

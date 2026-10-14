@@ -28,6 +28,7 @@ from .body_limit import JobBodyLimit
 from .config import origin
 from .jobs import JobManager
 from .models import ResolveRequest
+from .processes import run_tool
 
 PREFIX = "haykasa/mobile-media/v1/"
 TTL = 6 * 3600
@@ -148,6 +149,42 @@ async def cleanup(client):
         raise HTTPException(503, "capacity_unavailable")
 
 
+async def persist(client, asset, qualities, who, uploaded):
+    job_id = f"{int(time.time()):08x}{uuid.uuid4().hex[:24]}"
+    asset_path, manifest_path = paths(job_id)
+    blob = await client.put(asset_path, asset["path"].read_bytes(), access="private",
+        content_type=asset["descriptor"]["mimeType"], add_random_suffix=False, multipart=True)
+    uploaded.append(blob.pathname)
+    value = {"jobId": job_id, "subscriber": who, "url": blob.url, "size": asset["size"],
+        "descriptor": asset["descriptor"], "qualities": qualities}
+    manifest = await client.put(manifest_path, json.dumps(value).encode(), access="private",
+        content_type="application/json", add_random_suffix=False)
+    uploaded.append(manifest.pathname)
+    return value
+
+
+@app.post("/v1/probes/storage")
+async def storage_probe(request: Request, who=Depends(subscriber)):
+    if os.environ.get("VERCEL_ENV") != "preview" or os.environ.get("MEDIA_SERVICE_DEPLOYMENT_PROBE") != "1":
+        raise HTTPException(404, "not_found")
+    client, uploaded = AsyncBlobClient(), []
+    try:
+        async with asyncio.timeout(30):
+            await cleanup(client)
+            with tempfile.TemporaryDirectory(prefix="haykasa-storage-probe-") as temporary:
+                path = Path(temporary) / "fixture.m4a"
+                await run_tool(["ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i",
+                    "sine=frequency=440:duration=2", "-c:a", "aac", "-movflags", "+faststart", str(path)], 10)
+                asset = {"path": path, "size": path.stat().st_size, "descriptor": {
+                    "mimeType": "audio/mp4", "duration": 2, "codec": "aac", "height": None, "audioBitrateKbps": 64}}
+                value = await persist(client, asset, [], who, uploaded)
+                return result(value, public_origin(request))
+    except BaseException:
+        if uploaded:
+            await client.delete(uploaded)
+        raise
+
+
 @app.get("/health")
 @app.get("/media-health")
 async def health():
@@ -180,18 +217,7 @@ async def create_job(body: ResolveRequest, request: Request, who=Depends(subscri
                     await record["task"]
                     if record["state"] != "ready":
                         return {"jobId": job["jobId"], "state": "failed", "reason": record.get("reason", "source_unavailable")}
-                    job_id = f"{int(time.time()):08x}{uuid.uuid4().hex[:24]}"
-                    asset_path, manifest_path = paths(job_id)
-                    asset = record["asset"]
-                    # Max 96 MiB; explicit bound makes buffering predictable.
-                    blob = await client.put(asset_path, asset["path"].read_bytes(), access="private",
-                        content_type=asset["descriptor"]["mimeType"], add_random_suffix=False, multipart=True)
-                    uploaded.append(blob.pathname)
-                    value = {"jobId": job_id, "subscriber": who, "url": blob.url, "size": asset["size"],
-                        "descriptor": asset["descriptor"], "qualities": record["qualities"]}
-                    manifest = await client.put(manifest_path, json.dumps(value).encode(), access="private",
-                        content_type="application/json", add_random_suffix=False)
-                    uploaded.append(manifest.pathname)
+                    value = await persist(client, record["asset"], record["qualities"], who, uploaded)
                     return result(value, delivery_origin)
                 finally:
                     await manager.close()

@@ -18,26 +18,32 @@ export async function GET(request) {
   if (rate.limited) return reply({ ready: false, stage: "rate_limit" }, 429);
   config.deliveryOrigin = request.nextUrl.origin;
   const subscriber = mediaScopeHash(`deployment-probe:${randomUUID()}`, config.secret);
-  let jobId;
-  let stage = "extraction";
-  try {
-    const value = await callMediaService(config, "/v1/jobs", { method: "POST", subscriber, body: { videoId: "BaW_jenozKc", mode: "audio", maxHeight: 1080, profile: "mp4-aac" } });
-    jobId = value.jobId;
-    if (value.state !== "ready") return reply({ ready: false, stage, reason: value.reason || "source_unavailable" }, 503);
+  const jobs = [];
+  let stage = "storage";
+  let storagePassed = false;
+  const inspect = async (value) => {
+    jobs.push(value.jobId);
     const result = normalizeMediaResult(value, config);
-    stage = "cross_instance_read";
-    const renewed = normalizeMediaResult(await callMediaService(config, `/v1/jobs/${jobId}/renew`, { method: "POST", subscriber }), config);
-    stage = "byte_range";
-    // Call the service privately while requesting its public signed asset path.
+    const renewed = normalizeMediaResult(await callMediaService(config, `/v1/jobs/${value.jobId}/renew`, { method: "POST", subscriber }), config);
     const asset = new URL(renewed.asset.url);
     const url = new URL(`${asset.pathname.replace(/^\//, "")}${asset.search}`, config.baseUrl);
     const response = await fetch(url, { headers: { Range: "bytes=0-1023" }, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000) });
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (response.status !== 206 || bytes.length !== 1024 || !/^bytes 0-1023\/\d+$/.test(response.headers.get("content-range") || "")) throw new Error("range_invalid");
-    return reply({ ready: true, extraction: "passed", persistence: "passed", range: "passed", mimeType: result.asset.mimeType, duration: result.asset.duration, bytes: bytes.length });
-  } catch { return reply({ ready: false, stage }, 503); }
+    return result;
+  };
+  try {
+    await inspect(await callMediaService(config, "/v1/probes/storage", { method: "POST", subscriber }));
+    storagePassed = true;
+    stage = "extraction";
+    const value = await callMediaService(config, "/v1/jobs", { method: "POST", subscriber, body: { videoId: "BaW_jenozKc", mode: "audio", maxHeight: 1080, profile: "mp4-aac" } });
+    if (value.state !== "ready") return reply({ ready: false, storage: "passed", range: "passed", stage, reason: value.reason || "source_unavailable" }, 503);
+    stage = "source_delivery";
+    const result = await inspect(value);
+    return reply({ ready: true, extraction: "passed", storage: "passed", persistence: "passed", range: "passed", mimeType: result.asset.mimeType, duration: result.asset.duration, bytes: 1024 });
+  } catch { return reply({ ready: false, storage: storagePassed ? "passed" : "failed", stage }, 503); }
   finally {
-    if (jobId) {
+    for (const jobId of jobs) {
       try { await callMediaService(config, `/v1/jobs/${jobId}`, { method: "DELETE", subscriber }); } catch { /* TTL sweep also bounds interrupted probes. */ }
     }
   }
