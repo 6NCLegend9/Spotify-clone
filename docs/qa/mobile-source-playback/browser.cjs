@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+const {execFileSync} = require('node:child_process');
 const {chromium, firefox, webkit} = require('playwright');
 const root = path.resolve(__dirname, '../../..');
 const ts = require(path.join(root, 'node_modules/typescript'));
@@ -41,7 +42,7 @@ const script = `(() => {
  session.publishMediaMetadata(navigator.mediaSession,{title:'Synthetic VM audio',artist:'Offline test'},window.MediaMetadata);
  window.vmSample=()=>({time:vmDeck.getCurrentTime(),state:vmDeck.getPlayerState(),paused:document.querySelector('audio')?.paused,visibility:document.visibilityState,tracks:vmResult.tracks,errors:[...vmResult.errors],mobile:vmResult.mobile,requests:vmResult.requests});
 })();`;
-const html='<main><h1>Offline playback engine test</h1><p>Synthetic audio. This is a test fixture, not the HayKasa UI.</p><div id="media"></div><button id="play">Play</button><button id="pause">Pause</button><button id="logout">Log out</button></main>';
+const html='<title>HayKasa VM audio</title><main><h1>Offline playback engine test</h1><p>Synthetic audio. This is a test fixture, not the HayKasa UI.</p><div id="media"></div><button id="play">Play</button><button id="pause">Pause</button><button id="logout">Log out</button></main>';
 async function waitFor(page, predicate) {await page.waitForFunction(predicate,null,{timeout:20000});}
 (async()=>{
  const results=[];
@@ -59,21 +60,26 @@ async function waitFor(page, predicate) {await page.waitForFunction(predicate,nu
     assert.equal(await page.evaluate(()=>vmResult.mobile),true);assert.equal(await page.evaluate(()=>vmResult.desktopNarrow),false);assert.equal(await page.evaluate(()=>vmGuestAllowed()),false);
     await page.click('#play');await waitFor(page,()=>vmDeck.getCurrentTime()>0.4 && vmDeck.getPlayerState()===1);
     const before=await page.evaluate(()=>vmSample());
-    const other=await context.newPage();await other.setContent('<h1>Another app/tab simulation</h1>');await other.bringToFront();
+    await page.bringToFront();
+    const windowId=execFileSync('xdotool',['getactivewindow'],{encoding:'utf8'}).trim();
+    const windowTitle=execFileSync('xdotool',['getwindowname',windowId],{encoding:'utf8'}).trim();
+    assert.ok(windowTitle.includes('HayKasa VM audio'),'Minimize the test browser window, not another application');
+    execFileSync('xdotool',['windowminimize',windowId]);
     await new Promise(resolve=>setTimeout(resolve,1800));
     const background=await page.evaluate(()=>vmSample());
     const hidden=background.visibility==='hidden';
-    if(name==='chromium')assert.equal(hidden,true,'Chromium test must enter a real hidden-tab state');
+    assert.equal(hidden,true,name+' must enter a real minimized-window state');
     if(hidden){assert.ok(background.time>before.time+0.5,'Audio must advance while hidden');assert.equal(background.paused,false);}
     await page.evaluate(()=>vmDeck.seekTo(7.8));await waitFor(page,()=>vmResult.tracks===2 && vmDeck.getCurrentTime()>0.2);
     const advance=await page.evaluate(()=>vmSample());assert.equal(advance.errors.length,0);
     await page.evaluate(()=>document.querySelector('#pause').click());const pause=await page.evaluate(()=>vmSample());
     await new Promise(resolve=>setTimeout(resolve,500));assert.ok(Math.abs((await page.evaluate(()=>vmSample())).time-pause.time)<0.15,'Pause must remain paused in background');
-    await other.close();await page.bringToFront();assert.equal((await page.evaluate(()=>vmSample())).paused,true,'Returning must not undo explicit Pause');
+    execFileSync('xdotool',['windowmap',windowId]);execFileSync('xdotool',['windowactivate','--sync',windowId]);await page.bringToFront();assert.equal((await page.evaluate(()=>vmSample())).paused,true,'Returning must not undo explicit Pause');
     await page.click('#play');await waitFor(page,()=>vmDeck.getPlayerState()===1);await page.click('#logout');assert.equal(await page.locator('audio').count(),0);
     assert.deepEqual(errors,[]);assert.deepEqual(network,[]);
     await page.screenshot({path:path.join(output,name+'.png')});
-    results.push({engine:name,mobileEmulation:true,syntheticAudio:true,backgroundVisibility:background.visibility,backgroundProgress:hidden?'passed':'not_observed',playPause:true,trackAdvance:true,logoutCleanup:true,networkRequests:network.length,before,background,advance});
+    results.push({engine:name,windowTitle,mobileEmulation:true,syntheticAudio:true,backgroundVisibility:background.visibility,backgroundProgress:hidden?'passed':'not_observed',playPause:true,trackAdvance:true,logoutCleanup:true,networkRequests:network.length,before,background,advance});
+    console.log('MEASUREMENTS '+JSON.stringify(results.at(-1)));
     console.log('PASS '+name+': native decode/play, routing, track advance, explicit pause, logout; background visibility='+background.visibility);
     await context.close();
    } finally {await browser.close();}

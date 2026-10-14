@@ -30,7 +30,15 @@ jobs:
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: node docs/qa/mobile-source-playback/check.cjs
       - run: node docs/qa/background-playback/check.cjs
-      - run: xvfb-run -a node docs/qa/mobile-source-playback/browser.cjs
+      - run: sudo apt-get install -y openbox xdotool
+      - name: Test browser playback with real window minimization
+        run: |
+          xvfb-run -a bash -c '
+            openbox >/tmp/haykasa-vm-window-manager.log 2>&1 &
+            vm_window_manager_pid=$!
+            trap "kill $vm_window_manager_pid 2>/dev/null || true" EXIT
+            node docs/qa/mobile-source-playback/browser.cjs
+          '
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
