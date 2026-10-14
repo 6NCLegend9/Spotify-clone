@@ -1,0 +1,11 @@
+# Mobile-only native source playback
+
+Signed-in mobile browsers can opt into the existing yt-dlp/FFmpeg native media path when the service is configured and the browser supports a media profile. Desktop browsers and the Windows Electron app keep the YouTube provider. Guests keep the embedded provider. Device routing uses mobile user-agent/client hints and iPad touch detection, not viewport width: resizing a desktop window does not enable extraction, and rotating a phone does not disable it.
+
+The availability endpoint checks device routing and the current server-validated session. Create/poll/renew requests reject desktop routing; account validation replaces anonymous media guest sessions. Signed job receipts remain tied to the account and session version. Authenticated cancellation accepts a valid receipt even after changing device routing, allowing existing work to be cleaned up. Origin checks, byte limits, rate limits and receipt expiry validation are preserved.
+
+The mobile header supports iPads requesting desktop-mode Safari. User agents, client hints and the header can be spoofed; device routing is a provider preference, not proof of device identity. Server-validated authentication and signed receipts remain the authorization boundaries.
+
+Run `node docs/qa/mobile-source-playback/check.cjs` and `npm run check`. The synthetic route harness executes the actual route, policy and receipt signing/verification with fake account/provider adapters. It checks mobile/tablet detection, desktop/Electron rejection, iPad desktop mode, availability, guest/invalid-account denial before extraction, account/session-scoped receipts, cleanup, origin/rate limits and disabled-service behavior. CI runs it alongside the background-playback checks. No real provider requests or physical-device playback are used.
+
+Activation is separate: the production media service previously returned `enabled: false`. This change does not deploy or provision it. Mobile native playback needs the external service configured and a user Play gesture; YouTube fallback remains available when source playback fails. Real browser/OS background and locked-screen behavior remains unverified and cannot be guaranteed across all devices.

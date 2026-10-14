@@ -71,6 +71,7 @@ import useWakeLock from "@/hooks/useWakeLock";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import { updateSetting } from "@/redux/features/settingsSlice";
 import { authenticatedPlaybackOwner, shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
+import { isMobileMediaClient, mobileMediaHeaders } from "@/utils/mobileMediaPolicy.mjs";
 import { publishMediaMetadata, publishMediaPlaybackState } from "@/utils/mediaSessionCompatibility.mjs";
 import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
 import { hiddenYoutubeViewportStyle, HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
@@ -1783,15 +1784,18 @@ function YouTubePlayer() {
   preloadNextRef.current = preloadNext;
 
   useEffect(() => {
+    setNativeAvailable(false);
+    const desktopShell = Boolean(window.heykasaDesktop);
+    if (status !== "authenticated" || !session?.user?.id || !isMobileMediaClient(navigator, desktopShell)) return;
     const controller = new AbortController();
-    void fetch("/api/media/resolve", { cache: "no-store", signal: controller.signal })
+    void fetch("/api/media/resolve", { cache: "no-store", credentials: "same-origin", headers: mobileMediaHeaders(navigator, desktopShell), signal: controller.signal })
       .then((response) => response.ok ? response.json() : { enabled: false })
       .then(({ enabled }) => { if (!controller.signal.aborted && enabled && supportedMediaProfile(videoVisible ? "video" : "audio")) { setNativeAvailable(true); setApiReady(true); } })
       .catch(() => {});
     return () => controller.abort();
-    // Availability does not change with player presentation or track selection.
+    // Recheck on sign-in/account changes. Viewport resizing does not change providers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [status, session?.user?.id]);
 
   useEffect(() => {
     if (window.YT?.Player) {

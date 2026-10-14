@@ -27,4 +27,5 @@ jobs:
       - run: npm run audit:production
       - run: node docs/qa/pr28-playlists/check.cjs
       - run: node docs/qa/background-playback/check.cjs
+      - run: node docs/qa/mobile-source-playback/check.cjs
       - run: npm run check
