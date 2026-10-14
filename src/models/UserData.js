@@ -12,6 +12,7 @@ const fileSchema = new mongoose.Schema(
             of: Date,
             default: {}
         },
+        favouriteDurations: { type: Map, of: { type: Number, min: 1, max: 86400 }, default: {} },
         songHistory: {
             type: Array,
             default: []

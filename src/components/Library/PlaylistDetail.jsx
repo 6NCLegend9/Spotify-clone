@@ -65,13 +65,7 @@ import {
   playlistListenUrl,
 } from "@/utils/shareCard.mjs";
 
-function formatTotalDuration(seconds) {
-  const minutes = Math.floor((Number(seconds) || 0) / 60);
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (hours > 0) return `${hours} hr ${remainingMinutes} min`;
-  return `${minutes} min`;
-}
+import { playlistDurationLabel } from "@/utils/playlistDuration.mjs";
 
 function interleaveRecommendations(tracks, recommendations) {
   if (recommendations.length === 0) return tracks;
@@ -174,7 +168,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
         }
         const ids = validYouTubeIds(nextCollection[isLiked ? "favourites" : "songs"]);
         if (isLiked) ids.reverse();
-        const hydratedTracks = await hydrateYouTubeTracks(ids, { retainUnavailable: true });
+        const hydratedTracks = await hydrateYouTubeTracks(ids, { retainUnavailable: true, durations: nextCollection[isLiked ? "favouriteDurations" : "songDurations"] });
         const dateMap = nextCollection[isLiked ? "favouriteAddedAt" : "songAddedAt"];
         const datedTracks = hydratedTracks.map((track) => ({
           ...track,
@@ -234,7 +228,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     return tracks.filter((track) => `${track.title} ${track.channel}`.toLowerCase().includes(query));
   }, [deferredSearch, tracks]);
   const totalDuration = useMemo(
-    () => tracks.reduce((total, track) => total + (track.duration || 0), 0),
+    () => playlistDurationLabel(tracks),
     [tracks],
   );
 
@@ -503,7 +497,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                 {ownerImage ? <img src={ownerImage} alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10"><FiMusic /></span>}
                 <strong className="text-white">{ownerName}</strong>
                 <span>&bull;</span>
-                <span>{tracks.length.toLocaleString()} {tracks.length === 1 ? "song" : "songs"}{tracks.length > 0 ? `, ${formatTotalDuration(totalDuration)}` : ""}</span>
+                <span>{tracks.length.toLocaleString()} {tracks.length === 1 ? "song" : "songs"}{tracks.length > 0 ? `, ${totalDuration}` : ""}</span>
                 {!isLiked && collection.collaborators?.length > 0 && <><span>&bull;</span><span>{collection.collaborators.length} collaborator{collection.collaborators.length === 1 ? "" : "s"}</span></>}
               </div>
             </div>

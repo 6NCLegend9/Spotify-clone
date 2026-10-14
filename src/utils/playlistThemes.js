@@ -175,6 +175,7 @@ export function serializePlaylist(playlist, userId) {
     description: typeof obj.description === "string" ? obj.description : "",
     songs: Array.isArray(obj.songs) ? obj.songs : [],
     songAddedAt: obj.songAddedAt || {},
+    songDurations: obj.songDurations || {},
     user: publicUser(obj.user),
     collaborators: (obj.collaborators || []).map(publicUser),
     visibility: obj.visibility || "private",

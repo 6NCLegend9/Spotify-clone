@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hasYouTubeApiKey, youtubeFetch } from "@/utils/youtubeApi";
+import { hasYouTubeApiKey, youtubeFetch, parseIsoDuration } from "@/utils/youtubeApi";
 import { cleanTitle } from "@/utils/text";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { apiError, handleApiError } from "@/utils/apiResponse";
@@ -8,14 +8,6 @@ const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 export const runtime = "nodejs";
 export const maxDuration = 20;
-
-function parseDuration(value = "") {
-  const match = value.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!match) return 0;
-
-  const [, hours = 0, minutes = 0, seconds = 0] = match;
-  return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
-}
 
 function upstreamCode(status) {
   if (status === 429) return "RATE_LIMITED";
@@ -77,7 +69,7 @@ export async function GET(request) {
           item.snippet.thumbnails?.medium?.url ||
           item.snippet.thumbnails?.default?.url ||
           "",
-        duration: parseDuration(item.contentDetails?.duration),
+        duration: parseIsoDuration(item.contentDetails?.duration),
       }));
 
     const order = new Map(ids.map((id, index) => [id, index]));
@@ -87,7 +79,9 @@ export async function GET(request) {
       { tracks },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+          "Cache-Control": tracks.every((track) => track.duration > 0)
+            ? "public, s-maxage=3600, stale-while-revalidate=86400"
+            : "private, no-store",
         },
       },
     );

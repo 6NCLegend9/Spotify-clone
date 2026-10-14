@@ -18,6 +18,7 @@ const fileSchema = new mongoose.Schema(
         of: Date,
         default: {}
     },
+    songDurations: { type: Map, of: { type: Number, min: 1, max: 86400 }, default: {} },
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "user"

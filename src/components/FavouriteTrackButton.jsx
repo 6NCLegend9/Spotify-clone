@@ -9,6 +9,7 @@ import { addFavourite, getFavourite } from "@/services/dataAPI";
 import { toUserError } from "@/utils/userError";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import { loginPath } from "@/utils/appOrigin.mjs";
+import { knownDuration } from "@/utils/playlistDuration.mjs";
 
 let cachedFavouriteIds = null;
 let favouriteRequest = null;
@@ -108,7 +109,7 @@ function AccountFavouriteButton({ owner, status, track, className }) {
     setFavouriteIds(optimisticIds);
 
     try {
-      const response = await addFavourite({ id: track.id, liked: !isSaved });
+      const response = await addFavourite({ id: track.id, liked: !isSaved, ...(knownDuration(track.duration) ? { duration: knownDuration(track.duration) } : {}) });
       if (!live.current || cachedUserId !== owner) return;
       if (!response?.success) {
         throw toUserError(response, {

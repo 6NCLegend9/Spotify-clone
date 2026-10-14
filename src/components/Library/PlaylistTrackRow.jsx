@@ -65,7 +65,7 @@ function PlaylistTrackRow({
       </div>
       <span className="hidden truncate text-xs text-gray-400 md:block">-</span>
       <span className="hidden text-xs text-gray-400 lg:block">{formatAddedDate(track.addedAt)}</span>
-      <span className="hidden text-right text-xs tabular-nums text-gray-400 md:block">{formatDuration(track.duration)}</span>
+      <span data-track-duration title={Number(track.duration) > 0 ? "Song duration" : "Duration unavailable"} className="text-right text-xs tabular-nums text-gray-400">{formatDuration(track.duration)}</span>
       <div className="flex items-center justify-end gap-1">
         {!unavailable && <AddToQueueButton
           track={track}

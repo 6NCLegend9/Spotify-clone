@@ -9,6 +9,7 @@ import {
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 import UserData from "@/models/UserData";
 import { boundedMembership, dateMapForMembers, mutateDocument } from "@/utils/documentMutation.mjs";
+import { durationMapForMembers, knownDuration } from "@/utils/playlistDuration.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -22,6 +23,7 @@ function favouritePayload(userData) {
     return {
         favourites: json.favourites || [],
         favouriteAddedAt: json.favouriteAddedAt || {},
+        favouriteDurations: json.favouriteDurations || {},
     };
 }
 
@@ -61,7 +63,8 @@ export async function POST(request) {
                 message: "Too many favourite updates. Please slow down.",
             });
         }
-        const { id, liked } = await readRequestJson(request);
+        const { id, liked, duration } = await readRequestJson(request);
+        if (duration !== undefined && (typeof duration !== "number" || !knownDuration(duration))) return apiError("VALIDATION_ERROR");
         if (liked !== undefined && typeof liked !== "boolean") return apiError("VALIDATION_ERROR");
         if (typeof id !== "string" || !YOUTUBE_ID_PATTERN.test(id)) {
             return apiError("VALIDATION_ERROR", {
@@ -71,7 +74,7 @@ export async function POST(request) {
         const updated = await mutateDocument(UserData, userData._id, (current) => {
             const enabled = liked ?? !(current.favourites || []).includes(id);
             const favourites = boundedMembership(current.favourites, id, enabled, MAX_FAVOURITES);
-            return { favourites, favouriteAddedAt: dateMapForMembers(favourites, current.favouriteAddedAt, enabled ? id : null) };
+            return { favourites, favouriteAddedAt: dateMapForMembers(favourites, current.favouriteAddedAt, enabled ? id : null), favouriteDurations: durationMapForMembers(favourites, current.favouriteDurations, enabled ? id : null, duration) };
         });
         return NextResponse.json(
             {

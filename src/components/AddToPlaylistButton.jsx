@@ -76,7 +76,7 @@ export default function AddToPlaylistButton({ track, className = "" }) {
   const handleAdd = async (playlist) => {
     if (addingId || !playlist?._id || !track?.id) return;
     setAddingId(playlist._id);
-    const res = await addSongToPlaylist(playlist._id, track.id);
+    const res = await addSongToPlaylist(playlist._id, track.id, track.duration);
     setAddingId(null);
     if (res?.success) toast.success(`Added to ${playlist.name || "playlist"}`);
     else {

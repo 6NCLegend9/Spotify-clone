@@ -176,7 +176,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
   const addToPlaylist = async (playlist) => {
     if (!playlist?._id || addingPlaylistId) return;
     setAddingPlaylistId(playlist._id);
-    const response = await addSongToPlaylist(playlist._id, track.id);
+    const response = await addSongToPlaylist(playlist._id, track.id, track.duration);
     setAddingPlaylistId(null);
     if (response?.success) {
       toast.success(`Added to ${playlist.name || "playlist"}`);

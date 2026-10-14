@@ -878,7 +878,7 @@ select:-webkit-autofill {
   .is-liked-collection .collection-hero { background: linear-gradient(180deg, #5038a0, var(--navy-panel)); }
   .collection-artwork { align-self: center; }
   .collection-tracks { container-type: inline-size; }
-  .playlist-track-row, .playlist-track-heading { grid-template-columns: minmax(0, 1fr) 88px; }
+  .playlist-track-row, .playlist-track-heading { grid-template-columns: minmax(0, 1fr) 44px 44px; }
   .playlist-track-row > :first-child, .playlist-track-heading > :first-child { display: none; }
   .playlist-track-heading { display: none; }
   .playlist-track-row > :nth-child(3), .playlist-track-row > :nth-child(4),
@@ -3771,6 +3771,7 @@ body {
 
 
 .playlist-track-row {
+  height: 66px;
   content-visibility: auto;
   contain-intrinsic-size: 66px;
 }

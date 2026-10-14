@@ -99,7 +99,7 @@ const SongsList = ({
   const handleAddToPlaylist = async (song, playlistID) => {
     setShowMenu(false);
     setMutatingId(song);
-    const res = await addSongToPlaylist(playlistID, song);
+    const res = await addSongToPlaylist(playlistID, song, SongData?.find((track) => track.id === song)?.duration);
     setMutatingId(null);
     if (res?.success === true) {
       toast.success("Song added to playlist");
