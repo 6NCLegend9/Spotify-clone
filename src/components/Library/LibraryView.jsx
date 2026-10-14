@@ -66,7 +66,7 @@ function CollectionBadges({ item }) {
   return (
     <div className="mt-3 flex min-h-6 flex-wrap items-center gap-2 text-[10px] font-semibold uppercase text-gray-300">
       {item.pinned && (
-        <span className="inline-flex items-center gap-1"><BsPinAngleFill className="text-[#00e6e6]" /> Pinned</span>
+        <span className="inline-flex items-center gap-1"><BsPinAngleFill className="text-[#3b82f6]" /> Pinned</span>
       )}
       {item.smartShuffle && (
         <span className="inline-flex items-center gap-1"><FiZap className="text-emerald-400" /> Shuffle + Discovery</span>
@@ -100,7 +100,7 @@ function GridItem({ item }) {
         <p className="home-shelf-subtitle">{item.meta}</p>
         <p className="mt-1 truncate text-xs text-gray-500">{item.updatedLabel}</p>
         {item.category && item.type === "playlist" ? (
-          <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#00e6e6]">{item.category}{item.subgenre ? ` · ${item.subgenre}` : ""}</p>
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#3b82f6]">{item.category}{item.subgenre ? ` · ${item.subgenre}` : ""}</p>
         ) : null}
         <CollectionBadges item={item} />
       </Link>
@@ -135,7 +135,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
     <>
       <section className="glass-panel mt-2 flex flex-col gap-5 rounded-2xl px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <div className="flex min-w-0 items-start gap-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-[#00e6e6]"><FiLock /></span>
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-[#3b82f6]"><FiLock /></span>
           <div>
             <h2 className="text-xl font-bold text-white">Keep every favorite within reach</h2>
             <p className="mt-2 max-w-xl text-sm text-gray-300">Save your favorite tracks in one place. Log in or create a free account.</p>
@@ -149,7 +149,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
 
       <section className="mt-10" aria-labelledby="featured-public-playlists">
         <div className="mb-5">
-          <p className="text-xs font-semibold uppercase text-[#00e6e6]">Public playlists</p>
+          <p className="text-xs font-semibold uppercase text-[#3b82f6]">Public playlists</p>
           <h2 id="featured-public-playlists" className="mt-2 text-2xl font-bold text-white">Featured for everyone</h2>
         </div>
         {loading && <CardGridSkeleton count={5} />}
@@ -374,7 +374,7 @@ function AccountLibraryView({ session, status, owner }) {
                 <select
                   value={PLAYLIST_CATEGORIES.includes(filter) ? filter : ""}
                   onChange={(event) => setFilter(event.target.value || "playlists")}
-                  className="min-h-11 appearance-none rounded-full border border-white/10 bg-[#0b1722] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#00e6e6]"
+                  className="min-h-11 appearance-none rounded-full border border-white/10 bg-[#101f36] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#3b82f6]"
                 >
                   <option value="">All types</option>
                   {PLAYLIST_CATEGORIES.map((item) => (
@@ -389,7 +389,7 @@ function AccountLibraryView({ session, status, owner }) {
               </div>
               <label className="relative flex items-center">
                 <span className="sr-only">Sort library</span>
-                <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-11 appearance-none rounded-md border border-white/10 bg-[#0b1722] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#00e6e6]">
+                <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-11 appearance-none rounded-md border border-white/10 bg-[#101f36] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#3b82f6]">
                   {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
                 <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />

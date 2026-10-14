@@ -51,7 +51,7 @@ function readableAccent(red, green, blue) {
   return next;
 }
 
-export function accentFromBitmap(bitmap, { fallback = "#00e6e6" } = {}) {
+export function accentFromBitmap(bitmap, { fallback = "#3b82f6" } = {}) {
   if (!Buffer.isBuffer(bitmap) || bitmap.length < 4) return fallback;
   const buckets = new Map();
   for (let index = 0; index + 3 < bitmap.length; index += 16) {

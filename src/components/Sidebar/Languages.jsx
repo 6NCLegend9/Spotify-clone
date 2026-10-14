@@ -46,7 +46,7 @@ const Languages = () => {
             />
             <label
               htmlFor={language.id}
-              className="block cursor-pointer rounded-lg border border-white/15 px-2 py-2 text-center text-xs font-semibold text-white transition peer-checked:border-[#00e6e6] peer-checked:bg-[#00e6e6]/10 peer-checked:text-[#00e6e6]"
+              className="block cursor-pointer rounded-lg border border-white/15 px-2 py-2 text-center text-xs font-semibold text-white transition peer-checked:border-[#3b82f6] peer-checked:bg-[#3b82f6]/10 peer-checked:text-[#3b82f6]"
             >
               {language.label}
             </label>

@@ -166,7 +166,7 @@ const SongsList = ({
             <div
               key={song?.id || index}
               className={`song-row group mt-1 flex items-center justify-between rounded-lg border-b border-white/10 px-2 py-2.5 transition hover:bg-white/5 ${
-                activeSong?.id === song?.id && " text-[#00e6e6]"
+                activeSong?.id === song?.id && " text-[#3b82f6]"
               }`}
             >
               <div className="flex min-w-0 flex-1 items-center gap-5 text-left">
@@ -183,7 +183,7 @@ const SongsList = ({
                     <BiHeadphone
                       size={27}
                       aria-hidden="true"
-                      className=" absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[#00e6e6]"
+                      className=" absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[#3b82f6]"
                     />
                   ) : (
                     <BsPlayFill
@@ -229,7 +229,7 @@ const SongsList = ({
                     <div
                       role="menu"
                       aria-label={`Actions for ${trackName}`}
-                      className="absolute right-0 top-0 z-40 flex w-40 flex-col gap-2 rounded-xl border border-white/10 bg-[#07121d] p-3 text-white shadow-dock"
+                      className="absolute right-0 top-0 z-40 flex w-40 flex-col gap-2 rounded-xl border border-white/10 bg-[#0b1629] p-3 text-white shadow-dock"
                     >
                       <p className="text-sm font-semibold flex gap-1 empty:hidden border-b border-white items-center">
                         {isUserPlaylist ? null : "Add to playlist"}

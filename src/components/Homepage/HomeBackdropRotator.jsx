@@ -55,7 +55,7 @@ export default function HomeBackdropRotator() {
           }}
         />
       ))}
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,8,20,0.42),rgba(0,8,20,0.84)_70%,rgba(0,8,20,0.96)),linear-gradient(90deg,rgba(0,0,0,0.62),transparent_48%,rgba(0,45,50,0.28))]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,13,27,0.42),rgba(6,13,27,0.84)_70%,rgba(6,13,27,0.96)),linear-gradient(90deg,rgba(0,0,0,0.62),transparent_48%,rgba(0,45,50,0.28))]" />
     </div>
   );
 }

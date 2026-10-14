@@ -355,11 +355,11 @@ export default function AppShell({ children }) {
             "aria-live": "polite",
           },
           style: {
-            background: "rgba(7, 18, 29, 0.86)",
+            background: "rgba(11,22,41, 0.86)",
             color: "#fff",
-            border: "1px solid rgba(0, 230, 230, 0.18)",
+            border: "1px solid rgba(59,130,246, 0.18)",
             backdropFilter: "blur(18px)",
-            boxShadow: "0 16px 48px rgba(0, 8, 20, 0.45)",
+            boxShadow: "0 16px 48px rgba(6,13,27, 0.45)",
           },
         }}
       />

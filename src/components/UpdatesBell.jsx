@@ -236,7 +236,7 @@ export default function UpdatesBell() {
       >
         <HiOutlineBell aria-hidden="true" className="h-5 w-5" />
         {hasUnread ? (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#00e6e6] shadow-[0_0_0_2px_rgba(2,8,19,0.95)]">
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#3b82f6] shadow-[0_0_0_2px_rgba(3,8,20,0.95)]">
             <span className="sr-only">{unreadCount} unread</span>
           </span>
         ) : null}
@@ -256,7 +256,7 @@ export default function UpdatesBell() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="updates-title"
-            className="fixed right-3 top-[72px] z-50 w-[calc(100vw-1.5rem)] max-w-[26rem] overflow-hidden rounded-2xl border border-white/10 bg-[#07121d] text-white shadow-dock md:right-6"
+            className="fixed right-3 top-[72px] z-50 w-[calc(100vw-1.5rem)] max-w-[26rem] overflow-hidden rounded-2xl border border-white/10 bg-[#0b1629] text-white shadow-dock md:right-6"
           >
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
               <h2 id="updates-title" className="text-lg font-semibold">Notifications</h2>
@@ -281,7 +281,7 @@ export default function UpdatesBell() {
               ) : items.map((item) => (
                 <article
                   key={item.id}
-                  className={`rounded-xl border p-3.5 ${item.unread ? "border-[#00e6e6]/25 bg-[#00e6e6]/5" : "border-white/10 bg-white/5"}`}
+                  className={`rounded-xl border p-3.5 ${item.unread ? "border-[#3b82f6]/25 bg-[#3b82f6]/5" : "border-white/10 bg-white/5"}`}
                 >
                   <div className="updates-item">
                     {item.image ? (

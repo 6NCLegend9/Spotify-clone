@@ -6,7 +6,7 @@ import { approachSeconds, chartEnergy, notesInWindow } from "@/utils/arcadeChart
 
 const LANES = 4;
 const LANE_KEYS = ["d", "f", "j", "k"];
-const LANE_COLORS = ["#00e6e6", "#7c5cff", "#ff4ecd", "#ffb648"];
+const LANE_COLORS = ["#3b82f6", "#7c5cff", "#ff4ecd", "#ffb648"];
 const JUDGMENT_RATIO = 0.76;
 const TILE_HEIGHT_RATIO = 0.12;
 const PERFECT_WINDOW = 0.09;
@@ -232,7 +232,7 @@ export default function MagicTiles2D({
         context.fillRect(x, 0, laneWidth, height);
         state.flash[lane] = Math.max(0, state.flash[lane] - delta * 3.6);
         if (state.flash[lane] > 0) {
-          context.fillStyle = `rgba(0,230,230,${state.flash[lane] * 0.2})`;
+          context.fillStyle = `rgba(59,130,246,${state.flash[lane] * 0.2})`;
           context.fillRect(x, 0, laneWidth, height);
         }
         context.strokeStyle = "rgba(255,255,255,0.07)";
@@ -267,7 +267,7 @@ export default function MagicTiles2D({
       const lineGlow = reducedRef.current ? 0.45 : 0.4 + audio.bass * 0.6;
       for (let lane = 0; lane < LANES; lane += 1) {
         const box = laneBox(width, lane);
-        context.fillStyle = "rgba(0,230,230,0.16)";
+        context.fillStyle = "rgba(59,130,246,0.16)";
         if (typeof context.roundRect === "function") {
           context.beginPath();
           context.roundRect(box.x, judgmentY - tileHeight * 0.28, box.w, tileHeight * 0.56, 8);
@@ -276,9 +276,9 @@ export default function MagicTiles2D({
           context.fillRect(box.x, judgmentY - tileHeight * 0.28, box.w, tileHeight * 0.56);
         }
       }
-      context.shadowColor = "#00e6e6";
+      context.shadowColor = "#3b82f6";
       context.shadowBlur = reducedRef.current ? 0 : 12 * lineGlow;
-      context.strokeStyle = `rgba(0,230,230,${Math.min(1, lineGlow)})`;
+      context.strokeStyle = `rgba(59,130,246,${Math.min(1, lineGlow)})`;
       context.lineWidth = 4;
       context.beginPath();
       context.moveTo(pad, judgmentY);
@@ -328,7 +328,7 @@ export default function MagicTiles2D({
       />
       <div className="pointer-events-none absolute left-3 top-3 text-xs font-semibold text-white">
         <p className="text-lg tabular-nums">{score.points.toLocaleString()}</p>
-        <p className="text-[11px] text-[#00e6e6]">
+        <p className="text-[11px] text-[#3b82f6]">
           {score.combo > 1 ? `${score.combo}x combo` : `${score.hits} hits`}
         </p>
       </div>

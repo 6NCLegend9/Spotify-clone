@@ -54,8 +54,8 @@ export default function VerifyEmailClient({ token }) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#000814] px-4 py-12 sm:px-6 lg:px-8">
-      <SpotlightCard className="w-full max-w-md space-y-8 bg-[#07121d]">
+    <div className="flex min-h-screen items-center justify-center bg-[#060d1b] px-4 py-12 sm:px-6 lg:px-8">
+      <SpotlightCard className="w-full max-w-md space-y-8 bg-[#0b1629]">
         <div className="relative text-center min-h-[220px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
           {status === "ready" && (
@@ -73,7 +73,7 @@ export default function VerifyEmailClient({ token }) {
               <button
                 type="button"
                 onClick={() => void verify()}
-                className="mt-7 rounded-full bg-[#00e6e6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2]"
+                className="mt-7 rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2]"
               >
                 Verify email
               </button>
@@ -90,7 +90,7 @@ export default function VerifyEmailClient({ token }) {
                 Verifying Email
               </h2>
               <div className="flex justify-center mt-4">
-                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-600 border-t-[#00e6e6]"></div>
+                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-600 border-t-[#3b82f6]"></div>
               </div>
               <p className="mt-4 text-sm text-[#9aa8b5]">Please wait while we verify your email address...</p>
             </motion.div>
@@ -105,8 +105,8 @@ export default function VerifyEmailClient({ token }) {
               <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white mb-2">
                 Email Verified!
               </h2>
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#00e6e6]/20 mb-4 mt-6">
-                <svg className="h-10 w-10 text-[#00e6e6]" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#3b82f6]/20 mb-4 mt-6">
+                <svg className="h-10 w-10 text-[#3b82f6]" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               </div>
@@ -115,7 +115,7 @@ export default function VerifyEmailClient({ token }) {
               </p>
               <Link
                 href="/login"
-                className="mt-7 inline-block rounded-full bg-[#00e6e6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2]"
+                className="mt-7 inline-block rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2]"
               >
                 Continue to login
               </Link>
@@ -147,7 +147,7 @@ export default function VerifyEmailClient({ token }) {
               <div className="mt-6">
                 <Link
                   href="/login"
-                  className="inline-block rounded-full bg-[#00e6e6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2] shadow-[0_0_15px_rgba(0,230,230,0.4)]"
+                  className="inline-block rounded-full bg-[#3b82f6] px-8 py-3 text-sm font-bold text-black transition hover:bg-[#00c2c2] shadow-[0_0_15px_rgba(59,130,246,0.4)]"
                 >
                   Return to Login
                 </Link>

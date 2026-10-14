@@ -34,7 +34,7 @@ export default function HowToPlayOverlay({ mode = "tiles", onStart, canStart = t
     <div className="h-full overflow-y-auto bg-[#04070d] px-4 py-6 sm:px-6">
       <div className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#00e6e6]">How to play</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#3b82f6]">How to play</p>
           <h2 className="mt-2 text-2xl font-bold text-white">{guide.title}</h2>
           <p className="mt-2 text-sm text-[#9aa8b5]">{guide.blurb}</p>
 

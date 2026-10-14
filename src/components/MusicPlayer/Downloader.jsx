@@ -209,11 +209,11 @@ const Downloader = ({ activeSong, icon }) => {
                 <button
                   key={q.index}
                   onClick={() => handleDownload(q)}
-                  className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 hover:text-[#00e6e6] transition-colors flex items-center justify-between gap-2"
+                  className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 hover:text-[#3b82f6] transition-colors flex items-center justify-between gap-2"
                 >
                   <span>{q.label}</span>
                   {q.index === 4 && (
-                    <span className="text-[10px] bg-[#00e6e6]/20 text-[#00e6e6] px-1.5 py-0.5 rounded-full font-medium">
+                    <span className="text-[10px] bg-[#3b82f6]/20 text-[#3b82f6] px-1.5 py-0.5 rounded-full font-medium">
                       HQ
                     </span>
                   )}

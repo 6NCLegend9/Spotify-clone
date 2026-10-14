@@ -26,8 +26,8 @@ export default function TermsPage() {
           <h2 id="acceptance-of-terms" className="text-2xl font-bold">1. Acceptance of Terms</h2>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             By accessing or using {SITE_NAME}, you agree to these Terms, our{" "}
-            <Link href="/privacy" className="text-[#00e6e6] underline underline-offset-4">Privacy Policy</Link>,
-            and our <Link href="/dmca" className="text-[#00e6e6] underline underline-offset-4">DMCA policy</Link>.
+            <Link href="/privacy" className="text-[#3b82f6] underline underline-offset-4">Privacy Policy</Link>,
+            and our <Link href="/dmca" className="text-[#3b82f6] underline underline-offset-4">DMCA policy</Link>.
             When you create an account, you confirm that the information you provide is accurate,
             that you are legally able to enter this agreement, and that you will keep your account
             credentials secure. If you create or use an account for someone else, you confirm you
@@ -97,7 +97,7 @@ export default function TermsPage() {
             Third-party providers and rights holders retain their rights in the material displayed or
             played through the service. Their own terms, policies, and availability rules may apply.
             For copyright concerns or removal requests, follow our{" "}
-            <Link href="/dmca" className="text-[#00e6e6] underline underline-offset-4">DMCA policy</Link>.
+            <Link href="/dmca" className="text-[#3b82f6] underline underline-offset-4">DMCA policy</Link>.
           </p>
         </section>
 
@@ -115,9 +115,9 @@ export default function TermsPage() {
           <h2 id="contact-and-account-closure" className="text-2xl font-bold">7. Account Closure and Contact</h2>
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             You can request permanent deletion of your account and associated account data through the
-            <Link href="/privacy" className="ml-1 text-[#00e6e6] underline underline-offset-4">Privacy Policy</Link>.
+            <Link href="/privacy" className="ml-1 text-[#3b82f6] underline underline-offset-4">Privacy Policy</Link>.
             For questions about these Terms, contact us at{" "}
-            <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#00e6e6] underline underline-offset-4">
+            <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#3b82f6] underline underline-offset-4">
               {ORG_CONTACT_EMAIL}
             </a>.
           </p>

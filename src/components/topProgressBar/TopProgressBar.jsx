@@ -11,7 +11,7 @@ const TopProgressBar = () => {
 
   return (
     <LoadingBar
-    color='#00e6e6'
+    color='#3b82f6'
     height={1.4}
     progress={progress}
     onLoaderFinished={() => dispatch(setProgress(0))}

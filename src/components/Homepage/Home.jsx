@@ -1,213 +1,68 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import HomeHeader from "./HomeHeader";
 import QuickAccessGrid from "./QuickAccessGrid";
-import FeaturedRelease from "./FeaturedRelease";
 import { MixRail, TrackRail } from "./HomeRail";
-import WeekOnKasa from "./WeekOnKasa";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { HomeFeedSkeleton } from "@/components/Skeleton";
 import useHomeFeed from "@/hooks/useHomeFeed";
-import { buildCategoryMixes, buildMoodMixes, soundtrackHeading } from "@/utils/homeMixes";
+import { composeHomePage } from "@/utils/homeDiscovery.mjs";
 
-function uniqueById(items) {
-  const seen = new Set();
-  return items.filter((item) => {
-    const key = item?.id || item?.playlist?._id || item?.type;
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+function playlistMixes(playlists) {
+  return playlists.map((playlist) => ({
+    ...playlist,
+    id: `ytpl-${playlist.id}`,
+    playlistId: playlist.id,
+    kind: "playlist",
+    palette: { from: "#0b1629", via: "#101f36", to: "#2563eb", bar: "#3b82f6" },
+  }));
 }
 
-const Home = () => {
+export default function Home() {
   const [filter, setFilter] = useState("all");
-  const {
-    status,
-    loading,
-    refreshing,
-    error,
-    retry,
-    isPersonalized,
-    history,
-    playlists,
-    releases,
-    trending,
-    charts,
-    newReleases,
-    featuredPlaylists,
-    genreSections,
-    hasAny,
-  } = useHomeFeed();
-
-  const soundtrackTitle = useMemo(() => soundtrackHeading(), []);
-  const moodMixes = useMemo(() => buildMoodMixes(), []);
-  const categoryMixes = useMemo(() => buildCategoryMixes(), []);
-
-  const featured = releases[0] || newReleases[0] || trending[0] || null;
-  const featuredQueue = releases.length ? releases : newReleases.length ? newReleases : trending;
-  const followRail = releases.filter((track) => track.id !== featured?.id);
-
-  const quickItems = useMemo(() => {
-    const items = [];
-    if (status === "authenticated") {
-      items.push({ type: "liked", id: "liked" });
-    }
-    playlists.forEach((playlist) => {
-      items.push({ type: "playlist", id: `pl-${playlist._id}`, playlist });
-    });
-    history.forEach((song, index) => {
-      items.push({
-        ...song,
-        type: "track",
-        title: song.title || song.name,
-        queue: history,
-        queueIndex: index,
-      });
-    });
-    trending.forEach((video, index) => {
-      items.push({
-        ...video,
-        type: "track",
-        source: "youtube",
-        queue: trending,
-        queueIndex: index,
-      });
-    });
-    return uniqueById(items).slice(0, 8);
-  }, [history, playlists, status, trending]);
-
-  const playlistMixes = (featuredPlaylists || []).slice(0, 8).map((playlist) => ({
-    id: `ytpl-${playlist.id}`,
-    title: playlist.title,
-    playlistId: playlist.id,
-    query: playlist.title,
-    kind: "playlist",
-    palette: {
-      from: "#07121d",
-      via: "#0b4a6b",
-      to: "#00e6e6",
-      bar: "#00e6e6",
-    },
-    stamp: "FEATURED",
-  }));
-
+  const feed = useHomeFeed();
+  const { status, loading, refreshing, error, retry, basis, hasAny } = feed;
+  const content = composeHomePage(feed);
+  const personalized = basis === "taste" || basis === "activity";
   return (
     <div className="page-home">
       <div className="home-wash" aria-hidden="true" />
-      <HomeHeader filter={filter} onFilter={setFilter} />
-
+      <HomeHeader filter={filter} onFilter={setFilter} onRefresh={retry} refreshing={refreshing || loading} />
       {filter === "for-you" && status === "unauthenticated" ? (
-        <EmptyState
-          eyebrow="Made for you"
-          title="Your music, your way"
-          message="Sign in to get recommendations based on your listening and the artists you follow."
-          actionLabel="Log in"
-          href="/login"
-        />
+        <EmptyState eyebrow="Made for you" title="Your music, your way" message="Sign in to get recommendations based on your listening and the artists you follow." actionLabel="Log in" href="/login" />
       ) : (
         <div className="fx-stack">
-          <QuickAccessGrid items={quickItems} />
-          {filter === "for-you" && <WeekOnKasa />}
+          <QuickAccessGrid items={content.quickItems} />
           {loading && <HomeFeedSkeleton />}
-
-          {!loading && error && !hasAny && (
-            <UserMessage
-              title={error.title}
-              message={error.message}
-              onRetry={retry}
-              busy={refreshing}
-            />
+          {!loading && error && (
+            <UserMessage title={error.title} message={error.message} onRetry={retry} busy={refreshing} {...(hasAny ? { tone: "warning", compact: true } : {})} />
           )}
-
-          {!loading && error && hasAny && (
-            <div className="mb-6">
-              <UserMessage
-                tone="warning"
-                title={error.title}
-                message={error.message}
-                onRetry={retry}
-                busy={refreshing}
-                compact
-              />
-            </div>
+          {!loading && <TrackRail title="Jump back in" seeAllHref="/recently-played" videos={content.history} />}
+          {!loading && (content.forYou.tracks.length > 0 || content.forYou.playlists.length > 0) && (
+            <section aria-labelledby="home-for-you-title" data-home-section="for-you" className="min-w-0">
+              <h2 id="home-for-you-title" className="mb-2 text-2xl font-bold text-white">{personalized ? "Made for you" : "Popular right now"}</h2>
+              <p className="mb-5 max-w-3xl text-sm text-[var(--teal)]">
+                {basis === "taste" ? "Songs and playlists inspired by your genres and favorite artists." : basis === "activity" ? "Inspired by your recent searches and listening." : "Popular songs and playlists to get you started."}
+              </p>
+              <TrackRail title={personalized ? "Songs for your taste" : "Songs to start with"} videos={content.forYou.tracks} />
+              <MixRail title={personalized ? "Playlists for your taste" : "Popular playlists"} mixes={playlistMixes(content.forYou.playlists)} />
+            </section>
           )}
-
-          {!loading && (
-            <TrackRail
-              title="Jump back in"
-              seeAllHref="/recently-played"
-              videos={history.map((song) => ({
-                ...song,
-                title: song.title || song.name,
-                channel: song.channel || (Array.isArray(song.artists?.primary)
-                  ? song.artists.primary.map((artist) => artist?.name).filter(Boolean).join(", ")
-                  : ""),
-              }))}
-            />
+          {!loading && (content.explore.tracks.length > 0 || content.explore.playlists.length > 0) && (
+            <section aria-labelledby="home-explore-title" data-home-section="explore" className="min-w-0">
+              <h2 id="home-explore-title" className="mb-2 text-2xl font-bold text-white">Explore something new</h2>
+              <p className="mb-5 max-w-3xl text-sm text-[var(--teal)]">{personalized ? "Branch out with related styles, different artists, and recent discoveries." : "Find your next sound and start shaping your taste."}</p>
+              <TrackRail title="New to you" videos={content.explore.tracks} />
+              <MixRail title="Playlists to explore" mixes={playlistMixes(content.explore.playlists)} />
+            </section>
           )}
-
-          {!loading && (
-            <TrackRail
-              title={isPersonalized ? "Made for you" : "Popular right now"}
-              seeAllHref="/search"
-              videos={trending.filter((video) => video.id !== featured?.id)}
-            />
-          )}
-
-          {!loading && (
-            <MixRail
-              title={isPersonalized ? "Mixes for you" : "Made for you"}
-              seeAllHref="/mix"
-              mixes={categoryMixes}
-            />
-          )}
-
-          {!loading && followRail.length > 0 && (
-            <TrackRail title="New from artists you follow" videos={followRail} />
-          )}
-
-          {!loading && featured && (
-            <FeaturedRelease video={featured} queue={featuredQueue} />
-          )}
-
-          {!loading && (
-            <TrackRail
-              title={isPersonalized ? "Top Trends For You" : "Trending Now"}
-              seeAllHref="/search"
-              videos={charts}
-            />
-          )}
-
-          {!loading && <MixRail title={soundtrackTitle} mixes={moodMixes} seeAllHref="/mix" />}
-
-          {!loading && <MixRail title="Featured Playlists" mixes={playlistMixes} seeAllHref="/search/popular%20music?type=playlist" />}
-
-          {!loading &&
-            genreSections.map((section) => (
-              <TrackRail
-                key={section.title}
-                title={section.title}
-                videos={section.videos}
-              />
-            ))}
-
-          {!loading && !error && !hasAny && quickItems.length === 0 && (
-            <EmptyState
-              eyebrow="Home"
-              title="No recommendations yet"
-              message="Try another refresh while we look for music for you."
-              actionLabel="Refresh recommendations"
-              onAction={retry}
-            />
+          {!loading && !error && !hasAny && content.quickItems.length === 0 && (
+            <EmptyState eyebrow="Home" title="No recommendations yet" message="Try another refresh while we look for music for you." actionLabel="Refresh recommendations" onAction={retry} />
           )}
         </div>
       )}
     </div>
   );
-};
-
-export default Home;
-
+}

@@ -17,7 +17,7 @@ const Page = () => {
         upload or host any files on its server. If you are a valid owner of any
         content listed here and want to remove it, please send us a
         DMCA-formatted takedown notice at{" "}
-        <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#00e6e6] underline">
+        <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#3b82f6] underline">
           {ORG_CONTACT_EMAIL}
         </a>
         . We will remove your content as soon as possible.

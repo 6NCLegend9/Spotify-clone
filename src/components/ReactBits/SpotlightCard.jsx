@@ -12,7 +12,7 @@ function cn(...inputs) {
 export const SpotlightCard = ({
   children,
   className = "",
-  spotlightColor = "rgba(0, 230, 230, 0.2)",
+  spotlightColor = "rgba(59,130,246, 0.2)",
 }) => {
   const divRef = useRef(null);
   const isHovered = useRef(false);

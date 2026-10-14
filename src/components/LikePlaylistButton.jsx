@@ -68,7 +68,7 @@ export default function LikePlaylistButton({ playlist, onChange, className = "" 
       aria-label={liked ? "Unlike playlist" : "Like playlist"}
       title={liked ? "Unlike" : "Like"}
       className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out hover:bg-white/10 active:scale-[0.98] ${
-        liked ? "text-[#00e6e6]" : "text-gray-300 hover:text-white"
+        liked ? "text-[#3b82f6]" : "text-gray-300 hover:text-white"
       } ${className}`}
     >
       <FiHeart className={liked ? "fill-current" : ""} />

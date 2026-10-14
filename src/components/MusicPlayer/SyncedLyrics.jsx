@@ -92,11 +92,11 @@ export default function SyncedLyrics({
   return (
     <div className={`lyrics-live ${compact ? "lyrics-live--compact" : ""} ${className}`}>
       <div className="mb-3 flex items-center justify-between gap-3 px-1">
-        <p className="truncate text-[11px] uppercase tracking-[0.18em] text-[#00e6e6]">
+        <p className="truncate text-[11px] uppercase tracking-[0.18em] text-[#3b82f6]">
           {live ? "Live lyrics" : "Lyrics"}
         </p>
         {live && (
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#00e6e6]">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#3b82f6]">
             <span className="lyrics-live-dot" aria-hidden="true" />
             Synced
           </span>

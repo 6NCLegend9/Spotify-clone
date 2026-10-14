@@ -121,7 +121,7 @@ export default function PrivacyPage() {
             Deletion is permanent and cannot be undone. Residual copies may remain temporarily in routine
             backups or security logs until their normal retention cycle ends. To ask a privacy question or
             request help with deletion, email{" "}
-            <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#00e6e6] underline underline-offset-4">
+            <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#3b82f6] underline underline-offset-4">
               {ORG_CONTACT_EMAIL}
             </a>.
           </p>

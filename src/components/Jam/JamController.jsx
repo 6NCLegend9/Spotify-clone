@@ -216,7 +216,7 @@ export default function JamController() {
         fullScreen
           ? `fixed z-[80] touch-none select-none ${fabPos ? "" : "left-4 top-20"} ${dragging ? "cursor-grabbing" : "cursor-grab"}`
           : "jam-fab-docked"
-      } jam-fab ${fullScreen ? "non-phone-only-inline-flex" : "inline-flex"} min-h-11 items-center gap-2 rounded-full border border-[#00e6e6]/40 bg-[#07121d]/95 px-3.5 py-2 text-sm font-semibold text-[#00e6e6] shadow-glow backdrop-blur ${dragging ? "" : "transition hover:border-[#00e6e6]"}`}
+      } jam-fab ${fullScreen ? "non-phone-only-inline-flex" : "inline-flex"} min-h-11 items-center gap-2 rounded-full border border-[#3b82f6]/40 bg-[#0b1629]/95 px-3.5 py-2 text-sm font-semibold text-[#3b82f6] shadow-glow backdrop-blur ${dragging ? "" : "transition hover:border-[#3b82f6]"}`}
     >
       <FiRadio aria-hidden="true" />
       {inRoom && jam.code ? `Jam · ${jam.code}` : "Jam"}
@@ -238,7 +238,7 @@ export default function JamController() {
       >
         <div className="flex items-center justify-between gap-3 text-lg font-semibold text-white">
           <span className="flex items-center gap-2">
-            <FiRadio aria-hidden="true" className="text-[#00e6e6]" />
+            <FiRadio aria-hidden="true" className="text-[#3b82f6]" />
             HayKasa Jam
           </span>
           <button
@@ -285,7 +285,7 @@ export default function JamController() {
                       type="button"
                       onClick={() => jam.hostNamed(preset)}
                       disabled={jam.status === "connecting"}
-                      className="min-h-11 rounded-xl border border-white/15 px-3 py-2 text-left transition hover:border-[#00e6e6]/50 disabled:opacity-60"
+                      className="min-h-11 rounded-xl border border-white/15 px-3 py-2 text-left transition hover:border-[#3b82f6]/50 disabled:opacity-60"
                     >
                       <span className="block text-sm font-semibold text-white">{preset}</span>
                       <span className="mt-0.5 block truncate text-[11px] text-[#9aa8b5]">{extra}</span>
@@ -436,7 +436,7 @@ export default function JamController() {
                   {jam.scores.slice(0, 5).map((entry, index) => (
                     <li key={`${entry.name}-${entry.at}-${index}`} className="flex items-baseline justify-between gap-3 text-sm text-gray-200">
                       <span className="truncate">{entry.name}</span>
-                      <span className="shrink-0 tabular-nums text-[#00e6e6]">{Number(entry.score || 0).toLocaleString()}</span>
+                      <span className="shrink-0 tabular-nums text-[#3b82f6]">{Number(entry.score || 0).toLocaleString()}</span>
                     </li>
                   ))}
                 </ul>

@@ -148,7 +148,7 @@ function AccountFavouriteButton({ owner, status, track, className }) {
       aria-busy={saving}
       onClick={toggleFavourite}
       className={`grid h-12 w-12 shrink-0 place-items-center rounded-full transition hover:bg-white/10 disabled:opacity-50 ${
-        isSaved ? "text-[#00e6e6]" : "text-gray-300"
+        isSaved ? "text-[#3b82f6]" : "text-gray-300"
       } ${className}`}
     >
       <FiHeart className={isSaved ? "fill-current" : ""} />
