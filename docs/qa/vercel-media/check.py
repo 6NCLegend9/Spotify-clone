@@ -5,6 +5,8 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
+from typing import get_args, get_type_hints
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlsplit
@@ -16,7 +18,9 @@ from vercel.blob import AsyncBlobClient
 for name in ('put', 'get', 'list_objects', 'delete'):
     assert hasattr(AsyncBlobClient, name), name
 inspect.signature(AsyncBlobClient.put).bind(None, 'path', b'bytes', access='private', content_type='audio/mp4', add_random_suffix=False, multipart=True)
-inspect.signature(AsyncBlobClient.get).bind(None, 'path', access='private')
+inspect.signature(AsyncBlobClient.get).bind(None, 'path', access='private', use_cache=False, timeout=8)
+BlobResponse = next(kind for kind in get_args(get_type_hints(AsyncBlobClient.get)['return']) if kind is not type(None))
+assert 'content' in get_type_hints(BlobResponse), 'Installed SDK response contract changed'
 inspect.signature(AsyncBlobClient.list_objects).bind(None, prefix='path/', limit=1000)
 inspect.signature(AsyncBlobClient.delete).bind(None, ['path'])
 import httpx
@@ -37,8 +41,11 @@ class Blob:
     async def get(self, path, **kwargs):
         calls.append(path)
         if path not in objects: return None
-        async def chunks(): yield objects[path]
-        return SimpleNamespace(status_code=200,stream=chunks())
+        return BlobResponse(url='https://isolated.private.blob.vercel-storage.com/'+path,
+            download_url='https://isolated.private.blob.vercel-storage.com/'+path,
+            pathname=path,content_type='application/json',size=len(objects[path]),
+            content_disposition='attachment',cache_control='private, no-store',
+            uploaded_at=datetime.now(timezone.utc),etag='fixture',content=objects[path],status_code=200)
 media.AsyncBlobClient = Blob
 async def prepare(self, job):
     path = job['directory'] / 'asset.mp4'

@@ -113,14 +113,12 @@ async def read_manifest(client, job_id, who=None):
     _, path = paths(job_id)
     if created(job_id) + TTL <= time.time():
         raise HTTPException(404, "job_unavailable")
-    result = await client.get(path, access="private")
+    result = await client.get(path, access="private", use_cache=False, timeout=8)
     if result is None or result.status_code != 200:
         raise HTTPException(404, "job_unavailable")
-    data = bytearray()
-    async for chunk in result.stream:
-        data.extend(chunk)
-        if len(data) > 64_000:
-            raise HTTPException(503, "storage_unavailable")
+    data = result.content
+    if not isinstance(data, bytes) or len(data) > 64_000:
+        raise HTTPException(503, "storage_unavailable")
     value = json.loads(data)
     if value.get("jobId") != job_id or (who is not None and not hmac.compare_digest(value.get("subscriber", ""), who)):
         raise HTTPException(404, "job_unavailable")
