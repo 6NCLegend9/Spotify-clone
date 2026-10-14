@@ -261,7 +261,7 @@ function YouTubePlayer() {
   const [addSearching, setAddSearching] = useState(false);
   const [addSearchError, setAddSearchError] = useState("");
   const [mediaTheater, setMediaTheater] = useState(false);
-  const videoVisible = !dataSaver && !audioOnly;
+  const videoVisible = !dataSaver && !audioOnly && (!nativeAvailable || mediaTheater);
   useWakeLock(shouldHoldPlaybackWakeLock({ isPlaying, mediaTheater, videoVisible }));
   const karaokeHasLinesRef = useRef(false);
   const karaokeSurface = Boolean(mediaTheater);
@@ -1790,7 +1790,7 @@ function YouTubePlayer() {
     const controller = new AbortController();
     void fetch("/api/media/resolve", { cache: "no-store", credentials: "same-origin", headers: mobileMediaHeaders(navigator, desktopShell), signal: controller.signal })
       .then((response) => response.ok ? response.json() : { enabled: false })
-      .then(({ enabled }) => { if (!controller.signal.aborted && enabled && supportedMediaProfile(videoVisible ? "video" : "audio")) { setNativeAvailable(true); setApiReady(true); } })
+      .then(({ enabled }) => { if (!controller.signal.aborted && enabled && supportedMediaProfile("audio")) { setNativeAvailable(true); setApiReady(true); } })
       .catch(() => {});
     return () => controller.abort();
     // Recheck on sign-in/account changes. Viewport resizing does not change providers.

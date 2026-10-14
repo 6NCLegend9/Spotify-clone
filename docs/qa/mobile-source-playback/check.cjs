@@ -17,6 +17,7 @@ const desktop = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130 Safari/537
 const android = 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile Safari/537.36';
 const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
 const ipadDesktop = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/18 Safari/605.1.15';
+let internal=false, playbackEnabled=false;
 let enabled=true, token={id:'alice',sessionVersion:1}, validUser=true, limited=false, trusted=true;
 const calls=[];
 const route=load('src/app/api/media/resolve/route.js', {
@@ -26,7 +27,7 @@ const route=load('src/app/api/media/resolve/route.js', {
   '@/utils/sessionAuth':{resolveSessionUser:async value=>validUser?{id:value.id}:null},
   '@/utils/trustedOrigin':{isTrustedRequestOrigin:()=>trusted},
   '@/utils/rateLimit':{getClientKey:()=> 'local',isRateLimited:async()=>({limited})},
-  '@/utils/mediaService.mjs':{...validation,mediaServiceConfig:()=>({enabled,secret:'synthetic-media-signing-secret-'.repeat(2)}),
+  '@/utils/mediaService.mjs':{...validation,mediaServiceConfig:()=>({enabled,internal,playbackEnabled,secret:'synthetic-media-signing-secret-'.repeat(2)}),
     callMediaService:async(_,url,options)=>{calls.push({url,...options});return {jobId:'a'.repeat(32),state:'ready'}},normalizeMediaResult:result=>result},
   '@/utils/mediaReceipts.mjs':receipts, '@/utils/mobileMediaPolicy.mjs':policy,
 });
@@ -49,6 +50,13 @@ function request(agent, method='GET', body, extra={}) {
   token=null;assert.equal((await route.GET(request(android))).body.enabled,false);
   assert.equal((await route.POST(request(android,'POST',selection))).status,401);assert.equal(calls.length,0);
   token={id:'alice',sessionVersion:1};validUser=false;assert.equal((await route.POST(request(android,'POST',selection))).status,401);validUser=true;
+  internal=true;
+  assert.equal((await route.GET(request(android))).body.enabled,false);
+  const disabled=await route.POST(request(android,'POST',selection));
+  assert.equal(disabled.status,503);assert.equal(disabled.body.reason,'service_disabled');assert.equal(calls.length,0);
+  playbackEnabled=true;
+  assert.equal((await route.GET(request(android))).body.enabled,true);
+  internal=false;playbackEnabled=false;
   assert.equal((await route.GET(request(android))).body.enabled,true);
   const created=await route.POST(request(android,'POST',selection));assert.equal(created.status,200);assert.equal(calls.length,1);
   const receipt=created.body.receipt;
@@ -56,7 +64,8 @@ function request(agent, method='GET', body, extra={}) {
   token={id:'alice',sessionVersion:2};assert.equal((await route.POST(request(iphone,'POST',{action:'poll',receipt}))).status,403);
   token={id:'alice',sessionVersion:1};assert.equal((await route.POST(request(iphone,'POST',{action:'poll',receipt}))).status,200);
   assert.equal((await route.POST(request(desktop,'POST',{action:'renew',receipt}))).status,403);
-  assert.equal((await route.DELETE(request(desktop,'DELETE',{receipt}))).status,200);assert.equal(calls.at(-1).method,'DELETE');
+  internal=true;playbackEnabled=false;
+  assert.equal((await route.DELETE(request(desktop,'DELETE',{receipt}))).status,200);assert.equal(calls.at(-1).method,'DELETE');internal=false;
   trusted=false;assert.equal((await route.POST(request(android,'POST',selection))).status,403);trusted=true;
   limited=true;assert.equal((await route.POST(request(android,'POST',selection))).status,429);limited=false;
   enabled=false;assert.equal((await route.GET(request(android))).body.enabled,false);assert.equal((await route.POST(request(android,'POST',selection))).status,503);

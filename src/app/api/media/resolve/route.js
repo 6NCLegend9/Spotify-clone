@@ -12,7 +12,7 @@ import { signMediaReceipt, verifyMediaReceipt, mediaScopeHash } from "@/utils/me
 import { isMobileMediaRequest } from "@/utils/mobileMediaPolicy.mjs";
 
 export const runtime = "nodejs";
-export const maxDuration = 15;
+export const maxDuration = 300;
 
 const HEADERS = { "Cache-Control": "private, no-store" };
 const reply = (data, status = 200) => NextResponse.json(data, { status, headers: HEADERS });
@@ -26,7 +26,9 @@ function trusted(request) {
 async function handle(request, action, body) {
   if (action !== "cancel" && !isMobileMediaRequest(request.headers)) return reply({ state: "failed", reason: "mobile_only" }, 403);
   const config = mediaServiceConfig();
+  if (config.internal) config.deliveryOrigin = request.nextUrl.origin;
   if (!config.enabled) return reply({ state: "failed", reason: "service_unconfigured" }, 503);
+  if (config.internal && !config.playbackEnabled && action !== "cancel") return reply({ state: "failed", reason: "service_disabled" }, 503);
   try {
     const token = await getToken(tokenOptions(request));
     const user = token?.id ? await resolveSessionUser(token) : null;
@@ -56,7 +58,8 @@ async function handle(request, action, body) {
 }
 export async function GET(request) {
   if (!request.nextUrl.searchParams.has("receipt")) {
-    if (!isMobileMediaRequest(request.headers) || !mediaServiceConfig().enabled) return reply({ enabled: false });
+    const config = mediaServiceConfig();
+    if (!isMobileMediaRequest(request.headers) || !config.enabled || (config.internal && !config.playbackEnabled)) return reply({ enabled: false });
     try {
       const token = await getToken(tokenOptions(request));
       const user = token?.id ? await resolveSessionUser(token) : null;

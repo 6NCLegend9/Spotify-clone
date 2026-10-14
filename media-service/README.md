@@ -1,6 +1,8 @@
 # HayKasa media service
 
-This independently hosted service prepares anonymous YouTube source streams through yt-dlp and delivers complete, seekable audio/video files to the shared web/Electron player. FFmpeg copies streams without re-encoding. It does not provide lossless originals or Premium access.
+The service prepares anonymous YouTube source streams through yt-dlp and delivers complete, seekable files to signed-in mobile web players. Desktop and guest playback use the embedded provider.
+
+For the stateless Vercel Services deployment and private Blob storage, see [Vercel setup and verification](../docs/qa/vercel-media/README.md). The instructions below describe the compatible single-instance Docker deployment. FFmpeg copies streams without re-encoding. It does not provide lossless originals or Premium access.
 
 Build with `docker build -t haykasa-media media-service`. Run one instance with port 8090 behind HTTPS and a writable persistent volume mounted at `/cache`. Set:
 
@@ -20,4 +22,4 @@ Only `/health` and signed `/v1/assets/:id` delivery are public. All job routes r
 
 The runtime/dependencies are pinned in Dockerfile/requirements.txt. To update yt-dlp/EJS, review upstream release notes, change pins together, rebuild, and manually verify extraction and actual source-stream decoding from the intended hosting egress. YouTube may reject datacenter traffic or require unsupported authentication. Do not publish a quality guarantee based only on local synthetic files or successful metadata extraction.
 
-No service host is provisioned by this repository. Production activation requires a reachable host with working extraction egress, a writable cache, bandwidth capacity, configured secrets/origins, and live browser/Electron verification. Automated test suites were removed at the owner's request.
+Production activation requires working extraction egress, storage, bandwidth capacity, configured server credentials, and live mobile browser verification. Automated test suites were removed at the owner's request.

@@ -1,6 +1,10 @@
 import { EQ_BAND_FREQS, eqHeadroomGain, normalizationGain } from "@/utils/eqPresets";
 
 export function createNativeAudioGraph(media, settings = {}) {
+  try {
+    const session = globalThis.navigator?.audioSession;
+    if (session) session.type = "playback";
+  } catch { /* Optional audio-session support must not block playback. */ }
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   if (!AudioContext) return null;
   let context, source;
