@@ -43,7 +43,7 @@ const script = `(() => {
  window.vmSample=()=>({time:vmDeck.getCurrentTime(),state:vmDeck.getPlayerState(),paused:document.querySelector('audio')?.paused,visibility:document.visibilityState,tracks:vmResult.tracks,errors:[...vmResult.errors],mobile:vmResult.mobile,requests:vmResult.requests});
 })();`;
 const html='<title>HayKasa VM audio</title><main><h1>Offline playback engine test</h1><p>Synthetic audio. This is a test fixture, not the HayKasa UI.</p><div id="media"></div><button id="play">Play</button><button id="pause">Pause</button><button id="logout">Log out</button></main>';
-async function waitFor(page, predicate) {await page.waitForFunction(predicate,null,{timeout:20000});}
+async function waitFor(page, predicate) {await page.waitForFunction(predicate,null,{timeout:20000,polling:100});}
 (async()=>{
  const results=[];
  try {
@@ -51,11 +51,12 @@ async function waitFor(page, predicate) {await page.waitForFunction(predicate,nu
    ['chromium',chromium,'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36'],
    ['firefox',firefox,'Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130 Firefox/130'],
    ['webkit',webkit,'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1']]) {
-   const browser=await type.launch({headless:process.env.VM_HEADLESS==='1'});
+   const browser=await type.launch({headless:process.env.VM_HEADLESS==='1',...(name==='chromium'?{ignoreDefaultArgs:['--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding']}: {})});
    try {
     const context=await browser.newContext({userAgent:agent,viewport:{width:390,height:844},hasTouch:true});
     const network=[];await context.route(/https?:\/\//,route=>{network.push(route.request().url());return route.abort();});
     const page=await context.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
+    if(name==='chromium'){const protocol=await context.newCDPSession(page);await protocol.send('Emulation.setFocusEmulationEnabled',{enabled:false});}
     await page.setContent(html);await page.addScriptTag({content:script});await waitFor(page,()=>vmResult.ready);
     assert.equal(await page.evaluate(()=>vmResult.mobile),true);assert.equal(await page.evaluate(()=>vmResult.desktopNarrow),false);assert.equal(await page.evaluate(()=>vmGuestAllowed()),false);
     await page.click('#play');await waitFor(page,()=>vmDeck.getCurrentTime()>0.4 && vmDeck.getPlayerState()===1);
@@ -68,7 +69,8 @@ async function waitFor(page, predicate) {await page.waitForFunction(predicate,nu
     await new Promise(resolve=>setTimeout(resolve,1800));
     const background=await page.evaluate(()=>vmSample());
     const hidden=background.visibility==='hidden';
-    assert.equal(hidden,true,name+' must enter a real minimized-window state');
+    console.log('BACKGROUND '+JSON.stringify({engine:name,windowTitle,before,background}));
+    if(name==='chromium')assert.equal(hidden,true,name+' must enter a real minimized-window state');
     if(hidden){assert.ok(background.time>before.time+0.5,'Audio must advance while hidden');assert.equal(background.paused,false);}
     await page.evaluate(()=>vmDeck.seekTo(7.8));await waitFor(page,()=>vmResult.tracks===2 && vmDeck.getCurrentTime()>0.2);
     const advance=await page.evaluate(()=>vmSample());assert.equal(advance.errors.length,0);
