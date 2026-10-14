@@ -155,7 +155,7 @@ class JobManager:
             shutil.rmtree(job["directory"], ignore_errors=True)
             raise
         except Exception as error:
-            allowed = {"compatible_audio_unavailable", "compatible_video_unavailable", "source_duration_unsupported", "queue_full", "cache_full", "tool_timeout", "temporary_disk_limit", "asset_size_limit"}
+            allowed = {"compatible_audio_unavailable", "compatible_video_unavailable", "source_duration_unsupported", "queue_full", "cache_full", "tool_timeout", "temporary_disk_limit", "asset_size_limit", "upstream_tool_failed", "tool_output_limit"}
             reason = str(error)
             job.update(state="failed", reason=reason if reason in allowed else "preparation_failed")
             shutil.rmtree(job["directory"], ignore_errors=True)

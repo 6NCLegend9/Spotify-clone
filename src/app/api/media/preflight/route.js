@@ -14,7 +14,7 @@ export async function GET(request) {
   if (process.env.VERCEL_ENV !== "preview" || process.env.MEDIA_SERVICE_DEPLOYMENT_PROBE !== "1") return reply({ error: "not_found" }, 404);
   const config = mediaServiceConfig();
   if (!config.enabled || !config.internal) return reply({ ready: false, stage: "configuration" }, 503);
-  const rate = await isRateLimited("media:deployment-preflight", { max: 1, windowMs: 3600_000 });
+  const rate = await isRateLimited(`media:deployment-preflight:${process.env.VERCEL_URL || "local"}`, { max: 1, windowMs: 3600_000, storage: "memory" });
   if (rate.limited) return reply({ ready: false, stage: "rate_limit" }, 429);
   config.deliveryOrigin = request.nextUrl.origin;
   const subscriber = mediaScopeHash(`deployment-probe:${randomUUID()}`, config.secret);

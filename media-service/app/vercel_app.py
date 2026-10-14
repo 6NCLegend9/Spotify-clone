@@ -94,6 +94,14 @@ async def invalid_request(_request, _error):
     return JSONResponse({"detail": "request_invalid"}, status_code=422)
 
 
+@app.exception_handler(Exception)
+async def unavailable(_request, _error):
+    # SDK errors can contain private URLs or storage credentials. Clients get
+    # a stable retryable error without serializing provider diagnostics.
+    return JSONResponse({"detail": "service_unavailable"}, status_code=503,
+        headers={"Cache-Control": "private, no-store"})
+
+
 async def read_manifest(client, job_id, who=None):
     _, path = paths(job_id)
     if created(job_id) + TTL <= time.time():
@@ -171,7 +179,7 @@ async def create_job(body: ResolveRequest, request: Request, who=Depends(subscri
                     record = manager.jobs[job["jobId"]]
                     await record["task"]
                     if record["state"] != "ready":
-                        return {"jobId": job["jobId"], "state": "failed", "reason": "source_unavailable"}
+                        return {"jobId": job["jobId"], "state": "failed", "reason": record.get("reason", "source_unavailable")}
                     job_id = f"{int(time.time()):08x}{uuid.uuid4().hex[:24]}"
                     asset_path, manifest_path = paths(job_id)
                     asset = record["asset"]
@@ -187,10 +195,14 @@ async def create_job(body: ResolveRequest, request: Request, who=Depends(subscri
                     return result(value, delivery_origin)
                 finally:
                     await manager.close()
-    except (TimeoutError, asyncio.CancelledError):
+    except asyncio.CancelledError:
         if uploaded:
             await client.delete(uploaded)
         raise
+    except TimeoutError:
+        if uploaded:
+            await client.delete(uploaded)
+        raise HTTPException(503, "preparation_timeout") from None
     except HTTPException:
         raise
     except Exception:

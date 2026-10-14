@@ -49,7 +49,7 @@ JobManager.prepare = prepare
 async def main():
     headers={'Authorization':'Bearer '+media.API_KEY,'X-Media-Subscriber':'a'*64,'X-Media-Public-Origin':'https://preview.example.test'}
     payload={'videoId':'abcdefghijk','mode':'audio','profile':'mp4-aac','maxHeight':1080}
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=media.app),base_url='https://preview.example.test') as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=media.app,raise_app_exceptions=False),base_url='https://preview.example.test') as client:
         assert (await client.post('/v1/jobs',json=payload)).status_code == 401
         assert (await client.post('/v1/jobs',content=b'x'*4097,headers=headers)).status_code == 413
         assert (await client.post('/v1/jobs',json={**payload,'videoId':'<script>'},headers=headers)).status_code == 422
@@ -79,6 +79,23 @@ async def main():
         assert (await client.delete('/v1/jobs/'+job,headers=headers)).status_code==200
         assert not objects
         assert (await client.head(signed)).status_code==404
+        original_put=Blob.put
+        async def interrupted_put(self,path,data,**kwargs):
+            if path.endswith('manifest.json'):
+                raise RuntimeError('private-storage-token-must-not-leak')
+            return await original_put(self,path,data,**kwargs)
+        Blob.put=interrupted_put
+        failure=await client.post('/v1/jobs',json=payload,headers=headers)
+        Blob.put=original_put
+        assert failure.status_code==503 and 'private-storage-token' not in failure.text
+        assert not objects, 'partial upload survived manifest failure'
+        original_get=Blob.get
+        async def failed_get(self,*args,**kwargs):
+            raise RuntimeError('private-storage-token-must-not-leak')
+        Blob.get=failed_get
+        outage=await client.get('/v1/jobs/'+job,headers=headers)
+        Blob.get=original_get
+        assert outage.status_code==503 and 'private-storage-token' not in outage.text
     stale=f'{int(time.time()-media.TTL-1):08x}'+'c'*24
     objects[media.paths(stale)[0]]=b'expired'
     objects['unrelated/customer-file']=b'keep'
