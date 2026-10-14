@@ -6,10 +6,8 @@ import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import PlaylistModal from "./PlaylistModal";
 import { getUserPlaylists } from "@/services/playlistApi";
 import { useNav } from "../Layout/AppShell";
-import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { toUserError } from "@/utils/userError";
 import { useSession } from "next-auth/react";
@@ -27,7 +25,6 @@ const AccountPlaylists = ({ owner, status, compact }) => {
   const { setShowNav } = useNav();
   const cached = cachedPlaylists?.owner === owner && Date.now() - cachedPlaylists.savedAt < 300_000
     ? cachedPlaylists.data : null;
-  const [show, setShow] = useState(false);
   const [playlists, setPlaylists] = useState(() => cached ?? []);
   const [loading, setLoading] = useState(() => cached === null);
   const [error, setError] = useState(null);
@@ -75,7 +72,19 @@ const AccountPlaylists = ({ owner, status, compact }) => {
       }
     };
     getPlaylists();
-    const onChanged = () => { cachedPlaylists = null; setRefreshKey((value) => value + 1); };
+    const onChanged = (event) => {
+      if (event.detail?.owner && event.detail.owner !== owner) return;
+      const created = event.detail?.playlist;
+      if (created?._id) {
+        setPlaylists((current) => {
+          const list = [created, ...current.filter((item) => item._id !== created._id)];
+          cachedPlaylists = { owner, data: list, savedAt: Date.now() };
+          return list;
+        });
+        setError(null);
+      }
+      setRefreshKey((value) => value + 1);
+    };
     window.addEventListener("heykasa:playlists-changed", onChanged);
     return () => {
       active = false;
@@ -96,8 +105,7 @@ const AccountPlaylists = ({ owner, status, compact }) => {
         {status === "authenticated" && <Link href="/library/liked" onClick={() => setShowNav(false)} className="mb-2 flex min-h-16 items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--navy-panel)]"><span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-[var(--navy-panel)] text-xl text-[var(--accent)]">♥</span><span><span className="block text-sm font-semibold">Liked Songs</span><span className="block text-xs text-[var(--muted)]">Your saved songs</span></span></Link>}
         {loading ? <p className="px-2 py-3 text-xs text-[var(--muted)]">Loading playlists…</p> : null}
         {!loading && status === "unauthenticated" ? <div className="my-3 rounded-lg bg-[var(--navy-raised)] p-4"><p className="font-bold">Create your first playlist</p><p className="my-3 text-sm">It’s easy. We’ll help you.</p><Link href="/signup" className="inline-flex min-h-11 items-center rounded-full bg-white px-4 text-sm font-bold text-black">Sign up free</Link></div> : !loading && error ? <div className="px-2 py-2"><UserMessage compact title={error.title} message={error.message} onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined} href={error.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
-        {!loading && !error && playlists.length === 0 ? <div className="px-2 py-2"><EmptyState title="No playlists yet" message="Create one to keep songs together." actionLabel="Create playlist" onAction={() => setShow(true)} /></div> : null}
-        {!loading && !error && <LibraryList playlists={playlists} owner={owner}>{(playlist) => (
+        {!error && playlists.length > 0 && <LibraryList playlists={playlists} owner={owner}>{(playlist) => (
           <ContextMenuTarget key={playlist._id} className="group flex items-center justify-between rounded-lg pr-1 hover:bg-[var(--navy-panel)]">
             <Link data-library-playlist="true" href={`/library/playlist/${playlist._id}`} onClick={() => setShowNav(false)} aria-current={pathname === `/library/playlist/${playlist._id}` ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
               <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md"><PlaylistCover playlist={playlist} className="h-full w-full" /></span>
@@ -107,7 +115,6 @@ const AccountPlaylists = ({ owner, status, compact }) => {
           </ContextMenuTarget>
         )}</LibraryList>}
       </div>
-      <PlaylistModal show={show} setShow={setShow} onCreated={() => setRefreshKey((value) => value + 1)} />
     </>
   );
 };

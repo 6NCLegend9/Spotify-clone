@@ -225,8 +225,8 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   const ownerImage = isLiked ? session?.user?.image : collection?.user?.imageUrl;
   const title = isLiked ? "Liked Songs" : collection?.name || "Playlist";
   const typeLabel = isLiked
-    ? "Dynamic Collection"
-    : `${collection?.visibility === "public" ? "Public" : "Private"} ${collection?.category || "Pop"} Playlist`;
+    ? "Playlist"
+    : `${collection?.visibility === "public" ? "Public" : "Private"} playlist`;
 
   const filteredTracks = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
@@ -479,32 +479,31 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
   if (!loading && isLiked && status === "unauthenticated") return <AccessGate />;
 
   return (
-    <main className="page-collection text-white">
+    <main className={`page-collection text-white ${isLiked ? "is-liked-collection" : ""}`}>
       {editDetails && isOwner && !isLiked && collection && <EditPlaylistDetails playlist={collection} onClose={() => setEditDetails(false)} onSaved={setCollection} />}
       {!error && collection ? (
         <ContextMenuTarget as="section" className="collection-hero px-[3vw] pb-8 pt-8">
           <div className="collection-hero-content mx-auto flex w-full max-w-[1440px] flex-col gap-6">
             {isLiked ? (
-              <LikedCover className="aspect-square w-40 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60" />
+              <LikedCover className="collection-artwork aspect-square w-48 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60" />
             ) : (
               <PlaylistCover
                 playlist={{
                   ...collection,
                   cover: tracks[0]?.thumbnail,
                 }}
-                showLabel
-                className="w-40 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60"
+                className="collection-artwork w-48 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60"
               />
             )}
-            <div className="min-w-0 pb-1">
+            <div className="min-w-0 flex-1 pb-1">
               <p className="text-xs font-bold uppercase text-white/80">{typeLabel}</p>
-              <h1 className="collection-title mt-3 break-words font-bold">{isOwner && !isLiked ? <button type="button" onClick={() => setEditDetails(true)} title="Edit playlist details" className="text-left hover:underline">{title}</button> : title}</h1>
-              {!isLiked && collection.description && <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-white/70">{collection.description}</p>}
+              <h1 className="collection-title mt-3 break-words font-bold">{isOwner && !isLiked ? <button type="button" onClick={() => setEditDetails(true)} title="Edit playlist details" className="max-w-full text-left [overflow-wrap:anywhere] hover:underline">{title}</button> : title}</h1>
+              {!isLiked && collection.description && <p className="mt-4 max-w-2xl break-words whitespace-pre-wrap text-sm leading-6 text-white/70">{collection.description}</p>}
               <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-gray-200">
                 {ownerImage ? <img src={ownerImage} alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10"><FiMusic /></span>}
                 <strong className="text-white">{ownerName}</strong>
                 <span>&bull;</span>
-                <span>{tracks.length.toLocaleString()} {tracks.length === 1 ? "song" : "songs"}, {formatTotalDuration(totalDuration)}</span>
+                <span>{tracks.length.toLocaleString()} {tracks.length === 1 ? "song" : "songs"}{tracks.length > 0 ? `, ${formatTotalDuration(totalDuration)}` : ""}</span>
                 {!isLiked && collection.collaborators?.length > 0 && <><span>&bull;</span><span>{collection.collaborators.length} collaborator{collection.collaborators.length === 1 ? "" : "s"}</span></>}
               </div>
             </div>
@@ -546,7 +545,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             ) : null}
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
               <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="play-fab play-fab--static mr-2 h-14 w-14 min-h-14 min-w-14 disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
-              <button type="button" aria-pressed={discoveryShuffle} onClick={toggleDiscoveryShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${discoveryShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle /> Shuffle + Discovery {discoveryShuffle ? "On" : "Off"}</button>
+              <button type="button" aria-label="Shuffle + Discovery" title="Shuffle + Discovery" aria-pressed={discoveryShuffle} onClick={toggleDiscoveryShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${discoveryShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle className="text-2xl" /><span className="sr-only">Shuffle + Discovery {discoveryShuffle ? "On" : "Off"}</span></button>
               {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => current ? ({ ...current, ...next }) : current)} /> : null}
               {isPublicPlaylist ? (
                 <>
@@ -566,12 +565,13 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                   </button>
                 </>
               ) : null}
-              <button type="button" disabled={!isOwner || isLiked} onClick={() => setShowCollaborator(true)} title={isLiked ? "Dynamic collections cannot have collaborators" : isOwner ? "Add collaborator" : "Only the owner can invite collaborators"} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiUserPlus /> <span className="hidden sm:inline">Add collaborator</span></button>
+              {isOwner && !isLiked && <button type="button" onClick={() => setShowCollaborator(true)} title="Add collaborator" className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiUserPlus /> <span className="hidden sm:inline">Add collaborator</span></button>}
               <button type="button" aria-label="Search in playlist" title="Search in playlist" aria-expanded={showSearch} onClick={() => setShowSearch((value) => !value)} className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"><FiSearch /> <span className="hidden sm:inline">Search in playlist</span></button>
-              <div className="relative ml-auto flex items-center">
+              {isOwner && !isLiked && <div className="relative flex items-center">
                 <button type="button" aria-label="Playlist options" title="Playlist options" aria-expanded={showOptions} disabled={!isOwner || isLiked} onClick={() => setShowOptions((value) => !value)} className="grid h-11 w-11 place-items-center rounded-full text-xl text-gray-300 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"><FiMoreHorizontal /></button>
                 {showOptions && collection && (
                   <div className="absolute right-0 top-12 z-20 w-[min(20rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] rounded-md border border-white/10 bg-[#111d28] p-1.5 text-sm shadow-2xl">
+                    <button type="button" onClick={() => { setShowOptions(false); setEditDetails(true); }} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10">Edit details</button>
                     <button type="button" disabled={saving} onClick={() => updateSetting("pinned", !collection.pinned)} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10"><BsPinAngleFill /> {collection.pinned ? "Unpin from Library" : "Pin to Library"}</button>
                     <button type="button" disabled={saving} onClick={() => updateSetting("visibility", collection.visibility === "public" ? "private" : "public")} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left hover:bg-white/10">{collection.visibility === "public" ? <FiLock /> : <FiGlobe />} Make {collection.visibility === "public" ? "private" : "public"}</button>
                     <div className="border-t border-white/10 px-3 py-2">
@@ -600,7 +600,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                     <button type="button" disabled={saving} onClick={removePlaylist} className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-red-300 hover:bg-red-400/10"><FiTrash2 /> Delete playlist</button>
                   </div>
                 )}
-              </div>
+              </div>}
             </section>
 
             {showSearch && (
@@ -613,9 +613,9 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             )}
 
             <section className="collection-tracks" aria-label={`${title} tracks`}>
-              <div className="playlist-track-heading grid items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400">
+              {tracks.length > 0 && <div className="playlist-track-heading grid items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400">
                 <span className="text-center">#</span><span>Title &amp; artist</span><span className="hidden md:block">Album</span><span className="hidden lg:block">Date added</span><span className="mx-auto hidden md:inline"><FiClock aria-hidden="true" className="inline" /><span className="sr-only">Duration</span></span><span />
-              </div>
+              </div>}
               <VirtualizedPlaylistTrackList
                 tracks={filteredTracks}
                 activeYoutubeId={activeYoutubeId}
@@ -626,11 +626,10 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                 scrollKey={`${owner}:${isLiked ? "liked" : playlistId || collection?._id || "playlist"}`}
               />
               {tracks.length === 0 && (
-                <div className="py-8">
-                  <EmptyState
-                    title="No tracks yet"
-                    message="Save music from Home or Search to build this collection."
-                  />
+                <div className="border-t border-white/10 py-10">
+                  <h2 className="text-xl font-bold sm:text-2xl">{isLiked ? "Songs you like live here" : "Let’s find some songs for your playlist"}</h2>
+                  <p className="mt-2 text-sm text-[var(--muted)]">{isLiked ? "Save songs with the heart button to keep them here." : "Find a song, then choose Add to playlist from its menu."}</p>
+                  <Link href="/search" className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-black hover:bg-gray-200"><FiSearch aria-hidden="true" />Find songs</Link>
                 </div>
               )}
               {tracks.length > 0 && filteredTracks.length === 0 && (

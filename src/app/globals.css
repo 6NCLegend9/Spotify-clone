@@ -873,13 +873,19 @@ select:-webkit-autofill {
   /* Collection density follows available content width, not the entire display.
      Row height remains 66px: virtualization owns its measurement contract. */
   .page-collection { container-type: inline-size; min-width: 0; }
-  .collection-title { font-size: clamp(28px, 5cqi, 48px); line-height: 1.2; overflow-wrap: anywhere; }
-  .collection-hero { background: var(--navy-raised); border-bottom: 1px solid var(--hairline); }
+  .collection-title { font-size: clamp(28px, 6cqi, 80px); line-height: 1.08; letter-spacing: -0.035em; overflow-wrap: anywhere; }
+  .collection-hero { background: linear-gradient(180deg, var(--navy-raised), var(--navy-panel)); }
+  .is-liked-collection .collection-hero { background: linear-gradient(180deg, #5038a0, var(--navy-panel)); }
+  .collection-artwork { align-self: center; }
   .collection-tracks { container-type: inline-size; }
-  .playlist-track-row, .playlist-track-heading { grid-template-columns: 44px minmax(0, 1fr) 44px 44px; }
+  .playlist-track-row, .playlist-track-heading { grid-template-columns: minmax(0, 1fr) 88px; }
+  .playlist-track-row > :first-child, .playlist-track-heading > :first-child { display: none; }
+  .playlist-track-heading { display: none; }
   .playlist-track-row > :nth-child(3), .playlist-track-row > :nth-child(4),
   .playlist-track-heading > :nth-child(3), .playlist-track-heading > :nth-child(4) { display: none; }
   @container (min-width: 640px) {
+    .playlist-track-heading { display: grid; }
+    .playlist-track-row > :first-child, .playlist-track-heading > :first-child { display: grid; }
     .playlist-track-row, .playlist-track-heading { grid-template-columns: 44px minmax(0, 2fr) minmax(0, 1fr) 60px 96px; }
     .playlist-track-row > :nth-child(3), .playlist-track-row > :nth-child(5),
     .playlist-track-heading > :nth-child(3), .playlist-track-heading > :nth-child(5) { display: block; }
@@ -890,6 +896,7 @@ select:-webkit-autofill {
   }
   @container (min-width: 560px) {
     .collection-hero-content { flex-direction: row; align-items: flex-end; }
+    .collection-artwork { align-self: flex-end; }
   }
   .collection-grid, .browse-grid, .browse-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 16px; }
   .browse-picks { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }

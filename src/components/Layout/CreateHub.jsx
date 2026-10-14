@@ -80,9 +80,6 @@ export default function CreateHub() {
       <PlaylistModal
         show={playlistOpen}
         setShow={setPlaylistOpen}
-        onCreated={() => {
-          window.dispatchEvent(new Event("heykasa:playlists-changed"));
-        }}
       />
     </>
   );

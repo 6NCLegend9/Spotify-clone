@@ -200,10 +200,15 @@ function AccountLibraryView({ session, status, owner }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    const onPlaylistsChanged = () => setRefreshKey((value) => value + 1);
+    const onPlaylistsChanged = (event) => {
+      if (event.detail?.owner && event.detail.owner !== owner) return;
+      const created = event.detail?.playlist;
+      if (created?._id) setPlaylists((current) => [created, ...current.filter((item) => item._id !== created._id)]);
+      setRefreshKey((value) => value + 1);
+    };
     window.addEventListener("heykasa:playlists-changed", onPlaylistsChanged);
     return () => window.removeEventListener("heykasa:playlists-changed", onPlaylistsChanged);
-  }, []);
+  }, [owner]);
 
   useEffect(() => {
     if (!owner) return;
@@ -426,7 +431,7 @@ function AccountLibraryView({ session, status, owner }) {
           )}
         </>
       )}
-      <PlaylistModal show={showCreate} setShow={setShowCreate} onCreated={() => setRefreshKey((value) => value + 1)} />
+      <PlaylistModal show={showCreate} setShow={setShowCreate} />
     </main>
   );
 }
