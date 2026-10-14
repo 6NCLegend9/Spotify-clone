@@ -2,6 +2,19 @@
 import asyncio
 import os
 import signal
+import logging
+import re
+
+
+def redacted_preview_error(stderr):
+    text = stderr.decode("utf-8", errors="replace")
+    # Diagnostics are restricted to opt-in previews. Remove environment values
+    # before generic URL/token redaction; never print signed media URLs.
+    for value in sorted((v for v in os.environ.values() if len(v) >= 8), key=len, reverse=True):
+        text = text.replace(value, "[redacted]")
+    text = re.sub(r"https?://[^\s\"'<>]+", "[redacted URL]", text)
+    text = re.sub(r"[A-Za-z0-9_+/=-]{32,}", "[redacted token]", text)
+    return text[-1500:]
 
 
 def failure_reason(stderr):
@@ -88,5 +101,7 @@ async def run_tool(argv, deadline_seconds, output_limit_bytes=4 * 1024 * 1024, d
         await asyncio.gather(stdout, stderr, guard, waiter, completion, limiter, return_exceptions=True)
     if process.returncode:
         # yt-dlp errors can contain signed URLs or authentication details.
+        if os.environ.get("VERCEL_ENV") == "preview" and os.environ.get("MEDIA_SERVICE_DEPLOYMENT_PROBE") == "1":
+            logging.getLogger("haykasa.media.preview").warning("Preview tool failure: %s", redacted_preview_error(stderr.result()))
         raise ValueError(failure_reason(stderr.result()))
     return stdout.result()

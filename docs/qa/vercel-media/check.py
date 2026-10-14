@@ -51,6 +51,7 @@ async def main():
     payload={'videoId':'abcdefghijk','mode':'audio','profile':'mp4-aac','maxHeight':1080}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=media.app,raise_app_exceptions=False),base_url='https://preview.example.test') as client:
         assert (await client.post('/v1/jobs',json=payload)).status_code == 401
+        assert (await client.post('/v1/probes/storage',headers=headers)).status_code == 404
         assert (await client.post('/v1/jobs',content=b'x'*4097,headers=headers)).status_code == 413
         assert (await client.post('/v1/jobs',json={**payload,'videoId':'<script>'},headers=headers)).status_code == 422
         assert (await client.post('/v1/jobs',json=payload,headers={**headers,'X-Media-Public-Origin':'javascript:alert(1)'})).status_code == 400
@@ -131,3 +132,9 @@ assert failure_reason(b'challenge solving failed') == 'source_challenge_failed'
 assert failure_reason(b'HTTP Error 403: Forbidden') == 'source_http_forbidden'
 assert failure_reason(b'signed URL or unknown private details') == 'upstream_tool_failed'
 print('PASS: safe upstream failure classification without returning stderr or secrets')
+
+from app.processes import redacted_preview_error
+os.environ['QA_SECRET']='diagnostic-private-token-00000000000000000000'
+summary=redacted_preview_error(b'ERROR: HTTP Error 403: Forbidden https://signed.example/?key=private diagnostic-private-token-00000000000000000000')
+assert 'HTTP Error 403' in summary and 'https://' not in summary and 'diagnostic-private-token' not in summary
+print('PASS: preview-only provider diagnostics remove environment secrets, signed URLs and long tokens')
