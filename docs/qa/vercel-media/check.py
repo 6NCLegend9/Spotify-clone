@@ -71,6 +71,23 @@ async def main():
         assert len(calls)==before, 'invalid lease touched private storage'
         head=await client.head(signed,headers={'Range':'bytes=2-5'})
         assert head.status_code==206 and head.headers['content-length']=='4' and head.content==b''
+        original_client=httpx.AsyncClient
+        class Bytes(httpx.AsyncByteStream):
+            def __init__(self,data): self.data=data
+            async def __aiter__(self): yield self.data
+        def storage(request):
+            assert request.headers['authorization']=='Bearer isolated-storage-token'
+            body=objects[request.url.path.lstrip('/')]
+            start,end,_=media.byte_range(request.headers['range'],len(body))
+            return httpx.Response(206,headers={'Content-Range':f'bytes {start}-{end}/{len(body)}'},stream=Bytes(body[start:end+1]))
+        media.httpx.AsyncClient=lambda **options: original_client(transport=httpx.MockTransport(storage),**options)
+        fetched=await client.get(signed,headers={'Range':'bytes=2-5'})
+        full=await client.get(signed)
+        media.httpx.AsyncClient=original_client
+        assert fetched.status_code==206 and fetched.content==b'unde'
+        assert full.status_code==200 and full.content==b'bounded-audio-fixture'
+        assert 'isolated-storage-token' not in str(fetched.headers)
+
         assert (await client.head(signed,headers={'Range':'bytes=999-'})).status_code==416
         assert (await client.head(signed,headers={'Range':'bytes=0-1,4-5'})).status_code==416
         assert (await client.head(signed,headers={'Range':'bytes=-0'})).status_code==416
