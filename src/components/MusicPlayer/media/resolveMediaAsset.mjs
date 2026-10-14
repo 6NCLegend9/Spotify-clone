@@ -1,13 +1,16 @@
+import { mobileMediaHeaders } from "@/utils/mobileMediaPolicy.mjs";
+
+const clientHeaders = () => mobileMediaHeaders(globalThis.navigator, Boolean(globalThis.window?.heykasaDesktop));
 const endpoint = "/api/media/resolve";
 export async function mediaRequest(body, signal) {
-  const response = await fetch(endpoint, { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
+  const response = await fetch(endpoint, { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json", ...clientHeaders() }, body: JSON.stringify(body), signal });
   const result = await response.json();
   if (!response.ok) throw new Error(result.reason || "service_unavailable");
   return result;
 }
 export function cancelMediaReceipt(receipt) {
   if (!receipt) return;
-  void fetch(endpoint, { method: "DELETE", credentials: "same-origin", cache: "no-store", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ receipt }) }).catch(() => {});
+  void fetch(endpoint, { method: "DELETE", credentials: "same-origin", cache: "no-store", keepalive: true, headers: { "Content-Type": "application/json", ...clientHeaders() }, body: JSON.stringify({ receipt }) }).catch(() => {});
 }
 function delay(ms, signal) {
   return new Promise((resolve, reject) => {

@@ -1,0 +1,47 @@
+name: Mobile Playback VM
+on:
+  pull_request:
+    paths:
+      - 'src/components/MusicPlayer/**'
+      - 'src/utils/mobileMediaPolicy.mjs'
+      - 'src/utils/youtubeResumePolicy.mjs'
+      - 'src/utils/mediaSessionCompatibility.mjs'
+      - 'src/app/api/media/**'
+      - 'docs/qa/mobile-source-playback/**'
+      - 'docs/qa/background-playback/**'
+      - '.github/workflows/mobile-playback-vm.yml'
+permissions:
+  contents: read
+concurrency:
+  group: mobile-playback-vm-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: node docs/qa/mobile-source-playback/check.cjs
+      - run: node docs/qa/background-playback/check.cjs
+      - run: sudo apt-get install -y openbox xdotool x11-utils
+      - name: Test browser playback with real window minimization
+        run: |
+          xvfb-run -a bash -c '
+            openbox >/tmp/haykasa-vm-window-manager.log 2>&1 &
+            vm_window_manager_pid=$!
+            trap "kill $vm_window_manager_pid 2>/dev/null || true" EXIT
+            node docs/qa/mobile-source-playback/browser.cjs
+          '
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: mobile-source-vm-results
+          path: artifacts/mobile-source-vm/
+          retention-days: 7

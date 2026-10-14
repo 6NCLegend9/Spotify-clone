@@ -7,11 +7,13 @@ import { resolveSessionUser } from "@/utils/sessionAuth";
 import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { mediaServiceConfig, validateMediaRequest, callMediaService, normalizeMediaResult } from "@/utils/mediaService.mjs";
-import { signMediaReceipt, verifyMediaReceipt, mediaScopeHash, newGuestIdentity } from "@/utils/mediaReceipts.mjs";
+import { signMediaReceipt, verifyMediaReceipt, mediaScopeHash } from "@/utils/mediaReceipts.mjs";
+
+import { isMobileMediaRequest } from "@/utils/mobileMediaPolicy.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
-const COOKIE = "heykasa-media-guest";
+
 const HEADERS = { "Cache-Control": "private, no-store" };
 const reply = (data, status = 200) => NextResponse.json(data, { status, headers: HEADERS });
 
@@ -22,14 +24,14 @@ function trusted(request) {
   return process.env.NODE_ENV !== "production" && origin === request.nextUrl.origin;
 }
 async function handle(request, action, body) {
+  if (action !== "cancel" && !isMobileMediaRequest(request.headers)) return reply({ state: "failed", reason: "mobile_only" }, 403);
   const config = mediaServiceConfig();
   if (!config.enabled) return reply({ state: "failed", reason: "service_unconfigured" }, 503);
   try {
     const token = await getToken(tokenOptions(request));
     const user = token?.id ? await resolveSessionUser(token) : null;
-    const guest = verifyMediaReceipt(request.cookies.get(COOKIE)?.value, null, config.secret);
-    const identity = guest && /^[a-f0-9]{48}$/.test(guest.id || "") ? { id: guest.id } : newGuestIdentity(config.secret);
-    const scope = mediaScopeHash(user ? `account:${user.id}:${token.sessionVersion}` : `guest:${identity.id}`, config.secret);
+    if (!user) return reply({ state: "failed", reason: "authentication_required" }, 401);
+    const scope = mediaScopeHash(`account:${user.id}:${token.sessionVersion}`, config.secret);
     let subscriber;
     const limits = action === "create" ? { max: 12, windowMs: 60_000 } : { max: 100, windowMs: 60_000 };
     const rate = await isRateLimited(`media:${action === "create" ? "create" : "poll"}:${getClientKey(request)}:${scope}`, limits);
@@ -49,12 +51,18 @@ async function handle(request, action, body) {
       result = await callMediaService(config, `/v1/jobs/${receipt.jobId}${action === "renew" ? "/renew" : ""}`, { method: action === "cancel" ? "DELETE" : action === "renew" ? "POST" : "GET", subscriber });
     }
     const response = action === "cancel" ? reply({ cancelled: true }) : reply({ ...normalizeMediaResult(result, config), receipt: signMediaReceipt({ scope, subscriber, jobId: result.jobId, selection, expiresAt: Date.now() + 4 * 3600_000 }, config.secret) });
-    if (!user && identity.cookie) response.cookies.set(COOKIE, identity.cookie, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 86400 });
     return response;
   } catch { return reply({ state: "failed", reason: "service_unavailable" }, 503); }
 }
 export async function GET(request) {
-  if (!request.nextUrl.searchParams.has("receipt")) return reply({ enabled: mediaServiceConfig().enabled });
+  if (!request.nextUrl.searchParams.has("receipt")) {
+    if (!isMobileMediaRequest(request.headers) || !mediaServiceConfig().enabled) return reply({ enabled: false });
+    try {
+      const token = await getToken(tokenOptions(request));
+      const user = token?.id ? await resolveSessionUser(token) : null;
+      return reply({ enabled: Boolean(user) });
+    } catch { return reply({ enabled: false }); }
+  }
   return handle(request, "poll", { receipt: request.nextUrl.searchParams.get("receipt") });
 }
 export async function POST(request) {
