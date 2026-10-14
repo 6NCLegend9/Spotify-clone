@@ -19,7 +19,7 @@
       "installCommand": "npm ci",
       "buildCommand": "npm run build",
       "functions": {
-        "src/app/api/media/resolve/route.js": {
+        "src/app/api/media/**/route.js": {
           "maxDuration": 300
         },
         "src/app/api/**/*.js": {
