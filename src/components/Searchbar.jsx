@@ -18,6 +18,7 @@ import AddToQueueButton from "@/components/AddToQueueButton";
 import { requestJson } from "@/services/http";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { interactiveYoutubeSearchCache, normalizeSearchRequestKey } from "@/utils/searchRequestCache.mjs";
+import { preferredArtistChannel, artistPageHref } from "@/utils/artistNavigation.mjs";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
@@ -39,6 +40,7 @@ const AccountSearchbar = ({ accountKey }) => {
   const browseActive = pathname === "/search";
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
+  const [resolvingArtist, setResolvingArtist] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [songs, setSongs] = useState([]);
   const [recentQueries, setRecentQueries] = useState([]);
@@ -46,6 +48,7 @@ const AccountSearchbar = ({ accountKey }) => {
   const inputId = useId();
   const listboxId = useId();
   const abortRef = useRef(null);
+  const navigationRef = useRef(null);
   const recentsAbortRef = useRef(null);
   const recentsLoadedAtRef = useRef(0);
   const activeAccountRef = useRef(null);
@@ -88,7 +91,10 @@ const AccountSearchbar = ({ accountKey }) => {
     setRecentLoading(false);
   }, [accountKey]);
 
+  useEffect(() => { navigationRef.current?.abort(); }, [pathname]);
+
   useEffect(() => () => {
+    navigationRef.current?.abort();
     abortRef.current?.abort();
     recentsAbortRef.current?.abort();
   }, []);
@@ -224,17 +230,29 @@ const AccountSearchbar = ({ accountKey }) => {
     return recentQueries.map((query, index) => ({ type: "recent-query", key: `recent-query-${index}-${query}`, query }));
   }, [searchTerm, songs, recentQueries, allowExplicit]);
 
-  const go = (query) => {
+  const go = async (query) => {
     const next = String(query || "").trim();
     if (!next) return;
     setSearchTerm(next);
     setOpen(false);
     setActiveIndex(-1);
     dispatch(setIsTyping(false));
-    router.push(`/search/${encodeURIComponent(next)}`);
+    navigationRef.current?.abort();
+    const controller = new AbortController();
+    navigationRef.current = controller;
+    setResolvingArtist(true);
+    try {
+      const data = await requestJson(buildYoutubeSearchUrl({ q: next, type: "channel" }, "interactive"), { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      const artist = preferredArtistChannel(data?.results, next);
+      if (artist) { router.push(artistPageHref(artist.id, artist.title)); return; }
+    } catch { if (controller.signal.aborted) return; }
+    finally { if (navigationRef.current === controller) setResolvingArtist(false); }
+    if (!controller.signal.aborted) router.push(`/search/${encodeURIComponent(next)}`);
   };
 
   const playSong = (song) => {
+    navigationRef.current?.abort();
     if (!song?.id) return;
     const title = cleanTitle(song.title || song.name, "Song");
     const artist = cleanArtist(song.channel || song.artist || song.author);
@@ -327,7 +345,7 @@ const AccountSearchbar = ({ accountKey }) => {
     <form ref={clusterRef} role="search" aria-label="Search music" onSubmit={handleSubmit} autoComplete="off" className="search-cluster-form">
       <div className={`search-field ${browseActive ? "is-browse" : ""}`}>
         <label htmlFor={inputId} className="search-field-icon-hit">
-          <FiSearch aria-hidden="true" className="search-field-icon" />
+          <FiSearch aria-hidden="true" className={`search-field-icon ${resolvingArtist ? "animate-pulse" : ""}`} />
           <span className="sr-only">Search songs, artists, playlists, and genres</span>
         </label>
         <input
@@ -344,12 +362,14 @@ const AccountSearchbar = ({ accountKey }) => {
           placeholder={compactPlaceholder ? "Search" : "What do you want to play?"}
           value={searchTerm}
           role="combobox"
+          aria-busy={resolvingArtist}
           aria-autocomplete="list"
           aria-haspopup="listbox"
           aria-expanded={suggestionsVisible}
           aria-controls={suggestionsVisible ? listboxId : undefined}
           aria-activedescendant={suggestionsVisible && selectedIndex >= 0 ? `${listboxId}-option-${selectedIndex}` : undefined}
           onChange={(event) => {
+            navigationRef.current?.abort();
             setSearchTerm(event.target.value);
             setOpen(true);
             setActiveIndex(-1);

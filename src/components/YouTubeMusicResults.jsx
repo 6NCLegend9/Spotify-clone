@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
+import { preferredArtistChannel, artistPageHref } from "@/utils/artistNavigation.mjs";
 import ArtistNameLink from "@/components/ArtistNameLink";
 import { CardGridSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
@@ -184,7 +185,11 @@ export default function YouTubeMusicResults({ query }) {
         const list = Array.isArray(data?.results) ? data.results : [];
         setSearchSource(data?.source || "");
         if (resultType === "video") setResults(list);
-        else if (resultType === "channel") setArtists(list);
+        else if (resultType === "channel") {
+          const artist = preferredArtistChannel(list, query);
+          if (artist) { router.replace(artistPageHref(artist.id, artist.title)); return; }
+          setArtists(list);
+        }
         else setAlbums(list);
         setNextPageToken(data?.nextPageToken || "");
         if (status === "authenticated") {
@@ -222,7 +227,7 @@ export default function YouTubeMusicResults({ query }) {
       controller.abort();
       pageController.current?.abort();
     };
-  }, [query, searchRetryKey, status, searchUrl, resultType]);
+  }, [query, searchRetryKey, status, searchUrl, resultType, router]);
 
   const loadMore = async () => {
     if (!nextPageToken || loadingMore) return;
