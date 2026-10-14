@@ -19,7 +19,8 @@ for name in ('put', 'get', 'list_objects', 'delete'):
     assert hasattr(AsyncBlobClient, name), name
 inspect.signature(AsyncBlobClient.put).bind(None, 'path', b'bytes', access='private', content_type='audio/mp4', add_random_suffix=False, multipart=True)
 inspect.signature(AsyncBlobClient.get).bind(None, 'path', access='private', use_cache=False, timeout=8)
-BlobResponse = next(kind for kind in get_args(get_type_hints(AsyncBlobClient.get)['return']) if kind is not type(None))
+response_type = get_type_hints(AsyncBlobClient.get)['return']
+BlobResponse = next(kind for kind in (get_args(response_type) or (response_type,)) if kind is not type(None))
 assert 'content' in get_type_hints(BlobResponse), 'Installed SDK response contract changed'
 inspect.signature(AsyncBlobClient.list_objects).bind(None, prefix='path/', limit=1000)
 inspect.signature(AsyncBlobClient.delete).bind(None, ['path'])

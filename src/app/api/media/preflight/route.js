@@ -37,12 +37,15 @@ export async function GET(request) {
   try {
     await inspect(await callMediaService(config, "/v1/probes/storage", { method: "POST", subscriber }), "storage");
     storagePassed = true;
-    stage = "extraction";
-    const value = await callMediaService(config, "/v1/jobs", { method: "POST", subscriber, body: { videoId: "BaW_jenozKc", mode: "audio", maxHeight: 1080, profile: "mp4-aac" } });
-    if (value.state !== "ready") return reply({ ready: false, storage: "passed", range: "passed", stage, reason: value.reason || "source_unavailable" }, 503);
-    stage = "source_delivery";
-    const result = await inspect(value, "source");
-    return reply({ ready: true, extraction: "passed", storage: "passed", persistence: "passed", range: "passed", mimeType: result.asset.mimeType, duration: result.asset.duration, bytes: 1024 });
+    const profiles = {};
+    for (const profile of ["mp4-aac", "webm-opus"]) {
+      stage = `extraction_${profile}`;
+      const value = await callMediaService(config, "/v1/jobs", { method: "POST", subscriber, body: { videoId: "BaW_jenozKc", mode: "audio", maxHeight: 1080, profile } });
+      if (value.state !== "ready") return reply({ ready: false, storage: "passed", range: "passed", stage, reason: value.reason || "source_unavailable" }, 503);
+      const result = await inspect(value, `source_${profile}`);
+      profiles[profile] = { mimeType: result.asset.mimeType, duration: result.asset.duration, bytes: 1024 };
+    }
+    return reply({ ready: true, extraction: "passed", storage: "passed", persistence: "passed", range: "passed", profiles });
   } catch (error) { return reply({ ready: false, storage: storagePassed ? "passed" : "failed", stage, upstreamStatus: Number.isInteger(error.status) ? error.status : null }, 503); }
   finally {
     for (const jobId of jobs) {
