@@ -76,7 +76,7 @@ function verify(state) {
         if (url.pathname === '/api/userPlaylists') body = { success: true, data: { playlists: [{ _id: 'playlist-one', name: 'My playlist' }, { _id: 'playlist-one', name: 'My playlist' }] } };
         if (url.pathname === '/api/followedArtists/releases') body = { releases: [release, release, history[0]] };
         if (url.pathname === '/api/favourite') body = { success: true, data: { favourites: [anniversary.id], favouriteAddedAt: { [anniversary.id]: lastYear.toISOString() } } };
-        if (url.pathname === '/api/week-on-kasa') body = { success: true, tracks: [selectedFeed.sections.explore.tracks[0], selectedFeed.sections.explore.tracks[0], history[0]] };
+        if (url.pathname === '/api/week-on-kasa') body = { success: true, tracks: selectedFeed.sections.explore.tracks };
         if (url.pathname === '/api/youtube-videos') body = { tracks: url.searchParams.getAll('id').map(id => metadataTracks.find(track => track.id === id)).filter(Boolean).map(track => ({ ...track, duration: 200 })) };
         if (url.pathname === '/api/media/resolve') body = { enabled: false };
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });

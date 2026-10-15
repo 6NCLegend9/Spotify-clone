@@ -212,7 +212,7 @@ async function highlightCheck() {
   assert.equal(new Set(highlightRows.map(identities.canonicalSongIdentity)).size, 24, 'Highlights share existing slots and dedupe across both halves');
   const balancedInput = { status: 'authenticated', forYou: { tracks: pool.slice(0, 12), playlists: Array.from({ length: 4 }, (_, i) => ({ id: `familiar-${i}`, title: `Taste ${i}` })) }, explore: { tracks: pool.slice(12, 24), playlists: Array.from({ length: 4 }, (_, i) => ({ id: `explore-${i}`, title: `Explore ${i}` })) } };
   const baseSplit = discovery.composeHomePage(balancedInput);
-  const changedSplit = discovery.composeHomePage({ ...balancedInput, anniversary: [{ ...pool[12], id: 'variant0001' }, pool[70], pool[71], pool[72], pool[73]], weekly: [pool[79], { ...pool[15], id: 'variant0002' }] });
+  const changedSplit = discovery.composeHomePage({ ...balancedInput, releases: [pool[12], pool[13]], anniversary: [{ ...pool[12], id: 'variant0001' }, pool[70], pool[71], pool[72], pool[73]], weekly: [pool[79], { ...pool[15], id: 'variant0002' }] });
   assert.deepEqual(Array.from(changedSplit.explore.tracks, t => t.id), Array.from(baseSplit.explore.tracks, t => t.id), 'Personal highlights cannot replace or steal from discovery');
   assert.equal(changedSplit.forYou.tracks.length, 12);
   assert.equal(changedSplit.explore.tracks.length, 12);
