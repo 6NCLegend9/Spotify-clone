@@ -45,7 +45,7 @@ function verify(state) {
   assert(ready, 'Next server starts');
   browser = await chromium.launch({ headless: true });
   for (const [device, viewport] of Object.entries({ desktop: { width: 1440, height: 1000 }, mobile: { width: 390, height: 844 } })) {
-    for (const [name, fixture] of Object.entries(fixtures)) {
+    for (const [name, fixture] of Object.entries({ ...fixtures, guest: fixtures.empty })) {
       const context = await browser.newContext({ viewport, isMobile: device === 'mobile', hasTouch: device === 'mobile', reducedMotion: 'reduce', serviceWorkers: 'block' });
       await context.addInitScript(() => {
         localStorage.setItem('toturialComplete', 'true');
@@ -59,18 +59,24 @@ function verify(state) {
       page.on('pageerror', error => errors.push(error.message));
       const history = Array.from({ length: 20 }, (_, i) => syntheticTrack(i));
       const release = { ...fixture.initial.sections.forYou.tracks[0], publishedAt: new Date().toISOString() };
+      const anniversary = { id: 'ann00000001', title: 'Anniversary memory', channel: 'Memory Artist', duration: 180 };
+      const weekly = { id: 'wk000000001', title: 'Weekly discovery', channel: 'Weekly Artist', duration: 200 };
+      const lastYear = new Date(); lastYear.setFullYear(lastYear.getFullYear() - 1);
       let requestCount = 0;
       await context.route('**/*', async route => {
         const url = new URL(route.request().url());
         if (url.origin !== origin) return route.abort();
         if (!url.pathname.startsWith('/api/')) return route.continue();
         let body = { success: true, data: [] };
-        if (url.pathname === '/api/auth/session') body = { user: { id: 'alice', name: 'Home QA', email: 'qa@example.invalid' }, expires: '2099-01-01T00:00:00.000Z' };
+        if (url.pathname === '/api/auth/session') body = name === 'guest' ? null : { user: { id: 'alice', name: 'Home QA', email: 'qa@example.invalid' }, expires: '2099-01-01T00:00:00.000Z' };
         if (url.pathname === '/api/settings') body = { authenticated: true, settings: { privateSession: name === 'private', explicitContent: false } };
         if (url.pathname === '/api/recommendations') { recommendationRequests.push(url.search); body = requestCount++ ? fixture.refreshed : fixture.initial; }
         if (url.pathname === '/api/history') body = { success: true, data: history };
         if (url.pathname === '/api/userPlaylists') body = { success: true, data: { playlists: [{ _id: 'playlist-one', name: 'My playlist' }, { _id: 'playlist-one', name: 'My playlist' }] } };
         if (url.pathname === '/api/followedArtists/releases') body = { releases: [release, release, history[0]] };
+        if (url.pathname === '/api/favourite') body = { success: true, data: { favourites: [anniversary.id], favouriteAddedAt: { [anniversary.id]: lastYear.toISOString() } } };
+        if (url.pathname === '/api/week-on-kasa') body = { success: true, tracks: [weekly, weekly, history[0]] };
+        if (url.pathname === '/api/youtube-videos') body = { tracks: url.searchParams.getAll('id').map(id => [anniversary, weekly, ...history].find(track => track.id === id)).filter(Boolean) };
         if (url.pathname === '/api/media/resolve') body = { enabled: false };
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
@@ -84,8 +90,28 @@ function verify(state) {
       });
       await page.getByRole('button', { name: 'Refresh discovery', exact: true }).waitFor();
       // Wait for the independent history/library/release requests to settle.
-      await page.waitForFunction(() => document.querySelector('.home-quick [data-home-playlist]'));
+      if (name !== 'guest') await page.waitForFunction(() => document.querySelector('.home-quick [data-home-playlist]'));
+      await page.getByRole('heading', { name: 'This week on HayKasa', exact: true }).waitFor();
+      if (!['private', 'guest'].includes(name)) await page.getByRole('heading', { name: 'This day on HayKasa', exact: true }).waitFor();
+      else assert.equal(await page.getByRole('heading', { name: 'This day on HayKasa', exact: true }).count(), 0);
       const before = await inspect(page); verify(before);
+      await page.getByRole('button', { name: 'Music', exact: true }).click();
+      const musicOnly = await inspect(page);
+      assert.equal(musicOnly.playlists.length, 0, 'Music filter contains no playlists');
+      assert.equal(musicOnly.halves['for-you'].tracks, 12);
+      assert.equal(musicOnly.halves.explore.tracks, 12);
+      await page.getByRole('button', { name: 'Made for you', exact: true }).click();
+      const personalOnly = await inspect(page);
+      assert.equal(personalOnly.halves.explore, undefined, 'Made for you excludes public exploration');
+      if (name === 'guest') {
+        assert.equal(personalOnly.tracks.length, 0);
+        await page.getByRole('heading', { name: 'Your music, your way', exact: true }).waitFor();
+      } else {
+        assert.equal(personalOnly.halves['for-you'].tracks, 12);
+        assert.equal(personalOnly.tracks.length, 12, 'Made for you excludes listening history and quick access');
+      }
+      await page.getByRole('button', { name: 'All', exact: true }).click();
+      verify(await inspect(page));
       const pageCopy = await page.locator('.page-home').innerText();
       if (['activity', 'searchOnly', 'historyOnly'].includes(name)) assert(pageCopy.includes('Inspired by your recent searches and listening.'));
       if (['taste', 'artistOnly'].includes(name)) assert(pageCopy.includes('Songs and playlists inspired by your genres and favorite artists.'));

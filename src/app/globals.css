@@ -51,7 +51,7 @@ body {
   max-height: 100dvh;
   overflow: hidden;
   font-family: Arial, Helvetica, system-ui, sans-serif;
-  background: transparent; /* Keep the shared LightPillar background visible. */
+  background: transparent; /* Keep the shared appearance background visible. */
   color: var(--text);
   color-scheme: dark;
 }
@@ -86,9 +86,6 @@ html.is-scrolling .home-quick-card.is-playing,
 html.is-scrolling .home-mix-pattern,
 html.is-scrolling .home-mix-stamp,
 html.is-scrolling .home-mix::after,
-html.is-scrolling .home-feature-card::after,
-html.is-scrolling .home-feature-play::before,
-html.is-scrolling .home-feature-play::after,
 html.is-scrolling .player-dock::after,
 html.is-scrolling .library-tile::after,
 html.is-scrolling .card::after,
@@ -197,7 +194,7 @@ html[data-a11y-contrast="high"] :is(.app-ghost-fibers, .app-ghost-fibers-shade, 
   display: none;
 }
 
-html[data-a11y-contrast="high"] :is(.app-sidebar, .app-navbar, .player-dock, .auth-card, .card, .glass-panel, .library-tile, .home-feature-card, .home-quick-card, .search-field, .search-suggest) {
+html[data-a11y-contrast="high"] :is(.app-sidebar, .app-navbar, .player-dock, .auth-card, .card, .glass-panel, .library-tile, .home-quick-card, .search-field, .search-suggest) {
   background: var(--navy-raised);
   border: 1px solid #fff;
   box-shadow: none;
@@ -1176,55 +1173,6 @@ select:-webkit-autofill {
     color: #fff;
   }
 
-  .home-feature {
-    position: relative;
-    z-index: 1;
-    margin-bottom: 1.75rem;
-  }
-
-  .home-feature-card {
-    position: relative;
-    display: flex;
-    width: min(100%, 36rem);
-    max-width: 36rem;
-    overflow: hidden;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 0;
-    box-shadow: none;
-  }
-
-  .home-feature-card::after {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      115deg,
-      transparent 36%,
-      rgba(255, 255, 255, 0.08) 50%,
-      transparent 64%
-    );
-    opacity: 0.55;
-  }
-
-  .home-feature-art {
-    display: block;
-    width: 9.5rem;
-    height: 9.5rem;
-    flex-shrink: 0;
-    object-fit: cover;
-  }
-
-  .home-feature-meta {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 0.7rem 0.75rem 0.65rem;
-  }
-
   .home-rail-wrap {
     position: relative;
     z-index: 1;
@@ -1514,22 +1462,6 @@ select:-webkit-autofill {
   .play-fab--static:hover,
   .play-fab.is-on {
     transform: none;
-  }
-
-  .home-feature-play {
-    display: grid;
-    height: 2.75rem;
-    width: 2.75rem;
-    place-items: center;
-    border-radius: 999px;
-    background: var(--accent);
-    color: #030814;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
-    transition: transform var(--motion-fast) var(--motion-ease);
-  }
-
-  .home-feature-play:hover {
-    transform: scale(1.06);
   }
 
   .card {
@@ -2161,15 +2093,6 @@ select:-webkit-autofill {
     width: 11.25rem;
     min-width: 0;
   }
-
-  .home-feature-art {
-    width: 10.5rem;
-    height: 10.5rem;
-  }
-
-  .home-feature-card {
-    max-width: 38rem;
-  }
 }
 
 @media (min-width: 768px) {
@@ -2211,15 +2134,6 @@ select:-webkit-autofill {
     flex-basis: 12.25rem;
     width: 12.25rem;
     min-width: 0;
-  }
-
-  .home-feature-art {
-    width: 12rem;
-    height: 12rem;
-  }
-
-  .home-feature-card {
-    max-width: 40rem;
   }
 
   .sidebar-resizer {
@@ -2488,7 +2402,6 @@ select:-webkit-autofill {
   }
 
   .home-mix::before,
-  .home-feature-card::after,
   .app-atmosphere-grain {
     display: none;
   }
@@ -3537,7 +3450,6 @@ body {
 }
 
 .home-quick-card,
-.home-feature-card,
 .home-shelf-card,
 .home-square,
 .library-tile,
@@ -3551,7 +3463,6 @@ body {
 }
 
 .home-quick-card:hover,
-.home-feature-card:hover,
 .home-shelf-card:hover,
 .home-square:hover,
 .library-tile:hover,
@@ -3647,7 +3558,6 @@ body {
   }
 
   .home-quick-card,
-  .home-feature-card,
   .home-shelf-card,
   .home-square,
   .library-tile {
@@ -3658,7 +3568,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .nav-link,
   .home-quick-card,
-  .home-feature-card,
   .home-shelf-card,
   .home-square,
   .library-tile,

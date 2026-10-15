@@ -67,15 +67,3 @@ export async function getFavourite() {
       : toUserError(error, fallback);
   }
 }
-
-export async function getUserInfo() {
-  try {
-    const data = await requestJson("/api/userInfo", {
-      fallbackTitle: "Profile unavailable",
-      fallbackMessage: "We couldn’t load your profile. Please try again.",
-    });
-    return data?.data && typeof data.data === "object" ? data.data : null;
-  } catch {
-    return null;
-  }
-}

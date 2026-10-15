@@ -141,7 +141,7 @@ export function selectHomePlaylists(familiar, exploration, { rotation = 0, seenP
   return { forYou: selected[0], explore: selected[1] };
 }
 
-export function composeHomePage({ status, history = [], playlists = [], releases = [], forYou = {}, explore = {} }) {
+export function composeHomePage({ status, history = [], playlists = [], releases = [], anniversary = [], weekly = [], forYou = {}, explore = {} }) {
   const recent = uniqueHomeTracks(history).map((track) => ({ ...track, title: track.title || track.name }));
   const library = [...new Map(playlists.map((playlist) => [String(playlist._id), playlist])).values()];
   const quickItems = [
@@ -151,16 +151,21 @@ export function composeHomePage({ status, history = [], playlists = [], releases
   const quickTracks = recent.slice(0, 8 - quickItems.length);
   quickTracks.forEach((track, queueIndex) => quickItems.push({ ...track, type: "track", queue: quickTracks, queueIndex }));
   const tasteTracks = uniqueHomeTracks([
+    ...anniversary.slice(0, 3),
     ...releases.slice(0, 4).map((track) => ({ ...track, kicker: "New from an artist you follow" })),
     ...(forYou.tracks || []),
   ], recent).slice(0, 12);
-  const exploreTracks = uniqueHomeTracks(explore.tracks || [], [...recent, ...tasteTracks, ...releases]).slice(0, 12);
+  const exploreTracks = uniqueHomeTracks([...weekly.slice(0, 3), ...(explore.tracks || [])], [...recent, ...tasteTracks, ...releases]).slice(0, 12);
+  const anniversaryIds = new Set(anniversary.slice(0, 3).map((track) => track.id));
+  const weeklyIds = new Set(weekly.slice(0, 3).map((track) => track.id));
   const tastePlaylists = uniqueHomePlaylists(forYou.playlists || []).slice(0, 4);
   const explorePlaylists = uniqueHomePlaylists(explore.playlists || [], tastePlaylists).slice(0, 4);
   return {
     quickItems,
     history: recent.slice(quickTracks.length, quickTracks.length + 8),
-    forYou: { ...forYou, tracks: tasteTracks, playlists: tastePlaylists },
-    explore: { ...explore, tracks: exploreTracks, playlists: explorePlaylists },
+    anniversary: tasteTracks.filter((track) => anniversaryIds.has(track.id)),
+    weekly: exploreTracks.filter((track) => weeklyIds.has(track.id)),
+    forYou: { ...forYou, tracks: tasteTracks, mainTracks: tasteTracks.filter((track) => !anniversaryIds.has(track.id)), playlists: tastePlaylists },
+    explore: { ...explore, tracks: exploreTracks, mainTracks: exploreTracks.filter((track) => !weeklyIds.has(track.id)), playlists: explorePlaylists },
   };
 }

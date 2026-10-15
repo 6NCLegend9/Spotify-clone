@@ -4,6 +4,8 @@ on:
     paths:
       - 'src/components/Homepage/**'
       - 'src/hooks/useHomeFeed.js'
+      - 'src/hooks/useHomeHighlights.js'
+      - 'src/utils/thisDayOnKasa.mjs'
       - 'src/utils/homeDiscovery.mjs'
       - 'src/utils/recommendationSeeds.mjs'
       - 'src/app/api/recommendations/**'

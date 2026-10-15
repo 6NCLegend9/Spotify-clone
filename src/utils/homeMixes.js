@@ -29,18 +29,6 @@ export function mixBackground(palette = {}) {
   return `linear-gradient(rgb(3 8 20 / 40%), rgb(3 8 20 / 40%)), linear-gradient(145deg, ${from} 0%, ${via} 52%, ${to} 100%)`;
 }
 
-export function daypartLabel(date = new Date()) {
-  const hour = date.getHours();
-  if (hour < 12) return "morning";
-  if (hour < 17) return "afternoon";
-  return "evening";
-}
-
-export function soundtrackHeading(date = new Date()) {
-  const weekday = date.toLocaleDateString("en-US", { weekday: "long" });
-  return `Soundtrack your ${weekday} ${daypartLabel(date)}`;
-}
-
 export function buildMoodMixes() {
   return MOOD_OPTIONS.map((mood, index) => ({
     id: `mood-${mood.id}`,
