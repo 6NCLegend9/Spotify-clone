@@ -1,6 +1,9 @@
 name: Desktop Release
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       channel:
@@ -32,29 +35,52 @@ permissions:
   contents: read
 
 concurrency:
-  group: desktop-release-${{ inputs.channel }}
+  group: desktop-release-${{ inputs.channel || 'stable' }}
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    name: Resolve release channel and version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      channel: ${{ steps.release.outputs.channel }}
+      version: ${{ steps.release.outputs.version }}
+      minimum_version: ${{ steps.release.outputs.minimum_version }}
+      release_notes_url: ${{ steps.release.outputs.release_notes_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+      - name: Resolve automatic or manual release
+        id: release
+        env:
+          DESKTOP_RELEASE_INPUTS: ${{ toJSON(inputs) }}
+        run: node desktop/scripts/resolve-release-metadata.mjs
+
   web-gate:
     name: Verify web/native contract
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Protect stable channel
         shell: bash
         run: |
-          if [ "${{ inputs.channel }}" = "stable" ] && [ "${{ github.ref_name }}" != "main" ]; then
-            echo "Stable desktop releases must run from main. Current ref: ${{ github.ref_name }}" >&2
+          if [ "${{ needs.prepare.outputs.channel }}" = "stable" ] && [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "Stable desktop releases must run from main. Current ref: $GITHUB_REF_NAME" >&2
             exit 1
           fi
       - name: Reject existing versioned release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_CHANNEL: ${{ inputs.channel }}
-          RELEASE_VERSION: ${{ inputs.version }}
-          HEYKASA_DESKTOP_RELEASE_NOTES_URL: ${{ inputs.release_notes_url }}
+          RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          HEYKASA_DESKTOP_RELEASE_NOTES_URL: ${{ needs.prepare.outputs.release_notes_url }}
         run: |
           set -euo pipefail
           if ! [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
@@ -126,12 +152,16 @@ jobs:
         run: npm run audit:production
       - name: Typecheck web integration
         run: npm run typecheck
+      - name: Check release automation and mini-player lifecycle
+        run: |
+          node desktop/scripts/check-auto-release.mjs
+          node desktop/scripts/check-mini-player.mjs
       - name: Build production web application
         run: npm run build
 
   internal-release:
-    if: inputs.channel == 'internal'
-    needs: web-gate
+    if: needs.prepare.outputs.channel == 'internal'
+    needs: [prepare, web-gate]
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
@@ -140,8 +170,8 @@ jobs:
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
       HEYKASA_DESKTOP_RELEASE_CHANNEL: internal
-      HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ inputs.minimum_version }}
-      HEYKASA_DESKTOP_RELEASE_NOTES_URL: ${{ inputs.release_notes_url }}
+      HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ needs.prepare.outputs.minimum_version }}
+      HEYKASA_DESKTOP_RELEASE_NOTES_URL: ${{ needs.prepare.outputs.release_notes_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -154,7 +184,7 @@ jobs:
       - name: Stamp internal release version
         shell: pwsh
         run: |
-          npm version "${{ inputs.version }}" --no-git-tag-version
+          npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version
           npm pkg set heykasaReleaseChannel=internal
       - name: Build internal Windows installer
         run: npm run dist
@@ -163,7 +193,7 @@ jobs:
         run: npm run prepare-github-release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: heykasa-desktop-internal-${{ inputs.version }}
+          name: heykasa-desktop-internal-${{ needs.prepare.outputs.version }}
           path: |
             desktop/dist/HayKasa-Setup-*-x64.exe
             desktop/dist/latest.yml
@@ -173,8 +203,8 @@ jobs:
           retention-days: 14
 
   publish-internal:
-    if: inputs.channel == 'internal'
-    needs: internal-release
+    if: needs.prepare.outputs.channel == 'internal'
+    needs: [prepare, internal-release]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -182,14 +212,14 @@ jobs:
     steps:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: heykasa-desktop-internal-${{ inputs.version }}
+          name: heykasa-desktop-internal-${{ needs.prepare.outputs.version }}
           path: release
       - name: Resolve internal release tag
         id: meta
         shell: bash
         run: |
-          echo "tag=desktop-internal-v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          echo "name=HayKasa Desktop Internal ${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          echo "tag=desktop-internal-v${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
+          echo "name=HayKasa Desktop Internal ${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
@@ -213,8 +243,8 @@ jobs:
           done
 
   signed-release:
-    if: inputs.channel != 'internal'
-    needs: web-gate
+    if: needs.prepare.outputs.channel != 'internal'
+    needs: [prepare, web-gate]
     runs-on: windows-latest
     timeout-minutes: 45
     environment: desktop-release
@@ -225,9 +255,9 @@ jobs:
       CSC_LINK: ${{ secrets.HEYKASA_WINDOWS_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.HEYKASA_WINDOWS_CSC_PASSWORD }}
       HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: ${{ secrets.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET }}
-      HEYKASA_DESKTOP_RELEASE_CHANNEL: ${{ inputs.channel }}
-      HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ inputs.minimum_version }}
-      HEYKASA_DESKTOP_RELEASE_NOTES_URL: ${{ inputs.release_notes_url }}
+      HEYKASA_DESKTOP_RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
+      HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ needs.prepare.outputs.minimum_version }}
+      HEYKASA_DESKTOP_RELEASE_NOTES_URL: ${{ needs.prepare.outputs.release_notes_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -248,14 +278,14 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Validate release version monotonicity
         env:
-          HEYKASA_DESKTOP_REQUESTED_VERSION: ${{ inputs.version }}
-          HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ inputs.minimum_version }}
+          HEYKASA_DESKTOP_REQUESTED_VERSION: ${{ needs.prepare.outputs.version }}
+          HEYKASA_DESKTOP_MINIMUM_VERSION: ${{ needs.prepare.outputs.minimum_version }}
         run: node scripts/validate-release-version.mjs
       - name: Stamp signed release version
         shell: pwsh
         run: |
-          npm version "${{ inputs.version }}" --no-git-tag-version
-          npm pkg set heykasaReleaseChannel="${{ inputs.channel }}"
+          npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version
+          npm pkg set heykasaReleaseChannel="${{ needs.prepare.outputs.channel }}"
       - name: Verify v1 package metadata
         shell: pwsh
         run: |
@@ -286,7 +316,7 @@ jobs:
           if ($sbom.bomFormat -ne 'CycloneDX') { throw "Desktop SBOM generation failed" }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: heykasa-desktop-release-${{ inputs.version }}-${{ inputs.channel }}
+          name: heykasa-desktop-release-${{ needs.prepare.outputs.version }}-${{ needs.prepare.outputs.channel }}
           path: |
             desktop/dist/HayKasa-Setup-*-x64.exe
             desktop/dist/latest.yml
@@ -297,8 +327,8 @@ jobs:
           retention-days: 14
 
   publish-signed:
-    if: inputs.channel != 'internal'
-    needs: signed-release
+    if: needs.prepare.outputs.channel != 'internal'
+    needs: [prepare, signed-release]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -307,24 +337,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: heykasa-desktop-release-${{ inputs.version }}-${{ inputs.channel }}
+          name: heykasa-desktop-release-${{ needs.prepare.outputs.version }}-${{ needs.prepare.outputs.channel }}
           path: release
       - name: Resolve signed release metadata
         id: meta
         shell: bash
         run: |
-          if [ "${{ inputs.channel }}" = "stable" ]; then
-            echo "tag=desktop-v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-            echo "name=HayKasa Desktop ${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          if [ "${{ needs.prepare.outputs.channel }}" = "stable" ]; then
+            echo "tag=desktop-v${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "name=HayKasa Desktop ${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=desktop-beta-v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-            echo "name=HayKasa Desktop Beta ${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "tag=desktop-beta-v${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "name=HayKasa Desktop Beta ${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
           fi
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: ${{ steps.meta.outputs.name }}
-          prerelease: ${{ inputs.channel == 'beta' }}
+          prerelease: ${{ needs.prepare.outputs.channel == 'beta' }}
+          generate_release_notes: true
           target_commitish: ${{ github.sha }}
           fail_on_unmatched_files: true
           files: |
@@ -344,7 +375,7 @@ jobs:
           done
       - name: Verify production desktop release endpoints
         env:
-          HEYKASA_DESKTOP_RELEASE_CHANNEL: ${{ inputs.channel }}
+          HEYKASA_DESKTOP_RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
           HEYKASA_DESKTOP_RELEASE_MANIFEST: release/release-manifest.json
           HEYKASA_DESKTOP_PRODUCTION_URL: https://haykasa.vercel.app
         run: node scripts/verify-desktop-production-release.mjs
@@ -354,9 +385,9 @@ jobs:
           installer="$(basename "$(find release -maxdepth 1 -name 'HayKasa-Setup-*-x64.exe' -print -quit)")"
           base="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.meta.outputs.tag }}"
           echo "### HayKasa Desktop signed release" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Version: ${{ inputs.version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Channel: ${{ inputs.channel }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Source ref: ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: ${{ needs.prepare.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Channel: ${{ needs.prepare.outputs.channel }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source ref: $GITHUB_REF_NAME" >> "$GITHUB_STEP_SUMMARY"
           echo "- Source commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Release: $base" >> "$GITHUB_STEP_SUMMARY"
           echo "- Installer: $installer" >> "$GITHUB_STEP_SUMMARY"
