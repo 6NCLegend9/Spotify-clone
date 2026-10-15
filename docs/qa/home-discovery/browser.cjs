@@ -60,7 +60,7 @@ function verify(state) {
       const history = Array.from({ length: 20 }, (_, i) => syntheticTrack(i));
       const release = { ...fixture.initial.sections.forYou.tracks[0], publishedAt: new Date().toISOString() };
       const anniversary = { id: 'ann00000001', title: 'Anniversary memory', channel: 'Memory Artist', duration: 180 };
-      const weekly = { id: 'wk000000001', title: 'Weekly discovery', channel: 'Weekly Artist', duration: 200 };
+      const weekly = { ...fixture.initial.sections.explore.tracks[0], duration: 200 };
       const lastYear = new Date(); lastYear.setFullYear(lastYear.getFullYear() - 1);
       let requestCount = 0;
       await context.route('**/*', async route => {

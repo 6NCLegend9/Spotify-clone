@@ -150,14 +150,20 @@ export function composeHomePage({ status, history = [], playlists = [], releases
   ].slice(0, 8);
   const quickTracks = recent.slice(0, 8 - quickItems.length);
   quickTracks.forEach((track, queueIndex) => quickItems.push({ ...track, type: "track", queue: quickTracks, queueIndex }));
-  const tasteTracks = uniqueHomeTracks([
-    ...anniversary.slice(0, 3),
+  // Establish the recommendation split before inserting optional personal rows.
+  // Memories must never take recordings already allocated to discovery.
+  const tasteCandidates = uniqueHomeTracks([
     ...releases.slice(0, 4).map((track) => ({ ...track, kicker: "New from an artist you follow" })),
     ...(forYou.tracks || []),
-  ], recent).slice(0, 12);
-  const exploreTracks = uniqueHomeTracks([...weekly.slice(0, 3), ...(explore.tracks || [])], [...recent, ...tasteTracks, ...releases]).slice(0, 12);
-  const anniversaryIds = new Set(anniversary.slice(0, 3).map((track) => track.id));
-  const weeklyIds = new Set(weekly.slice(0, 3).map((track) => track.id));
+  ], recent);
+  const exploreTracks = uniqueHomeTracks(explore.tracks || [], [...recent, ...tasteCandidates.slice(0, 12), ...releases]).slice(0, 12);
+  const memories = uniqueHomeTracks(anniversary, [...recent, ...exploreTracks]).slice(0, 3);
+  const tasteTracks = uniqueHomeTracks([...memories, ...tasteCandidates], [...recent, ...exploreTracks]).slice(0, 12);
+  const anniversaryIds = new Set(memories.map((track) => track.id));
+  // A public weekly chart is not a personalization signal. Highlight matches in
+  // the existing exploration selection without replacing its genres or artists.
+  const weeklyRecordings = new Set(weekly.map(canonicalSongIdentity).filter(Boolean));
+  const weeklyIds = new Set(exploreTracks.filter((track) => weeklyRecordings.has(canonicalSongIdentity(track))).slice(0, 3).map((track) => track.id));
   const tastePlaylists = uniqueHomePlaylists(forYou.playlists || []).slice(0, 4);
   const explorePlaylists = uniqueHomePlaylists(explore.playlists || [], tastePlaylists).slice(0, 4);
   return {

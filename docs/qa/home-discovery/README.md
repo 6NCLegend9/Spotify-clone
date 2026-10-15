@@ -70,7 +70,10 @@ persistent rate limiter prevents live discovery verification until preview has
 its own database. Production data is not copied into the VM or previews.
 
 The homepage filters now select songs only or the personal half. Anniversary
-memories and the anonymous weekly pulse share the existing 12-song slots in
-their respective halves, with page-wide recording deduplication. Browser checks
+memories occupy at most three of the personal half’s 12-song slots and cannot
+steal recordings reserved for exploration. Weekly highlights label matching
+recordings already selected for exploration; unrelated public-chart hits never
+replace the recommendation algorithm. Both halves retain up to 12 songs and
+four playlists, with page-wide recording deduplication. Browser checks
 cover all three filters and private/guest anniversary exclusion. Hook checks
 cover optional-source failures, explicit filtering and stale account requests.
