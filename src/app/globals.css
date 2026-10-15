@@ -176,6 +176,8 @@ html[data-a11y-text-size="large"] {
 }
 
 html[data-a11y-contrast="high"] {
+  --brand-deep: #000;
+  --secondary: #fff;
   --accent: #bfdbfe;
   --teal: #dbeafe;
   --teal-mid: #bfdbfe;
@@ -903,7 +905,7 @@ select:-webkit-autofill {
   .collection-grid, .browse-grid, .browse-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 16px; }
   .browse-picks { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
   .browse-category { min-height: 144px; border: 1px solid var(--hairline); transition: border-color 160ms ease; }
-  .browse-category::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(12 16 24 / 45%), rgb(12 16 24 / 10%)); }
+  .browse-category::before { content: ""; position: absolute; inset: 0; background: none; }
   .browse-category:hover { border-color: var(--text); }
   .settings-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
   .page-settings { max-width: 1120px; }

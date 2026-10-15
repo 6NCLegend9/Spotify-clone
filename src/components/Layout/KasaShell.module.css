@@ -1,7 +1,7 @@
 /* Shared music workspace: toolbar, independently scrolling panels and persistent transport. */
 :global(body):has(.navbar) { font-family: Arial, Helvetica, system-ui, sans-serif; background: var(--navy); }
 :global(.app-shell):has(.navbar) { --accent: var(--appearance-accent, #24aae2); --play-ink: var(--appearance-play-ink, #000); --text: #f1f5ff; --muted: #a3b4cc; --hairline: rgb(255 255 255 / 10%); --hairline-cyan: rgb(255 255 255 / 10%); --desktop-player-h: 88px; --mobile-player-h: 64px; --mobile-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px)); height: 100dvh; max-height: 100dvh; min-height: 0; background: var(--navy); }
-.navbar { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: minmax(48px,1fr) minmax(280px,546px) minmax(220px,1fr); align-items: center; min-width: 0; height: 64px; min-height: 64px; padding: 8px 12px; gap: 16px; background: var(--navy); border: 0; border-radius: 0; margin: 0; z-index: 40; }
+.navbar { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: minmax(48px,1fr) minmax(280px,546px) minmax(220px,1fr); align-items: center; min-width: 0; height: 64px; min-height: 64px; padding: 8px 12px; gap: 16px; background: var(--brand-deep); border: 0; border-radius: 0; margin: 0; z-index: 40; }
 .navbar :global(.navbar-slot-start), .navbar :global(.navbar-slot-end), .navbar :global(.navbar-search-cluster) { grid-area: auto; min-width: 0; }
 .navbar :global(.navbar-slot-start) { display: flex; gap: 12px; }
 .navbar :global(.navbar-slot-end) { display: flex; justify-content: flex-end; gap: 12px; }
@@ -49,16 +49,16 @@
 :global(.app-shell):has(.navbar) :global(.kasa-library-scroll a[data-library-playlist][aria-current="page"]) { background: #ffffff12; border-radius: 4px; }
 :global(.app-shell.is-sidebar-collapsed):has(.navbar) :global(.sidebar-head-actions) { display: none; }
 :global(.app-shell.is-sidebar-collapsed):has(.navbar) :global(.sidebar-head) { padding-inline: 8px; }
-:global(.app-shell):has(.navbar) :global(.sidebar-library-title) { display: flex; align-items: center; gap: 12px; min-height: 44px; color: #b3b3b3; font-size: 16px; font-weight: 700; }
+:global(.app-shell):has(.navbar) :global(.sidebar-library-title) { display: flex; align-items: center; gap: 12px; min-height: 44px; color: #fff; font-size: 16px; font-weight: 700; }
 :global(.app-shell):has(.navbar) :global(.sidebar-library-title:hover) { color: #fff; }
 :global(.app-shell):has(.navbar) :global(.kasa-sidebar-nav) { display: none; }
 :global(.app-shell.is-sidebar-collapsed):has(.navbar) :global(.kasa-sidebar-nav) { display: flex; flex-direction: column; padding: 8px; }
 :global(.app-shell):has(.navbar) :global(.nav-link) { border: 0; background: transparent; border-radius: 4px; box-shadow: none; animation: none; min-height: 44px; color: #b3b3b3; font-size: 14px; }
-:global(.app-shell):has(.navbar) :global(.nav-link:hover), :global(.app-shell):has(.navbar) :global(.nav-link.is-active) { background: #ffffff12; color: #fff; }
+:global(.app-shell):has(.navbar) :global(.nav-link:hover), :global(.app-shell):has(.navbar) :global(.nav-link.is-active) { background: var(--secondary); color: #030814; }
 :global(.app-shell):has(.navbar) :global(.kasa-library-scroll) { overflow-y: auto; min-height: 0; flex: 1; padding: 0 8px 12px; scrollbar-gutter: stable; }
 :global(.app-shell):has(.navbar) :global(.kasa-library-pills) { display: flex; gap: 8px; padding: 0 8px 8px; overflow-x: auto; }
 :global(.app-shell):has(.navbar) :global(.kasa-library-pills a) { display: flex; align-items: center; min-height: 36px; padding: 6px 12px; border-radius: 999px; font-size: 13px; background: #ffffff12; white-space: nowrap; }
-:global(.app-shell):has(.navbar) :global(.kasa-library-pills a[aria-current="page"]) { background: #fff; color: #000; }
+:global(.app-shell):has(.navbar) :global(.kasa-library-pills a[aria-current="page"]) { background: var(--secondary); color: #030814; }
 :global(.app-shell):has(.navbar) :global(.kasa-sidebar-extra) { padding: 16px 8px; color: #b3b3b3; }
 :global(.app-shell):has(.navbar) :global(.kasa-sidebar-extra summary) { min-height: 44px; font-size: 12px; cursor: pointer; }
 :global(.app-shell):has(.navbar) :global(.page-home) { max-width: none; padding: 16px 24px 32px; }
@@ -67,7 +67,7 @@
 :global(.app-shell):has(.navbar) :global(.kasa-home-filters) { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
 :global(.app-shell):has(.navbar) :global(.home-chips) { margin: 0; padding: 0; display: flex; gap: 8px; }
 :global(.app-shell):has(.navbar) :global(.home-chip) { border: 0; background: #ffffff12; color: #fff; min-height: 36px; padding: 8px 14px; font-size: 14px; font-weight: 500; box-shadow: none; }
-:global(.app-shell):has(.navbar) :global(.home-chip.is-active) { background: #fff; color: #000; }
+:global(.app-shell):has(.navbar) :global(.home-chip.is-active) { background: var(--secondary); color: #030814; }
 :global(.app-shell):has(.navbar) :global(.home-display) { font-size: 28px; font-weight: 750; line-height: 1.2; letter-spacing: -.7px; color: #fff; background: none; -webkit-text-fill-color: currentColor; animation: none; }
 :global(.app-shell):has(.navbar) :global(.home-display), :global(.app-shell):has(.navbar) :global(.home-rail-title), :global(.app-shell):has(.navbar) :global(.page-hero h1) { font-family: Arial, Helvetica, system-ui, sans-serif; }
 :global(.app-shell):has(.navbar) :global(.home-subtitle) { font-size: 14px; margin-top: 6px; color: #b3b3b3; }
@@ -127,9 +127,9 @@
  :global(.app-shell):has(.navbar) :global(.empty-player-dock) { display: none; }
  :global(.app-shell):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: var(--mobile-player-h); min-height: var(--mobile-player-h); }
  :global(.app-shell):has(.navbar) :global(.app-tabbar) { display: grid; grid-column: 1; grid-row: 4; background: linear-gradient(color-mix(in srgb, var(--navy-surface) 94%, transparent), var(--navy-surface)); }
- :global(.app-shell):has(.navbar) :global(.app-tab.is-active) { color: #fff; }
+ :global(.app-shell):has(.navbar) :global(.app-tab.is-active) { background: var(--secondary); color: #030814; }
  :global(.app-shell):has(.navbar) :global(.app-tab) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 56px; padding: 6px 4px; color: #b3b3b3; font-size: 11px; font-weight: 400; letter-spacing: 0; }
- :global(.app-shell):has(.navbar) :global(.app-tab.is-active) { color: #fff; font-weight: 600; }
+ :global(.app-shell):has(.navbar) :global(.app-tab.is-active) { background: var(--secondary); color: #030814; font-weight: 600; }
  :global(.app-shell):has(.navbar) :global(.app-tab.is-active svg) { filter: none; animation: none; }
  :global(.app-shell):has(.navbar) :global(.kasa-sidebar-nav) { display: flex; flex-direction: column; }
  :global(.app-shell):has(.navbar) :global(.page-home), :global(.app-shell):has(.navbar) :global(.page) { padding: 16px 16px 24px; }
@@ -155,3 +155,9 @@
 :global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) { --accent: #fff; --play-ink: #000; --text: #fff; --muted: #fff; --hairline: #fff; --hairline-cyan: #fff; }
 :global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) :global(.app-stage), :global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) :global(.kasa-sidebar), :global(html[data-a11y-contrast="high"] .app-shell):has(.navbar) :global(.now-playing-panel) { background: #000; border: 1px solid #fff; }
 :global(.app-shell[data-player="full"]):has(.navbar) :global(.app-player) { height: 100dvh; max-height: none; }
+
+/* Give every supplied brand color a visible role in the shared shell. */
+:global(html:not([data-a11y-contrast="high"])) .navbar .install, :global(html:not([data-a11y-contrast="high"])) .navbar .signup { color: #fff; }
+:global(html:not([data-a11y-contrast="high"]) .app-shell):has(.navbar) :global(.kasa-sidebar) { background: linear-gradient(180deg, var(--brand-deep), var(--navy-surface) 240px); }
+:global(html:not([data-a11y-contrast="high"]) .app-shell):has(.navbar) :global(.kasa-library-scroll a[data-library-playlist][aria-current="page"]) { background: var(--secondary); color: #030814; }
+:global(html[data-a11y-contrast="high"]) .navbar { background: #000; }
