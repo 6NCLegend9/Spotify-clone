@@ -60,7 +60,8 @@ function verify(state) {
       const history = Array.from({ length: 20 }, (_, i) => syntheticTrack(i));
       const release = { ...fixture.initial.sections.forYou.tracks[0], publishedAt: new Date().toISOString() };
       const anniversary = { id: 'ann00000001', title: 'Anniversary memory', channel: 'Memory Artist', duration: 180 };
-      const weekly = { ...fixture.initial.sections.explore.tracks[0], duration: 200 };
+      const metadataTracks = [anniversary, ...history, ...fixture.initial.sections.explore.tracks, ...fixture.refreshed.sections.explore.tracks];
+      let selectedFeed = fixture.initial;
       const lastYear = new Date(); lastYear.setFullYear(lastYear.getFullYear() - 1);
       let requestCount = 0;
       await context.route('**/*', async route => {
@@ -70,13 +71,13 @@ function verify(state) {
         let body = { success: true, data: [] };
         if (url.pathname === '/api/auth/session') body = name === 'guest' ? null : { user: { id: 'alice', name: 'Home QA', email: 'qa@example.invalid' }, expires: '2099-01-01T00:00:00.000Z' };
         if (url.pathname === '/api/settings') body = { authenticated: true, settings: { privateSession: name === 'private', explicitContent: false } };
-        if (url.pathname === '/api/recommendations') { recommendationRequests.push(url.search); body = requestCount++ ? fixture.refreshed : fixture.initial; }
+        if (url.pathname === '/api/recommendations') { recommendationRequests.push(url.search); body = requestCount++ ? fixture.refreshed : fixture.initial; selectedFeed = body; }
         if (url.pathname === '/api/history') body = { success: true, data: history };
         if (url.pathname === '/api/userPlaylists') body = { success: true, data: { playlists: [{ _id: 'playlist-one', name: 'My playlist' }, { _id: 'playlist-one', name: 'My playlist' }] } };
         if (url.pathname === '/api/followedArtists/releases') body = { releases: [release, release, history[0]] };
         if (url.pathname === '/api/favourite') body = { success: true, data: { favourites: [anniversary.id], favouriteAddedAt: { [anniversary.id]: lastYear.toISOString() } } };
-        if (url.pathname === '/api/week-on-kasa') body = { success: true, tracks: [weekly, weekly, history[0]] };
-        if (url.pathname === '/api/youtube-videos') body = { tracks: url.searchParams.getAll('id').map(id => [anniversary, weekly, ...history].find(track => track.id === id)).filter(Boolean) };
+        if (url.pathname === '/api/week-on-kasa') body = { success: true, tracks: [selectedFeed.sections.explore.tracks[0], selectedFeed.sections.explore.tracks[0], history[0]] };
+        if (url.pathname === '/api/youtube-videos') body = { tracks: url.searchParams.getAll('id').map(id => metadataTracks.find(track => track.id === id)).filter(Boolean).map(track => ({ ...track, duration: 200 })) };
         if (url.pathname === '/api/media/resolve') body = { enabled: false };
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
