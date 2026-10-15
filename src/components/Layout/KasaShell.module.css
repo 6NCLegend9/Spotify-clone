@@ -115,6 +115,8 @@
  :global(.app-shell):has(.navbar), :global(.app-shell.is-sidebar-collapsed):has(.navbar) { display: grid; padding: 0; gap: 0; grid-template-columns: minmax(0,1fr); grid-template-rows: 56px minmax(0,1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
  :global(.app-shell[data-has-track="false"]):has(.navbar) { --mobile-player-h: 0px; }
  .navbar { height: 56px; min-height: 56px; padding: 4px 8px; grid-template-columns: auto minmax(0,1fr) auto; gap: 4px; }
+ .navbar:has([role="combobox"][aria-expanded="true"]) { grid-template-columns: minmax(0,1fr); }
+ .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-start), .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-end) { display: none; }
  .brand, .signup, .install, .navbar :global(.nav-home-btn), .navbar :global(.search-browse), .navbar :global(.search-split), .navbar :global(.navbar-slot-start) > :not(button), .navbar :global(.navbar-slot-start) > button:nth-of-type(2), .navbar :global(.navbar-slot-end) > :not(:last-child) { display: none; }
  .navbar :global(.search-field) { height: 44px; min-height: 44px; }
  .navbar :global(.search-field-input) { font-size: 13px; }

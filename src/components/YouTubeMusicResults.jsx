@@ -1,7 +1,7 @@
 "use client";
 
 import ContextMenuTarget from "@/components/ContextMenuTarget";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { BsPlayFill } from "react-icons/bs";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
+import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import { preferredArtistChannel, artistPageHref } from "@/utils/artistNavigation.mjs";
 import ArtistNameLink from "@/components/ArtistNameLink";
 import { CardGridSkeleton } from "@/components/Skeleton";
@@ -19,28 +20,35 @@ import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanArtist, cleanTitle } from "@/utils/text";
-import { SITE_BRAND, SITE_NAME } from "@/utils/siteConfig";
+import { SITE_BRAND } from "@/utils/siteConfig";
 import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
 import { isArtistFollowed, updateArtistMembership } from "@/utils/followedArtistsList.mjs";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { isTrackAllowed } from "@/utils/explicitContent.mjs";
+import { formatDuration } from "@/utils/trackDuration.mjs";
+import styles from "./Search/search.module.css";
+import { uniqueSearchResults } from "@/utils/searchResults.mjs";
 
 export default function YouTubeMusicResults({ query }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const resultType = ["video", "channel", "playlist"].includes(searchParams.get("type")) ? searchParams.get("type") : "video";
+  const view = ["video", "channel", "playlist"].includes(searchParams.get("type")) ? searchParams.get("type") : "all";
+  const isAll = view === "all";
+  const resultType = isAll ? "video" : view;
   const order = searchParams.get("order") === "date" ? "date" : "relevance";
   const length = resultType === "video" && ["short", "medium", "long"].includes(searchParams.get("duration")) ? searchParams.get("duration") : "any";
   const searchUrl = buildYoutubeSearchUrl({ q: query, type: resultType, order, duration: length }, "interactive");
   const changeSearch = (key, value) => {
     const parameters = new URLSearchParams(searchParams.toString());
-    parameters.set(key, value);
+    if (key === "type" && value === "all") parameters.delete(key);
+    else parameters.set(key, value);
     if (key === "type") parameters.delete("duration");
     router.push(`${pathname}?${parameters}`, { scroll: false });
   };
   const [results, setResults] = useState([]);
+  const privateSession = useSelector(state => state.settings.privateSession === true);
   const allowExplicit = useSelector((state) => state.settings.explicitContent === true);
   const visibleResults = results.filter((track) => isTrackAllowed(track, allowExplicit));
   const [nextPageToken, setNextPageToken] = useState("");
@@ -62,7 +70,7 @@ export default function YouTubeMusicResults({ query }) {
   const followOwner = accountOwner(session, status);
   const followOwnerRef = useRef(followOwner);
   followOwnerRef.current = followOwner;
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [songError, setSongError] = useState(null);
   const [searchSource, setSearchSource] = useState("");
   const [searchRetryKey, setSearchRetryKey] = useState(0);
@@ -76,6 +84,7 @@ export default function YouTubeMusicResults({ query }) {
   const [followRetryKey, setFollowRetryKey] = useState(0);
   const [updatingArtists, setUpdatingArtists] = useState([]);
   const extrasRequestId = useRef(0);
+  const extrasController = useRef(null);
 
   useEffect(() => {
     setUpdatingArtists([]);
@@ -170,8 +179,7 @@ export default function YouTubeMusicResults({ query }) {
       setExtrasError(null);
       setLoadingExtras(false);
       extrasRequestId.current += 1;
-      // Only the song/video search runs automatically; artists and playlists cost extra quota
-      // and are fetched on demand via "Show artists & playlists" instead.
+      // All results combine independently loaded song, artist and playlist searches.
       try {
         const data = await requestJson(
           searchUrl,
@@ -182,17 +190,15 @@ export default function YouTubeMusicResults({ query }) {
           },
         );
         if (cancelled) return;
-        const list = Array.isArray(data?.results) ? data.results : [];
+        const list = uniqueSearchResults(data?.results);
         setSearchSource(data?.source || "");
         if (resultType === "video") setResults(list);
         else if (resultType === "channel") {
-          const artist = preferredArtistChannel(list, query);
-          if (artist) { router.replace(artistPageHref(artist.id, artist.title)); return; }
           setArtists(list);
         }
         else setAlbums(list);
         setNextPageToken(data?.nextPageToken || "");
-        if (status === "authenticated") {
+        if (status === "authenticated" && !privateSession) {
           void requestJson("/api/searches", {
             method: "POST",
             body: { term: query },
@@ -226,8 +232,10 @@ export default function YouTubeMusicResults({ query }) {
       cancelled = true;
       controller.abort();
       pageController.current?.abort();
+      extrasRequestId.current += 1;
+      extrasController.current?.abort();
     };
-  }, [query, searchRetryKey, status, searchUrl, resultType, router]);
+  }, [query, searchRetryKey, status, searchUrl, resultType, router, privateSession]);
 
   const loadMore = async () => {
     if (!nextPageToken || loadingMore) return;
@@ -237,7 +245,7 @@ export default function YouTubeMusicResults({ query }) {
     try {
       const response = await requestJson(`${searchUrl}&pageToken=${encodeURIComponent(nextPageToken)}`, { signal: controller.signal });
       if (controller.signal.aborted) return;
-      const append = (current) => [...current, ...(response.results || [])].filter((item, index, all) => all.findIndex((entry) => entry.id === item.id) === index);
+      const append = (current) => uniqueSearchResults([...current, ...uniqueSearchResults(response.results)]);
       if (resultType === "video") setResults(append);
       else if (resultType === "channel") setArtists(append);
       else setAlbums(append);
@@ -246,19 +254,24 @@ export default function YouTubeMusicResults({ query }) {
     finally { if (!controller.signal.aborted) setLoadingMore(false); }
   };
 
-  const loadExtras = async ({ retry = false } = {}) => {
+  const loadExtras = useCallback(async ({ retry = false } = {}) => {
     if ((!retry && extrasLoaded) || loadingExtras) return;
     const requestId = extrasRequestId.current + 1;
     extrasRequestId.current = requestId;
+    const controller = new AbortController();
+    extrasController.current?.abort();
+    extrasController.current = controller;
     setLoadingExtras(true);
     setExtrasError(null);
     try {
       const [channelResult, playlistResult] = await Promise.allSettled([
-        requestJson(buildYoutubeSearchUrl({ q: query, type: "channel" }, "discovery"), {
+        requestJson(buildYoutubeSearchUrl({ q: query, type: "channel" }, "interactive"), {
+          signal: controller.signal,
           fallbackTitle: "Artists couldn’t be loaded",
           fallbackMessage: "Artist results are temporarily unavailable.",
         }),
-        requestJson(buildYoutubeSearchUrl({ q: query, type: "playlist" }, "discovery"), {
+        requestJson(buildYoutubeSearchUrl({ q: query, type: "playlist" }, "interactive"), {
+          signal: controller.signal,
           fallbackTitle: "Playlists couldn’t be loaded",
           fallbackMessage: "Playlist results are temporarily unavailable.",
         }),
@@ -267,18 +280,14 @@ export default function YouTubeMusicResults({ query }) {
 
       if (channelResult.status === "fulfilled") {
         setArtists(
-          Array.isArray(channelResult.value?.results)
-            ? channelResult.value.results
-            : [],
+          uniqueSearchResults(channelResult.value?.results),
         );
       } else {
         setArtists([]);
       }
       if (playlistResult.status === "fulfilled") {
         setAlbums(
-          Array.isArray(playlistResult.value?.results)
-            ? playlistResult.value.results
-            : [],
+          uniqueSearchResults(playlistResult.value?.results),
         );
       } else {
         setAlbums([]);
@@ -321,7 +330,14 @@ export default function YouTubeMusicResults({ query }) {
         setLoadingExtras(false);
       }
     }
-  };
+  }, [extrasLoaded, loadingExtras, query]);
+
+  useEffect(() => {
+    if (isAll && !loading && !extrasLoaded) void loadExtras();
+  }, [isAll, loading, extrasLoaded, loadExtras]);
+
+  const topArtist = isAll ? preferredArtistChannel(artists, query) : null;
+  const songsToShow = isAll ? visibleResults.slice(0, 4) : visibleResults;
 
   const playPlaylist = async (playlist) => {
     if (loadingPlaylistId) return;
@@ -359,37 +375,23 @@ export default function YouTubeMusicResults({ query }) {
   };
 
   return (
-    <section className="mt-8" aria-labelledby="youtube-results-title">
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#096192]">
-            {SITE_BRAND}
-          </p>
-          <h2 id="youtube-results-title" className="mt-2 text-2xl font-bold tracking-tight text-white lg:text-3xl">
-            Play on {SITE_NAME}
-          </h2>
+    <section className={styles.results} aria-label={`Search results for ${query}`} aria-busy={loading}>
+      <div className={styles.filters}>
+        <div role="group" aria-label="Search result type" className={styles.chips}>
+          {[["all", "All"], ["video", "Songs"], ["channel", "Artists"], ["playlist", "Playlists"]].map(([value, label]) =>
+            <button type="button" key={value} aria-pressed={view === value} onClick={() => changeSearch("type", value)}>{label}</button>)}
         </div>
-        <span className="hidden text-xs text-gray-400 sm:block">Videos and audio from YouTube</span>
-      </div>
-
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-[var(--hairline)] pb-4">
-        <div role="tablist" aria-label="Search result type" className="flex flex-wrap gap-2">
-          {[["video", "Songs"], ["channel", "Artists"], ["playlist", "Playlists"]].map(([value, label]) =>
-            <button type="button" role="tab" key={value} aria-selected={resultType === value} onClick={() => changeSearch("type", value)}
-              className={`search-type-tab ${resultType === value ? "is-active" : ""}`}>{label}</button>)}
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <label className="grid gap-1 text-xs text-[var(--muted)]">Sort
-            <select aria-label="Sort search results" value={order} onChange={(event) => changeSearch("order", event.target.value)} className="min-h-12 rounded border border-[var(--hairline)] bg-[var(--navy-surface)] px-3 text-sm text-[var(--text)]">
+        <details className={styles.refine}>
+          <summary>Refine search</summary>
+          <div>
+            <label>Sort<select aria-label="Sort search results" value={order} onChange={(event) => changeSearch("order", event.target.value)}>
               <option value="relevance">Relevance</option><option value="date">Newest</option>
-            </select>
-          </label>
-          {resultType === "video" && <label className="grid gap-1 text-xs text-[var(--muted)]">Duration
-            <select aria-label="Filter song duration" value={length} onChange={(event) => changeSearch("duration", event.target.value)} className="min-h-12 rounded border border-[var(--hairline)] bg-[var(--navy-surface)] px-3 text-sm text-[var(--text)]">
+            </select></label>
+            {resultType === "video" && <label>Duration<select aria-label="Filter song duration" value={length} onChange={(event) => changeSearch("duration", event.target.value)}>
               <option value="any">Any length</option><option value="short">Under 4 min</option><option value="medium">4 to 20 min</option><option value="long">Over 20 min</option>
-            </select>
-          </label>}
-        </div>
+            </select></label>}
+          </div>
+        </details>
       </div>
 
       {loading && <CardGridSkeleton count={6} aspect="aspect-video" />}
@@ -406,60 +408,56 @@ export default function YouTubeMusicResults({ query }) {
           busy={loading}
         />
       )}
-      {!loading && !songError && (resultType === "video" ? visibleResults : resultType === "channel" ? artists : albums).length === 0 && (
+      {!loading && !songError && (isAll ? extrasLoaded && !loadingExtras && !visibleResults.length && !artists.length && !albums.length : (resultType === "video" ? visibleResults : resultType === "channel" ? artists : albums).length === 0) && (
         <EmptyState
           eyebrow="Search"
           title="No music found"
-          message={`We couldn’t find playable ${SITE_BRAND} results for “${query}”. Try another search.`}
-          href="/"
-          actionLabel="Start another search"
+          message={`No ${isAll ? "results" : view === "channel" ? "artists" : view === "playlist" ? "playlists" : "songs"} found for “${query}”. Try a different spelling or search.`}
+          href="/search"
+          actionLabel="Browse music"
         />
       )}
 
-      {!loading && resultType === "video" && visibleResults.length > 0 && <div className="search-results-layout">
-        <section aria-label="Top result">
+      {!loading && resultType === "video" && visibleResults.length > 0 && <div className={isAll ? styles.overview : styles.songResults}>
+        {isAll && <section aria-label="Top result">
           <h2 className="mb-4 text-2xl font-bold">Top result</h2>
-          <ContextMenuTarget className="search-top-result group relative rounded-lg bg-[var(--navy-raised)] p-5 hover:bg-[var(--navy-panel)]">
+          {topArtist ? <article className={styles.topCard}>
+            <Link href={artistPageHref(topArtist.id, topArtist.title)} className={styles.topArtist}>
+              <MediaImage src={topArtist.thumbnail} alt="" className={styles.topPortrait} />
+              <strong>{cleanTitle(topArtist.title)}</strong><span>Artist</span>
+            </Link>
+          </article> :           <ContextMenuTarget className={`${styles.topCard} group relative`}>
             <MediaImage src={visibleResults[0].thumbnail} size="hq" alt="" className="mb-5 h-24 w-24 rounded-md object-cover shadow-xl" />
             <button type="button" onClick={() => playResult(visibleResults[0])} className="block w-full text-left text-2xl font-bold leading-tight hover:underline">{cleanTitle(visibleResults[0].title)}</button>
             <div className="mt-3 flex items-center gap-2 text-sm text-[var(--muted)]"><span className="rounded-full bg-black/25 px-3 py-1 text-white">Song</span><ArtistNameLink track={visibleResults[0]} /></div>
             <button type="button" aria-label={"Play " + cleanTitle(visibleResults[0].title)} onClick={() => playResult(visibleResults[0])} className="play-fab play-fab--static absolute bottom-4 right-4 h-12 w-12"><BsPlayFill size={26} /></button>
-          </ContextMenuTarget>
-        </section>
+          </ContextMenuTarget>}
+        </section>}
         <section aria-label="Songs">
-          <h2 className="mb-4 text-2xl font-bold">Songs</h2>
+          <header className={styles.sectionHead}><h2>Songs</h2>{isAll && <button type="button" onClick={() => changeSearch("type", "video")}>Show all</button>}</header>
           <div role="list">
-            {visibleResults.map((video, index) => {
+            {songsToShow.map((video, index) => {
               const title = cleanTitle(video.title);
-              const seconds = Number(video.duration);
-              const duration = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds / 60) + ":" + String(Math.floor(seconds % 60)).padStart(2, "0") : "—";
-              return <ContextMenuTarget key={video.id} role="listitem" className="search-song-row group">
+              const duration = formatDuration(video.duration);
+              return <ContextMenuTarget key={video.id} role="listitem" data-search-track={video.id} className={`${styles.songRow} group`}>
                 <button type="button" onClick={() => playResult(video)} aria-label={"Play " + title} className="relative flex min-h-11 items-center gap-3">
-                  <span className="search-song-number text-sm text-[var(--muted)]">{index + 1}</span>
+                  <span className={styles.songNumber}>{index + 1}</span>
                   <MediaImage src={video.thumbnail} size="hq" alt="" className="h-10 w-10 rounded object-cover" />
-                  <span className="search-song-play"><BsPlayFill size={22} /></span>
+                  <span className={styles.songPlay}><BsPlayFill size={22} /></span>
                 </button>
                 <div className="min-w-0"><button type="button" onClick={() => playResult(video)} className="block w-full truncate text-left text-sm font-medium hover:underline" title={title}>{title}</button><ArtistNameLink track={video} className="mt-1 block truncate text-xs text-[var(--muted)] hover:text-white" /></div>
+                <FavouriteTrackButton track={video} className="!h-11 !w-11" />
                 <AddToQueueButton track={video} className="text-[var(--muted)] hover:text-white" />
-                <span className="text-right text-xs tabular-nums text-[var(--muted)]">{duration}</span>
+                <span className={styles.duration} aria-label={`Duration ${duration}`}>{duration}</span>
               </ContextMenuTarget>;
             })}
           </div>
         </section>
       </div>}
 
-      {!loading && resultType === "video" && visibleResults.length > 0 && !extrasLoaded && (
-        <button
-          type="button"
-          onClick={() => void loadExtras()}
-          disabled={loadingExtras}
-          className="btn-ghost mt-8 text-xs"
-        >
-          {loadingExtras ? "Loading artists & playlists..." : "Show artists & playlists"}
-        </button>
-      )}
+      {isAll && loadingExtras && <p role="status" className="mt-6 text-sm text-[var(--muted)]">Loading artists and playlists…</p>}
 
-      {extrasError && (
+      {isAll && extrasError && (
         <div className="mt-6">
           <UserMessage
             tone="warning"
@@ -472,21 +470,7 @@ export default function YouTubeMusicResults({ query }) {
         </div>
       )}
 
-      {extrasLoaded &&
-        !loadingExtras &&
-        !extrasError &&
-        artists.length === 0 &&
-        albums.length === 0 && (
-          <div className="mt-6">
-            <EmptyState
-              eyebrow="Artists and playlists"
-              title="No extra results found"
-              message="The song results above are still ready to play."
-            />
-          </div>
-        )}
-
-      {extrasLoaded && followError && (
+      {(isAll || view === "channel") && followError && (
         <div className="mt-6">
           <UserMessage
             tone="warning"
@@ -499,18 +483,18 @@ export default function YouTubeMusicResults({ query }) {
         </div>
       )}
 
-      {artists.length > 0 && (
+      {!loading && (isAll || view === "channel") && artists.length > 0 && (
         <div className="mt-10">
-          <h3 className="mb-4 text-xl font-semibold text-white">Artists</h3>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
-            {artists.map((artist) => {
+          <header className={styles.sectionHead}><h2>Artists</h2>{isAll && <button type="button" onClick={() => changeSearch("type", "channel")}>Show all artists</button>}</header>
+          <div className={styles.cardGrid}>
+            {(isAll ? artists.slice(0, 6) : artists).map((artist) => {
               const isFollowing = isArtistFollowed(followedArtists, { name: artist.title, channelId: artist.id });
               const isUpdating = updatingArtists.includes(artist.id || artist.title.toLowerCase());
               return (
-              <div key={artist.id} className="home-shelf-card group text-center">
+              <div key={artist.id} className={`${styles.artistCard} group`}>
                 <Link href={`/artist/${encodeURIComponent(artist.id)}?name=${encodeURIComponent(artist.title || "")}`} prefetch={false}>
                   <MediaImage src={artist.thumbnail} size="mq" alt="" className="mx-auto aspect-square w-full rounded-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
-                  <p className="mt-2 truncate text-sm font-semibold text-white">{cleanTitle(artist.title)}</p>
+                  <p className="mt-3 truncate text-sm font-semibold text-white">{cleanTitle(artist.title)}</p><p className="mt-1 text-sm text-[var(--muted)]">Artist</p>
                 </Link>
                 {status === "authenticated" && (
                   <button
@@ -530,23 +514,23 @@ export default function YouTubeMusicResults({ query }) {
         </div>
       )}
 
-      {albums.length > 0 && (
+      {!loading && (isAll || view === "playlist") && albums.length > 0 && (
         <div className="mt-10">
-          <h3 className="mb-4 text-xl font-semibold text-white">Albums & Playlists</h3>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {albums.map((album) => {
+          <header className={styles.sectionHead}><h2>Playlists</h2>{isAll && <button type="button" onClick={() => changeSearch("type", "playlist")}>Show all playlists</button>}</header>
+          <div className={styles.cardGrid}>
+            {(isAll ? albums.slice(0, 6) : albums).map((album) => {
               const playlistHref = `/youtube-playlist/${encodeURIComponent(album.id)}?${new URLSearchParams({
                 title: album.title || "Playlist",
                 thumbnail: album.thumbnail || "",
                 creator: album.channel || SITE_BRAND,
               })}`;
               return (
-                <article key={album.id} className="card group relative w-full overflow-hidden text-left">
+                <article key={album.id} className={`${styles.playlistCard} group relative`}>
                   <Link href={playlistHref} className="block" aria-label={`View playlist ${cleanTitle(album.title)}`}>
-                    <span className="relative block aspect-video overflow-hidden rounded-[4px]">
+                    <span className="relative block aspect-square overflow-hidden rounded-md">
                       <MediaImage src={album.thumbnail} size="hq" alt="" className="h-full w-full object-cover transition duration-200 ease-out group-hover:scale-[1.03]" />
                     </span>
-                    <p className="home-shelf-title px-3 pb-3">{cleanTitle(album.title)}</p>
+                    <p className="mt-3 line-clamp-2 text-sm font-semibold">{cleanTitle(album.title)}</p><p className="mt-1 truncate text-sm text-[var(--muted)]">By {cleanArtist(album.channel) || SITE_BRAND}</p>
                   </Link>
                   <button
                     type="button"
@@ -564,7 +548,7 @@ export default function YouTubeMusicResults({ query }) {
         </div>
       )}
       {pageError && <div className="mt-4"><UserMessage title={pageError.title} message={pageError.message} onRetry={loadMore} /></div>}
-      {!loading && nextPageToken && <button type="button" className="btn-ghost mt-6 min-h-12 px-5" disabled={loadingMore} onClick={loadMore}>{loadingMore ? "Loading..." : "Load more results"}</button>}
+      {!loading && !isAll && nextPageToken && <button type="button" className="btn-ghost mt-6 min-h-12 px-5" disabled={loadingMore} onClick={loadMore}>{loadingMore ? "Loading..." : "Load more results"}</button>}
     </section>
   );
 }

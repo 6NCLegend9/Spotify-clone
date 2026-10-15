@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'src/components/Homepage/**'
+      - 'src/components/Search/**'
+      - 'src/components/Searchbar.jsx'
+      - 'src/components/YouTubeMusicResults.jsx'
+      - 'src/app/search/**'
+      - 'src/utils/searchResults.mjs'
       - 'src/components/Sidebar/**'
       - 'src/components/Layout/**'
       - 'src/components/MusicPlayer/**'
@@ -14,6 +19,7 @@ on:
       - 'src/app/api/recommendations/**'
       - 'docs/qa/home-discovery/**'
       - 'docs/qa/desktop-panels/**'
+      - 'docs/qa/search/**'
       - '.github/workflows/home-discovery-vm.yml'
 permissions:
   contents: read
@@ -39,6 +45,7 @@ jobs:
         env:
           HAYKASA_QA_PRODUCTION: '1'
       - run: node docs/qa/desktop-panels/browser.cjs
+      - run: node docs/qa/search/browser.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -46,4 +53,5 @@ jobs:
           path: |
             artifacts/home-discovery/
             artifacts/desktop-panels/
+            artifacts/search/
           retention-days: 7

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import RecentSearches from "./RecentSearches";
 
 const CATEGORIES = [
   { id: "music", title: "Music", query: "popular music playlists", colors: ["#1399c6", "#0b1629"], mark: "♪" },
@@ -35,10 +36,8 @@ function playlistHref(query) {
 export default function BrowseAll() {
   return (
     <main className="page page-search mx-auto w-full max-w-[1500px] text-gray-200">
-      <header className="mb-5 pt-0 sm:mb-7">
-        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Search</h1>
-        <p className="mt-1.5 text-sm text-[var(--muted)]">Browse playlists by genre, mood, or style.</p>
-      </header>
+      <h1 className="sr-only">Search</h1>
+      <RecentSearches />
       <section aria-labelledby="browse-all-title">
         <h2 id="browse-all-title" className="mb-4 text-xl font-bold text-white sm:text-2xl">Browse all</h2>
         <div className="browse-grid">
