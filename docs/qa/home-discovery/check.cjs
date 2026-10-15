@@ -183,6 +183,13 @@ async function highlightCheck() {
   result = await get();
   assert(discovery.homeDiscoveryIds(result.body.sections).every(id => !blocked.has(id)), 'Feedback and history exclusions remain enforced');
   assert.equal((await get(`?seen=${'x'.repeat(1153)}`)).status, 400);
+  const excludedLocally = await get(`?recent=${pool.slice(0, 10).map(track => track.id).join(',')}`);
+  assert(discovery.homeDiscoveryIds(excludedLocally.body.sections).every(id => !pool.slice(0, 10).some(track => track.id === id)), 'Refill respects unsaved client history');
+  assert.equal((await get(`?recent=${'x'.repeat(1153)}`)).status, 400);
+  const savedAccount = account;
+  account = { userData: { settings: { privateSession: true } } };
+  assert.equal((await get(`?recent=${pool.map(track => track.id).join(',')}`)).body.sections.forYou.tracks.length, 12, 'Private sessions do not use local history exclusions');
+  account = savedAccount;
   limited = true; assert.equal((await get()).status, 429); limited = false;
   account = null; result = await get(); assert.equal(result.body.mode, 'guest'); assert(result.body.sections.trending.length);
   account = { userData: structuredClone(profile) }; await hookCheck(); await highlightCheck();

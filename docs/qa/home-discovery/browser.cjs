@@ -71,7 +71,7 @@ function verify(state) {
         let body = { success: true, data: [] };
         if (url.pathname === '/api/auth/session') body = name === 'guest' ? null : { user: { id: 'alice', name: 'Home QA', email: 'qa@example.invalid' }, expires: '2099-01-01T00:00:00.000Z' };
         if (url.pathname === '/api/settings') body = { authenticated: true, settings: { privateSession: name === 'private', explicitContent: false } };
-        if (url.pathname === '/api/recommendations') { recommendationRequests.push(url.search); body = requestCount++ ? fixture.refreshed : fixture.initial; selectedFeed = body; }
+        if (url.pathname === '/api/recommendations') { recommendationRequests.push(url.search); body = requestCount++ % 2 ? fixture.refreshed : fixture.initial; selectedFeed = body; }
         if (url.pathname === '/api/history') body = { success: true, data: history };
         if (url.pathname === '/api/userPlaylists') body = { success: true, data: { playlists: [{ _id: 'playlist-one', name: 'My playlist' }, { _id: 'playlist-one', name: 'My playlist' }] } };
         if (url.pathname === '/api/followedArtists/releases') body = { releases: [release, release, history[0]] };
@@ -92,10 +92,22 @@ function verify(state) {
       await page.getByRole('button', { name: 'Refresh discovery', exact: true }).waitFor();
       // Wait for the independent history/library/release requests to settle.
       if (name !== 'guest') await page.waitForFunction(() => document.querySelector('.home-quick [data-home-playlist]'));
+      await page.waitForFunction(() => document.querySelector('[aria-label="Refresh discovery"]:not(:disabled)'));
       await page.getByRole('heading', { name: 'This week on HayKasa', exact: true }).waitFor();
       if (!['private', 'guest'].includes(name)) await page.getByRole('heading', { name: 'This day on HayKasa', exact: true }).waitFor();
       else assert.equal(await page.getByRole('heading', { name: 'This day on HayKasa', exact: true }).count(), 0);
       const before = await inspect(page); verify(before);
+      const ink = await page.locator('.app-shell').evaluate(node => getComputedStyle(node).getPropertyValue('--appearance-play-ink').trim());
+      assert.equal(ink, '#ffffff', 'Web primary controls keep readable text on the supplied blue');
+      if (name === 'taste') {
+        const playedId = await page.locator('[data-home-section="for-you"] [data-home-track]').last().getAttribute('data-home-track');
+        const played = selectedFeed.sections.forYou.tracks.find(track => track.id === playedId);
+        assert(played);
+        await page.evaluate(entry => window.dispatchEvent(new CustomEvent('heykasa:history-changed', { detail: { owner: 'account:alice', entry } })), played);
+        await page.waitForFunction(id => document.querySelectorAll('[data-home-section="for-you"] [data-home-track]').length === 12 && ![...document.querySelectorAll('[data-home-section="for-you"] [data-home-track]')].some(node => node.dataset.homeTrack === id), playedId);
+        verify(await inspect(page));
+        assert(recommendationRequests.at(-1).includes(playedId), 'Refill sends local history before the server save');
+      }
       await page.getByRole('button', { name: 'Music', exact: true }).click();
       const musicOnly = await inspect(page);
       assert.equal(musicOnly.playlists.length, 0, 'Music filter contains no playlists');

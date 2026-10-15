@@ -177,6 +177,12 @@ export async function GET(request) {
       return apiError("VALIDATION_ERROR", { message: "Too many discovery exclusions." });
     }
     const seenIds = discoverySeenIds(rawSeen.split(","));
+    const rawRecent = new URL(request.url).searchParams.get("recent") || "";
+    if (rawRecent.length > MAX_DISCOVERY_SEEN * 12) {
+      return apiError("VALIDATION_ERROR", { message: "Too many recent tracks." });
+    }
+    // Client history may arrive before its asynchronous server save completes.
+    const clientRecent = profile?.settings?.privateSession ? [] : discoverySeenIds(rawRecent.split(","));
     const rawSeenPlaylists = new URL(request.url).searchParams.get("seenPlaylists") || "";
     if (rawSeenPlaylists.length > MAX_DISCOVERY_PLAYLISTS_SEEN * 101) {
       return apiError("VALIDATION_ERROR", { message: "Too many playlist exclusions." });
@@ -187,7 +193,7 @@ export async function GET(request) {
     const excluded = new Set(profile?.notInterested || []);
     const snoozed = new Set(activeSnoozedTracks(profile));
     const skipped = new Set(profile?.skippedTracks || []);
-    const recent = new Set((profile?.songHistory || []).map((song) => song?.id || song));
+    const recent = new Set([...(profile?.songHistory || []).map((song) => song?.id || song), ...clientRecent]);
     const recentIdentities = new Set((profile?.songHistory || []).filter((song) => song && typeof song === "object").map(canonicalSongIdentity).filter(Boolean));
     const explicitDisabled = mode === "guest" || profile?.settings?.explicitContent !== true;
     const filterRecommendations = (videos) => uniqueSongs(videos

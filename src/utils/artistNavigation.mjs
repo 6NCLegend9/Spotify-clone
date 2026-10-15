@@ -43,6 +43,7 @@ export function trackArtistCredits(track = {}) {
     ...(Array.isArray(track.primaryArtists) ? track.primaryArtists : []),
   ];
   const individual = explicit.flatMap(artist => {
+    if (typeof artist === "object" && CHANNEL_ID_PATTERN.test(artist?.channelId || artist?.id || "")) return [artist];
     const name = cleanArtist(typeof artist === "string" ? artist : artist?.name || artist?.title);
     const names = name.split(/\s*,\s*/).filter(Boolean);
     return names.length > 1 ? names.map(name => ({ name })) : [artist];

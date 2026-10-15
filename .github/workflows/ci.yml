@@ -31,4 +31,5 @@ jobs:
       - run: node docs/qa/vercel-media/config-check.cjs
       - run: node docs/qa/playlist-duration/check.cjs
       - run: node docs/qa/home-discovery/check.cjs
+      - run: node docs/qa/integration-conflicts/check.cjs
       - run: npm run check
