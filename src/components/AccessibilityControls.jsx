@@ -72,7 +72,7 @@ export default function AccessibilityControls() {
                 updatePreference(key, enabled);
                 setAnnouncement(`${title} ${enabled ? "enabled" : "disabled"}.`);
               }}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-[#3b82f6]"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[#24aae2]"
             />
             <span>
               <span className="block text-sm font-semibold text-white">{title}</span>

@@ -19,7 +19,7 @@ export default function JamQr({ url, label = "Jam QR code" }) {
         width: 220,
         margin: 2,
         errorCorrectionLevel: "M",
-        color: { dark: "#3b82f6ff", light: "#0b1629ff" },
+        color: { dark: "#24aae2ff", light: "#0b1629ff" },
       }))
       .then((dataUrl) => {
         if (!cancelled) setSrc(dataUrl);

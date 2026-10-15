@@ -42,7 +42,7 @@ const Seekbar = ({
         onInput={onInput}
         aria-label="Song progress"
         aria-valuetext={formatElapsedTime(value)}
-        className="md:block w-[70vw] min-[1085px]:w-[650px] md:w-[250px] 2xl:w-[50vw] h-1 mx-4 2xl:mx-6 rounded-lg accent-[#3b82f6] cursor-pointer"
+        className="md:block w-[70vw] min-[1085px]:w-[650px] md:w-[250px] 2xl:w-[50vw] h-1 mx-4 2xl:mx-6 rounded-lg accent-[#24aae2] cursor-pointer"
       />
       <p className="text-white text-xs sm:text-base">
         {formatDuration(max)}

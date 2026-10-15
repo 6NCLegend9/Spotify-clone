@@ -26,12 +26,11 @@ const MAX_PERSONAL_GENRES = 40;
 const SAVED_STATUS_DURATION = 2200;
 
 const CATEGORY_TONES = [
-  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
-  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
-  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
-  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
-  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
-  "from-[#3b82f6]/25 via-[#2563eb]/10 to-transparent",
+  "from-[#24aae2]/25 via-[#1171ba]/10 to-transparent",
+  "from-[#1399c6]/25 via-[#096192]/10 to-transparent",
+  "from-[#1171ba]/25 via-[#1399c6]/10 to-transparent",
+  "from-[#096192]/25 via-[#1171ba]/10 to-transparent",
+  "from-[#0e8c7f]/25 via-[#1399c6]/10 to-transparent",
 ];
 
 function genreKey(value) {
@@ -89,7 +88,7 @@ function GenreChoice({ item, selected, parentName, onToggle, disabled = false })
       disabled={disabled}
       className={`group flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition duration-200 ease-out active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${
         selected
-          ? "border-[#3b82f6]/70 bg-[#3b82f6]/10 text-white shadow-[0_0_16px_rgba(59,130,246,0.08)]"
+          ? "border-[#24aae2]/70 bg-[#24aae2]/10 text-white shadow-[0_0_16px_rgba(36,170,226,0.08)]"
           : "border-white/10 bg-white/[0.035] text-white hover:border-white/25 hover:bg-white/[0.06]"
       }`}
     >
@@ -103,8 +102,8 @@ function GenreChoice({ item, selected, parentName, onToggle, disabled = false })
         aria-hidden="true"
         className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs transition ${
           selected
-            ? "border-[#3b82f6] bg-[#3b82f6] text-[#030814]"
-            : "border-white/15 text-white/70 group-hover:border-[#3b82f6]/60 group-hover:text-[#3b82f6]"
+            ? "border-[#24aae2] bg-[#24aae2] text-[#030814]"
+            : "border-white/15 text-white/70 group-hover:border-[#24aae2]/60 group-hover:text-[#24aae2]"
         }`}
       >
         {selected ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}
@@ -120,7 +119,7 @@ function CategoryCard({ item, index, selected, onBrowse, onToggle }) {
   return (
     <article
       className={`relative overflow-hidden rounded-xl border bg-gradient-to-br ${toneForGenre(item, index)} bg-[#091522] transition duration-200 ease-out hover:border-white/25 ${
-        selected ? "border-[#3b82f6]/55" : "border-white/10"
+        selected ? "border-[#24aae2]/55" : "border-white/10"
       }`}
     >
       <div className="flex items-start gap-2 px-3 py-2.5">
@@ -148,8 +147,8 @@ function CategoryCard({ item, index, selected, onBrowse, onToggle }) {
           onClick={() => onToggle(item)}
           className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs transition ${
             selected
-              ? "border-[#3b82f6] bg-[#3b82f6] text-[#030814]"
-              : "border-white/20 bg-black/20 text-white hover:border-[#3b82f6] hover:text-[#3b82f6]"
+              ? "border-[#24aae2] bg-[#24aae2] text-[#030814]"
+              : "border-white/20 bg-black/20 text-white hover:border-[#24aae2] hover:text-[#24aae2]"
           }`}
         >
           {selected ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}
@@ -714,7 +713,7 @@ export default function GenrePreferences({ status }) {
   const saveStatus = {
     idle: { icon: null, text: "Changes save automatically", className: "text-[#748493]" },
     saving: { icon: <FiLoader className="animate-spin" aria-hidden="true" />, text: "Saving", className: "text-[#9aa8b5]" },
-    saved: { icon: <FiCheck aria-hidden="true" />, text: "Saved", className: "text-[#3b82f6]" },
+    saved: { icon: <FiCheck aria-hidden="true" />, text: "Saved", className: "text-[#24aae2]" },
     error: { icon: <FiAlertCircle aria-hidden="true" />, text: "Not saved", className: "text-amber-300" },
   }[saveState];
 
@@ -725,13 +724,13 @@ export default function GenrePreferences({ status }) {
     >
       <div className="relative overflow-hidden border-b border-white/10 p-5 sm:p-7">
         <div
-          className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-[#3b82f6]/10 blur-3xl"
+          className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-[#24aae2]/10 blur-3xl"
           aria-hidden="true"
         />
         <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
           <div className="flex items-start gap-4">
             <span
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[#3b82f6]/25 bg-[#3b82f6]/10 text-[#3b82f6]"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[#24aae2]/25 bg-[#24aae2]/10 text-[#24aae2]"
               aria-hidden="true"
             >
               <FiHeadphones className="h-5 w-5" />
@@ -749,7 +748,7 @@ export default function GenrePreferences({ status }) {
           {status === "authenticated" ? (
             <div className="flex shrink-0 items-center justify-between gap-5 rounded-2xl border border-white/10 bg-black/15 px-4 py-3 sm:block sm:text-right">
               <p className="text-sm font-semibold text-white" aria-live="polite">
-                <span className="text-[#3b82f6]">{selectedCount}</span> / {MAX_SELECTED_GENRES} selected
+                <span className="text-[#24aae2]">{selectedCount}</span> / {MAX_SELECTED_GENRES} selected
               </p>
               <p
                 role="status"
@@ -799,7 +798,7 @@ export default function GenrePreferences({ status }) {
                   <p className="mt-0.5 text-[11px] text-[#748493]">Choose broad genres or get specific with subgenres.</p>
                 </div>
                 {selectedCount > 0 ? (
-                  <span className="shrink-0 text-[11px] font-semibold text-[#3b82f6]">{selectedCount} saved</span>
+                  <span className="shrink-0 text-[11px] font-semibold text-[#24aae2]">{selectedCount} saved</span>
                 ) : null}
               </div>
               {selectedItems.length > 0 ? (
@@ -811,11 +810,11 @@ export default function GenrePreferences({ status }) {
                         key={`${item.id}-${name}`}
                         type="button"
                         onClick={() => toggleGenre(item)}
-                        className="group inline-flex items-center gap-1.5 rounded-full border border-[#3b82f6]/50 bg-[#3b82f6]/10 px-3 py-2 text-xs font-medium text-[#dbeafe] transition hover:border-[#3b82f6] hover:bg-[#3b82f6]/15"
+                        className="group inline-flex items-center gap-1.5 rounded-full border border-[#24aae2]/50 bg-[#24aae2]/10 px-3 py-2 text-xs font-medium text-[#dbeafe] transition hover:border-[#24aae2] hover:bg-[#24aae2]/15"
                         aria-label={`Remove ${name} from your picks`}
                       >
                         {name}
-                        <FiX className="text-[#3b82f6]" aria-hidden="true" />
+                        <FiX className="text-[#24aae2]" aria-hidden="true" />
                       </button>
                     );
                   })}
@@ -1024,7 +1023,7 @@ export default function GenrePreferences({ status }) {
                               className="min-w-0 flex-1 rounded-xl px-2 py-1.5 text-left transition hover:bg-white/[0.04]"
                             >
                               <span className="block truncate text-sm font-semibold text-white">{name}</span>
-                              <span className={`mt-1 block text-[11px] ${selected ? "text-[#3b82f6]" : "text-[#748493]"}`}>
+                              <span className={`mt-1 block text-[11px] ${selected ? "text-[#24aae2]" : "text-[#748493]"}`}>
                                 {selected ? "In your picks" : "Tap to add"}
                               </span>
                             </button>

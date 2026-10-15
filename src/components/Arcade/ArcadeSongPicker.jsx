@@ -78,7 +78,7 @@ export default function ArcadeSongPicker({
               chartStatus === "analyzing"
                 ? "bg-white/10 text-[#9aa8b5]"
                 : analyzerMode === "fft" || chart?.source === "onsets"
-                  ? "bg-[#3b82f6]/15 text-[#3b82f6]"
+                  ? "bg-[#24aae2]/15 text-[#24aae2]"
                   : "bg-[#ffb648]/15 text-[#ffb648]"
             }`}
           >
@@ -102,7 +102,7 @@ export default function ArcadeSongPicker({
             onClick={() => setTab(id)}
             className={`min-h-11 rounded-full border px-3 text-xs font-semibold transition ${
               tab === id
-                ? "border-[#3b82f6] bg-[#3b82f6]/10 text-[#3b82f6]"
+                ? "border-[#24aae2] bg-[#24aae2]/10 text-[#24aae2]"
                 : "border-white/15 text-gray-300 hover:border-white/40"
             }`}
           >
@@ -114,7 +114,7 @@ export default function ArcadeSongPicker({
       <div key={tab} className="mt-3">
       {tab === "file" ? (
         <>
-          <label className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs font-semibold text-gray-200 transition hover:border-[#3b82f6] hover:text-[#3b82f6]">
+          <label className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs font-semibold text-gray-200 transition hover:border-[#24aae2] hover:text-[#24aae2]">
             <FiUpload aria-hidden="true" />
             {selectedLabel && analyzerMode === "fft" ? "Choose a different file" : "Choose an audio file"}
             <input
@@ -165,7 +165,7 @@ export default function ArcadeSongPicker({
         </>
       ) : (
         <>
-          <label className="flex min-h-11 items-center gap-2 rounded-full border border-white/15 px-3 focus-within:border-[#3b82f6]">
+          <label className="flex min-h-11 items-center gap-2 rounded-full border border-white/15 px-3 focus-within:border-[#24aae2]">
             <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
             <span className="sr-only">Search for a song</span>
             <input

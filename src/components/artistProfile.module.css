@@ -18,7 +18,7 @@
 .compactPlay svg, .cardPlay svg { width: 22px; height: 22px; margin-left: 2px; fill: currentColor; }
 .mainPlay:hover, .compactPlay:hover, .cardPlay:hover { filter: brightness(1.1); }
 .page button:disabled { cursor: not-allowed; opacity: .5; }
-.content { min-width: 0; padding: 0 clamp(16px, 2.5cqi, 36px) 48px; background: linear-gradient(180deg, rgb(147 197 253 / .15), transparent 340px); }
+.content { min-width: 0; padding: 0 clamp(16px, 2.5cqi, 36px) 48px; background: linear-gradient(180deg, rgb(19 153 198 / .15), transparent 340px); }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; min-height: 108px; padding: 24px 0; }
 .shuffle { display: grid; place-items: center; width: 44px; height: 44px; color: var(--muted); border-radius: 50%; }
 .shuffle svg { width: 28px; height: 28px; }

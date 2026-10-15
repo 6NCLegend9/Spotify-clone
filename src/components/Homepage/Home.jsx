@@ -16,7 +16,7 @@ function playlistMixes(playlists) {
     id: `ytpl-${playlist.id}`,
     playlistId: playlist.id,
     kind: "playlist",
-    palette: { from: "#0b1629", via: "#101f36", to: "#2563eb", bar: "#3b82f6" },
+    palette: { from: "#0b1629", via: "#101f36", to: "#1171ba", bar: "#24aae2" },
   }));
 }
 

@@ -46,7 +46,7 @@ export default function WebUpdateNotifier() {
             <div className="flex shrink-0 flex-col gap-2">
               <button
                 type="button"
-                className="rounded-full bg-[#3b82f6] px-3 py-2 text-xs font-bold text-[#041017]"
+                className="rounded-full bg-[#24aae2] px-3 py-2 text-xs font-bold text-[#041017]"
                 onClick={() => {
                   toast.dismiss(entry.id);
                   window.location.reload();

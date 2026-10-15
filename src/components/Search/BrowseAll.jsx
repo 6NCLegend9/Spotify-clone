@@ -1,31 +1,31 @@
 import Link from "next/link";
 
 const CATEGORIES = [
-  { id: "music", title: "Music", query: "popular music playlists", colors: ["#2563eb", "#0b1629"], mark: "♪" },
-  { id: "hip-hop", title: "Hip-Hop", query: "hip hop rap playlists", colors: ["#3b82f6", "#162943"], mark: "HH" },
+  { id: "music", title: "Music", query: "popular music playlists", colors: ["#1171ba", "#0b1629"], mark: "♪" },
+  { id: "hip-hop", title: "Hip-Hop", query: "hip hop rap playlists", colors: ["#24aae2", "#162943"], mark: "HH" },
   { id: "rnb", title: "R&B", query: "r&b soul playlists", colors: ["#162943", "#030814"], mark: "R&B" },
-  { id: "pop", title: "Pop", query: "pop hits playlists", colors: ["#101f36", "#2563eb"], mark: "POP" },
-  { id: "afrobeats", title: "Afrobeats", query: "afrobeats playlists", colors: ["#2563eb", "#060d1b"], mark: "AFRO" },
-  { id: "amapiano", title: "Amapiano", query: "amapiano playlists", colors: ["#3b82f6", "#101f36"], mark: "AMA" },
-  { id: "latin", title: "Latin", query: "latin reggaeton playlists", colors: ["#2563eb", "#0b1629"], mark: "LAT" },
-  { id: "dance", title: "Dance / Electronic", query: "dance electronic playlists", colors: ["#3b82f6", "#162943"], mark: "EDM" },
+  { id: "pop", title: "Pop", query: "pop hits playlists", colors: ["#101f36", "#1171ba"], mark: "POP" },
+  { id: "afrobeats", title: "Afrobeats", query: "afrobeats playlists", colors: ["#1171ba", "#060d1b"], mark: "AFRO" },
+  { id: "amapiano", title: "Amapiano", query: "amapiano playlists", colors: ["#24aae2", "#101f36"], mark: "AMA" },
+  { id: "latin", title: "Latin", query: "latin reggaeton playlists", colors: ["#1171ba", "#0b1629"], mark: "LAT" },
+  { id: "dance", title: "Dance / Electronic", query: "dance electronic playlists", colors: ["#24aae2", "#162943"], mark: "EDM" },
   { id: "rock", title: "Rock", query: "rock playlists", colors: ["#162943", "#030814"], mark: "ROCK" },
-  { id: "kpop", title: "K-Pop", query: "k-pop playlists", colors: ["#101f36", "#2563eb"], mark: "K" },
-  { id: "jazz", title: "Jazz", query: "jazz playlists", colors: ["#2563eb", "#060d1b"], mark: "JAZZ" },
-  { id: "country", title: "Country", query: "country music playlists", colors: ["#3b82f6", "#101f36"], mark: "C" },
-  { id: "chill", title: "Chill", query: "chill playlists", colors: ["#2563eb", "#0b1629"], mark: "CHILL" },
-  { id: "workout", title: "Workout", query: "workout gym playlists", colors: ["#3b82f6", "#162943"], mark: "GO" },
+  { id: "kpop", title: "K-Pop", query: "k-pop playlists", colors: ["#101f36", "#1171ba"], mark: "K" },
+  { id: "jazz", title: "Jazz", query: "jazz playlists", colors: ["#1171ba", "#060d1b"], mark: "JAZZ" },
+  { id: "country", title: "Country", query: "country music playlists", colors: ["#24aae2", "#101f36"], mark: "C" },
+  { id: "chill", title: "Chill", query: "chill playlists", colors: ["#1171ba", "#0b1629"], mark: "CHILL" },
+  { id: "workout", title: "Workout", query: "workout gym playlists", colors: ["#24aae2", "#162943"], mark: "GO" },
   { id: "focus", title: "Focus", query: "focus study playlists", colors: ["#162943", "#030814"], mark: "◎" },
-  { id: "party", title: "Party", query: "party club playlists", colors: ["#101f36", "#2563eb"], mark: "★" },
-  { id: "sleep", title: "Sleep", query: "sleep ambient playlists", colors: ["#2563eb", "#060d1b"], mark: "☾" },
-  { id: "throwbacks", title: "Throwbacks", query: "throwback classics playlists", colors: ["#3b82f6", "#101f36"], mark: "90s" },
+  { id: "party", title: "Party", query: "party club playlists", colors: ["#101f36", "#1171ba"], mark: "★" },
+  { id: "sleep", title: "Sleep", query: "sleep ambient playlists", colors: ["#1171ba", "#060d1b"], mark: "☾" },
+  { id: "throwbacks", title: "Throwbacks", query: "throwback classics playlists", colors: ["#24aae2", "#101f36"], mark: "90s" },
 ];
 
 const QUICK_PICKS = [
-  { id: "hits", title: "Today’s Hits", subtitle: "Big tracks right now", query: "top hits 2026 playlist", colors: ["#2563eb", "#0b1629"] },
-  { id: "rap", title: "Rap Right Now", subtitle: "Fresh rap and hip-hop", query: "new rap hip hop 2026 playlist", colors: ["#3b82f6", "#162943"] },
+  { id: "hits", title: "Today’s Hits", subtitle: "Big tracks right now", query: "top hits 2026 playlist", colors: ["#1171ba", "#0b1629"] },
+  { id: "rap", title: "Rap Right Now", subtitle: "Fresh rap and hip-hop", query: "new rap hip hop 2026 playlist", colors: ["#24aae2", "#162943"] },
   { id: "viral", title: "Viral", subtitle: "Songs moving fast", query: "viral songs 2026 playlist", colors: ["#162943", "#030814"] },
-  { id: "late", title: "Late Night R&B", subtitle: "Slow, smooth, after dark", query: "late night r&b playlist", colors: ["#101f36", "#2563eb"] },
+  { id: "late", title: "Late Night R&B", subtitle: "Slow, smooth, after dark", query: "late night r&b playlist", colors: ["#101f36", "#1171ba"] },
 ];
 
 function playlistHref(query) {

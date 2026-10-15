@@ -92,7 +92,7 @@ export default function DesktopCompatibilityGate() {
 
   return (
     <div className="fixed inset-0 z-[10000] grid place-items-center bg-[#020913]/95 p-5 backdrop-blur-xl" role="alertdialog" aria-modal="true" aria-labelledby="desktop-update-required-title">
-      <div className="w-full max-w-lg rounded-2xl border border-[#3b82f6]/25 bg-[#0a1725] p-6 shadow-2xl sm:p-8">
+      <div className="w-full max-w-lg rounded-2xl border border-[#24aae2]/25 bg-[#0a1725] p-6 shadow-2xl sm:p-8">
         <p className="eyebrow mb-3">HayKasa Desktop</p>
         <h2 id="desktop-update-required-title" className="text-2xl font-bold">Desktop update required</h2>
         <p className="mt-3 text-sm leading-6 text-[#9aa8b5]">

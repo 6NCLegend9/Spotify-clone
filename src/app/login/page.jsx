@@ -197,7 +197,7 @@ const LoginPage = () => {
         <p className="eyebrow">Welcome back</p>
         <h1 className="mt-2 text-3xl font-bold">
           <GradientText
-            colors={["#3b82f6", "#ffffff", "#2563eb", "#3b82f6"]}
+            colors={["#24aae2", "#ffffff", "#1171ba", "#24aae2"]}
             animationSpeed={4}
           >
             Log in
@@ -271,7 +271,7 @@ const LoginPage = () => {
           )}
           <p className="text-center text-sm text-[#c9d4de]">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="font-semibold text-[#3b82f6]">
+            <Link href="/signup" className="font-semibold text-[#24aae2]">
               Sign up
             </Link>
           </p>

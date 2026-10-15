@@ -187,7 +187,7 @@ const SignupPage = () => {
         <p className="eyebrow">Join HayKasa</p>
         <h1 className="mt-2 text-3xl font-bold">
           <GradientText
-            colors={["#3b82f6", "#ffffff", "#2563eb", "#3b82f6"]}
+            colors={["#24aae2", "#ffffff", "#1171ba", "#24aae2"]}
             animationSpeed={4}
           >
             Create account
@@ -270,7 +270,7 @@ const SignupPage = () => {
           )}
           <p className="text-center text-sm text-[#c9d4de]">
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-[#3b82f6]">
+            <Link href="/login" className="font-semibold text-[#24aae2]">
               Log in
             </Link>
           </p>

@@ -48,7 +48,7 @@ export function defaultAppearanceProfile() {
     },
     accent: {
       mode: "fixed",
-      fixedColor: "#3b82f6",
+      fixedColor: "#24aae2",
     },
   };
 }

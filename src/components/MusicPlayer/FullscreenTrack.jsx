@@ -56,7 +56,7 @@ const FullscreenTrack = ({
             <select
               value={settings?.eqPreset || "Flat / Neutral"}
               onChange={(e) => dispatch(updateSetting({ key: "eqPreset", value: e.target.value }))}
-              className="rounded-full border border-white/15 bg-[#0b1629] px-3 py-1 text-xs font-semibold text-[#3b82f6] outline-none transition hover:border-[#3b82f6]"
+              className="rounded-full border border-white/15 bg-[#0b1629] px-3 py-1 text-xs font-semibold text-[#24aae2] outline-none transition hover:border-[#24aae2]"
             >
               {EQ_PRESETS.map((preset) => (
                 <option key={preset} value={preset} className="bg-[#0b1629] text-white">

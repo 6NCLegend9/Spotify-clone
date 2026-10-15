@@ -357,7 +357,7 @@ export default function AppShell({ children }) {
           style: {
             background: "rgba(11,22,41, 0.86)",
             color: "#fff",
-            border: "1px solid rgba(59,130,246, 0.18)",
+            border: "1px solid rgba(36,170,226, 0.18)",
             backdropFilter: "blur(18px)",
             boxShadow: "0 16px 48px rgba(6,13,27, 0.45)",
           },

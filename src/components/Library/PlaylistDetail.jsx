@@ -85,7 +85,7 @@ function interleaveRecommendations(tracks, recommendations) {
 
 function LikedCover({ className = "" }) {
   return (
-    <div className={`grid place-items-center bg-gradient-to-br from-[#2563eb] via-[#3b82f6] to-[#93c5fd] ${className}`}>
+    <div className={`grid place-items-center bg-gradient-to-br from-[#1171ba] via-[#24aae2] to-[#1399c6] ${className}`}>
       <FiHeart className="h-16 w-16 fill-white text-white sm:h-20 sm:w-20" />
     </div>
   );
@@ -96,7 +96,7 @@ function AccessGate() {
     <main className="page text-white">
       <section className="flex flex-col items-start gap-6 rounded-2xl border border-white/10 bg-[#162943]/85 px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
         <div className="flex gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/10 text-[#3b82f6]"><FiLock /></span>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/10 text-[#24aae2]"><FiLock /></span>
           <div><h1 className="text-2xl font-bold">Liked Songs are yours to keep</h1><p className="mt-2 text-sm text-gray-300">Save your favorite tracks in one place. Log in or create a free account.</p></div>
         </div>
         <div className="flex gap-2"><Link href="/login" className="btn-primary h-10 px-5 text-sm">Log in</Link><Link href="/signup" className="btn-ghost h-10 px-5 text-sm">Sign up</Link></div>
@@ -539,7 +539,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             ) : null}
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
               <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="play-fab play-fab--static mr-2 h-14 w-14 min-h-14 min-w-14 disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
-              <button type="button" aria-label="Shuffle + Discovery" title="Shuffle + Discovery" aria-pressed={discoveryShuffle} onClick={toggleDiscoveryShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${discoveryShuffle ? "bg-[#3b82f6]/15 text-[#3b82f6] ring-1 ring-[#3b82f6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle className="text-2xl" /><span className="sr-only">Shuffle + Discovery {discoveryShuffle ? "On" : "Off"}</span></button>
+              <button type="button" aria-label="Shuffle + Discovery" title="Shuffle + Discovery" aria-pressed={discoveryShuffle} onClick={toggleDiscoveryShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${discoveryShuffle ? "bg-[#24aae2]/15 text-[#24aae2] ring-1 ring-[#24aae2]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle className="text-2xl" /><span className="sr-only">Shuffle + Discovery {discoveryShuffle ? "On" : "Off"}</span></button>
               {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => current ? ({ ...current, ...next }) : current)} /> : null}
               {isPublicPlaylist ? (
                 <>
@@ -601,7 +601,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               <label className="relative mb-5 block max-w-md">
                 <span className="sr-only">Search tracks in {title}</span>
                 <FiSearch aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} placeholder="Search by title or artist" className="h-11 w-full rounded-md border border-white/10 bg-white/[0.07] pl-10 pr-10 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#3b82f6]" />
+                <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} placeholder="Search by title or artist" className="h-11 w-full rounded-md border border-white/10 bg-white/[0.07] pl-10 pr-10 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#24aae2]" />
                 {search && <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="absolute right-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full text-gray-400 hover:bg-white/10 hover:text-white"><FiX aria-hidden="true" /></button>}
               </label>
             )}
@@ -670,7 +670,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
               placeholder="listener@example.com"
-              className="mt-2 h-11 w-full rounded-md border border-white/15 bg-white/[0.06] px-3 text-sm normal-case text-white outline-none focus:border-[#3b82f6]"
+              className="mt-2 h-11 w-full rounded-md border border-white/15 bg-white/[0.06] px-3 text-sm normal-case text-white outline-none focus:border-[#24aae2]"
             />
             <button type="submit" disabled={saving} className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-bold text-black disabled:opacity-50">
               <FiCheck aria-hidden="true" /> {saving ? "Adding..." : "Add collaborator"}

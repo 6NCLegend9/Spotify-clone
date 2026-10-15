@@ -25,12 +25,12 @@ function ArtistMark({ video, artist }) {
         src={video.artistThumbnail}
         size="mq"
         alt=""
-        className="h-10 w-10 rounded-full object-cover ring-1 ring-[#3b82f6]/35 sm:h-12 sm:w-12"
+        className="h-10 w-10 rounded-full object-cover ring-1 ring-[#24aae2]/35 sm:h-12 sm:w-12"
       />
     );
   }
   return (
-    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#3b82f6]/20 text-sm font-bold text-[#3b82f6] sm:h-12 sm:w-12">
+    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#24aae2]/20 text-sm font-bold text-[#24aae2] sm:h-12 sm:w-12">
       {artist.charAt(0).toUpperCase()}
     </span>
   );
@@ -120,7 +120,7 @@ export default function FeaturedRelease({ video, queue }) {
           </p>
           <ArtistNameLink
             track={video}
-            className="block truncate text-base font-bold text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3b82f6] sm:text-lg"
+            className="block truncate text-base font-bold text-white hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#24aae2] sm:text-lg"
           />
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function FeaturedRelease({ video, queue }) {
               </button>
               <ArtistNameLink
                 track={video}
-                className="mt-1 block truncate text-xs text-[#9aa8b5] hover:text-[#3b82f6] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3b82f6]"
+                className="mt-1 block truncate text-xs text-[#9aa8b5] hover:text-[#24aae2] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#24aae2]"
               />
             </div>
             <button

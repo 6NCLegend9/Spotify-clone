@@ -97,7 +97,7 @@ let miniWindow = null;
 let miniUserHidden = false;
 let playbackState = sanitizePlaybackState(null);
 let lastNativeUpdateNotificationVersion = "";
-let resolvedAccent = "#3b82f6";
+let resolvedAccent = "#24aae2";
 let appearanceGeneration = 0;
 const artworkAccentCache = new Map();
 
@@ -261,7 +261,7 @@ async function accentFromArtwork(url) {
 async function refreshAppearanceAccent() {
   const generation = ++appearanceGeneration;
   const profile = appearanceStore?.activeProfile();
-  const fallback = profile?.accent?.fixedColor || "#3b82f6";
+  const fallback = profile?.accent?.fixedColor || "#24aae2";
   if (profile?.accent?.mode !== "album" || !playbackState.artwork) {
     resolvedAccent = fallback;
     broadcastAppearance();
@@ -1161,7 +1161,7 @@ if (registerSingleInstance()) {
     });
     if (effectiveChannel !== store.get("updateChannel")) store.set("updateChannel", effectiveChannel);
     appearanceStore = new AppearanceStore(userDataDir);
-    resolvedAccent = appearanceStore.activeProfile()?.accent?.fixedColor || "#3b82f6";
+    resolvedAccent = appearanceStore.activeProfile()?.accent?.fixedColor || "#24aae2";
     logger = new NativeLogger(userDataDir);
     const startState = store.recordStart();
     safeMode = startState.safeMode;

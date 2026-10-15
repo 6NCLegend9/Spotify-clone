@@ -96,22 +96,22 @@ export const PIP_DOCUMENT_STYLES = `
   .yt-pip-doc-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(3,8,20,.55), rgba(3,8,20,.88)); }
   .yt-pip-doc-body { position: relative; z-index: 1; display: flex; height: 100%; flex-direction: column; padding: 12px 14px 10px; }
   .yt-pip-doc-top { display: flex; align-items: center; justify-content: space-between; }
-  .yt-pip-kicker { margin: 0; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #3b82f6; }
+  .yt-pip-kicker { margin: 0; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #24aae2; }
   .yt-pip-doc-top button, .yt-pip-controls button { appearance: none; border: 0; background: rgba(255,255,255,.08); color: #fff; border-radius: 8px; width: 48px; height: 48px; flex-shrink: 0; font-size: 20px; display: grid; place-items: center; cursor: pointer; }
   .yt-pip-title { margin: 10px 0 2px; font-size: 15px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .yt-pip-artist { display: block; margin: 0; font-size: 12px; color: #9aa8b5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
   .artist-links { max-width: 100%; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
   .artist-links a { display: inline-block; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
-  .artist-links a:focus-visible { outline: 2px solid #3b82f6; outline-offset: -2px; }
-  .yt-pip-artist a:hover { color: #3b82f6; }
+  .artist-links a:focus-visible { outline: 2px solid #24aae2; outline-offset: -2px; }
+  .yt-pip-artist a:hover { color: #24aae2; }
   .yt-pip-lyric { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }
-  .yt-pip-lyric-now { margin: 0; font-size: 16px; font-weight: 650; color: #3b82f6; line-height: 1.35; }
+  .yt-pip-lyric-now { margin: 0; font-size: 16px; font-weight: 650; color: #24aae2; line-height: 1.35; }
   .yt-pip-lyric-next { margin: 8px 0 0; font-size: 12px; color: #9aa8b5; }
   .yt-pip-progress { height: 3px; border-radius: 99px; background: rgba(255,255,255,.15); overflow: hidden; }
-  .yt-pip-progress span { display: block; height: 100%; background: #3b82f6; }
+  .yt-pip-progress span { display: block; height: 100%; background: #24aae2; }
   .yt-pip-times { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: #9aa8b5; }
   .yt-pip-controls { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
-  .yt-pip-play { width: 50px !important; height: 50px !important; font-size: 24px !important; background: #3b82f6 !important; color: #000 !important; }
+  .yt-pip-play { width: 50px !important; height: 50px !important; font-size: 24px !important; background: #24aae2 !important; color: #000 !important; }
   .yt-pip-queue { margin-top: 10px; min-height: 0; flex: 1; overflow: auto; }
   .yt-pip-queue-item { margin-top: 6px; padding: 4px; background: rgba(255,255,255,.06); border-radius: 8px; }
   .yt-pip-queue-play { display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: transparent; color: #fff; cursor: pointer; text-align: left; padding: 0; }
@@ -119,5 +119,5 @@ export const PIP_DOCUMENT_STYLES = `
   .yt-pip-queue-item span, .yt-pip-queue-artist { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .yt-pip-queue-play span { min-width: 0; }
   .yt-pip-queue-artist { display: block; margin: 2px 0 0 40px; color: #9aa8b5; text-decoration: none; }
-  .yt-pip-queue-artist a:hover { color: #3b82f6; }
+  .yt-pip-queue-artist a:hover { color: #24aae2; }
 `;
