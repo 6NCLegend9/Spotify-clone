@@ -47,7 +47,13 @@ function verify(state) {
   for (const [device, viewport] of Object.entries({ desktop: { width: 1440, height: 1000 }, mobile: { width: 390, height: 844 } })) {
     for (const [name, fixture] of Object.entries(fixtures)) {
       const context = await browser.newContext({ viewport, isMobile: device === 'mobile', hasTouch: device === 'mobile', reducedMotion: 'reduce', serviceWorkers: 'block' });
-      await context.addInitScript(() => { localStorage.setItem('toturialComplete', 'true'); });
+      await context.addInitScript(() => {
+        localStorage.setItem('toturialComplete', 'true');
+        // This fixture suite blocks workers so they cannot bypass API routing.
+        // Model an unsupported browser too: Playwright's blocked register() resolves
+        // undefined, which is not the browser ServiceWorkerRegistration contract.
+        delete Object.getPrototypeOf(navigator).serviceWorker;
+      });
       const page = await context.newPage();
       const errors = [], recommendationRequests = [];
       page.on('pageerror', error => errors.push(error.message));

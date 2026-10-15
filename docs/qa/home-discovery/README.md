@@ -60,6 +60,9 @@ exceptions. External network traffic is blocked. Screenshots and results are
 uploaded by `.github/workflows/home-discovery-vm.yml`.
 The CI browser run uses the compiled production build to avoid development-server
 recompilation during scenarios. Failures include the page state and a screenshot.
+Service workers are blocked and their browser API is hidden in this fixture suite
+so worker requests cannot bypass the synthetic API routes. PWA behavior is outside
+these homepage checks.
 
 These are controlled VM checks, not an authenticated live-catalog test. Vercel
 preview has no MongoDB connection (`MONGODB_URL` is production-only), so its
