@@ -124,7 +124,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
       const laneMats = [];
       LANE_X.forEach((x, index) => {
         const mat = new THREE.MeshBasicMaterial({
-          color: index === 1 ? "#0a2a30" : "#0b1822",
+          color: index === 1 ? "#101f36" : "#0b1822",
           transparent: true,
           opacity: 0.95,
         });
@@ -136,7 +136,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
       });
 
       const railGeo = new THREE.BoxGeometry(0.14, 0.42, 90);
-      const railMat = new THREE.MeshBasicMaterial({ color: "#00e6e6" });
+      const railMat = new THREE.MeshBasicMaterial({ color: "#096192" });
       [-3.55, 3.55].forEach((x) => {
         const rail = new THREE.Mesh(railGeo, railMat);
         rail.position.set(x, 0.22, -20);
@@ -145,7 +145,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
       disposables.push(railGeo, railMat);
 
       const beatGeo = new THREE.BoxGeometry(7.6, 0.03, 0.08);
-      const beatMat = new THREE.MeshBasicMaterial({ color: "#00e6e6", transparent: true, opacity: 0.28 });
+      const beatMat = new THREE.MeshBasicMaterial({ color: "#096192", transparent: true, opacity: 0.28 });
       const beatBars = Array.from({ length: 10 }, (_, index) => {
         const bar = new THREE.Mesh(beatGeo, beatMat);
         bar.position.set(0, 0.06, -index * 6);
@@ -154,7 +154,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
       });
       disposables.push(beatGeo, beatMat);
 
-      const shipMat = new THREE.MeshBasicMaterial({ color: "#00e6e6" });
+      const shipMat = new THREE.MeshBasicMaterial({ color: "#096192" });
       const canopyMat = new THREE.MeshBasicMaterial({ color: "#ffb648" });
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.2, 1.25), shipMat);
       const wing = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.08, 0.42), shipMat);
@@ -172,7 +172,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
       const orbGeo = new THREE.SphereGeometry(0.42, 10, 8);
       const ringGeo = new THREE.TorusGeometry(0.72, 0.1, 8, 18);
       const barrierGeo = new THREE.BoxGeometry(1.7, 1.35, 0.28);
-      const orbMat = new THREE.MeshBasicMaterial({ color: "#00e6e6" });
+      const orbMat = new THREE.MeshBasicMaterial({ color: "#096192" });
       const ringMat = new THREE.MeshBasicMaterial({ color: "#ffb648" });
       const barrierMat = new THREE.MeshBasicMaterial({ color: "#ff4ecd" });
       disposables.push(orbGeo, ringGeo, barrierGeo, orbMat, ringMat, barrierMat);
@@ -302,7 +302,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
         const pulse = reducedRef.current ? 0 : audio.bass;
         player.position.y = 0.55 + pulse * 0.22;
         player.scale.setScalar(now < invulnUntil && Math.floor(now / 80) % 2 === 0 ? 0.72 : 1 + pulse * 0.08);
-        shipMat.color.set(now < invulnUntil ? "#ff4ecd" : "#00e6e6");
+        shipMat.color.set(now < invulnUntil ? "#ff4ecd" : "#096192");
         laneMats.forEach((mat, index) => {
           mat.opacity = index === laneRef.current ? 0.95 : 0.55;
         });
@@ -351,7 +351,7 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
       />
       <div className="pointer-events-none absolute left-3 top-3 text-xs font-semibold text-white">
         <p className="text-lg tabular-nums">{hud.points.toLocaleString()}</p>
-        <p className="text-[11px] text-[#00e6e6]">{hud.combo > 1 ? `${hud.combo}x combo` : `${hud.caught} beats caught`}</p>
+        <p className="text-[11px] text-[#096192]">{hud.combo > 1 ? `${hud.combo}x combo` : `${hud.caught} beats caught`}</p>
       </div>
       <p className="pointer-events-none absolute right-3 top-3 text-[11px] font-semibold text-[#ff4ecd]">
         {"♥".repeat(hud.lives) || "—"}

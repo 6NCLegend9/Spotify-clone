@@ -44,7 +44,7 @@ export default function QuickAccessGrid({ items }) {
         if (item.type === "liked") {
           return (
             <QuickCard key="liked" href="/library/liked" aria-label="Open Liked Songs">
-              <span className="grid h-16 w-16 shrink-0 place-items-center bg-gradient-to-br from-[#00e6e6] via-[#128a9a] to-[#3b1d8f]">
+              <span className="grid h-16 w-16 shrink-0 place-items-center bg-gradient-to-br from-[#096192] via-[#24aae2] to-[#162943]">
                 <FiHeart aria-hidden="true" className="text-xl text-white" />
               </span>
               <span className="home-quick-title line-clamp-2">Liked Songs</span>
@@ -86,7 +86,7 @@ export default function QuickAccessGrid({ items }) {
                   className="home-quick-art"
                 />
               ) : (
-                <span className="grid h-16 w-16 shrink-0 place-items-center bg-[#101c28] text-[#00e6e6]">
+                <span className="grid h-16 w-16 shrink-0 place-items-center bg-[#162943] text-[#096192]">
                   <BsPlayFill aria-hidden="true" className="text-xl" />
                 </span>
               )}

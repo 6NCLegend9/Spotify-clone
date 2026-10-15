@@ -30,7 +30,7 @@ export default function AppearanceBackdrop({ isHome = false }) {
       />
       <div
         className="appearance-backdrop__shade"
-        style={{ backgroundColor: `rgba(0, 8, 20, ${background?.darkness ?? 0.58})` }}
+        style={{ backgroundColor: `rgba(6,13,27, ${background?.darkness ?? 0.58})` }}
       />
     </div>
   );

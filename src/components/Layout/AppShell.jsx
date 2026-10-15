@@ -283,6 +283,8 @@ export default function AppShell({ children }) {
           aria-valuemax={420}
           aria-valuenow={sidebarWidth}
           tabIndex={effectiveCollapsed ? -1 : 0}
+          title="Drag to resize; double-click to reset"
+          onDoubleClick={() => updateSidebarWidth(260)}
           onPointerDown={startSidebarResize}
           onKeyDown={resizeSidebarWithKeyboard}
         />
@@ -325,6 +327,8 @@ export default function AppShell({ children }) {
           aria-valuemax={420}
           aria-valuenow={rightPanelWidth}
           tabIndex={rightPanelCollapsed ? -1 : 0}
+          title="Drag to resize; double-click to reset"
+          onDoubleClick={() => updateRightPanelWidth(320)}
           onPointerDown={startRightPanelResize}
           onKeyDown={resizeRightPanelWithKeyboard}
         />
@@ -355,11 +359,11 @@ export default function AppShell({ children }) {
             "aria-live": "polite",
           },
           style: {
-            background: "rgba(7, 18, 29, 0.86)",
+            background: "rgba(11,22,41, 0.86)",
             color: "#fff",
-            border: "1px solid rgba(0, 230, 230, 0.18)",
+            border: "1px solid rgba(9,97,146, 0.18)",
             backdropFilter: "blur(18px)",
-            boxShadow: "0 16px 48px rgba(0, 8, 20, 0.45)",
+            boxShadow: "0 16px 48px rgba(6,13,27, 0.45)",
           },
         }}
       />

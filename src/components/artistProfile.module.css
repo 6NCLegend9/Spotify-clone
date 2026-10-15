@@ -9,7 +9,7 @@
 .heroCount { margin-top: 18px; color: #fff; font-size: 14px; line-height: 1.5; }
 .stickyHeader { position: sticky; top: 0; height: 0; z-index: 8; }
 .stickyHeader[hidden] { display: none; }
-.stickyContent { display: flex; align-items: center; gap: 16px; height: 64px; padding: 8px clamp(16px, 2.8cqi, 40px); background: rgb(12 24 33 / .97); border-bottom: 1px solid var(--hairline); box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
+.stickyContent { display: flex; align-items: center; gap: 16px; height: 64px; padding: 8px clamp(16px, 2.8cqi, 40px); background: rgb(22 41 67 / .97); border-bottom: 1px solid var(--hairline); box-shadow: 0 6px 20px rgb(0 0 0 / .18); }
 .compactTitle { min-width: 0; color: #fff; font-size: 20px; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mainPlay, .compactPlay, .cardPlay { display: grid; place-items: center; flex-shrink: 0; border-radius: 50%; color: var(--navy); background: var(--accent); }
 .mainPlay { width: 64px; height: 64px; }
@@ -18,7 +18,7 @@
 .compactPlay svg, .cardPlay svg { width: 22px; height: 22px; margin-left: 2px; fill: currentColor; }
 .mainPlay:hover, .compactPlay:hover, .cardPlay:hover { filter: brightness(1.1); }
 .page button:disabled { cursor: not-allowed; opacity: .5; }
-.content { min-width: 0; padding: 0 clamp(16px, 2.5cqi, 36px) 48px; background: linear-gradient(180deg, rgb(106 133 149 / .15), transparent 340px); }
+.content { min-width: 0; padding: 0 clamp(16px, 2.5cqi, 36px) 48px; background: linear-gradient(180deg, rgb(17 113 186 / .15), transparent 340px); }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; min-height: 108px; padding: 24px 0; }
 .shuffle { display: grid; place-items: center; width: 44px; height: 44px; color: var(--muted); border-radius: 50%; }
 .shuffle svg { width: 28px; height: 28px; }
@@ -31,7 +31,7 @@
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; margin-bottom: 12px; }
 .sectionHeading h2, .sidebar h2, .about h2 { font-size: 24px; font-weight: 750; line-height: 1.35; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .songList { list-style: none; margin: 0; padding: 0; }
-.songRow { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px 44px; align-items: center; gap: 8px; min-height: 72px; padding: 4px 6px; border-radius: 6px; transition: background var(--motion-fast) ease-out; }
+.songRow { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px 44px; align-items: center; gap: 8px; min-height: 66px; padding: 4px 6px; border-radius: 6px; transition: background var(--motion-fast) ease-out; }
 .songRow:hover, .songRow:focus-within { background: var(--fill-hover); }
 .rowPlay { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--muted); }
 .rowPlayIcon { position: absolute; fill: currentColor; opacity: 0; }
@@ -40,9 +40,10 @@
 .songIdentity { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .songArt { width: 44px; height: 44px; flex-shrink: 0; object-fit: cover; border-radius: 4px; }
 .songCopy { flex: 1; }
-.songTitle { display: block; width: 100%; min-height: 44px; text-align: start; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.songTitle { display: block; width: 100%; min-height: 28px; text-align: start; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .songTitle:hover, .cardTitle:hover { text-decoration: underline; text-underline-offset: 3px; }
-.credits { color: var(--muted); font-size: 12px; line-height: 24px; }
+.songMeta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.credits { flex: 1; color: var(--muted); font-size: 12px; line-height: 24px; }
 .credits a { min-height: 24px; }
 .duration { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
 .mobileDuration { display: none; }
@@ -133,7 +134,7 @@
   .songRow { grid-template-columns: 44px minmax(0, 1fr) 44px 44px; gap: 4px; padding-inline: 0; }
   .songArt, .rowDuration { display: none; }
   .songTitle { font-size: 14px; }
-  .mobileDuration { display: block; color: var(--muted); font-size: 11px; line-height: 18px; }
+  .mobileDuration { display: block; flex-shrink: 0; color: var(--muted); font-size: 11px; line-height: 24px; }
   .sidebar { flex-direction: column; }
   .sidebar h2 { margin-bottom: 10px; }
   .catalogSection, .discography, .about { margin-top: 28px; }

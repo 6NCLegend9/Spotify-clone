@@ -98,7 +98,7 @@ export default function MixCard({ mix }) {
         <Image src={logo} alt="" className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
       </span>
       <span className="home-mix-title !right-16">
-        <span className="home-mix-bar" style={{ background: palette.bar || "#00e6e6" }} />
+        <span className="home-mix-bar" style={{ background: palette.bar || "#096192" }} />
         <span className="line-clamp-2">{mix.title}</span>
       </span>
       <button

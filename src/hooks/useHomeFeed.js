@@ -58,7 +58,8 @@ export default function useHomeFeed() {
   const [history, setHistory] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [releases, setReleases] = useState([]);
-
+  const recentIdsQuery = !privateSession && libraryOwner === owner
+    ? discoverySeenIds(history.map((track) => track.id)).join(",") : "";
 
   useEffect(() => {
     setHome({ owner, privateSession, data: null });
@@ -84,6 +85,7 @@ export default function useHomeFeed() {
       }
       try {
         const query = new URLSearchParams();
+        if (recentIdsQuery) query.set("recent", recentIdsQuery);
         if (seenIds.length) query.set("seen", seenIds.join(","));
         if (seenPlaylistIds.length) query.set("seenPlaylists", seenPlaylistIds.join(","));
         const res = await requestJson(`/api/recommendations${query.toString() ? `?${query}` : ""}`, {
@@ -140,7 +142,7 @@ export default function useHomeFeed() {
       window.removeEventListener("favourites-changed", onPreferencesChanged);
       window.removeEventListener("heykasa:preferences-changed", onPreferencesChanged);
     };
-  }, [dispatch, retryKey, owner, privateSession]);
+  }, [dispatch, retryKey, owner, privateSession, recentIdsQuery]);
 
   useEffect(() => {
     setLibraryOwner(owner);
@@ -183,10 +185,12 @@ export default function useHomeFeed() {
       }
     };
 
+    let playlistRequest = 0;
     const loadPlaylists = async () => {
+      const request = ++playlistRequest;
       try {
         const res = await getUserPlaylists();
-        if (!cancelled && res?.success === true) {
+        if (!cancelled && request === playlistRequest && res?.success === true) {
           setPlaylists(
             Array.isArray(res.data?.playlists)
               ? res.data.playlists.filter(
@@ -196,7 +200,7 @@ export default function useHomeFeed() {
           );
         }
       } catch {
-        if (!cancelled) setPlaylists([]);
+        // Keep the last-known list on transient refresh failures.
       }
     };
 
@@ -219,18 +223,11 @@ export default function useHomeFeed() {
     void loadPlaylists();
     void loadReleases();
 
-    const onPlaylistsChanged = () => {
-      void getUserPlaylists().then((res) => {
-        if (!cancelled && res?.success === true) {
-          setPlaylists(
-            Array.isArray(res.data?.playlists)
-              ? res.data.playlists.filter(
-                  (playlist) => playlist && typeof playlist === "object" && playlist._id,
-                )
-              : [],
-          );
-        }
-      }).catch(() => {});
+    const onPlaylistsChanged = (event) => {
+      if (event.detail?.owner && event.detail.owner !== owner) return;
+      const created = event.detail?.playlist;
+      if (created?._id) setPlaylists((current) => [created, ...current.filter((item) => item._id !== created._id)]);
+      void loadPlaylists();
     };
     const onHistoryChanged = (event) => {
       if (event.detail?.owner !== owner) return;

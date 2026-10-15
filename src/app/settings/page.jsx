@@ -67,7 +67,7 @@ function Toggle({ label, description, checked, disabled = false, onChange }) {
         ) : null}
       </span>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} className="peer sr-only" />
-      <span className="relative h-6 w-11 shrink-0 rounded-full bg-white/15 transition peer-checked:bg-[#00e6e6] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#00e6e6] after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5 peer-checked:after:bg-black" />
+      <span className="relative h-6 w-11 shrink-0 rounded-full bg-white/15 transition peer-checked:bg-[#096192] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#096192] after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-5 peer-checked:after:bg-black" />
     </label>
   );
 }
@@ -117,7 +117,7 @@ function SelectControl({ label, value, options, onChange }) {
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-11 rounded-md border border-white/15 bg-[#101b29] px-3 py-2 text-sm text-white outline-none focus:border-[#00e6e6]"
+        className="min-h-11 rounded-md border border-white/15 bg-[#101b29] px-3 py-2 text-sm text-white outline-none focus:border-[#096192]"
       >
         {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
       </select>
@@ -321,7 +321,7 @@ function AccountSettings({ owner, status }) {
             <button
               type="button"
               onClick={() => set("eqPreset", "Flat / Neutral")}
-              className="min-h-11 rounded-full border border-white/15 px-4 text-sm font-semibold text-gray-200 transition hover:border-[#00e6e6] hover:text-[#00e6e6]"
+              className="min-h-11 rounded-full border border-white/15 px-4 text-sm font-semibold text-gray-200 transition hover:border-[#096192] hover:text-[#096192]"
             >
               Reset to flat
             </button>
@@ -357,7 +357,7 @@ function AccountSettings({ owner, status }) {
                   const gain = Number(eqBands[index] || 0);
                   return (
                     <div key={`eq-meta-${frequency}`} className="flex flex-col items-center text-sm text-gray-300">
-                      <span className="text-xs tabular-nums text-[#00e6e6]">{gain > 0 ? `+${gain}` : gain} dB</span>
+                      <span className="text-xs tabular-nums text-[#096192]">{gain > 0 ? `+${gain}` : gain} dB</span>
                       <span className="mt-2 font-semibold text-white">{formatBandFrequency(frequency)}</span>
                       <span className="mt-1 text-[10px] text-gray-500">−{EQ_GAIN_LIMIT} dB</span>
                     </div>
@@ -390,7 +390,7 @@ function AccountSettings({ owner, status }) {
             disabled={settings.fadeEnabled === false}
             aria-valuetext={`${Number(settings.fadeSeconds ?? 0.8).toFixed(1)} seconds`}
             onChange={(event) => set("fadeSeconds", Number(event.target.value))}
-            className="mt-3 h-8 w-full accent-[#00e6e6] disabled:opacity-40"
+            className="mt-3 h-8 w-full accent-[#096192] disabled:opacity-40"
           />
         </label>
       </section>

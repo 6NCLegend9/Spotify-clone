@@ -1,4 +1,5 @@
 import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
+import { durationMapForMembers, knownDuration } from "@/utils/playlistDuration.mjs";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/utils/dbconnect";
@@ -63,11 +64,12 @@ export async function POST(req){
         const body = await readRequestJson(req);
         const playlistID = requirePlaylistId(body.playlistID);
         const song = requireYoutubeId(body.song);
+        if (body.duration !== undefined && (typeof body.duration !== "number" || !knownDuration(body.duration))) return apiError("VALIDATION_ERROR");
         await dbConnect();
         await mutateDocument(Playlist, playlistID, (current) => {
             if (!canEditPlaylist(current, user)) throw new ApiRouteError("FORBIDDEN");
             const songs = boundedMembership(current.songs, song, true, MAX_PLAYLIST_SONGS);
-            return { songs, songAddedAt: dateMapForMembers(songs, current.songAddedAt, song) };
+            return { songs, songAddedAt: dateMapForMembers(songs, current.songAddedAt, song), songDurations: durationMapForMembers(songs, current.songDurations, song, body.duration) };
         }, { $or: [{ user: user._id }, { collaborators: user._id }] });
         return NextResponse.json(
             {
@@ -105,7 +107,7 @@ export async function DELETE(req){
         const playlist = await mutateDocument(Playlist, playlistID, (current) => {
             if (!canEditPlaylist(current, user)) throw new ApiRouteError("FORBIDDEN");
             const songs = boundedMembership(current.songs, song, false, MAX_PLAYLIST_SONGS);
-            return { songs, songAddedAt: dateMapForMembers(songs, current.songAddedAt) };
+            return { songs, songAddedAt: dateMapForMembers(songs, current.songAddedAt), songDurations: durationMapForMembers(songs, current.songDurations) };
         }, { $or: [{ user: user._id }, { collaborators: user._id }] });
         return NextResponse.json(
             {

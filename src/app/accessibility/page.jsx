@@ -203,7 +203,7 @@ export default function AccessibilityPage() {
           <p className="mt-4 text-sm leading-7 text-[#c9d4de]">
             If you encounter a barrier using {SITE_NAME}, tell us what you were trying to do, the
             page or feature involved, and the browser or assistive technology you use. Contact us at{" "}
-            <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#00e6e6] underline underline-offset-4">
+            <a href={`mailto:${ORG_CONTACT_EMAIL}`} className="text-[#096192] underline underline-offset-4">
               {ORG_CONTACT_EMAIL}
             </a>.
           </p>

@@ -5,7 +5,7 @@ import useArcadeCanvas from "@/hooks/useArcadeCanvas";
 import { approachSeconds, chartEnergy, notesInWindow } from "@/utils/arcadeChart.mjs";
 
 const LANES = 4;
-const LANE_COLORS = ["#00e6e6", "#7c5cff", "#ff4ecd", "#ffb648"];
+const LANE_COLORS = ["#096192", "#1171ba", "#1399c6", "#f1f5ff"];
 const LOCK_RATIO = 0.72;
 const PERFECT_WINDOW = 0.09;
 const GOOD_WINDOW = 0.18;
@@ -250,7 +250,7 @@ export default function WaveInvaders2D({
         const x = pad + lane * laneWidth;
         const active = lane === state.lane;
         context.fillStyle = active
-          ? `rgba(0,230,230,${0.06 + audio.bass * 0.08})`
+          ? `rgba(9,97,146,${0.06 + audio.bass * 0.08})`
           : lane % 2 === 0 ? "rgba(255,255,255,0.025)" : "rgba(255,255,255,0.045)";
         context.fillRect(x, 0, laneWidth, height);
         context.strokeStyle = "rgba(255,255,255,0.06)";
@@ -261,11 +261,11 @@ export default function WaveInvaders2D({
       }
 
       const ringGlow = reducedRef.current ? 0.4 : 0.35 + audio.bass * 0.65;
-      context.fillStyle = `rgba(0,230,230,${0.08 + audio.bass * 0.1})`;
+      context.fillStyle = `rgba(9,97,146,${0.08 + audio.bass * 0.1})`;
       context.fillRect(pad, lockY - 18, width - pad * 2, 36);
-      context.shadowColor = "#00e6e6";
+      context.shadowColor = "#096192";
       context.shadowBlur = reducedRef.current ? 0 : 16 * ringGlow;
-      context.strokeStyle = `rgba(0,230,230,${Math.min(1, ringGlow)})`;
+      context.strokeStyle = `rgba(9,97,146,${Math.min(1, ringGlow)})`;
       context.lineWidth = 3;
       context.beginPath();
       context.moveTo(pad, lockY);
@@ -311,7 +311,7 @@ export default function WaveInvaders2D({
       const shipX = laneCenter(width, state.lane);
       const shipY = height - Math.max(36, height * 0.09);
       if (now < state.beamUntil) {
-        context.strokeStyle = "rgba(0,230,230,0.75)";
+        context.strokeStyle = "rgba(9,97,146,0.75)";
         context.lineWidth = 4;
         context.beginPath();
         context.moveTo(shipX, shipY - 18);
@@ -319,7 +319,7 @@ export default function WaveInvaders2D({
         context.stroke();
       }
 
-      context.fillStyle = "#00e6e6";
+      context.fillStyle = "#096192";
       context.beginPath();
       context.moveTo(shipX, shipY - 22);
       context.lineTo(shipX - 16, shipY + 14);
@@ -370,7 +370,7 @@ export default function WaveInvaders2D({
       />
       <div className="pointer-events-none absolute left-3 top-3 text-xs font-semibold text-white">
         <p className="text-lg tabular-nums">{hud.points.toLocaleString()}</p>
-        <p className="text-[11px] text-[#00e6e6]">{hud.combo > 1 ? `${hud.combo}x combo` : `${hud.hits} pulses`}</p>
+        <p className="text-[11px] text-[#096192]">{hud.combo > 1 ? `${hud.combo}x combo` : `${hud.hits} pulses`}</p>
       </div>
       <p className="pointer-events-none absolute right-3 top-3 text-[11px] font-semibold text-[#ff4ecd]">
         {"♥".repeat(hud.lives) || "—"}

@@ -7,7 +7,7 @@ export default function ArcadeGameSelect({ onSelect }) {
   return (
     <div className="h-full overflow-y-auto px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-3xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#00e6e6]">Choose your game</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#096192]">Choose your game</p>
         <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">What do you want to play?</h2>
         <p className="mt-2 text-sm text-[#9aa8b5]">
           All three modes share one song chart. Catch, dodge, or fire on the beat — not on a random timer.
@@ -23,7 +23,7 @@ export default function ArcadeGameSelect({ onSelect }) {
                 aria-describedby={game.ready ? undefined : `${game.id}-unavailable`}
                 className={`group flex h-full w-full flex-col items-start gap-2 rounded-xl border p-4 text-left transition ${
                   game.ready
-                    ? "border-white/12 bg-white/[0.04] hover:border-[#00e6e6] hover:bg-[#00e6e6]/[0.06]"
+                    ? "border-white/12 bg-white/[0.04] hover:border-[#096192] hover:bg-[#096192]/[0.06]"
                     : "cursor-not-allowed border-white/8 bg-white/[0.02] opacity-50"
                 }`}
               >
@@ -32,7 +32,7 @@ export default function ArcadeGameSelect({ onSelect }) {
                     {game.tagline}
                   </span>
                   {game.ready ? (
-                    <FiPlay aria-hidden="true" className="text-[#00e6e6]" />
+                    <FiPlay aria-hidden="true" className="text-[#096192]" />
                   ) : (
                     <FiLock aria-hidden="true" className="text-[#9aa8b5]" />
                   )}

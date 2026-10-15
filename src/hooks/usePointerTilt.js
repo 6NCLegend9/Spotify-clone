@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 const TILT =
-  ".home-mix, .library-tile, .home-feature-card, .home-quick-card, .card, .home-square";
+  ".home-mix, .library-tile, .home-quick-card, .card, .home-square";
 
 export default function usePointerTilt() {
   useEffect(() => {

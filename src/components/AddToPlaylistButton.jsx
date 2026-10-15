@@ -76,7 +76,7 @@ export default function AddToPlaylistButton({ track, className = "" }) {
   const handleAdd = async (playlist) => {
     if (addingId || !playlist?._id || !track?.id) return;
     setAddingId(playlist._id);
-    const res = await addSongToPlaylist(playlist._id, track.id);
+    const res = await addSongToPlaylist(playlist._id, track.id, track.duration);
     setAddingId(null);
     if (res?.success) toast.success(`Added to ${playlist.name || "playlist"}`);
     else {
@@ -153,7 +153,7 @@ export default function AddToPlaylistButton({ track, className = "" }) {
                   role="menuitem"
                   onClick={() => handleAdd(playlist)}
                   disabled={Boolean(addingId)}
-                  className="block w-full truncate rounded-md px-2 py-2 text-left text-sm text-white hover:bg-white/10 hover:text-[#00e6e6]"
+                  className="block w-full truncate rounded-md px-2 py-2 text-left text-sm text-white hover:bg-white/10 hover:text-[#096192]"
                 >
                   {addingId === playlist._id ? "Adding…" : playlist.name || "Untitled playlist"}
                 </button>

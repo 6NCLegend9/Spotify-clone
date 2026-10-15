@@ -25,7 +25,7 @@
 .volume { display: none; }
 .nowPlayingToggle { display: none; }
 .dock:has(~ [data-kasa-media-view="drawer"]), .dock:has(~ [data-kasa-media-view="expanded"]) { visibility: hidden; pointer-events: none; }
-.queueBackdrop { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; background: rgb(0 8 20 / 78%); }
+.queueBackdrop { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; background: rgb(6 13 27 / 78%); }
 .dialog { position: relative; display: flex; flex-direction: column; width: min(100%, 480px); max-width: 100%; height: min(100dvh, 800px); max-height: calc(100dvh - 48px); padding: 0 0 env(safe-area-inset-bottom); overflow: hidden; color: var(--text); background: var(--navy-surface); border: 1px solid var(--hairline-cyan); border-radius: 12px; letter-spacing: 0; box-shadow: 0 28px 70px rgb(0 0 0 / 45%); }
 .dialog:focus { outline: none; }
 .dialog button { min-width: 48px; min-height: 48px; }

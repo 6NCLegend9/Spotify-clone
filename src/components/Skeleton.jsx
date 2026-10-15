@@ -59,23 +59,6 @@ export function HomeFeedSkeleton() {
           </div>
         ))}
       </div>
-      <div className="mb-8">
-        <div className="mb-3 flex items-center gap-3">
-          <ShimmerBlock className="h-10 w-10 rounded-full" />
-          <div className="min-w-0 flex-1">
-            <ShimmerBlock className="h-3 w-28" />
-            <ShimmerBlock className="mt-2 h-4 w-40" />
-          </div>
-        </div>
-        <div className="home-feature-card">
-          <ShimmerBlock className="home-feature-art rounded-none" />
-          <div className="home-feature-meta">
-            <ShimmerBlock className="h-3 w-16" />
-            <ShimmerBlock className="mt-3 h-5 w-3/4" />
-            <ShimmerBlock className="mt-2 h-3 w-1/2" />
-          </div>
-        </div>
-      </div>
       <ShimmerBlock className="mb-4 h-7 w-56" />
       <div className="home-rail">
         {Array.from({ length: 6 }).map((_, index) => (

@@ -5,7 +5,7 @@ import Link from "next/link";
 const TONES = {
   error: "border-amber-400/30 bg-amber-400/10 text-amber-100",
   warning: "border-yellow-300/25 bg-yellow-300/10 text-yellow-50",
-  success: "border-[#00e6e6]/25 bg-[#00e6e6]/10 text-[#d7fbff]",
+  success: "border-[#096192]/25 bg-[#096192]/10 text-[#dbeafe]",
   info: "border-sky-300/25 bg-sky-300/10 text-sky-50",
 };
 

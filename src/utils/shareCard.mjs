@@ -85,5 +85,5 @@ export function playlistEmbedUrl(playlistId) {
 
 export function playlistEmbedSnippet(playlistId) {
   const src = playlistEmbedUrl(playlistId);
-  return `<iframe src="${src}" width="100%" height="360" style="border:0;border-radius:12px;overflow:hidden;background:#07121d" loading="lazy" title="${SITE_NAME} playlist" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>`;
+  return `<iframe src="${src}" width="100%" height="360" style="border:0;border-radius:12px;overflow:hidden;background:#0b1629" loading="lazy" title="${SITE_NAME} playlist" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>`;
 }

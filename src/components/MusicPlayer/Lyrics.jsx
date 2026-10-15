@@ -35,7 +35,7 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
             setActiveTab("queue");
           }}
           className={`${
-            activeTab === "queue" ? "border-[#00e6e6] border-b-2" : ""
+            activeTab === "queue" ? "border-[#096192] border-b-2" : ""
           } text-white text-xl m-3 font-medium `}
         >
           Queue
@@ -45,7 +45,7 @@ const Lyrics = ({ activeSong, currentTime = 0, duration = 0, onSeek }) => {
             setActiveTab("lyrics");
           }}
           className={`${
-            activeTab === "lyrics" ? "border-[#00e6e6] border-b-2" : ""
+            activeTab === "lyrics" ? "border-[#096192] border-b-2" : ""
           } text-white text-xl m-3 font-medium`}
         >
           Lyrics

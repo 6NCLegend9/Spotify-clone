@@ -10,12 +10,14 @@ on:
       - "contracts/**"
       - "scripts/generate-desktop-contract.mjs"
       - ".github/workflows/desktop-ci.yml"
+      - ".github/workflows/desktop-release.yml"
   pull_request:
     paths:
       - "desktop/**"
       - "contracts/**"
       - "scripts/generate-desktop-contract.mjs"
       - ".github/workflows/desktop-ci.yml"
+      - ".github/workflows/desktop-release.yml"
 
 permissions:
   contents: read
@@ -40,5 +42,9 @@ jobs:
       - name: Check native JavaScript syntax
         shell: bash
         run: find desktop/src desktop/scripts -name '*.mjs' -print0 | xargs -0 -n 1 node --check
+      - name: Verify mini-player startup and loading failures
+        run: node desktop/scripts/check-mini-player.mjs
+      - name: Verify automatic releases and updater notifications
+        run: node desktop/scripts/check-auto-release.mjs
       - name: Audit runtime dependencies
         run: npm --prefix desktop audit --omit=dev --audit-level=high

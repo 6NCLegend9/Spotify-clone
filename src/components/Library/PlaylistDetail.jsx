@@ -65,13 +65,7 @@ import {
   playlistListenUrl,
 } from "@/utils/shareCard.mjs";
 
-function formatTotalDuration(seconds) {
-  const minutes = Math.floor((Number(seconds) || 0) / 60);
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (hours > 0) return `${hours} hr ${remainingMinutes} min`;
-  return `${minutes} min`;
-}
+import { playlistDurationLabel } from "@/utils/playlistDuration.mjs";
 
 function interleaveRecommendations(tracks, recommendations) {
   if (recommendations.length === 0) return tracks;
@@ -91,7 +85,7 @@ function interleaveRecommendations(tracks, recommendations) {
 
 function LikedCover({ className = "" }) {
   return (
-    <div className={`grid place-items-center bg-gradient-to-br from-[#3426a8] via-[#654be5] to-[#b9e7e5] ${className}`}>
+    <div className={`grid place-items-center bg-gradient-to-br from-[#1399c6] via-[#096192] to-[#1171ba] ${className}`}>
       <FiHeart className="h-16 w-16 fill-white text-white sm:h-20 sm:w-20" />
     </div>
   );
@@ -100,9 +94,9 @@ function LikedCover({ className = "" }) {
 function AccessGate() {
   return (
     <main className="page text-white">
-      <section className="flex flex-col items-start gap-6 rounded-2xl border border-white/10 bg-[#101c28]/85 px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
+      <section className="flex flex-col items-start gap-6 rounded-2xl border border-white/10 bg-[#162943]/85 px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
         <div className="flex gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/10 text-[#00e6e6]"><FiLock /></span>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/10 text-[#096192]"><FiLock /></span>
           <div><h1 className="text-2xl font-bold">Liked Songs are yours to keep</h1><p className="mt-2 text-sm text-gray-300">Save your favorite tracks in one place. Log in or create a free account.</p></div>
         </div>
         <div className="flex gap-2"><Link href="/login" className="btn-primary h-10 px-5 text-sm">Log in</Link><Link href="/signup" className="btn-ghost h-10 px-5 text-sm">Sign up</Link></div>
@@ -174,7 +168,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
         }
         const ids = validYouTubeIds(nextCollection[isLiked ? "favourites" : "songs"]);
         if (isLiked) ids.reverse();
-        const hydratedTracks = await hydrateYouTubeTracks(ids, { retainUnavailable: true });
+        const hydratedTracks = await hydrateYouTubeTracks(ids, { retainUnavailable: true, durations: nextCollection[isLiked ? "favouriteDurations" : "songDurations"] });
         const dateMap = nextCollection[isLiked ? "favouriteAddedAt" : "songAddedAt"];
         const datedTracks = hydratedTracks.map((track) => ({
           ...track,
@@ -234,7 +228,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
     return tracks.filter((track) => `${track.title} ${track.channel}`.toLowerCase().includes(query));
   }, [deferredSearch, tracks]);
   const totalDuration = useMemo(
-    () => tracks.reduce((total, track) => total + (track.duration || 0), 0),
+    () => playlistDurationLabel(tracks),
     [tracks],
   );
 
@@ -503,7 +497,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
                 {ownerImage ? <img src={ownerImage} alt="" onError={(event) => { event.currentTarget.hidden = true; }} className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10"><FiMusic /></span>}
                 <strong className="text-white">{ownerName}</strong>
                 <span>&bull;</span>
-                <span>{tracks.length.toLocaleString()} {tracks.length === 1 ? "song" : "songs"}{tracks.length > 0 ? `, ${formatTotalDuration(totalDuration)}` : ""}</span>
+                <span>{tracks.length.toLocaleString()} {tracks.length === 1 ? "song" : "songs"}{tracks.length > 0 ? `, ${totalDuration}` : ""}</span>
                 {!isLiked && collection.collaborators?.length > 0 && <><span>&bull;</span><span>{collection.collaborators.length} collaborator{collection.collaborators.length === 1 ? "" : "s"}</span></>}
               </div>
             </div>
@@ -545,7 +539,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
             ) : null}
             <section className="flex flex-wrap items-center gap-2 py-6" aria-label="Playlist actions">
               <button type="button" aria-label={`Play ${title}`} onClick={playCollection} disabled={tracks.length === 0} className="play-fab play-fab--static mr-2 h-14 w-14 min-h-14 min-w-14 disabled:cursor-not-allowed disabled:opacity-40"><FiPlay className="ml-1 fill-current" /></button>
-              <button type="button" aria-label="Shuffle + Discovery" title="Shuffle + Discovery" aria-pressed={discoveryShuffle} onClick={toggleDiscoveryShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${discoveryShuffle ? "bg-[#00e6e6]/15 text-[#00e6e6] ring-1 ring-[#00e6e6]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle className="text-2xl" /><span className="sr-only">Shuffle + Discovery {discoveryShuffle ? "On" : "Off"}</span></button>
+              <button type="button" aria-label="Shuffle + Discovery" title="Shuffle + Discovery" aria-pressed={discoveryShuffle} onClick={toggleDiscoveryShuffle} className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition duration-200 ease-out active:scale-[0.98] ${discoveryShuffle ? "bg-[#096192]/15 text-[#096192] ring-1 ring-[#096192]/50" : "text-gray-300 hover:bg-white/10 hover:text-white"}`}><FiShuffle className="text-2xl" /><span className="sr-only">Shuffle + Discovery {discoveryShuffle ? "On" : "Off"}</span></button>
               {!isLiked && collection ? <LikePlaylistButton playlist={collection} onChange={(next) => setCollection((current) => current ? ({ ...current, ...next }) : current)} /> : null}
               {isPublicPlaylist ? (
                 <>
@@ -607,7 +601,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               <label className="relative mb-5 block max-w-md">
                 <span className="sr-only">Search tracks in {title}</span>
                 <FiSearch aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} placeholder="Search by title or artist" className="h-11 w-full rounded-md border border-white/10 bg-white/[0.07] pl-10 pr-10 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#00e6e6]" />
+                <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} onFocus={handleInputFocus} onBlur={handleInputBlur} placeholder="Search by title or artist" className="h-11 w-full rounded-md border border-white/10 bg-white/[0.07] pl-10 pr-10 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#096192]" />
                 {search && <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="absolute right-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full text-gray-400 hover:bg-white/10 hover:text-white"><FiX aria-hidden="true" /></button>}
               </label>
             )}
@@ -676,7 +670,7 @@ function AccountPlaylistDetail({ kind, playlistId, session, status, owner }) {
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
               placeholder="listener@example.com"
-              className="mt-2 h-11 w-full rounded-md border border-white/15 bg-white/[0.06] px-3 text-sm normal-case text-white outline-none focus:border-[#00e6e6]"
+              className="mt-2 h-11 w-full rounded-md border border-white/15 bg-white/[0.06] px-3 text-sm normal-case text-white outline-none focus:border-[#096192]"
             />
             <button type="submit" disabled={saving} className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-bold text-black disabled:opacity-50">
               <FiCheck aria-hidden="true" /> {saving ? "Adding..." : "Add collaborator"}

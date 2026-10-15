@@ -13,6 +13,7 @@ const Player = dynamic(() => import("./Player"), { ssr: false });
 import Seekbar from "./Seekbar";
 import Track from "./Track";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
+import { knownDuration } from "@/utils/playlistDuration.mjs";
 import PlayerVolume from "./PlayerVolume";
 const FullscreenTrack = dynamic(() => import("./FullscreenTrack"), { ssr: false });
 const Lyrics = dynamic(() => import("./Lyrics"), { ssr: false });
@@ -401,7 +402,8 @@ const MusicPlayer = () => {
     setFavouriteSongs(optimisticSongs);
 
     try {
-      const res = await addFavourite({ id: favsong.id, liked: !wasFavourite });
+      const seconds = knownDuration(favsong.duration) || knownDuration(duration);
+      const res = await addFavourite({ id: favsong.id, liked: !wasFavourite, ...(seconds ? { duration: seconds } : {}) });
       if (!res?.success) {
         setFavouriteSongs(previousSongs);
         setFavouriteFeedback({
@@ -595,7 +597,7 @@ const MusicPlayer = () => {
           <div className="flex items-center gap-2">
             <PlayerVolume />
             <div className="hidden min-[1180px]:block">
-              <AddToPlaylistButton track={activeSong} className="!h-12 !w-12" />
+              <AddToPlaylistButton track={{ ...activeSong, duration: knownDuration(activeSong?.duration) || knownDuration(duration) }} className="!h-12 !w-12" />
             </div>
           </div>
         </div>

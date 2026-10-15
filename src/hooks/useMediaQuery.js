@@ -39,10 +39,6 @@ export function useMediaQuery(query) {
 
 export default useMediaQuery;
 
-export function useIsMobile() {
-  return useMediaQuery(PHONE_QUERY);
-}
-
 export function useIsPhoneViewport() {
   return useMediaQuery(PHONE_QUERY);
 }

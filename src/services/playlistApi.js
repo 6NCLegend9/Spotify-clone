@@ -1,4 +1,5 @@
 import { requestJson } from "@/services/http";
+import { knownDuration } from "@/utils/playlistDuration.mjs";
 import { toUserError } from "@/utils/userError";
 
 function failureResponse(error, title, message) {
@@ -104,10 +105,10 @@ export async function togglePlaylistLike(playlistId, liked) {
 }
 
 // add song to playlist
-export async function addSongToPlaylist(playlistID, song) {
+export async function addSongToPlaylist(playlistID, song, duration) {
   return playlistRequest(
     "/api/userPlaylists/songs",
-    { method: "POST", body: { playlistID, song } },
+    { method: "POST", body: { playlistID, song, ...(knownDuration(duration) ? { duration: knownDuration(duration) } : {}) } },
     {
       title: "Song not added",
       message: "We couldn’t add that song to the playlist. Please try again.",

@@ -9,17 +9,10 @@ import {
   previewAppearance,
 } from "@/redux/features/appearanceSlice";
 import { getHeyKasaDesktopApi } from "@/utils/desktopEnvironment";
+import { foregroundForAccent as foregroundFor } from "@/utils/appearanceModel.mjs";
 
 function clone(value) {
   return value ? JSON.parse(JSON.stringify(value)) : null;
-}
-
-function foregroundFor(hex) {
-  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ""));
-  if (!match) return "#001014";
-  const [red, green, blue] = match.slice(1).map((value) => Number.parseInt(value, 16));
-  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-  return luminance >= 0.56 ? "#001014" : "#ffffff";
 }
 
 function missingCopy(warning) {
@@ -85,7 +78,7 @@ export default function AppearanceSettings() {
 
   const previewAccent = useMemo(() => {
     if (draft?.accent?.mode === "fixed") return draft.accent.fixedColor;
-    return appearance?.resolvedAccent || draft?.accent?.fixedColor || "#00e6e6";
+    return appearance?.resolvedAccent || draft?.accent?.fixedColor || "#096192";
   }, [appearance?.resolvedAccent, draft?.accent]);
 
   useEffect(() => {

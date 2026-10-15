@@ -19,7 +19,7 @@ export default function JamQr({ url, label = "Jam QR code" }) {
         width: 220,
         margin: 2,
         errorCorrectionLevel: "M",
-        color: { dark: "#00e6e6ff", light: "#07121dff" },
+        color: { dark: "#096192ff", light: "#0b1629ff" },
       }))
       .then((dataUrl) => {
         if (!cancelled) setSrc(dataUrl);
@@ -52,7 +52,7 @@ export default function JamQr({ url, label = "Jam QR code" }) {
       alt={label}
       width={180}
       height={180}
-      className="mx-auto h-44 w-44 rounded-xl border border-white/10 bg-[#07121d] p-2"
+      className="mx-auto h-44 w-44 rounded-xl border border-white/10 bg-[#0b1629] p-2"
     />
   );
 }

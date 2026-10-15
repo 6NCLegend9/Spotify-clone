@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import ArtistNameLink from "@/components/ArtistNameLink";
+import { artistPageHref, trackArtistCredits } from "@/utils/artistNavigation.mjs";
 import { useDispatch, useSelector } from "react-redux";
 import { ChevronDown, ListMusic, Maximize2, Mic2, Minimize2, Music2, Pause, Play, Settings2, Video } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, TouchEvent } from "react";
@@ -517,6 +518,7 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
       : track.id === props.track.id,
   );
   const upcoming = props.queue.slice(upcomingIndex < 0 ? 0 : upcomingIndex + 1, upcomingIndex < 0 ? 3 : upcomingIndex + 4);
+  const artistCredits = trackArtistCredits(props.track).slice(0, 6);
   const metadata = <div className={styles.metadata}><div><h2>{props.track.title}</h2><ArtistNameLink track={props.track} onNavigate={dismiss} className={styles.artistLink} /></div>{props.favourite}</div>;
   const sourceLabel = view === "player"
     ? (playbackContext?.name ? "PLAYING FROM" : "NOW PLAYING")
@@ -555,12 +557,21 @@ const MediaPresentation = forwardRef<MediaPresentationHandle, Props>(function Me
             aria-label="Expand video" title="Expand video" className={styles.expandButton} onClick={openExpanded}><Maximize2 size={19} /></button>}
         </div>
         {!expanded && <>
-          <div className={styles.mediaTools}>{modeButton}</div>{metadata}
+          <div className={styles.mediaTools}>{modeButton}{!mobile && <div className={styles.panelActions}>
+            <PlayerIconButton label="Expand player" onClick={openExpanded}><Maximize2 size={18} /></PlayerIconButton>{props.trackActions}
+          </div>}</div>{metadata}
           {mobile && mobileTransport}
-          {mobile && canLyrics && <section className={styles.detailCard} aria-label="Lyrics">
+          {canLyrics && <section className={styles.detailCard} aria-label="Lyrics">
             <div><h3>Lyrics</h3><Mic2 size={20} /></div>
             <p>Follow the words as the song plays.</p>
             <button type="button" onClick={openLyrics}>Open live lyrics</button>
+          </section>}
+          {!mobile && artistCredits.length > 0 && <section className={styles.detailCard} aria-label="Artists on this track">
+            <h3>Artists on this track</h3>
+            {artistCredits.map((artist) => <Link key={artist.channelId || artist.name} href={artistPageHref(artist.channelId, artist.name)} onClick={dismiss} className={styles.artistCredit}>
+              <span className={styles.artistAvatar} aria-hidden="true"><Music2 size={22} /></span>
+              <span><strong>{artist.name}</strong><small>Visit artist</small></span>
+            </Link>)}
           </section>}
           <section className={styles.queue} aria-label="Next in queue"><header><h3>{mobile ? "Up next" : "Next in queue"}</h3><button type="button" onClick={openQueue}>Show all</button></header>
             {upcoming.length ? upcoming.map((track, index) => <div key={track.queueEntryId || `${track.id}-${index}`} className={styles.queueRow}>

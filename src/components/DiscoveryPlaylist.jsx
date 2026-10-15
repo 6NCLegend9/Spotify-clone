@@ -98,7 +98,7 @@ export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist"
 
   return (
     <main className="text-white">
-      <section className="bg-[linear-gradient(180deg,rgba(0,230,230,0.22),rgba(7,18,29,0.94))] px-[3vw] pb-8 pt-6">
+      <section className="bg-[linear-gradient(180deg,rgba(9,97,146,0.22),rgba(11,22,41,0.94))] px-[3vw] pb-8 pt-6">
         <div className="mx-auto w-full max-w-[1440px]">
           <button type="button" onClick={() => router.back()} className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-gray-300 hover:text-white">
             <FiArrowLeft /> Back

@@ -36,7 +36,7 @@ const Sidebar = () => {
   return (
     <aside ref={sidebarRef} id="app-sidebar" className={`app-sidebar kasa-sidebar ${showNav ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`} aria-label="Main menu" {...(navModal ? { role: "dialog", "aria-modal": true } : {})}>
       <div className="sidebar-head"><div className="sidebar-brand">
-        <button type="button" onClick={toggleCollapsed} className="sidebar-library-title" aria-label={collapsed ? "Expand your library" : "Collapse your library"} title="Your Library"><LibraryBig aria-hidden="true" size={24} />{!collapsed && <span>Your Library</span>}</button>
+        <button type="button" onClick={toggleCollapsed} className="sidebar-library-title" aria-expanded={!collapsed} aria-controls="sidebar-library-content" aria-label={collapsed ? "Expand your library" : "Collapse your library"} title="Your Library"><LibraryBig aria-hidden="true" size={24} />{!collapsed && <span>Your Library</span>}</button>
         <div className="sidebar-head-actions">
           <ItemMenu label="Create" actions={[
             { label: "Create playlist", onSelect: () => window.dispatchEvent(new Event("heykasa:create-playlist")) },
@@ -50,12 +50,7 @@ const Sidebar = () => {
         <Link href="/" onClick={go} aria-current={isActive("/") ? "page" : undefined} title={collapsed ? "Home" : undefined} className={`nav-link ${isActive("/") ? "is-active" : ""}`}><FiHome aria-hidden="true" className="shrink-0 text-xl" /><span className={collapsed ? "phone-only-inline" : ""}>Home</span></Link>
         <Link href="/search" onClick={go} aria-current={isActive("/search") ? "page" : undefined} title={collapsed ? "Search" : undefined} className={`nav-link ${isActive("/search") ? "is-active" : ""}`}><FiSearch aria-hidden="true" className="shrink-0 text-xl" /><span className={collapsed ? "phone-only-inline" : ""}>Search</span></Link>
       </nav>}
-      <div className="kasa-library-scroll">
-        {!collapsed && <div className="kasa-library-pills" aria-label="Library navigation">
-          <Link href="/library" onClick={go} aria-current={pathname === "/library" ? "page" : undefined}>Playlists</Link>
-          <Link href="/following" onClick={go} aria-current={isActive("/following") ? "page" : undefined}>Artists</Link>
-          <Link href="/library/liked" onClick={go} aria-current={isActive("/library/liked") ? "page" : undefined}>Liked Songs</Link>
-        </div>}
+      <div id="sidebar-library-content" className="kasa-library-scroll">
         <Playlists compact={collapsed} />
         {!collapsed && <details className="kasa-sidebar-extra phone-only-block"><summary>More from HayKasa</summary>
           <nav aria-label="Library and account">

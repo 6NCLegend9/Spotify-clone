@@ -2,6 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import {
   DEFAULT_APPEARANCE_ACCENT,
   effectiveAppearance,
+  foregroundForAccent,
 } from "@/utils/appearanceModel.mjs";
 
 const initialState = {
@@ -13,7 +14,7 @@ const initialState = {
   backgroundUrl: "",
   warning: null,
   resolvedAccent: DEFAULT_APPEARANCE_ACCENT,
-  accentForeground: "#000000",
+  accentForeground: foregroundForAccent(DEFAULT_APPEARANCE_ACCENT),
   preview: null,
 };
 
@@ -37,7 +38,7 @@ const appearanceSlice = createSlice({
         : DEFAULT_APPEARANCE_ACCENT;
       state.accentForeground = /^#[0-9a-f]{6}$/i.test(payload.accentForeground || "")
         ? payload.accentForeground
-        : "#000000";
+        : foregroundForAccent(state.resolvedAccent);
       state.preview = null;
     },
     markAppearanceUnavailable: (state) => {

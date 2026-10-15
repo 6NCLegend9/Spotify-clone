@@ -22,7 +22,7 @@ const SearchPage = () => {
 
   if (invalid || !query) {
     return (
-      <div className="page text-gray-200">
+      <div className="page page-search text-gray-200">
         <EmptyState
           eyebrow="Search"
           title={invalid ? "This search link is invalid" : "Enter something to search"}
@@ -39,12 +39,9 @@ const SearchPage = () => {
   }
 
   return (
-    <div className="page text-gray-200">
-      <p className="eyebrow">Search</p>
-      <h1 className="mt-2 text-3xl font-bold text-white">
-        Results for &quot;{query}&quot;
-      </h1>
-      <YouTubeMusicResults query={query} />
+    <div className="page page-search text-gray-200">
+      <h1 className="sr-only">Results for {query}</h1>
+      <YouTubeMusicResults key={query} query={query} />
     </div>
   );
 };

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from "react-dom";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import ItemMenu from "@/components/ItemMenu";
-import { FiSearch, FiX } from "react-icons/fi";
+import { FiArrowLeft, FiArrowUpLeft, FiSearch, FiX } from "react-icons/fi";
 import { BsPlayFill } from "react-icons/bs";
 import { HiOutlineViewGrid, HiViewGrid } from "react-icons/hi";
 import Link from "next/link";
@@ -15,6 +15,7 @@ import { setIsTyping } from "@/redux/features/loadingBarSlice";
 import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
+import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import { requestJson } from "@/services/http";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { interactiveYoutubeSearchCache, normalizeSearchRequestKey } from "@/utils/searchRequestCache.mjs";
@@ -23,6 +24,8 @@ import { cleanArtist, cleanTitle } from "@/utils/text";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
 import { isTrackAllowed } from "@/utils/explicitContent.mjs";
+import styles from "./Search/search.module.css";
+import { uniqueSearchResults } from "@/utils/searchResults.mjs";
 
 const Searchbar = () => {
   const { data: session, status } = useSession();
@@ -34,7 +37,9 @@ const Searchbar = () => {
 
 const AccountSearchbar = ({ accountKey }) => {
   const dispatch = useDispatch();
+  const playingId = useSelector(state => state.player.youtubeVideo?.id);
   const allowExplicit = useSelector((state) => state.settings.explicitContent === true);
+  const privateSession = useSelector((state) => state.settings.privateSession === true);
   const router = useRouter();
   const pathname = usePathname();
   const browseActive = pathname === "/search";
@@ -43,6 +48,10 @@ const AccountSearchbar = ({ accountKey }) => {
   const [resolvingArtist, setResolvingArtist] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [songs, setSongs] = useState([]);
+  const [suggestionArtists, setSuggestionArtists] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState(false);
+  const [suggestionsRetry, setSuggestionsRetry] = useState(0);
   const [recentQueries, setRecentQueries] = useState([]);
   const [recentLoading, setRecentLoading] = useState(false);
   const inputId = useId();
@@ -54,6 +63,8 @@ const AccountSearchbar = ({ accountKey }) => {
   const activeAccountRef = useRef(null);
   const resolvedAccountRef = useRef(null);
   const inputRef = useRef(null);
+  const blurTimerRef = useRef(null);
+  const desktopSearchTimerRef = useRef(null);
   const clusterRef = useRef(null);
   const [compactPlaceholder, setCompactPlaceholder] = useState(false);
   const [overlayBox, setOverlayBox] = useState({ top: 64, bottom: 0 });
@@ -64,6 +75,8 @@ const AccountSearchbar = ({ accountKey }) => {
     const previousAccount = resolvedAccountRef.current;
     if (!accountKey) {
       if (!previousAccount) return;
+      window.clearTimeout(desktopSearchTimerRef.current);
+      navigationRef.current?.abort();
       abortRef.current?.abort();
       recentsAbortRef.current?.abort();
       recentsAbortRef.current = null;
@@ -71,6 +84,8 @@ const AccountSearchbar = ({ accountKey }) => {
       setOpen(false);
       setActiveIndex(-1);
       setSongs([]);
+      setSuggestionArtists([]);
+      setSearchTerm("");
       setRecentQueries([]);
       setRecentLoading(false);
       return;
@@ -79,6 +94,8 @@ const AccountSearchbar = ({ accountKey }) => {
     resolvedAccountRef.current = accountKey;
     if (!previousAccount || previousAccount === accountKey) return;
 
+    window.clearTimeout(desktopSearchTimerRef.current);
+    navigationRef.current?.abort();
     abortRef.current?.abort();
     recentsAbortRef.current?.abort();
     recentsAbortRef.current = null;
@@ -87,16 +104,19 @@ const AccountSearchbar = ({ accountKey }) => {
     setOpen(false);
     setActiveIndex(-1);
     setSongs([]);
+    setSuggestionArtists([]);
     setRecentQueries([]);
     setRecentLoading(false);
   }, [accountKey]);
 
-  useEffect(() => { navigationRef.current?.abort(); }, [pathname]);
+  useEffect(() => { navigationRef.current?.abort(); window.clearTimeout(desktopSearchTimerRef.current); }, [pathname]);
 
   useEffect(() => () => {
     navigationRef.current?.abort();
     abortRef.current?.abort();
     recentsAbortRef.current?.abort();
+    window.clearTimeout(blurTimerRef.current);
+    window.clearTimeout(desktopSearchTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -161,7 +181,7 @@ const AccountSearchbar = ({ accountKey }) => {
 
   const loadRecents = useCallback(async () => {
     const requestAccount = accountKey;
-    if (!requestAccount) return;
+    if (!requestAccount || privateSession) return;
     const now = Date.now();
     if (recentLoading || now - recentsLoadedAtRef.current < 15_000) return;
 
@@ -185,7 +205,7 @@ const AccountSearchbar = ({ accountKey }) => {
         setRecentLoading(false);
       }
     }
-  }, [accountKey, recentLoading]);
+  }, [accountKey, privateSession, recentLoading]);
 
   useEffect(() => {
     if (!accountKey || !open || searchTerm.trim()) return;
@@ -194,44 +214,74 @@ const AccountSearchbar = ({ accountKey }) => {
 
   useEffect(() => {
     const term = searchTerm.trim();
-    if (!open || term.length < 2) {
-      setSongs([]);
+    setSongs([]);
+    setSuggestionArtists([]);
+    setSuggestionsError(false);
+    if (!open || !overlaySuggestions || term.length < 2) {
+      setSuggestionsLoading(false);
       return undefined;
     }
     const controller = new AbortController();
     abortRef.current?.abort();
     abortRef.current = controller;
+    setSuggestionsLoading(true);
     const timer = window.setTimeout(async () => {
       try {
         const key = normalizeSearchRequestKey({ purpose: "interactive", query: term });
-        const data = await interactiveYoutubeSearchCache.getOrCreate(
-          key,
-          (signal) => requestJson(buildYoutubeSearchUrl({ type: "video", q: term }, "interactive"), {
-            signal,
-            fallbackTitle: "Search unavailable",
-            fallbackMessage: "We couldn’t load suggestions.",
-          }),
-          { signal: controller.signal },
-        );
-        const list = Array.isArray(data?.results) ? data.results.slice(0, 7) : [];
-        if (!controller.signal.aborted) setSongs(list);
-      } catch {
-        if (!controller.signal.aborted) setSongs([]);
+        const load = (type) => interactiveYoutubeSearchCache.getOrCreate(`${key}:${type}`,
+          (signal) => requestJson(buildYoutubeSearchUrl({ type, q: term }, "interactive"), {
+            signal, fallbackTitle: "Search unavailable", fallbackMessage: "We couldn’t load suggestions.",
+          }), { signal: controller.signal });
+        const [videos, channels] = await Promise.allSettled([load("video"), load("channel")]);
+        if (controller.signal.aborted) return;
+        setSuggestionsError(videos.status === "rejected" || channels.status === "rejected");
+        setSongs(videos.status === "fulfilled" ? uniqueSearchResults(videos.value?.results).slice(0, 7) : []);
+        setSuggestionArtists(channels.status === "fulfilled" ? uniqueSearchResults(channels.value?.results).slice(0, 2) : []);
+      } finally {
+        if (!controller.signal.aborted) setSuggestionsLoading(false);
       }
     }, 250);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [searchTerm, open]);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [searchTerm, open, accountKey, suggestionsRetry, overlaySuggestions]);
+
+  const scheduleDesktopSearch = (value) => {
+    window.clearTimeout(desktopSearchTimerRef.current);
+    if (overlaySuggestions) return;
+    const term = value.trim().slice(0, 100);
+    if (term.length === 1 || (!term && !pathname?.startsWith("/search/"))) return;
+    const target = term ? `/search/${encodeURIComponent(term)}` : "/search";
+    if (pathname === target) return;
+    desktopSearchTimerRef.current = window.setTimeout(() => router.replace(target, { scroll: false }), 350);
+  };
+
+  useEffect(() => { if (!open) window.clearTimeout(desktopSearchTimerRef.current); }, [open]);
 
   const items = useMemo(() => {
-    if (searchTerm.trim()) return songs.filter((song) => isTrackAllowed(song, allowExplicit)).map((song) => ({ type: "song", key: `song-${song.id}`, song }));
-    return recentQueries.map((query, index) => ({ type: "recent-query", key: `recent-query-${index}-${query}`, query }));
-  }, [searchTerm, songs, recentQueries, allowExplicit]);
+    const term = searchTerm.trim();
+    if (!term) return (privateSession ? [] : recentQueries).map((query, index) => ({ type: "recent-query", key: `recent-query-${index}-${query}`, query }));
+    if (term.length < 2) return [];
+    const eligibleSongs = songs.filter((song) => isTrackAllowed(song, allowExplicit));
+    const candidates = [term, ...(privateSession ? [] : recentQueries.filter(query => query.toLocaleLowerCase().includes(term.toLocaleLowerCase()))),
+      ...eligibleSongs.map(song => { const title = cleanTitle(song.title || song.name); return title.toLocaleLowerCase().includes(term.toLocaleLowerCase()) ? title : `${term} ${title}`; })];
+    const seen = new Set();
+    const queries = candidates.map(query => query.slice(0, 100)).filter(query => { const key = query.trim().toLocaleLowerCase(); if (!key || seen.has(key)) return false; seen.add(key); return true; }).slice(0, 5);
+    return [
+      ...queries.map(query => ({ type: "query", key: `query-${query}`, query })),
+      ...suggestionArtists.map(artist => ({ type: "artist", key: `artist-${artist.id}`, artist })),
+      ...eligibleSongs.map(song => ({ type: "song", key: `song-${song.id}`, song })),
+    ];
+  }, [searchTerm, songs, suggestionArtists, recentQueries, allowExplicit, privateSession]);
+
+  const recordSearch = (term) => {
+    if (accountKey && activeAccountRef.current === accountKey && accountKey !== "anonymous" && !privateSession) {
+      void requestJson("/api/searches", { method: "POST", body: { term: term.trim().slice(0, 100) } }).catch(() => {});
+      recentsLoadedAtRef.current = 0;
+    }
+  };
 
   const go = async (query) => {
-    const next = String(query || "").trim();
+    window.clearTimeout(desktopSearchTimerRef.current);
+    const next = String(query || "").trim().slice(0, 100);
     if (!next) return;
     setSearchTerm(next);
     setOpen(false);
@@ -245,7 +295,7 @@ const AccountSearchbar = ({ accountKey }) => {
       const data = await requestJson(buildYoutubeSearchUrl({ q: next, type: "channel" }, "interactive"), { signal: controller.signal });
       if (controller.signal.aborted) return;
       const artist = preferredArtistChannel(data?.results, next);
-      if (artist) { router.push(artistPageHref(artist.id, artist.title)); return; }
+      if (artist) { recordSearch(next); router.push(artistPageHref(artist.id, artist.title)); return; }
     } catch { if (controller.signal.aborted) return; }
     finally { if (navigationRef.current === controller) setResolvingArtist(false); }
     if (!controller.signal.aborted) router.push(`/search/${encodeURIComponent(next)}`);
@@ -278,13 +328,32 @@ const AccountSearchbar = ({ accountKey }) => {
 
   const selectItem = (item) => {
     if (!item) return;
-    if (item.type === "recent-query") go(item.query);
-    else playSong(item.song);
+    if (item.type === "recent-query" || item.type === "query") go(item.query);
+    else if (item.type === "artist") {
+      navigationRef.current?.abort();
+      setOpen(false); setActiveIndex(-1); dispatch(setIsTyping(false));
+      recordSearch(searchTerm || item.artist.title);
+      router.push(artistPageHref(item.artist.id, item.artist.title));
+    } else playSong(item.song);
   };
 
-  const showRecentState = open && !searchTerm.trim();
-  const suggestionsVisible = open;
+  const showRecentState = open && !searchTerm.trim() && !privateSession;
+  const suggestionsVisible = open && (overlaySuggestions || !searchTerm.trim());
   const selectedIndex = activeIndex >= 0 && activeIndex < items.length ? activeIndex : -1;
+
+  useEffect(() => {
+    if (open && selectedIndex >= 0 && document.activeElement === inputRef.current) {
+      document.getElementById(`${listboxId}-option-${selectedIndex}`)?.scrollIntoView({ block: "nearest" });
+    }
+  }, [open, selectedIndex, listboxId]);
+
+  useEffect(() => {
+    if (!privateSession) return;
+    recentsAbortRef.current?.abort();
+    recentsLoadedAtRef.current = 0;
+    setRecentQueries([]);
+    setRecentLoading(false);
+  }, [privateSession]);
 
   const isSearchUi = (node) => {
     if (!(node instanceof Element)) return false;
@@ -300,20 +369,25 @@ const AccountSearchbar = ({ accountKey }) => {
     if (!open || !overlaySuggestions) return undefined;
     const syncBox = () => {
       const nav = document.querySelector(".app-navbar");
-      const chrome = document.querySelector(".app-tabbar") || document.querySelector(".app-player");
-      const top = nav?.getBoundingClientRect().bottom;
-      const chromeTop = chrome?.getBoundingClientRect().top;
-      setOverlayBox({
-        top: Number.isFinite(top) ? Math.round(top) : 64,
-        bottom: Number.isFinite(chromeTop) ? Math.max(0, Math.round(window.innerHeight - chromeTop)) : 0,
-      });
+      const chrome = [document.querySelector(".app-player"), document.querySelector(".app-tabbar")].find(node => node?.getBoundingClientRect().height > 0);
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop || 0;
+      const viewportBottom = viewportTop + (viewport?.height || window.innerHeight);
+      const top = Math.max(viewportTop, nav?.getBoundingClientRect().bottom || 56);
+      const bottom = Math.min(viewportBottom, chrome?.getBoundingClientRect().top || window.innerHeight);
+      setOverlayBox({ top: Math.round(top), bottom: Math.max(0, Math.round(window.innerHeight - Math.max(top, bottom))) });
     };
     syncBox();
     window.addEventListener("resize", syncBox);
     window.visualViewport?.addEventListener("resize", syncBox);
+    window.visualViewport?.addEventListener("scroll", syncBox);
+    const observer = new ResizeObserver(syncBox);
+    document.querySelectorAll(".app-player, .app-tabbar").forEach(node => observer.observe(node));
     return () => {
+      observer.disconnect();
       window.removeEventListener("resize", syncBox);
       window.visualViewport?.removeEventListener("resize", syncBox);
+      window.visualViewport?.removeEventListener("scroll", syncBox);
     };
   }, [open, overlaySuggestions]);
 
@@ -331,19 +405,21 @@ const AccountSearchbar = ({ accountKey }) => {
   const closeAfterBlur = () => {
     const finish = () => {
       if (document.querySelector('[data-track-actions-portal="true"], [data-item-actions-menu="true"]')) {
-        window.setTimeout(finish, 100);
+        blurTimerRef.current = window.setTimeout(finish, 100);
         return;
       }
       if (isSearchUi(document.activeElement)) return;
       setOpen(false);
       setActiveIndex(-1);
     };
-    window.setTimeout(finish, 150);
+    window.clearTimeout(blurTimerRef.current);
+    blurTimerRef.current = window.setTimeout(finish, 150);
   };
 
   return (
     <form ref={clusterRef} role="search" aria-label="Search music" onSubmit={handleSubmit} autoComplete="off" className="search-cluster-form">
       <div className={`search-field ${browseActive ? "is-browse" : ""}`}>
+        {overlaySuggestions && open && <button type="button" aria-label="Close search suggestions" className={styles.backButton} onClick={() => { setOpen(false); setActiveIndex(-1); inputRef.current?.blur(); }}><FiArrowLeft aria-hidden="true" /></button>}
         <label htmlFor={inputId} className="search-field-icon-hit">
           <FiSearch aria-hidden="true" className={`search-field-icon ${resolvingArtist ? "animate-pulse" : ""}`} />
           <span className="sr-only">Search songs, artists, playlists, and genres</span>
@@ -359,18 +435,20 @@ const AccountSearchbar = ({ accountKey }) => {
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck="false"
+          maxLength={100}
           placeholder={compactPlaceholder ? "Search" : "What do you want to play?"}
           value={searchTerm}
           role="combobox"
-          aria-busy={resolvingArtist}
+          aria-busy={resolvingArtist || suggestionsLoading}
           aria-autocomplete="list"
-          aria-haspopup="listbox"
+          aria-haspopup="grid"
           aria-expanded={suggestionsVisible}
           aria-controls={suggestionsVisible ? listboxId : undefined}
           aria-activedescendant={suggestionsVisible && selectedIndex >= 0 ? `${listboxId}-option-${selectedIndex}` : undefined}
           onChange={(event) => {
             navigationRef.current?.abort();
             setSearchTerm(event.target.value);
+            scheduleDesktopSearch(event.target.value);
             setOpen(true);
             setActiveIndex(-1);
           }}
@@ -386,13 +464,13 @@ const AccountSearchbar = ({ accountKey }) => {
               setActiveIndex(-1);
               return;
             }
-            if (event.key === "ArrowDown" && items.length > 0) {
+            if (event.key === "ArrowDown" && suggestionsVisible && items.length > 0) {
               event.preventDefault();
               setOpen(true);
               setActiveIndex((index) => index < 0 || index >= items.length - 1 ? 0 : index + 1);
               return;
             }
-            if (event.key === "ArrowUp" && items.length > 0) {
+            if (event.key === "ArrowUp" && suggestionsVisible && items.length > 0) {
               event.preventDefault();
               setOpen(true);
               setActiveIndex((index) => index <= 0 ? items.length - 1 : index - 1);
@@ -428,6 +506,7 @@ const AccountSearchbar = ({ accountKey }) => {
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               setSearchTerm("");
+              scheduleDesktopSearch("");
               setSongs([]);
               setOpen(true);
               setActiveIndex(-1);
@@ -448,50 +527,63 @@ const AccountSearchbar = ({ accountKey }) => {
         const list = (
           <ul
             id={listboxId}
-            role="listbox"
+            role="grid"
             data-search-suggest="true"
             aria-label={showRecentState ? "Recent searches" : "Search suggestions"}
             className={`search-suggest${overlaySuggestions ? " search-suggest--overlay" : ""}`}
             style={overlaySuggestions ? { top: overlayBox.top, bottom: overlayBox.bottom } : undefined}
           >
             {showRecentState && recentLoading && items.length === 0 ? (
-              <li role="presentation" className="px-4 py-3 text-sm text-[#b3b3b3]">Loading recents…</li>
+              <li role="row" className="px-4 py-3 text-sm text-[#b3b3b3]"><span role="gridcell">Loading recents…</span></li>
             ) : null}
             {showRecentState && !recentLoading && items.length === 0 ? (
-              <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Your recent searches will appear here.</li>
+              <li role="row" className="px-4 py-4 text-sm text-[#b3b3b3]"><span role="gridcell">Your recent searches will appear here.</span></li>
             ) : null}
             {!showRecentState && searchTerm.trim().length < 2 ? (
-              <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">Type at least 2 characters to search.</li>
+              <li role="row" className="px-4 py-4 text-sm text-[#b3b3b3]"><span role="gridcell">Type at least 2 characters to search.</span></li>
             ) : null}
             {!showRecentState && searchTerm.trim().length >= 2 && !recentLoading && items.length === 0 ? (
-              <li role="presentation" className="px-4 py-4 text-sm text-[#b3b3b3]">No suggestions yet. Press Enter to search.</li>
+              <li role="row" className="px-4 py-4 text-sm text-[#b3b3b3]"><span role="gridcell">No suggestions yet. Press Enter to search.</span></li>
             ) : null}
-            {items.map((item, index) => item.type === "recent-query" ? (
-              <ContextMenuTarget as="li" key={item.key} role="none" className="flex items-center" onMouseMove={() => setActiveIndex(index)}>
-                <button id={`${listboxId}-option-${index}`} type="button" role="option" aria-selected={selectedIndex === index} onClick={() => go(item.query)}
+            {suggestionsError && !suggestionsLoading && <li role="row" className="px-4 py-2 text-xs text-[var(--muted)]"><span role="gridcell">Some suggestions couldn’t load. <button type="button" onClick={() => setSuggestionsRetry(value => value + 1)} className="min-h-11 underline">Try again</button></span></li>}
+            {suggestionsLoading && <li role="row" className="px-4 py-2 text-xs text-[var(--muted)]"><span role="gridcell">Searching…</span></li>}
+            {items.map((item, index) => item.type === "query" ? (
+              <li key={item.key} role="row" className={styles.queryRow} onMouseMove={() => setActiveIndex(index)}>
+                <button id={`${listboxId}-option-${index}`} type="button" role="gridcell" aria-selected={selectedIndex === index} onClick={() => go(item.query)}><FiSearch aria-hidden="true" className="shrink-0" /><span>{item.query}</span></button>
+                <span role="gridcell"><button type="button" aria-label={`Use suggestion ${item.query}`} onClick={() => { setSearchTerm(item.query.slice(0, 100)); setOpen(true); setActiveIndex(-1); inputRef.current?.focus(); }}><FiArrowUpLeft aria-hidden="true" /></button></span>
+              </li>
+            ) : item.type === "artist" ? (
+              <li key={item.key} role="row" onMouseMove={() => setActiveIndex(index)}>
+                <button id={`${listboxId}-option-${index}`} type="button" role="gridcell" aria-selected={selectedIndex === index} aria-label={`Open artist ${item.artist.title}`} onClick={() => selectItem(item)} className={styles.liveArtist}>
+                  <MediaImage src={item.artist.thumbnail} alt="" /><span className="min-w-0"><strong className="truncate">{cleanTitle(item.artist.title)}</strong><small>Artist</small></span>
+                </button>
+              </li>
+            ) : item.type === "recent-query" ? (
+              <ContextMenuTarget as="li" key={item.key} role="row" className="flex items-center" onMouseMove={() => setActiveIndex(index)}>
+                <button id={`${listboxId}-option-${index}`} type="button" role="gridcell" aria-selected={selectedIndex === index} onClick={() => go(item.query)}
                   className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
                   <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
                   <span className="min-w-0 flex-1 truncate">{item.query}</span>
                 </button>
-                <ItemMenu label={`Options for search ${item.query}`} actions={[
+                <span role="gridcell"><ItemMenu label={`Options for search ${item.query}`} actions={[
                   { label: "Search again", onSelect: () => go(item.query) },
                   { label: "Delete search", destructive: true, onSelect: () => removeRecent(item.query) },
-                ]} />
+                ]} /></span>
               </ContextMenuTarget>
             ) : (
-              <ContextMenuTarget as="li" key={item.key} role="none" onMouseMove={() => setActiveIndex(index)}
+              <ContextMenuTarget as="li" key={item.key} role="row" onMouseMove={() => setActiveIndex(index)}
                 className={`flex w-full items-center gap-1 px-2 py-1 text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
                 <button
                   id={`${listboxId}-option-${index}`}
                   type="button"
-                  role="option"
+                  role="gridcell"
                   aria-label={`Play ${cleanTitle(item.song.title || item.song.name, "Song")}`}
                   aria-selected={selectedIndex === index}
                   onClick={() => playSong(item.song)}
                   className="group/search-song flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
                 >
-                  <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded">
-                    <MediaImage src={item.song.thumbnail || item.song?.image?.[1]?.url || item.song?.image?.[0]?.url} size="mq" alt="" className="h-10 w-10 object-cover" />
+                  <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded">
+                    <MediaImage src={item.song.thumbnail || item.song?.image?.[1]?.url || item.song?.image?.[0]?.url} size="mq" alt="" className="h-12 w-12 object-cover" />
                     <span
                       aria-hidden="true"
                       className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/55 text-lg text-white md:group-hover/search-song:flex"
@@ -500,12 +592,13 @@ const AccountSearchbar = ({ accountKey }) => {
                     </span>
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate">{cleanTitle(item.song.title || item.song.name, "Song")}</span>
-                    <span className="block truncate text-[11px] text-[#9aa8b5]">{cleanArtist(item.song.channel || item.song.artist || item.song.author)}</span>
+                    <span className={`block truncate ${playingId === item.song.id ? styles.livePlaying : ""}`}>{cleanTitle(item.song.title || item.song.name, "Song")}</span>
+                    <span className="block truncate text-[11px] text-[#9aa8b5]">Song · {cleanArtist(item.song.channel || item.song.artist || item.song.author)}</span>
                   </span>
                 </button>
-                <AddToQueueButton track={item.song} className="z-[90]" />
-                <span className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
+                <span role="gridcell"><AddToQueueButton track={item.song} className="z-[90]" /></span>
+                <span role="gridcell"><FavouriteTrackButton track={item.song} className="!h-11 !w-11" /></span>
+                <span role="gridcell" className="hidden shrink-0 px-1 text-[10px] uppercase tracking-wide text-[#9aa8b5] sm:inline">Song</span>
               </ContextMenuTarget>
             ))}
           </ul>

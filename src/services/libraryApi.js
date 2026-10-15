@@ -1,5 +1,6 @@
 import { accountStorageGeneration } from "@/utils/accountStorage.mjs";
 import { requestJson } from "@/services/http";
+import { knownDuration, withSavedDurations } from "@/utils/playlistDuration.mjs";
 import { toUserError } from "@/utils/userError";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
@@ -37,7 +38,7 @@ function libraryLoadError(error, fallback) {
     : toUserError(error, fallback);
 }
 
-export async function hydrateYouTubeTracks(values = [], { retainUnavailable = false } = {}) {
+export async function hydrateYouTubeTracks(values = [], { retainUnavailable = false, durations = {} } = {}) {
   const ids = validYouTubeIds(values);
   if (ids.length === 0) return [];
   const cacheGeneration = accountStorageGeneration();
@@ -48,7 +49,7 @@ export async function hydrateYouTubeTracks(values = [], { retainUnavailable = fa
 
   ids.forEach((id) => {
     const cached = cache[id];
-    if (cached?.track && cached.expiresAt > now) {
+    if (cached?.track && cached.expiresAt > now && knownDuration(cached.track.duration)) {
       hydrated.push(cached.track);
     } else {
       missing.push(id);
@@ -57,7 +58,7 @@ export async function hydrateYouTubeTracks(values = [], { retainUnavailable = fa
 
   if (missing.length === 0) {
     const byId = new Map(hydrated.map((track) => [track.id, track]));
-    return ids.map((id) => byId.get(id)).filter(Boolean);
+    return withSavedDurations(ids.map((id) => byId.get(id)).filter(Boolean), durations);
   }
 
   const batches = [];
@@ -86,7 +87,8 @@ export async function hydrateYouTubeTracks(values = [], { retainUnavailable = fa
 
   const fetched = responses.flat();
   fetched.forEach((track) => {
-    cache[track.id] = { track, expiresAt: now + TRACK_CACHE_TTL_MS };
+    if (knownDuration(track.duration)) cache[track.id] = { track, expiresAt: now + TRACK_CACHE_TTL_MS };
+    else delete cache[track.id];
   });
   if (typeof window !== "undefined" && cacheGeneration === accountStorageGeneration()) writeTrackCache(cache);
 
@@ -96,11 +98,11 @@ export async function hydrateYouTubeTracks(values = [], { retainUnavailable = fa
   ]);
   // A successful details response omits deleted/private videos. Keep their saved
   // positions visible; request failures still throw instead of marking songs unavailable.
-  if (!retainUnavailable) return ids.map((id) => tracksById.get(id)).filter(Boolean);
-  return ids.map((id) => tracksById.get(id) || {
+  if (!retainUnavailable) return withSavedDurations(ids.map((id) => tracksById.get(id)).filter(Boolean), durations);
+  return withSavedDurations(ids.map((id) => tracksById.get(id) || {
     id, title: "Unavailable song", channel: "",
     thumbnail: "", duration: 0, unavailable: true, unavailableReason: "Video unavailable or private",
-  });
+  }), durations);
 }
 
 export async function getFavouriteLibrary() {

@@ -83,7 +83,7 @@ function ArcadeProgress({ clockRef, durationHint, active }) {
         aria-valuenow={Math.round(progress.time)}
         aria-valuetext={`${formatArcadeTime(progress.time)} of ${formatArcadeTime(duration)}`}
       >
-        <span className="block h-full bg-[#00e6e6]" style={{ width: `${filled}%` }} />
+        <span className="block h-full bg-[#096192]" style={{ width: `${filled}%` }} />
       </div>
     </>
   );
@@ -436,7 +436,7 @@ export default function ArcadeStage() {
           )}
 
           <div className="mr-auto min-w-0">
-            <h1 className="truncate text-sm font-bold uppercase tracking-[0.24em] text-[#00e6e6]">Beat Arcade</h1>
+            <h1 className="truncate text-sm font-bold uppercase tracking-[0.24em] text-[#096192]">Beat Arcade</h1>
             {step !== "select" ? (
               <p className="truncate text-[11px] text-[#9aa8b5]">
                 {activeGame.title}
@@ -487,7 +487,7 @@ export default function ArcadeStage() {
               followLive={followLive}
             />
             {chartStatus === "analyzing" ? (
-              <p className="mt-3 text-[11px] text-[#00e6e6]">Reading the beat from your file…</p>
+              <p className="mt-3 text-[11px] text-[#096192]">Reading the beat from your file…</p>
             ) : null}
             {startHint ? (
               <p className="mt-3 text-[11px] text-[#ffb648]">{startHint}</p>
@@ -505,7 +505,7 @@ export default function ArcadeStage() {
             {game === "runner" ? <BeatRunner3D key={roundKey} {...gameProps} /> : null}
             {countdown > 0 && !result ? (
               <div className="absolute inset-0 z-20 grid place-items-center bg-[#04070d]/70" aria-live="assertive">
-                <p className="text-7xl font-black tabular-nums text-[#00e6e6]">{countdown}</p>
+                <p className="text-7xl font-black tabular-nums text-[#096192]">{countdown}</p>
               </div>
             ) : null}
             {result ? (
@@ -523,7 +523,7 @@ export default function ArcadeStage() {
                   <button
                     type="button"
                     onClick={backToSelect}
-                    className="mt-3 min-h-11 w-full rounded-full border border-white/15 text-sm font-semibold text-gray-200 transition hover:border-[#00e6e6] hover:text-[#00e6e6]"
+                    className="mt-3 min-h-11 w-full rounded-full border border-white/15 text-sm font-semibold text-gray-200 transition hover:border-[#096192] hover:text-[#096192]"
                   >
                     Choose another game
                   </button>

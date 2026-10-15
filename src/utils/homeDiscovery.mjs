@@ -141,7 +141,7 @@ export function selectHomePlaylists(familiar, exploration, { rotation = 0, seenP
   return { forYou: selected[0], explore: selected[1] };
 }
 
-export function composeHomePage({ status, history = [], playlists = [], releases = [], forYou = {}, explore = {} }) {
+export function composeHomePage({ status, history = [], playlists = [], releases = [], anniversary = [], weekly = [], forYou = {}, explore = {} }) {
   const recent = uniqueHomeTracks(history).map((track) => ({ ...track, title: track.title || track.name }));
   const library = [...new Map(playlists.map((playlist) => [String(playlist._id), playlist])).values()];
   const quickItems = [
@@ -150,17 +150,29 @@ export function composeHomePage({ status, history = [], playlists = [], releases
   ].slice(0, 8);
   const quickTracks = recent.slice(0, 8 - quickItems.length);
   quickTracks.forEach((track, queueIndex) => quickItems.push({ ...track, type: "track", queue: quickTracks, queueIndex }));
-  const tasteTracks = uniqueHomeTracks([
+  // Establish the recommendation split before inserting optional personal rows.
+  // Memories must never take recordings already allocated to discovery.
+  const baseTaste = uniqueHomeTracks(forYou.tracks || [], recent).slice(0, 12);
+  const exploreTracks = uniqueHomeTracks(explore.tracks || [], [...recent, ...baseTaste]).slice(0, 12);
+  const tasteCandidates = uniqueHomeTracks([
     ...releases.slice(0, 4).map((track) => ({ ...track, kicker: "New from an artist you follow" })),
     ...(forYou.tracks || []),
-  ], recent).slice(0, 12);
-  const exploreTracks = uniqueHomeTracks(explore.tracks || [], [...recent, ...tasteTracks, ...releases]).slice(0, 12);
+  ], [...recent, ...exploreTracks]);
+  const memories = uniqueHomeTracks(anniversary, [...recent, ...exploreTracks]).slice(0, 3);
+  const tasteTracks = uniqueHomeTracks([...memories, ...tasteCandidates], [...recent, ...exploreTracks]).slice(0, 12);
+  const anniversaryIds = new Set(memories.map((track) => track.id));
+  // A public weekly chart is not a personalization signal. Highlight matches in
+  // the existing exploration selection without replacing its genres or artists.
+  const weeklyRecordings = new Set(weekly.map(canonicalSongIdentity).filter(Boolean));
+  const weeklyIds = new Set(exploreTracks.filter((track) => weeklyRecordings.has(canonicalSongIdentity(track))).slice(0, 3).map((track) => track.id));
   const tastePlaylists = uniqueHomePlaylists(forYou.playlists || []).slice(0, 4);
   const explorePlaylists = uniqueHomePlaylists(explore.playlists || [], tastePlaylists).slice(0, 4);
   return {
     quickItems,
     history: recent.slice(quickTracks.length, quickTracks.length + 8),
-    forYou: { ...forYou, tracks: tasteTracks, playlists: tastePlaylists },
-    explore: { ...explore, tracks: exploreTracks, playlists: explorePlaylists },
+    anniversary: tasteTracks.filter((track) => anniversaryIds.has(track.id)),
+    weekly: exploreTracks.filter((track) => weeklyIds.has(track.id)),
+    forYou: { ...forYou, tracks: tasteTracks, mainTracks: tasteTracks.filter((track) => !anniversaryIds.has(track.id)), playlists: tastePlaylists },
+    explore: { ...explore, tracks: exploreTracks, mainTracks: exploreTracks.filter((track) => !weeklyIds.has(track.id)), playlists: explorePlaylists },
   };
 }

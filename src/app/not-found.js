@@ -16,7 +16,7 @@ const NotFound = () => {
       <div className="page grid min-h-full place-items-center text-center text-white">
       <div>
         <p className="eyebrow">Error</p>
-        <h1 className="mt-2 text-8xl font-black text-[#00e6e6]">404</h1>
+        <h1 className="mt-2 text-8xl font-black text-[#096192]">404</h1>
         <h2 className="mt-3 text-2xl font-bold">Page not found</h2>
         <p className="mx-auto mt-3 max-w-md text-[#9aa8b5]">
           The page you are looking for moved, renamed, or never existed on{" "}

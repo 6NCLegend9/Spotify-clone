@@ -233,6 +233,12 @@ function getCachedSearch(key) {
 }
 
 function cacheSearch(key, value) {
+  // Search listings can have a duration even when player metadata is restricted.
+  // Reuse that known metadata when the same video is opened from a saved list.
+  for (const item of value?.data?.items || []) {
+    const id = typeof item.id === "string" ? item.id : item.id?.videoId;
+    if (isYoutubeVideoId(id) && parseIsoDuration(item.contentDetails?.duration) > 0) cacheVideo(id, { ...item, id });
+  }
   if (searchCache.size >= MAX_SEARCH_CACHE_ENTRIES) {
     searchCache.delete(searchCache.keys().next().value);
   }
@@ -295,7 +301,7 @@ async function fetchVideoDurationSeconds(id) {
 
 async function fetchOEmbedVideo(id) {
   const cached = getCachedVideo(id);
-  if (cached) return cached;
+  if (cached && parseIsoDuration(cached.contentDetails?.duration) > 0) return cached;
 
   try {
     const response = await timedFetch(
@@ -313,7 +319,7 @@ async function fetchOEmbedVideo(id) {
       thumbnail: data.thumbnail_url,
       duration: durationSeconds > 0 ? secondsToIso(durationSeconds) : "PT0S",
     });
-    cacheVideo(id, value);
+    if (durationSeconds > 0) cacheVideo(id, value);
     return value;
   } catch (error) {
     const fallback = syntheticVideo(id);
@@ -624,6 +630,7 @@ async function fetchFromInnertube(endpoint, params = {}) {
       ok: true,
       status: 200,
       data: { items: items.filter(Boolean) },
+      durationIncomplete: items.some((item) => !parseIsoDuration(item?.contentDetails?.duration)),
     };
   }
 

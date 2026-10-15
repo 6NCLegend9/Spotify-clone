@@ -30,7 +30,7 @@ export default class ErrorBoundary extends Component {
     }
 
     return (
-      <div role="alert" className="rounded-2xl border border-amber-400/30 bg-[#07121d] p-5 text-white">
+      <div role="alert" className="rounded-2xl border border-amber-400/30 bg-[#0b1629] p-5 text-white">
         <p className="text-sm font-semibold">{this.props.title || "This section stopped working"}</p>
         <p className="mt-1 text-sm text-[#9aa8b5]">
           {this.props.message || "Try loading it again. The rest of HayKasa is still available."}

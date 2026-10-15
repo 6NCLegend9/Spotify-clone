@@ -5,11 +5,11 @@ export function providerCacheKey(endpoint, params = {}, options = {}, configured
   if (!['search', 'videos'].includes(endpoint) || options.signal || options.credentials || options.headers || options.body || options.method || options.cache === 'no-store' || options.next?.revalidate === 0) return null;
   const entries = Object.entries(params).filter(([, value]) => value != null).sort(([a], [b]) => a.localeCompare(b));
   if (entries.some(([key, value]) => /key|token|auth|cookie/i.test(key) || !['string', 'number', 'boolean'].includes(typeof value))) return null;
-  return createHash('sha256').update(JSON.stringify([endpoint, entries, Boolean(options.requireOfficial), configured])).digest('hex');
+  return createHash('sha256').update(JSON.stringify([endpoint === 'videos' ? 'videos-duration-v2' : endpoint, entries, Boolean(options.requireOfficial), configured])).digest('hex');
 }
 
 export function cacheableProviderResult(result) {
-  return result?.ok === true && Array.isArray(result.data?.items) && result.data.items.length > 0
+  return result?.ok === true && result.durationIncomplete !== true && Array.isArray(result.data?.items) && result.data.items.length > 0
     && result.data.items.every(item => typeof item?.snippet?.title === 'string' && item.snippet.title.trim());
 }
 

@@ -2,43 +2,31 @@ import { MOOD_OPTIONS } from "@/utils/moods";
 import { PLAYLIST_CATEGORIES, PLAYLIST_THEMES } from "@/utils/playlistThemes";
 
 export const MIX_PALETTES = [
-  { from: "#4c1d95", via: "#7c3aed", to: "#22d3ee", bar: "#67e8f9" },
-  { from: "#9f1239", via: "#e11d48", to: "#fb7185", bar: "#fda4af" },
-  { from: "#0f766e", via: "#155e75", to: "#00e6e6", bar: "#67e8f9" },
-  { from: "#1e3a8a", via: "#2563eb", to: "#38bdf8", bar: "#7dd3fc" },
-  { from: "#7c2d12", via: "#ea580c", to: "#fbbf24", bar: "#fde68a" },
-  { from: "#111827", via: "#334155", to: "#00e6e6", bar: "#5eead4" },
-  { from: "#6d28d9", via: "#db2777", to: "#00e6e6", bar: "#f9a8d4" },
-  { from: "#14532d", via: "#16a34a", to: "#67e8f9", bar: "#86efac" },
+  { from: "#0b1629", via: "#24aae2", to: "#1399c6", bar: "#0e8c7f" },
+  { from: "#030814", via: "#162943", to: "#1399c6", bar: "#1171ba" },
+  { from: "#101f36", via: "#24aae2", to: "#1399c6", bar: "#1171ba" },
+  { from: "#162943", via: "#24aae2", to: "#1399c6", bar: "#1171ba" },
+  { from: "#060d1b", via: "#101f36", to: "#1399c6", bar: "#1171ba" },
+  { from: "#0b1629", via: "#162943", to: "#1399c6", bar: "#1171ba" },
+  { from: "#101f36", via: "#24aae2", to: "#1399c6", bar: "#1171ba" },
+  { from: "#030814", via: "#0b1629", to: "#1399c6", bar: "#1171ba" },
 ];
 
 function paletteFromGradient(gradient, bar) {
   const hexes = String(gradient || "").match(/#(?:[0-9a-f]{3,8})/gi) || [];
   return {
-    from: hexes[0] || "#0b1722",
-    via: hexes[1] || hexes[0] || "#128a9a",
-    to: hexes[2] || "#00e6e6",
-    bar: bar || "#00e6e6",
+    from: hexes[0] || "#101f36",
+    via: hexes[1] || hexes[0] || "#24aae2",
+    to: hexes[2] || "#096192",
+    bar: bar || "#096192",
   };
 }
 
 export function mixBackground(palette = {}) {
-  const from = palette.from || "#0b1722";
+  const from = palette.from || "#101f36";
   const via = palette.via || from;
-  const to = palette.to || "#00e6e6";
-  return `linear-gradient(145deg, ${from} 0%, ${via} 52%, ${to} 100%)`;
-}
-
-export function daypartLabel(date = new Date()) {
-  const hour = date.getHours();
-  if (hour < 12) return "morning";
-  if (hour < 17) return "afternoon";
-  return "evening";
-}
-
-export function soundtrackHeading(date = new Date()) {
-  const weekday = date.toLocaleDateString("en-US", { weekday: "long" });
-  return `Soundtrack your ${weekday} ${daypartLabel(date)}`;
+  const to = palette.to || "#096192";
+  return `linear-gradient(rgb(3 8 20 / 40%), rgb(3 8 20 / 40%)), linear-gradient(145deg, ${from} 0%, ${via} 52%, ${to} 100%)`;
 }
 
 export function buildMoodMixes() {
