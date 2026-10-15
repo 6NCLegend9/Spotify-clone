@@ -347,8 +347,10 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
       <MediaImage src={video.thumbnail} size="mq" alt="" width={44} height={44} className={styles.songArt} />
       <div className={styles.songCopy}>
         <button type="button" onClick={() => playTrack(video, queue)} className={styles.songTitle}>{cleanTitle(video.title, "Untitled track")}</button>
-        <ArtistNameLink track={video} className={styles.credits} />
-        <span className={styles.mobileDuration}>{formatDuration(video.duration)}</span>
+        <div className={styles.songMeta}>
+          <ArtistNameLink track={video} className={styles.credits} />
+          <span className={styles.mobileDuration} aria-label={`Duration: ${formatDuration(video.duration)}`}>{formatDuration(video.duration)}</span>
+        </div>
       </div>
     </div>
     <div className={styles.rowFavourite}>{status === "authenticated" && <FavouriteTrackButton track={video} className={styles.favouriteButton} />}</div>

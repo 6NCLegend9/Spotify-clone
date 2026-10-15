@@ -31,7 +31,7 @@
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; margin-bottom: 12px; }
 .sectionHeading h2, .sidebar h2, .about h2 { font-size: 24px; font-weight: 750; line-height: 1.35; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .songList { list-style: none; margin: 0; padding: 0; }
-.songRow { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px 44px; align-items: center; gap: 8px; min-height: 72px; padding: 4px 6px; border-radius: 6px; transition: background var(--motion-fast) ease-out; }
+.songRow { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px 44px; align-items: center; gap: 8px; min-height: 66px; padding: 4px 6px; border-radius: 6px; transition: background var(--motion-fast) ease-out; }
 .songRow:hover, .songRow:focus-within { background: var(--fill-hover); }
 .rowPlay { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--muted); }
 .rowPlayIcon { position: absolute; fill: currentColor; opacity: 0; }
@@ -40,9 +40,10 @@
 .songIdentity { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .songArt { width: 44px; height: 44px; flex-shrink: 0; object-fit: cover; border-radius: 4px; }
 .songCopy { flex: 1; }
-.songTitle { display: block; width: 100%; min-height: 44px; text-align: start; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.songTitle { display: block; width: 100%; min-height: 28px; text-align: start; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .songTitle:hover, .cardTitle:hover { text-decoration: underline; text-underline-offset: 3px; }
-.credits { color: var(--muted); font-size: 12px; line-height: 24px; }
+.songMeta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.credits { flex: 1; color: var(--muted); font-size: 12px; line-height: 24px; }
 .credits a { min-height: 24px; }
 .duration { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
 .mobileDuration { display: none; }
@@ -133,7 +134,7 @@
   .songRow { grid-template-columns: 44px minmax(0, 1fr) 44px 44px; gap: 4px; padding-inline: 0; }
   .songArt, .rowDuration { display: none; }
   .songTitle { font-size: 14px; }
-  .mobileDuration { display: block; color: var(--muted); font-size: 11px; line-height: 18px; }
+  .mobileDuration { display: block; flex-shrink: 0; color: var(--muted); font-size: 11px; line-height: 24px; }
   .sidebar { flex-direction: column; }
   .sidebar h2 { margin-bottom: 10px; }
   .catalogSection, .discography, .about { margin-top: 28px; }
