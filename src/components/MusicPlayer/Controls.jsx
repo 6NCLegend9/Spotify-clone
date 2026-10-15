@@ -6,7 +6,7 @@ import { TbRepeat, TbRepeatOnce, TbArrowsShuffle } from "react-icons/tb";
 import Downloader from "./Downloader";
 import FavouriteButton from "./FavouriteButton";
 
-const iconButtonClass = "grid min-h-[44px] min-w-[44px] place-items-center rounded-full text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#24aae2]";
+const iconButtonClass = "grid min-h-[44px] min-w-[44px] place-items-center rounded-full text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#096192]";
 
 const Controls = ({
   isPlaying,
@@ -47,7 +47,7 @@ const Controls = ({
         className={`${iconButtonClass} ${!fullScreen ? "hidden sm:grid" : "m-3"} p-1`}
       >
         {repeat ? (
-          <TbRepeatOnce size={25} color="#24aae2" aria-hidden="true" />
+          <TbRepeatOnce size={25} color="#096192" aria-hidden="true" />
         ) : (
           <TbRepeat size={25} aria-hidden="true" />
         )}
@@ -70,9 +70,9 @@ const Controls = ({
         className={iconButtonClass}
       >
         {isPlaying ? (
-          <BsFillPauseFill size={45} color="#24aae2" aria-hidden="true" />
+          <BsFillPauseFill size={45} color="#096192" aria-hidden="true" />
         ) : (
-          <BsFillPlayFill size={45} color="#24aae2" aria-hidden="true" />
+          <BsFillPlayFill size={45} color="#096192" aria-hidden="true" />
         )}
       </button>
       <button
@@ -96,7 +96,7 @@ const Controls = ({
         }}
         className={`${iconButtonClass} ${!fullScreen ? "hidden sm:grid" : "m-3"} p-1`}
       >
-        <TbArrowsShuffle size={25} color={shuffle ? "#24aae2" : "white"} aria-hidden="true" />
+        <TbArrowsShuffle size={25} color={shuffle ? "#096192" : "white"} aria-hidden="true" />
       </button>
       {activeSong?.downloadUrl?.[4]?.url && (
         <div className=" hidden sm:block mt-1 ">

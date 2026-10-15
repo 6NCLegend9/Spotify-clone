@@ -42,7 +42,7 @@ function PlaylistTrackRow({
         disabled={unavailable}
         aria-label={unavailable ? `${title} unavailable` : `Play ${title}`}
         onClick={() => onPlay(track)}
-        className={`grid h-11 w-11 place-items-center rounded-full text-sm ${active ? "text-[#24aae2]" : "text-gray-400 group-hover:text-white"}`}
+        className={`grid h-11 w-11 place-items-center rounded-full text-sm ${active ? "text-[#096192]" : "text-gray-400 group-hover:text-white"}`}
       >
         <span className="group-hover:hidden">{index + 1}</span>
         <FiPlay className="hidden fill-current group-hover:block" />
@@ -58,7 +58,7 @@ function PlaylistTrackRow({
         />
         </button>
         <div className="min-w-0 flex-1">
-          <button type="button" disabled={unavailable} onClick={() => onPlay(track)} className={`block w-full truncate text-left text-sm font-semibold ${active ? "text-[#24aae2]" : "text-white"}`}>{title}</button>
+          <button type="button" disabled={unavailable} onClick={() => onPlay(track)} className={`block w-full truncate text-left text-sm font-semibold ${active ? "text-[#096192]" : "text-white"}`}>{title}</button>
           <ArtistNameLink track={track} className="mt-1 text-xs text-gray-400" />
           {unavailable && cleanTitle(track.unavailableReason) && <span className="mt-1 block truncate text-xs text-gray-400">{cleanTitle(track.unavailableReason)}</span>}
         </div>
@@ -81,7 +81,7 @@ function PlaylistTrackRow({
             onClick={() => onRemove(track)}
             className="pointer-hover-action grid h-11 w-11 place-items-center rounded-full text-gray-500 hover:bg-white/10 hover:text-white"
           >
-            {liked ? <FiHeart className="fill-current text-[#24aae2]" /> : <FiTrash2 />}
+            {liked ? <FiHeart className="fill-current text-[#096192]" /> : <FiTrash2 />}
           </button>
         ) : null}
       </div>

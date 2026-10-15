@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data: heykasa-media:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; connect-src 'none'" />
     <title>HayKasa</title>
     <style>
-      :root { color-scheme: dark; --accent: #24aae2; --play-ink: #041017; --appearance-darkness: .72; --appearance-blur: 0px; --appearance-zoom: 1; }
+      :root { color-scheme: dark; --accent: #096192; --play-ink: #ffffff; --appearance-darkness: .72; --appearance-blur: 0px; --appearance-zoom: 1; }
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; background: #07111f; color: #f8fbff; font-family: Inter, Segoe UI, sans-serif; position: relative; overflow: hidden; }
       body::before { content: ""; position: absolute; inset: -8%; z-index: 0; background-image: var(--appearance-bg, none); background-size: cover; background-position: var(--appearance-position, 50% 50%); filter: blur(var(--appearance-blur)); transform: scale(var(--appearance-zoom)); }
@@ -72,10 +72,10 @@
         };
         const accent = /^#[0-9a-f]{6}$/i.test(appearance.resolvedAccent || "")
           ? appearance.resolvedAccent
-          : "#24aae2";
+          : "#096192";
         const ink = /^#[0-9a-f]{6}$/i.test(appearance.accentForeground || "")
           ? appearance.accentForeground
-          : "#041017";
+          : "#ffffff";
         const backgroundUrl = /^heykasa-media:\/\/background\/[0-9a-f-]{36}$/i.test(appearance.backgroundUrl || "")
           ? appearance.backgroundUrl
           : "";

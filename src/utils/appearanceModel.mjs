@@ -1,4 +1,4 @@
-export const DEFAULT_APPEARANCE_ACCENT = "#24aae2";
+export const DEFAULT_APPEARANCE_ACCENT = "#096192";
 
 export function effectiveAppearance(value) {
   const appearance = value && typeof value === "object" ? value : {};

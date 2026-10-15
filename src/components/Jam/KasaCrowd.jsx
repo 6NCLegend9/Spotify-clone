@@ -14,10 +14,10 @@ export default function KasaCrowd({ jam }) {
   const solo = crowd.members.length <= 1;
 
   return (
-    <section className="rounded-xl border border-[#24aae2]/25 bg-[#24aae2]/[0.04] p-4">
+    <section className="rounded-xl border border-[#096192]/25 bg-[#096192]/[0.04] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-          <GiMusicalNotes aria-hidden="true" className="text-[#24aae2]" /> HayKasa Crowd
+          <GiMusicalNotes aria-hidden="true" className="text-[#096192]" /> HayKasa Crowd
         </h3>
         <span className="flex items-center gap-1 text-[11px] text-[#9aa8b5]">
           <FiUsers aria-hidden="true" /> {crowd.members.length} sharing
@@ -39,7 +39,7 @@ export default function KasaCrowd({ jam }) {
             >
               {member.isSelf ? "You" : member.name}
               {owner?.seedCount ? (
-                <span className="ml-1 text-[#24aae2]">{owner.seedCount}</span>
+                <span className="ml-1 text-[#096192]">{owner.seedCount}</span>
               ) : null}
             </li>
           );
@@ -82,7 +82,7 @@ export default function KasaCrowd({ jam }) {
                   <p className="truncate text-xs text-gray-100">{cleanTitle(entry.title, "Untitled track")}</p>
                   <p className="truncate text-[11px] text-[#9aa8b5]">
                     {via ? (
-                      <span className="mr-1 rounded-full bg-[#24aae2]/15 px-1.5 py-0.5 text-[#24aae2]">via {via}</span>
+                      <span className="mr-1 rounded-full bg-[#096192]/15 px-1.5 py-0.5 text-[#096192]">via {via}</span>
                     ) : null}
                     {entry.reason || cleanTitle(entry.channel)}
                   </p>

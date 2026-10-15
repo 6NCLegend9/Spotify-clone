@@ -11,7 +11,7 @@ export default function OpenDesktopPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-[var(--navy-surface)] px-6 text-center text-white">
       <div className="max-w-md">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#24aae2]">HayKasa Desktop</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#096192]">HayKasa Desktop</p>
         <h1 className="mt-3 text-3xl font-semibold">Opening the desktop app</h1>
         <p className="mt-3 text-sm leading-6 text-[#9aa8b5]">
           If HayKasa Desktop is installed, it should come to the front. Continue in the browser if it does not.

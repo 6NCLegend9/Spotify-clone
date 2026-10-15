@@ -362,7 +362,7 @@ export default function YouTubeMusicResults({ query }) {
     <section className="mt-8" aria-labelledby="youtube-results-title">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#24aae2]">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#096192]">
             {SITE_BRAND}
           </p>
           <h2 id="youtube-results-title" className="mt-2 text-2xl font-bold tracking-tight text-white lg:text-3xl">

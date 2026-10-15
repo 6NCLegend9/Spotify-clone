@@ -89,7 +89,7 @@ export default function AppearanceSettings() {
 
   const previewAccent = useMemo(() => {
     if (draft?.accent?.mode === "fixed") return draft.accent.fixedColor;
-    return appearance?.resolvedAccent || draft?.accent?.fixedColor || "#24aae2";
+    return appearance?.resolvedAccent || draft?.accent?.fixedColor || "#096192";
   }, [appearance?.resolvedAccent, draft?.accent]);
 
   useEffect(() => {

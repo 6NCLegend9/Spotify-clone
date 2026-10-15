@@ -100,10 +100,10 @@ const AccountProfile = ({ status, data }) => {
             src={imageUrl}
             alt=""
             onError={() => setImageFailed(true)}
-            className="h-11 w-11 rounded-full object-cover ring-1 ring-white/20 transition hover:ring-[#24aae2]"
+            className="h-11 w-11 rounded-full object-cover ring-1 ring-white/20 transition hover:ring-[#096192]"
           />
         ) : (
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-[#24aae2] text-base font-semibold text-black">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-[#096192] text-base font-semibold text-white">
             {userName.charAt(0).toUpperCase()}
           </span>
         )}
@@ -118,7 +118,7 @@ const AccountProfile = ({ status, data }) => {
               close();
               void signOut();
             }}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-[#24aae2]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-[#096192]"
           >
             <MdLogout size={18} />
           </button>

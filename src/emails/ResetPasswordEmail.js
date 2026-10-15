@@ -22,17 +22,17 @@ export const getResetPasswordTemplate = (
     <title>Reset Your Password</title>
     <style>
         body { font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #060d1b; color: #ffffff; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 40px auto; background-color: #0b1629; border-radius: 14px; overflow: hidden; box-shadow: 0 0 28px rgba(36,170,226, 0.16); border: 1px solid rgba(255,255,255,0.1); }
-        .header { background-color: #101f36; padding: 25px 30px; text-align: center; border-bottom: 2px solid #24aae2; }
-        .logo { font-size: 28px; font-weight: 800; color: #24aae2; letter-spacing: 1px; margin: 0; }
+        .container { max-width: 600px; margin: 40px auto; background-color: #0b1629; border-radius: 14px; overflow: hidden; box-shadow: 0 0 28px rgba(9,97,146, 0.16); border: 1px solid rgba(255,255,255,0.1); }
+        .header { background-color: #101f36; padding: 25px 30px; text-align: center; border-bottom: 2px solid #096192; }
+        .logo { font-size: 28px; font-weight: 800; color: #096192; letter-spacing: 1px; margin: 0; }
         .content { padding: 35px 40px; text-align: left; }
         h2 { margin-top: 0; color: #ffffff; font-size: 22px; font-weight: 600; font-family: 'Poppins', sans-serif;}
         p { color: #9aa8b5; line-height: 1.6; font-size: 14px; margin-bottom: 25px; }
         .btn-container { text-align: center; margin: 35px 0; }
-        .btn { display: inline-block; background-color: #24aae2; color: #000000 !important; padding: 12px 24px; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 50px; transition: opacity 0.3s; margin: 10px auto; min-width: 200px; }
+        .btn { display: inline-block; background-color: #096192; color: #ffffff !important; padding: 12px 24px; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 50px; transition: opacity 0.3s; margin: 10px auto; min-width: 200px; }
         .btn:hover { opacity: 0.9; }
         .footer { background-color: #030814; padding: 20px 30px; text-align: center; font-size: 13px; color: #c9d4de; }
-        .link-text { word-break: break-all; color: #1399c6; font-size: 12px; margin-top: 15px; }
+        .link-text { word-break: break-all; color: #1171ba; font-size: 12px; margin-top: 15px; }
     </style>
 </head>
 <body>

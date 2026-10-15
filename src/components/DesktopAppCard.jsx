@@ -42,7 +42,7 @@ function DesktopToggle({ label, description, checked, disabled, onChange }) {
         checked={checked === true}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-5 w-5 shrink-0 accent-[#24aae2] disabled:opacity-40"
+        className="h-5 w-5 shrink-0 accent-[#096192] disabled:opacity-40"
       />
     </label>
   );
@@ -350,7 +350,7 @@ export default function DesktopAppCard() {
             )}
           </div>
           {availableDownload?.releaseNotesUrl ? (
-            <a href={availableDownload.releaseNotesUrl} className="mt-4 inline-block text-xs font-semibold text-[#24aae2] hover:underline" rel="noopener noreferrer">
+            <a href={availableDownload.releaseNotesUrl} className="mt-4 inline-block text-xs font-semibold text-[#096192] hover:underline" rel="noopener noreferrer">
               View release notes
             </a>
           ) : null}

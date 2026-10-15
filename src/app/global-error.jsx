@@ -12,7 +12,7 @@ export default function GlobalError({ error, reset }) {
       <body className="bg-[#060d1b] text-white">
         <main className="grid min-h-screen place-items-center px-5 text-center">
           <div className="max-w-lg">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#24aae2]">HayKasa</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#096192]">HayKasa</p>
             <h1 className="mt-3 text-3xl font-bold">The app couldn’t start</h1>
             <p className="mt-3 text-sm leading-6 text-[#9aa8b5]">
               This is temporary. Try again, or refresh the page if the problem continues.
@@ -21,7 +21,7 @@ export default function GlobalError({ error, reset }) {
               <button
                 type="button"
                 onClick={() => reset()}
-                className="rounded-full bg-[#24aae2] px-5 py-3 font-bold text-[#030814]"
+                className="rounded-full bg-[#096192] px-5 py-3 font-bold text-[#030814]"
               >
                 Try again
               </button>

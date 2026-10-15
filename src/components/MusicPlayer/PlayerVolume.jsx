@@ -123,7 +123,7 @@ export default function PlayerVolume({ className = "" }) {
             step="0.01"
             value={volume}
             onChange={(event) => setVolume(Number(event.target.value))}
-            className="h-12 w-28 accent-[#24aae2]"
+            className="h-12 w-28 accent-[#096192]"
           />
         </div>,
         document.body,

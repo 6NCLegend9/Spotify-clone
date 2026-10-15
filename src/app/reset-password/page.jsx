@@ -70,7 +70,7 @@ const ForgotPasswordPage = () => {
     <div className="flex min-h-screen items-center justify-center bg-[#060d1b] px-4 py-12 sm:px-6 lg:px-8">
       <SpotlightCard className="w-full max-w-md space-y-8 animate-fade-in bg-[#0b1629]">
         <div className="text-center">
-          <p className="text-sm font-semibold tracking-wide text-[#24aae2] uppercase">Account recovery</p>
+          <p className="text-sm font-semibold tracking-wide text-[#096192] uppercase">Account recovery</p>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white mb-2">Forgot password</h1>
           <p className="mt-4 text-sm text-[#9aa8b5]">
             Enter your email and we will send a reset link.
@@ -106,14 +106,14 @@ const ForgotPasswordPage = () => {
               maxLength={254}
               aria-invalid={Boolean(formError)}
               aria-describedby={formError || success ? "reset-request-message" : undefined}
-              className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#24aae2] focus:outline-none focus:ring-1 focus:ring-[#24aae2] sm:text-sm"
+              className="mt-2 w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 focus:border-[#096192] focus:outline-none focus:ring-1 focus:ring-[#096192] sm:text-sm"
             />
           </div>
           <button type="submit" disabled={submitting} className="btn-primary w-full">
             {submitting ? "Sending..." : "Send reset link"}
           </button>
           <div className="text-center mt-2">
-            <Link href="/login" className="text-sm font-semibold text-[#24aae2] hover:text-[#1399c6] transition">
+            <Link href="/login" className="text-sm font-semibold text-[#096192] hover:text-[#1171ba] transition">
               Back to login
             </Link>
           </div>

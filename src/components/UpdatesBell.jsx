@@ -236,7 +236,7 @@ export default function UpdatesBell() {
       >
         <HiOutlineBell aria-hidden="true" className="h-5 w-5" />
         {hasUnread ? (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#24aae2] shadow-[0_0_0_2px_rgba(3,8,20,0.95)]">
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#096192] shadow-[0_0_0_2px_rgba(3,8,20,0.95)]">
             <span className="sr-only">{unreadCount} unread</span>
           </span>
         ) : null}
@@ -281,7 +281,7 @@ export default function UpdatesBell() {
               ) : items.map((item) => (
                 <article
                   key={item.id}
-                  className={`rounded-xl border p-3.5 ${item.unread ? "border-[#24aae2]/25 bg-[#24aae2]/5" : "border-white/10 bg-white/5"}`}
+                  className={`rounded-xl border p-3.5 ${item.unread ? "border-[#096192]/25 bg-[#096192]/5" : "border-white/10 bg-white/5"}`}
                 >
                   <div className="updates-item">
                     {item.image ? (

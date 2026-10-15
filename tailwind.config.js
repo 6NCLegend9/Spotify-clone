@@ -16,14 +16,14 @@ module.exports = {
     },
     extend: {
       colors: {
-        accent: "#24aae2",
-        "brand-deep": "#096192",
+        accent: "#096192",
+        "brand-deep": "#24aae2",
         secondary: "#0e8c7f",
         muted: "#a3b4cc",
         surface: "#0b1629",
         teal: {
-          DEFAULT: "#1399c6",
-          mid: "#1171ba",
+          DEFAULT: "#1171ba",
+          mid: "#1399c6",
         },
         navy: {
           DEFAULT: "#060d1b",
@@ -38,7 +38,7 @@ module.exports = {
         display: ["var(--font-righteous)", "var(--font-poppins)", "Poppins", "sans-serif"],
       },
       boxShadow: {
-        glow: "0 0 28px rgba(36,170,226, 0.16)",
+        glow: "0 0 28px rgba(9,97,146, 0.16)",
         dock: "0 -16px 48px rgba(0, 0, 0, 0.4)",
       },
       borderRadius: {
