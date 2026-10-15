@@ -181,3 +181,16 @@
   .overlay.mobileSheet, .mobileSheet.sheetEntering, .mobileSheet.sheetClosing, .mobileSheet .overlayHeader { animation: none; transition: none; }
 }
 
+
+/* Desktop panel cards share the current player, queue and artist destinations. */
+.panelActions { display: flex; align-items: center; margin-left: auto; }
+.detailCard .artistCredit { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; margin-top: 8px; padding: 8px; border: 0; border-radius: 6px; }
+.artistCredit:hover { background: var(--navy-panel); }
+.artistCredit > span:last-child { min-width: 0; }
+.artistCredit strong, .artistCredit small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.artistCredit strong { font-size: 14px; }
+.artistCredit small { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.artistAvatar { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 50%; background: var(--navy-panel); color: var(--teal-mid); }
+.panel .detailCard, .panel .queue { margin-top: 16px; }
+.panel .mediaTools { flex-wrap: wrap; }
+.panel .detailCard > button { margin-top: 12px; }

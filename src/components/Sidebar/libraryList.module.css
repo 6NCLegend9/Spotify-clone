@@ -17,3 +17,5 @@
 .empty { padding: 12px 6px; color: var(--muted); font-size: 12px; }
 .sort { display: flex; justify-content: flex-end; margin: -6px 0 8px; color: var(--muted); font-size: 13px; }
 .sort select { min-height: 44px; max-width: 100%; padding: 4px 8px; background: var(--navy-surface); color: inherit; border-radius: 4px; }
+
+.items[data-view="grid"] > div > button[data-item-menu-trigger] { position: absolute; right: 6px; top: 6px; background: var(--navy-raised); }

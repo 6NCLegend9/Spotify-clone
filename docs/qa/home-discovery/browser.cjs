@@ -123,7 +123,7 @@ function verify(state) {
         assert.equal(personalOnly.halves['for-you'].tracks, 12);
         assert.equal(personalOnly.tracks.length, 12, 'Made for you excludes listening history and quick access');
       }
-      await page.getByRole('button', { name: 'All', exact: true }).click();
+      await page.getByRole('group', { name: 'Home filters', exact: true }).getByRole('button', { name: 'All', exact: true }).click();
       verify(await inspect(page));
       const pageCopy = await page.locator('.page-home').innerText();
       if (['activity', 'searchOnly', 'historyOnly'].includes(name)) assert(pageCopy.includes('Inspired by your recent searches and listening.'));

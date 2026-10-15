@@ -79,7 +79,7 @@ export default function PlayerDock(props: PlayerDockProps) {
       <div className={styles.tools}>
         {props.onLyrics && <PlayerIconButton label="Show live lyrics" onClick={openLyrics} className={styles.lyricsToggle}><Mic2 size={18} /></PlayerIconButton>}
         <PlayerIconButton label="Queue" onClick={openQueue}><ListMusic size={19} /></PlayerIconButton>
-        <PlayerIconButton label="Now playing view" active={!rightPanelCollapsed} onClick={toggleRightPanel} className={styles.nowPlayingToggle}><PanelRight size={18} /></PlayerIconButton>
+        <PlayerIconButton label={rightPanelCollapsed ? "Open now playing panel" : "Close now playing panel"} aria-controls="desktop-now-playing" aria-expanded={!rightPanelCollapsed} active={!rightPanelCollapsed} onClick={toggleRightPanel} className={styles.nowPlayingToggle}><PanelRight size={18} /></PlayerIconButton>
         <div className={styles.volume}>{props.qualityControl}{props.volume}</div>
       </div>
       <div className={styles.mobile}>

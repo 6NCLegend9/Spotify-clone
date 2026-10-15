@@ -14,6 +14,10 @@ import { useSession } from "next-auth/react";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import PlaylistCover from "@/components/PlaylistCover";
 import LibraryList from "./LibraryList";
+import { requestJson } from "@/services/http";
+import { followedArtistsForDisplay, followedArtistKey } from "@/utils/followedArtistsList.mjs";
+import { artistPageHref } from "@/utils/artistNavigation.mjs";
+import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
 
 // Cached across client-side navigations and remounts within the session so the
 // sidebar shows the last-known list (or empty state) instantly instead of
@@ -29,6 +33,42 @@ const AccountPlaylists = ({ owner, status, compact }) => {
   const [loading, setLoading] = useState(() => cached === null);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [filter, setFilter] = useState("all");
+  const [artists, setArtists] = useState([]);
+  const [artistsLoading, setArtistsLoading] = useState(false);
+  const [artistsError, setArtistsError] = useState(false);
+  const [artistRefresh, setArtistRefresh] = useState(0);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !owner) return undefined;
+    const controller = new AbortController();
+    let generation = 0;
+    const load = async () => {
+      const request = ++generation;
+      setArtistsLoading(true);
+      setArtistsError(false);
+      try {
+        const json = await requestJson("/api/followedArtists", { signal: controller.signal });
+        if (!controller.signal.aborted && request === generation) {
+          setArtists(followedArtistsForDisplay({ followedArtists: json.data, followedArtistsMeta: json.artists }));
+        }
+      } catch {
+        if (!controller.signal.aborted && request === generation) setArtistsError(true);
+      } finally {
+        if (!controller.signal.aborted && request === generation) setArtistsLoading(false);
+      }
+    };
+    void load();
+    window.addEventListener(FOLLOWS_CHANGED_EVENT, load);
+    return () => { controller.abort(); window.removeEventListener(FOLLOWS_CHANGED_EVENT, load); };
+  }, [status, owner, artistRefresh]);
+
+  const libraryItems = [
+    ...(status === "authenticated" && filter !== "artists" ? [{ _id: "liked", name: "Liked Songs", kind: "liked", pinned: true }] : []),
+    ...(filter !== "artists" ? playlists : []),
+    ...(filter !== "playlists" ? artists.map((artist) => ({ ...artist, _id: followedArtistKey(artist), kind: "artist", createdAt: artist.followedAt, updatedAt: artist.followedAt })) : []),
+  ];
+
 
 
   useEffect(() => {
@@ -95,6 +135,7 @@ const AccountPlaylists = ({ owner, status, compact }) => {
   if (compact) return <nav className="compact-library" aria-label="Your library shortcuts">
     <Link href="/library/liked" title="Liked Songs" aria-label="Liked Songs" aria-current={pathname === "/library/liked" ? "page" : undefined} className="compact-library-liked"><span aria-hidden="true">♥</span></Link>
     {playlists.map((playlist) => <Link key={playlist._id} href={`/library/playlist/${playlist._id}`} title={playlist.name} aria-label={`Open playlist ${playlist.name}`} aria-current={pathname === `/library/playlist/${playlist._id}` ? "page" : undefined} className="compact-library-cover"><PlaylistCover playlist={playlist} className="h-full w-full" /></Link>)}
+    {artists.map((artist) => <Link key={followedArtistKey(artist)} href={artistPageHref(artist.channelId, artist.name)} title={artist.name} aria-label={`Open artist ${artist.name}`} className="compact-library-cover sidebar-library-art is-artist">{artist.thumbnail ? <img src={artist.thumbnail} alt="" width={48} height={48} /> : artist.name.slice(0, 1)}</Link>)}
     {loading && <span role="status" aria-label="Loading library" className="h-12 w-12 animate-pulse rounded bg-white/10" />}
     {error?.retryable && <button type="button" onClick={() => setRefreshKey((value) => value + 1)} className="min-h-11 text-xs" title="Retry library">Retry</button>}
   </nav>;
@@ -102,10 +143,22 @@ const AccountPlaylists = ({ owner, status, compact }) => {
   return (
     <>
       <div className="flex min-h-0 flex-col">
-        {status === "authenticated" && <Link href="/library/liked" onClick={() => setShowNav(false)} className="mb-2 flex min-h-16 items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--navy-panel)]"><span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-[var(--navy-panel)] text-xl text-[var(--accent)]">♥</span><span><span className="block text-sm font-semibold">Liked Songs</span><span className="block text-xs text-[var(--muted)]">Your saved songs</span></span></Link>}
-        {loading ? <p className="px-2 py-3 text-xs text-[var(--muted)]">Loading playlists…</p> : null}
+        <div className="kasa-library-pills" role="group" aria-label="Filter your library by type">
+          {[["all", "All"], ["playlists", "Playlists"], ["artists", "Artists"]].map(([value, label]) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}
+        </div>
+        {loading && filter !== "artists" ? <p className="px-2 py-3 text-xs text-[var(--muted)]">Loading playlists…</p> : null}
         {!loading && status === "unauthenticated" ? <div className="my-3 rounded-lg bg-[var(--navy-raised)] p-4"><p className="font-bold">Create your first playlist</p><p className="my-3 text-sm">It’s easy. We’ll help you.</p><Link href="/signup" className="inline-flex min-h-11 items-center rounded-full bg-white px-4 text-sm font-bold text-black">Sign up free</Link></div> : !loading && error ? <div className="px-2 py-2"><UserMessage compact title={error.title} message={error.message} onRetry={error.retryable ? () => setRefreshKey((value) => value + 1) : undefined} href={error.action === "login" ? "/login" : undefined} hrefLabel="Log in" /></div> : null}
-        {!error && playlists.length > 0 && <LibraryList playlists={playlists} owner={owner}>{(playlist) => (
+        {filter !== "playlists" && artistsLoading && <p role="status" className="px-2 py-3 text-xs text-[var(--muted)]">Loading artists…</p>}
+        {filter !== "playlists" && artistsError && <div className="px-2 py-2"><UserMessage compact title="Artists unavailable" message="We couldn’t load the artists you follow." onRetry={() => setArtistRefresh((value) => value + 1)} /></div>}
+        {filter === "artists" && !artistsLoading && !artistsError && !artists.length && status === "authenticated" && <p role="status" className="px-2 py-4 text-sm text-[var(--muted)]">Artists you follow will appear here. <Link href="/search" onClick={() => setShowNav(false)} className="underline">Find artists</Link></p>}
+        {libraryItems.length > 0 && <LibraryList playlists={libraryItems} owner={owner}>{(playlist) => playlist.kind ? (
+          <div key={playlist._id} className="sidebar-library-item">
+            <Link href={playlist.kind === "liked" ? "/library/liked" : artistPageHref(playlist.channelId, playlist.name)} onClick={() => setShowNav(false)} aria-current={(playlist.kind === "liked" ? pathname === "/library/liked" : playlist.channelId && pathname === `/artist/${playlist.channelId}`) ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2">
+              <span className={`sidebar-library-art ${playlist.kind === "artist" ? "is-artist" : "is-liked"}`} aria-hidden="true">{playlist.thumbnail ? <img src={playlist.thumbnail} alt="" width={48} height={48} onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} /> : playlist.kind === "liked" ? "♥" : playlist.name.slice(0, 1)}</span>
+              <span className="min-w-0"><span className="block truncate text-sm font-semibold">{playlist.name}</span><span className="mt-1 block truncate text-xs text-[var(--muted)]">{playlist.kind === "liked" ? "Pinned · Your saved songs" : "Artist"}</span></span>
+            </Link>
+          </div>
+        ) : (
           <ContextMenuTarget key={playlist._id} className="group flex items-center justify-between rounded-lg pr-1 hover:bg-[var(--navy-panel)]">
             <Link data-library-playlist="true" href={`/library/playlist/${playlist._id}`} onClick={() => setShowNav(false)} aria-current={pathname === `/library/playlist/${playlist._id}` ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
               <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md"><PlaylistCover playlist={playlist} className="h-full w-full" /></span>

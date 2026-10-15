@@ -283,6 +283,8 @@ export default function AppShell({ children }) {
           aria-valuemax={420}
           aria-valuenow={sidebarWidth}
           tabIndex={effectiveCollapsed ? -1 : 0}
+          title="Drag to resize; double-click to reset"
+          onDoubleClick={() => updateSidebarWidth(260)}
           onPointerDown={startSidebarResize}
           onKeyDown={resizeSidebarWithKeyboard}
         />
@@ -325,6 +327,8 @@ export default function AppShell({ children }) {
           aria-valuemax={420}
           aria-valuenow={rightPanelWidth}
           tabIndex={rightPanelCollapsed ? -1 : 0}
+          title="Drag to resize; double-click to reset"
+          onDoubleClick={() => updateRightPanelWidth(320)}
           onPointerDown={startRightPanelResize}
           onKeyDown={resizeRightPanelWithKeyboard}
         />
