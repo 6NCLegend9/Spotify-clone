@@ -94,7 +94,8 @@ let authAttempt = null;
 let authStatus = { state: "idle", detail: "" };
 const discord = new DiscordIpcClient();
 let miniWindow = null;
-let miniUserHidden = false;
+let miniUserHidden = true;
+let miniReady = false;
 let playbackState = sanitizePlaybackState(null);
 let lastNativeUpdateNotificationVersion = "";
 let resolvedAccent = "#096192";
@@ -309,6 +310,7 @@ function featureDisabledMessage(feature) {
 }
 
 function hideMiniPlayer() {
+  miniUserHidden = true;
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.hide();
 }
 
@@ -687,11 +689,20 @@ function positionMiniPlayer() {
   miniWindow.setPosition(Math.round(x), Math.round(y));
 }
 
+function showMiniPlayerIfReady(window) {
+  if (window !== miniWindow || window.isDestroyed() || !miniReady || miniUserHidden || !playbackState.hasTrack) return;
+  positionMiniPlayer();
+  window.webContents.send("heykasa:playback:state", playbackState);
+  window.show();
+}
+
 function createMiniPlayer() {
   if (miniWindow && !miniWindow.isDestroyed()) return miniWindow;
   const miniSession = session.fromPartition(MINI_PARTITION);
   installAppearanceProtocol(miniSession);
-  miniWindow = new BrowserWindow({
+  miniReady = false;
+  miniUserHidden = true;
+  const window = new BrowserWindow({
     width: 360,
     height: 148,
     show: false,
@@ -715,35 +726,51 @@ function createMiniPlayer() {
       devTools: !app.isPackaged,
     },
   });
-  denyGuestContents(miniWindow.webContents);
-  installPopupGuard(miniWindow.webContents);
-  miniWindow.setMenu(null);
-  miniWindow.setAlwaysOnTop(true, "floating");
-  miniWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  miniWindow.on("closed", () => {
+  miniWindow = window;
+  denyGuestContents(window.webContents);
+  installPopupGuard(window.webContents);
+  window.setMenu(null);
+  window.setAlwaysOnTop(true, "floating");
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  window.on("closed", () => {
+    if (miniWindow !== window) return;
     miniWindow = null;
+    miniReady = false;
+    miniUserHidden = true;
   });
-  miniWindow.webContents.on("did-finish-load", () => {
-    if (!miniWindow || miniWindow.isDestroyed()) return;
-    miniWindow.webContents.send("heykasa:playback:state", playbackState);
+  window.once("ready-to-show", () => {
+    if (miniWindow !== window || window.isDestroyed()) return;
+    miniReady = true;
+    showMiniPlayerIfReady(window);
+  });
+  window.webContents.on("did-finish-load", () => {
+    if (miniWindow !== window || window.isDestroyed()) return;
+    window.webContents.send("heykasa:playback:state", playbackState);
     const appearance = resolvedAppearance();
-    if (appearance) miniWindow.webContents.send("heykasa:appearance:changed", appearance);
+    if (appearance) window.webContents.send("heykasa:appearance:changed", appearance);
   });
-  void miniWindow.loadFile(path.join(__dirname, "miniPlayer.html"));
-  return miniWindow;
+  const onFailure = (error) => {
+    if (miniWindow !== window || window.isDestroyed()) return;
+    logger?.warn("mini_player_load_failed", { error: error instanceof Error ? error.message : "unknown" });
+    const requested = !miniUserHidden;
+    hideMiniPlayer();
+    window.destroy();
+    if (requested) dialog.showErrorBox("Mini player unavailable", "The mini player could not load. You can continue listening in the main HayKasa window. Restart HayKasa to try again.");
+  };
+  window.webContents.on("render-process-gone", (_event, details) => onFailure(new Error(details.reason || "renderer exited")));
+  void window.loadFile(path.join(__dirname, "miniPlayer.html")).catch(onFailure);
+  return window;
 }
 
 function toggleMiniPlayer() {
+  if (!playbackState.hasTrack) return;
   const window = createMiniPlayer();
-  if (window.isVisible()) {
-    miniUserHidden = true;
-    window.hide();
+  if (window.isVisible() || !miniUserHidden) {
+    hideMiniPlayer();
     return;
   }
   miniUserHidden = false;
-  positionMiniPlayer();
-  window.webContents.send("heykasa:playback:state", playbackState);
-  window.show();
+  showMiniPlayerIfReady(window);
 }
 
 function thumbarIcon(kind) {
