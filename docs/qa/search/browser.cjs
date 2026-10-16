@@ -127,6 +127,7 @@ const results = [];
     await liveSong.getByRole("button", { name: "Save to Liked Songs", exact: true }).click();
     await liveSong.getByRole("button", { name: "Remove from Liked Songs", exact: true }).waitFor();
     assert(writes.some(write => write.endpoint === "favourite"), "Live result saves through favourites API");
+    await input.click();
     await suggestions.getByRole("gridcell", { name: "Play Blue song 1", exact: true }).click();
     await page.locator("[data-testid='player-dock']").waitFor();
     assert.equal(await input.getAttribute("aria-expanded"), "false", "Playback closes live search");
@@ -191,11 +192,23 @@ const results = [];
       await input.press("Escape");
       assert.equal(await input.getAttribute("aria-expanded"), "false");
     }
+    if (device === "mobile") {
+      await input.fill("Blue Artist");
+      await page.locator("[data-search-suggest='true']").getByRole("gridcell", { name: "Blue Artist", exact: true }).click();
+      await page.waitForURL(url => url.pathname === "/search/Blue%20Artist");
+      await page.getByRole("region", { name: "Search results for Blue Artist", exact: true }).waitFor();
+      assert.equal(new URL(page.url()).pathname, "/search/Blue%20Artist", "Query suggestion opens search results instead of an artist channel");
+      await input.fill("Another search");
+    }
     await input.fill("Blue Artist");
     await input.press("Enter");
-    await page.waitForURL(url => url.pathname === `/artist/${channelId}` && url.searchParams.get("name") === "Blue Artist");
-    await page.waitForFunction(() => document.querySelector('[role="combobox"]').getAttribute("aria-busy") === "false");
-    assert(writes.some(write => write.endpoint === "search-history" && write.payload.term === "Blue Artist"), "Exact artist submission records query before direct navigation");
+    await page.waitForURL(url => url.pathname === "/search/Blue%20Artist");
+    await page.getByRole("region", { name: "Search results for Blue Artist", exact: true }).waitFor();
+    await input.fill("Blue song 1");
+    await input.press("Enter");
+    await page.waitForURL(url => url.pathname === "/search/Blue%20song%201");
+    await page.getByRole("region", { name: "Search results for Blue song 1", exact: true }).waitFor();
+    assert(writes.some(write => write.endpoint === "search-history" && write.payload.term === "Blue Artist"), "Artist submission records history on the search results page");
     await page.goto(origin + "/search/No%20synthetic%20matches", { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "No music found", exact: true }).waitFor();
     failSearch = true;
@@ -203,7 +216,7 @@ const results = [];
     await page.getByText("Search is temporarily unavailable", { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false, "No horizontal page overflow");
     assert.deepEqual(errors, [], "No unhandled UI exceptions");
-    results.push({ device, passed: true, coverage: ["recent removal", "mixed results", "song preview", "filters", "pagination deduplication", "artist links", "playlist links", ...(device === "mobile" ? ["query fill", "live track menu", "simulated keyboard viewport"] : ["desktop live results", "non-search empty focus", "track menu"]), "save track", "playback dispatch", "clear", "dismiss", "direct artist", "artist query history", "empty results", "API failure", "overflow", "unhandled errors"] });
+    results.push({ device, passed: true, coverage: ["recent removal", "mixed results", "song preview", "filters", "pagination deduplication", "artist links", "playlist links", ...(device === "mobile" ? ["query fill", "live track menu", "simulated keyboard viewport"] : ["desktop live results", "non-search empty focus", "track menu"]), "save track", "playback dispatch", "clear", "dismiss", "explicit artist shortcut", "artist submission opens results", "song submission opens results", "artist query history", "empty results", "API failure", "overflow", "unhandled errors"] });
     await context.close();
   }
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify(results, null, 2));
