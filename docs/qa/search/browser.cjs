@@ -127,6 +127,7 @@ const results = [];
     await liveSong.getByRole("button", { name: "Save to Liked Songs", exact: true }).click();
     await liveSong.getByRole("button", { name: "Remove from Liked Songs", exact: true }).waitFor();
     assert(writes.some(write => write.endpoint === "favourite"), "Live result saves through favourites API");
+    await input.click();
     await suggestions.getByRole("gridcell", { name: "Play Blue song 1", exact: true }).click();
     await page.locator("[data-testid='player-dock']").waitFor();
     assert.equal(await input.getAttribute("aria-expanded"), "false", "Playback closes live search");
