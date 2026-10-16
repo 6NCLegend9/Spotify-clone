@@ -11,6 +11,7 @@ android {
         versionName '1.0.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
+    sourceSets { androidTest.assets.srcDirs += "build/generated/qaAssets" }
     buildTypes {
         debug { applicationIdSuffix '.debug'; versionNameSuffix '-debug' }
         release { minifyEnabled false }
@@ -22,4 +23,7 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer:1.8.0'
     implementation 'androidx.media3:media3-session:1.8.0'
     testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
 }

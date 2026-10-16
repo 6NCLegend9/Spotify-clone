@@ -1,0 +1,13 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const ts = require('typescript');
+const root = path.resolve(__dirname, '../../..');
+const modules = {};
+for (const name of ['androidAudioElement', 'nativeMediaDeck', 'mediaPlayerStates']) {
+  modules[`./${name}.mjs`] = ts.transpileModule(fs.readFileSync(path.join(root, `src/components/MusicPlayer/media/${name}.mjs`), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+}
+const code = `const modules=${JSON.stringify(modules)},cache={};function require(name){if(name==='./nativeAudioGraph.mjs')return{createNativeAudioGraph:()=>null};if(name==='./resolveMediaAsset.mjs')return{cancelMediaReceipt(){},resolveMediaAsset:async()=>({receipt:'synthetic-emulator-only',asset:{url:'https://haykasa.vercel.app/v1/assets/00000000000000000000000000000001?signature=synthetic',duration:120,expiresAt:Date.now()+3600000}})};if(cache[name])return cache[name].exports;const module={exports:{}};cache[name]=module;new Function('module','exports','require',modules[name])(module,module.exports,require);return module.exports;}window.qaEvents=[];window.qaDeck=require('./nativeMediaDeck.mjs').createNativeMediaDeck({host:document.getElementById('media'),videoId:'synthetic01',title:'HayKasa emulator tone (synthetic)',mode:'audio',autoplay:false,events:{onReady(){window.qaReady=true},onStateChange(e){qaEvents.push(e.data)}},onFallback(e){window.qaFailure=e.reason}});window.qaSample=()=>({ready:!!window.qaReady,state:qaDeck.getPlayerState(),position:qaDeck.getCurrentTime(),duration:qaDeck.getDuration(),androidNative:qaDeck.androidNative,failure:window.qaFailure||null,events:qaEvents});setInterval(()=>document.getElementById('state').textContent=JSON.stringify(qaSample()),1000);document.getElementById('play').onclick=()=>{qaDeck.unMute();qaDeck.setVolume(50);qaDeck.playVideo()};document.getElementById('pause').onclick=()=>qaDeck.pauseVideo();`;
+const dir = path.join(root, 'android/app/build/generated/qaAssets');
+fs.mkdirSync(dir, { recursive: true });
+fs.writeFileSync(path.join(dir, 'native-qa.html'), `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="background:#060d1b;color:white;padding:20px;font:16px sans-serif"><h1>HayKasa Android QA</h1><p>Synthetic audio fixture in the real Android app.</p><div id="media"></div><button id="play">Play</button><button id="pause">Pause</button><pre id="state" style="white-space:pre-wrap"></pre><script>${code}</script>`);
+console.log('Generated Android instrumentation fixture from production bridge/deck modules.');

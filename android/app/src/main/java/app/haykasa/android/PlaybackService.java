@@ -14,6 +14,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
 import java.util.HashMap;
@@ -29,6 +30,7 @@ public final class PlaybackService extends MediaSessionService {
     private final Map<String, Sink> sinks = new HashMap<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private ExoPlayer idle;
+    private DefaultMediaSourceFactory sourceFactory;
     private MediaSession session;
     private final Runnable ticker = new Runnable() {
         @Override public void run() {
@@ -39,6 +41,7 @@ public final class PlaybackService extends MediaSessionService {
     @Override public void onCreate() {
         super.onCreate();
         androidx.media3.common.util.Log.setLogLevel(androidx.media3.common.util.Log.LOG_LEVEL_OFF);
+        sourceFactory = new DefaultMediaSourceFactory(this);
         idle = new ExoPlayer.Builder(this).build();
         PendingIntent activity = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         session = new MediaSession.Builder(this, idle).setSessionActivity(activity).build();
@@ -68,7 +71,7 @@ public final class PlaybackService extends MediaSessionService {
                     }
                     if (players.size() >= 2) return;
                 }
-                player = new ExoPlayer.Builder(this).build();
+                player = new ExoPlayer.Builder(this).setMediaSourceFactory(sourceFactory).build();
                 player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true);
                 player.setHandleAudioBecomingNoisy(true);
                 player.setWakeMode(C.WAKE_MODE_LOCAL);
