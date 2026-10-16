@@ -1,0 +1,4 @@
+
+# Gradle entry points must run on their respective platforms.
+android/gradlew text eol=lf
+android/gradlew.bat text eol=crlf

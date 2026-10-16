@@ -1216,7 +1216,16 @@ function YouTubePlayer() {
           if (key !== activeDeckRef.current) return;
           const stateCode = ({ 0: "ended", 1: "playing", 2: "paused", 3: "buffering" })[event.data];
           if (stateCode) recordDiagnostic("playback_state", { code: stateCode });
+          // Notification/headphone/audio-focus controls are native user intent.
+          // Do not undo them with the embedded player's automatic resume policy.
+          if (event.target.androidNative && event.data === MEDIA_PLAYER_STATES.PAUSED) {
+            userPausedRef.current = true;
+            clearActiveBufferTimers();
+            dispatch(playPause(false));
+            return;
+          }
           if (event.data === MEDIA_PLAYER_STATES.PLAYING) {
+            if (event.target.androidNative) userPausedRef.current = false;
             if (userPausedRef.current && !isPlayingRef.current) {
               event.target.pauseVideo?.();
               return;

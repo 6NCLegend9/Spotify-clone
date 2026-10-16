@@ -1,9 +1,11 @@
 import { MEDIA_PLAYER_STATES as STATES } from "./mediaPlayerStates.mjs";
 import { resolveMediaAsset, cancelMediaReceipt } from "./resolveMediaAsset.mjs";
 import { createNativeAudioGraph } from "./nativeAudioGraph.mjs";
+import { createAndroidAudioElement } from "./androidAudioElement.mjs";
 
 export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile, autoplay = true, startSeconds = 0, title = "", events = {}, onAsset, onFallback, audioSettings }) {
-  const media = document.createElement(mode === "video" ? "video" : "audio");
+  const media = (mode === "audio" ? createAndroidAudioElement(title) : null)
+    || document.createElement(mode === "video" ? "video" : "audio");
   media.crossOrigin = "anonymous";
   media.preload = "auto";
   media.playsInline = true;
@@ -41,7 +43,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       } else fallback("native_playback_failed");
     };
     try {
-      try { graph ||= createNativeAudioGraph(media, audioSettings); } catch { /* Native output remains available. */ }
+      try { if (!media.isAndroidNativeMedia) graph ||= createNativeAudioGraph(media, audioSettings); } catch { /* Native output remains available. */ }
       const context = graph?.resume();
       // The executor calls play synchronously, preserving user activation,
       // while also capturing throws before observing both resume promises.
@@ -84,8 +86,8 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     if (!announcedReady) { announcedReady = true; emit("onReady"); }
     if (intent) resume(); else setState(STATES.CUED);
   });
-  listen("playing", () => { if (intent) setState(STATES.PLAYING); else media.pause(); });
-  listen("pause", () => { if (ready && !media.ended) setState(STATES.PAUSED); });
+  listen("playing", () => { if (media.isAndroidNativeMedia) intent = true; if (intent) setState(STATES.PLAYING); else media.pause(); });
+  listen("pause", () => { if (ready && !media.ended) { if (media.isAndroidNativeMedia) intent = false; setState(STATES.PAUSED); } });
   listen("waiting", () => { if (intent) setState(STATES.BUFFERING); });
   listen("ended", () => { position = media.currentTime; setState(STATES.ENDED); });
   listen("error", () => {
@@ -98,6 +100,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   });
   const deck = {
     provider: "native",
+    androidNative: Boolean(media.isAndroidNativeMedia),
     get isResolving() { return !ready; },
     playVideo() { intent = true; resume(); },
     pauseVideo() { playAttempt++; intent = false; media.pause(); },

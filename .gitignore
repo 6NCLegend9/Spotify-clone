@@ -53,3 +53,11 @@ next-env.d.ts
 **/public/worker-*.js.map
 **/public/swe-worker-*.js.map
 
+
+# Android build output and local signing material
+/android/.gradle/
+/android/**/build/
+/android/local.properties
+/android/**/*.jks
+/android/**/*.keystore
+/android/keystore.properties

@@ -25,6 +25,7 @@ async function deckCase({play, resumeContext, graph} = {}) {
   const {createNativeMediaDeck} = load('src/components/MusicPlayer/media/nativeMediaDeck.mjs', {
     './mediaPlayerStates.mjs':{MEDIA_PLAYER_STATES:states},
     './resolveMediaAsset.mjs':{resolveMediaAsset:async()=>({receipt:'synthetic',asset:{url:'https://example.invalid/audio',duration:180,expiresAt:Date.now()+300000}}),cancelMediaReceipt(){}},
+    './androidAudioElement.mjs':{createAndroidAudioElement:()=>null},
     './nativeAudioGraph.mjs':{createNativeAudioGraph:()=>graph ? {resume:resumeContext, configure(){}, close(){}} : null},
   }, {document:{createElement:()=>media}, setTimeout:()=>1, clearTimeout(){}});
   const deck = createNativeMediaDeck({host:{replaceChildren(){}},videoId:'abcdefghijk',mode:'audio',profile:'mp4-aac',autoplay:false,
