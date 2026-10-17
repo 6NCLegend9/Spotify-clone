@@ -241,7 +241,7 @@ Blob publishing scripts and their npm commands are no longer supported.
 
 `.github/workflows/desktop-preview.yml` is also an unsigned Actions-artifact smoke path.
 
-`.github/workflows/desktop-release.yml` is the manual publication workflow:
+`.github/workflows/desktop-release.yml` publishes stable releases automatically after pushes to `main`, and also supports manual internal/beta/stable releases:
 
 1. run production web/runtime audits, desktop API tests, typecheck, and Next.js build;
 2. reject stable releases that are not dispatched from `main`;
@@ -313,3 +313,21 @@ expecting the production download button to change.
 ### Source-quality playback
 
 The shared renderer can use the separately hosted `media-service/` for compatible source audio/video. Electron uses the same resolver, queues, restoration, and quality controls as the website; no yt-dlp binary or credentials are exposed to the renderer. This change does not publish a new installer or update feed. Installed clients receive renderer changes after an authorized production deployment, and source playback also requires configured service hosting. See [production configuration](../PRODUCTION.md#yt-dlp-source-playback) and [verification evidence](../docs/superpowers/verification/2026-10-10-ytdlp-playback.md).
+
+### Release configuration check
+
+Run `npm run desktop:release:check` from the repository root before requesting a stable or beta release. It checks for the certificate input (`HEYKASA_WINDOWS_CSC_LINK` or electron-builder's `CSC_LINK`), password (`HEYKASA_WINDOWS_CSC_PASSWORD` or `CSC_KEY_PASSWORD`), and a manifest HMAC key containing at least 32 characters with no leading or trailing whitespace. It prints missing names only, exits nonzero when blocked, and does not validate a certificate or publish anything. Internal builds remain unsigned and do not enable stable updates.
+
+The signed workflow uses the same check and writes an actionable job summary on failure. Configure these secrets in [the protected desktop-release environment](https://github.com/6NCLegend9/Spotify-clone/settings/environments) before retrying:
+
+- `HEYKASA_WINDOWS_CSC_LINK`: a valid code-signing certificate in an electron-builder supported format, such as a base64-encoded PFX. Supply it through GitHub Secrets, never a committed file.
+- `HEYKASA_WINDOWS_CSC_PASSWORD`: the certificate password.
+- `HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET`: a private manifest signing key, also configured with the **same value** in the production Vercel project. Do not replace an existing production key casually.
+
+If a run fails at `Validate signed release secrets`, the installer has not been built or published. A successful Desktop Preview or Desktop Package CI run provides an unsigned artifact, not a signed stable release. Correct the environment configuration, then rerun the failed release workflow. Automatic versioning, Authenticode verification, immutable versioned tags and production endpoint verification remain required.
+
+Once publication succeeds, verify `/api/desktop/manifest?channel=stable` reports `published: true` and `signed: true`, and `/api/desktop/update/stable/latest.yml` serves the matching version. The existing production verifier performs these checks. A production key change requires an authorized Vercel deployment before it affects clients. The configured rollout percentage still controls which installations receive an automatic update.
+
+#### Failure observed on October 16, 2026
+
+[Run 38977476332](https://github.com/6NCLegend9/Spotify-clone/actions/runs/38977476332) passed the web/native gate and failed because **all three release secrets were empty** in its signed job. Run 38809286479 failed at the same step. No signed release was published. At investigation time the public stable manifest remained unpublished and the download endpoint offered only the older `desktop-latest` manual installer. Resolving signing configuration is required before a code or workflow update can produce trusted automatic updates.

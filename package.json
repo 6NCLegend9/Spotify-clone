@@ -25,7 +25,8 @@
     "check": "npm run lint && npm run typecheck && npm run build",
     "generate:desktop-contract": "node scripts/generate-desktop-contract.mjs",
     "check:desktop-contract": "node scripts/generate-desktop-contract.mjs && git diff --exit-code -- src/generated/desktopContract.mjs desktop/src/generated/desktopContract.mjs",
-    "desktop:dev": "node scripts/desktop-dev.mjs"
+    "desktop:dev": "node scripts/desktop-dev.mjs",
+    "desktop:release:check": "node desktop/scripts/check-release-config.mjs"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^1.9.5",
