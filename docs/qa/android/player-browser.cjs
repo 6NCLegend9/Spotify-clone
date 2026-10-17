@@ -147,6 +147,7 @@ let browser, page;
   await page.screenshot({ path: path.join(output, "mobile-verification-error.png") });
   await next().tap();
   await waitTrack(tracks[3].title);
+  await page.waitForFunction(() => window.qaYouTube.active()?.getPlayerState() === 1);
   assert.equal(await page.getByText("Some account preferences couldn't sync.", { exact: false }).count(), 0, "Synthetic account preferences sync without an unrelated warning");
   assert.deepEqual(errors, [], "Production player has no unhandled UI exceptions");
   const result = { passed: true, scope: "Production mobile UI with synthetic provider and APIs", searchTransitions, coverage: ["consecutive Search skips", "startup fade overlapping manual Skip", "consecutive Liked Songs skips", "terminal 153 preserves queue", "no automatic reload or alternate search", "manual Skip after error", "no unhandled UI exceptions"] };

@@ -180,8 +180,25 @@ public class AndroidPlaybackTest {
             activity.onActivity(instance -> {
                 try {
                     Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
-                    WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading(); web.getSettings().setBlockNetworkLoads(true);
-                    web.loadDataWithBaseURL(MediaPolicy.ORIGIN + "/?android-qa=1", fixture, "text/html", "UTF-8", null);
+                    WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading();
+                    String fixtureUrl = MediaPolicy.ORIGIN + "/?android-qa=1";
+                    android.webkit.WebViewClient delegate = web.getWebViewClient();
+                    // Use a normal HTTPS navigation entry: loadDataWithBaseURL's
+                    // virtual history URL does not follow client-side replaceState.
+                    java.util.function.Function<android.webkit.WebResourceRequest, android.webkit.WebResourceResponse> respond = request ->
+                        new android.webkit.WebResourceResponse("text/html", "UTF-8", new java.io.ByteArrayInputStream(
+                            (fixtureUrl.equals(request.getUrl().toString()) ? fixture : "").getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                    web.setWebViewClient(new android.webkit.WebViewClient() {
+                        @Override public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, android.webkit.WebResourceRequest request) { return respond.apply(request); }
+                        @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) { return delegate.shouldOverrideUrlLoading(view, request); }
+                        @Override public void onPageFinished(WebView view, String url) { delegate.onPageFinished(view, url); }
+                        @Override public void onReceivedError(WebView view, android.webkit.WebResourceRequest request, android.webkit.WebResourceError error) { delegate.onReceivedError(view, request, error); }
+                        @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) { return delegate.onRenderProcessGone(view, detail); }
+                    });
+                    android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(new android.webkit.ServiceWorkerClient() {
+                        @Override public android.webkit.WebResourceResponse shouldInterceptRequest(android.webkit.WebResourceRequest request) { return respond.apply(request); }
+                    });
+                    web.loadUrl(fixtureUrl);
                 } catch (Exception e) { throw new RuntimeException(e); }
             });
             WebView web = ref.get(); waitJs(web, "window.qaReady === true");
@@ -254,6 +271,9 @@ public class AndroidPlaybackTest {
             js(web, "qaDeck.playVideo()");
             waitJs(web, "qaDeck.getVideoData().video_id === 'synthetic03' && qaDeck.getPlayerState() === 1");
             js(web, "qaDeck.destroy()");
-        } finally { main(service::releaseAll); context.stopService(new Intent(context, PlaybackService.class)); }
+        } finally {
+            main(() -> { service.releaseAll(); android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(null); });
+            context.stopService(new Intent(context, PlaybackService.class));
+        }
     }
 }
