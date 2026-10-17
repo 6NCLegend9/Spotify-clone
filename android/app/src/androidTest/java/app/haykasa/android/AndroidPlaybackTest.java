@@ -139,13 +139,17 @@ public class AndroidPlaybackTest {
             shell("input keyevent KEYCODE_BACK");
             for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.CREATED; i++) Thread.sleep(100);
             assertEquals("Root Back backgrounds the activity without destroying its playback bridge", androidx.lifecycle.Lifecycle.State.CREATED, activity.getState());
-            Thread.sleep(2000);
-            assertTrue("Native playback advances after root Back", Double.parseDouble(js(web, "qaDeck.getCurrentTime()")) > beforeRootBack + 1);
+            waitJs(web, "qaDeck.getCurrentTime() > " + (beforeRootBack + 1));
             shell("am start -W -f 0x00020000 -n " + context.getPackageName() + "/" + MainActivity.class.getName());
             for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
             assertEquals("Returning after root Back resumes the original activity", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
             assertEquals("Returning after root Back retains the original playback fixture", "true", js(web, "window.qaReady === true && qaDeck.getPlayerState() === 1"));
             screenshot("native-back-resumed");
+            js(web, "qaDeck.loadVideoById({videoId:'synthetic02',title:'HayKasa next emulator tone',startSeconds:0})");
+            waitJs(web, "qaDeck.getVideoData().video_id === 'synthetic02' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > 1 && qaDeck.getCurrentTime() < 30");
+            AtomicReference<String> notificationTitle = new AtomicReference<>();
+            main(() -> notificationTitle.set(String.valueOf(service.getSessions().get(0).getPlayer().getMediaMetadata().title)));
+            assertEquals("Reusing the native deck updates Android media-session metadata", "HayKasa next emulator tone", notificationTitle.get());
             js(web, "qaDeck.destroy()");
         } finally { main(service::releaseAll); context.stopService(new Intent(context, PlaybackService.class)); }
     }
