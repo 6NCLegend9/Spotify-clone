@@ -298,6 +298,7 @@ function YouTubePlayer() {
   const preloadPollTimerRef = useRef(null);
   const activeBufferTimerRef = useRef(null);
   const fadeTimerRef = useRef(null);
+  const fadeInTimerRef = useRef(null);
   const healthyPlaybackTimerRef = useRef(null);
   const activeRecoveryRef = useRef({
     videoId: null,
@@ -479,6 +480,10 @@ function YouTubePlayer() {
 
   // Fade-in/out is a simple volume ramp on the active player; it never touches deck/crossfade logic.
   const cancelFade = () => {
+    if (fadeInTimerRef.current) {
+      window.clearTimeout(fadeInTimerRef.current);
+      fadeInTimerRef.current = null;
+    }
     if (fadeTimerRef.current) {
       window.clearInterval(fadeTimerRef.current);
       fadeTimerRef.current = null;
@@ -967,6 +972,7 @@ function YouTubePlayer() {
     }
     // userPausedRef stops the PAUSED handler from auto-resuming into the same failure.
     const stopWithError = (error) => {
+      cancelFade();
       userPausedRef.current = true;
       trackChangeUntilRef.current = 0;
       setPlayerError(error);
@@ -1007,6 +1013,12 @@ function YouTubePlayer() {
         sameIdAttempts: sameIdRetryRef.current.attempts,
         alternateAttempts: alternateState.attempts,
       });
+
+      if (policy.action === "fatalUI") {
+        getActivePlayer()?.pauseVideo?.();
+        stopWithError(policy.error);
+        return;
+      }
 
       if (policy.action === "retrySame") {
         sameIdRetryRef.current = {
@@ -1847,6 +1859,7 @@ function YouTubePlayer() {
   }, [playbackOwner, jam?.code, jam?.role, privateSession, videoVisible, nativeAvailable]);
 
   useEffect(() => {
+    cancelFade();
     if (!video?.id) {
       cancelCrossfade();
       clearActiveBufferTimers();
@@ -2589,6 +2602,7 @@ function YouTubePlayer() {
     let cancelled = false;
     let attempts = 0;
     const tryFadeIn = () => {
+      fadeInTimerRef.current = null;
       if (cancelled) return;
       const player = getActivePlayer();
       const ready = player?.getPlayerState?.() === MEDIA_PLAYER_STATES.PLAYING
@@ -2598,11 +2612,13 @@ function YouTubePlayer() {
         return;
       }
       attempts += 1;
-      if (attempts < 50) window.setTimeout(tryFadeIn, 150);
+      if (attempts < 50) fadeInTimerRef.current = window.setTimeout(tryFadeIn, 150);
     };
     tryFadeIn();
     return () => {
       cancelled = true;
+      if (fadeInTimerRef.current) window.clearTimeout(fadeInTimerRef.current);
+      fadeInTimerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video?.id, video?.queueEntryId]);
@@ -2693,6 +2709,7 @@ function YouTubePlayer() {
     rampVolume(player, 1, 0, {
       durationMs: seconds * 1000,
       onDone: () => {
+        if (queueEntryIdentity(videoRef.current) !== fromIdentity || userPausedRef.current) return;
         run();
         window.setTimeout(() => {
           if (queueEntryIdentity(videoRef.current) === fromIdentity && !fadeTimerRef.current) {

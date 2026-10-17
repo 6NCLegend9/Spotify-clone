@@ -65,6 +65,77 @@ public class AndroidPlaybackTest {
         for (int i=0;i<samples;i++) b.putShort((short)(1200*Math.sin(2*Math.PI*440*i/rate)));
         return b.array();
     }
+    @Test public void appControlledTrackChangesDoNotRequireAnIframeTap() throws Exception {
+        AtomicReference<WebView> ref = new AtomicReference<>();
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(instance -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading(); web.getSettings().setBlockNetworkLoads(true);
+                    String source = "data:audio/wav;base64," + android.util.Base64.encodeToString(tone(), android.util.Base64.NO_WRAP);
+                    String fixture = "<div id='media'></div><script>window.qaTrack=0;window.qaSample=()=>({track:qaTrack,error:window.qaError});window.qaNext=()=>{const old=document.querySelector('audio');if(old)old.pause();const audio=document.createElement('audio');audio.src=" + org.json.JSONObject.quote(source) + ";document.getElementById('media').replaceChildren(audio);setTimeout(()=>audio.play().then(()=>{qaTrack++;},e=>{window.qaError=e.name;}),0);};</script>";
+                    web.loadDataWithBaseURL(MediaPolicy.ORIGIN, fixture, "text/html", "UTF-8", null);
+                } catch (Exception error) { throw new RuntimeException(error); }
+            });
+            WebView web = ref.get(); waitJs(web, "typeof qaNext === 'function'");
+            js(web, "qaNext()"); waitJs(web, "qaTrack === 1 || !!window.qaError");
+            assertEquals("App playback must not require a separate tap inside the media iframe", "true", js(web, "qaTrack === 1 && !window.qaError"));
+            js(web, "qaNext()"); waitJs(web, "qaTrack === 2 || !!window.qaError");
+            assertEquals("An asynchronous next track must start without another iframe gesture", "true", js(web, "qaTrack === 2 && !window.qaError"));
+        }
+    }
+    @Test public void rendererExitIsHandledAndRetryRecreatesTheWebView() throws Exception {
+        AtomicReference<WebView> original = new AtomicReference<>();
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(instance -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(instance); original.set(web);
+                    boolean handled = web.getWebViewClient().onRenderProcessGone(web, new android.webkit.RenderProcessGoneDetail() {
+                        @Override public boolean didCrash() { return true; }
+                        @Override public int rendererPriorityAtExit() { return android.webkit.WebView.RENDERER_PRIORITY_BOUND; }
+                    });
+                    assertTrue("Renderer exit must not escalate into a host app crash", handled);
+                    android.widget.Button retry = instance.findViewById(android.R.id.button1);
+                    assertNotNull("Renderer failure offers a native Retry button", retry);
+                    assertTrue("Retry is visible after renderer failure", retry.isShown());
+                    retry.performClick();
+                    WebView replacement = (WebView)field.get(instance);
+                    assertNotNull(replacement); assertNotSame("Retry must never reuse a dead WebView", original.get(), replacement);
+                    assertTrue("Retry opens the trusted website", MediaPolicy.isWebsite(replacement.getUrl()));
+                } catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
+            });
+        }
+    }
+    @Test public void actualRendererCrashKeepsTheAppAliveAndCanRecover() throws Exception {
+        AtomicReference<WebView> original = new AtomicReference<>(), replacement = new AtomicReference<>();
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(instance -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(instance); original.set(web);
+                    web.loadUrl("chrome://crash"); // Deliberately kill this disposable test renderer.
+                } catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
+            });
+            for (int i = 0; i < 100 && replacement.get() == null; i++) {
+                activity.onActivity(instance -> {
+                    android.widget.Button retry = instance.findViewById(android.R.id.button1);
+                    try {
+                        Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                        if (field.get(instance) == null && retry != null && retry.isShown()) {
+                            retry.performClick();
+                            replacement.set((WebView)field.get(instance));
+                        }
+                    } catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
+                });
+                if (replacement.get() == null) Thread.sleep(100);
+            }
+            assertNotNull("The app survives renderer death and offers Retry", replacement.get());
+            assertNotSame(original.get(), replacement.get());
+            waitJs(replacement.get(), "!!document.querySelector('.app-tabbar a[href=\"/search\"]')");
+            screenshot("renderer-crash-recovered");
+        }
+    }
     @Test public void guestWebsiteLaunchSearchAndAndroidBack() throws Exception {
         AtomicReference<WebView> ref = new AtomicReference<>();
         try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
@@ -109,8 +180,25 @@ public class AndroidPlaybackTest {
             activity.onActivity(instance -> {
                 try {
                     Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
-                    WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading(); web.getSettings().setBlockNetworkLoads(true);
-                    web.loadDataWithBaseURL(MediaPolicy.ORIGIN + "/?android-qa=1", fixture, "text/html", "UTF-8", null);
+                    WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading();
+                    String fixtureUrl = MediaPolicy.ORIGIN + "/?android-qa=1";
+                    android.webkit.WebViewClient delegate = web.getWebViewClient();
+                    // Use a normal HTTPS navigation entry: loadDataWithBaseURL's
+                    // virtual history URL does not follow client-side replaceState.
+                    java.util.function.Function<android.webkit.WebResourceRequest, android.webkit.WebResourceResponse> respond = request ->
+                        new android.webkit.WebResourceResponse("text/html", "UTF-8", new java.io.ByteArrayInputStream(
+                            (fixtureUrl.equals(request.getUrl().toString()) ? fixture : "").getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                    web.setWebViewClient(new android.webkit.WebViewClient() {
+                        @Override public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, android.webkit.WebResourceRequest request) { return respond.apply(request); }
+                        @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) { return delegate.shouldOverrideUrlLoading(view, request); }
+                        @Override public void onPageFinished(WebView view, String url) { delegate.onPageFinished(view, url); }
+                        @Override public void onReceivedError(WebView view, android.webkit.WebResourceRequest request, android.webkit.WebResourceError error) { delegate.onReceivedError(view, request, error); }
+                        @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) { return delegate.onRenderProcessGone(view, detail); }
+                    });
+                    android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(new android.webkit.ServiceWorkerClient() {
+                        @Override public android.webkit.WebResourceResponse shouldInterceptRequest(android.webkit.WebResourceRequest request) { return respond.apply(request); }
+                    });
+                    web.loadUrl(fixtureUrl);
                 } catch (Exception e) { throw new RuntimeException(e); }
             });
             WebView web = ref.get(); waitJs(web, "window.qaReady === true");
@@ -121,6 +209,23 @@ public class AndroidPlaybackTest {
             screenshot("native-playing");
             ActivityManager manager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
             assertTrue("Playing audio needs a foreground notification service", manager.getRunningServices(100).stream().anyMatch(s -> s.service.getClassName().equals(PlaybackService.class.getName()) && s.foreground));
+            js(web, "window.qaDocumentIdentity = {}; window.qaOriginalBridge = HayKasaAndroidMedia; history.replaceState(null, '', '/search?android-qa=1')");
+            AtomicReference<Boolean> noNativeHistory = new AtomicReference<>();
+            AtomicReference<String> nativeRoute = new AtomicReference<>();
+            for (int i = 0; i < 50; i++) {
+                main(() -> {
+                    web.clearHistory();
+                    nativeRoute.set(web.getUrl());
+                    noNativeHistory.set(!web.canGoBack() && "/search".equals(android.net.Uri.parse(web.getUrl()).getPath()));
+                });
+                if (noNativeHistory.get()) break;
+                Thread.sleep(100);
+            }
+            assertTrue("Search fallback is exercised without native WebView history; native=" + nativeRoute.get() + "; js=" + js(web, "location.href"), noNativeHistory.get());
+            double beforeRouteBack = Double.parseDouble(js(web, "qaDeck.getCurrentTime()"));
+            shell("input keyevent KEYCODE_BACK");
+            waitJs(web, "location.pathname === '/' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > " + (beforeRouteBack + 1));
+            assertEquals("Route Back preserves the document and native bridge", "true", js(web, "!!window.qaDocumentIdentity && window.qaOriginalBridge === HayKasaAndroidMedia && qaDeck.androidNative === true"));
             shell("input keyevent KEYCODE_HOME");
             Thread.sleep(4000);
             assertTrue("Playback must advance after leaving the app", Double.parseDouble(js(web, "qaDeck.getCurrentTime()")) > 4);
@@ -166,6 +271,9 @@ public class AndroidPlaybackTest {
             js(web, "qaDeck.playVideo()");
             waitJs(web, "qaDeck.getVideoData().video_id === 'synthetic03' && qaDeck.getPlayerState() === 1");
             js(web, "qaDeck.destroy()");
-        } finally { main(service::releaseAll); context.stopService(new Intent(context, PlaybackService.class)); }
+        } finally {
+            main(() -> { service.releaseAll(); android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(null); });
+            context.stopService(new Intent(context, PlaybackService.class));
+        }
     }
 }

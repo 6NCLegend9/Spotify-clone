@@ -37,7 +37,111 @@ async function deckCase({play, resumeContext, graph, resolveAsset, metadata = tr
   await tick(); if (metadata) listeners.get('loadedmetadata')();
   return {deck, media, events, failures, listeners, requests, cancelled, timers};
 }
+function recoveryCase() {
+  const queue = load('src/utils/playerQueue.mjs');
+  const policy = load('src/utils/youtubePlaybackError.mjs', {'./playerQueue.mjs':queue});
+  const source = fs.readFileSync(path.join(root, 'src/components/MusicPlayer/YouTubePlayer.jsx'), 'utf8');
+  const part = (start, end) => {
+    const first = source.indexOf(start), last = source.indexOf(end, first);
+    assert(first >= 0 && last > first, `Production playback function not found: ${start}`);
+    return source.slice(first, last);
+  };
+  const intervals = new Map(), timeouts = new Map(); let timerId = 0, now = 0, playerState = 1, outputRatio = 1;
+  const calls = {reloads:0, searches:0, advances:0, manualSkips:0, stops:0, pauses:0};
+  const player = {provider:'youtube', getCurrentTime:()=>0, getPlayerState:()=>playerState, getVideoData:()=>({video_id:context.videoRef.current.id}), playVideo(){}, unMute(){},
+    loadVideoById(){ calls.reloads++; }, pauseVideo(){ calls.pauses++; }};
+  const toast = ()=>{}; toast.error = ()=>{};
+  const context = {
+    ...queue, ...policy, Set, console, toast,
+    window:{
+      setInterval(fn, ms){ intervals.set(++timerId, {fn, due:now+ms, ms}); return timerId; }, clearInterval(id){ intervals.delete(id); },
+      setTimeout(fn, ms){ timeouts.set(++timerId, {fn, due:now+ms}); return timerId; }, clearTimeout(id){ timeouts.delete(id); },
+    },
+    fadeTimerRef:{current:null}, fadeInTimerRef:{current:null}, fadeEnabled:true, fadeSeconds:.8, MAX_SKIP_FADE_SECONDS:1, isPlaying:true,
+    getActivePlayer:()=>player, applyPlaybackVolume(_player, ratio=1){ outputRatio = ratio; }, mediaLoadOptions:()=>({}), apiReady:true,
+    videoRef:{current:{id:'synthetic01', queueEntryId:'occurrence-A', title:'Synthetic track'}},
+    endFadeOccurrenceRef:{current:null}, MEDIA_PLAYER_STATES:{PLAYING:1}, playerVideoId:value=>value.getVideoData().video_id,
+    userPausedRef:{current:false}, trackChangeUntilRef:{current:0}, isJamGuestRef:{current:false},
+    failureResolveRef:{current:null}, sameIdRetryRef:{current:null}, alternateAttemptRef:{current:{identity:null}},
+    abortCrossfade(){}, clearActiveBufferTimers(){}, markExpectPlaying(){},
+    setPlayerError(value){ if (value) calls.stops++; },
+    playPause:value=>({type:'playPause', value}), replaceCurrentYoutubeTrack:value=>({type:'replace', value}),
+    dispatch(action){
+      // Replacements preserve the queue occurrence, as the production reducer does.
+      if (action.type === 'replace') context.videoRef.current = {...context.videoRef.current, ...action.value};
+    },
+    resolveAlternateUpload:async()=>{ calls.searches++; return {id:`alternate0${calls.searches}`, title:'Synthetic alternate'}; },
+    store:{getState:()=>({settings:{explicitContent:true}})}, isTrackAllowed:()=>true,
+    playNextOrContinueRef:{current:async()=>{ calls.advances++; return true; }},
+  };
+  context.video = context.videoRef.current;
+  context.useEffect = effect => { context.fadeInEffect = effect; };
+  const advance = milliseconds => {
+    const until = now + milliseconds;
+    for (;;) {
+      const pending = [...intervals.entries()].map(([id, timer])=>({id, timer, interval:true}))
+        .concat([...timeouts.entries()].map(([id, timer])=>({id, timer, interval:false})))
+        .filter(({timer})=>timer.due <= until).sort((a,b)=>a.timer.due-b.timer.due)[0];
+      if (!pending) break;
+      now = pending.timer.due;
+      if (pending.interval) pending.timer.due += pending.timer.ms;
+      else timeouts.delete(pending.id);
+      pending.timer.fn();
+    }
+    now = until;
+  };
+  // Exercise production callbacks rather than reproducing their branching here.
+  vm.runInNewContext(part('const cancelFade = () =>', 'const emptyRecovery =')
+    + part('const fadeOutThenSkip = (run) =>', 'const handleNext =')
+    + part('const handlePlaybackFailure = async', 'handlePlaybackFailureRef.current = handlePlaybackFailure;')
+    + part('// Fade a newly-started track in from silence', 'const seekOnCurrentTrack =')
+    + '\nglobalThis.fail = handlePlaybackFailure; globalThis.skip = fadeOutThenSkip;', context);
+  return {context, policy, calls, intervals,
+    startSkip(){ context.skip(()=>{ calls.manualSkips++; }); },
+    setPlayerState(value){ playerState = value; },
+    startFadeIn(){ return context.fadeInEffect(); }, advance,
+    outputRatio:()=>outputRatio,
+    finishFade(){ advance(1500); },
+  };
+}
 (async()=>{
+  for (const code of [153, '153']) {
+    const recovery = recoveryCase();
+    for (const attempts of [0, 2, 99]) assert.equal(recovery.policy.youtubePlaybackFailurePolicy({code, sameIdAttempts:attempts, alternateAttempts:attempts}).action, 'fatalUI');
+    await recovery.context.fail({code});
+    assert.equal(recovery.calls.stops, 1, 'Player verification failure must stop on its first error');
+    assert.equal(recovery.calls.pauses, 1);
+    assert.equal(recovery.context.userPausedRef.current, true);
+    assert.equal(recovery.calls.reloads + recovery.calls.searches + recovery.calls.advances, 0, 'Verification failure must not reload, search alternate uploads or consume the queue');
+  }
+  for (const code of [100, 101, 150]) {
+    const recovery = recoveryCase();
+    for (let attempt=0; attempt<4; attempt++) await recovery.context.fail({code});
+    assert.equal(recovery.calls.reloads, 0, 'Unavailable/blocked uploads must not retry the same video');
+    assert.equal(recovery.calls.searches, 3, 'Upload-specific failures retain their bounded alternate search');
+    assert.equal(recovery.calls.advances, 1);
+    assert.equal(recovery.calls.stops, 0);
+  }
+  for (const interruption of ['verification-error', 'autoplay-error', 'pause', 'track-change', 'none']) {
+    const recovery = recoveryCase(); recovery.startSkip();
+    if (interruption === 'verification-error') await recovery.context.fail({code:153});
+    if (interruption === 'autoplay-error') await recovery.context.fail({kind:'autoplay'});
+    if (interruption === 'pause') recovery.context.userPausedRef.current = true;
+    if (interruption === 'track-change') recovery.context.videoRef.current = {id:'synthetic02', queueEntryId:'occurrence-B'};
+    if (interruption.endsWith('-error')) assert.equal(recovery.intervals.size, 0, 'Terminal errors must cancel a pending skip fade');
+    recovery.finishFade();
+    assert.equal(recovery.calls.manualSkips, interruption === 'none' ? 1 : 0, `Delayed skip must respect ${interruption}`);
+  }
+  const immediateSkip = recoveryCase();
+  immediateSkip.setPlayerState(3); immediateSkip.startFadeIn();
+  immediateSkip.setPlayerState(1); immediateSkip.startSkip();
+  immediateSkip.advance(1200);
+  assert.equal(immediateSkip.calls.manualSkips, 1, 'A pending startup fade-in must not cancel an immediate manual skip');
+  const startup = recoveryCase();
+  startup.setPlayerState(3); startup.startFadeIn();
+  startup.setPlayerState(1); startup.advance(1200);
+  assert.equal(startup.outputRatio(), 1, 'An uninterrupted startup fade must still reach the selected output volume');
+  assert.equal(startup.calls.manualSkips, 0);
   const {shouldDeferYoutubeResume:defer,authenticatedPlaybackOwner:owns} = load('src/utils/youtubeResumePolicy.mjs');
   for(const provider of ['native','youtube',undefined]) for(const authenticated of [true,false]) {
     assert.equal(defer({hidden:false,provider,authenticated}),false);
@@ -89,5 +193,5 @@ async function deckCase({play, resumeContext, graph, resolveAsset, metadata = tr
   assert(pending.cancelled.includes('abandoned'),'Late abandoned receipts must be released');
   assert.equal(pending.timers.size,0);
   pending.deck.destroy();
-  console.log('PASS: authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
+  console.log('PASS: terminal player verification, bounded upload recovery, interrupted and healthy skip fades, pending startup fade cancellation, uninterrupted startup fade, authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
 })().catch(error=>{console.error(error);process.exitCode=1});

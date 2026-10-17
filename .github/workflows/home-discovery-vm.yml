@@ -20,6 +20,7 @@ on:
       - 'docs/qa/home-discovery/**'
       - 'docs/qa/desktop-panels/**'
       - 'docs/qa/search/**'
+      - 'docs/qa/android/player-browser.cjs'
       - '.github/workflows/home-discovery-vm.yml'
 permissions:
   contents: read
@@ -46,6 +47,7 @@ jobs:
           HAYKASA_QA_PRODUCTION: '1'
       - run: node docs/qa/desktop-panels/browser.cjs
       - run: node docs/qa/search/browser.cjs
+      - run: node docs/qa/android/player-browser.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -54,4 +56,5 @@ jobs:
             artifacts/home-discovery/
             artifacts/desktop-panels/
             artifacts/search/
+            artifacts/android-player-browser/
           retention-days: 7

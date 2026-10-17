@@ -11,6 +11,8 @@ on:
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mobileMediaPolicy.mjs"
       - "src/components/MusicPlayer/YouTubePlayer.jsx"
+      - "src/components/Layout/AppShell.jsx"
+      - "src/utils/androidNavigation.mjs"
       - "docs/qa/android/**"
       - ".github/workflows/android-ci.yml"
   pull_request:
@@ -21,6 +23,8 @@ on:
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mobileMediaPolicy.mjs"
       - "src/components/MusicPlayer/YouTubePlayer.jsx"
+      - "src/components/Layout/AppShell.jsx"
+      - "src/utils/androidNavigation.mjs"
       - "docs/qa/android/**"
       - ".github/workflows/android-ci.yml"
 
