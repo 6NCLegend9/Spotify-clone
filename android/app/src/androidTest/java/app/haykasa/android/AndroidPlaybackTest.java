@@ -193,10 +193,18 @@ public class AndroidPlaybackTest {
             ActivityManager manager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
             assertTrue("Playing audio needs a foreground notification service", manager.getRunningServices(100).stream().anyMatch(s -> s.service.getClassName().equals(PlaybackService.class.getName()) && s.foreground));
             js(web, "window.qaDocumentIdentity = {}; window.qaOriginalBridge = HayKasaAndroidMedia; history.replaceState(null, '', '/search?android-qa=1')");
-            main(web::clearHistory);
             AtomicReference<Boolean> noNativeHistory = new AtomicReference<>();
-            main(() -> noNativeHistory.set(!web.canGoBack() && "/search".equals(android.net.Uri.parse(web.getUrl()).getPath())));
-            assertTrue("Search fallback is exercised without native WebView history", noNativeHistory.get());
+            AtomicReference<String> nativeRoute = new AtomicReference<>();
+            for (int i = 0; i < 50; i++) {
+                main(() -> {
+                    web.clearHistory();
+                    nativeRoute.set(web.getUrl());
+                    noNativeHistory.set(!web.canGoBack() && "/search".equals(android.net.Uri.parse(web.getUrl()).getPath()));
+                });
+                if (noNativeHistory.get()) break;
+                Thread.sleep(100);
+            }
+            assertTrue("Search fallback is exercised without native WebView history; native=" + nativeRoute.get() + "; js=" + js(web, "location.href"), noNativeHistory.get());
             double beforeRouteBack = Double.parseDouble(js(web, "qaDeck.getCurrentTime()"));
             shell("input keyevent KEYCODE_BACK");
             waitJs(web, "location.pathname === '/' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > " + (beforeRouteBack + 1));
