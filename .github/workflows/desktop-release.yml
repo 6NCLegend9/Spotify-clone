@@ -264,14 +264,7 @@ jobs:
         with:
           node-version: 22.x
       - name: Validate signed release secrets
-        shell: pwsh
-        run: |
-          $missing = @()
-          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK)) { $missing += "HEYKASA_WINDOWS_CSC_LINK" }
-          if ([string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) { $missing += "HEYKASA_WINDOWS_CSC_PASSWORD" }
-          if ([string]::IsNullOrWhiteSpace($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET)) { $missing += "HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET" }
-          if ($missing.Count -gt 0) { throw "Missing release secrets: $($missing -join ', ')" }
-          if ($env:HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET.Length -lt 32) { throw "Manifest HMAC secret must be at least 32 characters" }
+        run: node scripts/check-release-config.mjs
       - name: Install desktop dependencies
         run: npm ci --no-audit --no-fund
       - name: Audit runtime dependencies
