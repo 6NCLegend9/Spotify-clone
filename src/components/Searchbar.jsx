@@ -19,7 +19,7 @@ import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import { requestJson } from "@/services/http";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { interactiveYoutubeSearchCache, normalizeSearchRequestKey } from "@/utils/searchRequestCache.mjs";
-import { preferredArtistChannel, artistPageHref } from "@/utils/artistNavigation.mjs";
+import { artistPageHref } from "@/utils/artistNavigation.mjs";
 import { cleanArtist, cleanTitle } from "@/utils/text";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { PHONE_QUERY } from "@/utils/responsivePolicy.mjs";
@@ -45,7 +45,6 @@ const AccountSearchbar = ({ accountKey }) => {
   const browseActive = pathname === "/search";
   const [searchTerm, setSearchTerm] = useState("");
   const [open, setOpen] = useState(false);
-  const [resolvingArtist, setResolvingArtist] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [songs, setSongs] = useState([]);
   const [suggestionArtists, setSuggestionArtists] = useState([]);
@@ -57,12 +56,12 @@ const AccountSearchbar = ({ accountKey }) => {
   const inputId = useId();
   const listboxId = useId();
   const abortRef = useRef(null);
-  const navigationRef = useRef(null);
   const recentsAbortRef = useRef(null);
   const recentsLoadedAtRef = useRef(0);
   const activeAccountRef = useRef(null);
   const resolvedAccountRef = useRef(null);
   const inputRef = useRef(null);
+  const openingNavbarRef = useRef(null);
   const blurTimerRef = useRef(null);
   const desktopSearchTimerRef = useRef(null);
   const clusterRef = useRef(null);
@@ -76,7 +75,6 @@ const AccountSearchbar = ({ accountKey }) => {
     if (!accountKey) {
       if (!previousAccount) return;
       window.clearTimeout(desktopSearchTimerRef.current);
-      navigationRef.current?.abort();
       abortRef.current?.abort();
       recentsAbortRef.current?.abort();
       recentsAbortRef.current = null;
@@ -95,7 +93,6 @@ const AccountSearchbar = ({ accountKey }) => {
     if (!previousAccount || previousAccount === accountKey) return;
 
     window.clearTimeout(desktopSearchTimerRef.current);
-    navigationRef.current?.abort();
     abortRef.current?.abort();
     recentsAbortRef.current?.abort();
     recentsAbortRef.current = null;
@@ -109,10 +106,9 @@ const AccountSearchbar = ({ accountKey }) => {
     setRecentLoading(false);
   }, [accountKey]);
 
-  useEffect(() => { navigationRef.current?.abort(); window.clearTimeout(desktopSearchTimerRef.current); }, [pathname]);
+  useEffect(() => { window.clearTimeout(desktopSearchTimerRef.current); }, [pathname]);
 
   useEffect(() => () => {
-    navigationRef.current?.abort();
     abortRef.current?.abort();
     recentsAbortRef.current?.abort();
     window.clearTimeout(blurTimerRef.current);
@@ -137,12 +133,29 @@ const AccountSearchbar = ({ accountKey }) => {
 
   useEffect(() => {
     const onOpenSearch = () => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
+      const input = inputRef.current;
+      if (!input) return;
+      const navbar = input.closest(".app-navbar");
+      if (!input.getClientRects().length && navbar?.closest('[data-route="home"]')) {
+        // Reveal before focusing so mobile keyboards retain the original tap gesture.
+        navbar.setAttribute("data-search-opening", "true");
+        openingNavbarRef.current = navbar;
+      }
+      input.focus({ preventScroll: true });
+      input.select();
     };
     window.addEventListener("heykasa:open-search", onOpenSearch);
-    return () => window.removeEventListener("heykasa:open-search", onOpenSearch);
+    return () => {
+      window.removeEventListener("heykasa:open-search", onOpenSearch);
+      openingNavbarRef.current?.removeAttribute("data-search-opening");
+    };
   }, []);
+
+  useLayoutEffect(() => {
+    if (pathname === "/" && open) return;
+    openingNavbarRef.current?.removeAttribute("data-search-opening");
+    openingNavbarRef.current = null;
+  }, [pathname, open]);
 
   useEffect(() => {
     const node = inputRef.current;
@@ -279,7 +292,7 @@ const AccountSearchbar = ({ accountKey }) => {
     }
   };
 
-  const go = async (query) => {
+  const go = (query) => {
     window.clearTimeout(desktopSearchTimerRef.current);
     const next = String(query || "").trim().slice(0, 100);
     if (!next) return;
@@ -287,22 +300,10 @@ const AccountSearchbar = ({ accountKey }) => {
     setOpen(false);
     setActiveIndex(-1);
     dispatch(setIsTyping(false));
-    navigationRef.current?.abort();
-    const controller = new AbortController();
-    navigationRef.current = controller;
-    setResolvingArtist(true);
-    try {
-      const data = await requestJson(buildYoutubeSearchUrl({ q: next, type: "channel" }, "interactive"), { signal: controller.signal });
-      if (controller.signal.aborted) return;
-      const artist = preferredArtistChannel(data?.results, next);
-      if (artist) { recordSearch(next); router.push(artistPageHref(artist.id, artist.title)); return; }
-    } catch { if (controller.signal.aborted) return; }
-    finally { if (navigationRef.current === controller) setResolvingArtist(false); }
-    if (!controller.signal.aborted) router.push(`/search/${encodeURIComponent(next)}`);
+    router.push(`/search/${encodeURIComponent(next)}`);
   };
 
   const playSong = (song) => {
-    navigationRef.current?.abort();
     if (!song?.id) return;
     const title = cleanTitle(song.title || song.name, "Song");
     const artist = cleanArtist(song.channel || song.artist || song.author);
@@ -330,7 +331,6 @@ const AccountSearchbar = ({ accountKey }) => {
     if (!item) return;
     if (item.type === "recent-query" || item.type === "query") go(item.query);
     else if (item.type === "artist") {
-      navigationRef.current?.abort();
       setOpen(false); setActiveIndex(-1); dispatch(setIsTyping(false));
       recordSearch(searchTerm || item.artist.title);
       router.push(artistPageHref(item.artist.id, item.artist.title));
@@ -421,7 +421,7 @@ const AccountSearchbar = ({ accountKey }) => {
       <div className={`search-field ${browseActive ? "is-browse" : ""}`}>
         {overlaySuggestions && open && <button type="button" aria-label="Close search suggestions" className={styles.backButton} onClick={() => { setOpen(false); setActiveIndex(-1); inputRef.current?.blur(); }}><FiArrowLeft aria-hidden="true" /></button>}
         <label htmlFor={inputId} className="search-field-icon-hit">
-          <FiSearch aria-hidden="true" className={`search-field-icon ${resolvingArtist ? "animate-pulse" : ""}`} />
+          <FiSearch aria-hidden="true" className="search-field-icon" />
           <span className="sr-only">Search songs, artists, playlists, and genres</span>
         </label>
         <input
@@ -439,14 +439,13 @@ const AccountSearchbar = ({ accountKey }) => {
           placeholder={compactPlaceholder ? "Search" : "What do you want to play?"}
           value={searchTerm}
           role="combobox"
-          aria-busy={resolvingArtist || suggestionsLoading}
+          aria-busy={suggestionsLoading}
           aria-autocomplete="list"
           aria-haspopup="grid"
           aria-expanded={suggestionsVisible}
           aria-controls={suggestionsVisible ? listboxId : undefined}
           aria-activedescendant={suggestionsVisible && selectedIndex >= 0 ? `${listboxId}-option-${selectedIndex}` : undefined}
           onChange={(event) => {
-            navigationRef.current?.abort();
             setSearchTerm(event.target.value);
             scheduleDesktopSearch(event.target.value);
             setOpen(true);
