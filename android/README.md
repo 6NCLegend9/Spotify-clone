@@ -46,6 +46,10 @@ Root Android Back now backgrounds the launcher task after keyboard and route his
 
 Native cue changes release the prior asset and ignore stale preparation/renewal callbacks; playing a newly cued track starts a single source request. Track changes also refresh the title sent to the native media session. Mobile search now preserves the main branch's results-page submission behavior.
 
+Version 1.0.1 also prevents a startup fade from cancelling a manual Skip, permits the trusted WebView's asynchronous track playback, and stops repeated recovery attempts when YouTube rejects player verification. A renderer exit releases abandoned native players and offers a native Retry action that creates a new WebView. Route Back uses the web router when available so returning Home keeps the active playback document connected.
+
+Downloading the standard APK from a localhost website does not point the installed app at localhost: its trusted website and media origin remain `https://haykasa.vercel.app`. Both deployed web changes and the new APK are needed to exercise all these fixes. Native notification next/previous queue commands are not implemented; the in-app controls own queue navigation.
+
 ## PR35 follow-up repairs
 
 The playback notification now returns to the existing Activity/WebView instead of opening a second bridge. Instrumentation uses the media session's actual notification PendingIntent to exercise this path.

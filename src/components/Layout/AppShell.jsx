@@ -28,6 +28,7 @@ import AppearanceBackdrop from "@/components/AppearanceBackdrop";
 import { selectAccentForeground, selectResolvedAccent } from "@/redux/features/appearanceSlice";
 import { isAuthPath } from "@/utils/authPaths.mjs";
 import { isEmbedPath } from "@/utils/embedPaths.mjs";
+import { installAndroidNavigation } from "@/utils/androidNavigation.mjs";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -117,6 +118,8 @@ export default function AppShell({ children }) {
   useEffect(() => {
     setShowNav(false);
   }, [pathname]);
+
+  useEffect(() => installAndroidNavigation(router), [router]);
 
   useEffect(() => {
     router.prefetch("/login");

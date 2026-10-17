@@ -24,8 +24,20 @@ export function createAndroidAudioElement(title = "") {
   let source = "", current = 0, duration = 0, muted = true, volume = 1, paused = true, ended = false, loaded = false, disposed = false;
   const post = (action, extra = {}) => { if (!disposed) bridge.postMessage(JSON.stringify({ id, action, ...extra })); };
   const emit = name => media.dispatchEvent(new Event(name));
-  const receive = data => {
+  const resetNativeSource = () => {
+    post("release");
+    listeners.delete(id);
+    id = `audio_${crypto.randomUUID()}`;
+    listeners.set(id, receive);
+    loaded = false; ended = false; paused = true; current = 0; duration = 0;
+  };
+  const clearSource = () => {
     if (disposed) return;
+    if (source) resetNativeSource();
+    source = "";
+  };
+  const receive = data => {
+    if (disposed || !source) return;
     current = Number.isFinite(data.position) ? Math.max(0, data.position) : current;
     duration = Number.isFinite(data.duration) ? Math.max(0, data.duration) : duration;
     if (data.event === "ready" && !loaded) { loaded = true; emit("loadedmetadata"); }
@@ -39,7 +51,7 @@ export function createAndroidAudioElement(title = "") {
   listeners.set(id, receive);
   Object.defineProperties(media, {
     isAndroidNativeMedia: { value: true },
-    src: { get: () => source, set: value => { source = String(value || ""); loaded = false; ended = false; } },
+    src: { get: () => source, set: value => { const next = String(value || ""); if (!next) clearSource(); else { source = next; loaded = false; ended = false; } } },
     currentSrc: { get: () => source },
     duration: { get: () => duration },
     currentTime: { get: () => current, set: value => { current = Math.max(0, Number(value) || 0); post("seek", { value: current }); } },
@@ -50,19 +62,15 @@ export function createAndroidAudioElement(title = "") {
   });
   media.load = () => {
     if (disposed) return;
-    // Every load is a new native source, including an empty-src reset. Release
-    // the old session and retire its ID so delayed replies cannot revive it.
-    post("release");
-    listeners.delete(id);
-    id = `audio_${crypto.randomUUID()}`;
-    listeners.set(id, receive);
-    loaded = false; ended = false; paused = true; current = 0; duration = 0;
-    if (source) { loaded = false; post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) }); }
+    if (!source) return;
+    // Retire the old ID so queued native replies cannot affect a new source.
+    resetNativeSource();
+    post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) });
   };
-  media.play = () => { paused = false; post("volume", { value: muted ? 0 : volume }); post("play"); return Promise.resolve(); };
+  media.play = () => { if (!source || disposed) return Promise.resolve(); paused = false; post("volume", { value: muted ? 0 : volume }); post("play"); return Promise.resolve(); };
   media.pause = () => { paused = true; post("pause"); };
   const removeAttribute = media.removeAttribute.bind(media);
-  media.removeAttribute = name => { if (name === "src") { source = ""; loaded = false; } removeAttribute(name); };
+  media.removeAttribute = name => { if (String(name).toLowerCase() === "src") clearSource(); removeAttribute(name); };
   const remove = media.remove.bind(media);
   media.remove = () => { post("release"); disposed = true; listeners.delete(id); remove(); };
   return media;

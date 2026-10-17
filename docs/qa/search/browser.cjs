@@ -102,6 +102,19 @@ const results = [];
       assert.equal(await mobileInput.getAttribute("aria-expanded"), "true", "Search tab focuses input after leaving hidden Home navbar");
       assert.equal(await mobileInput.evaluate(input => getComputedStyle(input).fontSize), "16px", "Mobile input avoids Safari focus zoom threshold");
       assert.equal(await page.locator("[data-search-opening]").count(), 0, "Temporary Home navbar reveal is removed after navigation");
+      const nativeNavigation = await page.evaluate(() => {
+        window.mobileNavigationDocument = crypto.randomUUID();
+        return {
+          token: window.mobileNavigationDocument,
+          handled: !window.dispatchEvent(new Event("haykasa:navigate-home", { cancelable: true })),
+        };
+      });
+      assert.equal(nativeNavigation.handled, true, "The app handles native route Back through its client router");
+      await page.waitForURL(url => url.pathname === "/");
+      assert.equal(await page.evaluate(() => window.mobileNavigationDocument), nativeNavigation.token, "Native route Back preserves the current document");
+      await page.waitForFunction(() => document.querySelector("input[role='combobox']").getAttribute("aria-expanded") === "false");
+      await page.locator(".app-tabbar a[href='/search']").tap();
+      await page.waitForURL(url => url.pathname === "/search");
       await page.getByRole("button", { name: "Close search suggestions", exact: true }).click();
       await page.locator(".app-tabbar a[href='/']").tap();
       await page.waitForURL(url => url.pathname === "/");
@@ -223,6 +236,12 @@ const results = [];
       await input.press("Escape");
       assert.equal(await input.getAttribute("aria-expanded"), "false");
     }
+    const artistQuerySaved = page.waitForResponse(response => {
+      const request = response.request();
+      return new URL(response.url()).pathname === "/api/searches"
+        && request.method() === "POST"
+        && request.postDataJSON()?.term === "Blue Artist";
+    });
     if (device === "mobile") {
       await input.fill("Blue Artist");
       await page.locator("[data-search-suggest='true']").getByRole("gridcell", { name: "Blue Artist", exact: true }).click();
@@ -235,7 +254,7 @@ const results = [];
     await input.press("Enter");
     await page.waitForURL(url => url.pathname === "/search/Blue%20Artist");
     await page.getByRole("region", { name: "Search results for Blue Artist", exact: true }).waitFor();
-    await page.waitForFunction(() => document.querySelector('[role="combobox"]').getAttribute("aria-busy") === "false");
+    assert.equal((await artistQuerySaved).status(), 200, "Search results save query history after loading");
     assert(writes.some(write => write.endpoint === "search-history" && write.payload.term === "Blue Artist"), "Artist-name submission records query and opens the search index");
     await input.fill("Blue song 1");
     await input.press("Enter");

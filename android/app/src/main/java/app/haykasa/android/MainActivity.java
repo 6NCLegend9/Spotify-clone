@@ -158,7 +158,7 @@ public final class MainActivity extends Activity {
     private void showError(int message) {
         LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(32, 48, 32, 32); box.setBackgroundColor(0xff060d1b);
         TextView text = new TextView(this); text.setText(message); text.setTextColor(0xfff1f5ff); text.setTextSize(18); box.addView(text);
-        Button retry = new Button(this); retry.setText(R.string.try_again); retry.setOnClickListener(v -> showWebsite()); box.addView(retry);
+        Button retry = new Button(this); retry.setId(android.R.id.button1); retry.setText(R.string.try_again); retry.setOnClickListener(v -> showWebsite()); box.addView(retry);
         setContentView(box);
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
@@ -185,8 +185,17 @@ public final class MainActivity extends Activity {
         // Client-side route replacement can leave no native WebView history.
         String url = web.getUrl();
         if (MediaPolicy.isWebsite(url) && !"/".equals(Uri.parse(url).getPath())) {
-            returningHome = true;
-            web.loadUrl(MediaPolicy.ORIGIN + "/");
+            // A full document load would abandon the current audio bridge.
+            // Deployed clients without the handler retain the navigation fallback.
+            WebView navigating = web;
+            navigating.evaluateJavascript("!window.dispatchEvent(new Event('haykasa:navigate-home', {cancelable:true}))", handled -> {
+                if (navigating != web || "true".equals(handled) || isFinishing() || isDestroyed()) return;
+                String current = web.getUrl();
+                if (MediaPolicy.isWebsite(current) && !"/".equals(Uri.parse(current).getPath())) {
+                    returningHome = true;
+                    web.loadUrl(MediaPolicy.ORIGIN + "/");
+                }
+            });
             return;
         }
         // Root Back should leave the launcher task in the background, preserving

@@ -106,7 +106,13 @@ const AccountSearchbar = ({ accountKey }) => {
     setRecentLoading(false);
   }, [accountKey]);
 
-  useEffect(() => { window.clearTimeout(desktopSearchTimerRef.current); }, [pathname]);
+  useEffect(() => {
+    window.clearTimeout(desktopSearchTimerRef.current);
+    if (pathname !== "/search" && !pathname?.startsWith("/search/")) {
+      setOpen(false);
+      setActiveIndex(-1);
+    }
+  }, [pathname]);
 
   useEffect(() => () => {
     abortRef.current?.abort();

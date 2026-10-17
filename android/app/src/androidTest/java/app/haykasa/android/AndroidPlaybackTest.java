@@ -96,10 +96,10 @@ public class AndroidPlaybackTest {
                         @Override public int rendererPriorityAtExit() { return android.webkit.WebView.RENDERER_PRIORITY_BOUND; }
                     });
                     assertTrue("Renderer exit must not escalate into a host app crash", handled);
-                    java.util.ArrayList<android.view.View> matches = new java.util.ArrayList<>();
-                    instance.getWindow().getDecorView().findViewsWithText(matches, "Try again", android.view.View.FIND_VIEWS_WITH_TEXT);
-                    assertEquals("Renderer failure offers one native Retry button", 1, matches.size());
-                    matches.get(0).performClick();
+                    android.widget.Button retry = instance.findViewById(android.R.id.button1);
+                    assertNotNull("Renderer failure offers a native Retry button", retry);
+                    assertTrue("Retry is visible after renderer failure", retry.isShown());
+                    retry.performClick();
                     WebView replacement = (WebView)field.get(instance);
                     assertNotNull(replacement); assertNotSame("Retry must never reuse a dead WebView", original.get(), replacement);
                     assertTrue("Retry opens the trusted website", MediaPolicy.isWebsite(replacement.getUrl()));
@@ -119,13 +119,14 @@ public class AndroidPlaybackTest {
             });
             for (int i = 0; i < 100 && replacement.get() == null; i++) {
                 activity.onActivity(instance -> {
-                    java.util.ArrayList<android.view.View> matches = new java.util.ArrayList<>();
-                    instance.getWindow().getDecorView().findViewsWithText(matches, "Try again", android.view.View.FIND_VIEWS_WITH_TEXT);
-                    if (matches.size() == 1) {
-                        matches.get(0).performClick();
-                        try { Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true); replacement.set((WebView)field.get(instance)); }
-                        catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
-                    }
+                    android.widget.Button retry = instance.findViewById(android.R.id.button1);
+                    try {
+                        Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                        if (field.get(instance) == null && retry != null && retry.isShown()) {
+                            retry.performClick();
+                            replacement.set((WebView)field.get(instance));
+                        }
+                    } catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
                 });
                 if (replacement.get() == null) Thread.sleep(100);
             }
@@ -191,6 +192,15 @@ public class AndroidPlaybackTest {
             screenshot("native-playing");
             ActivityManager manager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
             assertTrue("Playing audio needs a foreground notification service", manager.getRunningServices(100).stream().anyMatch(s -> s.service.getClassName().equals(PlaybackService.class.getName()) && s.foreground));
+            js(web, "window.qaDocumentIdentity = {}; window.qaOriginalBridge = HayKasaAndroidMedia; history.replaceState(null, '', '/search?android-qa=1')");
+            main(web::clearHistory);
+            AtomicReference<Boolean> noNativeHistory = new AtomicReference<>();
+            main(() -> noNativeHistory.set(!web.canGoBack() && "/search".equals(android.net.Uri.parse(web.getUrl()).getPath())));
+            assertTrue("Search fallback is exercised without native WebView history", noNativeHistory.get());
+            double beforeRouteBack = Double.parseDouble(js(web, "qaDeck.getCurrentTime()"));
+            shell("input keyevent KEYCODE_BACK");
+            waitJs(web, "location.pathname === '/' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > " + (beforeRouteBack + 1));
+            assertEquals("Route Back preserves the document and native bridge", "true", js(web, "!!window.qaDocumentIdentity && window.qaOriginalBridge === HayKasaAndroidMedia && qaDeck.androidNative === true"));
             shell("input keyevent KEYCODE_HOME");
             Thread.sleep(4000);
             assertTrue("Playback must advance after leaving the app", Double.parseDouble(js(web, "qaDeck.getCurrentTime()")) > 4);
