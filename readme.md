@@ -243,7 +243,7 @@ The [desktop release workflow](./.github/workflows/desktop-release.yml) attempts
 
 The stable/beta workflow verifies the Windows Authenticode signature before a public GitHub Release is created and verifies the published updater assets after release.
 
-Check signing configuration with `npm run desktop:release:check`. Missing certificate credentials or the manifest HMAC key block signed publication. Building an unsigned preview does not enable stable automatic updates. See the [desktop recovery guide](./docs/qa/desktop-production-recovery.md).
+Check signing configuration with `npm run desktop:release:check`. Automatic releases check signing readiness before building and report a skipped release when inputs are missing or invalid; explicit manual stable/beta requests still fail. No installer is published by a skipped run. Building an unsigned preview does not enable stable automatic updates. See [signing setup](./desktop/README.md#release-configuration-check) and the [desktop recovery guide](./docs/qa/desktop-production-recovery.md).
 
 ## Security principles
 

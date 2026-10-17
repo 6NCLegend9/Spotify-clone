@@ -241,7 +241,9 @@ Blob publishing scripts and their npm commands are no longer supported.
 
 `.github/workflows/desktop-preview.yml` is also an unsigned Actions-artifact smoke path.
 
-`.github/workflows/desktop-release.yml` publishes stable releases automatically after pushes to `main`, and also supports manual internal/beta/stable releases:
+`.github/workflows/desktop-release.yml` attempts stable releases automatically after pushes to `main`, and also supports manual internal/beta/stable releases. After resolving metadata, it checks the protected signing setup before the web or Windows build. An automatic run with missing or invalid signing inputs reports **Automatic desktop release skipped** and publishes nothing. An explicit manual stable/beta request still fails until configured. Internal releases do not require signing secrets or approval of the signing environment.
+
+Once the required signing inputs are present (or an internal release is requested), the workflow:
 
 1. run production web/runtime audits, desktop API tests, typecheck, and Next.js build;
 2. reject stable releases that are not dispatched from `main`;
@@ -318,7 +320,7 @@ The shared renderer can use the separately hosted `media-service/` for compatibl
 
 Run `npm run desktop:release:check` from the repository root before requesting a stable or beta release. It checks for the certificate input (`HEYKASA_WINDOWS_CSC_LINK` or electron-builder's `CSC_LINK`), password (`HEYKASA_WINDOWS_CSC_PASSWORD` or `CSC_KEY_PASSWORD`), and a manifest HMAC key containing at least 32 characters with no leading or trailing whitespace. It prints missing names only, exits nonzero when blocked, and does not validate a certificate or publish anything. Internal builds remain unsigned and do not enable stable updates.
 
-The signed workflow uses the same check and writes an actionable job summary on failure. Configure these secrets in [the protected desktop-release environment](https://github.com/6NCLegend9/Spotify-clone/settings/environments) before retrying:
+The workflow uses the same strict check for manual signed releases and again before signing the Windows installer. Its automatic preflight adds `--automatic` only for push events: the check emits a readiness boolean and a summary listing missing or invalid secret names. Unconfigured automatic runs skip building and publishing instead of failing after a full web build. This skipped result does not mean a signed update was released. Configure these secrets in [the protected desktop-release environment](https://github.com/6NCLegend9/Spotify-clone/settings/environments) before retrying:
 
 - `HEYKASA_WINDOWS_CSC_LINK`: a valid code-signing certificate in an electron-builder supported format, such as a base64-encoded PFX. Supply it through GitHub Secrets, never a committed file.
 - `HEYKASA_WINDOWS_CSC_PASSWORD`: the certificate password.

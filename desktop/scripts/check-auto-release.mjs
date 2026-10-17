@@ -1,7 +1,48 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { resolveReleaseMetadata } from "./resolve-release-metadata.mjs";
+
+// Exercise the actual CLI: automatic missing setup skips publication, while an
+// explicit signed release stays strict. Fixtures never build or publish an app.
+const fixtureDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "haykasa-release-config-"));
+const fixtureSecrets = {
+  CSC_LINK: "fixture-certificate-do-not-log", CSC_KEY_PASSWORD: "fixture-password-do-not-log",
+  HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: "fixture-manifest-key-do-not-log-123456789",
+};
+try {
+  const cases = [
+    { name: "strict missing stable", status: 1, ready: false },
+    { name: "strict missing beta", channel: "beta", status: 1, ready: false },
+    { name: "automatic missing", automatic: true, event: "push", status: 0, ready: false },
+    { name: "automatic partial", automatic: true, event: "push", values: { CSC_LINK: fixtureSecrets.CSC_LINK }, status: 0, ready: false },
+    { name: "manual cannot opt out", automatic: true, event: "workflow_dispatch", status: 1, ready: false },
+    { name: "strict ready", values: fixtureSecrets, status: 0, ready: true },
+    { name: "automatic ready", automatic: true, event: "push", values: fixtureSecrets, status: 0, ready: true },
+    { name: "padded key", automatic: true, event: "push", values: { ...fixtureSecrets, HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: ` ${fixtureSecrets.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET}` }, status: 0, ready: false },
+    { name: "short key", values: { ...fixtureSecrets, HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: "short" }, status: 1, ready: false },
+    { name: "internal without credentials", channel: "internal", status: 0, ready: true },
+  ];
+  for (const [index, test] of cases.entries()) {
+    const output = path.join(fixtureDirectory, `output-${index}`), summary = path.join(fixtureDirectory, `summary-${index}`);
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL("./check-release-config.mjs", import.meta.url)), ...(test.automatic ? ["--automatic"] : [])], {
+      encoding: "utf8", env: { ...process.env,
+        CSC_LINK: "", CSC_KEY_PASSWORD: "", HEYKASA_WINDOWS_CSC_LINK: "", HEYKASA_WINDOWS_CSC_PASSWORD: "", HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: "",
+        ...test.values, GITHUB_EVENT_NAME: test.event || "workflow_dispatch", HEYKASA_DESKTOP_RELEASE_CHANNEL: test.channel || "stable", GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary,
+      },
+    });
+    assert.equal(result.status, test.status, test.name);
+    assert.equal(fs.readFileSync(output, "utf8"), `ready=${test.ready}\n`, test.name);
+    const diagnostic = result.stdout + result.stderr + fs.readFileSync(summary, "utf8");
+    for (const secret of Object.values(fixtureSecrets)) assert(!diagnostic.includes(secret), `${test.name}: do not log secrets`);
+    if (test.automatic && test.event === "push" && !test.ready) assert.match(diagnostic, /Automatic publication skipped/, test.name);
+    if (!test.ready && test.status === 1) assert.match(diagnostic, /Publication blocked/, test.name);
+  }
+} finally { fs.rmSync(fixtureDirectory, { recursive: true, force: true }); }
 
 const base = {
   eventName: "push", ref: "refs/heads/main", repository: "6NCLegend9/Spotify-clone", sha: "a".repeat(40),
@@ -107,4 +148,4 @@ native.sendUpdateStatus(updater.getStatus());
 assert.equal(notices.length, 1, "Repeated state messages do not duplicate Windows notifications");
 await updater.installReadyUpdate(); assert.equal(installs, 1);
 updater.dispose();
-console.log("PASS: automatic stable versioning, preserved manual channels, invalid metadata, updater discovery/download/restart states and Windows notification");
+console.log("PASS: signing readiness, strict manual release gates, automatic skip without credentials, secret redaction, automatic stable versioning, preserved internal/manual channels, updater discovery/download/restart states and Windows notification");
