@@ -48,6 +48,8 @@ public class AndroidPlaybackTest {
         }
     }
     private void screenshot(String name) throws Exception {
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        Thread.sleep(500); // Allow the committed WebView frame to reach the emulator display.
         shell("mkdir -p /sdcard/Download/haykasa-emulator-qa");
         shell("screencap -p /sdcard/Download/haykasa-emulator-qa/" + name + ".png");
     }
@@ -73,9 +75,12 @@ public class AndroidPlaybackTest {
             WebView web = ref.get();
             try { waitJs(web, "!!document.querySelector('.app-tabbar a[href=\"/search\"]')"); }
             finally { screenshot("website-home-guest"); }
+            waitJs(web, "!!document.querySelector('.home-header h1')");
+            screenshot("website-home-ready");
             assertEquals("Mobile page has no horizontal overflow", "true", js(web, "document.documentElement.scrollWidth <= innerWidth + 2"));
             js(web, "document.querySelector('.app-tabbar a[href=\"/search\"]').click()");
             waitJs(web, "location.pathname === '/search'");
+            waitJs(web, "!!document.querySelector('a[aria-label=\"Browse Music playlists\"]')");
             screenshot("website-search-guest");
             System.out.println("ANDROID_QA_NAVIGATION " + js(web, "JSON.stringify({path:location.pathname,history:history.length})"));
             main(() -> System.out.println("ANDROID_QA_NATIVE_BACK canGoBack=" + web.canGoBack() + " path=" + android.net.Uri.parse(web.getUrl()).getPath()));
