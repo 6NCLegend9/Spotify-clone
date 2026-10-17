@@ -9,7 +9,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Build;
 import android.os.IBinder;
-import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowInsets;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -33,6 +35,7 @@ public final class MainActivity extends Activity {
     private WebView web;
     private PlaybackService playback;
     private boolean bound;
+    private boolean returningHome;
     private ValueCallback<Uri[]> fileResult;
     private final List<Runnable> waiting = new ArrayList<>();
     private final ServiceConnection connection = new ServiceConnection() {
@@ -82,6 +85,11 @@ public final class MainActivity extends Activity {
                     catch (Exception ignored) { showError(R.string.error_no_browser); }
                 }
                 return true;
+            }
+            @Override public void onPageFinished(WebView view, String url) {
+                if (returningHome && MediaPolicy.isWebsite(url) && "/".equals(Uri.parse(url).getPath())) {
+                    web.clearHistory(); returningHome = false;
+                }
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) showError(R.string.error_connection);
@@ -137,7 +145,26 @@ public final class MainActivity extends Activity {
             fileResult.onReceiveValue(selected); fileResult = null;
         }
     }
-    private void goBackOrFinish() { if (web != null && web.canGoBack()) web.goBack(); else finish(); }
+    private void goBackOrFinish() {
+        if (web == null) { finish(); return; }
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsets insets = web.getRootWindowInsets();
+            if (insets != null && insets.isVisible(WindowInsets.Type.ime())) {
+                ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(web.getWindowToken(), 0);
+                web.clearFocus();
+                return;
+            }
+        }
+        if (web.canGoBack()) { web.goBack(); return; }
+        // Client-side route replacement can leave no native WebView history.
+        String url = web.getUrl();
+        if (MediaPolicy.isWebsite(url) && !"/".equals(Uri.parse(url).getPath())) {
+            returningHome = true;
+            web.loadUrl(MediaPolicy.ORIGIN + "/");
+            return;
+        }
+        finish();
+    }
     // API 33+ uses the registered native dispatcher; this fallback serves API 23–32.
     @android.annotation.SuppressLint("GestureBackNavigation")
     @Override public void onBackPressed() { goBackOrFinish(); }
@@ -146,6 +173,8 @@ public final class MainActivity extends Activity {
         if (fileResult != null) { fileResult.onReceiveValue(null); fileResult = null; }
         if (playback != null) playback.detachSinks();
         if (bound) unbindService(connection);
+        web.stopLoading();
+        if (web.getParent() instanceof ViewGroup) ((ViewGroup)web.getParent()).removeView(web);
         web.destroy(); super.onDestroy();
     }
 }

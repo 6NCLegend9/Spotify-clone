@@ -5,7 +5,7 @@ collect_device_evidence() {
   mkdir -p "$qa_root/artifacts/android-emulator"
   adb logcat -d AndroidRuntime:E '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
   adb shell dumpsys activity services app.haykasa.android.debug > "$qa_root/artifacts/android-emulator/services.txt" 2>&1 || true
-  adb pull /sdcard/Android/data/app.haykasa.android.debug/files/emulator-qa "$qa_root/artifacts/android-emulator/screenshots" || true
+  adb pull /sdcard/Download/haykasa-emulator-qa "$qa_root/artifacts/android-emulator/screenshots" || true
 }
 trap collect_device_evidence EXIT
 adb logcat -c

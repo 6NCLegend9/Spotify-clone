@@ -45,6 +45,9 @@ public final class PlaybackService extends MediaSessionService {
         idle = new ExoPlayer.Builder(this).build();
         PendingIntent activity = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         session = new MediaSession.Builder(this, idle).setSessionActivity(activity).build();
+        // This app binds through LocalBinder, so no MediaController connection
+        // invokes onGetSession to register the session on our behalf.
+        addSession(session);
         handler.post(ticker);
     }
     @Nullable @Override public IBinder onBind(Intent intent) {

@@ -3,7 +3,6 @@ package app.haykasa.android;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.os.IBinder;
 import android.webkit.WebView;
 import androidx.test.core.app.ActivityScenario;
@@ -15,8 +14,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -25,7 +22,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import static org.junit.Assert.*;
 
-@androidx.annotation.RequiresApi(33)
+@androidx.test.filters.SdkSuppress(minSdkVersion = 33)
 @RunWith(AndroidJUnit4.class)
 @androidx.media3.common.util.UnstableApi
 public class AndroidPlaybackTest {
@@ -51,9 +48,13 @@ public class AndroidPlaybackTest {
         }
     }
     private void screenshot(String name) throws Exception {
-        Bitmap image = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
-        File dir = new File(context.getExternalFilesDir(null), "emulator-qa"); dir.mkdirs();
-        if (image != null) try (FileOutputStream out = new FileOutputStream(new File(dir, name + ".png"))) { image.compress(Bitmap.CompressFormat.PNG, 100, out); }
+        shell("mkdir -p /sdcard/Download/haykasa-emulator-qa");
+        shell("screencap -p /sdcard/Download/haykasa-emulator-qa/" + name + ".png");
+    }
+    private boolean keyboardVisible(WebView web) {
+        AtomicReference<Boolean> visible = new AtomicReference<>(false);
+        main(() -> { android.view.WindowInsets insets = web.getRootWindowInsets(); visible.set(insets != null && insets.isVisible(android.view.WindowInsets.Type.ime())); });
+        return visible.get();
     }
     private byte[] tone() {
         int rate = 8000, samples = rate * 120;
@@ -76,6 +77,14 @@ public class AndroidPlaybackTest {
             js(web, "document.querySelector('.app-tabbar a[href=\"/search\"]').click()");
             waitJs(web, "location.pathname === '/search'");
             screenshot("website-search-guest");
+            System.out.println("ANDROID_QA_NAVIGATION " + js(web, "JSON.stringify({path:location.pathname,history:history.length})"));
+            main(() -> System.out.println("ANDROID_QA_NATIVE_BACK canGoBack=" + web.canGoBack() + " path=" + android.net.Uri.parse(web.getUrl()).getPath()));
+            if (keyboardVisible(web)) {
+                shell("input keyevent KEYCODE_BACK");
+                for (int i = 0; i < 30 && keyboardVisible(web); i++) Thread.sleep(100);
+                assertFalse("Back first dismisses the keyboard", keyboardVisible(web));
+                assertEquals("Dismissing the keyboard keeps Search open", "true", js(web, "location.pathname === '/search'"));
+            }
             shell("input keyevent KEYCODE_BACK"); waitJs(web, "location.pathname === '/'");
         }
     }
