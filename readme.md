@@ -197,6 +197,10 @@ HayKasa's security-sensitive paths are designed to fail closed:
 
 For deeper operational detail, see [desktop/README.md](./desktop/README.md), [PRODUCTION.md](./PRODUCTION.md), and the focused documents under [`docs/`](./docs/).
 
+## Android test app
+
+An initial Android app and Media3 source-audio service are in [android/](./android/README.md). Build a test APK with `npm run android:build` or download the Android APK workflow artifact. Source-backed background playback requires the existing media service to deliver a working audio asset; installing the APK alone does not enable background playback for embedded YouTube. See the Android README for activation dependencies, signing and device verification limits.
+
 ## Authorship and license
 
 Original contributions and modifications authored by **6NCLegend9 and collaborators** remain the copyright of their respective authors and are released under the [MIT License](./LICENSE).

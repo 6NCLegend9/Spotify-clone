@@ -82,7 +82,38 @@ const results = [];
       assert.equal(new URL(page.url()).pathname, "/library/liked", "Focusing empty search does not navigate away");
       await emptyInput.press("Escape");
     }
-    await page.goto(origin + "/search", { waitUntil: "domcontentloaded" });
+    if (device === "mobile") {
+      await page.goto(origin, { waitUntil: "domcontentloaded" });
+      await page.locator(".app-tabbar a[href='/search']").waitFor();
+      await page.evaluate(() => {
+        window.addEventListener("heykasa:open-search", () => {
+          window.mobileSearchFocus = {
+            path: location.pathname,
+            focused: document.activeElement === document.querySelector("input[role='combobox']"),
+            activeGesture: navigator.userActivation?.isActive === true,
+          };
+        }, { once: true });
+      });
+      await page.locator(".app-tabbar a[href='/search']").tap();
+      await page.waitForURL(url => url.pathname === "/search");
+      assert.deepEqual(await page.evaluate(() => window.mobileSearchFocus), { path: "/", focused: true, activeGesture: true }, "Home search focuses during the original tap before navigation");
+      const mobileInput = page.getByRole("combobox", { name: "Search songs, artists, playlists, and genres", exact: true });
+      await page.waitForFunction(() => document.activeElement === document.querySelector("input[role='combobox']"));
+      assert.equal(await mobileInput.getAttribute("aria-expanded"), "true", "Search tab focuses input after leaving hidden Home navbar");
+      assert.equal(await mobileInput.evaluate(input => getComputedStyle(input).fontSize), "16px", "Mobile input avoids Safari focus zoom threshold");
+      assert.equal(await page.locator("[data-search-opening]").count(), 0, "Temporary Home navbar reveal is removed after navigation");
+      await page.getByRole("button", { name: "Close search suggestions", exact: true }).click();
+      await page.locator(".app-tabbar a[href='/']").tap();
+      await page.waitForURL(url => url.pathname === "/");
+      await page.waitForFunction(() => getComputedStyle(document.querySelector(".app-navbar")).display === "none");
+      // Home intentionally hides the navbar, so it has no accessible combobox.
+      assert.equal(await page.locator("input[role='combobox']").getAttribute("aria-expanded"), "false", "Returning Home keeps closed search collapsed");
+      await page.locator(".app-tabbar a[href='/search']").tap();
+      await page.waitForURL(url => url.pathname === "/search");
+      await page.getByRole("button", { name: "Close search suggestions", exact: true }).click();
+    } else {
+      await page.goto(origin + "/search", { waitUntil: "domcontentloaded" });
+    }
     const recent = page.getByRole("region", { name: "Recent searches", exact: true });
     await recent.getByRole("link", { name: /Blue evening/ }).waitFor();
     await recent.getByRole("button", { name: "Remove recent search Blue evening", exact: true }).click();
@@ -204,11 +235,12 @@ const results = [];
     await input.press("Enter");
     await page.waitForURL(url => url.pathname === "/search/Blue%20Artist");
     await page.getByRole("region", { name: "Search results for Blue Artist", exact: true }).waitFor();
+    await page.waitForFunction(() => document.querySelector('[role="combobox"]').getAttribute("aria-busy") === "false");
+    assert(writes.some(write => write.endpoint === "search-history" && write.payload.term === "Blue Artist"), "Artist-name submission records query and opens the search index");
     await input.fill("Blue song 1");
     await input.press("Enter");
     await page.waitForURL(url => url.pathname === "/search/Blue%20song%201");
     await page.getByRole("region", { name: "Search results for Blue song 1", exact: true }).waitFor();
-    assert(writes.some(write => write.endpoint === "search-history" && write.payload.term === "Blue Artist"), "Artist submission records history on the search results page");
     await page.goto(origin + "/search/No%20synthetic%20matches", { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "No music found", exact: true }).waitFor();
     failSearch = true;
@@ -216,7 +248,7 @@ const results = [];
     await page.getByText("Search is temporarily unavailable", { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false, "No horizontal page overflow");
     assert.deepEqual(errors, [], "No unhandled UI exceptions");
-    results.push({ device, passed: true, coverage: ["recent removal", "mixed results", "song preview", "filters", "pagination deduplication", "artist links", "playlist links", ...(device === "mobile" ? ["query fill", "live track menu", "simulated keyboard viewport"] : ["desktop live results", "non-search empty focus", "track menu"]), "save track", "playback dispatch", "clear", "dismiss", "explicit artist shortcut", "artist submission opens results", "song submission opens results", "artist query history", "empty results", "API failure", "overflow", "unhandled errors"] });
+    results.push({ device, passed: true, coverage: ["recent removal", "mixed results", "song preview", "filters", "pagination deduplication", "artist links", "playlist links", ...(device === "mobile" ? ["Home-to-Search focus", "mobile input font", "query fill", "live track menu", "simulated keyboard viewport"] : ["desktop live results", "non-search empty focus", "track menu"]), "save track", "playback dispatch", "clear", "dismiss", "explicit artist navigation", "artist-name search index", "query history", "song submission opens results", "empty results", "API failure", "overflow", "unhandled errors"] });
     await context.close();
   }
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify(results, null, 2));

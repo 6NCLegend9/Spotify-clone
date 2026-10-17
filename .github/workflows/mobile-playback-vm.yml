@@ -9,6 +9,7 @@ on:
       - 'src/app/api/media/**'
       - 'docs/qa/mobile-source-playback/**'
       - 'docs/qa/background-playback/**'
+      - 'docs/qa/android/**'
       - '.github/workflows/mobile-playback-vm.yml'
 permissions:
   contents: read
@@ -30,6 +31,10 @@ jobs:
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: node docs/qa/mobile-source-playback/check.cjs
       - run: node docs/qa/background-playback/check.cjs
+      - name: Test Android bridge with a real browser DOM
+        run: |
+          node docs/qa/android/check.mjs
+          node docs/qa/android/browser.cjs
       - run: sudo apt-get install -y openbox xdotool x11-utils
       - name: Test browser playback with real window minimization
         run: |

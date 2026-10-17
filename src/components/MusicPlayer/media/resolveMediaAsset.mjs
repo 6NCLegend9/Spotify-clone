@@ -21,7 +21,14 @@ function delay(ms, signal) {
   });
 }
 export async function resolveMediaAsset(request, { signal, receipt, onPending } = {}) {
-  const combined = AbortSignal.any([signal || new AbortController().signal, AbortSignal.timeout(270_000)]);
+  // Older Android System WebViews support AbortController but not AbortSignal.any.
+  // Keep cancellation and the preparation deadline without requiring newer APIs.
+  const controller = new AbortController();
+  const abort = () => controller.abort(signal.reason);
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
+  const deadline = setTimeout(() => controller.abort(new DOMException("Media preparation timed out", "TimeoutError")), 270_000);
+  const combined = controller.signal;
   let currentReceipt = receipt;
   try {
     let result = await mediaRequest(receipt ? { action: "renew", receipt } : request, combined);
@@ -38,5 +45,8 @@ export async function resolveMediaAsset(request, { signal, receipt, onPending } 
   } catch (error) {
     cancelMediaReceipt(currentReceipt);
     throw error;
+  } finally {
+    clearTimeout(deadline);
+    signal?.removeEventListener("abort", abort);
   }
 }

@@ -119,7 +119,7 @@
  .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-start), .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-end) { display: none; }
  .brand, .signup, .install, .navbar :global(.nav-home-btn), .navbar :global(.search-browse), .navbar :global(.search-split), .navbar :global(.navbar-slot-start) > :not(button), .navbar :global(.navbar-slot-start) > button:nth-of-type(2), .navbar :global(.navbar-slot-end) > :not(:last-child) { display: none; }
  .navbar :global(.search-field) { height: 44px; min-height: 44px; }
- .navbar :global(.search-field-input) { font-size: 13px; }
+ .navbar :global(.search-field-input) { font-size: 16px; }
  .login { min-height: 44px; padding: 0 14px; font-size: 13px; }
  :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: fixed; inset: 0 auto 0 0; z-index: 50; width: min(320px,86vw); height: 100%; transform: translateX(-100%); }
  :global(.app-shell):has(.navbar) :global(.app-sidebar.is-open) { transform: translateX(0); }
@@ -148,8 +148,8 @@
  :global(.app-shell):has(.navbar) :global(.search-song-row) { grid-template-columns: 44px minmax(0,1fr) 44px; gap: 8px; padding: 4px 0; }
  :global(.app-shell):has(.navbar) :global(.search-song-number), :global(.app-shell):has(.navbar) :global(.search-song-row > span:last-child) { display: none; }
  :global(.app-shell):has(.navbar) :global(.search-song-play) { left: 0; }
- :global(.app-shell[data-route="home"]):has(.navbar) { grid-template-rows: 0 minmax(0,1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
- :global(.app-shell[data-route="home"]):has(.navbar) .navbar { display: none; }
+ :global(.app-shell[data-route="home"]):has(.navbar:not([data-search-opening="true"])) { grid-template-rows: 0 minmax(0,1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
+ :global(.app-shell[data-route="home"]):has(.navbar) .navbar:not([data-search-opening="true"]) { display: none; }
  :global(.app-shell[data-route="home"]):has(.navbar) :global(.page-home) { padding-top: max(16px,env(safe-area-inset-top,0px)); }
 }
 @media (prefers-reduced-motion:reduce) { .login:hover { transform: none; } }

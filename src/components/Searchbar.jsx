@@ -61,6 +61,7 @@ const AccountSearchbar = ({ accountKey }) => {
   const activeAccountRef = useRef(null);
   const resolvedAccountRef = useRef(null);
   const inputRef = useRef(null);
+  const openingNavbarRef = useRef(null);
   const blurTimerRef = useRef(null);
   const desktopSearchTimerRef = useRef(null);
   const clusterRef = useRef(null);
@@ -132,12 +133,29 @@ const AccountSearchbar = ({ accountKey }) => {
 
   useEffect(() => {
     const onOpenSearch = () => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
+      const input = inputRef.current;
+      if (!input) return;
+      const navbar = input.closest(".app-navbar");
+      if (!input.getClientRects().length && navbar?.closest('[data-route="home"]')) {
+        // Reveal before focusing so mobile keyboards retain the original tap gesture.
+        navbar.setAttribute("data-search-opening", "true");
+        openingNavbarRef.current = navbar;
+      }
+      input.focus({ preventScroll: true });
+      input.select();
     };
     window.addEventListener("heykasa:open-search", onOpenSearch);
-    return () => window.removeEventListener("heykasa:open-search", onOpenSearch);
+    return () => {
+      window.removeEventListener("heykasa:open-search", onOpenSearch);
+      openingNavbarRef.current?.removeAttribute("data-search-opening");
+    };
   }, []);
+
+  useLayoutEffect(() => {
+    if (pathname === "/" && open) return;
+    openingNavbarRef.current?.removeAttribute("data-search-opening");
+    openingNavbarRef.current = null;
+  }, [pathname, open]);
 
   useEffect(() => {
     const node = inputRef.current;
@@ -282,6 +300,7 @@ const AccountSearchbar = ({ accountKey }) => {
     setOpen(false);
     setActiveIndex(-1);
     dispatch(setIsTyping(false));
+    recordSearch(next);
     router.push(`/search/${encodeURIComponent(next)}`);
   };
 

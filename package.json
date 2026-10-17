@@ -12,6 +12,8 @@
     "dev:webpack": "next dev",
     "build": "next build",
     "start": "next start",
+    "android:check": "node docs/qa/android/check.mjs",
+    "android:build": "node scripts/android-build.mjs",
     "desktop": "npm --prefix desktop start",
     "desktop:install": "npm --prefix desktop ci",
     "desktop:build": "npm --prefix desktop run dist",

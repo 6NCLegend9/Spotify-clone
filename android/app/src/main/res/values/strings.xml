@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">HayKasa</string>
+    <string name="try_again">Try again</string>
+    <string name="error_connection">HayKasa could not connect. Check your connection and try again.</string>
+    <string name="error_no_browser">No browser is available to open this link.</string>
+</resources>

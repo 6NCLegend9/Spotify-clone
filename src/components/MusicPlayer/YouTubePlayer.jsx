@@ -104,6 +104,11 @@ const reportYoutubeProviderError = (code) => {
 };
 
 const otherDeck = (key) => (key === "A" ? "B" : "A");
+const mediaLoadOptions = (player, track, startSeconds) => ({
+  videoId: track.id,
+  startSeconds,
+  ...(player?.provider === "native" ? { title: track.title || "" } : {}),
+});
 const SEEK_GUARD_MS = 5000;
 const TRACK_CHANGE_GUARD_MS = 8000;
 const ACTIVE_BUFFER_RECOVERY_MS = 4500;
@@ -806,7 +811,7 @@ function YouTubePlayer() {
       const resumeAt = Math.max(0, time - 0.15);
       player.unMute?.();
       applyPlaybackVolume(player);
-      player.loadVideoById?.({ videoId, startSeconds: resumeAt });
+      player.loadVideoById?.(mediaLoadOptions(player, { id: videoId, title: videoRef.current?.title }, resumeAt));
       player.playVideo?.();
     }, recoveryDelay);
   };
@@ -1014,7 +1019,7 @@ function YouTubePlayer() {
         const player = getActivePlayer();
         const resumeAt = Math.max(0, player?.getCurrentTime?.() || 0);
         if (player?.loadVideoById) {
-          player.loadVideoById({ videoId: current.id, startSeconds: resumeAt });
+          player.loadVideoById(mediaLoadOptions(player, current, resumeAt));
           player.unMute?.();
           applyPlaybackVolume(player);
           player.playVideo?.();
@@ -1099,7 +1104,7 @@ function YouTubePlayer() {
       setMediaAsset(null); setMediaQualities([]);
       player?.unMute?.();
       applyPlaybackVolume(player);
-      player?.loadVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
+      player?.loadVideoById?.(mediaLoadOptions(player, nextVideo, 0));
     }
     resumePlayer(player);
     dispatch(playPause(true));
@@ -1216,7 +1221,16 @@ function YouTubePlayer() {
           if (key !== activeDeckRef.current) return;
           const stateCode = ({ 0: "ended", 1: "playing", 2: "paused", 3: "buffering" })[event.data];
           if (stateCode) recordDiagnostic("playback_state", { code: stateCode });
+          // Notification/headphone/audio-focus controls are native user intent.
+          // Do not undo them with the embedded player's automatic resume policy.
+          if (event.target.androidNative && event.data === MEDIA_PLAYER_STATES.PAUSED) {
+            userPausedRef.current = true;
+            clearActiveBufferTimers();
+            dispatch(playPause(false));
+            return;
+          }
           if (event.data === MEDIA_PLAYER_STATES.PLAYING) {
+            if (event.target.androidNative) userPausedRef.current = false;
             if (userPausedRef.current && !isPlayingRef.current) {
               event.target.pauseVideo?.();
               return;
@@ -1264,7 +1278,7 @@ function YouTubePlayer() {
               const target = seekGuardRef.current.target ?? event.target.getCurrentTime?.() ?? 0;
               const want = videoRef.current?.id;
               if (want && playerVideoId(event.target) && playerVideoId(event.target) !== want) {
-                event.target.loadVideoById?.({ videoId: want, startSeconds: Math.max(0, target || 0) });
+                event.target.loadVideoById?.(mediaLoadOptions(event.target, videoRef.current, Math.max(0, target || 0)));
               } else {
                 event.target.seekTo?.(Math.max(0, target), true);
               }
@@ -1678,7 +1692,7 @@ function YouTubePlayer() {
     if (existing) {
       existing.mute?.();
       existing.setVolume?.(0);
-      existing.loadVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
+      existing.loadVideoById?.(mediaLoadOptions(existing, nextVideo, 0));
       existing.playVideo?.();
       waitUntilPlaying(existing);
       return;
@@ -1731,7 +1745,7 @@ function YouTubePlayer() {
       player.mute?.();
       player.setVolume?.(0);
       player.pauseVideo?.();
-      player.cueVideoById?.({ videoId: nextVideo.id, startSeconds: 0 });
+      player.cueVideoById?.(mediaLoadOptions(player, nextVideo, 0));
       const cueStartedAt = performance.now();
 
       preloadPollTimerRef.current = window.setInterval(() => {
@@ -1882,7 +1896,7 @@ function YouTubePlayer() {
         autoplay: false,
         startSeconds: restorePosition,
         onDeckReady: (player) => {
-          if (player.provider !== "native") player.cueVideoById?.({ videoId: video.id, startSeconds: restorePosition });
+          if (player.provider !== "native") player.cueVideoById?.(mediaLoadOptions(player, video, restorePosition));
           if (wantsPlayback()) resumePlayer(player);
         },
       });
@@ -2016,7 +2030,7 @@ function YouTubePlayer() {
       setMediaAsset(null); setMediaQualities([]);
       existing.unMute?.();
       applyPlaybackVolume(existing);
-      existing.loadVideoById({ videoId: video.id, startSeconds: 0 });
+      existing.loadVideoById(mediaLoadOptions(existing, video, 0));
       existing.playVideo?.();
       const nextId = getNextVideo()?.id;
       if (idle && idleId && idleId !== nextId) destroyDeck(idleKey);
@@ -2137,7 +2151,7 @@ function YouTubePlayer() {
         );
       }
       if (want && id && id !== want && !crossfadeInProgressRef.current && !isSeekGuarded()) {
-        activePlayer.loadVideoById?.({ videoId: want, startSeconds: Math.max(0, guard.target || 0) });
+        activePlayer.loadVideoById?.(mediaLoadOptions(activePlayer, videoRef.current, Math.max(0, guard.target || 0)));
         activePlayer.playVideo?.();
         markSeek(guard.target || 0);
         return;
@@ -2610,7 +2624,7 @@ function YouTubePlayer() {
     try {
       const loadedId = playerVideoId(player);
       if (want && loadedId && loadedId !== want) {
-        player.loadVideoById?.({ videoId: want, startSeconds: time });
+        player.loadVideoById?.(mediaLoadOptions(player, videoRef.current, time));
       } else {
         player?.seekTo?.(time, true);
       }
@@ -2660,7 +2674,7 @@ function YouTubePlayer() {
     }
     const resumeAt = Math.max(0, player.getCurrentTime?.() || playbackClock.read().position || 0);
     if (playerVideoId(player) !== current.id) {
-      player.loadVideoById?.({ videoId: current.id, startSeconds: resumeAt });
+      player.loadVideoById?.(mediaLoadOptions(player, current, resumeAt));
     }
     player.unMute?.();
     applyPlaybackVolume(player);

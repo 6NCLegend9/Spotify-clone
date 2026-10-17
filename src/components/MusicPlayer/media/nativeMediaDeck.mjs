@@ -1,14 +1,17 @@
 import { MEDIA_PLAYER_STATES as STATES } from "./mediaPlayerStates.mjs";
 import { resolveMediaAsset, cancelMediaReceipt } from "./resolveMediaAsset.mjs";
 import { createNativeAudioGraph } from "./nativeAudioGraph.mjs";
+import { createAndroidAudioElement } from "./androidAudioElement.mjs";
 
 export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile, autoplay = true, startSeconds = 0, title = "", events = {}, onAsset, onFallback, audioSettings }) {
-  const media = document.createElement(mode === "video" ? "video" : "audio");
+  const media = (mode === "audio" ? createAndroidAudioElement(title) : null)
+    || document.createElement(mode === "video" ? "video" : "audio");
   media.crossOrigin = "anonymous";
   media.preload = "auto";
   media.playsInline = true;
   media.setAttribute("playsinline", "");
   media.setAttribute("aria-label", title || "Music playback");
+  media.title = title;
   media.style.cssText = "width:100%;height:100%;object-fit:contain";
   media.muted = true;
   host.replaceChildren(media);
@@ -41,7 +44,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       } else fallback("native_playback_failed");
     };
     try {
-      try { graph ||= createNativeAudioGraph(media, audioSettings); } catch { /* Native output remains available. */ }
+      try { if (!media.isAndroidNativeMedia) graph ||= createNativeAudioGraph(media, audioSettings); } catch { /* Native output remains available. */ }
       const context = graph?.resume();
       // The executor calls play synchronously, preserving user activation,
       // while also capturing throws before observing both resume promises.
@@ -52,6 +55,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   async function resolve(renew = false) {
     const own = ++generation;
     controller?.abort();
+    clearTimeout(renewTimer);
     controller = new AbortController();
     ready = false;
     asset = null;
@@ -66,7 +70,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       media.load();
       clearTimeout(renewTimer);
       renewTimer = setTimeout(() => {
-        if (destroyed) return;
+        if (destroyed || own !== generation) return;
         position = media.currentTime || position;
         media.pause();
         refreshed = true;
@@ -76,6 +80,18 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       if (!destroyed && own === generation && !controller.signal.aborted) fallback(error.message || "resolution_failed");
     }
   }
+  const clearSource = () => {
+    generation++; playAttempt++; controller?.abort(); clearTimeout(renewTimer);
+    ready = false; asset = null;
+    media.pause(); media.removeAttribute("src"); media.load();
+    cancelMediaReceipt(receipt); receipt = null;
+  };
+  const updateTitle = (value, nextId) => {
+    if (typeof value?.title === "string") title = value.title;
+    else if (nextId !== id) title = "";
+    media.title = title;
+    media.setAttribute("aria-label", title || "Music playback");
+  };
   listen("loadedmetadata", () => {
     if (destroyed || !asset || media.currentSrc !== asset.url) return;
     ready = true;
@@ -84,8 +100,8 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     if (!announcedReady) { announcedReady = true; emit("onReady"); }
     if (intent) resume(); else setState(STATES.CUED);
   });
-  listen("playing", () => { if (intent) setState(STATES.PLAYING); else media.pause(); });
-  listen("pause", () => { if (ready && !media.ended) setState(STATES.PAUSED); });
+  listen("playing", () => { if (media.isAndroidNativeMedia) intent = true; if (intent) setState(STATES.PLAYING); else media.pause(); });
+  listen("pause", () => { if (ready && !media.ended) { if (media.isAndroidNativeMedia) intent = false; setState(STATES.PAUSED); } });
   listen("waiting", () => { if (intent) setState(STATES.BUFFERING); });
   listen("ended", () => { position = media.currentTime; setState(STATES.ENDED); });
   listen("error", () => {
@@ -98,8 +114,14 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   });
   const deck = {
     provider: "native",
+    androidNative: Boolean(media.isAndroidNativeMedia),
     get isResolving() { return !ready; },
-    playVideo() { intent = true; resume(); },
+    playVideo() {
+      if (destroyed) return;
+      intent = true;
+      if (!ready && controller?.signal.aborted) void resolve();
+      else resume();
+    },
     pauseVideo() { playAttempt++; intent = false; media.pause(); },
     seekTo(seconds) { position = Math.max(0, Number(seconds) || 0); if (ready) media.currentTime = Math.min(position, Math.max(0, deck.getDuration() - .1)); },
     setVolume(value) { media.volume = Math.max(0, Math.min(1, (Number(value) || 0) / 100)); },
@@ -112,18 +134,22 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     getIframe: () => media,
     configureAudio(settings) { audioSettings = settings; graph?.configure(settings); },
     loadVideoById(value) {
-      const nextId = typeof value === "string" ? value : value.videoId;
+      const nextId = typeof value === "string" ? value : value?.videoId;
       if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }
-      ready = false; media.pause(); media.removeAttribute("src"); media.load(); cancelMediaReceipt(receipt); receipt = null; asset = null;
+      updateTitle(value, nextId);
+      clearSource();
       id = nextId; position = Number(value?.startSeconds) || 0; intent = true; refreshed = false;
       void resolve();
     },
     cueVideoById(value) {
-      const nextId = typeof value === "string" ? value : value.videoId;
+      const nextId = typeof value === "string" ? value : value?.videoId;
+      if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }
+      updateTitle(value, nextId);
       intent = false; media.pause(); position = Number(value?.startSeconds) || 0;
       if (nextId === id) { if (ready) deck.seekTo(position); return; }
       // Unselected idle decks do not resolve or extract a new track.
-      id = nextId; ready = false; controller?.abort(); cancelMediaReceipt(receipt); receipt = null;
+      clearSource();
+      id = nextId; refreshed = false; setState(STATES.CUED);
     },
     loadModule() {}, unloadModule() {}, setOption() {},
     destroy() {
