@@ -43,7 +43,7 @@ The preview is a repository-owned brand image. UI screenshots and dated verifica
 | --- | --- |
 | Web / PWA | The primary application. YouTube embedding remains subject to provider restrictions; background playback is not guaranteed by installing a PWA. |
 | Windows | Web changes arrive through the production website. Native updates require a published, complete signed release and configured signing credentials. See [release setup](./desktop/README.md#release-configuration-check). |
-| Android | Version 1.0.1 is a debug-signed preview. The standard APK always loads `https://haykasa.vercel.app`, including when downloaded through localhost. Web changes need deployment; native changes need a new APK. See [build and activation requirements](./android/README.md). |
+| Android | This branch builds a debug-signed 1.0.1 preview; the separately published APK can be older. The standard APK always loads `https://haykasa.vercel.app`, including when downloaded through localhost. Web changes need deployment; native changes need a new APK. See [build and activation requirements](./android/README.md). |
 | Source audio / yt-dlp | Optional for authenticated mobile audio. The hosted retest passed storage and signed range delivery, but YouTube rejected extraction with `source_access_restricted`. Production source playback remains disabled; see the dated [live verification results](./docs/qa/vercel-media/RESULTS.md). |
 
 Android's native service can continue a resolved audio asset outside the WebView. Embedded YouTube remains a foreground fallback. Native notification next/previous is not implemented. Reliable suspended-WebView queue continuation, process restoration, and physical-device battery behavior are not established by the controlled emulator tests.
@@ -190,6 +190,8 @@ the protected signed-release workflow.
 
 ### Android development
 
+Download the [published Android preview APK](https://github.com/6NCLegend9/Spotify-clone/releases/download/android-preview/HayKasa-Android.apk) directly, or use **Download for Android** beside the Windows download in Settings. The public APK does not automatically track new CI builds and may precede this branch's fixes. See [public preview downloads](./android/README.md#public-preview-download) for installation and release requirements.
+
 After installing the Android prerequisites, run from the repository root:
 
 ```sh
@@ -198,6 +200,8 @@ npm run android:build
 ```
 
 The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. The [Android APK workflow](./.github/workflows/android-ci.yml) also uploads an installable debug APK and device reports. Debug signing is for testing; production distribution requires a maintained private signing key. Android automatic update publishing is not configured by this preview.
+
+The [Publish Android Preview workflow](./.github/workflows/android-preview-release.yml) validates a successful, merged source build before publishing the initial public APK. It rejects replacing an existing preview with different bytes; normal APK CI does not replace the public download.
 
 ### Optional media service
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import DesktopAppCard from "@/components/DesktopAppCard";
+import AndroidAppCard from "@/components/AndroidAppCard";
 import { getHeyKasaDesktopApi, getHeyKasaDesktopInfo } from "@/utils/desktopEnvironment";
 import { clearDiagnostics, diagnosticSnapshot } from "@/utils/diagnostics.mjs";
 
@@ -47,6 +48,7 @@ export default function SupportDiagnostics() {
   };
   return <>
     <DesktopAppCard />
+    <AndroidAppCard />
     <details className="border-y border-[var(--hairline)] py-5" onToggle={(event) => { if (event.currentTarget.open) void refresh(); }}>
       <summary className="min-h-12 cursor-pointer py-3 text-base font-semibold">Support diagnostics</summary>
       {report && <>
