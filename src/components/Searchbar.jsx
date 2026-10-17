@@ -300,6 +300,7 @@ const AccountSearchbar = ({ accountKey }) => {
     setOpen(false);
     setActiveIndex(-1);
     dispatch(setIsTyping(false));
+    recordSearch(next);
     router.push(`/search/${encodeURIComponent(next)}`);
   };
 

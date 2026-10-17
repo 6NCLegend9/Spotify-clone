@@ -35,10 +35,16 @@ bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "pause", duration:
 assert.equal(media.paused, true);
 bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "ended", duration: 200, position: 200 }) });
 assert.equal(media.ended, true);
-media.removeAttribute("src"); const before = sent.length; media.load(); assert.equal(sent.length, before);
+media.removeAttribute("src"); media.load();
+assert.equal(sent.at(-1).action, "release", "Clearing a source releases the native media session");
+assert.equal(sent.at(-1).id, load.id);
+assert.equal(media.currentTime, 0); assert.equal(media.duration, 0); assert.equal(media.paused, true);
+const clearedEvents = events.length;
+bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "playing", position: 43 }) });
+assert.equal(events.length, clearedEvents, "Replies from the retired source cannot revive playback");
 media.remove(); assert.equal(sent.at(-1).action, "release");
 bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "playing", position: 2 }) });
-assert.equal(media.currentTime, 200, "Released bridge listeners cannot change state");
+assert.equal(media.currentTime, 0, "Released bridge listeners cannot change reset state");
 console.log("Android audio bridge checks passed: origin, metadata, seek, output volume, pause, end, stale events and cleanup.");
 
 // Exercise the production deck lifecycle with an isolated resolver. No provider calls.

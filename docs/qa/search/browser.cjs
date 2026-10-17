@@ -106,7 +106,8 @@ const results = [];
       await page.locator(".app-tabbar a[href='/']").tap();
       await page.waitForURL(url => url.pathname === "/");
       await page.waitForFunction(() => getComputedStyle(document.querySelector(".app-navbar")).display === "none");
-      assert.equal(await mobileInput.getAttribute("aria-expanded"), "false", "Returning Home keeps closed search collapsed");
+      // Home intentionally hides the navbar, so it has no accessible combobox.
+      assert.equal(await page.locator("input[role='combobox']").getAttribute("aria-expanded"), "false", "Returning Home keeps closed search collapsed");
       await page.locator(".app-tabbar a[href='/search']").tap();
       await page.waitForURL(url => url.pathname === "/search");
       await page.getByRole("button", { name: "Close search suggestions", exact: true }).click();

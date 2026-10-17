@@ -20,11 +20,11 @@ export function createAndroidAudioElement(title = "") {
   }
   const media = document.createElement("audio");
   media.title = String(title);
-  const id = `audio_${crypto.randomUUID()}`;
+  let id = `audio_${crypto.randomUUID()}`;
   let source = "", current = 0, duration = 0, muted = true, volume = 1, paused = true, ended = false, loaded = false, disposed = false;
   const post = (action, extra = {}) => { if (!disposed) bridge.postMessage(JSON.stringify({ id, action, ...extra })); };
   const emit = name => media.dispatchEvent(new Event(name));
-  listeners.set(id, data => {
+  const receive = data => {
     if (disposed) return;
     current = Number.isFinite(data.position) ? Math.max(0, data.position) : current;
     duration = Number.isFinite(data.duration) ? Math.max(0, data.duration) : duration;
@@ -35,7 +35,8 @@ export function createAndroidAudioElement(title = "") {
     if (data.event === "error") emit("error");
     if (data.event === "waiting") emit("waiting");
     if (data.event === "progress") emit("timeupdate");
-  });
+  };
+  listeners.set(id, receive);
   Object.defineProperties(media, {
     isAndroidNativeMedia: { value: true },
     src: { get: () => source, set: value => { source = String(value || ""); loaded = false; ended = false; } },
@@ -48,6 +49,14 @@ export function createAndroidAudioElement(title = "") {
     volume: { get: () => volume, set: value => { volume = Math.max(0, Math.min(1, Number(value) || 0)); post("volume", { value: muted ? 0 : volume }); } },
   });
   media.load = () => {
+    if (disposed) return;
+    // Every load is a new native source, including an empty-src reset. Release
+    // the old session and retire its ID so delayed replies cannot revive it.
+    post("release");
+    listeners.delete(id);
+    id = `audio_${crypto.randomUUID()}`;
+    listeners.set(id, receive);
+    loaded = false; ended = false; paused = true; current = 0; duration = 0;
     if (source) { loaded = false; post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) }); }
   };
   media.play = () => { paused = false; post("volume", { value: muted ? 0 : volume }); post("play"); return Promise.resolve(); };

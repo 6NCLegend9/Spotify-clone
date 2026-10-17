@@ -45,3 +45,11 @@ The workflow uploads device screenshots, Android test reports, crash logs and me
 Root Android Back now backgrounds the launcher task after keyboard and route history handling, keeping the live WebView connected to native audio. This preserves the current player when returning from another app; it does not restore the queue after Android kills the process. Instrumentation covers leaving with both Home and root Back and returning to the original Activity.
 
 Native cue changes release the prior asset and ignore stale preparation/renewal callbacks; playing a newly cued track starts a single source request. Track changes also refresh the title sent to the native media session. Mobile search now preserves the main branch's results-page submission behavior.
+
+## PR35 follow-up repairs
+
+The playback notification now returns to the existing Activity/WebView instead of opening a second bridge. Instrumentation uses the media session's actual notification PendingIntent to exercise this path.
+
+Each native audio load retires the previous subscription and releases its ExoPlayer source, including an empty-source reset. Late messages from an old subscription are ignored. Cueing a new track cannot leave the previous source playable through the system media session. The existing bridge and emulator checks cover source retirement, cue cleanup and subsequent playback.
+
+Submitting search text records the normalized query for authenticated, nonprivate sessions while retaining the results-page navigation. Guest and private-session submissions do not write history. These repairs do not change the source-playback activation requirements or establish live extraction, physical-device behavior, process restoration or suspended next-track continuation.

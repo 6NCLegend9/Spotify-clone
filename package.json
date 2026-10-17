@@ -12,6 +12,8 @@
     "dev:webpack": "next dev",
     "build": "next build",
     "start": "next start",
+    "android:check": "node docs/qa/android/check.mjs",
+    "android:build": "node scripts/android-build.mjs",
     "desktop": "npm --prefix desktop start",
     "desktop:install": "npm --prefix desktop ci",
     "desktop:build": "npm --prefix desktop run dist",
@@ -23,9 +25,7 @@
     "check": "npm run lint && npm run typecheck && npm run build",
     "generate:desktop-contract": "node scripts/generate-desktop-contract.mjs",
     "check:desktop-contract": "node scripts/generate-desktop-contract.mjs && git diff --exit-code -- src/generated/desktopContract.mjs desktop/src/generated/desktopContract.mjs",
-    "desktop:dev": "node scripts/desktop-dev.mjs",
-    "android:check": "node docs/qa/android/check.mjs",
-    "android:build": "node scripts/android-build.mjs"
+    "desktop:dev": "node scripts/desktop-dev.mjs"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^1.9.5",

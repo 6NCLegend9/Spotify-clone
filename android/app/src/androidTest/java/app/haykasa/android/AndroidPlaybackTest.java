@@ -129,10 +129,13 @@ public class AndroidPlaybackTest {
             assertEquals("Pause remains paused", paused, Double.parseDouble(js(web, "qaDeck.getCurrentTime()")), .15);
             shell("cmd media_session dispatch play"); waitJs(web, "qaDeck.getPlayerState() === 1");
             js(web, "qaDeck.seekTo(45)"); waitJs(web, "qaDeck.getCurrentTime() >= 45");
-            // A stopped task must be brought forward through Android, not only a lifecycle transition.
-            shell("am start -W -f 0x00020000 -n " + context.getPackageName() + "/" + MainActivity.class.getName());
+            // Exercise the actual notification intent, rather than a test-only launch flag.
+            main(() -> {
+                try { service.getSessions().get(0).getSessionActivity().send(); }
+                catch (android.app.PendingIntent.CanceledException error) { throw new RuntimeException(error); }
+            });
             for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
-            assertEquals("Returning from Home resumes the original activity", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
+            assertEquals("Notification resumes the original activity and playback bridge", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
             screenshot("native-resumed");
             main(web::clearHistory);
             double beforeRootBack = Double.parseDouble(js(web, "qaDeck.getCurrentTime()"));
@@ -150,6 +153,18 @@ public class AndroidPlaybackTest {
             AtomicReference<String> notificationTitle = new AtomicReference<>();
             main(() -> notificationTitle.set(String.valueOf(service.getSessions().get(0).getPlayer().getMediaMetadata().title)));
             assertEquals("Reusing the native deck updates Android media-session metadata", "HayKasa next emulator tone", notificationTitle.get());
+            js(web, "qaDeck.cueVideoById({videoId:'synthetic03',title:'Cued emulator tone'})");
+            AtomicReference<Boolean> emptySession = new AtomicReference<>(false);
+            for (int i = 0; i < 30; i++) {
+                main(() -> emptySession.set(service.getSessions().get(0).getPlayer().getCurrentMediaItem() == null));
+                if (emptySession.get()) break;
+                Thread.sleep(100);
+            }
+            assertTrue("Cueing a new track releases the previous native session", emptySession.get());
+            shell("cmd media_session dispatch play");
+            assertEquals("System Play cannot resume the retired source", "false", js(web, "qaDeck.getPlayerState() === 1"));
+            js(web, "qaDeck.playVideo()");
+            waitJs(web, "qaDeck.getVideoData().video_id === 'synthetic03' && qaDeck.getPlayerState() === 1");
             js(web, "qaDeck.destroy()");
         } finally { main(service::releaseAll); context.stopService(new Intent(context, PlaybackService.class)); }
     }
