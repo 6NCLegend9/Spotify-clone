@@ -1,0 +1,47 @@
+name: Publish Android Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Android APK workflow run for a source commit merged into main
+        required: true
+        default: "39041930548"
+        type: string
+  push:
+    branches: [main, feat/android-settings-download]
+    paths:
+      - '.github/workflows/android-preview-release.yml'
+      - 'scripts/publish-android-preview.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-preview-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == '6NCLegend9/Spotify-clone'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22.x
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Publish verified preview APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANDROID_PREVIEW_RUN_ID: ${{ inputs.run_id || '39041930548' }}
+        run: node scripts/publish-android-preview.mjs

@@ -199,7 +199,7 @@ For deeper operational detail, see [desktop/README.md](./desktop/README.md), [PR
 
 ## Android test app
 
-An initial Android app and Media3 source-audio service are in [android/](./android/README.md). Build a test APK with `npm run android:build` or download the Android APK workflow artifact. Source-backed background playback requires the existing media service to deliver a working audio asset; installing the APK alone does not enable background playback for embedded YouTube. See the Android README for activation dependencies, signing and device verification limits.
+An initial Android app and Media3 source-audio service are in [android/](./android/README.md). Download the [Android preview APK](https://github.com/6NCLegend9/Spotify-clone/releases/download/android-preview/HayKasa-Android.apk) directly or use **Download for Android** beside the Windows download in Settings. Build a test APK locally with `npm run android:build`. Source-backed background playback requires the existing media service to deliver a working audio asset; installing the APK alone does not enable background playback for embedded YouTube. See the Android README for activation dependencies, signing and device verification limits.
 
 ## Authorship and license
 
