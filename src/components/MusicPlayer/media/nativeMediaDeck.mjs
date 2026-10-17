@@ -54,6 +54,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   async function resolve(renew = false) {
     const own = ++generation;
     controller?.abort();
+    clearTimeout(renewTimer);
     controller = new AbortController();
     ready = false;
     asset = null;
@@ -68,7 +69,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       media.load();
       clearTimeout(renewTimer);
       renewTimer = setTimeout(() => {
-        if (destroyed) return;
+        if (destroyed || own !== generation) return;
         position = media.currentTime || position;
         media.pause();
         refreshed = true;
@@ -78,6 +79,12 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       if (!destroyed && own === generation && !controller.signal.aborted) fallback(error.message || "resolution_failed");
     }
   }
+  const clearSource = () => {
+    generation++; playAttempt++; controller?.abort(); clearTimeout(renewTimer);
+    ready = false; asset = null;
+    media.pause(); media.removeAttribute("src"); media.load();
+    cancelMediaReceipt(receipt); receipt = null;
+  };
   listen("loadedmetadata", () => {
     if (destroyed || !asset || media.currentSrc !== asset.url) return;
     ready = true;
@@ -102,7 +109,12 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     provider: "native",
     androidNative: Boolean(media.isAndroidNativeMedia),
     get isResolving() { return !ready; },
-    playVideo() { intent = true; resume(); },
+    playVideo() {
+      if (destroyed) return;
+      intent = true;
+      if (!ready && controller?.signal.aborted) void resolve();
+      else resume();
+    },
     pauseVideo() { playAttempt++; intent = false; media.pause(); },
     seekTo(seconds) { position = Math.max(0, Number(seconds) || 0); if (ready) media.currentTime = Math.min(position, Math.max(0, deck.getDuration() - .1)); },
     setVolume(value) { media.volume = Math.max(0, Math.min(1, (Number(value) || 0) / 100)); },
@@ -115,18 +127,20 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     getIframe: () => media,
     configureAudio(settings) { audioSettings = settings; graph?.configure(settings); },
     loadVideoById(value) {
-      const nextId = typeof value === "string" ? value : value.videoId;
+      const nextId = typeof value === "string" ? value : value?.videoId;
       if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }
-      ready = false; media.pause(); media.removeAttribute("src"); media.load(); cancelMediaReceipt(receipt); receipt = null; asset = null;
+      clearSource();
       id = nextId; position = Number(value?.startSeconds) || 0; intent = true; refreshed = false;
       void resolve();
     },
     cueVideoById(value) {
-      const nextId = typeof value === "string" ? value : value.videoId;
+      const nextId = typeof value === "string" ? value : value?.videoId;
+      if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }
       intent = false; media.pause(); position = Number(value?.startSeconds) || 0;
       if (nextId === id) { if (ready) deck.seekTo(position); return; }
       // Unselected idle decks do not resolve or extract a new track.
-      id = nextId; ready = false; controller?.abort(); cancelMediaReceipt(receipt); receipt = null;
+      clearSource();
+      id = nextId; refreshed = false; setState(STATES.CUED);
     },
     loadModule() {}, unloadModule() {}, setOption() {},
     destroy() {
