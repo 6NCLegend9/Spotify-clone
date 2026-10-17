@@ -52,6 +52,10 @@ public final class MainActivity extends Activity {
         getWindow().setStatusBarColor(0xff060d1b);
         getWindow().setNavigationBarColor(0xff060d1b);
         bound = bindService(new Intent(this, PlaybackService.class).setAction("app.haykasa.android.BIND"), connection, Context.BIND_AUTO_CREATE);
+        createWebView();
+        showWebsite();
+    }
+    private void createWebView() {
         web = new WebView(this);
         web.setBackgroundColor(0xff060d1b);
         WebSettings settings = web.getSettings();
@@ -60,13 +64,15 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setMediaPlaybackRequiresUserGesture(true);
+        // The trusted renderer owns play/pause intent. Its async iframe commands
+        // must not require a second gesture inside YouTube for every track.
+        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setUserAgentString(settings.getUserAgentString() + " HayKasaAndroid/1.0");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
         web.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> result, FileChooserParams params) {
-                if (!MediaPolicy.isWebsite(view.getUrl())) return false;
+                if (view != web || !MediaPolicy.isWebsite(view.getUrl())) return false;
                 if (fileResult != null) fileResult.onReceiveValue(null);
                 fileResult = result;
                 try { startActivityForResult(params.createIntent(), 8); }
@@ -76,6 +82,7 @@ public final class MainActivity extends Activity {
         });
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (view != web) return true;
                 if (!request.isForMainFrame()) return false;
                 String url = request.getUrl().toString();
                 if (MediaPolicy.isWebsite(url)) return false;
@@ -87,29 +94,41 @@ public final class MainActivity extends Activity {
                 return true;
             }
             @Override public void onPageFinished(WebView view, String url) {
-                if (returningHome && MediaPolicy.isWebsite(url) && "/".equals(Uri.parse(url).getPath())) {
+                if (view == web && returningHome && MediaPolicy.isWebsite(url) && "/".equals(Uri.parse(url).getPath())) {
                     web.clearHistory(); returningHome = false;
                 }
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) showError(R.string.error_connection);
+                if (view == web && request.isForMainFrame()) showError(R.string.error_connection);
+            }
+            @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                if (view != web) return true;
+                // A renderer exit is recoverable. Android's default callback
+                // terminates the host, and a dead WebView cannot be reloaded.
+                waiting.clear();
+                returningHome = false;
+                if (fileResult != null) { fileResult.onReceiveValue(null); fileResult = null; }
+                if (playback != null) playback.releaseAll();
+                discardWebView();
+                showError(R.string.error_renderer);
+                return true;
             }
         });
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(web, "HayKasaAndroidMedia", Collections.singleton(MediaPolicy.ORIGIN),
                 (view, message, origin, isMainFrame, reply) -> {
-                    if (!isMainFrame || !MediaPolicy.ORIGIN.equals(origin.toString()) || message.getData() == null || message.getData().length() > 12288) return;
+                    if (view != web || !isMainFrame || !MediaPolicy.ORIGIN.equals(origin.toString()) || message.getData() == null || message.getData().length() > 12288) return;
                     try {
                         JSONObject command = new JSONObject(message.getData());
                         Runnable run = () -> {
-                            if (playback == null) return;
+                            if (playback == null || view != web) return;
                             try {
                                 // Stop bound-only playback from disappearing when the activity closes.
                                 // MediaSessionService owns the foreground notification when playing.
                                 if ("play".equals(command.optString("action"))) {
                                     try { startService(new Intent(this, PlaybackService.class)); } catch (IllegalStateException ignored) {}
                                 }
-                                playback.command(command, json -> runOnUiThread(() -> { try { reply.postMessage(json); } catch (Exception ignored) {} }));
+                                playback.command(command, json -> runOnUiThread(() -> { if (view != web) return; try { reply.postMessage(json); } catch (Exception ignored) {} }));
                             } catch (Exception ignored) {
                                 try { reply.postMessage(new JSONObject().put("id", command.optString("id")).put("event", "error").toString()); }
                                 catch (Exception closed) { /* A closed WebView has no recipient. */ }
@@ -123,9 +142,16 @@ public final class MainActivity extends Activity {
             view.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(), insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
             return insets;
         });
-        showWebsite();
+    }
+    private void discardWebView() {
+        WebView previous = web;
+        web = null;
+        if (previous == null) return;
+        if (previous.getParent() instanceof ViewGroup) ((ViewGroup)previous.getParent()).removeView(previous);
+        previous.destroy();
     }
     private void showWebsite() {
+        if (web == null) createWebView();
         setContentView(web);
         web.loadUrl(MediaPolicy.ORIGIN + "/?utm_source=android");
     }
@@ -175,8 +201,7 @@ public final class MainActivity extends Activity {
         if (fileResult != null) { fileResult.onReceiveValue(null); fileResult = null; }
         if (playback != null) playback.detachSinks();
         if (bound) unbindService(connection);
-        web.stopLoading();
-        if (web.getParent() instanceof ViewGroup) ((ViewGroup)web.getParent()).removeView(web);
-        web.destroy(); super.onDestroy();
+        if (web != null) web.stopLoading();
+        discardWebView(); super.onDestroy();
     }
 }

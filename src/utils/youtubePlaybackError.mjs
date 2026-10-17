@@ -94,6 +94,10 @@ export function youtubePlaybackFailurePolicy(input = {}) {
     : youtubePlaybackError(raw);
   const error = { kind: "playback", ...base };
 
+  // Missing player verification affects the embedded player itself. Searching
+  // alternate uploads or advancing a radio queue cannot repair its identity.
+  if (Number(raw) === 153) return { action: /** @type {PlaybackFailureAction} */ ("fatalUI"), error };
+
   // Embed blocks never recover on the same id, and stalls were already
   // reloaded twice by buffer recovery before reaching this policy.
   const retryable = !isStall && base.canRetry !== false;

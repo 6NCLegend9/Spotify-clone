@@ -107,6 +107,34 @@ public class AndroidPlaybackTest {
             });
         }
     }
+    @Test public void actualRendererCrashKeepsTheAppAliveAndCanRecover() throws Exception {
+        AtomicReference<WebView> original = new AtomicReference<>(), replacement = new AtomicReference<>();
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(instance -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(instance); original.set(web);
+                    web.loadUrl("chrome://crash"); // Deliberately kill this disposable test renderer.
+                } catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
+            });
+            for (int i = 0; i < 100 && replacement.get() == null; i++) {
+                activity.onActivity(instance -> {
+                    java.util.ArrayList<android.view.View> matches = new java.util.ArrayList<>();
+                    instance.getWindow().getDecorView().findViewsWithText(matches, "Try again", android.view.View.FIND_VIEWS_WITH_TEXT);
+                    if (matches.size() == 1) {
+                        matches.get(0).performClick();
+                        try { Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true); replacement.set((WebView)field.get(instance)); }
+                        catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
+                    }
+                });
+                if (replacement.get() == null) Thread.sleep(100);
+            }
+            assertNotNull("The app survives renderer death and offers Retry", replacement.get());
+            assertNotSame(original.get(), replacement.get());
+            waitJs(replacement.get(), "!!document.querySelector('.app-tabbar a[href=\"/search\"]')");
+            screenshot("renderer-crash-recovered");
+        }
+    }
     @Test public void guestWebsiteLaunchSearchAndAndroidBack() throws Exception {
         AtomicReference<WebView> ref = new AtomicReference<>();
         try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
