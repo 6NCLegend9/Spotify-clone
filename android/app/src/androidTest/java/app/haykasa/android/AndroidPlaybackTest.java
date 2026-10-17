@@ -124,7 +124,11 @@ public class AndroidPlaybackTest {
             assertEquals("Pause remains paused", paused, Double.parseDouble(js(web, "qaDeck.getCurrentTime()")), .15);
             shell("cmd media_session dispatch play"); waitJs(web, "qaDeck.getPlayerState() === 1");
             js(web, "qaDeck.seekTo(45)"); waitJs(web, "qaDeck.getCurrentTime() >= 45");
-            activity.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED); screenshot("native-resumed");
+            // A stopped task must be brought forward through Android, not only a lifecycle transition.
+            shell("am start -W -f 0x00020000 -n " + context.getPackageName() + "/" + MainActivity.class.getName());
+            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
+            assertEquals("Returning from Home resumes the original activity", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
+            screenshot("native-resumed");
             js(web, "qaDeck.destroy()");
         } finally { main(service::releaseAll); context.stopService(new Intent(context, PlaybackService.class)); }
     }
