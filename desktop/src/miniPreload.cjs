@@ -9,6 +9,7 @@ function subscribe(channel, listener) {
 
 contextBridge.exposeInMainWorld("heykasaMini", Object.freeze({
   getState: () => ipcRenderer.invoke("heykasa:mini:state"),
+  ready: () => ipcRenderer.invoke("heykasa:mini:ready"),
   playPause: () => ipcRenderer.invoke("heykasa:mini:command", "play-pause"),
   skip: () => ipcRenderer.invoke("heykasa:mini:command", "skip"),
   prev: () => ipcRenderer.invoke("heykasa:mini:command", "prev"),

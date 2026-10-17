@@ -14,12 +14,13 @@ function between(start, end) {
   return source.slice(from, to);
 }
 function harness(hasTrack = true) {
-  const windows = [], errors = [];
+  const windows = [], errors = [], timers = new Map(); let timerId = 0;
   class Window extends EventEmitter {
     constructor(options) {
       super(); this.visible = options.show; this.destroyed = false;
       this.messages = [];
       this.webContents = new EventEmitter();
+      this.webContents.mainFrame = {};
       this.webContents.send = (...message) => this.messages.push(message);
       this.loading = new Promise((resolve, reject) => { this.loaded = resolve; this.failed = reject; });
       windows.push(this);
@@ -42,13 +43,20 @@ function harness(hasTrack = true) {
     dialog: { showErrorBox: (...args) => errors.push(args) },
     installAppearanceProtocol() {}, denyGuestContents() {}, installPopupGuard() {},
     resolvedAppearance: () => null, updateTrayMenu() {}, updateThumbar() {}, refreshAppearanceAccent() {},
+    setTimeout: callback => { timers.set(++timerId, callback); return timerId; },
+    clearTimeout: id => timers.delete(id),
   });
-  vm.runInContext(`let miniWindow = null, miniReady = false, miniUserHidden = true;
+  vm.runInContext(`let miniWindow = null, miniReady = false, miniRendered = false, miniReadyTimer = null, miniUserHidden = true;
     let mainWindow = null, tray = null, playbackState = { hasTrack: ${hasTrack} };
     ${between("hideMiniPlayer", "showMainWindow")}
     ${between("broadcastPlayback", "positionMiniPlayer")}
     ${between("positionMiniPlayer", "thumbarIcon")}`, context);
-  return { windows, errors, call: (code) => vm.runInContext(code, context) };
+  return { windows, errors, timers, call: (code) => vm.runInContext(code, context),
+    rendered(window = windows.at(-1)) {
+      context.renderEvent = { sender: window.webContents, senderFrame: window.webContents.mainFrame };
+      return vm.runInContext("markMiniPlayerRendered(renderEvent)", context);
+    },
+  };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
@@ -63,7 +71,9 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   const w = h.windows[0]; assert.equal(w.visible, false, "Do not expose the blank loading window");
   w.loaded(); w.webContents.emit("did-finish-load"); await tick();
   assert.equal(w.visible, false, "Loaded HTML must still wait for its first frame");
-  w.emit("ready-to-show"); assert.equal(w.visible, true);
+  w.emit("ready-to-show"); assert.equal(w.visible, false, "A painted background is not a rendered controller");
+  h.rendered(w); assert.equal(w.visible, true);
+  assert.equal(h.timers.size, 0, "Rendered controls cancel the readiness deadline");
   assert(w.messages.some(([event]) => event === "heykasa:playback:state"));
   h.call("toggleMiniPlayer()"); assert.equal(w.visible, false);
   h.call("toggleMiniPlayer()"); assert.equal(w.visible, true);
@@ -72,6 +82,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 for (const cancel of ["toggleMiniPlayer()", "hideMiniPlayer()", "playbackState.hasTrack = false"]) {
   const h = harness(); h.call("toggleMiniPlayer()"); h.call(cancel);
   h.windows[0].emit("ready-to-show");
+  h.rendered();
   assert.equal(h.windows[0].visible, false, `No delayed popup after ${cancel}`);
 }
 {
@@ -79,7 +90,8 @@ for (const cancel of ["toggleMiniPlayer()", "hideMiniPlayer()", "playbackState.h
   const old = h.windows[0]; old.destroy(); h.call("toggleMiniPlayer()");
   old.emit("ready-to-show"); old.emit("closed"); old.failed(new Error("old load cancelled"));
   await tick(); assert.equal(h.errors.length, 0);
-  h.windows[1].emit("ready-to-show"); assert.equal(h.windows[1].visible, true, "Stale events cannot clear a replacement window");
+  assert.equal(h.rendered(old), false, "Retired renderers cannot acknowledge a replacement window");
+  h.windows[1].emit("ready-to-show"); h.rendered(); assert.equal(h.windows[1].visible, true, "Stale events cannot clear a replacement window");
 }
 for (const crash of [false, true]) {
   const h = harness(); h.call("toggleMiniPlayer()"); const w = h.windows[0];
@@ -93,4 +105,19 @@ for (const crash of [false, true]) {
   h.windows[0].failed(new Error("cancelled load")); await tick();
   assert.equal(h.errors.length, 0, "A cancelled controller does not interrupt the main app");
 }
-console.log("PASS: opt-in startup, first-frame readiness, cancellation, reuse, stale windows, file failure and renderer crash");
+{
+  const h = harness(); h.call("toggleMiniPlayer()"); const w = h.windows[0];
+  h.rendered(); assert.equal(w.visible, false, "Controls must also wait for the first frame");
+  w.emit("ready-to-show"); assert.equal(w.visible, true);
+}
+{
+  const h = harness(); h.call("toggleMiniPlayer()"); const w = h.windows[0]; w.emit("ready-to-show");
+  assert.equal(h.call("markMiniPlayerRendered({sender: {}, senderFrame: {}})"), false);
+  assert.equal(h.call("markMiniPlayerRendered({sender: miniWindow.webContents, senderFrame: {}})"), false);
+  assert.equal(w.visible, false, "Other windows and subframes cannot acknowledge rendered controls");
+  assert.equal(h.timers.size, 1);
+  for (const expire of [...h.timers.values()]) expire();
+  assert.equal(w.destroyed, true); assert.equal(w.visible, false);
+  assert.equal(h.errors.length, 1, "A stalled renderer produces an error instead of a blank controller");
+}
+console.log("PASS: opt-in startup, rendered controls and first-frame readiness, cancellation, reuse, stale windows, stalled rendering, file failure and renderer crash");

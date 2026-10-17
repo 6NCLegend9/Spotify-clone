@@ -96,6 +96,8 @@ const discord = new DiscordIpcClient();
 let miniWindow = null;
 let miniUserHidden = true;
 let miniReady = false;
+let miniRendered = false;
+let miniReadyTimer = null;
 let playbackState = sanitizePlaybackState(null);
 let lastNativeUpdateNotificationVersion = "";
 let resolvedAccent = "#096192";
@@ -690,10 +692,22 @@ function positionMiniPlayer() {
 }
 
 function showMiniPlayerIfReady(window) {
-  if (window !== miniWindow || window.isDestroyed() || !miniReady || miniUserHidden || !playbackState.hasTrack) return;
+  if (window !== miniWindow || window.isDestroyed() || !miniReady || !miniRendered) return;
+  clearTimeout(miniReadyTimer);
+  miniReadyTimer = null;
+  if (miniUserHidden || !playbackState.hasTrack) return;
   positionMiniPlayer();
   window.webContents.send("heykasa:playback:state", playbackState);
   window.show();
+}
+
+function markMiniPlayerRendered(event) {
+  const window = miniWindow;
+  if (!window || window.isDestroyed() || event?.sender !== window.webContents
+    || event?.senderFrame !== window.webContents.mainFrame) return false;
+  miniRendered = true;
+  showMiniPlayerIfReady(window);
+  return true;
 }
 
 function createMiniPlayer() {
@@ -701,6 +715,7 @@ function createMiniPlayer() {
   const miniSession = session.fromPartition(MINI_PARTITION);
   installAppearanceProtocol(miniSession);
   miniReady = false;
+  miniRendered = false;
   miniUserHidden = true;
   const window = new BrowserWindow({
     width: 360,
@@ -736,6 +751,9 @@ function createMiniPlayer() {
     if (miniWindow !== window) return;
     miniWindow = null;
     miniReady = false;
+    miniRendered = false;
+    clearTimeout(miniReadyTimer);
+    miniReadyTimer = null;
     miniUserHidden = true;
   });
   window.once("ready-to-show", () => {
@@ -758,6 +776,7 @@ function createMiniPlayer() {
     if (requested) dialog.showErrorBox("Mini player unavailable", "The mini player could not load. You can continue listening in the main HayKasa window. Restart HayKasa to try again.");
   };
   window.webContents.on("render-process-gone", (_event, details) => onFailure(new Error(details.reason || "renderer exited")));
+  miniReadyTimer = setTimeout(() => onFailure(new Error("Controller rendering timed out")), 10000);
   void window.loadFile(path.join(__dirname, "miniPlayer.html")).catch(onFailure);
   return window;
 }
@@ -1040,6 +1059,7 @@ function registerIpcHandlers() {
     assertMiniOrTrustedIpcEvent(event);
     return playbackState;
   });
+  ipcMain.handle("heykasa:mini:ready", (event) => markMiniPlayerRendered(event));
   ipcMain.handle("heykasa:mini:command", (event, command) => {
     assertMiniOrTrustedIpcEvent(event);
     if (!isPlaybackCommand(command)) return { ok: false };

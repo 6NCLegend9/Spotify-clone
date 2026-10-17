@@ -35,6 +35,16 @@
     <script>
       const api = window.heykasaMini;
       const root = document.getElementById("root");
+      let readyScheduled = false;
+      function acknowledgeRendering() {
+        if (readyScheduled || typeof api?.ready !== "function") return;
+        readyScheduled = true;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (!document.getElementById("play")) { readyScheduled = false; return; }
+          api.ready().then(accepted => { if (!accepted) readyScheduled = false; })
+            .catch(() => { readyScheduled = false; });
+        }));
+      }
       document.getElementById("hide")?.addEventListener("click", () => api?.hide());
       function esc(value) {
         return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -62,6 +72,7 @@
         document.getElementById("prev")?.addEventListener("click", () => api?.prev());
         document.getElementById("play")?.addEventListener("click", () => api?.playPause());
         document.getElementById("skip")?.addEventListener("click", () => api?.skip());
+        acknowledgeRendering();
       }
       function applyAppearance(appearance = {}) {
         const profile = appearance.activeProfile || {};
