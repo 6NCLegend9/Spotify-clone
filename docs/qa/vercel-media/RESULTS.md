@@ -1,3 +1,29 @@
+# Hosted live extraction retest after registry cleanup — 2026-10-17
+
+The media registry capacity blocker has been cleared. The protected preview
+`dpl_HUVQ5GBKtzEBU6Ua6x6opkTGNb2a` successfully deployed commit
+`97b9ecfa1f786d8e5367961431a739c970064694` and ran the actual preview preflight.
+
+Live response: HTTP 503:
+
+```json
+{"ready":false,"storage":"passed","range":"passed","stage":"extraction_mp4-aac","reason":"source_access_restricted"}
+```
+
+Private Blob persistence, lease renewal and signed byte-range delivery passed.
+The next boundary, yt-dlp extraction of the public sample `aqz-KE-bpKQ`, was
+rejected by YouTube's bot-verification response from the deployed worker.
+No real source asset reached decoding or Android playback. This is a current
+hosted extraction failure, distinct from the earlier sandbox proxy refusal.
+Changing the Android shell cannot supply the missing upstream audio asset.
+
+`MEDIA_SERVICE_DEPLOYMENT_PROBE` was reset to `0` after verification. Production
+source playback remains disabled. Activation still requires an authorized media
+source or hosting egress that can successfully extract and deliver real audio;
+no provider authentication or access restrictions were bypassed.
+
+---
+
 # Live yt-dlp retest — 2026-10-17
 
 Result: **blocked; live extraction and Android playback did not pass verification**.
