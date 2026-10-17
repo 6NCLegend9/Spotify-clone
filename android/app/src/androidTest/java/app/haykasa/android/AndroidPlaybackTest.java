@@ -109,6 +109,9 @@ public class AndroidPlaybackTest {
                 } catch (Exception e) { throw new RuntimeException(e); }
             });
             WebView web = ref.get(); waitJs(web, "window.qaReady === true");
+            assertEquals("Production resolver reached the isolated API", "true", js(web, "qaResolveRequests > 0"));
+            System.out.println("ANDROID_QA_WEBVIEW " + WebView.getCurrentWebViewPackage().versionName);
+            System.out.println("ANDROID_QA_ABORT_ANY " + js(web, "typeof AbortSignal.any"));
             js(web, "document.getElementById('play').click()"); waitJs(web, "qaDeck.getCurrentTime() > 1 && qaDeck.getPlayerState() === 1");
             screenshot("native-playing");
             ActivityManager manager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);

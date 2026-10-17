@@ -33,3 +33,9 @@ For a production release, use Android Studio's **Generate Signed Bundle / APK**,
 4. Verify login/signup, playlist creation/cover upload, Android Back, external links, keyboard/search and edge-to-edge screen insets. Third-party OAuth providers may disallow WebView login; browser SSO transfer is not implemented.
 
 Local deterministic tests verify bridge commands, production deck integration, native URL policy and a real Chromium DOM with a synthetic native bridge. They do not establish live YouTube extraction or physical-device background behavior.
+
+## Android virtual-phone checks
+
+The Android APK workflow installs the app on a hardware-accelerated Android 13 Pixel 5 emulator and executes instrumentation inside the actual WebView and Media3 service. It opens the live guest homepage, checks horizontal overflow, opens Search, and verifies keyboard dismissal and Android Back. A separate isolated fixture runs the production resolver client, native bridge and media deck with a mocked resolver API and an in-memory synthetic audio stream. It checks the foreground media service, playback after pressing Home, system media pause/resume and seeking. This fixture does not establish live yt-dlp extraction, authenticated flows, lock-screen behavior or reliable queue transitions.
+
+The workflow uploads device screenshots, Android test reports, crash logs and media-service state as an `android-emulator-*` artifact. Reproduce with `npm ci`, `node docs/qa/android/create-fixture.cjs`, then `bash docs/qa/android/run-emulator.sh` while an API 33+ emulator is connected. The virtual-phone run exposed missing service session registration and Search/Back lifecycle failures; these are covered by the instrumentation checks. The resolver also avoids newer `AbortSignal.any`/`timeout` APIs for older Android WebViews.

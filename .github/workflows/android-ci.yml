@@ -8,6 +8,8 @@ on:
       - "android/**"
       - "src/components/MusicPlayer/media/androidAudioElement.mjs"
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
+      - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
+      - "src/utils/mobileMediaPolicy.mjs"
       - "src/components/MusicPlayer/YouTubePlayer.jsx"
       - "docs/qa/android/**"
       - ".github/workflows/android-ci.yml"
@@ -16,6 +18,8 @@ on:
       - "android/**"
       - "src/components/MusicPlayer/media/androidAudioElement.mjs"
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
+      - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
+      - "src/utils/mobileMediaPolicy.mjs"
       - "src/components/MusicPlayer/YouTubePlayer.jsx"
       - "docs/qa/android/**"
       - ".github/workflows/android-ci.yml"
@@ -48,7 +52,9 @@ jobs:
         with:
           node-version: 22.x
       - name: Check web audio bridge
-        run: node docs/qa/android/check.mjs
+        run: |
+          node docs/qa/android/check.mjs
+          node docs/qa/android/resolve-check.cjs
       - name: Build and check Android app
         working-directory: android
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
