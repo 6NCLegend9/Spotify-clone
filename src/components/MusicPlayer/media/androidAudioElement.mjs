@@ -19,6 +19,7 @@ export function createAndroidAudioElement(title = "") {
     installedBridge = bridge;
   }
   const media = document.createElement("audio");
+  media.title = String(title);
   const id = `audio_${crypto.randomUUID()}`;
   let source = "", current = 0, duration = 0, muted = true, volume = 1, paused = true, ended = false, loaded = false, disposed = false;
   const post = (action, extra = {}) => { if (!disposed) bridge.postMessage(JSON.stringify({ id, action, ...extra })); };
@@ -47,7 +48,7 @@ export function createAndroidAudioElement(title = "") {
     volume: { get: () => volume, set: value => { volume = Math.max(0, Math.min(1, Number(value) || 0)); post("volume", { value: muted ? 0 : volume }); } },
   });
   media.load = () => {
-    if (source) { loaded = false; post("load", { url: source, title: String(title).slice(0, 300) }); }
+    if (source) { loaded = false; post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) }); }
   };
   media.play = () => { paused = false; post("volume", { value: muted ? 0 : volume }); post("play"); return Promise.resolve(); };
   media.pause = () => { paused = true; post("pause"); };

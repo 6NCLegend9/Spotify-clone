@@ -11,6 +11,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   media.playsInline = true;
   media.setAttribute("playsinline", "");
   media.setAttribute("aria-label", title || "Music playback");
+  media.title = title;
   media.style.cssText = "width:100%;height:100%;object-fit:contain";
   media.muted = true;
   host.replaceChildren(media);
@@ -85,6 +86,12 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     media.pause(); media.removeAttribute("src"); media.load();
     cancelMediaReceipt(receipt); receipt = null;
   };
+  const updateTitle = (value, nextId) => {
+    if (typeof value?.title === "string") title = value.title;
+    else if (nextId !== id) title = "";
+    media.title = title;
+    media.setAttribute("aria-label", title || "Music playback");
+  };
   listen("loadedmetadata", () => {
     if (destroyed || !asset || media.currentSrc !== asset.url) return;
     ready = true;
@@ -129,6 +136,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     loadVideoById(value) {
       const nextId = typeof value === "string" ? value : value?.videoId;
       if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }
+      updateTitle(value, nextId);
       clearSource();
       id = nextId; position = Number(value?.startSeconds) || 0; intent = true; refreshed = false;
       void resolve();
@@ -136,6 +144,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     cueVideoById(value) {
       const nextId = typeof value === "string" ? value : value?.videoId;
       if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }
+      updateTitle(value, nextId);
       intent = false; media.pause(); position = Number(value?.startSeconds) || 0;
       if (nextId === id) { if (ready) deck.seekTo(position); return; }
       // Unselected idle decks do not resolve or extract a new track.
