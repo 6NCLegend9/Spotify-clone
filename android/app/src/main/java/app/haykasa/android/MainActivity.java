@@ -163,7 +163,9 @@ public final class MainActivity extends Activity {
             web.loadUrl(MediaPolicy.ORIGIN + "/");
             return;
         }
-        finish();
+        // Root Back should leave the launcher task in the background, preserving
+        // the WebView's connection to any native audio that is still playing.
+        moveTaskToBack(true);
     }
     // API 33+ uses the registered native dispatcher; this fallback serves API 23–32.
     @android.annotation.SuppressLint("GestureBackNavigation")

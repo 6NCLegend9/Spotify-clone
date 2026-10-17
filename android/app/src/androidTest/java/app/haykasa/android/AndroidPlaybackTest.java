@@ -110,7 +110,7 @@ public class AndroidPlaybackTest {
                 try {
                     Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
                     WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading(); web.getSettings().setBlockNetworkLoads(true);
-                    web.loadDataWithBaseURL(MediaPolicy.ORIGIN + "/android-qa", fixture, "text/html", "UTF-8", null);
+                    web.loadDataWithBaseURL(MediaPolicy.ORIGIN + "/?android-qa=1", fixture, "text/html", "UTF-8", null);
                 } catch (Exception e) { throw new RuntimeException(e); }
             });
             WebView web = ref.get(); waitJs(web, "window.qaReady === true");
@@ -134,6 +134,18 @@ public class AndroidPlaybackTest {
             for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
             assertEquals("Returning from Home resumes the original activity", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
             screenshot("native-resumed");
+            main(web::clearHistory);
+            double beforeRootBack = Double.parseDouble(js(web, "qaDeck.getCurrentTime()"));
+            shell("input keyevent KEYCODE_BACK");
+            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.CREATED; i++) Thread.sleep(100);
+            assertEquals("Root Back backgrounds the activity without destroying its playback bridge", androidx.lifecycle.Lifecycle.State.CREATED, activity.getState());
+            Thread.sleep(2000);
+            assertTrue("Native playback advances after root Back", Double.parseDouble(js(web, "qaDeck.getCurrentTime()")) > beforeRootBack + 1);
+            shell("am start -W -f 0x00020000 -n " + context.getPackageName() + "/" + MainActivity.class.getName());
+            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
+            assertEquals("Returning after root Back resumes the original activity", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
+            assertEquals("Returning after root Back retains the original playback fixture", "true", js(web, "window.qaReady === true && qaDeck.getPlayerState() === 1"));
+            screenshot("native-back-resumed");
             js(web, "qaDeck.destroy()");
         } finally { main(service::releaseAll); context.stopService(new Intent(context, PlaybackService.class)); }
     }
