@@ -1,3 +1,39 @@
+# Live yt-dlp retest — 2026-10-17
+
+Result: **blocked; live extraction and Android playback did not pass verification**.
+The successful Android emulator tests used synthetic audio and do not change this result.
+
+| Boundary | Current evidence |
+| --- | --- |
+| Deployed worker health | Production `/media-health` returns HTTP 200 with `ready: true`. |
+| Production playback gate | A valid mobile `POST /api/media/resolve` returns HTTP 503, `state: failed`, `reason: service_disabled`. |
+| Real sandbox extraction | The production `JobManager`, yt-dlp `2026.8.19` and EJS `0.8.0` attempted the fixed public sample `aqz-KE-bpKQ`, audio `mp4-aac`. It failed with `upstream_tool_failed`; the redacted subprocess diagnostic identifies an outbound proxy tunnel refusal, `403 Forbidden`, before reaching YouTube. This is not evidence of YouTube's current response from Vercel. |
+| Deployed live diagnostic | A protected, preview-only deployment was attempted. The newest-SHA build was canceled after discovering the registry limit; a retry using the already-deployed `8d2b588` SHA also failed at container image push. Vercel reports `denied: repository has reached the maximum allowed number of images`. No new preflight extraction request ran. |
+| Live asset delivery, decoding and Android background playback | Not reached: no live asset was produced. |
+
+**High availability finding: media container registry capacity blocks deployments.**
+The rejected registry repository is `vcr.vercel.com/6nclegend9s-projects/spotify-clone/media`.
+To reproduce, rebuild the worker image and push it through the Vercel preview build.
+The build fails when writing its image manifest, including when reusing an existing commit tag.
+Clear unused images in the project's **Sandboxes → Container Registry** while retaining images
+used by active deployments, or increase the registry allowance. Deleting preview deployment
+URLs alone must not be assumed to clear registry images.
+
+Diagnostic preview: `dpl_CJQYF93oLs5o8Hvqo3tetPPoBBxV`, commit
+`8d2b588faea9eeed9f11afe9782b7e929b411e7c` (media-service and resolver code identical
+to the tested Android branch head `6e2d109`). The first attempt was
+`dpl_BiMmdcrjhbPMjJf5ZDU1FJbzWD8k` (canceled).
+
+After the attempt, branch-scoped `MEDIA_SERVICE_DEPLOYMENT_PROBE` was reset to `0`.
+Production configuration and its playback flag were unchanged. No user login, cookies,
+provider credentials, or source-access bypasses were used. The 2026-10-14 YouTube
+bot-verification finding below remains historical evidence, not a new extraction result.
+After registry capacity is restored, rerun `/api/media/preflight` on a protected diagnostic
+preview. Only a successful live asset download and decode can support proceeding to
+live Android background verification.
+
+---
+
 # Vercel mobile media verification — 2026-10-14
 
 Status: infrastructure verified on preview; YouTube extraction blocked. The
