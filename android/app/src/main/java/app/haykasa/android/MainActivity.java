@@ -83,9 +83,6 @@ public final class MainActivity extends Activity {
     private void configureContentInsets() {
         if (Build.VERSION.SDK_INT >= 30) {
             getWindow().setDecorFitsSystemWindows(false);
-            WindowInsetsController controller = getWindow().getInsetsController();
-            if (controller != null) controller.setSystemBarsAppearance(0,
-                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
         } else {
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
@@ -116,6 +113,12 @@ public final class MainActivity extends Activity {
             return Build.VERSION.SDK_INT >= 28 ? consumed.consumeDisplayCutout() : consumed;
         });
         setContentView(content);
+        if (Build.VERSION.SDK_INT >= 30) {
+            // setContentView creates the decor required by PhoneWindow's controller.
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) controller.setSystemBarsAppearance(0,
+                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+        }
         content.requestApplyInsets();
     }
     private void showContent(View view) {
