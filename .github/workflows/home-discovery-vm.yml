@@ -5,6 +5,8 @@ on:
       - 'src/components/Homepage/**'
       - 'src/components/Search/**'
       - 'src/components/Searchbar.jsx'
+      - 'src/components/AndroidAppCard.jsx'
+      - 'src/components/SupportDiagnostics.jsx'
       - 'src/components/YouTubeMusicResults.jsx'
       - 'src/app/search/**'
       - 'src/utils/searchResults.mjs'
@@ -21,6 +23,7 @@ on:
       - 'docs/qa/desktop-panels/**'
       - 'docs/qa/search/**'
       - 'docs/qa/android/player-browser.cjs'
+      - 'docs/qa/android-installation/**'
       - '.github/workflows/home-discovery-vm.yml'
 permissions:
   contents: read
@@ -48,6 +51,7 @@ jobs:
       - run: node docs/qa/desktop-panels/browser.cjs
       - run: node docs/qa/search/browser.cjs
       - run: node docs/qa/android/player-browser.cjs
+      - run: node docs/qa/android-installation/browser.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -57,4 +61,5 @@ jobs:
             artifacts/desktop-panels/
             artifacts/search/
             artifacts/android-player-browser/
+            artifacts/android-installation/
           retention-days: 7

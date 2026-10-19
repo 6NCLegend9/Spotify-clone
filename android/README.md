@@ -23,7 +23,32 @@ On Windows PowerShell, use `.\gradlew.bat` in place of `./gradlew`. From the rep
 
 The Android APK GitHub Actions workflow also builds an installable `app-debug.apk` artifact for PRs and main. Download the workflow artifact, extract it and open the APK on an Android phone; allow installation from that browser/file manager when Android asks. Debug builds use package `app.haykasa.android.debug`. CI debug signing keys are disposable: uninstall an earlier CI build if its signing key differs. A debug APK is for testing, not Play Store distribution.
 
-For a production release, use Android Studio's **Generate Signed Bundle / APK**, a maintained private release keystore, application ID `app.haykasa.android`, and increasing `versionCode`. Keep the keystore outside the repository. Never distribute an unsigned release or commit signing credentials. Play Store submission and native update publishing are not configured by this initial build.
+For Play Store distribution, use a release Android App Bundle (AAB) with application ID `app.haykasa.android`, a maintained private upload keystore and an increasing `versionCode`. The debug preview is a separate application and is not a Play Store release. See the release process below. Store submission and approval remain owner actions.
+
+## Play Store release bundle
+
+From the repository root, `npm run android:bundle` builds `android/app/build/outputs/bundle/release/app-release.aab`. Without signing environment variables, this is an **unsigned review bundle**: it cannot be installed directly or uploaded as a signed Play release. The Android APK CI workflow builds this bundle alongside the debug APK and release unit/lint checks, then uploads a clearly labeled `haykasa-android-unsigned-aab-*` artifact. Pull requests never receive release signing secrets.
+
+For a signed upload bundle:
+
+1. Enroll the Play Console application in **Play App Signing**. Google manages the app signing key used for delivered installs; maintain a private upload key for signing AABs sent to Play Console. Reuse the registered upload key for later releases. Do not generate disposable CI keys or confuse the preview's debug certificate with the production identity.
+2. Create the protected GitHub **`android-release`** environment, restrict its deployment branches to `main`, and configure required reviewers. Store the maintained upload keystore outside this repository and back it up securely. Add these environment secrets:
+
+   | Secret | Value |
+   | --- | --- |
+   | `HAYKASA_ANDROID_UPLOAD_KEYSTORE_BASE64` | Base64 encoding of the maintained upload keystore; never a committed file or release asset. |
+   | `HAYKASA_ANDROID_KEYSTORE_PASSWORD` | Keystore password. |
+   | `HAYKASA_ANDROID_KEY_ALIAS` | Registered upload-key alias. |
+   | `HAYKASA_ANDROID_KEY_PASSWORD` | Upload-key password. |
+
+3. Before **each** release, increase `versionCode` in `android/app/build.gradle` above every version already uploaded to Play, update `versionName`, and merge the reviewed changes into `main`. This workflow does not reserve a version in Play Console or increment it automatically. Check the owner account's accepted version codes before dispatching.
+4. Run the manual [Android Play Store Bundle workflow](../.github/workflows/android-play-store.yml) from `main` and approve its protected environment. It runs release unit tests and lint, requires signing configuration, verifies that `jarsigner` explicitly reports `jar verified.`, and uploads only the signed `app-release.aab` as `haykasa-android-play-store-*`. A self-signed upload certificate is expected; this check does not require a public certificate authority. The keystore is decoded into a restricted temporary directory and removed even after failure. Missing or partial credentials fail the signed build rather than producing an unsigned release.
+5. Download and extract that artifact. The owner must upload the AAB to a Play Console **internal testing** track, inspect the generated delivery artifacts and pre-launch report, and test installs/updates on supported phones before promotion. An AAB is a publishing format, not a directly installable APK.
+6. Complete the store listing, verified privacy-policy URL, accurate **Data safety** declarations, content rating, target-audience and permission/service declarations, account/deletion requirements where applicable, and the owner's review/rollout approval. Declare the actual web authentication, storage and playback behavior; a successful build does not establish policy approval or live background playback.
+
+For local signing, set `HAYKASA_ANDROID_KEYSTORE_PATH` to a readable private keystore outside the repository, set `HAYKASA_ANDROID_KEYSTORE_PASSWORD`, `HAYKASA_ANDROID_KEY_ALIAS` and `HAYKASA_ANDROID_KEY_PASSWORD`, then set `HAYKASA_ANDROID_REQUIRE_SIGNING=1` before `npm run android:bundle`. Do not place secret values in committed shell scripts, Gradle files, logs or command-line arguments. Unset signing variables when returning to unsigned/debug development; a partially configured signing environment is intentionally rejected.
+
+The workflow prepares an upload bundle; it does **not** create a Play developer account, upload to Google Play, publish a listing, or enable automatic native updates by itself. No Play Store download link should appear until an approved listing exists. The existing public debug-preview download is unchanged. Play delivery also does not remove the yt-dlp/source-playback requirements above or override phone security policies for sideloaded APKs.
 
 ## Verification before distribution
 
@@ -36,9 +61,9 @@ Local deterministic tests verify bridge commands, production deck integration, n
 
 ## Android virtual-phone checks
 
-The Android APK workflow installs the app on a hardware-accelerated Android 13 Pixel 5 emulator and executes instrumentation inside the actual WebView and Media3 service. It opens the live guest homepage, checks horizontal overflow, opens Search, and verifies keyboard dismissal and Android Back. A separate isolated fixture runs the production resolver client, native bridge and media deck with a mocked resolver API and an in-memory synthetic audio stream. It checks the foreground media service, playback after pressing Home, system media pause/resume and seeking. This fixture does not establish live yt-dlp extraction, authenticated flows, lock-screen behavior or reliable queue transitions.
+The Android APK workflow installs the app on hardware-accelerated Pixel 5 emulators running Android 13 (API 33) and Android 16 (API 36), then executes instrumentation inside the actual WebView and Media3 service. The independent matrix jobs retain failures from both versions. It opens the live guest homepage, checks horizontal overflow, opens Search, and verifies keyboard dismissal and Android Back. A separate isolated fixture runs the production resolver client, native bridge and media deck with a mocked resolver API and an in-memory synthetic audio stream. It checks the foreground media service, playback after pressing Home, system media pause/resume and seeking. This fixture does not establish live yt-dlp extraction, authenticated flows, lock-screen behavior or reliable queue transitions.
 
-The workflow uploads device screenshots, Android test reports, crash logs and media-service state as an `android-emulator-*` artifact. Reproduce with `npm ci`, `node docs/qa/android/create-fixture.cjs`, then `bash docs/qa/android/run-emulator.sh` while an API 33+ emulator is connected. The virtual-phone run exposed missing service session registration and Search/Back lifecycle failures; these are covered by the instrumentation checks. The resolver also avoids newer `AbortSignal.any`/`timeout` APIs for older Android WebViews.
+The workflow uploads device screenshots, Android test reports, crash logs and media-service state as an `android-emulator-api-<api>-*` artifact for each API level. Reproduce with `npm ci`, `node docs/qa/android/create-fixture.cjs`, then `bash docs/qa/android/run-emulator.sh` while an API 33+ emulator is connected. The virtual-phone run exposed missing service session registration and Search/Back lifecycle failures; these are covered by the instrumentation checks. The resolver also avoids newer `AbortSignal.any`/`timeout` APIs for older Android WebViews.
 
 ## Mobile robustness updates
 
@@ -60,10 +85,33 @@ Submitting search text records the normalized query for authenticated, nonprivat
 
 ## Public preview download
 
-Settings places **Download for Android** beside the Windows desktop download. It uses `/api/android/download` to download the standalone `HayKasa-Android.apk` from this repository's public `android-preview` prerelease. Users do not need a GitHub account or ZIP extraction. Android may require permission to install apps from the browser before opening the APK.
+Settings places **Download for Android** beside the Windows desktop download. It uses `/api/android/download` to download the standalone `HayKasa-Android.apk` from this repository's public `android-preview` prerelease. Users do not need a GitHub account or ZIP extraction. Android may require permission to install apps from the browser; Samsung Auto Blocker can prevent installation even when that permission is granted. The download card includes installation help and a **Use web app** alternative.
 
 `/api/android/manifest` checks the exact release tag and APK name, uploaded state, canonical GitHub URL, size and SHA-256 metadata before enabling the download. Missing releases disable the button; lookup failures can be retried. GET and HEAD downloads use the same fixed public release target. These endpoints contain no credentials and do not proxy APK bytes through Vercel.
 
 The public preview is the debug-signed APK from the verified PR35 build. Publishing it as a GitHub Release keeps the download available after the Actions artifact expires. It is labeled Preview and does not provide automatic Android updates or Play Store distribution. CI debug signing keys are disposable, so replacing the public APK with a separately signed build may require uninstalling an older preview. Use a maintained private signing key before promising production updates.
 
 Public preview replacement is a deliberate release operation: use an APK from a successful Android unit/lint/build and emulator run, verify its artifact digest and source commit, and retain the exact public filename and preview tag. The `Publish Android Preview` workflow validates that the selected APK and emulator jobs passed and the source was merged into main, checks the artifact digest and APK signature, then publishes the initial preview. Repeating publication with the same APK is harmless; a different existing APK is rejected instead of silently replaced. Normal APK CI builds do not replace this public download automatically. No signing keys belong in release assets or the repository.
+
+### Samsung: “Unknown app blocked”
+
+This dialog comes from Samsung Auto Blocker before HayKasa is installed. The downloadable preview is an APK from outside the Play Store or Galaxy Store. Auto Blocker can reject such installations even when an APK is correctly signed; changing the app's name or signature cannot override this phone policy. HayKasa has no published store listing in this repository's distribution configuration.
+
+Choose **Use web app** in Settings to continue in the browser without installing an APK or changing installation controls. This uses existing browser playback support and does not enable embedded YouTube background playback.
+
+If you choose to install the preview manually:
+
+1. Review **Settings → Security and privacy → Auto Blocker** on the phone. Samsung requires this setting to be off to install APKs outside approved stores.
+2. Under **Install unknown apps**, allow the browser or file manager used to open the downloaded APK. Menu names vary across Android versions.
+3. Open `HayKasa-Android.apk` in Downloads and follow Android's installation prompt.
+4. Restore your previous installation permissions and Auto Blocker setting after installation.
+
+HayKasa cannot detect this dialog from the website, alter the phone's security settings, or guarantee installation on a restricted device. Store distribution requires a maintained release/upload key, a store developer account, and an approved listing. A Play Store or Galaxy Store download button must only be added after a real listing exists. The public preview can be older than the current source branch; these instructions do not replace its APK or add newer native fixes to it.
+
+## Native screen layout and updates
+
+Version 1.0.2 (version code 3) sizes the WebView inside a native safe-area container. The status bar, camera cutout, navigation buttons and keyboard reduce the actual CSS viewport; they no longer overlap fixed top controls or bottom tabs. Both the main interface and native connection/retry screen use this container. Portrait/landscape viewport and combined cutout/keyboard inset checks run with the Android instrumentation suite.
+
+For a nondebug build installed through Google Play, the native app checks for available updates when it enters the foreground. An eligible flexible update opens Google's consent flow and downloads through Play. Once downloaded, HayKasa offers **Restart** or **Later**; installation/restart only follows the user's Restart choice. Play unavailability or an update-check failure leaves the current app usable. The same version is not repeatedly prompted during one process session.
+
+This needs an actual Play listing/test track, an eligible signed build installed from Play, and a newer version code published to that user's track. The repository prepares the bundle but does not create a developer account, upload to Play or approve a listing. Verify the real flow using two consecutive internal-test releases before production rollout. Existing debug/sideloaded previews skip Play update checks; merging this PR cannot replace their installed APK or signing key. Website deployments continue to supply web interface changes when loaded, while native changes require a new installed app version.

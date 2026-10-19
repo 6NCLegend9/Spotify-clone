@@ -29,7 +29,9 @@ function main() {
   try { execFileSync("git", ["merge-base", "--is-ancestor", run.head_sha, "origin/main"], { stdio: "ignore" }); merged = true; } catch { /* Reject source outside main. */ }
   requireValue(merged, "Android source must already be merged into main.");
   const jobs = api(`actions/runs/${runId}/jobs?per_page=100`).jobs;
-  requireValue(["apk", "emulator"].every(name => jobs?.some(job => job.name === name && job.conclusion === "success")), "Both APK and emulator jobs must pass before publication.");
+  const emulatorJobs = jobs?.some(job => /^Android \d+ emulator$/.test(job.name || ""))
+    ? ["Android 33 emulator", "Android 36 emulator"] : ["emulator"];
+  requireValue(["apk", ...emulatorJobs].every(name => jobs?.some(job => job.name === name && job.conclusion === "success")), "APK and all required emulator jobs must pass before publication.");
   const artifacts = api(`actions/runs/${runId}/artifacts?per_page=100`).artifacts;
   const matches = artifacts?.filter(artifact => /^haykasa-android-debug-[a-f0-9]{40}$/.test(artifact.name || "") && !artifact.expired) || [];
   requireValue(matches.length === 1, "Exactly one unexpired Android debug artifact is required.");
@@ -53,7 +55,7 @@ function main() {
     console.log("Verified existing Android preview; no release was replaced.");
     return;
   }
-  const notes = `Download **${apkName}** below and open it on Android 6.0+. Allow installation from your browser if Android asks. No ZIP extraction or GitHub account is needed.\n\nThis is a debug-signed **Android Preview**, not a Play Store or production-signed release. An older preview signed with a different test key may need to be uninstalled first. Automatic Android updates are not provided.\n\nThe app uses HayKasa's live mobile website. Embedded YouTube remains a foreground fallback; native source audio requires verified backend activation. Live extraction and physical-device behavior remain unverified.\n\nVerified build: https://github.com/${repository}/actions/runs/${runId} . Source commit: ${run.head_sha}, merged into main.\n\nAPK SHA-256: \`${digest}\`.\n`;
+  const notes = `Download **${apkName}** below and open it on Android 6.0+. No ZIP extraction or GitHub account is needed.\n\nSamsung Auto Blocker can show **Unknown app blocked** because this APK is installed outside approved stores. Browser installation permission alone may not be sufficient, and APK signing cannot override that phone setting. You can use https://haykasa.vercel.app in your browser without an APK. For manual preview installation, see https://github.com/${repository}/blob/main/android/README.md#samsung-unknown-app-blocked .\n\nThis is a debug-signed **Android Preview**, not a Play Store or production-signed release. An older preview signed with a different test key may need to be uninstalled first. Automatic Android updates are not provided.\n\nThe app uses HayKasa's live mobile website. Embedded YouTube remains a foreground fallback; native source audio requires verified backend activation. Live extraction and physical-device behavior remain unverified.\n\nVerified build: https://github.com/${repository}/actions/runs/${runId} . Source commit: ${run.head_sha}, merged into main.\n\nAPK SHA-256: \`${digest}\`.\n`;
   fs.writeFileSync("android-preview-notes.md", notes);
   gh(["release", "create", tag, apkName, "--repo", repository, "--target", run.head_sha, "--prerelease", "--latest=false", "--title", "HayKasa Android Preview", "--notes-file", "android-preview-notes.md"]);
   const published = api(`releases/tags/${tag}`);

@@ -4,4 +4,8 @@
     <string name="error_connection">HayKasa could not connect. Check your connection and try again.</string>
     <string name="error_no_browser">No browser is available to open this link.</string>
     <string name="error_renderer">HayKasa\'s page stopped. Try again to reopen the app.</string>
+    <string name="update_ready_title">HayKasa update ready</string>
+    <string name="update_ready_message">Restart HayKasa to install the update. Music will stop during restart.</string>
+    <string name="update_restart">Restart</string>
+    <string name="update_later">Later</string>
 </resources>
