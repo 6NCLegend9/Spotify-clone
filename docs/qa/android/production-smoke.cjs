@@ -47,8 +47,8 @@ const category = message => /ERR_[A-Z_]+/.exec(message)?.[0] || /\b[A-Za-z]+Erro
     adb('logcat', '-c');
     adb('shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0');
     adb('shell', 'settings', 'put', 'system', 'user_rotation', '0');
-    adb('shell', 'media', 'volume', '--stream', '3', '--set', '5');
-    report.systemMusicVolume = adb('shell', 'media', 'volume', '--stream', '3', '--get').toString().trim();
+    adb('shell', 'cmd', 'media_session', 'volume', '--stream', '3', '--set', '5');
+    report.systemMusicVolume = adb('shell', 'cmd', 'media_session', 'volume', '--stream', '3', '--get').toString().trim();
     adb('shell', 'am', 'start', '-W', '-n', `${pkg}/app.haykasa.android.MainActivity`);
     [device] = await _android.devices({ omitDriverInstall: true });
     assert(device, 'An actual Android device/emulator must be connected');
@@ -109,7 +109,7 @@ const category = message => /ERR_[A-Z_]+/.exec(message)?.[0] || /\b[A-Za-z]+Erro
     await step('06-library-guest', async () => { await navigate('/library', '#main-content'); await capture('06-library-guest'); });
     await step('07-create-login-gate', async () => { await page.locator('.app-tabbar button[aria-label="Create playlist or Jam"]').click(); await page.getByRole('dialog', { name: 'Create', exact: true }).waitFor(); await capture('07-create-picker'); await page.getByRole('dialog', { name: 'Create', exact: true }).getByRole('button', { name: /Playlist/ }).click(); await page.locator('input[type=email]').waitFor(); await capture('08-login-gate'); });
     await step('09-settings-portrait', async () => { await navigate('/settings', '.page-settings'); await page.waitForTimeout(2000); await capture('09-settings-portrait'); });
-    await step('10-settings-landscape', async () => { adb('shell', 'settings', 'put', 'system', 'user_rotation', '1'); await page.waitForFunction(() => innerWidth > innerHeight, { timeout: 15000 }); await page.waitForTimeout(1500); await capture('10-settings-landscape'); const landscape = report.screens.at(-1); if (!landscape.tabbar.some(item => item.height >= 44 && item.top >= 0 && item.bottom <= landscape.height + 1)) finding('Rotated Android phone switches to desktop navigation', 'Medium', 'Open Settings in the public APK, then rotate the phone to landscape', landscape); });
+    await step('10-settings-landscape', async () => { adb('shell', 'settings', 'put', 'system', 'user_rotation', '1'); await page.waitForFunction(() => innerWidth > innerHeight, null, { timeout: 15000 }); await page.waitForTimeout(1500); await capture('10-settings-landscape'); const landscape = report.screens.at(-1); if (!landscape.tabbar.some(item => item.height >= 44 && item.top >= 0 && item.bottom <= landscape.height + 1)) finding('Rotated Android phone switches to desktop navigation', 'Medium', 'Open Settings in the public APK, then rotate the phone to landscape', landscape); });
     adb('shell', 'settings', 'put', 'system', 'user_rotation', '0');
     await page.waitForTimeout(1000);
     await step('11-live-playback', async () => {

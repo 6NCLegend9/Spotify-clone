@@ -52,7 +52,14 @@ async function preflight() {
   assert.match(asset.digest, /^sha256:[a-f0-9]{64}$/);
   const installerResponse = await fetch(url, { signal: AbortSignal.timeout(120000) });
   assert.ok(installerResponse.ok, `Installer download returned ${installerResponse.status}`);
-  const data = Buffer.from(await installerResponse.arrayBuffer());
+  const chunks = [];
+  let received = 0;
+  for await (const chunk of installerResponse.body) {
+    received += chunk.length;
+    assert.ok(received <= asset.size, 'Installer body exceeded its public metadata size');
+    chunks.push(chunk);
+  }
+  const data = Buffer.concat(chunks, received);
   assert.equal(data.length, asset.size);
   const sha256 = crypto.createHash('sha256').update(data).digest('hex');
   assert.equal(`sha256:${sha256}`, asset.digest);
