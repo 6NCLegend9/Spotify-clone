@@ -105,6 +105,32 @@ function recoveryCase() {
   };
 }
 (async()=>{
+  // The actual app-generated radio URL must satisfy the actual route parser.
+  // This public track reproduced one 400 during the Android live-song probe.
+  const moduleUrl = file => require('node:url').pathToFileURL(path.join(root, file)).href;
+  const {buildRadioDiscoveryQueries} = await import(moduleUrl('src/utils/radioSeed.mjs'));
+  const {buildYoutubeSearchUrl} = await import(moduleUrl('src/utils/youtubeSearchUrl.mjs'));
+  const {readSearchOptions} = await import(moduleUrl('src/utils/searchOptions.mjs'));
+  const cartoon = {id:'K4DyBUG242c',title:'Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music',channel:'NoCopyrightSounds',seedQuery:'Cartoon On On NCS',genre:'Cartoon On On NCS'};
+  const invalidPreviousQuery = 'Cartoon, Jéja - On & On (feat. Daniel Levi) Electronic Pop NCS - Copyright Free Music cartoon jéja similar songs';
+  assert.equal(invalidPreviousQuery.length,112);
+  assert.throws(()=>readSearchOptions(new URLSearchParams({q:invalidPreviousQuery,type:'video'})),/Invalid search parameters/,'API validation must still reject the old overlong query');
+  const short = {id:'synthetic01',title:'Short song',artist:'Artist',seedQuery:'Short seed',genre:'Another style'};
+  assert.deepEqual(buildRadioDiscoveryQueries(short),['Short song artist similar songs','Short seed similar songs','Another style similar music','artist similar artists songs'],'Short discovery queries retain their original semantics');
+  for (const track of [cartoon,short,{...short,title:'A'+'🚀'.repeat(200),seedQuery:'أغنية'.repeat(80),genre:'Cafe\u0301'.repeat(80),radioSeedArtist:'演奏家'.repeat(80)}, {...short,title:'A'.repeat(200),seedQuery:'X'.repeat(120),genre:'Y'.repeat(120),radioSeedArtist:'Z'.repeat(120)}]) {
+    const queries = buildRadioDiscoveryQueries(track,{limit:6});
+    assert(queries.length>0&&queries.length<=6);
+    assert.equal(new Set(queries.map(query=>query.toLowerCase())).size,queries.length,'Truncated radio queries remain deduplicated');
+    for(const query of queries){
+      assert(query.length<=100,'Every generated radio query fits the API UTF-16 boundary');
+      assert(query.isWellFormed(),'Truncation must not split a Unicode surrogate pair');
+      assert.equal(query.normalize('NFC'),query,'Queries normalize before applying the API length budget');
+      assert(/\b(?:similar songs|similar music|similar artists songs)$/.test(query),'Truncation preserves the server radio classifier suffix and its artist diversity behavior');
+      const url = new URL(buildYoutubeSearchUrl({q:query,type:'video'},'radio'),'https://haykasa.vercel.app');
+      assert.equal(readSearchOptions(url.searchParams).query,query,'The production URL and parser accept each generated query');
+    }
+  }
+  assert.deepEqual(buildRadioDiscoveryQueries({}),[]);
   for (const code of [100, '100', 101, '101', 150, '150', 153, '153']) {
     const recovery = recoveryCase();
     for (const attempts of [0, 2, 99]) {
@@ -214,5 +240,5 @@ function recoveryCase() {
   assert(pending.cancelled.includes('abandoned'),'Late abandoned receipts must be released');
   assert.equal(pending.timers.size,0);
   pending.deck.destroy();
-  console.log('PASS: terminal unavailable/embed/verification errors, bounded upload recovery without automatic queue advancement, interrupted and healthy skip fades, pending startup fade cancellation, uninterrupted startup fade, authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
+  console.log('PASS: API-valid radio discovery query boundaries and Unicode/suffix preservation, terminal unavailable/embed/verification errors, bounded upload recovery without automatic queue advancement, interrupted and healthy skip fades, pending startup fade cancellation, uninterrupted startup fade, authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
 })().catch(error=>{console.error(error);process.exitCode=1});

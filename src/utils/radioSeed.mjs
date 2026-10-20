@@ -127,19 +127,23 @@ export function buildRadioDiscoveryQueries(
   const currentTitle = radioTitle(track?.title || track?.name || "");
 
   const candidates = [
-    originTitle && originArtist ? `${originTitle} ${originArtist} similar songs` : "",
-    originSeed ? `${originSeed} similar songs` : "",
-    originGenre && normalizeRadioArtist(originGenre) !== normalizeRadioArtist(originSeed)
-      ? `${originGenre} similar music`
-      : "",
-    originArtist ? `${originArtist} similar artists songs` : "",
-    currentTitle && currentTitle !== originTitle ? `${currentTitle} similar songs` : "",
+    [originTitle && originArtist ? `${originTitle} ${originArtist}` : "", "similar songs"],
+    [originSeed, "similar songs"],
+    [originGenre && normalizeRadioArtist(originGenre) !== normalizeRadioArtist(originSeed) ? originGenre : "", "similar music"],
+    [originArtist, "similar artists songs"],
+    [currentTitle && currentTitle !== originTitle ? currentTitle : "", "similar songs"],
   ];
 
   const seen = new Set();
   const queries = [];
-  for (const candidate of candidates) {
-    const value = radioText(candidate);
+  for (const [seed, suffix] of candidates) {
+    // The search API accepts at most 100 UTF-16 code units. Reserve its radio
+    // classifier suffix instead of truncating it off a long song/artist seed.
+    const prefix = radioText(seed, 100 - suffix.length - 1)
+      .replace(/[\uD800-\uDBFF]$/, "")
+      .trimEnd();
+    if (!prefix) continue;
+    const value = `${prefix} ${suffix}`;
     const key = value.toLowerCase();
     if (!value || seen.has(key)) continue;
     seen.add(key);
