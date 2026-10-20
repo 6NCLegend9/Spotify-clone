@@ -96,7 +96,7 @@ async function browserSmoke() {
     page.on('pageerror', error => report.pageErrors.push(safeError(error.message)));
     page.on('requestfailed', request => report.failedRequests.push({ url: safeError(request.url()), error: request.failure()?.errorText }));
     for (const [name, route] of [['home', '/'], ['search', '/search/2pac'], ['settings', '/settings']]) {
-      await page.goto(`${ORIGIN}${route}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      const navigation = await page.goto(`${ORIGIN}${route}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await page.waitForTimeout(6000);
       const state = await page.evaluate(async () => {
         let session;
@@ -113,7 +113,8 @@ async function browserSmoke() {
       });
       assert.equal(new URL(page.url()).origin, ORIGIN);
       await page.screenshot({ path: path.join(output, `${name}.png`), fullPage: false });
-      report.pages.push({ name, ...state });
+      report.pages.push({ name, navigationStatus: navigation?.status(), ...state });
+      assert.equal(navigation?.status(), 200, 'Production app routes must return a successful document');
       assert.equal(state.session.authenticated, false, 'A fresh installed desktop profile must remain a guest');
       if (name === 'search') {
         const play = page.locator('button[aria-label^="Play "]:visible').first();

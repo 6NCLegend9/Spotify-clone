@@ -29,8 +29,8 @@ try {
         ConvertTo-Json | Set-Content (Join-Path $output 'installed-version.json')
     Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $executable } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-    $profile = Join-Path $scratch 'fresh-profile'
-    $app = Start-Process -FilePath $executable -ArgumentList @("--user-data-dir=$profile", '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9222') -PassThru
+    $qaProfile = Join-Path $scratch 'fresh-profile'
+    $app = Start-Process -FilePath $executable -ArgumentList @("--user-data-dir=$qaProfile", '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9222') -PassThru
     Start-Sleep -Seconds 10
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing

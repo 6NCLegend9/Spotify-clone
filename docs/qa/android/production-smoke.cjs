@@ -11,8 +11,13 @@ const origin = 'https://haykasa.vercel.app';
 const apk = path.join(output, 'HayKasa-Android.apk');
 const metadata = JSON.parse(fs.readFileSync(path.join(output, 'release.json'), 'utf8'));
 const asset = metadata.assets?.find(item => item.name === 'HayKasa-Android.apk');
-assert.equal(asset?.browser_download_url, 'https://github.com/6NCLegend9/Spotify-clone/releases/download/android-preview/HayKasa-Android.apk');
+assert.match(metadata.tag_name, /^android-preview(?:-[a-f0-9]{40})?$/);
+assert.equal(metadata.draft, false);
+assert.equal(asset?.browser_download_url, `https://github.com/6NCLegend9/Spotify-clone/releases/download/${metadata.tag_name}/HayKasa-Android.apk`);
+assert.equal(asset.state, 'uploaded');
+assert.ok(asset.size > 0 && asset.size <= 33554432);
 assert.match(asset.digest, /^sha256:[a-f0-9]{64}$/);
+assert.equal(fs.statSync(apk).size, asset.size);
 const digest = crypto.createHash('sha256').update(fs.readFileSync(apk)).digest('hex');
 assert.equal(`sha256:${digest}`, asset.digest, 'Installed APK must be byte-identical to the public release asset');
 const adb = (...args) => execFileSync('adb', args, { maxBuffer: 12 * 1024 * 1024 });
@@ -98,7 +103,17 @@ const category = message => /ERR_[A-Z_]+/.exec(message)?.[0] || /\b[A-Za-z]+Erro
     report.freshSession = session;
     if (session.authenticated) finding('Fresh public APK unexpectedly authenticates a user', 'High', 'Install the public APK on a clean emulator and open Home', session);
     report.storage = await page.evaluate(async () => ({ localStorageKeys: Object.keys(localStorage), sessionStorageKeys: Object.keys(sessionStorage), indexedDatabaseNames: typeof indexedDB.databases === 'function' ? (await indexedDB.databases()).map(item => item.name) : ['inspection-unavailable'] }));
-    report.cookieNames = (await page.context().cookies(origin)).map(item => ({ name: item.name, secure: item.secure, httpOnly: item.httpOnly, sameSite: item.sameSite }));
+    // WebView exposes the page Network domain, not browser-context Storage.
+    try {
+      const session = await page.context().newCDPSession(page);
+      const { cookies } = await session.send('Network.getCookies', { urls: [origin] });
+      report.cookieNames = cookies.map(item => ({ name: item.name, secure: item.secure, httpOnly: item.httpOnly, sameSite: item.sameSite }));
+      report.cookieInspection = 'page-target Network.getCookies';
+      await session.detach();
+    } catch {
+      report.cookieNames = await page.evaluate(() => document.cookie.split(';').map(item => item.trim().split('=')[0]).filter(Boolean));
+      report.cookieInspection = 'document.cookie names only; HttpOnly cookies unavailable';
+    }
     await page.waitForTimeout(3000); await capture('01-home-guest');
     await step('02-search-browse', async () => { await navigate('/search', '.page-search'); await capture('02-search-browse'); });
     await step('03-search-results', async () => { await navigate('/search/2pac', '[data-search-track]'); await page.waitForTimeout(1500); await capture('03-search-results'); });
