@@ -26,12 +26,12 @@ The repeat run tests the current PR's compiled production web UI through an `and
 
 The Android 13 and 16 runs execute a settled-screen guest tour and a real-song tap probe, collect screenshots, fixed console/network categories and playback JSON, and separately require decoded native buffers with nonzero player volume. The emulator host uses `-noaudio`: playback progression/output settings and decoder counters can be checked, but physical-speaker audibility cannot be claimed. A passing failure-state check means the error is handled correctly; it does not mean the song played.
 
-Final runtime source [`22e6a4d`](https://github.com/6NCLegend9/Spotify-clone/commit/22e6a4d) passed [Android verification](https://github.com/6NCLegend9/Spotify-clone/actions/runs/39425426849), plus CI, Security Regression, Homepage Discovery VM, Mobile Playback VM and Playlist Layout/Duration VM. The pull-request workflow checked out merge commit `6ed065294b865c351eb835a40750510b4df61929`; that exact compiled-build identifier is recorded in both devices' JSON.
+Final runtime source [`5b7c51d`](https://github.com/6NCLegend9/Spotify-clone/commit/5b7c51d) passed [Android verification](https://github.com/6NCLegend9/Spotify-clone/actions/runs/39467057254), plus CI, Security Regression, Homepage Discovery VM, Mobile Playback VM and Playlist Layout/Duration VM. The pull-request workflow checked out merge commit `785ed9792cc16de29002410ce036c5a17272fe39`; that exact compiled-build identifier is recorded in both devices' JSON.
 
 | Device | Installed-app checks | First real-song attempt | Physical Next tap | Original PNGs |
 | --- | --- | --- | --- | --- |
-| Android 13 / API 33, WebView 109 | 10 passed, 0 failures | Error 150, time 0; stopped controls and visible feedback | Different selection in 686 ms; new error 150 handled with fresh feedback | 21 |
-| Android 16 / API 36, WebView 133 | 10 passed, 0 failures | Error 150, time 0; stopped controls and visible feedback | Different selection in 546 ms; new error 150 handled with fresh feedback | 21 |
+| Android 13 / API 33, WebView 109 | 10 passed, 0 failures | Error 150, time 0; stopped controls and visible feedback | Different selection in 581 ms; new error 150 handled with fresh feedback | 21 |
+| Android 16 / API 36, WebView 133 | 10 passed, 0 failures | Error 150, time 0; stopped controls and visible feedback | Different selection in 552 ms; new error 150 handled with fresh feedback | 21 |
 
 Both guest tours completed Home, Browse, search results, an artist channel, a playlist, Library, Create, login and Settings, plus landscape Settings/Search and portrait restoration. At 393×778 and 802×345 CSS pixels they recorded no horizontal page overflow or captured unhandled page errors. AndroidRuntime crash logs are empty. The final real-song probes also record no HTTP 400 search responses after the radio-query repair. The intentional renderer-crash tests recovered through the native Retry screen. Browser tests additionally verify a compact 60-pixel playing dock and unchanged desktop/tablet layouts.
 
