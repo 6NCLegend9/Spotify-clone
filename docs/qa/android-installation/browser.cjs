@@ -92,7 +92,7 @@ const results = [];
         const mode = manifestMode;
         if (manifestGate) await manifestGate;
         if (mode === "error") return route.fulfill({ status: 503, headers: { "retry-after": "0" }, contentType: "application/json", body: JSON.stringify({ available: false, message: "Synthetic release lookup outage" }) });
-        body = mode === "unavailable" ? { available: false } : { available: true, downloadUrl: "/api/android/download", sizeBytes: 5026587, sha256: "a".repeat(64), preview: true, minimumAndroid: "6.0" };
+        body = mode === "unavailable" ? { available: false } : { available: true, downloadUrl: "/api/android/download", sizeBytes: 5026587, sha256: "a".repeat(64), preview: true, minimumAndroid: "6.0", buildCommit: "b".repeat(40), buildDate: "2026-10-20T10:00:00.000Z" };
       }
       if (url.pathname === "/api/android/download") {
         // Some engines route downloads; all engines use the same local byte boundary.
@@ -126,6 +126,8 @@ const results = [];
     assert.equal(await download.getAttribute("href"), "/api/android/download");
     assert.equal(await download.getAttribute("aria-describedby"), "android-install-note", "Download is described by the Samsung installation note");
     await card.getByText("Android 6.0+ · Preview · 4.8 MB", { exact: true }).waitFor();
+    await card.locator("[data-testid='android-preview-build']").getByText(/Build bbbbbbb/).waitFor();
+    assert.match(await card.locator("[data-testid='android-preview-build']").innerText(), /2026.*UTC/);
     assert.equal(await details.evaluate(node => node.open), false, "Installation help starts collapsed");
     await summary.focus();
     await page.keyboard.press("Enter");

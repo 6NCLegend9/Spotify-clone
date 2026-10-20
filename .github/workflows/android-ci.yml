@@ -10,6 +10,7 @@ on:
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mobileMediaPolicy.mjs"
+      - "src/utils/youtubeIframeApi.mjs"
       - "src/components/MusicPlayer/YouTubePlayer.jsx"
       - "src/components/Layout/AppShell.jsx"
       - "src/utils/androidNavigation.mjs"
@@ -23,6 +24,7 @@ on:
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mobileMediaPolicy.mjs"
+      - "src/utils/youtubeIframeApi.mjs"
       - "src/components/MusicPlayer/YouTubePlayer.jsx"
       - "src/components/Layout/AppShell.jsx"
       - "src/utils/androidNavigation.mjs"
@@ -63,6 +65,7 @@ jobs:
           node docs/qa/android/check.mjs
           node docs/qa/android/resolve-check.cjs
           node docs/qa/android/release-check.mjs
+          node docs/qa/android/iframe-api-check.mjs
       - name: Build and check Android app
         working-directory: android
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug testReleaseUnitTest lintRelease bundleRelease

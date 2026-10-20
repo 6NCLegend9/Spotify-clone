@@ -672,6 +672,7 @@ select:-webkit-autofill {
   }
 
   .app-player {
+    position: relative;
     grid-row: 2;
     z-index: 30;
     min-height: 0;
@@ -3603,8 +3604,16 @@ body {
   grid-template-areas: "feedback" "dock";
 }
 
+/* The dock has a fixed-height shell slot; feedback must open above it. */
 .yt-dock-feedback {
-  grid-area: feedback;
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
+  max-height: calc(100dvh - var(--mobile-player-h) - var(--mobile-tabbar-h) - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--hairline);
+  border-radius: 12px 12px 0 0;
 }
 
 .yt-dock-preview {

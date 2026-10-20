@@ -24,6 +24,9 @@ export default function AndroidAppCard() {
   }, [retry]);
   const available = status === "loaded" && release?.available === true;
   const size = Number.isFinite(release?.sizeBytes) && release.sizeBytes > 0 ? `${(release.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : "";
+  const build = typeof release?.buildCommit === "string" && /^[a-f0-9]{40}$/.test(release.buildCommit) ? release.buildCommit.slice(0, 7) : "";
+  const buildDate = typeof release?.buildDate === "string" && Number.isFinite(Date.parse(release.buildDate))
+    ? new Date(release.buildDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }) : "";
   return (
     <section aria-labelledby="android-app-heading" data-testid="android-download-card" className="mb-8 glass-panel rounded-xl p-5 sm:p-7">
       <h2 id="android-app-heading" className="flex items-center gap-3 text-xl font-semibold"><FiSmartphone aria-hidden="true" />HayKasa for Android</h2>
@@ -32,6 +35,7 @@ export default function AndroidAppCard() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-100">Android 6.0+ · Preview{available && size ? ` · ${size}` : ""}</p>
+            {available && <p className="mt-1 text-xs text-[#9aa8b5]" data-testid="android-preview-build">{build ? `Build ${build}${buildDate ? ` · ${buildDate} UTC` : ""}` : "Legacy preview · Build information unavailable"}</p>}
             <p id="android-install-note" className="mt-2 text-xs leading-5 text-[#9aa8b5]">This preview APK is installed outside an app store. Samsung Auto Blocker can prevent installation with “Unknown app blocked”. You can use the web app without installing an APK.</p>
             <p role="status" className="mt-2 text-xs text-[#9aa8b5]">{status === "loading" ? "Checking download…" : !available ? "The Android download is temporarily unavailable. Please try again." : ""}</p>
           </div>

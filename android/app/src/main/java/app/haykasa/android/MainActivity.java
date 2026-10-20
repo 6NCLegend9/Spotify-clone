@@ -18,9 +18,11 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
+import android.webkit.ConsoleMessage;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.ValueCallback;
@@ -79,6 +81,11 @@ public final class MainActivity extends Activity {
             if (version != null && !version.isEmpty()) return version;
         } catch (PackageManager.NameNotFoundException ignored) { /* Fall back if package metadata is unavailable. */ }
         return "unknown";
+    }
+    private void qaWebLog(String message) {
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            android.util.Log.d("HayKasaWebQA", message);
+        }
     }
     private void configureContentInsets() {
         if (Build.VERSION.SDK_INT >= 30) {
@@ -142,6 +149,13 @@ public final class MainActivity extends Activity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
         web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onConsoleMessage(ConsoleMessage message) {
+                qaWebLog("console level=" + message.messageLevel().name()
+                    + " category=" + WebDiagnostics.consoleCategory(message.message())
+                    + " source=" + WebDiagnostics.sourceCategory(message.sourceId())
+                    + " line=" + Math.max(0, message.lineNumber()));
+                return true;
+            }
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> result, FileChooserParams params) {
                 if (view != web || !MediaPolicy.isWebsite(view.getUrl())) return false;
                 if (fileResult != null) fileResult.onReceiveValue(null);
@@ -170,7 +184,11 @@ public final class MainActivity extends Activity {
                 }
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                qaWebLog("network code=" + error.getErrorCode() + " source=" + WebDiagnostics.sourceCategory(request.getUrl().toString()) + " mainFrame=" + request.isForMainFrame());
                 if (view == web && request.isForMainFrame()) showError(R.string.error_connection);
+            }
+            @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                qaWebLog("http status=" + response.getStatusCode() + " source=" + WebDiagnostics.sourceCategory(request.getUrl().toString()) + " mainFrame=" + request.isForMainFrame());
             }
             @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
                 if (view != web) return true;

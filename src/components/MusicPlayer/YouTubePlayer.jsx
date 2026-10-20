@@ -43,6 +43,7 @@ import {
 import { createPlaylist } from "@/services/playlistApi";
 import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
+import { watchYoutubeIframeApi } from "@/utils/youtubeIframeApi.mjs";
 import { FiPlus, FiSearch, FiX, FiMaximize2 } from "react-icons/fi";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
@@ -249,6 +250,9 @@ function YouTubePlayer() {
   const durationRef = useRef(0);
   durationRef.current = duration;
   const [apiReady, setApiReady] = useState(false);
+  const [iframeApiFailed, setIframeApiFailed] = useState(false);
+  const [iframeApiAttempt, setIframeApiAttempt] = useState(0);
+  const [sourceAudioReason, setSourceAudioReason] = useState(null);
   const [nativeAvailable, setNativeAvailable] = useState(false);
   const [mediaAsset, setMediaAsset] = useState(null);
   const [mediaQualities, setMediaQualities] = useState([]);
@@ -967,6 +971,7 @@ function YouTubePlayer() {
       const player = getActivePlayer();
       sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player.getCurrentTime(), playing: isPlayingRef.current, forceIframe: true };
       fallbackOccurrenceRef.current = sourceSwitchRef.current.occurrence;
+      setSourceAudioReason("source_unavailable");
       setSourceRevision((value) => value + 1);
       return;
     }
@@ -1425,6 +1430,7 @@ function YouTubePlayer() {
         events: options.events,
         onAsset: (result) => {
           if (!isCurrent()) return;
+          setSourceAudioReason(null);
           setMediaAsset(result.asset); setMediaQualities(result.qualities || []);
           setDeliveredVideoQuality(result.asset.height ? `${result.asset.height}p` : result.asset.codec);
         },
@@ -1432,6 +1438,7 @@ function YouTubePlayer() {
           if (!isCurrent() || key !== activeDeckRef.current) return;
           const currentOccurrence = queueEntryIdentity(videoRef.current);
           recordDiagnostic("provider", { code: "native_fallback", status: "unavailable" });
+          setSourceAudioReason("source_unavailable");
           fallbackOccurrenceRef.current = currentOccurrence;
           sourceSwitchRef.current = { occurrence: currentOccurrence, position, playing, forceIframe: true };
           setSourceRevision((value) => value + 1);
@@ -1811,39 +1818,42 @@ function YouTubePlayer() {
 
   useEffect(() => {
     setNativeAvailable(false);
+    setSourceAudioReason(null);
     const desktopShell = Boolean(window.heykasaDesktop);
-    if (status !== "authenticated" || !session?.user?.id || !isMobileMediaClient(navigator, desktopShell)) return;
+    if (status === "loading" || !isMobileMediaClient(navigator, desktopShell)) return;
     const controller = new AbortController();
     void fetch("/api/media/resolve", { cache: "no-store", credentials: "same-origin", headers: mobileMediaHeaders(navigator, desktopShell), signal: controller.signal })
       .then((response) => response.ok ? response.json() : { enabled: false })
-      .then(({ enabled }) => { if (!controller.signal.aborted && enabled && supportedMediaProfile("audio")) { setNativeAvailable(true); setApiReady(true); } })
-      .catch(() => {});
+      .then(({ enabled, reason }) => {
+        if (controller.signal.aborted) return;
+        setSourceAudioReason(enabled ? null : reason || "source_unavailable");
+        if (enabled && status === "authenticated" && session?.user?.id && supportedMediaProfile("audio")) { setNativeAvailable(true); setApiReady(true); }
+      })
+      .catch(() => { if (!controller.signal.aborted) setSourceAudioReason("service_unavailable"); });
     return () => controller.abort();
     // Recheck on sign-in/account changes. Viewport resizing does not change providers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session?.user?.id]);
 
-  useEffect(() => {
-    if (window.YT?.Player) {
-      setApiReady(true);
-      return;
-    }
-    const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
-    if (!existingScript) {
-      const script = document.createElement("script");
-      script.src = "https://www.youtube.com/iframe_api";
-      document.head.appendChild(script);
-    }
-    const previousReady = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      previousReady?.();
+  useEffect(() => watchYoutubeIframeApi({
+    retry: iframeApiAttempt > 0,
+    onReady: () => {
+      setIframeApiFailed(false);
       setApiReady(true);
       if (sourceSwitchRef.current?.forceIframe) setSourceRevision((value) => value + 1);
-    };
-    return () => {
-      window.onYouTubeIframeAPIReady = previousReady;
-    };
-  }, []);
+    },
+    onError: () => setIframeApiFailed(true),
+  }), [iframeApiAttempt]);
+
+  useEffect(() => {
+    if (!iframeApiFailed || !video?.id || !isPlaying) return;
+    if (nativeAvailable && fallbackOccurrenceRef.current !== queueEntryIdentity(video)) return;
+    userPausedRef.current = true;
+    trackChangeUntilRef.current = 0;
+    setPlayerError({ kind: "provider", canRetry: true, message: "The music player could not connect to YouTube.", detail: "Check your connection and select Retry, or open this track on YouTube." });
+    dispatch(playPause(false));
+    recordDiagnostic("provider", { code: "sdk_unavailable", status: "unavailable" });
+  }, [iframeApiFailed, video, isPlaying, nativeAvailable, sourceRevision, dispatch]);
 
   useEffect(() => {
     const context = `${playbackOwner}:${jam?.code || ""}:${jam?.role || ""}:${Boolean(privateSession)}:${videoVisible}:${nativeAvailable}`;
@@ -2683,6 +2693,11 @@ function YouTubePlayer() {
     setPlayerError(null);
     markExpectPlaying();
     dispatch(playPause(true));
+    if (iframeApiFailed) {
+      setIframeApiFailed(false);
+      setIframeApiAttempt((value) => value + 1);
+      return;
+    }
     const player = getActivePlayer();
     if (!player?.playVideo) {
       if (apiReady) mountDeck(activeDeckRef.current, current.id, { title: current.title });
@@ -3075,6 +3090,7 @@ function YouTubePlayer() {
           >
             <p className="text-xs font-medium text-white">{playerError.message}</p>
             {playerError.detail && <p className="mt-1 text-xs text-gray-300">{playerError.detail}</p>}
+          {sourceAudioReason && <p className="mt-1 text-xs text-gray-300">{sourceAudioReason === "authentication_required" ? "Source audio requires a signed-in account when available. YouTube playback has its own restrictions." : "Source audio is currently unavailable, so this track depends on YouTube playback."}</p>}
             {playerError.kind === "autoplay" && (
               <p className="mt-1 text-[11px] text-gray-300">You may need to allow autoplay in your browser settings.</p>
             )}
@@ -3089,13 +3105,15 @@ function YouTubePlayer() {
       </div>
       {playerError && (
         <div
-          className="yt-dock-feedback relative z-20 border-t border-white/10 bg-black/90 px-4 py-3 text-center"
+          data-testid="playback-feedback"
+          className="yt-dock-feedback absolute z-20 border-t border-white/10 bg-black/90 px-4 py-3 text-center"
           role="alert"
           aria-live="assertive"
           aria-atomic="true"
         >
           <p className="text-sm font-medium text-white">{playerError.message}</p>
           {playerError.detail && <p className="mt-1 text-xs text-gray-300">{playerError.detail}</p>}
+          {sourceAudioReason && <p className="mt-1 text-xs text-gray-300">{sourceAudioReason === "authentication_required" ? "Source audio requires a signed-in account when available. YouTube playback has its own restrictions." : "Source audio is currently unavailable, so this track depends on YouTube playback."}</p>}
           {playerError.kind === "autoplay" && (
             <p className="mt-1 text-xs text-gray-300">You may need to allow autoplay in your browser settings.</p>
           )}

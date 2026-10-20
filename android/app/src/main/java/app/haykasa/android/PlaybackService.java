@@ -84,7 +84,12 @@ public final class PlaybackService extends MediaSessionService {
                         emit(key, state == Player.STATE_READY ? "ready" : state == Player.STATE_ENDED ? "ended" : "waiting");
                     }
                     @Override public void onIsPlayingChanged(boolean playing) { ExoPlayer own = players.get(key); emit(key, playing ? "playing" : own != null && own.getPlayWhenReady() ? "waiting" : "pause"); }
-                    @Override public void onPlayerError(PlaybackException error) { emit(key, "error"); }
+                    @Override public void onPlayerError(PlaybackException error) {
+                        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                            android.util.Log.d("HayKasaMediaQA", "error code=" + error.getErrorCodeName());
+                        }
+                        emit(key, "error");
+                    }
                 });
                 players.put(id, player);
             }

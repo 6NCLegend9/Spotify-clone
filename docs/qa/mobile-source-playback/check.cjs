@@ -19,12 +19,13 @@ const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebK
 const ipadDesktop = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/18 Safari/605.1.15';
 let internal=false, playbackEnabled=false;
 let enabled=true, token={id:'alice',sessionVersion:1}, validUser=true, limited=false, trusted=true;
+let authenticationFails=false, databaseFails=false, authenticationCalls=0, databaseCalls=0;
 const calls=[];
 const route=load('src/app/api/media/resolve/route.js', {
   '@/utils/apiResponseCore.mjs':{readRequestJson:request=>request.json(),ApiRouteError:class extends Error {}},
   'next/server':{NextResponse:{json:(body,{status=200,headers={}}={})=>({body,status,headers})}},
-  'next-auth/jwt':{getToken:async()=>token}, '@/utils/authToken':{tokenOptions:request=>request},
-  '@/utils/sessionAuth':{resolveSessionUser:async value=>validUser?{id:value.id}:null},
+  'next-auth/jwt':{getToken:async()=>{authenticationCalls++;if(authenticationFails) throw new Error('private-auth-diagnostic');return token;}}, '@/utils/authToken':{tokenOptions:request=>request},
+  '@/utils/sessionAuth':{resolveSessionUser:async value=>{databaseCalls++;if(databaseFails) throw new Error('private-database-diagnostic');return validUser?{id:value.id}:null;}},
   '@/utils/trustedOrigin':{isTrustedRequestOrigin:()=>trusted},
   '@/utils/rateLimit':{getClientKey:()=> 'local',isRateLimited:async()=>({limited})},
   '@/utils/mediaService.mjs':{...validation,mediaServiceConfig:()=>({enabled,internal,playbackEnabled,secret:'synthetic-media-signing-secret-'.repeat(2)}),
@@ -44,20 +45,33 @@ function request(agent, method='GET', body, extra={}) {
   assert.equal(policy.isMobileMediaRequest(new Headers({'user-agent':ipadDesktop,'X-HayKasa-Media-Client':'mobile'})),true);
   assert.equal(policy.isMobileMediaRequest(new Headers({'user-agent':desktop,'X-HayKasa-Media-Client':'mobile'})),false);
   assert.equal(policy.isMobileMediaRequest(new Headers({'sec-ch-ua-mobile':'?1'})),true);
+  async function capability(agent, expectedReason) {
+    const response=await route.GET(request(agent));
+    assert.equal(response.status,200);
+    assert.equal(response.headers['Cache-Control'],'private, no-store');
+    assert.equal(response.body.enabled,expectedReason===null);
+    assert.equal(response.body.reason,expectedReason);
+    assert.equal(Object.keys(response.body).sort().join(','),'enabled,reason','Capability status must not expose configuration or account details');
+    return response;
+  }
   const selection={videoId:'abcdefghijk',mode:'audio',maxHeight:1080,profile:'mp4-aac'};
-  assert.equal((await route.GET(request(desktop))).body.enabled,false);
+  await capability(desktop,'mobile_only');assert.equal(authenticationCalls,0);assert.equal(databaseCalls,0);
   assert.equal((await route.POST(request(desktop,'POST',selection))).status,403);assert.equal(calls.length,0);
-  token=null;assert.equal((await route.GET(request(android))).body.enabled,false);
+  token=null;await capability(android,'authentication_required');assert.equal(databaseCalls,0);
   assert.equal((await route.POST(request(android,'POST',selection))).status,401);assert.equal(calls.length,0);
-  token={id:'alice',sessionVersion:1};validUser=false;assert.equal((await route.POST(request(android,'POST',selection))).status,401);validUser=true;
+  token={id:'alice',sessionVersion:1};validUser=false;await capability(android,'authentication_required');assert.equal((await route.POST(request(android,'POST',selection))).status,401);validUser=true;
   internal=true;
-  assert.equal((await route.GET(request(android))).body.enabled,false);
+  const authBeforeDisabled=authenticationCalls;
+  await capability(android,'service_disabled');assert.equal(authenticationCalls,authBeforeDisabled);
   const disabled=await route.POST(request(android,'POST',selection));
   assert.equal(disabled.status,503);assert.equal(disabled.body.reason,'service_disabled');assert.equal(calls.length,0);
   playbackEnabled=true;
-  assert.equal((await route.GET(request(android))).body.enabled,true);
+  await capability(android,null);
   internal=false;playbackEnabled=false;
-  assert.equal((await route.GET(request(android))).body.enabled,true);
+  await capability(android,null);
+  authenticationFails=true;await capability(android,'service_unavailable');authenticationFails=false;
+  databaseFails=true;await capability(android,'service_unavailable');databaseFails=false;
+  assert.equal(calls.length,0,'Capability requests must not start provider work');
   const created=await route.POST(request(android,'POST',selection));assert.equal(created.status,200);assert.equal(calls.length,1);
   const receipt=created.body.receipt;
   token={id:'bob',sessionVersion:1};assert.equal((await route.POST(request(iphone,'POST',{action:'poll',receipt}))).status,403);assert.equal(calls.length,1);
@@ -68,6 +82,9 @@ function request(agent, method='GET', body, extra={}) {
   assert.equal((await route.DELETE(request(desktop,'DELETE',{receipt}))).status,200);assert.equal(calls.at(-1).method,'DELETE');internal=false;
   trusted=false;assert.equal((await route.POST(request(android,'POST',selection))).status,403);trusted=true;
   limited=true;assert.equal((await route.POST(request(android,'POST',selection))).status,429);limited=false;
-  enabled=false;assert.equal((await route.GET(request(android))).body.enabled,false);assert.equal((await route.POST(request(android,'POST',selection))).status,503);
-  console.log('PASS: mobile/tablet detection, desktop/Electron exclusion, iPad desktop mode, mobile hints, availability, account validation, desktop/guest denial before extraction, real receipt scope/session checks, authenticated cancellation, origin/rate limits, unconfigured service');
+  enabled=false;
+  const authBeforeUnconfigured=authenticationCalls;
+  await capability(android,'service_unconfigured');assert.equal(authenticationCalls,authBeforeUnconfigured);
+  assert.equal((await route.POST(request(android,'POST',selection))).status,503);
+  console.log('PASS: mobile/tablet detection, desktop/Electron exclusion, iPad desktop mode, mobile hints, private capability reasons, auth/database failure isolation, account validation, desktop/guest denial before extraction, real receipt scope/session checks, authenticated cancellation, origin/rate limits, unconfigured service');
 })().catch(error=>{console.error(error);process.exitCode=1});

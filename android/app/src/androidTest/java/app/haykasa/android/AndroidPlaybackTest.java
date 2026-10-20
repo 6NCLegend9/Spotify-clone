@@ -53,6 +53,25 @@ public class AndroidPlaybackTest {
         shell("mkdir -p /sdcard/Download/haykasa-emulator-qa");
         shell("screencap -p /sdcard/Download/haykasa-emulator-qa/" + name + ".png");
     }
+    private org.json.JSONObject liveSample(WebView web) throws Exception {
+        Object encoded = new org.json.JSONTokener(js(web, "JSON.stringify(window.qaLivePlayback?.snapshot() || {})")).nextValue();
+        return new org.json.JSONObject(String.valueOf(encoded));
+    }
+    private void evidence(String name, org.json.JSONObject value) throws Exception {
+        if (!name.matches("[a-z0-9-]+")) throw new IllegalArgumentException("Invalid evidence name");
+        shell("mkdir -p /sdcard/Download/haykasa-emulator-qa");
+        String encoded = android.util.Base64.encodeToString(value.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
+        shell("printf %s " + encoded + " | base64 -d > /sdcard/Download/haykasa-emulator-qa/" + name + ".json");
+    }
+    private void tap(WebView web, String selector) throws Exception {
+        String quoted = org.json.JSONObject.quote(selector);
+        js(web, "document.querySelector(" + quoted + ")?.scrollIntoView({block:'center'})");
+        org.json.JSONArray point = new org.json.JSONArray(js(web, "(()=>{const node=[...document.querySelectorAll(" + quoted + ")].find(n=>{const r=n.getBoundingClientRect();return r.width>0&&r.height>0});const r=node.getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2,innerWidth]})()"));
+        AtomicReference<int[]> geometry = new AtomicReference<>();
+        main(() -> { int[] location = new int[2]; web.getLocationOnScreen(location); geometry.set(new int[]{location[0], location[1], web.getWidth()}); });
+        double scale = geometry.get()[2] / point.getDouble(2);
+        shell("input tap " + Math.round(geometry.get()[0] + point.getDouble(0) * scale) + " " + Math.round(geometry.get()[1] + point.getDouble(1) * scale));
+    }
     private boolean keyboardVisible(WebView web) {
         AtomicReference<Boolean> visible = new AtomicReference<>(false);
         main(() -> { android.view.WindowInsets insets = web.getRootWindowInsets(); visible.set(insets != null && insets.isVisible(android.view.WindowInsets.Type.ime())); });
@@ -169,6 +188,85 @@ public class AndroidPlaybackTest {
         main(() -> count.set(service.getSessions().size()));
         assertEquals("Native session must be registered with its foreground service", Integer.valueOf(1), count.get());
     }
+    @Test public void liveGuestSongReportsActualPlaybackOrProviderFailure() throws Exception {
+        CountDownLatch cookies = new CountDownLatch(1);
+        main(() -> android.webkit.CookieManager.getInstance().removeAllCookies(done -> cookies.countDown()));
+        assertTrue("Guest profile cookies cleared", cookies.await(10, TimeUnit.SECONDS));
+        AtomicReference<WebView> ref = new AtomicReference<>();
+        org.json.JSONObject report = new org.json.JSONObject();
+        report.put("androidApi", android.os.Build.VERSION.SDK_INT);
+        android.media.AudioManager output = (android.media.AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+        report.put("systemMusicVolume", output.getStreamVolume(android.media.AudioManager.STREAM_MUSIC));
+        report.put("systemMusicMaximum", output.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC));
+        report.put("webViewVersion", WebView.getCurrentWebViewPackage().versionName);
+        report.put("appVersion", context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName);
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(instance -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading();
+                    android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(null);
+                    android.webkit.WebStorage.getInstance().deleteAllData();
+                    web.clearCache(true);
+                    web.loadUrl(MediaPolicy.ORIGIN + "/search/Cartoon%20On%20On%20NCS?type=video");
+                } catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
+            });
+            WebView web = ref.get();
+            main(() -> { try { report.put("requiresSeparateMediaGesture", web.getSettings().getMediaPlaybackRequiresUserGesture()); } catch (org.json.JSONException error) { throw new RuntimeException(error); } });
+            try {
+                waitJs(web, "!!document.querySelector('input[role=combobox]')");
+                String probe;
+                try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("live-playback-probe.js")) { probe = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8); }
+                js(web, probe);
+                waitJs(web, "!!document.querySelector('[data-search-track] button[aria-label^=\"Play \"]')");
+                screenshot("live-playback-before");
+                tap(web, "[data-search-track] button[aria-label^='Play ']");
+                org.json.JSONObject sample = new org.json.JSONObject();
+                boolean played = false;
+                long started = android.os.SystemClock.elapsedRealtime();
+                for (int i = 0; i < 90; i++) {
+                    sample = liveSample(web);
+                    org.json.JSONObject youtube = sample.optJSONObject("youtube");
+                    boolean embedded = youtube != null && youtube.optInt("state", -1) == 1 && youtube.optDouble("position", 0) > 2
+                        && youtube.has("muted") && !youtube.isNull("muted") && !youtube.optBoolean("muted", true) && youtube.optDouble("volume", 0) > 0;
+                    org.json.JSONArray media = sample.optJSONArray("media");
+                    boolean nativePlaying = false;
+                    if (media != null) for (int index = 0; index < media.length(); index++) {
+                        org.json.JSONObject audio = media.getJSONObject(index);
+                        if (audio.optBoolean("native") && !audio.optBoolean("paused", true) && !audio.optBoolean("muted", true) && audio.optDouble("volume", 0) > 0 && audio.optDouble("position", 0) > 2) nativePlaying = true;
+                    }
+                    if (embedded || nativePlaying) { played = true; break; }
+                    if (sample.optJSONArray("providerErrors").length() > 0 && android.os.SystemClock.elapsedRealtime() - started > 12_000 && !sample.getJSONObject("ui").optBoolean("pauseVisible")) break;
+                    Thread.sleep(500);
+                }
+                report.put("outcome", played ? "playback_progress_with_nonzero_output_settings" : "no_verified_playback");
+                report.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+                report.put("sample", sample);
+                report.put("physicalSpeakerAudibilityVerified", false);
+                screenshot("live-playback-result");
+                evidence("live-playback", report);
+                System.out.println("ANDROID_QA_LIVE_PLAYBACK " + report);
+                if (played) {
+                    tap(web, "[data-testid='player-dock'] button[aria-label='Pause']");
+                    waitJs(web, "(()=>{const s=qaLivePlayback.snapshot();return s.youtube.state===2||s.media.some(m=>m.native&&m.paused)})()");
+                    org.json.JSONObject paused = liveSample(web);
+                    Thread.sleep(1500);
+                    org.json.JSONObject afterPause = liveSample(web);
+                    org.json.JSONObject pausedYoutube = paused.getJSONObject("youtube");
+                    if (pausedYoutube.optInt("state", -1) == 2) {
+                        assertEquals("Embedded playback stays paused", pausedYoutube.optDouble("position"), afterPause.getJSONObject("youtube").optDouble("position"), .3);
+                    }
+                    report.put("pauseVerified", true); report.put("pausedSample", paused);
+                    evidence("live-playback", report);
+                    screenshot("live-playback-paused");
+                } else {
+                    assertFalse("A provider that produced no verified playback must not leave a false Pause/playing control; see live-playback.json", sample.getJSONObject("ui").optBoolean("pauseVisible"));
+                }
+            } finally {
+                if (!report.has("outcome")) { report.put("outcome", "could_not_reach_playback_probe"); evidence("live-playback", report); screenshot("live-playback-incomplete"); }
+            }
+        }
+    }
     @Test public void nativeBridgePlaysInBackgroundAndHonorsMediaControls() throws Exception {
         PlaybackService service = bind(); byte[] audio = tone();
         Field factoryField = PlaybackService.class.getDeclaredField("sourceFactory"); factoryField.setAccessible(true);
@@ -206,6 +304,19 @@ public class AndroidPlaybackTest {
             System.out.println("ANDROID_QA_WEBVIEW " + WebView.getCurrentWebViewPackage().versionName);
             System.out.println("ANDROID_QA_ABORT_ANY " + js(web, "typeof AbortSignal.any"));
             js(web, "document.getElementById('play').click()"); waitJs(web, "qaDeck.getCurrentTime() > 1 && qaDeck.getPlayerState() === 1");
+            AtomicReference<Boolean> decodedAudio = new AtomicReference<>(false);
+            main(() -> {
+                androidx.media3.exoplayer.ExoPlayer active = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                androidx.media3.exoplayer.DecoderCounters counters = active.getAudioDecoderCounters();
+                if (counters != null) counters.ensureUpdated();
+                decodedAudio.set(active.isPlaying() && active.getVolume() > 0 && active.getAudioFormat() != null
+                    && counters != null && counters.renderedOutputBufferCount > 0
+                    && active.getAudioAttributes().usage == androidx.media3.common.C.USAGE_MEDIA);
+                System.out.println("ANDROID_QA_NATIVE_AUDIO playing=" + active.isPlaying() + " volume=" + active.getVolume()
+                    + " decodedOutputBuffers=" + (counters == null ? 0 : counters.renderedOutputBufferCount)
+                    + " audioFormat=" + (active.getAudioFormat() == null ? "none" : active.getAudioFormat().sampleMimeType));
+            });
+            assertTrue("The native audio renderer must decode output buffers at a nonzero volume", decodedAudio.get());
             screenshot("native-playing");
             ActivityManager manager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
             assertTrue("Playing audio needs a foreground notification service", manager.getRunningServices(100).stream().anyMatch(s -> s.service.getClassName().equals(PlaybackService.class.getName()) && s.foreground));

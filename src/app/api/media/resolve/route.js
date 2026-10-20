@@ -58,13 +58,15 @@ async function handle(request, action, body) {
 }
 export async function GET(request) {
   if (!request.nextUrl.searchParams.has("receipt")) {
+    if (!isMobileMediaRequest(request.headers)) return reply({ enabled: false, reason: "mobile_only" });
     const config = mediaServiceConfig();
-    if (!isMobileMediaRequest(request.headers) || !config.enabled || (config.internal && !config.playbackEnabled)) return reply({ enabled: false });
+    if (!config.enabled) return reply({ enabled: false, reason: "service_unconfigured" });
+    if (config.internal && !config.playbackEnabled) return reply({ enabled: false, reason: "service_disabled" });
     try {
       const token = await getToken(tokenOptions(request));
       const user = token?.id ? await resolveSessionUser(token) : null;
-      return reply({ enabled: Boolean(user) });
-    } catch { return reply({ enabled: false }); }
+      return reply({ enabled: Boolean(user), reason: user ? null : "authentication_required" });
+    } catch { return reply({ enabled: false, reason: "service_unavailable" }); }
   }
   return handle(request, "poll", { receipt: request.nextUrl.searchParams.get("receipt") });
 }
