@@ -24,7 +24,8 @@ async function inspect(page) {
     const values = attr => [...home.querySelectorAll(`[${attr}]`)].map(node => node.getAttribute(attr)).filter(Boolean);
     const halves = Object.fromEntries([...home.querySelectorAll('[data-home-section]')].map(section => [section.dataset.homeSection, { tracks: section.querySelectorAll('[data-home-track]').length, playlists: section.querySelectorAll('[data-home-playlist]').length }]));
     const overflow = home.getBoundingClientRect().right > innerWidth + 2 || document.documentElement.scrollWidth > innerWidth + 2;
-    return { tracks: values('data-home-track'), recordings: values('data-home-recording'), playlists: values('data-home-playlist'), halves, overflow };
+    const playlistLogos = [...home.querySelectorAll('.home-mix img')].map(image => image.getAttribute('src'));
+    return { tracks: values('data-home-track'), recordings: values('data-home-recording'), playlists: values('data-home-playlist'), playlistLogos, halves, overflow };
   });
 }
 function verify(state) {
@@ -34,6 +35,7 @@ function verify(state) {
   assert.equal(state.halves.explore.tracks, 12);
   assert.equal(state.halves['for-you'].playlists, 4);
   assert.equal(state.halves.explore.playlists, 4);
+  assert(state.playlistLogos.length > 0 && state.playlistLogos.every(src => src.startsWith('/_next/static/media/')), 'Playlist logos use deployed static assets without the unavailable image optimizer');
 }
 (async () => {
   let ready = false;
@@ -96,6 +98,13 @@ function verify(state) {
       await page.getByRole('heading', { name: 'This week on HayKasa', exact: true }).waitFor();
       if (!['private', 'guest'].includes(name)) await page.getByRole('heading', { name: 'This day on HayKasa', exact: true }).waitFor();
       else assert.equal(await page.getByRole('heading', { name: 'This day on HayKasa', exact: true }).count(), 0);
+      if (name === 'taste') {
+        await page.locator('.home-mix img').first().scrollIntoViewIfNeeded();
+        await page.waitForFunction(() => {
+          const image = document.querySelector('.home-mix img');
+          return image?.complete && image.naturalWidth > 0;
+        });
+      }
       const before = await inspect(page); verify(before);
       const ink = await page.locator('.app-shell').evaluate(node => getComputedStyle(node).getPropertyValue('--appearance-play-ink').trim());
       assert.equal(ink, '#ffffff', 'Web primary controls keep readable text on the supplied blue');

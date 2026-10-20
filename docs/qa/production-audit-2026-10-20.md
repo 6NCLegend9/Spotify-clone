@@ -1,0 +1,64 @@
+# Main production client verification — 2026-10-20
+
+This audit follows a guest from Home or Search through the real production API and audio provider, then checks the installed clients independently. Playwright drives the website and attaches to the installed applications' browser engines; Android screenshots and logs also come directly from ADB, while Windows captures the native screen and process/event diagnostics. No provider mocks, local web-build substitution, production account writes or deployment changes are used in these production checks.
+
+Separate agents own website, Windows, Android and media-provider verification. [Ponytail](https://github.com/DietrichGebert/ponytail) 5.3.2 is installed and enabled; its instructions are applied directly to the investigation and focused repairs. Its installation is not evidence that an application test passed.
+
+## Exact targets
+
+| Target | Verified identity | Scope |
+| --- | --- | --- |
+| Main website | `haykasa.vercel.app`, Vercel `dpl_5o6Anej5ae3vfmfk4jbz9hqM39sD`, source `3edca65f0a2cb04158540eb7254a3c183c0c76c1` | Fresh Chromium desktop and mobile profiles; actual guest navigation, search, playback controls and storage metadata. |
+| Settings Windows download | `desktop-latest`, published 2026-09-22, source tag resolves to `62a3a219f249d8f7c7f0861fbbe97ee319ffe1f0`; EXE SHA-256 `5f163cdf097b30ecc5a83e48602ed301890f8df66f04751dae034f90e7c9f36b` | Byte-identical public installer; isolated Windows runner and fresh profile. |
+| Settings Android download | `android-preview`, published 2026-10-17, source `2279fffe690fa3f7e61e518fdb05540b6f796503`; APK SHA-256 `40076622cae6a5049fbcb2c9449964d42915179e1ada0d8e6aa02a863b26a1c9` | Byte-identical public APK; Android 16 emulator and live main website. |
+| PR39 repairs | Runtime source `22e6a4d`, Android 1.0.2 / code 3 | Separate controlled browser and Android 13/16 regression checks. Unmerged code is not deployed production. |
+
+## Production website and provider findings
+
+1. **Silent SDK failure leaves playing controls active — Medium.** Open a fresh profile, search for a song and select Play when the actual YouTube SDK request fails. The observed production player remains at 0:00 with Pause, an empty video panel and no visible recovery action after 20 seconds. This executor's outbound proxy rejects the SDK request; that explains the request failure, while the missing error handling is an application defect. PR39 handles SDK failure/readiness timeout, stops false playing controls and shows Retry. The failure was observed without route interception or injected provider errors.
+
+2. **Public native downloads lag behind repairs — Medium.** Download the installers through Settings and compare their public release identities above with main and PR39. Neither existing binary gains native code changes from a website deployment. PR39 prepares immutable, validated Android preview publication after a trusted main build and both emulator checks; it preserves prior releases. Debug APKs require manual installation. Windows additionally needs a valid release/update feed.
+
+3. **Signed Windows update feed unavailable — Medium.** Production `/api/desktop/manifest` reports no published signed stable release; `/api/desktop/update/stable/latest.yml` returns 404. An installer download alone does not establish an eligible automatic update. Publish a verified release with the required maintained signing configuration before promising automatic Windows delivery. No keys or release assets were changed by this audit.
+
+4. **Guest source audio is unavailable; worker health does not prove music — High for Android background-playback readiness.** Ordinary desktop, Android Chrome and native Android requests to `/api/media/resolve` return HTTP 200 with `enabled:false`. `/media-health` returns ready with private Blob storage and request-scoped jobs, confirming the worker exists. Main omits the unavailability reason; PR39 adds safe categories. Guest checks cannot distinguish authentication, disabled activation or configuration. The retained October 17 hosted extraction failed with `source_access_restricted`; no new authenticated extraction was run here. Preserve the access controls and establish successful real source extraction, delivery and decoding before activation.
+
+5. **Production setup instructions described a different worker architecture — Low.** `PRODUCTION.md` previously said Vercel did not run the Python/FFmpeg jobs, despite the configured and responding media container/private binding. The instructions now distinguish the existing Vercel deployment from optional standalone hosting and retain the real-audio activation prerequisite.
+
+6. **Six homepage playlist badges are broken — Low, image delivery.** Open guest Home and inspect the small logo on each playlist card. The optimizer URL `/_next/image?url=%2F_next%2Fstatic%2Fmedia%2FHayKasa-logo-removebg.71262e68.png&w=640&q=75` returns app HTML with HTTP 404; the original bundled PNG at `/_next/static/media/HayKasa-logo-removebg.71262e68.png` returns HTTP 200. All six cards record `naturalWidth:0`. This is independent of external thumbnail proxy failures. The shared `MixCard` now serves that existing bundled image directly with `unoptimized`, preserving its dimensions/layout. A rebuilt current-source UI and all sixteen existing desktop/mobile Home scenarios pass, with new direct-source and actual image-decoding checks. Main production remains unchanged until deployment.
+
+Main production song and artist text submissions stay on the search index; selecting an artist result opens its channel. Artist and playlist filter navigation also reach their corresponding pages. Fresh browser profiles return an unauthenticated session and no authentication session cookie. The APK WebView, Electron and Chrome use separate cookie stores; browser-installed PWAs share their browser's storage. Existing native sessions can survive updates. The reported first-ever automatic login on the dummy phone remains unreproduced; cookie persistence is a possible explanation, not a verified diagnosis.
+
+Some artist rows display unknown-duration dashes. Both initial and paginated channel responses already attempt bounded duration hydration, and this path has no main/PR39 difference. An unavailable upstream length intentionally renders a dash; no additional code defect was established by that observation.
+
+## Installed-client execution evidence
+
+The dedicated production workflows are [Android Production QA](../../.github/workflows/android-production-qa.yml) and [Production Windows Desktop Smoke](../../.github/workflows/desktop-production-smoke.yml). They install public release bytes after verifying GitHub asset digests. The production Android measurement deliberately fails its functional gate when it records a released-app defect; a completed evidence run must not be described as all features working.
+
+### Released Windows app
+
+[Windows run 39465892678](https://github.com/6NCLegend9/Spotify-clone/actions/runs/39465892678) installed the exact public EXE on Windows, launched packaged HayKasa 1.0.0 / win32 x64 and attached Playwright to its loopback debugging endpoint. Home, Search and Settings each returned HTTP 200 and rendered as guests, with no captured page exceptions or horizontal overflow. The installer is `NotSigned`. A manual native update check returned **“No signed stable desktop release has been published yet.”** An earlier independent run, 39464889695, reproduced the same findings.
+
+**Released player enters a provider-rejection loop — Medium, playback/error handling.** Search `2pac`, select a visible song and wait 18 seconds. The player remains at time 0 with Pause visible, repeatedly searches alternate uploads, advances to unrelated mashups and floods the view with “Trying another upload…” and provider-rejection/automatic-skip messages. This is a real installed-app/main-production reproduction, independent of the local browser proxy's SDK failure. PR39's terminal-error and bounded-recovery repairs address this behavior when its shared web UI is deployed. They cannot make an upstream-rejected song playable.
+
+The test tapped Next and observed a different selection, but ongoing automatic advancement prevents attributing that change solely to the manual tap. The Windows smoke workflow succeeded in installing, collecting evidence and executing its UI checks; **live music did not pass**. Timeline progression and physical audibility were not verified. Native screenshots, Authenticode/version/process data and browser results are retained in its workflow artifact. The event query produced no crash-log file; this is not proof of an exhaustive clean system-log audit.
+
+### Released Android app
+
+[Android run 39465892491](https://github.com/6NCLegend9/Spotify-clone/actions/runs/39465892491) installed the exact public 1.0.0-debug APK on Android 16 / API 36, WebView 133.0.6943.137. Playwright completed Home, Browse, song results, an artist channel, a public playlist, guest Library, Create/login gates, Settings, landscape, real Play and background/foreground return. Fifteen original device PNGs and sanitized diagnostics are retained. The portrait viewport is 393×851 CSS pixels; landscape is 851×393. No horizontal overflow, unhandled page exception or AndroidRuntime fatal exception was captured. The fresh session stayed guest, with CSRF/callback cookies and no authentication session cookie.
+
+**Real song never starts — High, playback availability.** Search `Cartoon On On NCS`, tap the first real song and wait twenty seconds. The probe recorded twelve YouTube error-150 callbacks, repeated loading/unstarted states, position 0, volume 0 and Pause still active. The selected song had already changed automatically from `On & On` to `I Remember U`. Error notifications cover the screen while no useful stopped-player feedback is available. Background inspection found no active native source session. The provider is rejecting the embeds; the automatic replacement/false-playing behavior is an additional application defect addressed by PR39. Neither result proves live yt-dlp playback.
+
+**Phone content overlaps system bars — Medium, native layout.** Launch that public APK in a fresh API 36 emulator. Native screenshots show status icons over the Home controls and the bottom gesture handle over navigation labels. No horizontal overflow is required to reproduce it. PR39 already moves the WebView inside actual native system/cutout/keyboard insets; that requires a new installed APK, not just a web deployment.
+
+The first production runner stopped after launch because browser-context cookie inspection is unsupported by Android WebView. That was a harness failure; page-target cookie inspection fixed it, and the full repeat completed. The full repeat also exposed a QA selector choosing a hidden desktop Next button before the visible mobile one. Its recorded `available:false` is not evidence that the product lacks Next. The selector is corrected for a dedicated repeat; this run does not claim healthy manual skipping. PR39's separate installed-current-build checks already verify a physical Next selection after a paused terminal error.
+
+The production workflow's functional result is deliberately **false** for the observed released playback defects. Completed screenshots/navigation collection is not a music pass.
+
+## PR39 regression evidence and limits
+
+Runtime source `22e6a4d` passed [Android run 39425426849](https://github.com/6NCLegend9/Spotify-clone/actions/runs/39425426849), with ten installed-app checks passing independently on Android 13 and 16. CI, security, homepage discovery, mobile playback and playlist layout/duration checks also passed for that runtime. The [Android audit](android-playback-audit-2026-10-20.md) records reproduction steps and exact scope.
+
+Those PR checks serve the current compiled web UI through an instrumentation-only staging transport while leaving public APIs and YouTube live. They verify error handling, manual Next, renderer recovery, native synthetic decoding and phone rotation. Both real-song attempts still received provider error 150 with no verified playback. A green failure-state assertion means the failure is handled, not that music played.
+
+Physical speaker output, authenticated personal-library mutations, authenticated live extraction and reliable background playback remain unverified. The headless Android emulator uses `-noaudio`. The audit does not publish releases, activate source playback or merge PR39. No automatic login or shipped account credential was found in the tested guest flows.

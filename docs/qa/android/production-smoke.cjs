@@ -142,7 +142,7 @@ const category = message => /ERR_[A-Z_]+/.exec(message)?.[0] || /\b[A-Za-z]+Erro
       if (!rawProgress) finding('Live music has no observed provider playback progress', 'High', `Open Song search “Cartoon On On NCS” and tap the first result (${report.playedSelection})`, report.playback);
       if (!rawProgress && report.playback.pause) finding('Silent playback leaves Pause/playing controls active', 'Medium', 'Tap the first live result and wait 20 seconds', report.playback);
       const before = report.playback.selected;
-      const next = page.locator('[data-testid="player-dock"] button[aria-label="Next song"]').first();
+      const next = page.locator('[data-testid="player-dock"] button[aria-label="Next song"]:visible').first();
       if (await next.isVisible() && await next.isEnabled()) {
         await page.evaluate(() => window.__productionMediaProbe.frames.clear());
         await next.click(); await page.waitForTimeout(1000);

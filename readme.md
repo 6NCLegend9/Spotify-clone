@@ -190,7 +190,7 @@ the protected signed-release workflow.
 
 ### Android development
 
-Download the [published Android preview APK](https://github.com/6NCLegend9/Spotify-clone/releases/download/android-preview/HayKasa-Android.apk) directly, or use **Download for Android** beside the Windows download in Settings. The public APK does not automatically track new CI builds and may precede this branch's fixes. See [public preview downloads](./android/README.md#public-preview-download) for installation and release requirements.
+Use **Download for Android** in Settings to obtain the newest validated public preview. The card shows its source build/date; the legacy [PR35 preview](https://github.com/6NCLegend9/Spotify-clone/releases/download/android-preview/HayKasa-Android.apk) remains available as a fallback and can be older than this branch. See [public preview downloads](./android/README.md#public-preview-download).
 
 Samsung Auto Blocker can show **Unknown app blocked** for this APK because it is installed outside approved app stores. Use the browser without an APK, or review the [Samsung installation guidance](./android/README.md#samsung-unknown-app-blocked). APK signing alone does not remove this phone policy.
 
@@ -204,7 +204,7 @@ npm run android:bundle
 
 The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`; the bundle command writes `android/app/build/outputs/bundle/release/app-release.aab`. Without release-signing configuration the AAB is unsigned and cannot be uploaded to Play. The [Android workflow](./.github/workflows/android-ci.yml) uploads the debug APK, unsigned review bundle, and device reports. The manual [Play Store bundle workflow](./.github/workflows/android-play-store.yml) uses protected upload-key secrets to produce a verified signed AAB. See [Play Store release setup](./android/README.md#play-store-release-bundle) before distribution.
 
-The [Publish Android Preview workflow](./.github/workflows/android-preview-release.yml) validates a successful, merged source build before publishing the initial public APK. It rejects replacing an existing preview with different bytes; normal APK CI does not replace the public download.
+The [Publish Android Preview workflow](./.github/workflows/android-preview-release.yml) waits for a successful main APK build and Android 13/16 emulator checks, then publishes an immutable source-SHA preview. Settings selects the newest validated versioned release; older APKs are preserved. Preview APKs still require manual installation. See the [playback and session audit](./docs/qa/android-playback-audit-2026-10-20.md) and [main production website/Windows/Android audit](./docs/qa/production-audit-2026-10-20.md). Dedicated [Windows](./.github/workflows/desktop-production-smoke.yml) and [Android](./.github/workflows/android-production-qa.yml) production checks install the actual public downloads and preserve screenshots and diagnostic artifacts.
 
 ### Optional media service
 
