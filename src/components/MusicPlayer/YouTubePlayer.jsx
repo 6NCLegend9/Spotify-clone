@@ -954,7 +954,7 @@ function YouTubePlayer() {
         buildYoutubeSearchUrl({ type: "video", q: query }, "queue"),
         {
           fallbackTitle: "Could not find another upload",
-          fallbackMessage: "Skipping to the next track.",
+          fallbackMessage: "Choose another song or retry playback.",
         },
       );
       const results = Array.isArray(data?.results) ? data.results : [];
@@ -1066,19 +1066,12 @@ function YouTubePlayer() {
         }
       }
 
-      // skipQueue, or no alternate upload was found.
+      // A failed recovery must preserve the user's selected song. Advancing to
+      // another queue entry resets its retry budget and can consume the entire
+      // queue (or keep extending radio) while the provider remains unavailable.
       alternateState.rejectedIds.add(current.id);
-      setPlayerError(null);
-      markExpectPlaying();
-      const advanced = await playNextOrContinueRef.current?.(false, { avoidId: current.id });
-      if (advanced === false) {
-        getActivePlayer()?.pauseVideo?.();
-        stopWithError(policy.error);
-        return;
-      }
-      if (advanced === true) {
-        toast.error(`${policy.error?.message || "Couldn’t play this song."} Skipped to the next track.`);
-      }
+      getActivePlayer()?.pauseVideo?.();
+      stopWithError(policy.error);
     } finally {
       if (failureResolveRef.current === recoveryScope.identity) failureResolveRef.current = null;
     }

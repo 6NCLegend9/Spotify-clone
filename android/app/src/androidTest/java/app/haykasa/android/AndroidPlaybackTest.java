@@ -48,20 +48,42 @@ public class AndroidPlaybackTest {
         }
     }
     private void screenshot(String name) throws Exception {
+        if (!name.matches("[a-z0-9-]+")) throw new IllegalArgumentException("Invalid screenshot name");
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         Thread.sleep(500); // Allow the committed WebView frame to reach the emulator display.
         shell("mkdir -p /sdcard/Download/haykasa-emulator-qa");
-        shell("screencap -p /sdcard/Download/haykasa-emulator-qa/" + name + ".png");
+        String filename = "/sdcard/Download/haykasa-emulator-qa/" + name + ".png";
+        shell("screencap -p " + filename);
+        try (java.io.InputStream file = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("cat " + filename))) {
+            byte[] bytes = file.readAllBytes();
+            assertTrue("Screenshot must contain actual PNG bytes: " + name, bytes.length > 1024);
+            assertArrayEquals("Screenshot must have the PNG signature: " + name,
+                new byte[]{(byte)137, 80, 78, 71, 13, 10, 26, 10}, java.util.Arrays.copyOf(bytes, 8));
+        }
     }
     private org.json.JSONObject liveSample(WebView web) throws Exception {
-        Object encoded = new org.json.JSONTokener(js(web, "JSON.stringify(window.qaLivePlayback?.snapshot() || {})")).nextValue();
+        Object encoded = new org.json.JSONTokener(js(web, "(()=>{try{return JSON.stringify(window.qaLivePlayback?.snapshot() || {probeStatus:'missing',documentState:document.readyState,routeCategory:location.pathname.startsWith('/search')?'search':'other'})}catch{return JSON.stringify({probeStatus:'snapshot_exception'})}})()")).nextValue();
         return new org.json.JSONObject(String.valueOf(encoded));
     }
     private void evidence(String name, org.json.JSONObject value) throws Exception {
         if (!name.matches("[a-z0-9-]+")) throw new IllegalArgumentException("Invalid evidence name");
         shell("mkdir -p /sdcard/Download/haykasa-emulator-qa");
-        String encoded = android.util.Base64.encodeToString(value.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
-        shell("printf %s " + encoded + " | base64 -d > /sdcard/Download/haykasa-emulator-qa/" + name + ".json");
+        String expected = value.toString(2);
+        String encoded = android.util.Base64.encodeToString(expected.getBytes(java.nio.charset.StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
+        String filename = "/sdcard/Download/haykasa-emulator-qa/" + name + ".json";
+        // UiAutomation executes a command directly; it does not interpret pipes
+        // or redirects. Send only the trusted script/base64 data to sh's stdin.
+        android.os.ParcelFileDescriptor[] descriptors = InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommandRw("sh");
+        try (java.io.OutputStream input = new android.os.ParcelFileDescriptor.AutoCloseOutputStream(descriptors[1])) {
+            input.write(("echo " + encoded + " | base64 -d > " + filename + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        try (java.io.InputStream output = new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptors[0])) {
+            while (output.read() != -1) { /* Wait for the script to finish. */ }
+        }
+        try (java.io.InputStream file = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("cat " + filename))) {
+            assertEquals("Playback evidence must exist in the collected JSON artifact", expected,
+                new String(file.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
     private void tap(WebView web, String selector) throws Exception {
         String quoted = org.json.JSONObject.quote(selector);
@@ -189,6 +211,11 @@ public class AndroidPlaybackTest {
         assertEquals("Native session must be registered with its foreground service", Integer.valueOf(1), count.get());
     }
     @Test public void liveGuestSongReportsActualPlaybackOrProviderFailure() throws Exception {
+        final int priorBuildDocuments = QaCurrentWeb.mainDocumentCount();
+        final String probe;
+        try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("live-playback-probe.js")) {
+            probe = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
         CountDownLatch cookies = new CountDownLatch(1);
         main(() -> android.webkit.CookieManager.getInstance().removeAllCookies(done -> cookies.countDown()));
         assertTrue("Guest profile cookies cleared", cookies.await(10, TimeUnit.SECONDS));
@@ -208,24 +235,46 @@ public class AndroidPlaybackTest {
                     android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(null);
                     android.webkit.WebStorage.getInstance().deleteAllData();
                     web.clearCache(true);
+                    QaCurrentWeb.install(web);
+                    // A real navigation can replace the initial document while
+                    // search hydration settles. Observe every trusted document,
+                    // including one created after the first native screen tap.
+                    boolean atDocumentStart = androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT);
+                    report.put("documentStartProbeSupported", atDocumentStart);
+                    if (atDocumentStart) androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, probe, java.util.Collections.singleton(MediaPolicy.ORIGIN));
                     web.loadUrl(MediaPolicy.ORIGIN + "/search/Cartoon%20On%20On%20NCS?type=video");
-                } catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
+                } catch (ReflectiveOperationException | org.json.JSONException error) { throw new RuntimeException(error); }
             });
             WebView web = ref.get();
             main(() -> { try { report.put("requiresSeparateMediaGesture", web.getSettings().getMediaPlaybackRequiresUserGesture()); } catch (org.json.JSONException error) { throw new RuntimeException(error); } });
+            report.put("webMode", QaCurrentWeb.mode());
+            report.put("webSourceCommit", QaCurrentWeb.sourceCommit());
             try {
                 waitJs(web, "!!document.querySelector('input[role=combobox]')");
-                String probe;
-                try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("live-playback-probe.js")) { probe = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8); }
-                js(web, probe);
                 waitJs(web, "!!document.querySelector('[data-search-track] button[aria-label^=\"Play \"]')");
+                assertTrue("The live song probe must receive this runner build, never cached deployed HTML", !QaCurrentWeb.enabled() || QaCurrentWeb.mainDocumentCount() > priorBuildDocuments);
+                // Idempotent fallback for old WebViews without document-start
+                // support, installed only after the actual result list exists.
+                js(web, probe);
+                waitJs(web, "window.qaLivePlayback?.snapshot()?.schemaVersion===1");
                 screenshot("live-playback-before");
                 tap(web, "[data-search-track] button[aria-label^='Play ']");
+                waitJs(web, "!!document.querySelector('[data-testid=\"player-dock\"] [aria-label^=\"Expand player:\"]')");
                 org.json.JSONObject sample = new org.json.JSONObject();
                 boolean played = false;
                 long started = android.os.SystemClock.elapsedRealtime();
                 for (int i = 0; i < 90; i++) {
                     sample = liveSample(web);
+                    if (sample.optInt("schemaVersion") != 1 || sample.optJSONArray("providerErrors") == null
+                        || sample.optJSONArray("media") == null || sample.optJSONObject("ui") == null) {
+                        report.put("outcome", "playback_probe_lost");
+                        report.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+                        report.put("sample", sample);
+                        report.put("currentSourceRequests", QaCurrentWeb.requestCount());
+                        evidence("live-playback", report);
+                        screenshot("live-playback-incomplete");
+                        fail("The live playback probe lost its document/schema; no playback result may be inferred. See live-playback.json");
+                    }
                     org.json.JSONObject youtube = sample.optJSONObject("youtube");
                     boolean embedded = youtube != null && youtube.optInt("state", -1) == 1 && youtube.optDouble("position", 0) > 2
                         && youtube.has("muted") && !youtube.isNull("muted") && !youtube.optBoolean("muted", true) && youtube.optDouble("volume", 0) > 0;
@@ -236,16 +285,19 @@ public class AndroidPlaybackTest {
                         if (audio.optBoolean("native") && !audio.optBoolean("paused", true) && !audio.optBoolean("muted", true) && audio.optDouble("volume", 0) > 0 && audio.optDouble("position", 0) > 2) nativePlaying = true;
                     }
                     if (embedded || nativePlaying) { played = true; break; }
-                    if (sample.optJSONArray("providerErrors").length() > 0 && android.os.SystemClock.elapsedRealtime() - started > 12_000 && !sample.getJSONObject("ui").optBoolean("pauseVisible")) break;
+                    if (sample.getJSONArray("providerErrors").length() > 0 && android.os.SystemClock.elapsedRealtime() - started > 12_000 && !sample.getJSONObject("ui").optBoolean("pauseVisible")) break;
                     Thread.sleep(500);
                 }
                 report.put("outcome", played ? "playback_progress_with_nonzero_output_settings" : "no_verified_playback");
                 report.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
                 report.put("sample", sample);
+                report.put("currentSourceRequests", QaCurrentWeb.requestCount());
+                report.put("currentBuildDocuments", QaCurrentWeb.mainDocumentCount());
                 report.put("physicalSpeakerAudibilityVerified", false);
                 screenshot("live-playback-result");
                 evidence("live-playback", report);
                 System.out.println("ANDROID_QA_LIVE_PLAYBACK " + report);
+                assertTrue("Current-source staging must actually serve the compiled web build", !QaCurrentWeb.enabled() || QaCurrentWeb.requestCount() > 0);
                 if (played) {
                     tap(web, "[data-testid='player-dock'] button[aria-label='Pause']");
                     waitJs(web, "(()=>{const s=qaLivePlayback.snapshot();return s.youtube.state===2||s.media.some(m=>m.native&&m.paused)})()");
@@ -261,9 +313,10 @@ public class AndroidPlaybackTest {
                     screenshot("live-playback-paused");
                 } else {
                     assertFalse("A provider that produced no verified playback must not leave a false Pause/playing control; see live-playback.json", sample.getJSONObject("ui").optBoolean("pauseVisible"));
+                    assertTrue("An unsuccessful song tap must show visible playback recovery feedback", sample.getJSONObject("ui").optBoolean("feedbackVisible"));
                 }
             } finally {
-                if (!report.has("outcome")) { report.put("outcome", "could_not_reach_playback_probe"); evidence("live-playback", report); screenshot("live-playback-incomplete"); }
+                if (!report.has("outcome")) { report.put("outcome", "could_not_reach_playback_probe"); report.put("currentSourceRequests", QaCurrentWeb.requestCount()); evidence("live-playback", report); screenshot("live-playback-incomplete"); }
             }
         }
     }

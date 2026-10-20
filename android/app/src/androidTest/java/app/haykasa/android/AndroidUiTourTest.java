@@ -52,11 +52,32 @@ public class AndroidUiTourTest {
     private void record(String message) throws Exception {
         System.out.println("ANDROID_UI_TOUR " + message);
         String encoded = android.util.Base64.encodeToString((message + "\n").getBytes(StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
-        shell("mkdir -p " + DIRECTORY + "; echo " + encoded + " | base64 -d >> " + DIRECTORY + "/ui-tour.jsonl");
+        shell("mkdir -p " + DIRECTORY);
+        // executeShellCommand does not parse pipes/redirection. Supply the trusted
+        // script on sh's stdin; JSON itself is base64 data, never shell source.
+        android.os.ParcelFileDescriptor[] descriptors = InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommandRw("sh");
+        try (java.io.OutputStream input = new android.os.ParcelFileDescriptor.AutoCloseOutputStream(descriptors[1])) {
+            input.write(("echo " + encoded + " | base64 -d >> " + DIRECTORY + "/ui-tour.jsonl\n").getBytes(StandardCharsets.UTF_8));
+        }
+        try (java.io.InputStream output = new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptors[0])) {
+            while (output.read() != -1) { /* Wait for the script to finish. */ }
+        }
+        try (java.io.InputStream file = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("cat " + DIRECTORY + "/ui-tour.jsonl"))) {
+            String persisted = new String(file.readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue("Tour metrics must exist in the collected JSONL artifact", persisted.endsWith(message + "\n"));
+        }
     }
     private void screenshot(String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync(); Thread.sleep(400);
-        shell("mkdir -p " + DIRECTORY + "; screencap -p " + DIRECTORY + "/tour-" + name + ".png");
+        shell("mkdir -p " + DIRECTORY);
+        String filename = DIRECTORY + "/tour-" + name + ".png";
+        shell("screencap -p " + filename);
+        try (java.io.InputStream file = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("cat " + filename))) {
+            byte[] bytes = file.readAllBytes();
+            assertTrue("Tour screenshot must contain actual PNG bytes: " + name, bytes.length > 1024);
+            assertArrayEquals("Tour screenshot must have the PNG signature: " + name,
+                new byte[]{(byte)137, 80, 78, 71, 13, 10, 26, 10}, java.util.Arrays.copyOf(bytes, 8));
+        }
     }
     private void observe(WebView web) throws Exception {
         js(web, "(()=>{if(window.__uiTour)return;window.__uiTour={errors:[],rejections:[]};addEventListener('error',e=>__uiTour.errors.push(/^[A-Za-z]+Error$/.test(e.error?.name||'')?e.error.name:'WindowError'));addEventListener('unhandledrejection',e=>__uiTour.rejections.push(/^[A-Za-z]+Error$/.test(e.reason?.name||'')?e.reason.name:'UnhandledRejection'));})()");
@@ -68,8 +89,10 @@ public class AndroidUiTourTest {
         assertEquals(name + " has no captured unhandled JavaScript errors", "true", js(web, "!window.__uiTour || (!__uiTour.errors.length&&!__uiTour.rejections.length)"));
     }
     private void navigate(WebView web, String path) throws Exception {
+        int mainDocuments = QaCurrentWeb.mainDocumentCount();
         main(() -> web.loadUrl(MediaPolicy.ORIGIN + path));
         require(web, "location.pathname === " + org.json.JSONObject.quote(path.split("\\?")[0]) + " && document.readyState==='complete' && !!document.querySelector('.app-tabbar')");
+        if (QaCurrentWeb.enabled()) assertTrue("Navigation must receive this runner build, never cached deployed HTML", QaCurrentWeb.mainDocumentCount() > mainDocuments);
         observe(web);
     }
     private void click(WebView web, String selector) throws Exception {
@@ -89,6 +112,8 @@ public class AndroidUiTourTest {
             CountDownLatch cookies = new CountDownLatch(1);
             main(() -> { web.stopLoading(); CookieManager.getInstance().removeAllCookies(ignored -> cookies.countDown()); WebStorage.getInstance().deleteAllData(); });
             assertTrue("Disposable emulator cookies cleared", cookies.await(10, TimeUnit.SECONDS));
+            main(() -> { web.clearCache(true); QaCurrentWeb.install(web); });
+            record(new org.json.JSONObject().put("webMode", QaCurrentWeb.mode()).put("sourceCommit", QaCurrentWeb.sourceCommit()).toString());
             navigate(web, "/");
             js(web, "window.__guestCheck='pending';fetch('/api/auth/session',{cache:'no-store'}).then(r=>r.json()).then(s=>window.__guestCheck=s?.user?'authenticated':'guest').catch(()=>window.__guestCheck='error')");
             require(web, "window.__guestCheck !== 'pending'");
@@ -142,10 +167,10 @@ public class AndroidUiTourTest {
             click(web, ".app-tabbar a[href='/']");
             require(web, "location.pathname==='/'");
             assertEquals("Home tab reflects active route", "true", js(web, "document.querySelector('.app-tabbar a[href=\"/\"]').getAttribute('aria-current')==='page'"));
-            record("{\"tour\":\"complete\",\"scope\":\"Live deployed guest UI; no credentials, account writes or provider playback submitted\"}");
+            record(new org.json.JSONObject().put("tour", "complete").put("webMode", QaCurrentWeb.mode()).put("sourceCommit", QaCurrentWeb.sourceCommit()).put("currentBuildRequests", QaCurrentWeb.requestCount()).put("currentBuildMainDocuments", QaCurrentWeb.mainDocumentCount()).put("scope", "Guest UI; live public APIs; no credentials, account writes or provider playback submitted").toString());
             } catch (Exception | AssertionError failure) {
                 try { screenshot("99-failure"); record("{\"tour\":\"failed\",\"category\":" + org.json.JSONObject.quote(failure.getClass().getSimpleName()) + "}"); }
-                catch (Exception ignored) { /* Preserve the original assertion if evidence collection fails. */ }
+                catch (Exception | AssertionError ignored) { /* Preserve the original assertion if evidence collection fails. */ }
                 throw failure;
             }
         }

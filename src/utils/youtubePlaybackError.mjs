@@ -4,7 +4,7 @@ export const MAX_SAME_ID_RETRIES = 2;
 export const MAX_ALTERNATE_ATTEMPTS = 3;
 
 /**
- * @typedef {"retrySame" | "tryAlternate" | "skipQueue" | "fatalUI"} PlaybackFailureAction
+ * @typedef {"retrySame" | "tryAlternate" | "fatalUI"} PlaybackFailureAction
  */
 
 export function youtubeRecoveryScope(track) {
@@ -57,7 +57,8 @@ export function youtubePlaybackError(value) {
 
 /**
  * Decide the next automatic recovery step for a playback failure.
- * Caps same-id retries and alternate uploads so we never loop forever.
+ * Caps same-id retries and alternate uploads, then pauses the selected queue
+ * occurrence. A failure must never restart its budget by advancing the queue.
  *
  * @param {{
  *   code?: number | string | null,
@@ -94,12 +95,15 @@ export function youtubePlaybackFailurePolicy(input = {}) {
     : youtubePlaybackError(raw);
   const error = { kind: "playback", ...base };
 
-  // Missing player verification affects the embedded player itself. Searching
-  // alternate uploads or advancing a radio queue cannot repair its identity.
-  if (Number(raw) === 153) return { action: /** @type {PlaybackFailureAction} */ ("fatalUI"), error };
+  // Unavailable/private videos, owner embed blocks and missing player
+  // verification need a user choice. Automatically replacing uploads or
+  // advancing a radio queue can hide the restriction and consume the queue.
+  if ([100, 101, 150, 153].includes(Number(raw))) {
+    return { action: /** @type {PlaybackFailureAction} */ ("fatalUI"), error };
+  }
 
-  // Embed blocks never recover on the same id, and stalls were already
-  // reloaded twice by buffer recovery before reaching this policy.
+  // Stalls were already reloaded twice by buffer recovery before reaching
+  // this policy. Other transient failures retain bounded upload recovery.
   const retryable = !isStall && base.canRetry !== false;
   if (retryable && sameIdAttempts < MAX_SAME_ID_RETRIES) {
     return { action: /** @type {PlaybackFailureAction} */ ("retrySame"), error };
@@ -107,7 +111,7 @@ export function youtubePlaybackFailurePolicy(input = {}) {
   if (alternateAttempts < MAX_ALTERNATE_ATTEMPTS) {
     return { action: /** @type {PlaybackFailureAction} */ ("tryAlternate"), error };
   }
-  return { action: /** @type {PlaybackFailureAction} */ ("skipQueue"), error };
+  return { action: /** @type {PlaybackFailureAction} */ ("fatalUI"), error };
 }
 
 export function alternateSearchQuery(track) {

@@ -136,21 +136,32 @@ let browser, page;
   await waitTrack(tracks[2].title);
   await page.waitForFunction(() => window.qaYouTube.active()?.getPlayerState() === 1);
   await page.screenshot({ path: path.join(output, "mobile-skip.png") });
-  const beforeFailure = { title: await title(), calls: await page.evaluate(() => window.qaYouTube.calls.length), searches: searches.length };
-  await page.evaluate(() => window.qaYouTube.active().fail(153));
-  await page.getByText("YouTube could not verify this player.", { exact: true }).filter({ visible: true }).waitFor();
-  await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
-  await pause(1400);
-  assert.equal(await title(), beforeFailure.title, "Verification error does not consume the queue");
-  assert.equal(await page.evaluate(() => window.qaYouTube.calls.length), beforeFailure.calls, "Verification error does not reload or recreate the player");
-  assert.equal(searches.length, beforeFailure.searches, "Verification error does not search alternative uploads");
-  await page.screenshot({ path: path.join(output, "mobile-verification-error.png") });
-  await next().tap();
-  await waitTrack(tracks[3].title);
-  await page.waitForFunction(() => window.qaYouTube.active()?.getPlayerState() === 1);
+  for (const [offset, code, message] of [
+    [0, 150, "YouTube does not allow this video to play here."],
+    [1, 101, "YouTube does not allow this video to play here."],
+    [2, 100, "This video is unavailable or private."],
+    [3, 153, "YouTube could not verify this player."],
+  ]) {
+    const beforeFailure = { title: await title(), calls: await page.evaluate(() => window.qaYouTube.calls.length), searches: searches.length };
+    await page.evaluate(value => window.qaYouTube.active().fail(value), code);
+    const feedback = page.getByTestId("playback-feedback").filter({ visible: true });
+    await feedback.getByText(message, { exact: true }).waitFor();
+    await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
+    await pause(1400);
+    assert.equal(await title(), beforeFailure.title, `Provider error ${code} does not consume the queue`);
+    assert.equal(await page.evaluate(() => window.qaYouTube.calls.length), beforeFailure.calls, `Provider error ${code} does not reload or recreate the player`);
+    assert.equal(searches.length, beforeFailure.searches, `Provider error ${code} does not search alternative uploads`);
+    const bounds = await feedback.boundingBox();
+    assert(bounds && bounds.y >= 0 && bounds.y + bounds.height <= 844, `Provider error ${code} recovery panel remains in the phone viewport`);
+    assert.equal(await feedback.getByRole("button", { name: "Retry", exact: true }).count(), code === 153 ? 1 : 0, "Manual retry is shown only when useful");
+    await page.screenshot({ path: path.join(output, `mobile-provider-${code}.png`) });
+    await next().tap();
+    await waitTrack(tracks[3 + offset].title);
+    await page.waitForFunction(() => window.qaYouTube.active()?.getPlayerState() === 1);
+  }
   assert.equal(await page.getByText("Some account preferences couldn't sync.", { exact: false }).count(), 0, "Synthetic account preferences sync without an unrelated warning");
   assert.deepEqual(errors, [], "Production player has no unhandled UI exceptions");
-  const result = { passed: true, scope: "Production mobile UI with synthetic provider and APIs", searchTransitions, coverage: ["consecutive Search skips", "startup fade overlapping manual Skip", "consecutive Liked Songs skips", "terminal 153 preserves queue", "no automatic reload or alternate search", "manual Skip after error", "no unhandled UI exceptions"] };
+  const result = { passed: true, scope: "Production mobile UI with synthetic provider and APIs", searchTransitions, coverage: ["consecutive Search skips", "startup fade overlapping manual Skip", "consecutive Liked Songs skips", "terminal 100/101/150/153 preserve selection and queue", "visible recovery panel", "no automatic reload or alternate search", "manual Skip after each error", "no unhandled UI exceptions"] };
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 })().catch(async error => { await page?.screenshot({ path: path.join(output, "failure.png") }).catch(() => {}); console.error(error); process.exitCode = 1; }).finally(async () => { await browser?.close(); server.kill("SIGTERM"); log.end(); });

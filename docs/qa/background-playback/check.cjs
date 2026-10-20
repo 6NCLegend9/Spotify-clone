@@ -105,26 +105,47 @@ function recoveryCase() {
   };
 }
 (async()=>{
-  for (const code of [153, '153']) {
+  for (const code of [100, '100', 101, '101', 150, '150', 153, '153']) {
     const recovery = recoveryCase();
-    for (const attempts of [0, 2, 99]) assert.equal(recovery.policy.youtubePlaybackFailurePolicy({code, sameIdAttempts:attempts, alternateAttempts:attempts}).action, 'fatalUI');
+    for (const attempts of [0, 2, 99]) {
+      const result = recovery.policy.youtubePlaybackFailurePolicy({code, sameIdAttempts:attempts, alternateAttempts:attempts});
+      assert.equal(result.action, 'fatalUI', `Provider error ${code} stops at every recovery budget`);
+      assert.equal(result.error.canRetry, Number(code) === 153, `Provider error ${code} only offers a useful same-upload manual retry`);
+    }
+    const before = {...recovery.context.videoRef.current};
     await recovery.context.fail({code});
-    assert.equal(recovery.calls.stops, 1, 'Player verification failure must stop on its first error');
+    assert.equal(recovery.calls.stops, 1, `Provider error ${code} must stop on its first error`);
     assert.equal(recovery.calls.pauses, 1);
     assert.equal(recovery.context.userPausedRef.current, true);
-    assert.equal(recovery.calls.reloads + recovery.calls.searches + recovery.calls.advances, 0, 'Verification failure must not reload, search alternate uploads or consume the queue');
+    assert.deepEqual(recovery.context.videoRef.current, before, 'Terminal errors preserve the selected song and queue occurrence');
+    assert.equal(recovery.calls.reloads + recovery.calls.searches + recovery.calls.advances, 0, `Provider error ${code} must not reload, search alternate uploads or consume the queue`);
   }
-  for (const code of [100, 101, 150]) {
+  for (const code of [2, 5, 999, 'stall']) {
     const recovery = recoveryCase();
-    for (let attempt=0; attempt<4; attempt++) await recovery.context.fail({code});
-    assert.equal(recovery.calls.reloads, 0, 'Unavailable/blocked uploads must not retry the same video');
-    assert.equal(recovery.calls.searches, 3, 'Upload-specific failures retain their bounded alternate search');
-    assert.equal(recovery.calls.advances, 1);
-    assert.equal(recovery.calls.stops, 0);
+    const selectedOccurrence = recovery.context.videoRef.current.queueEntryId;
+    for (let attempt=0; attempt<24 && recovery.calls.stops === 0; attempt++) await recovery.context.fail({code});
+    assert.equal(recovery.calls.searches, 3, `Transient error ${code} retains its bounded alternate budget`);
+    assert.equal(recovery.calls.reloads, code === 'stall' ? 0 : 8, 'Each of the four attempted uploads has at most two same-ID retries');
+    assert.equal(recovery.calls.advances, 0, 'Exhausted recovery must not advance the queue and restart its budget');
+    assert.equal(recovery.calls.stops, 1, 'Exhausted recovery must surface the failure');
+    assert.equal(recovery.calls.pauses, 1);
+    assert.equal(recovery.context.userPausedRef.current, true);
+    assert.equal(recovery.context.videoRef.current.queueEntryId, selectedOccurrence, 'Bounded alternate recovery preserves the selected queue occurrence');
   }
-  for (const interruption of ['verification-error', 'autoplay-error', 'pause', 'track-change', 'none']) {
+  {
+    const recovery = recoveryCase();
+    const before = {...recovery.context.videoRef.current};
+    recovery.context.resolveAlternateUpload = async () => { recovery.calls.searches++; return null; };
+    await recovery.context.fail({code:'stall'});
+    assert.equal(recovery.calls.searches, 1, 'An exhausted upload search is attempted once');
+    assert.equal(recovery.calls.stops, 1, 'No alternative must expose the failure');
+    assert.equal(recovery.calls.advances, 0, 'No alternative must not silently consume the queue');
+    assert.deepEqual(recovery.context.videoRef.current, before, 'An empty recovery search preserves the selected song');
+  }
+  for (const interruption of ['verification-error', 'embed-error', 'autoplay-error', 'pause', 'track-change', 'none']) {
     const recovery = recoveryCase(); recovery.startSkip();
     if (interruption === 'verification-error') await recovery.context.fail({code:153});
+    if (interruption === 'embed-error') await recovery.context.fail({code:150});
     if (interruption === 'autoplay-error') await recovery.context.fail({kind:'autoplay'});
     if (interruption === 'pause') recovery.context.userPausedRef.current = true;
     if (interruption === 'track-change') recovery.context.videoRef.current = {id:'synthetic02', queueEntryId:'occurrence-B'};
@@ -193,5 +214,5 @@ function recoveryCase() {
   assert(pending.cancelled.includes('abandoned'),'Late abandoned receipts must be released');
   assert.equal(pending.timers.size,0);
   pending.deck.destroy();
-  console.log('PASS: terminal player verification, bounded upload recovery, interrupted and healthy skip fades, pending startup fade cancellation, uninterrupted startup fade, authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
+  console.log('PASS: terminal unavailable/embed/verification errors, bounded upload recovery without automatic queue advancement, interrupted and healthy skip fades, pending startup fade cancellation, uninterrupted startup fade, authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
 })().catch(error=>{console.error(error);process.exitCode=1});

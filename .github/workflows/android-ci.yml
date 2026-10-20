@@ -116,6 +116,13 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Generate native bridge fixture from production code
         run: node docs/qa/android/create-fixture.cjs
+      - name: Build current web UI for isolated emulator verification
+        run: npm run build
+        env:
+          DISABLE_PWA: "1"
+          NEXTAUTH_URL: https://haykasa.vercel.app
+          NEXTAUTH_SECRET: isolated-emulator-guest-session
+          JWT_SECRET: isolated-emulator-guest-session
       - name: Enable emulator hardware acceleration
         run: sudo chmod a+rw /dev/kvm
       - name: Run APK instrumentation on Android API ${{ matrix.api-level }}

@@ -48,7 +48,7 @@
       if (route !== "other") keep(network, { route, status: response.status });
       if (route === "/api/media/resolve" && (!args[1]?.method || args[1].method === "GET")) {
         void response.clone().json().then(result => {
-          const reasons = ["service_disabled", "authentication_required", "sign_in_required", "mobile_only", "setup_incomplete", "source_access_restricted", "unconfigured", "forbidden", "rate_limited"];
+          const reasons = ["service_disabled", "authentication_required", "service_unconfigured", "service_unavailable", "sign_in_required", "mobile_only", "setup_incomplete", "source_access_restricted", "unconfigured", "forbidden", "rate_limited"];
           mediaService = { enabled: result.enabled === true, reason: reasons.includes(result.reason) ? result.reason : "other" };
         }).catch(() => {});
       }
@@ -77,6 +77,7 @@
     snapshot() {
       const feedback = document.querySelector("[data-testid='playback-feedback'], .yt-dock-feedback");
       return {
+        schemaVersion: 1, documentStartedAt: bounded(performance.timeOrigin, 10_000_000_000_000), documentState: document.readyState,
         youtube: { ...youtube }, states: [...states], providerErrors: [...providerErrors], network: [...network], pageErrors, mediaService,
         iframeCount: [...document.querySelectorAll("iframe")].filter(node => { try { return youtubeOrigin(new URL(node.src).origin); } catch { return false; } }).length,
         media: [...document.querySelectorAll("audio,video")].slice(0, 4).map(node => ({ native: node.isAndroidNativeMedia === true, position: bounded(node.currentTime), duration: bounded(node.duration), paused: node.paused, muted: node.muted, volume: bounded(node.volume, 1), readyState: node.readyState, mediaError: node.error?.code || 0 })),
