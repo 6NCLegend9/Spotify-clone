@@ -29,6 +29,7 @@ import { selectAccentForeground, selectResolvedAccent } from "@/redux/features/a
 import { isAuthPath } from "@/utils/authPaths.mjs";
 import { isEmbedPath } from "@/utils/embedPaths.mjs";
 import { installAndroidNavigation } from "@/utils/androidNavigation.mjs";
+import { isNativeAndroidPhone } from "@/utils/responsivePolicy.mjs";
 
 const MusicPlayer = dynamic(
   () => import("@/components/MusicPlayer"),
@@ -75,6 +76,11 @@ export default function AppShell({ children }) {
   const embedRoute = isEmbedPath(pathname);
   const [showNav, setShowNav] = useState(false);
   const isPhoneViewport = useIsPhoneViewport();
+  const nativePhone = isPhoneViewport && typeof window !== "undefined" && isNativeAndroidPhone({
+    userAgent: window.navigator.userAgent,
+    width: window.innerWidth, height: window.innerHeight,
+    screenWidth: window.screen?.width, screenHeight: window.screen?.height,
+  });
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -272,6 +278,7 @@ export default function AppShell({ children }) {
         }}
         data-route={pathname === "/" ? "home" : "app"}
         data-phone={isPhoneViewport ? "true" : "false"}
+        data-native-phone={nativePhone ? "true" : "false"}
         data-has-track={hasTrack ? "true" : "false"}
         data-player={fullScreen ? "full" : "dock"}
       >

@@ -31,7 +31,7 @@ let browser, page;
   assert(ready, "Production server starts");
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: "block", reducedMotion: "reduce" });
-  await context.addInitScript(() => {
+  const installSyntheticPlayer = () => {
     delete Object.getPrototypeOf(navigator).serviceWorker;
     localStorage.setItem("toturialComplete", "true");
     localStorage.setItem("heykasa.media.presentation", "audio");
@@ -79,11 +79,12 @@ let browser, page;
         skips.push({ id: player?.id, state: player?.getPlayerState(), at: performance.now() });
       }
     }, true);
-  });
+  };
+  await context.addInitScript(installSyntheticPlayer);
   page = await context.newPage();
   const errors = [], searches = [];
   page.on("pageerror", error => errors.push(error.message));
-  await context.route("**/*", route => {
+  const intercept = route => {
     const request = route.request(), url = new URL(request.url());
     if (url.origin !== origin) return route.abort();
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -101,7 +102,8 @@ let browser, page;
       body = { results: url.searchParams.get("type") === "video" ? tracks : [], nextPageToken: "" };
     }
     return route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
-  });
+  };
+  await context.route("**/*", intercept);
   const dock = page.locator("[data-testid='player-dock']");
   const next = () => dock.getByRole("button", { name: "Next song", exact: true }).filter({ visible: true });
   const title = async () => (await dock.getByRole("button", { name: /^Expand player:/ }).getAttribute("aria-label")).replace("Expand player: ", "");
@@ -161,7 +163,61 @@ let browser, page;
   }
   assert.equal(await page.getByText("Some account preferences couldn't sync.", { exact: false }).count(), 0, "Synthetic account preferences sync without an unrelated warning");
   assert.deepEqual(errors, [], "Production player has no unhandled UI exceptions");
-  const result = { passed: true, scope: "Production mobile UI with synthetic provider and APIs", searchTransitions, coverage: ["consecutive Search skips", "startup fade overlapping manual Skip", "consecutive Liked Songs skips", "terminal 100/101/150/153 preserve selection and queue", "visible recovery panel", "no automatic reload or alternate search", "manual Skip after each error", "no unhandled UI exceptions"] };
+  const layoutResults = [];
+  const nativeAgent = "Mozilla/5.0 (Linux; Android 13; Pixel 5 Build/TQ3A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.0.0 Mobile Safari/537.36 HayKasaAndroid/1.0.2-debug";
+  for (const scenario of [
+    { name: "native-fine-landscape", viewport: { width: 802, height: 345 }, screen: { width: 393, height: 852 }, isMobile: true, hasTouch: false, userAgent: nativeAgent, native: true },
+    { name: "native-coarse-landscape", viewport: { width: 802, height: 345 }, screen: { width: 393, height: 852 }, isMobile: true, hasTouch: true, userAgent: nativeAgent, native: true },
+    { name: "desktop-fine-short-window", viewport: { width: 802, height: 345 }, screen: { width: 1440, height: 900 }, isMobile: false, hasTouch: false, native: false },
+    { name: "native-tablet-landscape", viewport: { width: 1024, height: 600 }, screen: { width: 800, height: 1280 }, isMobile: true, hasTouch: true, userAgent: nativeAgent, native: false },
+  ]) {
+    const { name, native, ...options } = scenario;
+    const layout = await browser.newContext({ ...options, serviceWorkers: "block", reducedMotion: "reduce" });
+    await layout.addInitScript(installSyntheticPlayer);
+    await layout.route("**/*", intercept);
+    page = await layout.newPage();
+    page.on("pageerror", error => errors.push(error.message));
+    await page.goto(origin + "/settings", { waitUntil: "domcontentloaded" });
+    await page.locator(".page-settings h1").waitFor();
+    await page.waitForFunction(expected => document.querySelector(".app-shell")?.getAttribute("data-native-phone") === String(expected), native);
+    const layoutMetrics = async () => page.evaluate(() => {
+      const box = node => { if (!node) return null; const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom, display: getComputedStyle(node).display }; };
+      return { width: innerWidth, height: innerHeight, fine: matchMedia("(pointer:fine)").matches, overflow: document.documentElement.scrollWidth - innerWidth,
+        native: document.querySelector(".app-shell")?.getAttribute("data-native-phone"), tabbar: box(document.querySelector(".app-tabbar")),
+        tabs: [...document.querySelectorAll(".app-tabbar a,.app-tabbar button")].map(box), sidebar: box(document.querySelector(".app-sidebar")), empty: box(document.querySelector(".empty-player-dock")), dock: box(document.querySelector("[data-testid='player-dock']")),
+      };
+    });
+    const requirePhone = metrics => {
+      assert.equal(metrics.overflow, 0, `${name}: no horizontal overflow`);
+      assert.equal(metrics.fine, !options.hasTouch, `${name}: the intended pointer mode is actually emulated`);
+      assert.equal(metrics.tabs.length, 4);
+      assert(metrics.tabbar && metrics.tabbar.height >= 44 && metrics.tabbar.y >= 0 && metrics.tabbar.bottom <= metrics.height + 1, `${name}: phone navigation remains inside the viewport`);
+      assert(metrics.tabs.every(box => box.width >= 44 && box.height >= 44 && box.x >= 0 && box.right <= metrics.width + 1 && box.y >= 0 && box.bottom <= metrics.height + 1), `${name}: all four navigation targets remain reachable`);
+      assert(!metrics.sidebar || metrics.sidebar.display === "none" || metrics.sidebar.right <= 1, `${name}: desktop library rail stays closed`);
+    };
+    const empty = await layoutMetrics();
+    if (native) {
+      requirePhone(empty);
+      assert(!empty.empty || empty.empty.display === "none", `${name}: no empty desktop transport`);
+    } else {
+      assert(empty.tabbar.display === "none" || empty.tabbar.height === 0, `${name}: existing desktop/tablet navigation is preserved`);
+      assert(empty.sidebar && empty.sidebar.x >= 0 && empty.sidebar.width > 0, `${name}: existing workspace sidebar is preserved`);
+    }
+    await page.screenshot({ path: path.join(output, `${name}-empty.png`) });
+    if (native) {
+      await page.goto(origin + "/search/Blue?type=video", { waitUntil: "domcontentloaded" });
+      await page.locator("[data-search-track]").first().getByRole("button", { name: "Play Blue song 1", exact: true }).click();
+      await page.waitForFunction(() => window.qaYouTube.active()?.getPlayerState() === 1);
+      const playing = await layoutMetrics();
+      requirePhone(playing);
+      assert(playing.dock && playing.dock.height <= 90 && playing.dock.y >= 0 && playing.dock.bottom <= playing.tabbar.y + 1, `${name}: active player remains compact above navigation`);
+      await page.screenshot({ path: path.join(output, `${name}-playing.png`) });
+      layoutResults.push({ name, passed: true, empty, playing });
+    } else layoutResults.push({ name, passed: true, empty });
+    await layout.close();
+  }
+  assert.deepEqual(errors, [], "All phone and desktop/tablet layouts have no unhandled UI errors");
+  const result = { passed: true, scope: "Production mobile UI with synthetic provider and APIs", searchTransitions, layoutResults, coverage: ["consecutive Search skips", "startup fade overlapping manual Skip", "consecutive Liked Songs skips", "terminal 100/101/150/153 preserve selection and queue", "visible recovery panel", "no automatic reload or alternate search", "manual Skip after each error", "no unhandled UI exceptions"] };
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 })().catch(async error => { await page?.screenshot({ path: path.join(output, "failure.png") }).catch(() => {}); console.error(error); process.exitCode = 1; }).finally(async () => { await browser?.close(); server.kill("SIGTERM"); log.end(); });

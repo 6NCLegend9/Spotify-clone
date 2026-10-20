@@ -175,3 +175,33 @@
 :global(.app-shell):has(.navbar) :global(.sidebar-resizer), :global(.app-shell):has(.navbar) :global(.right-panel-resizer) { cursor: col-resize; touch-action: none; }
 :global(.app-shell):has(.navbar) :global(.right-panel-resizer)::after { content: ""; position: absolute; inset: 0 3px; background: transparent; }
 :global(.app-shell):has(.navbar) :global(.right-panel-resizer:hover)::after, :global(.app-shell):has(.navbar) :global(.right-panel-resizer:focus-visible)::after { background: var(--teal-mid); }
+
+/* WebView can expose a fine pointer on a rotated phone. Keep the phone shell
+   without changing tablet, browser-desktop or Electron layout thresholds. */
+@media (orientation: landscape) and (min-width: 768px) and (max-width: 1100px) and (max-height: 600px) {
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) { display: grid; padding: 0; gap: 0; grid-template-columns: minmax(0,1fr); grid-template-rows: 56px minmax(0,1fr) var(--mobile-player-h) var(--mobile-tabbar-h); --mobile-tabbar-h: 52px; }
+ :global(.app-shell[data-native-phone="true"][data-has-track="false"]):has(.navbar) { --mobile-player-h: 0px; }
+ :global(.app-shell[data-native-phone="true"]) .navbar { height: 56px; min-height: 56px; padding: 4px 8px; grid-template-columns: auto minmax(0,1fr) auto; gap: 4px; }
+ :global(.app-shell[data-native-phone="true"]) .navbar:has([role="combobox"][aria-expanded="true"]) { grid-template-columns: minmax(0,1fr); }
+ :global(.app-shell[data-native-phone="true"]) .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-start), :global(.app-shell[data-native-phone="true"]) .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-end) { display: none; }
+ :global(.app-shell[data-native-phone="true"]) .brand, :global(.app-shell[data-native-phone="true"]) .signup, :global(.app-shell[data-native-phone="true"]) .install, :global(.app-shell[data-native-phone="true"]) .navbar :global(.nav-home-btn), :global(.app-shell[data-native-phone="true"]) .navbar :global(.search-browse), :global(.app-shell[data-native-phone="true"]) .navbar :global(.search-split), :global(.app-shell[data-native-phone="true"]) .navbar :global(.navbar-slot-start) > :not(button), :global(.app-shell[data-native-phone="true"]) .navbar :global(.navbar-slot-start) > button:nth-of-type(2), :global(.app-shell[data-native-phone="true"]) .navbar :global(.navbar-slot-end) > :not(:last-child) { display: none; }
+ :global(.app-shell[data-native-phone="true"]) .navbar :global(.search-field) { height: 44px; min-height: 44px; }
+ :global(.app-shell[data-native-phone="true"]) .login { min-height: 44px; padding: 0 14px; font-size: 13px; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-sidebar) { position: fixed; inset: 0 auto 0 0; z-index: 50; width: min(320px,86vw); height: 100%; transform: translateX(-100%); }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-sidebar.is-open) { transform: translateX(0); }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.sidebar-resizer), :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.right-panel-resizer), :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.now-playing-panel), :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.empty-player-dock) { display: none; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-stage) { grid-column: 1; grid-row: 2; border-radius: 0; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-player) { grid-column: 1; grid-row: 3; height: var(--mobile-player-h); max-height: var(--mobile-player-h); }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.player-dock:not(.player-dock--full)) { height: var(--mobile-player-h); min-height: var(--mobile-player-h); }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-tabbar) { display: flex; grid-column: 1; grid-row: 4; min-height: 52px; padding: 2px 8px; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-tab) { min-height: 44px; flex-direction: row; gap: 8px; padding: 2px 8px; font-size: 12px; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-tab svg) { width: 22px; height: 22px; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-tab.is-active) { color: #fff; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.kasa-sidebar-nav) { display: flex; flex-direction: column; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.home-avatar) { display: grid; }
+ :global(.app-shell[data-native-phone="true"][data-route="home"]):has(.navbar:not([data-search-opening="true"])) { grid-template-rows: 0 minmax(0,1fr) var(--mobile-player-h) var(--mobile-tabbar-h); }
+ :global(.app-shell[data-native-phone="true"][data-route="home"]) .navbar:not([data-search-opening="true"]) { display: none; }
+ :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.page), :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.page-home) { padding: 12px 16px 24px; }
+ :global(.app-shell[data-native-phone="true"][data-player="full"]):has(.navbar) :global(.app-tabbar) { display: none !important; }
+ :global(.app-shell[data-native-phone="true"][data-player="full"]):has(.navbar) :global(.app-player) { height: 100dvh; max-height: none; }
+}

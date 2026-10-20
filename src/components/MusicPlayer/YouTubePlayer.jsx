@@ -96,14 +96,6 @@ const requestMediaPresentation = (command) => {
   }));
 };
 
-const reportYoutubeProviderError = (code) => {
-  if (typeof window === "undefined") return;
-  const numericCode = Number(code);
-  window.dispatchEvent(new CustomEvent("heykasa:youtube-provider-error", {
-    detail: { code: Number.isFinite(numericCode) ? numericCode : 0 },
-  }));
-};
-
 const otherDeck = (key) => (key === "A" ? "B" : "A");
 const mediaLoadOptions = (player, track, startSeconds) => ({
   videoId: track.id,
@@ -1397,7 +1389,6 @@ function YouTubePlayer() {
         },
         onError: (event) => {
           if (!isCurrent()) return;
-          reportYoutubeProviderError(event.data);
           if (key === activeDeckRef.current) {
             clearActiveBufferTimers();
             void handlePlaybackFailureRef.current?.({
@@ -3043,6 +3034,7 @@ function YouTubePlayer() {
         {["A", "B"].map((key) => (
           <div
             key={key}
+            data-active-deck={key === activeDeck ? "true" : "false"}
             className="absolute inset-0 h-full w-full"
             style={{ opacity: key === activeDeck ? outgoingOpacity : incomingOpacity }}
           >

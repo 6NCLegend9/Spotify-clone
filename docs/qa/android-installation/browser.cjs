@@ -126,7 +126,7 @@ const results = [];
     assert.equal(await download.getAttribute("href"), "/api/android/download");
     assert.equal(await download.getAttribute("aria-describedby"), "android-install-note", "Download is described by the Samsung installation note");
     await card.getByText("Android 6.0+ · Preview · 4.8 MB", { exact: true }).waitFor();
-    await card.locator("[data-testid='android-preview-build']").getByText(/Build bbbbbbb/).waitFor();
+    await card.getByText(/Build bbbbbbb/).waitFor();
     assert.match(await card.locator("[data-testid='android-preview-build']").innerText(), /2026.*UTC/);
     assert.equal(await details.evaluate(node => node.open), false, "Installation help starts collapsed");
     await summary.focus();

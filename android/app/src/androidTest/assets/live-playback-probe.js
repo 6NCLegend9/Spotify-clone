@@ -6,21 +6,35 @@
     try { return ["www.youtube.com", "www.youtube-nocookie.com", "youtube.com", "youtube-nocookie.com"].includes(new URL(origin).hostname); }
     catch { return false; }
   };
-  const providerErrors = [];
-  const error = value => {
+  const blankYoutube = () => ({ ready: false, state: null, position: null, duration: null, volume: null, muted: null });
+  let players = new WeakMap();
+  let attempt = 0;
+  const appFrames = () => [...document.querySelectorAll("[data-testid='youtube-decks'] iframe")].filter(node => {
+    try { return youtubeOrigin(new URL(node.src).origin); } catch { return false; }
+  });
+  const activeFrame = () => appFrames().find(node => node.closest("[data-active-deck]")?.getAttribute("data-active-deck") === "true");
+  const error = (record, value) => {
     const code = Number(value);
-    if (Number.isInteger(code) && code >= 0 && code <= 999 && !providerErrors.includes(code)) keep(providerErrors, code, 16);
+    if (Number.isInteger(code) && code >= 0 && code <= 999 && !record.providerErrors.includes(code)) keep(record.providerErrors, code, 16);
   };
-  const youtube = { ready: false, state: null, position: null, duration: null, volume: null, muted: null };
-  const states = [], network = [];
+  const network = [];
   let pageErrors = 0, mediaService = null;
   window.addEventListener("message", event => {
     if (!youtubeOrigin(event.origin)) return;
+    // Keep each legitimate deck's messages separate. An inactive preload or
+    // outgoing crossfade must never prove playback of the selected song.
+    if (!appFrames().some(frame => frame.contentWindow === event.source)) return;
+    let record = players.get(event.source);
+    if (!record) {
+      record = { youtube: blankYoutube(), states: [], providerErrors: [] };
+      players.set(event.source, record);
+    }
+    const { youtube, states } = record;
     let data;
     try { data = typeof event.data === "string" ? JSON.parse(event.data) : event.data; } catch { return; }
     if (!data || typeof data !== "object") return;
     if (data.event === "onReady") youtube.ready = true;
-    if (data.event === "onError") error(data.info);
+    if (data.event === "onError") error(record, data.info);
     if (!["infoDelivery", "initialDelivery"].includes(data.event) || !data.info || typeof data.info !== "object") return;
     const info = data.info;
     if (Number.isInteger(info.playerState) && info.playerState >= -1 && info.playerState <= 5) {
@@ -33,7 +47,6 @@
     }
     if (typeof info.muted === "boolean") youtube.muted = info.muted;
   });
-  window.addEventListener("heykasa:youtube-provider-error", event => error(event.detail?.code));
   window.addEventListener("error", () => { pageErrors = Math.min(100, pageErrors + 1); });
   window.addEventListener("unhandledrejection", () => { pageErrors = Math.min(100, pageErrors + 1); });
   const originalFetch = window.fetch.bind(window);
@@ -74,13 +87,19 @@
   }
   const visibleButton = label => [...document.querySelectorAll("button[aria-label]")].some(node => node.getAttribute("aria-label") === label && visible(node));
   window.qaLivePlayback = {
+    // Start a separate observation for an explicit user action without changing
+    // the provider. A reused iframe must not retain the previous attempt's data.
+    resetAttempt() { players = new WeakMap(); attempt += 1; },
     snapshot() {
       const feedback = document.querySelector("[data-testid='playback-feedback'], .yt-dock-feedback");
+      const frame = activeFrame();
+      const record = frame ? players.get(frame.contentWindow) : null;
       return {
-        schemaVersion: 1, documentStartedAt: bounded(performance.timeOrigin, 10_000_000_000_000), documentState: document.readyState,
-        youtube: { ...youtube }, states: [...states], providerErrors: [...providerErrors], network: [...network], pageErrors, mediaService,
+        schemaVersion: 1, attempt, documentStartedAt: bounded(performance.timeOrigin, 10_000_000_000_000), documentState: document.readyState,
+        youtube: { ...(record?.youtube || blankYoutube()) }, states: [...(record?.states || [])], providerErrors: [...(record?.providerErrors || [])], network: [...network], pageErrors, mediaService,
+        activeIframeMatched: !!record,
         iframeCount: [...document.querySelectorAll("iframe")].filter(node => { try { return youtubeOrigin(new URL(node.src).origin); } catch { return false; } }).length,
-        media: [...document.querySelectorAll("audio,video")].slice(0, 4).map(node => ({ native: node.isAndroidNativeMedia === true, position: bounded(node.currentTime), duration: bounded(node.duration), paused: node.paused, muted: node.muted, volume: bounded(node.volume, 1), readyState: node.readyState, mediaError: node.error?.code || 0 })),
+        media: [...document.querySelectorAll("[data-testid='youtube-decks'] [data-active-deck='true'] audio,[data-testid='youtube-decks'] [data-active-deck='true'] video")].slice(0, 4).map(node => ({ native: node.isAndroidNativeMedia === true, position: bounded(node.currentTime), duration: bounded(node.duration), paused: node.paused, muted: node.muted, volume: bounded(node.volume, 1), readyState: node.readyState, mediaError: node.error?.code || 0 })),
         ui: { pauseVisible: visibleButton("Pause"), playVisible: visibleButton("Play"), feedbackPresent: !!feedback, feedbackVisible: visible(feedback), position: bounded(Number(document.querySelector("input[aria-label='Song progress']")?.value)) },
       };
     },

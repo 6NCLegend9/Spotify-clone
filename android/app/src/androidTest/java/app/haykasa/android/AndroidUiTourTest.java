@@ -83,16 +83,23 @@ public class AndroidUiTourTest {
         js(web, "(()=>{if(window.__uiTour)return;window.__uiTour={errors:[],rejections:[]};addEventListener('error',e=>__uiTour.errors.push(/^[A-Za-z]+Error$/.test(e.error?.name||'')?e.error.name:'WindowError'));addEventListener('unhandledrejection',e=>__uiTour.rejections.push(/^[A-Za-z]+Error$/.test(e.reason?.name||'')?e.reason.name:'UnhandledRejection'));})()");
     }
     private void capture(WebView web, String name) throws Exception {
-        String metrics = text(web, "JSON.stringify({screen:" + org.json.JSONObject.quote(name) + ",path:location.pathname,width:innerWidth,height:innerHeight,overflow:document.documentElement.scrollWidth-innerWidth,skeletons:document.querySelectorAll('.animate-shimmer').length,songs:document.querySelectorAll('[data-search-track],[data-home-track]').length,alerts:document.querySelectorAll('[role=alert]').length,errors:window.__uiTour||null,tabbar:[...document.querySelectorAll('.app-tabbar a,.app-tabbar button')].map(n=>({label:n.innerText||n.getAttribute('aria-label'),current:n.getAttribute('aria-current'),top:n.getBoundingClientRect().top,bottom:n.getBoundingClientRect().bottom}))})");
+        String metrics = text(web, "JSON.stringify({screen:" + org.json.JSONObject.quote(name) + ",path:location.pathname,width:innerWidth,height:innerHeight,screenWidth:screen.width,screenHeight:screen.height,finePointer:matchMedia('(pointer:fine)').matches,nativePhone:document.querySelector('.app-shell')?.dataset.nativePhone,overflow:document.documentElement.scrollWidth-innerWidth,skeletons:document.querySelectorAll('.animate-shimmer').length,songs:document.querySelectorAll('[data-search-track],[data-home-track]').length,alerts:document.querySelectorAll('[role=alert]').length,errors:window.__uiTour||null,tabbar:[...document.querySelectorAll('.app-tabbar a,.app-tabbar button')].map(n=>({label:n.innerText||n.getAttribute('aria-label'),current:n.getAttribute('aria-current'),top:n.getBoundingClientRect().top,bottom:n.getBoundingClientRect().bottom}))})");
         record(metrics); screenshot(name);
         assertEquals(name + " has no horizontal page overflow", "true", js(web, "document.documentElement.scrollWidth<=innerWidth+2"));
         assertEquals(name + " has no captured unhandled JavaScript errors", "true", js(web, "!window.__uiTour || (!__uiTour.errors.length&&!__uiTour.rejections.length)"));
     }
     private void navigate(WebView web, String path) throws Exception {
         int mainDocuments = QaCurrentWeb.mainDocumentCount();
+        js(web, "window.__qaPreviousNavigationDocument=true");
         main(() -> web.loadUrl(MediaPolicy.ORIGIN + path));
-        require(web, "location.pathname === " + org.json.JSONObject.quote(path.split("\\?")[0]) + " && document.readyState==='complete' && !!document.querySelector('.app-tabbar')");
-        if (QaCurrentWeb.enabled()) assertTrue("Navigation must receive this runner build, never cached deployed HTML", QaCurrentWeb.mainDocumentCount() > mainDocuments);
+        // Loading the current path can leave the previous ready document visible
+        // until the navigation response arrives. Wait for this runner's new
+        // HTML before checking its DOM, rather than accepting that old frame.
+        if (QaCurrentWeb.enabled()) {
+            for (int attempt = 0; attempt < 180 && QaCurrentWeb.mainDocumentCount() <= mainDocuments; attempt++) Thread.sleep(250);
+            assertTrue("Navigation must receive this runner build, never cached deployed HTML", QaCurrentWeb.mainDocumentCount() > mainDocuments);
+        }
+        require(web, "window.__qaPreviousNavigationDocument!==true && location.pathname === " + org.json.JSONObject.quote(path.split("\\?")[0]) + " && document.readyState==='complete' && !!document.querySelector('.app-tabbar')");
         observe(web);
     }
     private void click(WebView web, String selector) throws Exception {
@@ -101,6 +108,11 @@ public class AndroidUiTourTest {
     }
     private boolean settled(WebView web, String selector) throws Exception {
         return await(web, "!document.querySelector(" + org.json.JSONObject.quote(selector + " .animate-shimmer") + ") && !!document.querySelector(" + org.json.JSONObject.quote(selector) + ")", 45);
+    }
+    private void requirePhoneNavigation(WebView web) throws Exception {
+        require(web, "(()=>{const bar=document.querySelector('.app-tabbar');if(!bar||getComputedStyle(bar).display==='none')return false;const r=bar.getBoundingClientRect();return r.height>=44&&r.top>=0&&r.bottom<=innerHeight+1&&[...bar.querySelectorAll('a,button')].every(n=>{const b=n.getBoundingClientRect();return b.width>=44&&b.height>=44&&b.left>=0&&b.right<=innerWidth+1&&b.top>=0&&b.bottom<=innerHeight+1})})()");
+        assertEquals("A rotated phone must not show a desktop library sidebar", "true", js(web, "(()=>{const side=document.querySelector('.app-sidebar');if(!side||getComputedStyle(side).display==='none')return true;return side.getBoundingClientRect().right<=1})()"));
+        assertEquals("A rotated empty phone must not show desktop transport controls", "true", js(web, "(()=>{const empty=document.querySelector('.empty-player-dock');return !empty||getComputedStyle(empty).display==='none'})()"));
     }
 
     @Test public void freshGuestCanTourMainScreensInPortraitAndLandscape() throws Exception {
@@ -158,9 +170,11 @@ public class AndroidUiTourTest {
             capture(web, "09-settings-portrait");
             scenario.onActivity(activity -> activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
             require(web, "innerWidth>innerHeight");
+            requirePhoneNavigation(web);
             capture(web, "10-settings-landscape");
             navigate(web, "/search/2pac");
             require(web, "!!document.querySelector('[aria-label=\"Search results for 2pac\"]') && document.querySelector('[aria-label=\"Search results for 2pac\"]').getAttribute('aria-busy')==='false'");
+            requirePhoneNavigation(web);
             capture(web, "11-search-landscape");
             scenario.onActivity(activity -> activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
             require(web, "innerHeight>innerWidth");

@@ -94,6 +94,100 @@ public class AndroidPlaybackTest {
         double scale = geometry.get()[2] / point.getDouble(2);
         shell("input tap " + Math.round(geometry.get()[0] + point.getDouble(0) * scale) + " " + Math.round(geometry.get()[1] + point.getDouble(1) * scale));
     }
+    private boolean verifiedPlayback(org.json.JSONObject sample) throws org.json.JSONException {
+        org.json.JSONObject youtube = sample.optJSONObject("youtube");
+        if (sample.optBoolean("activeIframeMatched") && youtube != null && youtube.optInt("state", -1) == 1
+            && youtube.optDouble("position", 0) > 2 && youtube.has("muted") && !youtube.isNull("muted")
+            && !youtube.optBoolean("muted", true) && youtube.optDouble("volume", 0) > 0) return true;
+        org.json.JSONArray media = sample.optJSONArray("media");
+        if (media != null) for (int i = 0; i < media.length(); i++) {
+            org.json.JSONObject audio = media.getJSONObject(i);
+            if (audio.optBoolean("native") && !audio.optBoolean("paused", true) && !audio.optBoolean("muted", true)
+                && audio.optDouble("volume", 0) > 0 && audio.optDouble("position", 0) > 2) return true;
+        }
+        return false;
+    }
+    private double outputPosition(org.json.JSONObject sample) throws org.json.JSONException {
+        org.json.JSONObject youtube = sample.optJSONObject("youtube");
+        if (youtube != null && youtube.optInt("state", -1) == 1) return youtube.optDouble("position", 0);
+        org.json.JSONArray media = sample.optJSONArray("media");
+        if (media != null) for (int i = 0; i < media.length(); i++) {
+            org.json.JSONObject audio = media.getJSONObject(i);
+            if (audio.optBoolean("native") && !audio.optBoolean("paused", true)) return audio.optDouble("position", 0);
+        }
+        return 0;
+    }
+    private void verifyLiveManualSkip(WebView web, org.json.JSONObject report) throws Exception {
+        org.json.JSONObject skip = new org.json.JSONObject();
+        report.put("manualSkipVerified", false);
+        report.put("manualSkip", skip);
+        skip.put("outcome", "attempting_next_song");
+        // Titles are compared inside the disposable page only. Evidence records
+        // the change as a boolean, never the selected title/account state.
+        js(web, "(()=>{const label=()=>document.querySelector('[data-testid=\"player-dock\"] [aria-label^=\"Expand player:\"]')?.getAttribute('aria-label')||'';const initial=label();const oldFeedback=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');const state={selectedChanged:false,feedbackNodeChanged:false,feedbackCleared:false};const observe=()=>{state.selectedChanged=!!label()&&label()!==initial;const feedback=qaLivePlayback.snapshot().ui.feedbackVisible;const node=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');if(!feedback)state.feedbackCleared=true;state.feedbackNodeChanged=state.selectedChanged&&feedback&&node!==oldFeedback};const observer=new MutationObserver(observe);observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true});window.__qaManualSkip={state,observe,cleanup:()=>observer.disconnect()};observe()})()");
+        long started = android.os.SystemClock.elapsedRealtime();
+        org.json.JSONObject sample = new org.json.JSONObject();
+        try {
+            evidence("live-playback", report);
+            assertEquals("Each Next probe starts with no previous iframe evidence", "true", js(web, "(()=>{qaLivePlayback.resetAttempt();const s=qaLivePlayback.snapshot();return s.providerErrors.length===0&&!s.activeIframeMatched})()"));
+            tap(web, "[data-testid='player-dock'] button[aria-label='Next song']");
+            boolean changed = false;
+            for (int i = 0; i < 40; i++) {
+                if ("true".equals(js(web, "(()=>{__qaManualSkip.observe();return __qaManualSkip.state.selectedChanged})()"))) { changed = true; break; }
+                Thread.sleep(500);
+            }
+            skip.put("selectedSongChanged", changed);
+            skip.put("selectionElapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+            if (!changed) {
+                skip.put("outcome", "selection_did_not_advance");
+                skip.put("sample", liveSample(web));
+                evidence("live-playback", report);
+                screenshot("live-manual-skip-result");
+                fail("The real dock Next tap did not select a different song within 20 seconds; see live-playback.json");
+            }
+            boolean played = false, handledFailure = false;
+            long advancedAt = android.os.SystemClock.elapsedRealtime(), candidateAt = 0;
+            double candidatePosition = 0;
+            org.json.JSONObject freshness = new org.json.JSONObject();
+            for (int i = 0; i < 40; i++) {
+                sample = liveSample(web);
+                if (sample.optInt("schemaVersion") != 1 || sample.optJSONObject("ui") == null) {
+                    skip.put("outcome", "playback_probe_lost_after_skip");
+                    skip.put("sample", sample);
+                    evidence("live-playback", report);
+                    screenshot("live-manual-skip-result");
+                    fail("The playback probe lost its document/schema after a real Next tap");
+                }
+                freshness = new org.json.JSONObject(String.valueOf(new org.json.JSONTokener(js(web, "JSON.stringify(__qaManualSkip.state)")).nextValue()));
+                long now = android.os.SystemClock.elapsedRealtime();
+                if (verifiedPlayback(sample)) {
+                    if (candidateAt == 0) { candidateAt = now; candidatePosition = outputPosition(sample); }
+                    if (now - candidateAt >= 1000 && outputPosition(sample) > candidatePosition + .3) { played = true; break; }
+                } else candidateAt = 0;
+                org.json.JSONObject ui = sample.getJSONObject("ui");
+                boolean freshFailure = freshness.optBoolean("feedbackNodeChanged");
+                if (freshFailure && now - advancedAt >= 2000 && !ui.optBoolean("pauseVisible") && ui.optBoolean("feedbackVisible")) { handledFailure = true; break; }
+                Thread.sleep(500);
+            }
+            skip.put("outcome", played ? "next_song_playback_progress_with_nonzero_output_settings"
+                : handledFailure ? "next_song_provider_failure_visible_and_paused" : "next_song_not_settled");
+            skip.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+            skip.put("freshAttempt", freshness);
+            skip.put("sample", sample);
+            report.put("manualSkipVerified", played || handledFailure);
+            evidence("live-playback", report);
+            screenshot("live-manual-skip-result");
+            assertTrue("A manually selected next song must either progress or stop with fresh visible failure feedback, never the previous song's stale error; see live-playback.json", played || handledFailure);
+            if (!played) {
+                assertFalse("Next must not leave false Pause controls after provider rejection", sample.getJSONObject("ui").optBoolean("pauseVisible"));
+                assertTrue("Next provider failure must remain visible", sample.getJSONObject("ui").optBoolean("feedbackVisible"));
+            }
+        } finally {
+            skip.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+            evidence("live-playback", report);
+            js(web, "window.__qaManualSkip?.cleanup();delete window.__qaManualSkip");
+        }
+    }
     private boolean keyboardVisible(WebView web) {
         AtomicReference<Boolean> visible = new AtomicReference<>(false);
         main(() -> { android.view.WindowInsets insets = web.getRootWindowInsets(); visible.set(insets != null && insets.isVisible(android.view.WindowInsets.Type.ime())); });
@@ -315,6 +409,7 @@ public class AndroidPlaybackTest {
                     assertFalse("A provider that produced no verified playback must not leave a false Pause/playing control; see live-playback.json", sample.getJSONObject("ui").optBoolean("pauseVisible"));
                     assertTrue("An unsuccessful song tap must show visible playback recovery feedback", sample.getJSONObject("ui").optBoolean("feedbackVisible"));
                 }
+                verifyLiveManualSkip(web, report);
             } finally {
                 if (!report.has("outcome")) { report.put("outcome", "could_not_reach_playback_probe"); report.put("currentSourceRequests", QaCurrentWeb.requestCount()); evidence("live-playback", report); screenshot("live-playback-incomplete"); }
             }

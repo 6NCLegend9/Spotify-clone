@@ -3709,3 +3709,17 @@ body {
 @container (max-width: 639px) {
  .playlist-track-row:not([data-unavailable="true"]) > :last-child > button { display: none; }
 }
+
+/* Native phones retain touch navigation when a mouse/fine pointer is present.
+   The app marker is assigned only to phone-sized Android screens. */
+@media (orientation: landscape) and (min-width: 768px) and (max-width: 1100px) and (max-height: 600px) {
+  .app-shell[data-native-phone="true"] .phone-only-block { display: block !important; }
+  .app-shell[data-native-phone="true"] .phone-only-flex,
+  .app-shell[data-native-phone="true"] .phone-wide-only-flex { display: flex !important; }
+  .app-shell[data-native-phone="true"] .phone-only-grid { display: grid !important; }
+  .app-shell[data-native-phone="true"] .phone-only-inline { display: inline !important; }
+  .app-shell[data-native-phone="true"] .phone-only-inline-flex { display: inline-flex !important; }
+  .app-shell[data-native-phone="true"] .non-phone-only-flex,
+  .app-shell[data-native-phone="true"] .non-phone-only-inline-flex,
+  .app-shell[data-native-phone="true"] .phone-landscape-hidden { display: none !important; }
+}

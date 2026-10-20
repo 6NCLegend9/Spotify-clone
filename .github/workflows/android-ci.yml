@@ -66,6 +66,8 @@ jobs:
           node docs/qa/android/resolve-check.cjs
           node docs/qa/android/release-check.mjs
           node docs/qa/android/iframe-api-check.mjs
+          node docs/qa/android/live-probe-check.mjs
+          node docs/qa/android/native-layout-check.mjs
       - name: Build and check Android app
         working-directory: android
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug testReleaseUnitTest lintRelease bundleRelease
