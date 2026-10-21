@@ -14,6 +14,7 @@
     "start": "next start",
     "android:check": "node docs/qa/android/check.mjs",
     "android:build": "node scripts/android-build.mjs",
+    "android:bundle": "node scripts/android-build.mjs --bundle",
     "desktop": "npm --prefix desktop start",
     "desktop:install": "npm --prefix desktop ci",
     "desktop:build": "npm --prefix desktop run dist",

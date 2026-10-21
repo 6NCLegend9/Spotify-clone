@@ -9,10 +9,11 @@ const ts = require(path.join(root, 'node_modules/typescript'));
 const output = path.join(root, 'artifacts/mobile-source-vm');
 fs.mkdirSync(output, {recursive:true});
 const sources = {
-  '@/utils/mobileMediaPolicy.mjs':'src/utils/mobileMediaPolicy.mjs',
+  './mediaCapabilities.mjs':'src/components/MusicPlayer/media/mediaCapabilities.mjs',
   '@/utils/youtubeResumePolicy.mjs':'src/utils/youtubeResumePolicy.mjs',
   '@/utils/mediaSessionCompatibility.mjs':'src/utils/mediaSessionCompatibility.mjs',
   '@/utils/eqPresets':'src/utils/eqPresets.js',
+  '@/utils/nativeAudio.mjs':'src/utils/nativeAudio.mjs',
   './mediaPlayerStates.mjs':'src/components/MusicPlayer/media/mediaPlayerStates.mjs',
   './nativeAudioGraph.mjs':'src/components/MusicPlayer/media/nativeAudioGraph.mjs',
   './androidAudioElement.mjs':'src/components/MusicPlayer/media/androidAudioElement.mjs',
@@ -29,9 +30,8 @@ const script = `(() => {
  window.vmResult={ready:false,tracks:1,requests:0,events:[],errors:[],loggedIn:true};
  const mockResolver={resolveMediaAsset:async()=>{vmResult.requests++;return {receipt:'synthetic',asset:{url:assetUrl,duration:8,expiresAt:Date.now()+600000}}},cancelMediaReceipt(){}};
  function require(name){if(name==='./resolveMediaAsset.mjs')return mockResolver;if(cache[name])return cache[name].exports;const module={exports:{}};cache[name]=module;new Function('module','exports','require',modules[name])(module,module.exports,require);return module.exports;}
- const policy=require('@/utils/mobileMediaPolicy.mjs'), resume=require('@/utils/youtubeResumePolicy.mjs'), session=require('@/utils/mediaSessionCompatibility.mjs');
- vmResult.mobile=policy.isMobileMediaClient(navigator);
- vmResult.desktopNarrow=policy.isMobileMediaClient({userAgent:'Mozilla/5.0 (Windows NT 10.0) Chrome/130 Safari/537.36'});
+ const resume=require('@/utils/youtubeResumePolicy.mjs'), session=require('@/utils/mediaSessionCompatibility.mjs');
+ vmResult.profile=require('./mediaCapabilities.mjs').supportedMediaProfile('audio');
  window.vmGuestAllowed=()=>resume.authenticatedPlaybackOwner(null,'unauthenticated','guest');
  const {createNativeMediaDeck}=require('./nativeMediaDeck.mjs');
  let paused=true;
@@ -41,7 +41,7 @@ const script = `(() => {
  document.querySelector('#pause').onclick=()=>{paused=true;vmDeck.pauseVideo();};
  document.querySelector('#logout').onclick=()=>{paused=true;vmResult.loggedIn=false;vmDeck.destroy();session.publishMediaPlaybackState(navigator.mediaSession,false);};
  session.publishMediaMetadata(navigator.mediaSession,{title:'Synthetic VM audio',artist:'Offline test'},window.MediaMetadata);
- window.vmSample=()=>({time:vmDeck.getCurrentTime(),state:vmDeck.getPlayerState(),paused:document.querySelector('audio')?.paused,visibility:document.visibilityState,tracks:vmResult.tracks,errors:[...vmResult.errors],mobile:vmResult.mobile,requests:vmResult.requests});
+ window.vmSample=()=>({time:vmDeck.getCurrentTime(),state:vmDeck.getPlayerState(),paused:document.querySelector('audio')?.paused,visibility:document.visibilityState,tracks:vmResult.tracks,errors:[...vmResult.errors],profile:vmResult.profile,requests:vmResult.requests});
 })();`;
 const html='<title>HayKasa VM audio</title><main><h1>Offline playback engine test</h1><p>Synthetic audio. This is a test fixture, not the HayKasa UI.</p><div id="media"></div><button id="play">Play</button><button id="pause">Pause</button><button id="logout">Log out</button></main>';
 async function waitFor(page, predicate) {await page.waitForFunction(predicate,null,{timeout:20000,polling:100});}
@@ -59,7 +59,7 @@ async function waitFor(page, predicate) {await page.waitForFunction(predicate,nu
     const page=await context.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
     if(name==='chromium'){const protocol=await context.newCDPSession(page);await protocol.send('Emulation.setFocusEmulationEnabled',{enabled:false});}
     await page.setContent(html);await page.addScriptTag({content:script});await waitFor(page,()=>vmResult.ready);
-    assert.equal(await page.evaluate(()=>vmResult.mobile),true);assert.equal(await page.evaluate(()=>vmResult.desktopNarrow),false);assert.equal(await page.evaluate(()=>vmGuestAllowed()),false);
+    assert.ok(['auto','webm-opus','mp4-aac'].includes(await page.evaluate(()=>vmResult.profile)));assert.equal(await page.evaluate(()=>vmGuestAllowed()),false);
     await page.click('#play');await waitFor(page,()=>vmDeck.getCurrentTime()>0.4 && vmDeck.getPlayerState()===1);
     const before=await page.evaluate(()=>vmSample());
     await page.bringToFront();

@@ -1,8 +1,14 @@
 # HayKasa media service
 
-The service prepares anonymous YouTube source streams through yt-dlp and delivers complete, seekable files to signed-in mobile web players. Desktop and guest playback use the embedded provider.
+The service prepares public YouTube source streams through yt-dlp and delivers complete, seekable files to signed-in web, desktop and Android players when native playback is activated. Guests use the embedded provider. Song lookup and selected video IDs remain unchanged.
 
-For the stateless Vercel Services deployment and private Blob storage, see [Vercel setup and verification](../docs/qa/vercel-media/README.md). The instructions below describe the compatible single-instance Docker deployment. FFmpeg copies streams without re-encoding. It does not provide lossless originals or Premium access.
+Production uses the stateless Vercel Services deployment and private Blob storage described in [Vercel setup and verification](../docs/qa/vercel-media/README.md). The frontend receives the private service URL from its binding. Worker startup does not prove usable source audio; activation requires successful real extraction, delivery and decoding. See the [live verification results](../docs/qa/vercel-media/RESULTS.md) before enabling `MEDIA_SERVICE_PLAYBACK_ENABLED`. FFmpeg copies streams without re-encoding. It does not provide lossless originals or Premium access.
+
+The `auto` profile uses yt-dlp's format ranking to choose compatible Opus or AAC from the same source, with video pairing when requested. Single-codec clients retain explicit profiles. Prepared descriptors report FFprobe's sample rate, channels and audio bitrate, labeling container/upstream bitrate estimates. [Audio quality tests](../docs/qa/audio-quality/README.md) verify real remuxed packet hashes and browser DSP; increasing a number cannot restore detail absent from the source.
+
+## Alternative standalone Docker deployment
+
+The instructions below apply when the Vercel internal binding is absent. They describe the compatible single-instance service with local persistent storage, rather than the stateless production container.
 
 Build with `docker build -t haykasa-media media-service`. Run one instance with port 8090 behind HTTPS and a writable persistent volume mounted at `/cache`. Set:
 
@@ -22,4 +28,4 @@ Only `/health` and signed `/v1/assets/:id` delivery are public. All job routes r
 
 The runtime/dependencies are pinned in Dockerfile/requirements.txt. To update yt-dlp/EJS, review upstream release notes, change pins together, rebuild, and manually verify extraction and actual source-stream decoding from the intended hosting egress. YouTube may reject datacenter traffic or require unsupported authentication. Do not publish a quality guarantee based only on local synthetic files or successful metadata extraction.
 
-Production activation requires working extraction egress, storage, bandwidth capacity, configured server credentials, and live mobile browser verification. Automated test suites were removed at the owner's request.
+Production activation requires working extraction egress, storage, bandwidth capacity, configured server credentials, and live mobile device verification. Automated storage, delivery and synthetic-audio checks are documented in [Vercel verification](../docs/qa/vercel-media/README.md#verification); they do not establish live source playback.

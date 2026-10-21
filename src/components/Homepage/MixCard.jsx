@@ -95,7 +95,7 @@ export default function MixCard({ mix }) {
         </span>
       ) : null}
       <span className="absolute left-2.5 top-2.5 z-[2] h-6 w-6 overflow-hidden sm:h-7 sm:w-7">
-        <Image src={logo} alt="" className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
+        <Image src={logo} alt="" unoptimized className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
       </span>
       <span className="home-mix-title !right-16">
         <span className="home-mix-bar" style={{ background: palette.bar || "#096192" }} />

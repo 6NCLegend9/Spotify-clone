@@ -11,6 +11,24 @@ function finiteDimension(value) {
   return Number.isFinite(number) && number >= 0 ? number : 0;
 }
 
+// Android WebView can report a fine pointer when a mouse is attached (including
+// an emulator). A native phone still needs its phone navigation after rotation.
+// Use the app marker and physical CSS screen size so a tablet's short window or
+// keyboard does not turn its workspace into a phone layout.
+export function isNativeAndroidPhone({ userAgent = "", screenWidth, screenHeight, width, height } = {}) {
+  if (!/Android/i.test(userAgent) || !/Mobile/i.test(userAgent) || !/\bHayKasaAndroid\//.test(userAgent)) return false;
+  const screenW = finiteDimension(screenWidth), screenH = finiteDimension(screenHeight);
+  const shortSide = screenW && screenH ? Math.min(screenW, screenH) : Math.min(finiteDimension(width), finiteDimension(height));
+  return shortSide > 0 && shortSide <= 600;
+}
+
+export function nativeAndroidPhoneLayout(viewport = {}) {
+  return isNativeAndroidPhone(viewport)
+    && finiteDimension(viewport.width) > 0 && finiteDimension(viewport.height) > 0
+    && finiteDimension(viewport.width) <= 1100
+    && (finiteDimension(viewport.width) <= 767 || finiteDimension(viewport.height) <= 600);
+}
+
 export function responsiveLayoutForViewport({ width, height, pointer = "fine" } = {}) {
   const viewportWidth = finiteDimension(width);
   const viewportHeight = finiteDimension(height);

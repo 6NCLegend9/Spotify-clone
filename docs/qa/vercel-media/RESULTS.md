@@ -1,3 +1,25 @@
+# Audio quality preview: hosted extraction retest — 2026-10-21
+
+Source `a0d39d19ad0830ad12d6e90753c1c1b45bd63ab1` deployed successfully as
+`dpl_HgLpaiADLKBXf6FrYDVRxbanCu7p`. The actual preview preflight returned HTTP 503:
+
+```json
+{"ready":false,"storage":"passed","range":"passed","stage":"extraction_mp4-aac","reason":"source_access_restricted"}
+```
+
+Private Blob persistence, renewal and signed byte-range delivery still work.
+YouTube rejected the fixed public sample at extraction, so no live source reached
+decoding. The production activation flag remains zero. The branch-scoped probe
+setting was reset to zero after the check. The installed yt-dlp `2026.8.19` and
+EJS `0.8.0` match the stable versions returned by PyPI on this date.
+
+The new [audio fidelity checks](../audio-quality/README.md) verify automatic
+Opus/AAC choice, packet-preserving remux and browser DSP independently. They do
+not turn this hosted failure into a live playback pass. No personal provider
+cookies, credentials or access-control changes were used.
+
+---
+
 # Hosted live extraction retest after registry cleanup — 2026-10-17
 
 The media registry capacity blocker has been cleared. The protected preview

@@ -36,6 +36,12 @@ jobs:
       - name: Stateless Vercel media regression cases
         run: python3 docs/qa/vercel-media/check.py
 
+      - name: Verify automatic source selection and packet-identical audio remux
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python3 docs/qa/audio-quality/check.py
+
       - name: Build Vercel container and verify runtime startup
         run: |
           docker build -f media-service/Dockerfile.vercel -t haykasa-vercel-media media-service

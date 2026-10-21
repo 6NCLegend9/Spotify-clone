@@ -63,7 +63,10 @@ export function playerOutputVolume(playbackVolume, masterVolume, ratio = 1) {
 }
 
 export function applyLatestOutputVolume(player, levels, ratio = 1) {
-  const volume = playerOutputVolume(levels?.playbackVolume, levels?.masterVolume, ratio);
+  // Browser-native decks apply playback level in their audio graph. Android
+  // and YouTube apply it through setVolume, so each path applies it once.
+  const base = player?.provider === "native" && !player?.androidNative ? 100 : levels?.playbackVolume;
+  const volume = playerOutputVolume(base, levels?.masterVolume, ratio);
   player?.setVolume?.(volume);
   return volume;
 }

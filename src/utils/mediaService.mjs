@@ -16,7 +16,7 @@ export function mediaServiceConfig(env = process.env) {
   } catch { return { enabled: false, origin: "", apiKey, secret }; }
 }
 export function validateMediaRequest(body) {
-  if (!body || typeof body.videoId !== "string" || !/^[A-Za-z0-9_-]{11}$/.test(body.videoId || "") || !["audio", "video"].includes(body.mode) || ![1080, 1440, 2160].includes(body.maxHeight) || !["webm-opus", "mp4-aac"].includes(body.profile)) return null;
+  if (!body || typeof body.videoId !== "string" || !/^[A-Za-z0-9_-]{11}$/.test(body.videoId || "") || !["audio", "video"].includes(body.mode) || ![1080, 1440, 2160].includes(body.maxHeight) || !["auto", "webm-opus", "mp4-aac"].includes(body.profile)) return null;
   return { videoId: body.videoId, mode: body.mode, maxHeight: body.maxHeight, profile: body.profile };
 }
 export async function callMediaService(config, path, { method = "GET", body, subscriber }) {
@@ -44,7 +44,7 @@ export function normalizeMediaResult(value, config) {
     if (url.origin !== (config.deliveryOrigin || config.origin) || !/^\/v1\/assets\/[a-f0-9]{32}$/.test(url.pathname) || url.username || url.password || url.hash || !Number.isFinite(asset.expiresAt) || asset.expiresAt <= Date.now() || !Number.isFinite(asset.duration) || asset.duration <= 0 || asset.duration > 1801 || !["audio/webm", "video/webm", "audio/mp4", "video/mp4"].includes(asset.mimeType) || !["opus", "aac", "vp9/opus", "h264/aac"].includes(asset.codec)) throw new Error("Invalid media asset");
     const bitrate = (n) => Number.isFinite(n) && n > 0 && n < 2000 ? n : null;
     const height = (n) => Number.isInteger(n) && n > 0 && n <= 2160 ? n : null;
-    result.asset = { url: url.href, expiresAt: asset.expiresAt, mimeType: asset.mimeType, duration: asset.duration, codec: asset.codec, audioBitrateKbps: bitrate(asset.audioBitrateKbps), height: height(asset.height) };
+    result.asset = { url: url.href, expiresAt: asset.expiresAt, mimeType: asset.mimeType, duration: asset.duration, codec: asset.codec, audioBitrateKbps: bitrate(asset.audioBitrateKbps), audioBitrateEstimated: asset.audioBitrateEstimated !== false, sampleRateHz: Number.isInteger(asset.sampleRateHz) && asset.sampleRateHz >= 8000 && asset.sampleRateHz <= 192000 ? asset.sampleRateHz : null, channels: Number.isInteger(asset.channels) && asset.channels >= 1 && asset.channels <= 8 ? asset.channels : null, height: height(asset.height) };
     result.qualities = (Array.isArray(value.qualities) ? value.qualities : []).slice(0, 20).map((q) => ({ height: height(q.height), codec: ["vp9/opus", "h264/aac"].includes(q.codec) ? q.codec : "", audioBitrateKbps: bitrate(q.audioBitrateKbps) })).filter((q) => q.height && q.codec);
   }
   return result;

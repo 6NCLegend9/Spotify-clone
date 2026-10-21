@@ -672,6 +672,7 @@ select:-webkit-autofill {
   }
 
   .app-player {
+    position: relative;
     grid-row: 2;
     z-index: 30;
     min-height: 0;
@@ -3603,8 +3604,16 @@ body {
   grid-template-areas: "feedback" "dock";
 }
 
+/* The dock has a fixed-height shell slot; feedback must open above it. */
 .yt-dock-feedback {
-  grid-area: feedback;
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
+  max-height: calc(100dvh - var(--mobile-player-h) - var(--mobile-tabbar-h) - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--hairline);
+  border-radius: 12px 12px 0 0;
 }
 
 .yt-dock-preview {
@@ -3699,4 +3708,18 @@ body {
 .playlist-track-row[data-unavailable="true"] .group-hover\:hidden { display: inline; }
 @container (max-width: 639px) {
  .playlist-track-row:not([data-unavailable="true"]) > :last-child > button { display: none; }
+}
+
+/* Native phones retain touch navigation when a mouse/fine pointer is present.
+   The app marker is assigned only to phone-sized Android screens. */
+@media (orientation: landscape) and (min-width: 768px) and (max-width: 1100px) and (max-height: 600px) {
+  .app-shell[data-native-phone="true"] .phone-only-block { display: block !important; }
+  .app-shell[data-native-phone="true"] .phone-only-flex,
+  .app-shell[data-native-phone="true"] .phone-wide-only-flex { display: flex !important; }
+  .app-shell[data-native-phone="true"] .phone-only-grid { display: grid !important; }
+  .app-shell[data-native-phone="true"] .phone-only-inline { display: inline !important; }
+  .app-shell[data-native-phone="true"] .phone-only-inline-flex { display: inline-flex !important; }
+  .app-shell[data-native-phone="true"] .non-phone-only-flex,
+  .app-shell[data-native-phone="true"] .non-phone-only-inline-flex,
+  .app-shell[data-native-phone="true"] .phone-landscape-hidden { display: none !important; }
 }

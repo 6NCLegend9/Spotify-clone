@@ -9,8 +9,6 @@ import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { mediaServiceConfig, validateMediaRequest, callMediaService, normalizeMediaResult } from "@/utils/mediaService.mjs";
 import { signMediaReceipt, verifyMediaReceipt, mediaScopeHash } from "@/utils/mediaReceipts.mjs";
 
-import { isMobileMediaRequest } from "@/utils/mobileMediaPolicy.mjs";
-
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
@@ -24,7 +22,6 @@ function trusted(request) {
   return process.env.NODE_ENV !== "production" && origin === request.nextUrl.origin;
 }
 async function handle(request, action, body) {
-  if (action !== "cancel" && !isMobileMediaRequest(request.headers)) return reply({ state: "failed", reason: "mobile_only" }, 403);
   const config = mediaServiceConfig();
   if (config.internal) config.deliveryOrigin = request.nextUrl.origin;
   if (!config.enabled) return reply({ state: "failed", reason: "service_unconfigured" }, 503);
@@ -59,12 +56,13 @@ async function handle(request, action, body) {
 export async function GET(request) {
   if (!request.nextUrl.searchParams.has("receipt")) {
     const config = mediaServiceConfig();
-    if (!isMobileMediaRequest(request.headers) || !config.enabled || (config.internal && !config.playbackEnabled)) return reply({ enabled: false });
+    if (!config.enabled) return reply({ enabled: false, reason: "service_unconfigured" });
+    if (config.internal && !config.playbackEnabled) return reply({ enabled: false, reason: "service_disabled" });
     try {
       const token = await getToken(tokenOptions(request));
       const user = token?.id ? await resolveSessionUser(token) : null;
-      return reply({ enabled: Boolean(user) });
-    } catch { return reply({ enabled: false }); }
+      return reply({ enabled: Boolean(user), reason: user ? null : "authentication_required" });
+    } catch { return reply({ enabled: false, reason: "service_unavailable" }); }
   }
   return handle(request, "poll", { receipt: request.nextUrl.searchParams.get("receipt") });
 }

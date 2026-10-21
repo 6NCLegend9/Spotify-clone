@@ -397,7 +397,7 @@ export default function YouTubeMusicResults({ query }) {
       {loading && <CardGridSkeleton count={6} aspect="aspect-video" />}
       {!loading && !songError && resultType === "video" && searchSource === "fallback" && visibleResults.length > 0 && (
         <p className="mb-4 text-sm text-gray-400" role="status">
-          These results are unverified for in-app playback. Some may fail here even when they work on YouTube. HayKasa will try another upload or skip automatically.
+          Some songs may be blocked by YouTube. If one cannot play, choose another version or open it on YouTube.
         </p>
       )}
       {!loading && songError && (

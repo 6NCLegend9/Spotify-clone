@@ -61,3 +61,7 @@ next-env.d.ts
 /android/**/*.jks
 /android/**/*.keystore
 /android/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pfx

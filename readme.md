@@ -35,7 +35,7 @@ The preview is a repository-owned brand image. UI screenshots and dated verifica
 - **HayKasa Jam** — signed realtime session events, host/guest roles, shared playback state, AUX controls, persistent rooms, and QR/link sharing.
 - **Responsive UI** — desktop multi-panel shell, mobile tab navigation, bottom player, expanded media, keyboard/media-session controls, reduced-motion support, and accessibility settings.
 - **Windows desktop** — sandboxed Electron shell, system-browser auth, Discord Desktop IPC, tray/startup controls, appearance profiles, diagnostics, safe mode, and a signing-gated native updater.
-- **Android preview** — the production mobile interface in a restricted WebView, native Media3 playback for successfully resolved audio, media controls, Back navigation, document-picker uploads, and renderer-crash recovery.
+- **Android** — the production mobile interface in a restricted WebView, native Media3 playback for successfully resolved audio, safe screen insets, media controls, Back navigation, document-picker uploads, renderer-crash recovery, and Google Play update prompts for store installs.
 
 ## Platform status and playback limits
 
@@ -43,7 +43,7 @@ The preview is a repository-owned brand image. UI screenshots and dated verifica
 | --- | --- |
 | Web / PWA | The primary application. YouTube embedding remains subject to provider restrictions; background playback is not guaranteed by installing a PWA. |
 | Windows | Web changes arrive through the production website. Native updates require a published, complete signed release and configured signing credentials. See [release setup](./desktop/README.md#release-configuration-check). |
-| Android | This branch builds a debug-signed 1.0.1 preview; the separately published APK can be older. The standard APK always loads `https://haykasa.vercel.app`, including when downloaded through localhost. Web changes need deployment; native changes need a new APK. See [build and activation requirements](./android/README.md). |
+| Android | This branch builds Android 1.0.2 (version code 3) as a debug preview or release AAB; the separately published APK can be older. The standard APK always loads `https://haykasa.vercel.app`, including when downloaded through localhost. Web changes need deployment; native changes need a new build. Play installs check for published native updates on foreground entry; sideloaded previews do not auto-update. See [build and activation requirements](./android/README.md). |
 | Source audio / yt-dlp | Optional for authenticated mobile audio. The hosted retest passed storage and signed range delivery, but YouTube rejected extraction with `source_access_restricted`. Production source playback remains disabled; see the dated [live verification results](./docs/qa/vercel-media/RESULTS.md). |
 
 Android's native service can continue a resolved audio asset outside the WebView. Embedded YouTube remains a foreground fallback. Native notification next/previous is not implemented. Reliable suspended-WebView queue continuation, process restoration, and physical-device battery behavior are not established by the controlled emulator tests.
@@ -132,7 +132,7 @@ See [desktop/README.md](./desktop/README.md) for the native security boundary, r
 
 Windows desktop development additionally requires the normal Electron/electron-builder platform prerequisites. Stable/beta publication requires the protected signing secrets documented in [desktop/README.md](./desktop/README.md).
 
-Android builds require JDK 21, Android SDK platform 36, and build tools 36.0.0. The app supports Android 6.0+; emulator verification currently uses Android 13. See [Android prerequisites](./android/README.md#build-and-install).
+Android builds require JDK 21, Android SDK platform 36, and build tools 36.0.0. The app supports Android 6.0+; emulator checks target Android 13 and Android 16. See [Android prerequisites](./android/README.md#build-and-install).
 
 ## Local development
 
@@ -190,22 +190,27 @@ the protected signed-release workflow.
 
 ### Android development
 
-Download the [published Android preview APK](https://github.com/6NCLegend9/Spotify-clone/releases/download/android-preview/HayKasa-Android.apk) directly, or use **Download for Android** beside the Windows download in Settings. The public APK does not automatically track new CI builds and may precede this branch's fixes. See [public preview downloads](./android/README.md#public-preview-download) for installation and release requirements.
+Use **Download for Android** in Settings to obtain the newest validated public preview. The card shows its source build/date; the legacy [PR35 preview](https://github.com/6NCLegend9/Spotify-clone/releases/download/android-preview/HayKasa-Android.apk) remains available as a fallback and can be older than this branch. See [public preview downloads](./android/README.md#public-preview-download).
+
+Samsung Auto Blocker can show **Unknown app blocked** for this APK because it is installed outside approved app stores. Use the browser without an APK, or review the [Samsung installation guidance](./android/README.md#samsung-unknown-app-blocked). APK signing alone does not remove this phone policy.
 
 After installing the Android prerequisites, run from the repository root:
 
 ```sh
 npm run android:check
 npm run android:build
+npm run android:bundle
 ```
 
-The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. The [Android APK workflow](./.github/workflows/android-ci.yml) also uploads an installable debug APK and device reports. Debug signing is for testing; production distribution requires a maintained private signing key. Android automatic update publishing is not configured by this preview.
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`; the bundle command writes `android/app/build/outputs/bundle/release/app-release.aab`. Without release-signing configuration the AAB is unsigned and cannot be uploaded to Play. The [Android workflow](./.github/workflows/android-ci.yml) uploads the debug APK, unsigned review bundle, and device reports. The manual [Play Store bundle workflow](./.github/workflows/android-play-store.yml) uses protected upload-key secrets to produce a verified signed AAB. See [Play Store release setup](./android/README.md#play-store-release-bundle) before distribution.
 
-The [Publish Android Preview workflow](./.github/workflows/android-preview-release.yml) validates a successful, merged source build before publishing the initial public APK. It rejects replacing an existing preview with different bytes; normal APK CI does not replace the public download.
+The [Publish Android Preview workflow](./.github/workflows/android-preview-release.yml) waits for a successful main APK build and Android 13/16 emulator checks, then publishes an immutable source-SHA preview. Settings selects the newest validated versioned release; older APKs are preserved. Preview APKs still require manual installation. See the [playback and session audit](./docs/qa/android-playback-audit-2026-10-20.md) and [main production website/Windows/Android audit](./docs/qa/production-audit-2026-10-20.md). Dedicated [Windows](./.github/workflows/desktop-production-smoke.yml) and [Android](./.github/workflows/android-production-qa.yml) production checks install the actual public downloads and preserve screenshots and diagnostic artifacts.
 
 ### Optional media service
 
 Use the [media service guide](./media-service/README.md) for a single-instance Docker deployment or the [Vercel deployment guide](./docs/qa/vercel-media/README.md) for the stateless service and private Blob storage. Keep resolver credentials server-side. A successful live extraction, download, and decode is required before enabling source playback.
+
+The [audio fidelity checks](./docs/qa/audio-quality/README.md) cover automatic Opus/AAC selection, packet-preserving remux, delivered quality metadata and shared browser sound processing. Native source eligibility includes signed-in web, desktop and Android; production activation remains gated on successful live verification.
 
 ## Verification
 
@@ -224,7 +229,8 @@ That executes ESLint, Next.js-generated type checks, TypeScript validation, and 
 | Desktop/mobile homepage, panel layout, search, and player Skip/error behavior | [Homepage/browser workflow](./.github/workflows/home-discovery-vm.yml) |
 | Mobile background-playback browser checks | [Mobile playback workflow](./.github/workflows/mobile-playback-vm.yml) |
 | Playlist spacing and duration browser checks | [Playlist workflow](./.github/workflows/playlist-duration-vm.yml) |
-| Android bridge/resolver, unit/lint/APK build and Android 13 instrumentation | [Android workflow](./.github/workflows/android-ci.yml) and [QA fixtures](./docs/qa/android/) |
+| Android bridge/resolver, unit/lint/APK/AAB builds and Android 13/16 instrumentation | [Android workflow](./.github/workflows/android-ci.yml) and [QA fixtures](./docs/qa/android/) |
+| Signed Android App Bundle for owner upload to Play Console | [Manual Play Store workflow](./.github/workflows/android-play-store.yml) |
 | Desktop contract and native checks | [Desktop CI](./.github/workflows/desktop-ci.yml) |
 | Windows packaging | [Desktop package CI](./.github/workflows/desktop-package-ci.yml) |
 | Unsigned desktop preview artifacts | [Desktop preview workflow](./.github/workflows/desktop-preview.yml) |
@@ -348,6 +354,7 @@ These files include older palette and component references. The implemented styl
 ### Executable QA and screenshot collections
 
 - [Android bridge, resolver, player, and emulator fixtures](./docs/qa/android/)
+- [Android download and installation-help browser checks](./docs/qa/android-installation/)
 - [Search browser scenarios](./docs/qa/search/)
 - [Desktop and mobile panel scenarios](./docs/qa/desktop-panels/)
 - [Integration-conflict checks](./docs/qa/integration-conflicts/)

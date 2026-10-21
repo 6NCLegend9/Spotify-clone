@@ -3,9 +3,11 @@
 Current live verification: [results and remaining blocker](RESULTS.md).
 
 The frontend and Python/FFmpeg/yt-dlp container deploy atomically using Vercel
-Services (Beta). Only signed-in mobile browsers can use `/api/media/resolve`.
-Desktop, Electron, and anonymous playback continue to use the embedded provider.
-Mobile native playback requests audio unless the user opens the video view.
+Services (Beta). Signed-in web, Electron and Android players can use
+`/api/media/resolve` when source playback is activated. Anonymous playback uses
+the embedded provider. Mobile native playback requests audio unless the user
+opens the video view. Automatic codec selection preserves the selected song and
+chooses the best compatible upstream-ranked stream without re-encoding it.
 
 ## Configuration
 
@@ -51,8 +53,13 @@ extraction or Blob availability.
 For a live preview-only check, temporarily set `MEDIA_SERVICE_DEPLOYMENT_PROBE=1`
 on the preview branch and fetch `/api/media/preflight` once. The rate-limited
 probe prepares the fixed public Big Buck Bunny sample (`aqz-KE-bpKQ`) in AAC
-and Opus, reads each persisted job through a
+and Opus plus the automatic profile, reads each persisted job through a
 new request, checks a signed 1 KiB byte range, and cancels its objects. It accepts
-no custom source IDs or credentials and is always 404 in production. Disable the
+only the fixed `sample` names `big-buck-bunny` (default), `on-and-on` (Cartoon,
+Jéja feat. Daniel Levi), and `invincible` (DEAF KEV). For example, fetch
+`/api/media/preflight?sample=on-and-on` to try a real song independently of search
+and its database-backed rate limiter. Each sample is limited to one probe per
+hour per server instance. It accepts no custom source IDs or credentials and is
+always 404 in production. Disable the
 flag after verification. A successful probe validates the deployed backend;
 authenticated physical Android/iOS app switching remains a separate device check.

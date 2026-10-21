@@ -5,6 +5,12 @@ on:
       - 'src/components/Homepage/**'
       - 'src/components/Search/**'
       - 'src/components/Searchbar.jsx'
+      - 'src/components/Navbar.jsx'
+      - 'src/components/DesktopAppCard.jsx'
+      - 'src/components/AndroidAppCard.jsx'
+      - 'src/app/AuthProvider.js'
+      - 'src/utils/youtubeIframeApi.mjs'
+      - 'src/components/SupportDiagnostics.jsx'
       - 'src/components/YouTubeMusicResults.jsx'
       - 'src/app/search/**'
       - 'src/utils/searchResults.mjs'
@@ -12,6 +18,7 @@ on:
       - 'src/components/Layout/**'
       - 'src/components/MusicPlayer/**'
       - 'src/hooks/useHomeFeed.js'
+      - 'src/hooks/useInstalledApp.js'
       - 'src/hooks/useHomeHighlights.js'
       - 'src/utils/thisDayOnKasa.mjs'
       - 'src/utils/homeDiscovery.mjs'
@@ -21,6 +28,9 @@ on:
       - 'docs/qa/desktop-panels/**'
       - 'docs/qa/search/**'
       - 'docs/qa/android/player-browser.cjs'
+      - 'docs/qa/android/auth-session-browser.cjs'
+      - 'docs/qa/android/iframe-api-browser.cjs'
+      - 'docs/qa/android-installation/**'
       - '.github/workflows/home-discovery-vm.yml'
 permissions:
   contents: read
@@ -48,6 +58,9 @@ jobs:
       - run: node docs/qa/desktop-panels/browser.cjs
       - run: node docs/qa/search/browser.cjs
       - run: node docs/qa/android/player-browser.cjs
+      - run: node docs/qa/android/auth-session-browser.cjs
+      - run: node docs/qa/android/iframe-api-browser.cjs
+      - run: node docs/qa/android-installation/browser.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -57,4 +70,7 @@ jobs:
             artifacts/desktop-panels/
             artifacts/search/
             artifacts/android-player-browser/
+            artifacts/android-installation/
+            artifacts/auth-session/
+            artifacts/android-iframe-api/
           retention-days: 7

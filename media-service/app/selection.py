@@ -1,5 +1,6 @@
 """Select only source streams supported by the requested browser profile."""
 import math
+from types import SimpleNamespace
 
 
 def number(value):
@@ -16,6 +17,27 @@ def audio_bitrate(fmt):
 
 def select_formats(info, request):
     formats = [f for f in info.get("formats", []) if isinstance(f, dict) and f.get("url") and str(f.get("format_id", "")).replace("-", "").isalnum() and not f.get("has_drm")]
+    if request.profile == "auto":
+        # yt-dlp sorts formats from worst to best, accounting for source quality,
+        # language and codec. Preserve that ranking instead of equating bitrates.
+        attempted = set()
+        for candidate in reversed(formats):
+            codec = str(candidate.get("acodec", ""))
+            if candidate.get("vcodec") != "none" or not codec.startswith(("opus", "mp4a")):
+                continue
+            profile = "webm-opus" if codec.startswith("opus") else "mp4-aac"
+            if profile in attempted:
+                continue
+            attempted.add(profile)
+            try:
+                selected = select_formats(info, SimpleNamespace(mode=request.mode, maxHeight=request.maxHeight, profile=profile))
+                # The auto path keeps the upstream best-audio choice, while the
+                # existing profile selector supplies its compatible video pair.
+                qualities = [{**quality, "audioBitrateKbps": audio_bitrate(candidate)} for quality in selected[2]]
+                return candidate, selected[1], qualities
+            except ValueError:
+                continue
+        raise ValueError("compatible_audio_unavailable" if request.mode == "audio" else "compatible_video_unavailable")
     webm = request.profile == "webm-opus"
     audio = [f for f in formats if f.get("vcodec") == "none" and (str(f.get("acodec", "")).startswith("opus") if webm else str(f.get("acodec", "")).startswith("mp4a"))]
     # Compare bitrate within a codec profile; never imply AAC and Opus are equivalent.

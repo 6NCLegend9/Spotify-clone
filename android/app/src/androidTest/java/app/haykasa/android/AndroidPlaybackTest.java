@@ -33,6 +33,15 @@ public class AndroidPlaybackTest {
         return ((PlaybackService.LocalBinder)binder).service();
     }
     private void main(Runnable r) { InstrumentationRegistry.getInstrumentation().runOnMainSync(r); }
+    private void waitActivityStage(MainActivity activity, androidx.test.runner.lifecycle.Stage expected, String message) throws Exception {
+        AtomicReference<androidx.test.runner.lifecycle.Stage> observed = new AtomicReference<>();
+        for (int attempt = 0; attempt < 50; attempt++) {
+            main(() -> observed.set(androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getLifecycleStageOf(activity)));
+            if (observed.get() == expected) return;
+            Thread.sleep(100);
+        }
+        assertEquals(message, expected, observed.get());
+    }
     private String js(WebView web, String code) throws Exception {
         CountDownLatch done = new CountDownLatch(1); AtomicReference<String> result = new AtomicReference<>();
         main(() -> web.evaluateJavascript(code, value -> { result.set(value); done.countDown(); }));
@@ -48,10 +57,145 @@ public class AndroidPlaybackTest {
         }
     }
     private void screenshot(String name) throws Exception {
+        if (!name.matches("[a-z0-9-]+")) throw new IllegalArgumentException("Invalid screenshot name");
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         Thread.sleep(500); // Allow the committed WebView frame to reach the emulator display.
         shell("mkdir -p /sdcard/Download/haykasa-emulator-qa");
-        shell("screencap -p /sdcard/Download/haykasa-emulator-qa/" + name + ".png");
+        String filename = "/sdcard/Download/haykasa-emulator-qa/" + name + ".png";
+        shell("screencap -p " + filename);
+        try (java.io.InputStream file = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("cat " + filename))) {
+            byte[] bytes = file.readAllBytes();
+            assertTrue("Screenshot must contain actual PNG bytes: " + name, bytes.length > 1024);
+            assertArrayEquals("Screenshot must have the PNG signature: " + name,
+                new byte[]{(byte)137, 80, 78, 71, 13, 10, 26, 10}, java.util.Arrays.copyOf(bytes, 8));
+        }
+    }
+    private org.json.JSONObject liveSample(WebView web) throws Exception {
+        Object encoded = new org.json.JSONTokener(js(web, "(()=>{try{return JSON.stringify(window.qaLivePlayback?.snapshot() || {probeStatus:'missing',documentState:document.readyState,routeCategory:location.pathname.startsWith('/search')?'search':'other'})}catch{return JSON.stringify({probeStatus:'snapshot_exception'})}})()")).nextValue();
+        return new org.json.JSONObject(String.valueOf(encoded));
+    }
+    private void evidence(String name, org.json.JSONObject value) throws Exception {
+        if (!name.matches("[a-z0-9-]+")) throw new IllegalArgumentException("Invalid evidence name");
+        shell("mkdir -p /sdcard/Download/haykasa-emulator-qa");
+        String expected = value.toString(2);
+        String encoded = android.util.Base64.encodeToString(expected.getBytes(java.nio.charset.StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
+        String filename = "/sdcard/Download/haykasa-emulator-qa/" + name + ".json";
+        // UiAutomation executes a command directly; it does not interpret pipes
+        // or redirects. Send only the trusted script/base64 data to sh's stdin.
+        android.os.ParcelFileDescriptor[] descriptors = InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommandRw("sh");
+        try (java.io.OutputStream input = new android.os.ParcelFileDescriptor.AutoCloseOutputStream(descriptors[1])) {
+            input.write(("echo " + encoded + " | base64 -d > " + filename + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        try (java.io.InputStream output = new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptors[0])) {
+            while (output.read() != -1) { /* Wait for the script to finish. */ }
+        }
+        try (java.io.InputStream file = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("cat " + filename))) {
+            assertEquals("Playback evidence must exist in the collected JSON artifact", expected,
+                new String(file.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+    private void tap(WebView web, String selector) throws Exception {
+        String quoted = org.json.JSONObject.quote(selector);
+        js(web, "document.querySelector(" + quoted + ")?.scrollIntoView({block:'center'})");
+        org.json.JSONArray point = new org.json.JSONArray(js(web, "(()=>{const node=[...document.querySelectorAll(" + quoted + ")].find(n=>{const r=n.getBoundingClientRect();return r.width>0&&r.height>0});const r=node.getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2,innerWidth]})()"));
+        AtomicReference<int[]> geometry = new AtomicReference<>();
+        main(() -> { int[] location = new int[2]; web.getLocationOnScreen(location); geometry.set(new int[]{location[0], location[1], web.getWidth()}); });
+        double scale = geometry.get()[2] / point.getDouble(2);
+        shell("input tap " + Math.round(geometry.get()[0] + point.getDouble(0) * scale) + " " + Math.round(geometry.get()[1] + point.getDouble(1) * scale));
+    }
+    private boolean verifiedPlayback(org.json.JSONObject sample) throws org.json.JSONException {
+        org.json.JSONObject youtube = sample.optJSONObject("youtube");
+        if (sample.optBoolean("activeIframeMatched") && youtube != null && youtube.optInt("state", -1) == 1
+            && youtube.optDouble("position", 0) > 2 && youtube.has("muted") && !youtube.isNull("muted")
+            && !youtube.optBoolean("muted", true) && youtube.optDouble("volume", 0) > 0) return true;
+        org.json.JSONArray media = sample.optJSONArray("media");
+        if (media != null) for (int i = 0; i < media.length(); i++) {
+            org.json.JSONObject audio = media.getJSONObject(i);
+            if (audio.optBoolean("native") && !audio.optBoolean("paused", true) && !audio.optBoolean("muted", true)
+                && audio.optDouble("volume", 0) > 0 && audio.optDouble("position", 0) > 2) return true;
+        }
+        return false;
+    }
+    private double outputPosition(org.json.JSONObject sample) throws org.json.JSONException {
+        org.json.JSONObject youtube = sample.optJSONObject("youtube");
+        if (youtube != null && youtube.optInt("state", -1) == 1) return youtube.optDouble("position", 0);
+        org.json.JSONArray media = sample.optJSONArray("media");
+        if (media != null) for (int i = 0; i < media.length(); i++) {
+            org.json.JSONObject audio = media.getJSONObject(i);
+            if (audio.optBoolean("native") && !audio.optBoolean("paused", true)) return audio.optDouble("position", 0);
+        }
+        return 0;
+    }
+    private void verifyLiveManualSkip(WebView web, org.json.JSONObject report) throws Exception {
+        org.json.JSONObject skip = new org.json.JSONObject();
+        report.put("manualSkipVerified", false);
+        report.put("manualSkip", skip);
+        skip.put("outcome", "attempting_next_song");
+        // Titles are compared inside the disposable page only. Evidence records
+        // the change as a boolean, never the selected title/account state.
+        js(web, "(()=>{const label=()=>document.querySelector('[data-testid=\"player-dock\"] [aria-label^=\"Expand player:\"]')?.getAttribute('aria-label')||'';const initial=label();const oldFeedback=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');const state={selectedChanged:false,feedbackNodeChanged:false,feedbackCleared:false};const observe=()=>{state.selectedChanged=!!label()&&label()!==initial;const feedback=qaLivePlayback.snapshot().ui.feedbackVisible;const node=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');if(!feedback)state.feedbackCleared=true;state.feedbackNodeChanged=state.selectedChanged&&feedback&&node!==oldFeedback};const observer=new MutationObserver(observe);observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true});window.__qaManualSkip={state,observe,cleanup:()=>observer.disconnect()};observe()})()");
+        long started = android.os.SystemClock.elapsedRealtime();
+        org.json.JSONObject sample = new org.json.JSONObject();
+        try {
+            evidence("live-playback", report);
+            assertEquals("Each Next probe starts with no previous iframe evidence", "true", js(web, "(()=>{qaLivePlayback.resetAttempt();const s=qaLivePlayback.snapshot();return s.providerErrors.length===0&&!s.activeIframeMatched})()"));
+            tap(web, "[data-testid='player-dock'] button[aria-label='Next song']");
+            boolean changed = false;
+            for (int i = 0; i < 40; i++) {
+                if ("true".equals(js(web, "(()=>{__qaManualSkip.observe();return __qaManualSkip.state.selectedChanged})()"))) { changed = true; break; }
+                Thread.sleep(500);
+            }
+            skip.put("selectedSongChanged", changed);
+            skip.put("selectionElapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+            if (!changed) {
+                skip.put("outcome", "selection_did_not_advance");
+                skip.put("sample", liveSample(web));
+                evidence("live-playback", report);
+                screenshot("live-manual-skip-result");
+                fail("The real dock Next tap did not select a different song within 20 seconds; see live-playback.json");
+            }
+            boolean played = false, handledFailure = false;
+            long advancedAt = android.os.SystemClock.elapsedRealtime(), candidateAt = 0;
+            double candidatePosition = 0;
+            org.json.JSONObject freshness = new org.json.JSONObject();
+            for (int i = 0; i < 40; i++) {
+                sample = liveSample(web);
+                if (sample.optInt("schemaVersion") != 1 || sample.optJSONObject("ui") == null) {
+                    skip.put("outcome", "playback_probe_lost_after_skip");
+                    skip.put("sample", sample);
+                    evidence("live-playback", report);
+                    screenshot("live-manual-skip-result");
+                    fail("The playback probe lost its document/schema after a real Next tap");
+                }
+                freshness = new org.json.JSONObject(String.valueOf(new org.json.JSONTokener(js(web, "JSON.stringify(__qaManualSkip.state)")).nextValue()));
+                long now = android.os.SystemClock.elapsedRealtime();
+                if (verifiedPlayback(sample)) {
+                    if (candidateAt == 0) { candidateAt = now; candidatePosition = outputPosition(sample); }
+                    if (now - candidateAt >= 1000 && outputPosition(sample) > candidatePosition + .3) { played = true; break; }
+                } else candidateAt = 0;
+                org.json.JSONObject ui = sample.getJSONObject("ui");
+                boolean freshFailure = freshness.optBoolean("feedbackNodeChanged");
+                if (freshFailure && now - advancedAt >= 2000 && !ui.optBoolean("pauseVisible") && ui.optBoolean("feedbackVisible")) { handledFailure = true; break; }
+                Thread.sleep(500);
+            }
+            skip.put("outcome", played ? "next_song_playback_progress_with_nonzero_output_settings"
+                : handledFailure ? "next_song_provider_failure_visible_and_paused" : "next_song_not_settled");
+            skip.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+            skip.put("freshAttempt", freshness);
+            skip.put("sample", sample);
+            report.put("manualSkipVerified", played || handledFailure);
+            evidence("live-playback", report);
+            screenshot("live-manual-skip-result");
+            assertTrue("A manually selected next song must either progress or stop with fresh visible failure feedback, never the previous song's stale error; see live-playback.json", played || handledFailure);
+            if (!played) {
+                assertFalse("Next must not leave false Pause controls after provider rejection", sample.getJSONObject("ui").optBoolean("pauseVisible"));
+                assertTrue("Next provider failure must remain visible", sample.getJSONObject("ui").optBoolean("feedbackVisible"));
+            }
+        } finally {
+            skip.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+            evidence("live-playback", report);
+            js(web, "window.__qaManualSkip?.cleanup();delete window.__qaManualSkip");
+        }
     }
     private boolean keyboardVisible(WebView web) {
         AtomicReference<Boolean> visible = new AtomicReference<>(false);
@@ -169,6 +313,162 @@ public class AndroidPlaybackTest {
         main(() -> count.set(service.getSessions().size()));
         assertEquals("Native session must be registered with its foreground service", Integer.valueOf(1), count.get());
     }
+    @Test public void liveGuestSongReportsActualPlaybackOrProviderFailure() throws Exception {
+        final int priorBuildDocuments = QaCurrentWeb.mainDocumentCount();
+        final String probe;
+        try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("live-playback-probe.js")) {
+            probe = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        CountDownLatch cookies = new CountDownLatch(1);
+        main(() -> android.webkit.CookieManager.getInstance().removeAllCookies(done -> cookies.countDown()));
+        assertTrue("Guest profile cookies cleared", cookies.await(10, TimeUnit.SECONDS));
+        AtomicReference<WebView> ref = new AtomicReference<>();
+        org.json.JSONObject report = new org.json.JSONObject();
+        report.put("androidApi", android.os.Build.VERSION.SDK_INT);
+        android.media.AudioManager output = (android.media.AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+        report.put("systemMusicVolume", output.getStreamVolume(android.media.AudioManager.STREAM_MUSIC));
+        report.put("systemMusicMaximum", output.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC));
+        report.put("webViewVersion", WebView.getCurrentWebViewPackage().versionName);
+        report.put("appVersion", context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName);
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(instance -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading();
+                    android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(null);
+                    android.webkit.WebStorage.getInstance().deleteAllData();
+                    web.clearCache(true);
+                    QaCurrentWeb.install(web);
+                    // A real navigation can replace the initial document while
+                    // search hydration settles. Observe every trusted document,
+                    // including one created after the first native screen tap.
+                    boolean atDocumentStart = androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT);
+                    report.put("documentStartProbeSupported", atDocumentStart);
+                    if (atDocumentStart) androidx.webkit.WebViewCompat.addDocumentStartJavaScript(web, probe, java.util.Collections.singleton(MediaPolicy.ORIGIN));
+                    web.loadUrl(MediaPolicy.ORIGIN + "/search/Cartoon%20On%20On%20NCS?type=video");
+                } catch (ReflectiveOperationException | org.json.JSONException error) { throw new RuntimeException(error); }
+            });
+            WebView web = ref.get();
+            main(() -> { try { report.put("requiresSeparateMediaGesture", web.getSettings().getMediaPlaybackRequiresUserGesture()); } catch (org.json.JSONException error) { throw new RuntimeException(error); } });
+            report.put("webMode", QaCurrentWeb.mode());
+            report.put("webSourceCommit", QaCurrentWeb.sourceCommit());
+            try {
+                waitJs(web, "!!document.querySelector('input[role=combobox]')");
+                waitJs(web, "!!document.querySelector('[data-search-track] button[aria-label^=\"Play \"]')");
+                assertTrue("The live song probe must receive this runner build, never cached deployed HTML", !QaCurrentWeb.enabled() || QaCurrentWeb.mainDocumentCount() > priorBuildDocuments);
+                // Idempotent fallback for old WebViews without document-start
+                // support, installed only after the actual result list exists.
+                js(web, probe);
+                waitJs(web, "window.qaLivePlayback?.snapshot()?.schemaVersion===1");
+                screenshot("live-playback-before");
+                tap(web, "[data-search-track] button[aria-label^='Play ']");
+                waitJs(web, "!!document.querySelector('[data-testid=\"player-dock\"] [aria-label^=\"Expand player:\"]')");
+                org.json.JSONObject sample = new org.json.JSONObject();
+                boolean played = false;
+                long started = android.os.SystemClock.elapsedRealtime();
+                for (int i = 0; i < 90; i++) {
+                    sample = liveSample(web);
+                    if (sample.optInt("schemaVersion") != 1 || sample.optJSONArray("providerErrors") == null
+                        || sample.optJSONArray("media") == null || sample.optJSONObject("ui") == null) {
+                        report.put("outcome", "playback_probe_lost");
+                        report.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+                        report.put("sample", sample);
+                        report.put("currentSourceRequests", QaCurrentWeb.requestCount());
+                        evidence("live-playback", report);
+                        screenshot("live-playback-incomplete");
+                        fail("The live playback probe lost its document/schema; no playback result may be inferred. See live-playback.json");
+                    }
+                    org.json.JSONObject youtube = sample.optJSONObject("youtube");
+                    boolean embedded = youtube != null && youtube.optInt("state", -1) == 1 && youtube.optDouble("position", 0) > 2
+                        && youtube.has("muted") && !youtube.isNull("muted") && !youtube.optBoolean("muted", true) && youtube.optDouble("volume", 0) > 0;
+                    org.json.JSONArray media = sample.optJSONArray("media");
+                    boolean nativePlaying = false;
+                    if (media != null) for (int index = 0; index < media.length(); index++) {
+                        org.json.JSONObject audio = media.getJSONObject(index);
+                        if (audio.optBoolean("native") && !audio.optBoolean("paused", true) && !audio.optBoolean("muted", true) && audio.optDouble("volume", 0) > 0 && audio.optDouble("position", 0) > 2) nativePlaying = true;
+                    }
+                    if (embedded || nativePlaying) { played = true; break; }
+                    if (sample.getJSONArray("providerErrors").length() > 0 && android.os.SystemClock.elapsedRealtime() - started > 12_000 && !sample.getJSONObject("ui").optBoolean("pauseVisible")) break;
+                    Thread.sleep(500);
+                }
+                report.put("outcome", played ? "playback_progress_with_nonzero_output_settings" : "no_verified_playback");
+                report.put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started);
+                report.put("sample", sample);
+                report.put("currentSourceRequests", QaCurrentWeb.requestCount());
+                report.put("currentBuildDocuments", QaCurrentWeb.mainDocumentCount());
+                report.put("physicalSpeakerAudibilityVerified", false);
+                screenshot("live-playback-result");
+                evidence("live-playback", report);
+                System.out.println("ANDROID_QA_LIVE_PLAYBACK " + report);
+                assertTrue("Current-source staging must actually serve the compiled web build", !QaCurrentWeb.enabled() || QaCurrentWeb.requestCount() > 0);
+                if (played) {
+                    tap(web, "[data-testid='player-dock'] button[aria-label='Pause']");
+                    waitJs(web, "(()=>{const s=qaLivePlayback.snapshot();return s.youtube.state===2||s.media.some(m=>m.native&&m.paused)})()");
+                    org.json.JSONObject paused = liveSample(web);
+                    Thread.sleep(1500);
+                    org.json.JSONObject afterPause = liveSample(web);
+                    org.json.JSONObject pausedYoutube = paused.getJSONObject("youtube");
+                    if (pausedYoutube.optInt("state", -1) == 2) {
+                        assertEquals("Embedded playback stays paused", pausedYoutube.optDouble("position"), afterPause.getJSONObject("youtube").optDouble("position"), .3);
+                    }
+                    report.put("pauseVerified", true); report.put("pausedSample", paused);
+                    evidence("live-playback", report);
+                    screenshot("live-playback-paused");
+                } else {
+                    assertFalse("A provider that produced no verified playback must not leave a false Pause/playing control; see live-playback.json", sample.getJSONObject("ui").optBoolean("pauseVisible"));
+                    assertTrue("An unsuccessful song tap must show visible playback recovery feedback", sample.getJSONObject("ui").optBoolean("feedbackVisible"));
+                }
+                verifyLiveManualSkip(web, report);
+            } finally {
+                if (!report.has("outcome")) { report.put("outcome", "could_not_reach_playback_probe"); report.put("currentSourceRequests", QaCurrentWeb.requestCount()); evidence("live-playback", report); screenshot("live-playback-incomplete"); }
+            }
+        }
+    }
+    @Test public void nativeRendererDecodesSourceOpusAndAacInStereo() throws Exception {
+        PlaybackService service = bind();
+        Field factoryField = PlaybackService.class.getDeclaredField("sourceFactory"); factoryField.setAccessible(true);
+        org.json.JSONArray results = new org.json.JSONArray();
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            for (String codec : new String[]{"opus", "aac"}) {
+                byte[] audio;
+                try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("quality-" + codec + (codec.equals("opus") ? ".webm" : ".m4a"))) { audio = in.readAllBytes(); }
+                String id = "quality-" + codec;
+                String expectedMime = codec.equals("opus") ? "audio/opus" : "audio/mp4a-latm";
+                main(() -> {
+                    try {
+                        ((DefaultMediaSourceFactory)factoryField.get(service)).setDataSourceFactory(() -> new ByteArrayDataSource(audio));
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "load").put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001?signature=synthetic"), message -> {});
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "volume").put("value", .36), message -> {});
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "play"), message -> {});
+                    } catch (Exception error) { throw new RuntimeException(error); }
+                });
+                AtomicReference<org.json.JSONObject> measurement = new AtomicReference<>();
+                for (int attempt = 0; attempt < 100 && measurement.get() == null; attempt++) {
+                    main(() -> {
+                        androidx.media3.exoplayer.ExoPlayer player = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                        androidx.media3.exoplayer.DecoderCounters counters = player.getAudioDecoderCounters();
+                        if (counters != null) counters.ensureUpdated();
+                        androidx.media3.common.Format format = player.getAudioFormat();
+                        if (player.isPlaying() && player.getCurrentPosition() > 1000 && format != null && counters != null && counters.renderedOutputBufferCount > 0) {
+                            assertEquals(expectedMime, format.sampleMimeType);
+                            assertEquals("Source sample rate", 48000, format.sampleRate);
+                            assertEquals("Source stereo channels", 2, format.channelCount);
+                            assertEquals("Native output respects Quiet/master gain", .36f, player.getVolume(), .001f);
+                            try { measurement.set(new org.json.JSONObject().put("codec", codec).put("mimeType", format.sampleMimeType).put("sampleRateHz", format.sampleRate).put("channels", format.channelCount).put("decodedOutputBuffers", counters.renderedOutputBufferCount).put("positionMs", player.getCurrentPosition()).put("volume", player.getVolume())); }
+                            catch (org.json.JSONException error) { throw new RuntimeException(error); }
+                        }
+                    });
+                    if (measurement.get() == null) Thread.sleep(100);
+                }
+                assertNotNull("Native renderer must decode actual " + codec + " source buffers", measurement.get());
+                results.put(measurement.get());
+                main(() -> { try { service.command(new org.json.JSONObject().put("id", id).put("action", "release"), message -> {}); } catch (Exception error) { throw new RuntimeException(error); } });
+            }
+        } finally {
+            main(service::releaseAll);
+            evidence("audio-quality", new org.json.JSONObject().put("syntheticSource", true).put("liveYtDlp", false).put("results", results));
+        }
+    }
     @Test public void nativeBridgePlaysInBackgroundAndHonorsMediaControls() throws Exception {
         PlaybackService service = bind(); byte[] audio = tone();
         Field factoryField = PlaybackService.class.getDeclaredField("sourceFactory"); factoryField.setAccessible(true);
@@ -176,9 +476,11 @@ public class AndroidPlaybackTest {
         String fixture;
         try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("native-qa.html")) { fixture = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8); }
         AtomicReference<WebView> ref = new AtomicReference<>();
+        AtomicReference<MainActivity> originalActivity = new AtomicReference<>();
         try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
             activity.onActivity(instance -> {
                 try {
+                    originalActivity.set(instance);
                     Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
                     WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading();
                     String fixtureUrl = MediaPolicy.ORIGIN + "/?android-qa=1";
@@ -206,6 +508,19 @@ public class AndroidPlaybackTest {
             System.out.println("ANDROID_QA_WEBVIEW " + WebView.getCurrentWebViewPackage().versionName);
             System.out.println("ANDROID_QA_ABORT_ANY " + js(web, "typeof AbortSignal.any"));
             js(web, "document.getElementById('play').click()"); waitJs(web, "qaDeck.getCurrentTime() > 1 && qaDeck.getPlayerState() === 1");
+            AtomicReference<Boolean> decodedAudio = new AtomicReference<>(false);
+            main(() -> {
+                androidx.media3.exoplayer.ExoPlayer active = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                androidx.media3.exoplayer.DecoderCounters counters = active.getAudioDecoderCounters();
+                if (counters != null) counters.ensureUpdated();
+                decodedAudio.set(active.isPlaying() && active.getVolume() > 0 && active.getAudioFormat() != null
+                    && counters != null && counters.renderedOutputBufferCount > 0
+                    && active.getAudioAttributes().usage == androidx.media3.common.C.USAGE_MEDIA);
+                System.out.println("ANDROID_QA_NATIVE_AUDIO playing=" + active.isPlaying() + " volume=" + active.getVolume()
+                    + " decodedOutputBuffers=" + (counters == null ? 0 : counters.renderedOutputBufferCount)
+                    + " audioFormat=" + (active.getAudioFormat() == null ? "none" : active.getAudioFormat().sampleMimeType));
+            });
+            assertTrue("The native audio renderer must decode output buffers at a nonzero volume", decodedAudio.get());
             screenshot("native-playing");
             ActivityManager manager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
             assertTrue("Playing audio needs a foreground notification service", manager.getRunningServices(100).stream().anyMatch(s -> s.service.getClassName().equals(PlaybackService.class.getName()) && s.foreground));
@@ -239,18 +554,15 @@ public class AndroidPlaybackTest {
                 try { service.getSessions().get(0).getSessionActivity().send(); }
                 catch (android.app.PendingIntent.CanceledException error) { throw new RuntimeException(error); }
             });
-            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
-            assertEquals("Notification resumes the original activity and playback bridge", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
+            waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.RESUMED, "Notification resumes the original activity and playback bridge");
             screenshot("native-resumed");
             main(web::clearHistory);
             double beforeRootBack = Double.parseDouble(js(web, "qaDeck.getCurrentTime()"));
             shell("input keyevent KEYCODE_BACK");
-            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.CREATED; i++) Thread.sleep(100);
-            assertEquals("Root Back backgrounds the activity without destroying its playback bridge", androidx.lifecycle.Lifecycle.State.CREATED, activity.getState());
+            waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.STOPPED, "Root Back backgrounds the activity without destroying its playback bridge");
             waitJs(web, "qaDeck.getCurrentTime() > " + (beforeRootBack + 1));
             shell("am start -W -f 0x00020000 -n " + context.getPackageName() + "/" + MainActivity.class.getName());
-            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
-            assertEquals("Returning after root Back resumes the original activity", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
+            waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.RESUMED, "Returning after root Back resumes the original activity");
             assertEquals("Returning after root Back retains the original playback fixture", "true", js(web, "window.qaReady === true && qaDeck.getPlayerState() === 1"));
             screenshot("native-back-resumed");
             js(web, "qaDeck.loadVideoById({videoId:'synthetic02',title:'HayKasa next emulator tone',startSeconds:0})");

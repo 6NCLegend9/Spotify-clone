@@ -1,0 +1,40 @@
+name: Production Windows Desktop Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/android-installation-guidance
+    paths:
+      - docs/qa/desktop/production-smoke.cjs
+      - docs/qa/desktop/production-smoke.ps1
+      - .github/workflows/desktop-production-smoke.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-windows-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-installer:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Install and inspect the public production Windows release
+        shell: pwsh
+        run: ./docs/qa/desktop/production-smoke.ps1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: production-windows-desktop-${{ github.run_id }}
+          path: artifacts/production-desktop/
+          if-no-files-found: error
+          retention-days: 7

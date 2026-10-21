@@ -1,0 +1,117 @@
+name: Android Play Store Bundle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-play-store-release
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Build signed Play Store bundle
+    if: github.repository == '6NCLegend9/Spotify-clone' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: android-release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          cmdline-tools-version: "13114758"
+          packages: "platform-tools"
+          log-accepted-android-sdk-licenses: false
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check web audio bridge
+        run: |
+          node docs/qa/android/check.mjs
+          node docs/qa/android/resolve-check.cjs
+          node docs/qa/android/release-check.mjs
+      - name: Prepare private upload keystore
+        env:
+          HAYKASA_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/haykasa-android-release/upload-keystore.jks
+          HAYKASA_ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.HAYKASA_ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          HAYKASA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.HAYKASA_ANDROID_KEYSTORE_PASSWORD }}
+          HAYKASA_ANDROID_KEY_ALIAS: ${{ secrets.HAYKASA_ANDROID_KEY_ALIAS }}
+          HAYKASA_ANDROID_KEY_PASSWORD: ${{ secrets.HAYKASA_ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in HAYKASA_ANDROID_UPLOAD_KEYSTORE_BASE64 HAYKASA_ANDROID_KEYSTORE_PASSWORD HAYKASA_ANDROID_KEY_ALIAS HAYKASA_ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing protected android-release secret: $name"
+              exit 1
+            fi
+          done
+          umask 077
+          mkdir -m 700 -- "$(dirname "$HAYKASA_ANDROID_KEYSTORE_PATH")"
+          printf '%s' "$HAYKASA_ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$HAYKASA_ANDROID_KEYSTORE_PATH"
+          test -s "$HAYKASA_ANDROID_KEYSTORE_PATH"
+          chmod 600 "$HAYKASA_ANDROID_KEYSTORE_PATH"
+      - name: Test, lint and build signed release bundle
+        working-directory: android
+        env:
+          HAYKASA_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/haykasa-android-release/upload-keystore.jks
+          HAYKASA_ANDROID_REQUIRE_SIGNING: "1"
+          HAYKASA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.HAYKASA_ANDROID_KEYSTORE_PASSWORD }}
+          HAYKASA_ANDROID_KEY_ALIAS: ${{ secrets.HAYKASA_ANDROID_KEY_ALIAS }}
+          HAYKASA_ANDROID_KEY_PASSWORD: ${{ secrets.HAYKASA_ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon testReleaseUnitTest lintRelease bundleRelease
+      - name: Verify upload signature
+        shell: bash
+        env:
+          LC_ALL: C
+        run: |
+          set -euo pipefail
+          bundle="android/app/build/outputs/bundle/release/app-release.aab"
+          report="$RUNNER_TEMP/haykasa-android-bundle-signature.txt"
+          test -s "$bundle"
+          jarsigner -verify "$bundle" > "$report" 2>&1
+          if ! grep -Eq '^[[:space:]]*jar verified\.[[:space:]]*$' "$report"; then
+            echo "::error::Release bundle did not pass JAR signature verification. An unsigned bundle cannot be distributed."
+            exit 1
+          fi
+          echo "Signed Android App Bundle verified."
+          {
+            echo "## Play Store upload bundle prepared"
+            echo
+            echo "Source commit: $GITHUB_SHA"
+            echo "Application ID: app.haykasa.android"
+            echo "Upload-key signature: verified"
+            echo
+            sha256sum "$bundle"
+            echo
+            echo "This workflow does not upload to Google Play. The owner must review this bundle and complete Play Console release approval."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload signed bundle for Play Console review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: haykasa-android-play-store-${{ github.sha }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove private signing material
+        if: always()
+        shell: bash
+        env:
+          HAYKASA_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/haykasa-android-release/upload-keystore.jks
+        run: |
+          set -euo pipefail
+          rm -f -- "$HAYKASA_ANDROID_KEYSTORE_PATH" "$RUNNER_TEMP/haykasa-android-bundle-signature.txt"
+          if [ -d "$(dirname "$HAYKASA_ANDROID_KEYSTORE_PATH")" ]; then
+            rmdir -- "$(dirname "$HAYKASA_ANDROID_KEYSTORE_PATH")"
+          fi

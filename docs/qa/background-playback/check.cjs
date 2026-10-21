@@ -105,26 +105,73 @@ function recoveryCase() {
   };
 }
 (async()=>{
-  for (const code of [153, '153']) {
+  // The actual app-generated radio URL must satisfy the actual route parser.
+  // This public track reproduced one 400 during the Android live-song probe.
+  const moduleUrl = file => require('node:url').pathToFileURL(path.join(root, file)).href;
+  const {buildRadioDiscoveryQueries} = await import(moduleUrl('src/utils/radioSeed.mjs'));
+  const {buildYoutubeSearchUrl} = await import(moduleUrl('src/utils/youtubeSearchUrl.mjs'));
+  const {readSearchOptions} = await import(moduleUrl('src/utils/searchOptions.mjs'));
+  const cartoon = {id:'K4DyBUG242c',title:'Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music',channel:'NoCopyrightSounds',seedQuery:'Cartoon On On NCS',genre:'Cartoon On On NCS'};
+  const invalidPreviousQuery = 'Cartoon, Jéja - On & On (feat. Daniel Levi) Electronic Pop NCS - Copyright Free Music cartoon jéja similar songs';
+  assert.equal(invalidPreviousQuery.length,112);
+  assert.throws(()=>readSearchOptions(new URLSearchParams({q:invalidPreviousQuery,type:'video'})),/Invalid search parameters/,'API validation must still reject the old overlong query');
+  const short = {id:'synthetic01',title:'Short song',artist:'Artist',seedQuery:'Short seed',genre:'Another style'};
+  assert.deepEqual(buildRadioDiscoveryQueries(short),['Short song artist similar songs','Short seed similar songs','Another style similar music','artist similar artists songs'],'Short discovery queries retain their original semantics');
+  for (const track of [cartoon,short,{...short,title:'A'+'🚀'.repeat(200),seedQuery:'أغنية'.repeat(80),genre:'Cafe\u0301'.repeat(80),radioSeedArtist:'演奏家'.repeat(80)}, {...short,title:'A'.repeat(200),seedQuery:'X'.repeat(120),genre:'Y'.repeat(120),radioSeedArtist:'Z'.repeat(120)}]) {
+    const queries = buildRadioDiscoveryQueries(track,{limit:6});
+    assert(queries.length>0&&queries.length<=6);
+    assert.equal(new Set(queries.map(query=>query.toLowerCase())).size,queries.length,'Truncated radio queries remain deduplicated');
+    for(const query of queries){
+      assert(query.length<=100,'Every generated radio query fits the API UTF-16 boundary');
+      assert(query.isWellFormed(),'Truncation must not split a Unicode surrogate pair');
+      assert.equal(query.normalize('NFC'),query,'Queries normalize before applying the API length budget');
+      assert(/\b(?:similar songs|similar music|similar artists songs)$/.test(query),'Truncation preserves the server radio classifier suffix and its artist diversity behavior');
+      const url = new URL(buildYoutubeSearchUrl({q:query,type:'video'},'radio'),'https://haykasa.vercel.app');
+      assert.equal(readSearchOptions(url.searchParams).query,query,'The production URL and parser accept each generated query');
+    }
+  }
+  assert.deepEqual(buildRadioDiscoveryQueries({}),[]);
+  for (const code of [100, '100', 101, '101', 150, '150', 153, '153']) {
     const recovery = recoveryCase();
-    for (const attempts of [0, 2, 99]) assert.equal(recovery.policy.youtubePlaybackFailurePolicy({code, sameIdAttempts:attempts, alternateAttempts:attempts}).action, 'fatalUI');
+    for (const attempts of [0, 2, 99]) {
+      const result = recovery.policy.youtubePlaybackFailurePolicy({code, sameIdAttempts:attempts, alternateAttempts:attempts});
+      assert.equal(result.action, 'fatalUI', `Provider error ${code} stops at every recovery budget`);
+      assert.equal(result.error.canRetry, Number(code) === 153, `Provider error ${code} only offers a useful same-upload manual retry`);
+    }
+    const before = {...recovery.context.videoRef.current};
     await recovery.context.fail({code});
-    assert.equal(recovery.calls.stops, 1, 'Player verification failure must stop on its first error');
+    assert.equal(recovery.calls.stops, 1, `Provider error ${code} must stop on its first error`);
     assert.equal(recovery.calls.pauses, 1);
     assert.equal(recovery.context.userPausedRef.current, true);
-    assert.equal(recovery.calls.reloads + recovery.calls.searches + recovery.calls.advances, 0, 'Verification failure must not reload, search alternate uploads or consume the queue');
+    assert.deepEqual(recovery.context.videoRef.current, before, 'Terminal errors preserve the selected song and queue occurrence');
+    assert.equal(recovery.calls.reloads + recovery.calls.searches + recovery.calls.advances, 0, `Provider error ${code} must not reload, search alternate uploads or consume the queue`);
   }
-  for (const code of [100, 101, 150]) {
+  for (const code of [2, 5, 999, 'stall']) {
     const recovery = recoveryCase();
-    for (let attempt=0; attempt<4; attempt++) await recovery.context.fail({code});
-    assert.equal(recovery.calls.reloads, 0, 'Unavailable/blocked uploads must not retry the same video');
-    assert.equal(recovery.calls.searches, 3, 'Upload-specific failures retain their bounded alternate search');
-    assert.equal(recovery.calls.advances, 1);
-    assert.equal(recovery.calls.stops, 0);
+    const selectedOccurrence = recovery.context.videoRef.current.queueEntryId;
+    for (let attempt=0; attempt<24 && recovery.calls.stops === 0; attempt++) await recovery.context.fail({code});
+    assert.equal(recovery.calls.searches, 3, `Transient error ${code} retains its bounded alternate budget`);
+    assert.equal(recovery.calls.reloads, code === 'stall' ? 0 : 8, 'Each of the four attempted uploads has at most two same-ID retries');
+    assert.equal(recovery.calls.advances, 0, 'Exhausted recovery must not advance the queue and restart its budget');
+    assert.equal(recovery.calls.stops, 1, 'Exhausted recovery must surface the failure');
+    assert.equal(recovery.calls.pauses, 1);
+    assert.equal(recovery.context.userPausedRef.current, true);
+    assert.equal(recovery.context.videoRef.current.queueEntryId, selectedOccurrence, 'Bounded alternate recovery preserves the selected queue occurrence');
   }
-  for (const interruption of ['verification-error', 'autoplay-error', 'pause', 'track-change', 'none']) {
+  {
+    const recovery = recoveryCase();
+    const before = {...recovery.context.videoRef.current};
+    recovery.context.resolveAlternateUpload = async () => { recovery.calls.searches++; return null; };
+    await recovery.context.fail({code:'stall'});
+    assert.equal(recovery.calls.searches, 1, 'An exhausted upload search is attempted once');
+    assert.equal(recovery.calls.stops, 1, 'No alternative must expose the failure');
+    assert.equal(recovery.calls.advances, 0, 'No alternative must not silently consume the queue');
+    assert.deepEqual(recovery.context.videoRef.current, before, 'An empty recovery search preserves the selected song');
+  }
+  for (const interruption of ['verification-error', 'embed-error', 'autoplay-error', 'pause', 'track-change', 'none']) {
     const recovery = recoveryCase(); recovery.startSkip();
     if (interruption === 'verification-error') await recovery.context.fail({code:153});
+    if (interruption === 'embed-error') await recovery.context.fail({code:150});
     if (interruption === 'autoplay-error') await recovery.context.fail({kind:'autoplay'});
     if (interruption === 'pause') recovery.context.userPausedRef.current = true;
     if (interruption === 'track-change') recovery.context.videoRef.current = {id:'synthetic02', queueEntryId:'occurrence-B'};
@@ -155,7 +202,7 @@ function recoveryCase() {
   const restricted={set metadata(value){throw new Error('unsupported')},set playbackState(value){throw new Error('unsupported')}};
   assert.doesNotThrow(()=>{metadata(restricted,{},class {});state(restricted,true);});
   assert.doesNotThrow(()=>{metadata(null,{},undefined);state(null,false);});
-  for(const [types,expected] of [[['audio/webm'],'webm-opus'],[['audio/mp4'],'mp4-aac'],[[],null]]) {
+  for(const [types,expected] of [[['audio/webm','audio/mp4'],'auto'],[['audio/webm'],'webm-opus'],[['audio/mp4'],'mp4-aac'],[[],null]]) {
     const {supportedMediaProfile} = load('src/components/MusicPlayer/media/mediaCapabilities.mjs',{}, {document:{createElement:()=>({canPlayType:type=>types.some(prefix=>type.startsWith(prefix))?'probably':''})}});
     assert.equal(supportedMediaProfile('audio'),expected);
   }
@@ -193,5 +240,5 @@ function recoveryCase() {
   assert(pending.cancelled.includes('abandoned'),'Late abandoned receipts must be released');
   assert.equal(pending.timers.size,0);
   pending.deck.destroy();
-  console.log('PASS: terminal player verification, bounded upload recovery, interrupted and healthy skip fades, pending startup fade cancellation, uninterrupted startup fade, authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
+  console.log('PASS: API-valid radio discovery query boundaries and Unicode/suffix preservation, terminal unavailable/embed/verification errors, bounded upload recovery without automatic queue advancement, interrupted and healthy skip fades, pending startup fade cancellation, uninterrupted startup fade, authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
 })().catch(error=>{console.error(error);process.exitCode=1});
