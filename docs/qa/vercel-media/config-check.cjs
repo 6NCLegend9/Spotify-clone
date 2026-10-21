@@ -50,4 +50,45 @@ const route=load('src/app/api/media/preflight/route.js',{
   '@/utils/mediaService.mjs':{mediaServiceConfig:()=>{touched=true;throw Error('production probe reached service')}},
   '@/utils/mediaReceipts.mjs':{},'@/utils/rateLimit':{},
 });
-(async()=>{assert.equal((await route.GET({})).status,404);assert.equal(touched,false);console.log('PASS: internal binding paths, credential purpose separation, public asset origin validation, legacy service compatibility, production preflight exclusion');})().catch(error=>{console.error(error);process.exitCode=1});
+(async()=>{
+  assert.equal((await route.GET({})).status,404);assert.equal(touched,false);
+  const requests=[],limits=[];
+  const asset={jobId:'a'.repeat(32),state:'ready',asset:{url:'https://public.example.test/v1/assets/'+'b'.repeat(32)}};
+  const preview=load('src/app/api/media/preflight/route.js',{
+    'next/server':{NextResponse:{json:(data,options={})=>({data,...options})}},
+    '@/utils/mediaService.mjs':{
+      mediaServiceConfig:()=>({...config,enabled:true,internal:true,secret}),
+      normalizeMediaResult:value=>value,
+      callMediaService:async(_config,path,options)=>{
+        if(path==='/v1/jobs'){
+          requests.push(options.body);
+          return {jobId:'c'.repeat(32),state:'failed',reason:'source_access_restricted'};
+        }
+        return asset;
+      },
+    },
+    '@/utils/mediaReceipts.mjs':{mediaScopeHash:()=> 'd'.repeat(64)},
+    '@/utils/rateLimit':{isRateLimited:async(key,options)=>{limits.push({key,options});return {limited:false}}},
+  },{
+    process:{env:{VERCEL_ENV:'preview',MEDIA_SERVICE_DEPLOYMENT_PROBE:'1'}},
+    AbortSignal,Uint8Array,
+    fetch:async(_url,options)=>{
+      assert.equal(options.headers.Range,'bytes=0-1023');
+      return {status:206,arrayBuffer:async()=>new ArrayBuffer(1024),headers:{get:()=> 'bytes 0-1023/2048'}};
+    },
+  });
+  const request=sample=>({nextUrl:new URL('https://preview.example.test/api/media/preflight'+(sample?'?sample='+sample:''))});
+  assert.equal((await preview.GET(request('arbitrary-video-id'))).status,400);
+  assert.equal(limits.length,0);assert.equal(requests.length,0);
+  for(const [sample,id] of [['big-buck-bunny','aqz-KE-bpKQ'],['on-and-on','K4DyBUG242c'],['invincible','J2X5mJ3HDYE']]){
+    const result=await preview.GET(request(sample));
+    assert.equal(result.status,503);assert.equal(result.data.sample,sample);
+    assert.equal(result.data.reason,'source_access_restricted');
+    assert.equal(result.data.storage,'passed');assert.equal(result.data.range,'passed');
+    assert.equal(requests.at(-1).videoId,id);
+    assert.equal(limits.at(-1).key.endsWith(':'+sample),true);
+    assert.equal(limits.at(-1).options.max,1);
+  }
+  assert.equal(new Set(limits.map(value=>value.key)).size,3);
+  console.log('PASS: internal binding paths, credential purpose separation, public asset origin validation, legacy service compatibility, production preflight exclusion, fixed live-song samples and independent bounded probes');
+})().catch(error=>{console.error(error);process.exitCode=1});

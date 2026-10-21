@@ -55,6 +55,11 @@ on the preview branch and fetch `/api/media/preflight` once. The rate-limited
 probe prepares the fixed public Big Buck Bunny sample (`aqz-KE-bpKQ`) in AAC
 and Opus plus the automatic profile, reads each persisted job through a
 new request, checks a signed 1 KiB byte range, and cancels its objects. It accepts
-no custom source IDs or credentials and is always 404 in production. Disable the
+only the fixed `sample` names `big-buck-bunny` (default), `on-and-on` (Cartoon,
+Jéja feat. Daniel Levi), and `invincible` (DEAF KEV). For example, fetch
+`/api/media/preflight?sample=on-and-on` to try a real song independently of search
+and its database-backed rate limiter. Each sample is limited to one probe per
+hour per server instance. It accepts no custom source IDs or credentials and is
+always 404 in production. Disable the
 flag after verification. A successful probe validates the deployed backend;
 authenticated physical Android/iOS app switching remains a separate device check.
