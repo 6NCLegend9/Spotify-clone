@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiCheckCircle, FiDownload, FiMonitor, FiRefreshCw } from "react-icons/fi";
 import { requestJson } from "@/services/http";
+import useInstalledApp from "@/hooks/useInstalledApp";
 import {
   getHeyKasaDesktopApi,
   getHeyKasaDesktopInfo,
@@ -49,17 +50,19 @@ function DesktopToggle({ label, description, checked, disabled, onChange }) {
 }
 
 export default function DesktopAppCard() {
+  const installedApp = useInstalledApp();
   const [manifest, setManifest] = useState(null);
   const [manifestState, setManifestState] = useState("loading");
   const [manifestRefresh, setManifestRefresh] = useState(0);
   const [desktopInfo, setDesktopInfo] = useState(null);
+  const [desktopInfoState, setDesktopInfoState] = useState("loading");
   const [updateStatus, setUpdateStatus] = useState(null);
   const [startupEnabled, setStartupEnabled] = useState(null);
   const [preferences, setPreferences] = useState(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
-  const isDesktop = Boolean(desktopInfo);
+  const isDesktop = installedApp === "desktop" || Boolean(desktopInfo);
   const desktopApi = typeof window !== "undefined" ? getHeyKasaDesktopApi() : null;
   const supportsUpdater = hasDesktopCapability(desktopInfo, "updaterV1");
   const supportsStartup = hasDesktopCapability(desktopInfo, "autoLaunchV1");
@@ -95,6 +98,7 @@ export default function DesktopAppCard() {
       const nextInfo = await getHeyKasaDesktopInfo();
       if (!active) return;
       setDesktopInfo(nextInfo);
+      setDesktopInfoState(nextInfo ? "loaded" : "error");
 
       const api = getHeyKasaDesktopApi();
       if (!api || !nextInfo) return;
@@ -197,11 +201,12 @@ export default function DesktopAppCard() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="eyebrow mb-2 flex items-center gap-2"><FiMonitor aria-hidden="true" /> HayKasa Desktop</p>
-          <h2 className="text-xl font-semibold">{isDesktop ? "Desktop app controls" : "Get HayKasa for Windows"}</h2>
+          <h2 className="text-xl font-semibold">{isDesktop ? "Desktop app controls" : installedApp === null ? "HayKasa Desktop" : "Get HayKasa for Windows"}</h2>
           <p className="mt-2 max-w-2xl text-xs leading-5 text-[#9aa8b5]">
             {isDesktop
               ? "This window is running inside the secure HayKasa desktop shell. Native Discord, Windows startup, tray behavior, and application updates are handled outside the browser sandbox."
-              : "Install the Windows app for native Discord Rich Presence and automatic desktop updates. The music experience still comes from the same HayKasa account and Vercel web app."}
+              : installedApp === null ? "Checking desktop app availability…"
+                : "Install the Windows app for native Discord Rich Presence and automatic desktop updates. The music experience still comes from the same HayKasa account and Vercel web app."}
           </p>
         </div>
         {isDesktop ? (
@@ -222,7 +227,13 @@ export default function DesktopAppCard() {
         </div>
       ) : null}
 
-      {isDesktop ? (
+      {installedApp === null || (isDesktop && !desktopInfo) ? (
+        <p className="mt-6 text-sm text-[#9aa8b5]" role="status">
+          {isDesktop && desktopInfoState === "error"
+            ? "Desktop status is unavailable. Close and reopen HayKasa to retry."
+            : "Reading desktop app status…"}
+        </p>
+      ) : isDesktop ? (
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <div className="rounded-lg border border-white/10 bg-black/10 p-4">
             <p className="text-xs uppercase tracking-[0.14em] text-[#778899]">Installed</p>

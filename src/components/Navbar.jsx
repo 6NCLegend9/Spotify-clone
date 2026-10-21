@@ -16,6 +16,7 @@ import Searchbar from "./Searchbar";
 import UpdatesBell from "./UpdatesBell";
 import ItemMenu from "./ItemMenu";
 import { canUseArcade } from "@/utils/arcadeAccess";
+import useInstalledApp from "@/hooks/useInstalledApp";
 import styles from "./Layout/KasaShell.module.css";
 
 const Navbar = () => {
@@ -23,6 +24,7 @@ const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const installedApp = useInstalledApp();
   const [imageFailed, setImageFailed] = useState(false);
   const [canBack, setCanBack] = useState(false);
   const homeActive = pathname === "/";
@@ -77,7 +79,7 @@ const Navbar = () => {
         <Searchbar />
       </div>
       <div className="navbar-slot navbar-slot-end">
-        <Link href="/open-desktop" className={styles.install}><CircleArrowDown aria-hidden="true" size={18} />Install app</Link>
+        {installedApp === "browser" && <Link href="/open-desktop" className={styles.install}><CircleArrowDown aria-hidden="true" size={18} />Install app</Link>}
         {status === "authenticated" && <UpdatesBell />}
         {status === "authenticated" ? (
           <ItemMenu label={`Account menu for ${userName}`} className={styles.account} actions={[
