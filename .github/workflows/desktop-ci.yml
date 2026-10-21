@@ -48,3 +48,22 @@ jobs:
         run: node desktop/scripts/check-auto-release.mjs
       - name: Audit runtime dependencies
         run: npm --prefix desktop audit --omit=dev --audit-level=high
+
+  windows-thumbar:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+      - run: npm --prefix desktop ci --no-audit --no-fund
+      - name: Verify native Windows thumbnail-toolbar icons and controls
+        shell: pwsh
+        run: ./desktop/node_modules/.bin/electron.cmd ./desktop/scripts/check-thumbar.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: desktop-thumbar-${{ github.sha }}
+          path: artifacts/desktop-thumbar/
+          if-no-files-found: error

@@ -793,16 +793,14 @@ function toggleMiniPlayer() {
 }
 
 function thumbarIcon(kind) {
-  const paths = {
-    previous: '<path fill="white" d="M3 3h2v10H3V3Zm10 1v8L6 8l7-4Z"/>',
-    play: '<path fill="white" d="M5 3.5v9l8-4.5-8-4.5Z"/>',
-    pause: '<path fill="white" d="M4 3h3v10H4V3Zm5 0h3v10H9V3Z"/>',
-    next: '<path fill="white" d="M11 3h2v10h-2V3ZM3 4l7 4-7 4V4Z"/>',
+  const files = {
+    previous: "previous.png",
+    play: "play.png",
+    pause: "pause.png",
+    next: "next.png",
   };
-  const body = paths[kind] || paths.play;
-  return nativeImage.createFromDataURL(
-    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">${body}</svg>`)}`,
-  ).resize({ width: 16, height: 16 });
+  // NativeImage supports PNG, not SVG; @2x companions retain high-DPI detail.
+  return nativeImage.createFromPath(path.join(__dirname, "icons", "thumbar", files[kind] || files.play));
 }
 
 function updateThumbar() {
