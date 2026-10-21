@@ -39,6 +39,7 @@ function harness(hasTrack = true) {
   }
   const context = vm.createContext({
     BrowserWindow: Window, path, __dirname: "/isolated", MINI_PARTITION: "test",
+    resourceIconPath: () => "/isolated/icon.png",
     session: { fromPartition: () => ({}) }, app: { isPackaged: true }, logger: null,
     dialog: { showErrorBox: (...args) => errors.push(args) },
     installAppearanceProtocol() {}, denyGuestContents() {}, installPopupGuard() {},

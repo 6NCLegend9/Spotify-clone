@@ -52,6 +52,7 @@
       }
     ],
     "win": {
+      "icon": "build/icon.ico",
       "verifyUpdateCodeSignature": true,
       "requestedExecutionLevel": "asInvoker",
       "target": [
@@ -64,6 +65,8 @@
       ]
     },
     "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,

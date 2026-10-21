@@ -720,6 +720,7 @@ function createMiniPlayer() {
   const window = new BrowserWindow({
     width: 360,
     height: 148,
+    icon: resourceIconPath(),
     show: false,
     frame: false,
     resizable: false,
