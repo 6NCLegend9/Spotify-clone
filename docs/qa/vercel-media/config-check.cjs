@@ -22,12 +22,19 @@ assert.equal(new URL('v1/jobs',config.baseUrl).href,'https://binding.example.tes
 config.deliveryOrigin='https://public.example.test';
 const value={jobId:'a'.repeat(32),state:'ready',asset:{url:'https://public.example.test/v1/assets/'+'b'.repeat(32)+'?expires=123&signature=synthetic',expiresAt:Date.now()+10000,duration:2,mimeType:'audio/mp4',codec:'aac'}};
 assert.equal(media.normalizeMediaResult(value,config).asset.mimeType,'audio/mp4');
+const measured=media.normalizeMediaResult({...value,asset:{...value.asset,audioBitrateKbps:158.4,audioBitrateEstimated:false,sampleRateHz:48000,channels:2}},config).asset;
+assert.equal(measured.audioBitrateKbps,158.4);assert.equal(measured.audioBitrateEstimated,false);
+assert.equal(measured.sampleRateHz,48000);assert.equal(measured.channels,2);
+const invalidMetadata=media.normalizeMediaResult({...value,asset:{...value.asset,audioBitrateKbps:Infinity,sampleRateHz:999999,channels:99}},config).asset;
+assert.equal(invalidMetadata.audioBitrateKbps,null);assert.equal(invalidMetadata.sampleRateHz,null);assert.equal(invalidMetadata.channels,null);
+assert.equal(invalidMetadata.audioBitrateEstimated,true);
+assert.equal(media.validateMediaRequest({videoId:'abcdefghijk',mode:'audio',maxHeight:1080,profile:'auto'}).profile,'auto');
 assert.throws(()=>media.normalizeMediaResult({...value,asset:{...value.asset,url:'https://attacker.example.test/v1/assets/'+'b'.repeat(32)}},config));
 assert.equal(media.mediaServiceConfig({MEDIA_SERVICE_INTERNAL_URL:'https://user:password@binding.example.test',JWT_SECRET:secret}).enabled,false);
 const legacy=media.mediaServiceConfig({MEDIA_SERVICE_URL:'https://legacy.example.test',MEDIA_SERVICE_API_KEY:secret,JWT_SECRET:secret});
 assert.equal(legacy.enabled,true);assert.equal(legacy.internal,false);
 let category = "auto", constructions = 0;
-const eq = {'@/utils/eqPresets':{EQ_BAND_FREQS:[],eqHeadroomGain:()=>1,normalizationGain:()=>1}};
+const eq = {'@/utils/eqPresets':{EQ_BAND_FREQS:[],eqHeadroomGain:()=>1,normalizationGain:()=>1},'@/utils/nativeAudio.mjs':{resumeAudioContext:()=>Promise.resolve()}};
 const graph=load('src/components/MusicPlayer/media/nativeAudioGraph.mjs',eq,{
   navigator:{audioSession:{set type(value){category=value}}},
   window:{AudioContext:class {constructor(){constructions++;assert.equal(category,'playback');throw Error('unsupported context')}}},

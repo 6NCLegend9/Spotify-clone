@@ -10,7 +10,6 @@ function load(file, mocks = {}) {
   vm.runInNewContext(code, {module,exports:module.exports,require:name=>mocks[name] || require(name),Buffer,URL,Date,process:{env:{NODE_ENV:"production"}},console});
   return module.exports;
 }
-const policy = load('src/utils/mobileMediaPolicy.mjs');
 const receipts = load('src/utils/mediaReceipts.mjs');
 const validation = load('src/utils/mediaService.mjs');
 const desktop = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130 Safari/537.36';
@@ -30,21 +29,13 @@ const route=load('src/app/api/media/resolve/route.js', {
   '@/utils/rateLimit':{getClientKey:()=> 'local',isRateLimited:async()=>({limited})},
   '@/utils/mediaService.mjs':{...validation,mediaServiceConfig:()=>({enabled,internal,playbackEnabled,secret:'synthetic-media-signing-secret-'.repeat(2)}),
     callMediaService:async(_,url,options)=>{calls.push({url,...options});return {jobId:'a'.repeat(32),state:'ready'}},normalizeMediaResult:result=>result},
-  '@/utils/mediaReceipts.mjs':receipts, '@/utils/mobileMediaPolicy.mjs':policy,
+  '@/utils/mediaReceipts.mjs':receipts,
 });
 function request(agent, method='GET', body, extra={}) {
   const request = new Request('https://haykasa.vercel.app/api/media/resolve', {method,headers:{'user-agent':agent,origin:'https://haykasa.vercel.app','content-type':'application/json',...extra},...(method==='GET'?{}:{body:JSON.stringify(body)})});
   request.nextUrl=new URL(request.url);return request;
 }
 (async()=>{
-  for(const userAgent of [android,iphone,'Mozilla/5.0 (iPad) Safari/605.1.15','Mozilla/5.0 (Android 14) Firefox/130 Mobile']) assert.equal(policy.isMobileMediaClient({userAgent}),true);
-  for(const userAgent of [desktop,ipadDesktop,'Mozilla/5.0 (X11; Linux x86_64) Firefox/130','Mozilla/5.0 Electron/44.0 Android Mobile']) assert.equal(policy.isMobileMediaClient({userAgent}),false);
-  assert.equal(policy.isMobileMediaClient({userAgent:ipadDesktop,maxTouchPoints:5}),true);
-  assert.equal(policy.isMobileMediaClient({userAgent:android},true),false);
-  assert.equal(policy.isMobileMediaClient({userAgentData:{mobile:true}}),true);
-  assert.equal(policy.isMobileMediaRequest(new Headers({'user-agent':ipadDesktop,'X-HayKasa-Media-Client':'mobile'})),true);
-  assert.equal(policy.isMobileMediaRequest(new Headers({'user-agent':desktop,'X-HayKasa-Media-Client':'mobile'})),false);
-  assert.equal(policy.isMobileMediaRequest(new Headers({'sec-ch-ua-mobile':'?1'})),true);
   async function capability(agent, expectedReason) {
     const response=await route.GET(request(agent));
     assert.equal(response.status,200);
@@ -55,9 +46,13 @@ function request(agent, method='GET', body, extra={}) {
     return response;
   }
   const selection={videoId:'abcdefghijk',mode:'audio',maxHeight:1080,profile:'mp4-aac'};
-  await capability(desktop,'mobile_only');assert.equal(authenticationCalls,0);assert.equal(databaseCalls,0);
-  assert.equal((await route.POST(request(desktop,'POST',selection))).status,403);assert.equal(calls.length,0);
-  token=null;await capability(android,'authentication_required');assert.equal(databaseCalls,0);
+  token=null;
+  for (const agent of [desktop, android, iphone, ipadDesktop, 'Mozilla/5.0 Electron/44.4.1']) {
+    await capability(agent,'authentication_required');
+    assert.equal((await route.POST(request(agent,'POST',selection))).status,401);
+  }
+  assert.equal(databaseCalls,0); assert.equal(calls.length,0);
+  await capability(android,'authentication_required');
   assert.equal((await route.POST(request(android,'POST',selection))).status,401);assert.equal(calls.length,0);
   token={id:'alice',sessionVersion:1};validUser=false;await capability(android,'authentication_required');assert.equal((await route.POST(request(android,'POST',selection))).status,401);validUser=true;
   internal=true;
@@ -66,7 +61,7 @@ function request(agent, method='GET', body, extra={}) {
   const disabled=await route.POST(request(android,'POST',selection));
   assert.equal(disabled.status,503);assert.equal(disabled.body.reason,'service_disabled');assert.equal(calls.length,0);
   playbackEnabled=true;
-  await capability(android,null);
+  for (const agent of [desktop, android, iphone, ipadDesktop, 'Mozilla/5.0 Electron/44.4.1']) await capability(agent,null);
   internal=false;playbackEnabled=false;
   await capability(android,null);
   authenticationFails=true;await capability(android,'service_unavailable');authenticationFails=false;
@@ -77,14 +72,18 @@ function request(agent, method='GET', body, extra={}) {
   token={id:'bob',sessionVersion:1};assert.equal((await route.POST(request(iphone,'POST',{action:'poll',receipt}))).status,403);assert.equal(calls.length,1);
   token={id:'alice',sessionVersion:2};assert.equal((await route.POST(request(iphone,'POST',{action:'poll',receipt}))).status,403);
   token={id:'alice',sessionVersion:1};assert.equal((await route.POST(request(iphone,'POST',{action:'poll',receipt}))).status,200);
-  assert.equal((await route.POST(request(desktop,'POST',{action:'renew',receipt}))).status,403);
+  assert.equal((await route.POST(request(desktop,'POST',{action:'renew',receipt}))).status,200);
   internal=true;playbackEnabled=false;
   assert.equal((await route.DELETE(request(desktop,'DELETE',{receipt}))).status,200);assert.equal(calls.at(-1).method,'DELETE');internal=false;
   trusted=false;assert.equal((await route.POST(request(android,'POST',selection))).status,403);trusted=true;
   limited=true;assert.equal((await route.POST(request(android,'POST',selection))).status,429);limited=false;
+  const beforeDesktop=calls.length;
+  assert.equal((await route.POST(request(desktop,'POST',{...selection,profile:'auto'}))).status,200);
+  assert.equal(calls.length,beforeDesktop+1);
+  assert.equal(calls.at(-1).body.profile,'auto');
   enabled=false;
   const authBeforeUnconfigured=authenticationCalls;
   await capability(android,'service_unconfigured');assert.equal(authenticationCalls,authBeforeUnconfigured);
   assert.equal((await route.POST(request(android,'POST',selection))).status,503);
-  console.log('PASS: mobile/tablet detection, desktop/Electron exclusion, iPad desktop mode, mobile hints, private capability reasons, auth/database failure isolation, account validation, desktop/guest denial before extraction, real receipt scope/session checks, authenticated cancellation, origin/rate limits, unconfigured service');
+  console.log('PASS: shared desktop/Electron/phone/tablet source eligibility, private capability reasons, auth/database failure isolation, validated accounts, guest denial before extraction, account/session-scoped receipts, cross-device renewal/cancellation, codec negotiation, origin/rate limits, unconfigured service');
 })().catch(error=>{console.error(error);process.exitCode=1});

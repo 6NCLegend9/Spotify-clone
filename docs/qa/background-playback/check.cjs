@@ -202,7 +202,7 @@ function recoveryCase() {
   const restricted={set metadata(value){throw new Error('unsupported')},set playbackState(value){throw new Error('unsupported')}};
   assert.doesNotThrow(()=>{metadata(restricted,{},class {});state(restricted,true);});
   assert.doesNotThrow(()=>{metadata(null,{},undefined);state(null,false);});
-  for(const [types,expected] of [[['audio/webm'],'webm-opus'],[['audio/mp4'],'mp4-aac'],[[],null]]) {
+  for(const [types,expected] of [[['audio/webm','audio/mp4'],'auto'],[['audio/webm'],'webm-opus'],[['audio/mp4'],'mp4-aac'],[[],null]]) {
     const {supportedMediaProfile} = load('src/components/MusicPlayer/media/mediaCapabilities.mjs',{}, {document:{createElement:()=>({canPlayType:type=>types.some(prefix=>type.startsWith(prefix))?'probably':''})}});
     assert.equal(supportedMediaProfile('audio'),expected);
   }

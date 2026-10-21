@@ -72,7 +72,6 @@ import useWakeLock from "@/hooks/useWakeLock";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import { updateSetting } from "@/redux/features/settingsSlice";
 import { authenticatedPlaybackOwner, shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
-import { isMobileMediaClient, mobileMediaHeaders } from "@/utils/mobileMediaPolicy.mjs";
 import { publishMediaMetadata, publishMediaPlaybackState } from "@/utils/mediaSessionCompatibility.mjs";
 import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
 import { hiddenYoutubeViewportStyle, HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
@@ -471,7 +470,7 @@ function YouTubePlayer() {
   const applyPlaybackVolume = (player, ratio = 1) => {
     // Background/focus listeners live longer than a single render. Read the
     // current levels at call time so they never restore the startup volume.
-    applyLatestOutputVolume(player, player?.provider === "native" ? { ...volumeLevelsRef.current, playbackVolume: 100 } : volumeLevelsRef.current, ratio);
+    applyLatestOutputVolume(player, volumeLevelsRef.current, ratio);
   };
 
   // Fade-in/out is a simple volume ramp on the active player; it never touches deck/crossfade logic.
@@ -1803,10 +1802,9 @@ function YouTubePlayer() {
   useEffect(() => {
     setNativeAvailable(false);
     setSourceAudioReason(null);
-    const desktopShell = Boolean(window.heykasaDesktop);
-    if (status === "loading" || !isMobileMediaClient(navigator, desktopShell)) return;
+    if (status === "loading") return;
     const controller = new AbortController();
-    void fetch("/api/media/resolve", { cache: "no-store", credentials: "same-origin", headers: mobileMediaHeaders(navigator, desktopShell), signal: controller.signal })
+    void fetch("/api/media/resolve", { cache: "no-store", credentials: "same-origin", signal: controller.signal })
       .then((response) => response.ok ? response.json() : { enabled: false })
       .then(({ enabled, reason }) => {
         if (controller.signal.aborted) return;

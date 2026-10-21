@@ -7,7 +7,7 @@ const source = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../../..
 function harness(fetch) {
   const timers = new Map(); let next = 0;
   const module = { exports: {} };
-  vm.runInNewContext(source, { module, exports: module.exports, require: () => ({ mobileMediaHeaders: () => ({}) }), AbortController, AbortSignal: {}, DOMException, fetch, navigator: {}, window: {}, Date, setTimeout: (fn, ms) => { const id = ++next; timers.set(id, { fn, ms }); return id; }, clearTimeout: id => timers.delete(id) });
+  vm.runInNewContext(source, { module, exports: module.exports, AbortController, AbortSignal: {}, DOMException, fetch, navigator: {}, window: {}, Date, setTimeout: (fn, ms) => { const id = ++next; timers.set(id, { fn, ms }); return id; }, clearTimeout: id => timers.delete(id) });
   return { ...module.exports, timers };
 }
 const ready = { state: 'ready', receipt: 'synthetic', asset: { url: 'https://example.invalid/audio', duration: 120 } };

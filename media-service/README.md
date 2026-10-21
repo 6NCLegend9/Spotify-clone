@@ -1,8 +1,10 @@
 # HayKasa media service
 
-The service prepares anonymous YouTube source streams through yt-dlp and delivers complete, seekable files to signed-in mobile web players. Desktop and guest playback use the embedded provider.
+The service prepares public YouTube source streams through yt-dlp and delivers complete, seekable files to signed-in web, desktop and Android players when native playback is activated. Guests use the embedded provider. Song lookup and selected video IDs remain unchanged.
 
 Production uses the stateless Vercel Services deployment and private Blob storage described in [Vercel setup and verification](../docs/qa/vercel-media/README.md). The frontend receives the private service URL from its binding. Worker startup does not prove usable source audio; activation requires successful real extraction, delivery and decoding. See the [live verification results](../docs/qa/vercel-media/RESULTS.md) before enabling `MEDIA_SERVICE_PLAYBACK_ENABLED`. FFmpeg copies streams without re-encoding. It does not provide lossless originals or Premium access.
+
+The `auto` profile uses yt-dlp's format ranking to choose compatible Opus or AAC from the same source, with video pairing when requested. Single-codec clients retain explicit profiles. Prepared descriptors report FFprobe's sample rate, channels and audio bitrate, labeling container/upstream bitrate estimates. [Audio quality tests](../docs/qa/audio-quality/README.md) verify real remuxed packet hashes and browser DSP; increasing a number cannot restore detail absent from the source.
 
 ## Alternative standalone Docker deployment
 

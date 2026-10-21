@@ -38,12 +38,12 @@ export async function GET(request) {
     await inspect(await callMediaService(config, "/v1/probes/storage", { method: "POST", subscriber }), "storage");
     storagePassed = true;
     const profiles = {};
-    for (const profile of ["mp4-aac", "webm-opus"]) {
+    for (const profile of ["mp4-aac", "webm-opus", "auto"]) {
       stage = `extraction_${profile}`;
       const value = await callMediaService(config, "/v1/jobs", { method: "POST", subscriber, body: { videoId: "aqz-KE-bpKQ", mode: "audio", maxHeight: 1080, profile } });
       if (value.state !== "ready") return reply({ ready: false, storage: "passed", range: "passed", stage, reason: value.reason || "source_unavailable" }, 503);
       const result = await inspect(value, `source_${profile}`);
-      profiles[profile] = { mimeType: result.asset.mimeType, duration: result.asset.duration, bytes: 1024 };
+      profiles[profile] = { mimeType: result.asset.mimeType, codec: result.asset.codec, duration: result.asset.duration, audioBitrateKbps: result.asset.audioBitrateKbps, audioBitrateEstimated: result.asset.audioBitrateEstimated, sampleRateHz: result.asset.sampleRateHz, channels: result.asset.channels, bytes: 1024 };
     }
     return reply({ ready: true, extraction: "passed", storage: "passed", persistence: "passed", range: "passed", profiles });
   } catch (error) { return reply({ ready: false, storage: storagePassed ? "passed" : "failed", stage, upstreamStatus: Number.isInteger(error.status) ? error.status : null }, 503); }

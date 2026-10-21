@@ -210,6 +210,8 @@ The [Publish Android Preview workflow](./.github/workflows/android-preview-relea
 
 Use the [media service guide](./media-service/README.md) for a single-instance Docker deployment or the [Vercel deployment guide](./docs/qa/vercel-media/README.md) for the stateless service and private Blob storage. Keep resolver credentials server-side. A successful live extraction, download, and decode is required before enabling source playback.
 
+The [audio fidelity checks](./docs/qa/audio-quality/README.md) cover automatic Opus/AAC selection, packet-preserving remux, delivered quality metadata and shared browser sound processing. Native source eligibility includes signed-in web, desktop and Android; production activation remains gated on successful live verification.
+
 ## Verification
 
 Run the web gate:
