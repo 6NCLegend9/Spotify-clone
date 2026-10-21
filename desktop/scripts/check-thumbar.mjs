@@ -13,9 +13,9 @@ app.setPath("userData", fs.mkdtempSync(path.join(os.tmpdir(), "haykasa-thumbar-"
 const report = { platform: process.platform, icons: [], states: [], commands: [], passed: false };
 let window;
 
+app.whenReady().then(async () => {
 try {
   assert.equal(process.platform, "win32", "Run the native thumbnail-toolbar check on Windows");
-  await app.whenReady();
   const directory = fileURLToPath(new URL("../src/", import.meta.url));
   const source = fs.readFileSync(path.join(directory, "main.mjs"), "utf8");
   const start = source.indexOf("function thumbarIcon(");
@@ -84,3 +84,4 @@ try {
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify(report, null, 2));
   app.exit(report.passed ? 0 : 1);
 }
+});
