@@ -6,6 +6,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const { chromium } = require("playwright");
+const installedContexts = require("./installed-contexts.cjs");
 
 const root = path.resolve(__dirname, "../../..");
 const output = path.join(root, "artifacts/android-installation");
@@ -185,7 +186,8 @@ const results = [];
     results.push({ device, viewport, passed: true, coverage: ["loading", "pre-download Samsung explanation", "accessible download description", "keyboard help toggle", "download expands help", "APK filename and synthetic bytes", "browser fallback", "unavailable release", "lookup failure", "retry loading and recovery", "responsive layout", "no unhandled UI exceptions"] });
     await context.close();
   }
-  const report = { passed: true, scope: "Production Settings UI with synthetic APIs and APK bytes; does not test Samsung OS installation", results };
+  results.push(...await installedContexts({ browser, origin, output }));
+  const report = { passed: true, scope: "Production Settings UI with synthetic APIs, APK bytes, and native/PWA identities; does not test native shells or Samsung OS installation", results };
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 })().catch(async error => {

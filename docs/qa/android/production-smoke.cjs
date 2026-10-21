@@ -36,6 +36,40 @@ const route = value => { try { const url = new URL(value); return { host: url.ho
 // Public guest console diagnostics: retain error categories, never cookie values,
 // request queries, arbitrary console payloads or authentication response bodies.
 const category = message => /ERR_[A-Z_]+/.exec(message)?.[0] || /\b[A-Za-z]+Error\b/.exec(message)?.[0] || (/Content Security Policy/i.test(message) ? 'ContentSecurityPolicy' : /Failed to (load|fetch)/i.test(message) ? 'ResourceLoadFailure' : 'ConsoleError');
+async function providerRejections(page) {
+  const frames = page.frames().filter(frame => {
+    try {
+      const url = new URL(frame.url());
+      return ['www.youtube.com', 'www.youtube-nocookie.com'].includes(url.hostname)
+        && /^\/embed\/[\w-]{11}$/.test(url.pathname);
+    } catch { return false; }
+  }).slice(0, 2);
+  return Promise.all(frames.map(frame => frame.evaluate(() => {
+    const text = value => {
+      const result = typeof value === 'string' ? value : value?.simpleText
+        || value?.runs?.map(run => typeof run.text === 'string' ? run.text : '').join('') || '';
+      return result.replace(/https?:\/\/[^\s)]+/g, '[link]').slice(0, 350);
+    };
+    const player = document.getElementById('movie_player');
+    let response;
+    try { response = player?.getPlayerResponse?.(); } catch {}
+    response ||= window.ytInitialPlayerResponse;
+    if (!response) {
+      try { response = JSON.parse(window.ytplayer?.config?.args?.player_response || '{}'); } catch {}
+    }
+    const status = response?.playabilityStatus;
+    const message = status?.errorScreen?.playerErrorMessageRenderer;
+    const videoId = response?.videoDetails?.videoId;
+    // Never return the full provider response, stream URLs, cookies or config.
+    return {
+      videoId: typeof videoId === 'string' && /^[\w-]{11}$/.test(videoId) ? videoId : null,
+      status: text(status?.status),
+      reason: text(status?.reason || message?.reason),
+      subreason: text(message?.subreason),
+      visibleError: text(document.querySelector('.ytp-error-content-wrap')?.innerText),
+    };
+  }).catch(() => ({ unavailable: true }))));
+}
 (async () => {
   let device, page;
   try {
@@ -135,6 +169,8 @@ const category = message => /ERR_[A-Z_]+/.exec(message)?.[0] || /\b[A-Za-z]+Erro
       await page.locator('[data-testid="player-dock"]').waitFor();
       await page.waitForTimeout(20000);
       report.playback = await page.evaluate(() => window.__productionMediaProbe.sample());
+      report.providerRejections = await providerRejections(page);
+      save();
       await capture('12-live-playback-result');
       const rawProgress = report.playback.frames.some(item => item.state === 1 && item.position > 2 && item.volume > 0 && item.muted === false);
       report.providerProgressObserved = rawProgress;
