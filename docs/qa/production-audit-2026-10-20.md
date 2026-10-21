@@ -66,3 +66,25 @@ Runtime source `5b7c51d` passed [Android run 39467057254](https://github.com/6NC
 Those PR checks serve the current compiled web UI through an instrumentation-only staging transport while leaving public APIs and YouTube live. They verify error handling, manual Next, renderer recovery, native synthetic decoding and phone rotation. Both real-song attempts still received provider error 150 with no verified playback. A green failure-state assertion means the failure is handled, not that music played.
 
 Physical speaker output, authenticated personal-library mutations, authenticated live extraction and reliable background playback remain unverified. The headless Android emulator uses `-noaudio`. The audit does not publish releases, activate source playback or merge PR39. No automatic login or shipped account credential was found in the tested guest flows.
+
+## Follow-up — 2026-10-21
+
+The navbar's **Install app** link was unconditional, so the actual installed Windows app still displayed it. PR39 now checks the existing desktop bridge, native Android identity and standalone PWA mode before offering that link. Server rendering starts with an unknown context, preventing an installer flash during hydration. A regular browser continues to show the link; a browser cannot reliably infer that a separate Windows application is installed.
+
+Desktop Settings also distinguishes an installed shell from its asynchronous status response. While that response is pending or unavailable, Settings shows a status/recovery message instead of a Windows installer. Valid native update controls remain available. Explicit cross-platform downloads and the Android preview's manual APK update path are preserved; sideloaded debug previews still cannot receive Play updates.
+
+Runtime `b357da2` passed all six regression workflows, including [Android build and both emulator jobs](https://github.com/6NCLegend9/Spotify-clone/actions/runs/39559421921). The extended Settings fixture passed its three existing viewport cases and seven additional synthetic browser/native/PWA contexts. It checks delayed and rejected desktop status, a working native update action, Android bridge/UA detection, standalone/iOS PWA mode and the browser `appinstalled` event. DOM observers saw no prohibited installer flash and no unhandled page exceptions. These controlled UI checks do not claim an unmerged change is already visible in the public EXE.
+
+The [new public-APK diagnostic run](https://github.com/6NCLegend9/Spotify-clone/actions/runs/39559418040) inspected the YouTube frame's error details without changing requests or replacing the provider. It returned:
+
+```json
+{
+  "status": "LOGIN_REQUIRED",
+  "reason": "Sign in to confirm you’re not a bot",
+  "visibleError": "Sign in to confirm you’re not a bot"
+}
+```
+
+This establishes an anti-bot challenge on that emulator's YouTube connection. It is not a HayKasa authentication request and does not establish the cause of the user's physical-phone failure or of every Windows error. The basic embed configuration already supplies HTTPS, the renderer origin, widget referrer and a compatible referrer policy; no missing identity field was established by source inspection. Only bounded status/reason text is retained, with links redacted; full provider responses, stream URLs, cookies and configuration are excluded.
+
+The public APK remained the same `40076622…` build and a fresh HayKasa guest. It still had error 150, zero progression and repeated automatic replacement. A normal Next tap completed in this run and changed the selection, but continuing automatic replacement prevents crediting it as healthy skipping; the earlier overlay-blocked tap remains independently documented. Native crashes were not captured. The production functional check remains failed. PR39 repairs the failure loop and install UI; it does not remove YouTube's anti-bot challenge or establish playable live source audio. Physical-speaker output and authenticated yt-dlp playback remain unverified.
