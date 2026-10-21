@@ -33,6 +33,15 @@ public class AndroidPlaybackTest {
         return ((PlaybackService.LocalBinder)binder).service();
     }
     private void main(Runnable r) { InstrumentationRegistry.getInstrumentation().runOnMainSync(r); }
+    private void waitActivityStage(MainActivity activity, androidx.test.runner.lifecycle.Stage expected, String message) throws Exception {
+        AtomicReference<androidx.test.runner.lifecycle.Stage> observed = new AtomicReference<>();
+        for (int attempt = 0; attempt < 50; attempt++) {
+            main(() -> observed.set(androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().getLifecycleStageOf(activity)));
+            if (observed.get() == expected) return;
+            Thread.sleep(100);
+        }
+        assertEquals(message, expected, observed.get());
+    }
     private String js(WebView web, String code) throws Exception {
         CountDownLatch done = new CountDownLatch(1); AtomicReference<String> result = new AtomicReference<>();
         main(() -> web.evaluateJavascript(code, value -> { result.set(value); done.countDown(); }));
@@ -415,6 +424,51 @@ public class AndroidPlaybackTest {
             }
         }
     }
+    @Test public void nativeRendererDecodesSourceOpusAndAacInStereo() throws Exception {
+        PlaybackService service = bind();
+        Field factoryField = PlaybackService.class.getDeclaredField("sourceFactory"); factoryField.setAccessible(true);
+        org.json.JSONArray results = new org.json.JSONArray();
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            for (String codec : new String[]{"opus", "aac"}) {
+                byte[] audio;
+                try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("quality-" + codec + (codec.equals("opus") ? ".webm" : ".m4a"))) { audio = in.readAllBytes(); }
+                String id = "quality-" + codec;
+                String expectedMime = codec.equals("opus") ? "audio/opus" : "audio/mp4a-latm";
+                main(() -> {
+                    try {
+                        ((DefaultMediaSourceFactory)factoryField.get(service)).setDataSourceFactory(() -> new ByteArrayDataSource(audio));
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "load").put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001?signature=synthetic"), message -> {});
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "volume").put("value", .36), message -> {});
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "play"), message -> {});
+                    } catch (Exception error) { throw new RuntimeException(error); }
+                });
+                AtomicReference<org.json.JSONObject> measurement = new AtomicReference<>();
+                for (int attempt = 0; attempt < 100 && measurement.get() == null; attempt++) {
+                    main(() -> {
+                        androidx.media3.exoplayer.ExoPlayer player = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                        androidx.media3.exoplayer.DecoderCounters counters = player.getAudioDecoderCounters();
+                        if (counters != null) counters.ensureUpdated();
+                        androidx.media3.common.Format format = player.getAudioFormat();
+                        if (player.isPlaying() && player.getCurrentPosition() > 1000 && format != null && counters != null && counters.renderedOutputBufferCount > 0) {
+                            assertEquals(expectedMime, format.sampleMimeType);
+                            assertEquals("Source sample rate", 48000, format.sampleRate);
+                            assertEquals("Source stereo channels", 2, format.channelCount);
+                            assertEquals("Native output respects Quiet/master gain", .36f, player.getVolume(), .001f);
+                            try { measurement.set(new org.json.JSONObject().put("codec", codec).put("mimeType", format.sampleMimeType).put("sampleRateHz", format.sampleRate).put("channels", format.channelCount).put("decodedOutputBuffers", counters.renderedOutputBufferCount).put("positionMs", player.getCurrentPosition()).put("volume", player.getVolume())); }
+                            catch (org.json.JSONException error) { throw new RuntimeException(error); }
+                        }
+                    });
+                    if (measurement.get() == null) Thread.sleep(100);
+                }
+                assertNotNull("Native renderer must decode actual " + codec + " source buffers", measurement.get());
+                results.put(measurement.get());
+                main(() -> { try { service.command(new org.json.JSONObject().put("id", id).put("action", "release"), message -> {}); } catch (Exception error) { throw new RuntimeException(error); } });
+            }
+        } finally {
+            main(service::releaseAll);
+            evidence("audio-quality", new org.json.JSONObject().put("syntheticSource", true).put("liveYtDlp", false).put("results", results));
+        }
+    }
     @Test public void nativeBridgePlaysInBackgroundAndHonorsMediaControls() throws Exception {
         PlaybackService service = bind(); byte[] audio = tone();
         Field factoryField = PlaybackService.class.getDeclaredField("sourceFactory"); factoryField.setAccessible(true);
@@ -422,9 +476,11 @@ public class AndroidPlaybackTest {
         String fixture;
         try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("native-qa.html")) { fixture = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8); }
         AtomicReference<WebView> ref = new AtomicReference<>();
+        AtomicReference<MainActivity> originalActivity = new AtomicReference<>();
         try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
             activity.onActivity(instance -> {
                 try {
+                    originalActivity.set(instance);
                     Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
                     WebView web = (WebView)field.get(instance); ref.set(web); web.stopLoading();
                     String fixtureUrl = MediaPolicy.ORIGIN + "/?android-qa=1";
@@ -498,18 +554,15 @@ public class AndroidPlaybackTest {
                 try { service.getSessions().get(0).getSessionActivity().send(); }
                 catch (android.app.PendingIntent.CanceledException error) { throw new RuntimeException(error); }
             });
-            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
-            assertEquals("Notification resumes the original activity and playback bridge", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
+            waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.RESUMED, "Notification resumes the original activity and playback bridge");
             screenshot("native-resumed");
             main(web::clearHistory);
             double beforeRootBack = Double.parseDouble(js(web, "qaDeck.getCurrentTime()"));
             shell("input keyevent KEYCODE_BACK");
-            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.CREATED; i++) Thread.sleep(100);
-            assertEquals("Root Back backgrounds the activity without destroying its playback bridge", androidx.lifecycle.Lifecycle.State.CREATED, activity.getState());
+            waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.STOPPED, "Root Back backgrounds the activity without destroying its playback bridge");
             waitJs(web, "qaDeck.getCurrentTime() > " + (beforeRootBack + 1));
             shell("am start -W -f 0x00020000 -n " + context.getPackageName() + "/" + MainActivity.class.getName());
-            for (int i = 0; i < 30 && activity.getState() != androidx.lifecycle.Lifecycle.State.RESUMED; i++) Thread.sleep(100);
-            assertEquals("Returning after root Back resumes the original activity", androidx.lifecycle.Lifecycle.State.RESUMED, activity.getState());
+            waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.RESUMED, "Returning after root Back resumes the original activity");
             assertEquals("Returning after root Back retains the original playback fixture", "true", js(web, "window.qaReady === true && qaDeck.getPlayerState() === 1"));
             screenshot("native-back-resumed");
             js(web, "qaDeck.loadVideoById({videoId:'synthetic02',title:'HayKasa next emulator tone',startSeconds:0})");
