@@ -21,6 +21,10 @@ Statuses: **pending** (not implemented), **implemented** (changed, not fully tes
 **verified** (only within its cited evidence scope), **blocked** (dependency or device
 unavailable), **explicitly deferred** (outside the agreed first release).
 
+**Current PR scope is independent, verifiable repairs and this release checklist,
+not a completed first-release streaming/DSP engine.** The failed source gate and
+the pending native/durable-preparation requirements prevent that completion claim.
+
 ## Requirements checklist
 
 | ID | Requirement / affected components and platforms | Status | Evidence or next gate |
@@ -45,7 +49,7 @@ unavailable), **explicitly deferred** (outside the agreed first release).
 | A11 | BPM, stereo widening, creative DRC and crossfade enhancement | explicitly deferred | Native queue/renewal/background reliability precedes these. Width remains unity; any retained summing must precede final protection. |
 | N01 | Native Android owns queue, repeat/shuffle, advancement and next-source preparation | pending | Current single MediaItem plus JavaScript ended transition is insufficient. |
 | N02 | Native Android owns renewal and reconnect with scoped revocable authentication | pending | Current WebView timer is insufficient; never export storage/provider secrets to native UI code. |
-| N03 | Acknowledged play/pause/seek; intent separate from observed playback; generation/sequence protection | pending | Current bridge play resolves immediately and seek changes position optimistically. |
+| N03 | Full acknowledged play/pause/seek contract, command IDs and generation/sequence protection | pending | Initial observed-event adapter corrections are tracked separately below; full protocol-v2 commands remain unimplemented. |
 | N03a | Legacy-compatible adapter Play waits for observed native playback; seek uses native position | verified | Isolated bridge/deck tests pass: delayed/duplicate Play, waiting, native playing, pause/error/clear/dispose/deadline, stale events, seeked and old-APK progress. Not device output proof. |
 | N03b | Native telemetry separates isPlaying from playWhenReady; seek discontinuity publishes position | implemented | Compiled into debug APK and instrumentation APK. Six unrelated native policy/unit tests pass; actual service execution remains unverified here. |
 | N04 | Notification/lock-screen/Bluetooth controls, interruptions, audio focus and route changes | pending | Verify actual service and platform controllers, including stale commands and user pause. |
@@ -63,7 +67,7 @@ unavailable), **explicitly deferred** (outside the agreed first release).
 | B08a | Actual SDK in-flight multipart-task cancellation and remote incomplete-part cleanup | pending | Adapter file closure and mocked interruption do not prove remote multipart abort. Pinned SDK defaults can buffer six 8 MiB parts per preparation. |
 | B09 | Bounded cache, active-lease protection, abandoned-job cleanup and paginated segment cleanup | pending | Current object-count sweep cannot be treated as a segment-cache design. |
 | B10 | SSRF/redirect/DNS/IPv6/egress restrictions, subprocess/byte/time limits and redacted diagnostics | pending | Preserve existing supported-ID policy; no arbitrary remote-URL expansion before controls and tests. |
-| V01 | Regression-free web/desktop/mobile controls, startup and failure UI | implemented | Prior audit repairs included; controlled UI tests are not live playback evidence. |
+| V01 | Controlled web/desktop/mobile startup, failure UI and Retry/late-readiness controls | verified | Five compiled-UI Playwright scenarios pass, including the reproduced stale-switch Retry defect and Pause before readiness. Synthetic SDK; installed apps/live playback remain V02. |
 | V02 | Actual playback, DSP, seek, queue, renewal, reconnect and background verification by platform | blocked | Each behavior needs separate evidence; compilation and synthetic clocks do not pass this row. |
 | V03 | Publish commit, changed files, checks/results, limitations and unresolved checklist | pending | Reconcile at each PR milestone and before handoff. |
 | V04 | Second Codex review and back-and-forth integration review | pending | User will engage the reviewer after initial PR40 work. |
@@ -171,6 +175,35 @@ Initial automated commands (all exit 0 in the isolated PR worktree):
   injected/mock HTTP 500 responses are not production server failures.
 - This fixes adapter feedback only. Full versioned acknowledged commands, native
   queue/renewal ownership, HLS, native DSP and background device tests remain open.
+
+### Retry and late SDK-readiness regression
+
+- A new run of the compiled-UI browser test failed in mobile-delayed-session:
+  Retry loaded the SDK but the one active synthetic player stayed paused/muted.
+  Failure-state evidence recorded autoplay=0 and two Pause calls, not playback.
+- Traced the failure through session ownership, `sourceSwitchRef`, Retry and the
+  SDK-ready callback. An old paused source-switch snapshot overrode newer Retry
+  intent. The active ready callback also used captured autoplay instead of current
+  intent, so it could restart a track paused while readiness was pending.
+- Source switches and active readiness now use current playback intent. Removed
+  the obsolete captured playing field from source-switch snapshots.
+- Extended `iframe-api-browser.cjs` to exercise Pause before delayed readiness,
+  inspect the DOM-designated active deck instead of the last constructed player,
+  and retain safe synthetic call/state diagnostics on failure.
+- Rebuilt stable source with `DISABLE_PWA=1 npm run check`: exit 0.
+- `env -u MONGODB_URI -u DASHBOARD_MONGODB_URI node -r
+  /tmp/haykasa-playwright-system.cjs docs/qa/android/iframe-api-browser.cjs`: exit 0;
+  all five phone/narrow/landscape/desktop scenarios passed, each collapsed panel
+  74px and link contrast 13.79:1. Delayed readiness respected Pause; explicit Play
+  then recovered. The silent SDK case exercised its real 15-second deadline.
+- Screenshots and JSON: `artifacts/android-iframe-api/` in the PR worktree. Failure
+  files there describe the earlier reproduced defect; `results.json` records the
+  successful rerun. All SDK/API responses are isolated fixtures, no provider audio.
+- Focused bridge, resolver, background-policy, source eligibility, diagnostics,
+  release/provenance, iframe lifecycle and viewport checks passed. Android binary
+  paths changed only for native telemetry; both native APKs compiled successfully.
+- Original `/workspace/Spotify-clone` diff was checked byte-for-byte against its
+  saved pre-work snapshot: unchanged. Work remains isolated in the PR worktree.
 
 ## Acceptance and review
 

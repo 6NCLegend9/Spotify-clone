@@ -25,12 +25,12 @@ const syntheticSdk = `(${function installSyntheticSdk() {
       this.position = 0; this.started = 0; this.muted = true; this.destroyed = false;
       this.frame = document.createElement("iframe"); this.frame.title = "Synthetic SDK; no media";
       document.getElementById(elementId).replaceWith(this.frame);
-      players.push(this); calls.push({ action: "construct", id: this.id });
-      setTimeout(() => { if (!this.destroyed) options.events.onReady?.({ target: this }); }, 0);
+      players.push(this); calls.push({ action: "construct", id: this.id, autoplay: options.playerVars.autoplay });
+      setTimeout(() => { if (!this.destroyed) { this.ready = true; options.events.onReady?.({ target: this }); } }, window.qaDelaySdkReady || 0);
     }
     notify(state) { this.state = state; this.options.events.onStateChange?.({ target: this, data: state }); }
-    playVideo() { if (this.destroyed || this.state === 1) return; this.started = performance.now(); this.notify(1); }
-    pauseVideo() { this.position = this.getCurrentTime(); this.notify(2); }
+    playVideo() { calls.push({ action: "play", id: this.id }); if (this.destroyed || this.state === 1) return; this.started = performance.now(); this.notify(1); }
+    pauseVideo() { calls.push({ action: "pause", id: this.id }); this.position = this.getCurrentTime(); this.notify(2); }
     loadVideoById(value) { this.id = typeof value === "string" ? value : value.videoId; this.position = Number(value.startSeconds) || 0; calls.push({ action: "load", id: this.id }); this.playVideo(); }
     cueVideoById(value) { this.id = typeof value === "string" ? value : value.videoId; this.position = Number(value.startSeconds) || 0; this.notify(5); }
     getVideoData() { return { video_id: this.id }; }
@@ -46,7 +46,7 @@ const syntheticSdk = `(${function installSyntheticSdk() {
     destroy() { this.destroyed = true; this.frame.remove(); }
   }
   window.YT = { Player, PlayerState: { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 } };
-  window.qaSdk = { players, calls, active: () => players.filter(player => !player.destroyed).at(-1) };
+  window.qaSdk = { players, calls, active: () => players.find(player => !player.destroyed && player.frame.isConnected && player.frame.closest('[data-active-deck="true"]')) };
   window.onYouTubeIframeAPIReady?.();
 }.toString()})();`;
 let browser, currentPage;
@@ -62,7 +62,7 @@ const results = [];
   browser = await chromium.launch({ headless: true });
   for (const scenario of [
     { name: "mobile-delayed-session", viewport: { width: 390, height: 844 }, mobile: true, initial: "error", delaySession: true },
-    { name: "mobile-script-error", viewport: { width: 390, height: 844 }, mobile: true, initial: "error" },
+    { name: "mobile-script-error", viewport: { width: 390, height: 844 }, mobile: true, initial: "error", pauseBeforeReady: true },
     { name: "narrow-script-error", viewport: { width: 320, height: 720 }, mobile: true, initial: "error" },
     { name: "landscape-script-error", viewport: { width: 802, height: 345 }, mobile: true, initial: "error" },
     { name: "desktop-sdk-never-ready", viewport: { width: 1440, height: 1000 }, mobile: false, initial: "silent" },
@@ -73,6 +73,7 @@ const results = [];
       localStorage.setItem("toturialComplete", "true");
       localStorage.setItem("heykasa.media.presentation", "audio");
     });
+    if (scenario.pauseBeforeReady) await context.addInitScript(() => { window.qaDelaySdkReady = 1200; });
     const page = await context.newPage(); currentPage = page;
     let sdkRequests = 0, sdkStartedAt = 0, permitSdk = false;
     let releaseSession;
@@ -163,6 +164,14 @@ const results = [];
     await page.screenshot({ path: path.join(output, `${scenario.name}.png`) });
     permitSdk = true;
     await feedback.getByRole("button", { name: "Retry", exact: true }).click();
+    if (scenario.pauseBeforeReady) {
+      await page.waitForFunction(() => window.qaSdk?.active());
+      await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).click();
+      await page.waitForFunction(() => window.qaSdk?.active()?.ready);
+      assert.notEqual(await page.evaluate(() => window.qaSdk.active().getPlayerState()), 1, 'Late SDK readiness respects a user Pause');
+      assert.equal(await page.evaluate(() => window.qaSdk.calls.some(call => call.action === 'unmute')), false, 'Late readiness cannot unmute a paused track');
+      await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).click();
+    }
     await page.waitForFunction(() => window.qaSdk?.active()?.getPlayerState() === 1 && window.qaSdk.active().getCurrentTime() > 1 && !window.qaSdk.active().isMuted());
     await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).waitFor();
     assert.equal(sdkRequests, 2, "Manual Retry starts exactly one fresh SDK request");
@@ -190,5 +199,11 @@ const results = [];
     return nodes;
   }).catch(() => null);
   if (geometry) fs.writeFileSync(path.join(output, "failure-geometry.json"), JSON.stringify(geometry, null, 2));
+  const state = await currentPage?.evaluate(() => ({
+    players: window.qaSdk?.players.map(player => ({ id: player.id, state: player.state, muted: player.muted, destroyed: player.destroyed, parent: player.frame.parentElement?.id })),
+    calls: window.qaSdk?.calls,
+    controls: [...document.querySelectorAll('[data-testid="player-dock"] button')].map(button => button.getAttribute('aria-label')),
+  })).catch(() => null);
+  if (state) fs.writeFileSync(path.join(output, "failure-state.json"), JSON.stringify(state, null, 2));
   console.error(error); process.exitCode = 1;
 }).finally(async () => { await browser?.close(); server.kill("SIGTERM"); log.end(); });

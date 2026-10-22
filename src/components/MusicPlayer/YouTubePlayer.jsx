@@ -961,7 +961,7 @@ function YouTubePlayer() {
   const handlePlaybackFailure = async ({ code = null, kind = "playback" } = {}) => {
     if (kind !== "autoplay" && getActivePlayer()?.provider === "native") {
       const player = getActivePlayer();
-      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player.getCurrentTime(), playing: isPlayingRef.current, forceIframe: true };
+      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player.getCurrentTime(), forceIframe: true };
       fallbackOccurrenceRef.current = sourceSwitchRef.current.occurrence;
       setSourceAudioReason("source_unavailable");
       setSourceRevision((value) => value + 1);
@@ -1173,7 +1173,9 @@ function YouTubePlayer() {
           event.target.mute();
           applyYouTubeCaptions(event.target, captionsEnabled && !karaokeHasLinesRef.current);
           if (playerVideoId(event.target) === videoId && occurrence === queueEntryIdentity(videoRef.current)) onDeckReady?.(event.target);
-          if (event.target.provider === "native" ? wantsPlayback() : autoplay) event.target.playVideo();
+          const shouldPlay = event.target.provider === "native" || key === activeDeckRef.current
+            ? wantsPlayback() : autoplay;
+          if (shouldPlay) event.target.playVideo();
         },
         onStateChange: (event) => {
           if (!isCurrent()) return;
@@ -1419,13 +1421,13 @@ function YouTubePlayer() {
           setMediaAsset(result.asset); setMediaQualities(result.qualities || []);
           setDeliveredVideoQuality(result.asset.height ? `${result.asset.height}p` : result.asset.codec);
         },
-        onFallback: ({ position, playing, reason }) => {
+        onFallback: ({ position, reason }) => {
           if (!isCurrent() || key !== activeDeckRef.current) return;
           const currentOccurrence = queueEntryIdentity(videoRef.current);
           recordDiagnostic("provider", { code: "native_fallback", reason });
           setSourceAudioReason(reason || "source_unavailable");
           fallbackOccurrenceRef.current = currentOccurrence;
-          sourceSwitchRef.current = { occurrence: currentOccurrence, position, playing, forceIframe: true };
+          sourceSwitchRef.current = { occurrence: currentOccurrence, position, forceIframe: true };
           setSourceRevision((value) => value + 1);
         },
       });
@@ -1846,7 +1848,7 @@ function YouTubePlayer() {
     sourceContextRef.current = context;
     if (previous && previous !== context && videoRef.current?.id) {
       const player = getActivePlayer();
-      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player?.getCurrentTime?.() ?? restorePosition ?? playbackClock.read().position ?? 0, playing: isPlayingRef.current, forceIframe: false };
+      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player?.getCurrentTime?.() ?? restorePosition ?? playbackClock.read().position ?? 0, forceIframe: false };
       destroyDeck("A"); destroyDeck("B");
       setSourceRevision((value) => value + 1);
     }
@@ -1875,11 +1877,13 @@ function YouTubePlayer() {
         return;
       }
       sourceSwitchRef.current = null;
-      userPausedRef.current = !requestedSwitch.playing;
+      // Retry/Pause after the switch was requested takes precedence over its snapshot.
+      const shouldPlay = wantsPlayback();
+      userPausedRef.current = !shouldPlay;
       syncPlaybackClock(requestedSwitch.position, 0);
       setPlayerError(null);
       mountDeck("A", video.id, {
-        title: video.title, autoplay: requestedSwitch.playing,
+        title: video.title, autoplay: shouldPlay,
         forceIframe: requestedSwitch.forceIframe, startSeconds: requestedSwitch.position,
         onDeckReady: (player) => {
           // Initial position belongs to the deck; a later seek or pause takes precedence.
@@ -3128,7 +3132,7 @@ function YouTubePlayer() {
           const player = getActivePlayer();
           if (!player || isJamGuest) return;
           setQualitySelection(selection);
-          sourceSwitchRef.current = { occurrence: queueEntryIdentity(video), position: player.getCurrentTime(), playing: isPlayingRef.current, forceIframe: false };
+          sourceSwitchRef.current = { occurrence: queueEntryIdentity(video), position: player.getCurrentTime(), forceIframe: false };
           fallbackOccurrenceRef.current = null;
           setSourceRevision((value) => value + 1);
         }} />}
