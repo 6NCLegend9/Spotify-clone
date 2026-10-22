@@ -61,8 +61,10 @@ const results = [];
   assert(ready, "Production server starts");
   browser = await chromium.launch({ headless: true });
   for (const scenario of [
+    { name: "mobile-delayed-session", viewport: { width: 390, height: 844 }, mobile: true, initial: "error", delaySession: true },
     { name: "mobile-script-error", viewport: { width: 390, height: 844 }, mobile: true, initial: "error" },
     { name: "narrow-script-error", viewport: { width: 320, height: 720 }, mobile: true, initial: "error" },
+    { name: "landscape-script-error", viewport: { width: 802, height: 345 }, mobile: true, initial: "error" },
     { name: "desktop-sdk-never-ready", viewport: { width: 1440, height: 1000 }, mobile: false, initial: "silent" },
   ]) {
     const context = await browser.newContext({ viewport: scenario.viewport, isMobile: scenario.mobile, hasTouch: scenario.mobile, serviceWorkers: "block", reducedMotion: "reduce" });
@@ -73,6 +75,8 @@ const results = [];
     });
     const page = await context.newPage(); currentPage = page;
     let sdkRequests = 0, sdkStartedAt = 0, permitSdk = false;
+    let releaseSession;
+    const sessionReady = new Promise(resolve => { releaseSession = resolve; });
     const errors = [], searches = [], writes = [];
     page.on("pageerror", error => errors.push(error.message));
     await context.route("**/*", async route => {
@@ -86,7 +90,7 @@ const results = [];
       if (!url.pathname.startsWith("/api/")) return route.continue();
       if (request.method() !== "GET") writes.push({ path: url.pathname, method: request.method() });
       let body = { success: true, data: [] };
-      if (url.pathname === "/api/auth/session") body = {};
+      if (url.pathname === "/api/auth/session") { if (scenario.delaySession) await sessionReady; body = {}; }
       if (url.pathname === "/api/settings") body = { authenticated: false, settings: { privateSession: false, explicitContent: true } };
       if (url.pathname === "/api/language") body = { success: true, language: ["English"] };
       if (url.pathname === "/api/userPlaylists") body = { success: true, data: { playlists: [] } };
@@ -102,18 +106,51 @@ const results = [];
     const dock = page.locator("[data-testid='player-dock']");
     const selected = dock.getByRole("button", { name: `Expand player: ${track.title}`, exact: true });
     await selected.waitFor();
+    if (scenario.delaySession) {
+      const sessionResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/session');
+      releaseSession();
+      await sessionResponse;
+      await pause(500);
+      await selected.waitFor({ timeout: 3000 });
+    }
     const message = page.getByText("The music player could not connect to YouTube.", { exact: true }).filter({ visible: true });
     await message.waitFor({ timeout: 20000 });
     const failureElapsedMs = performance.now() - sdkStartedAt;
     if (scenario.initial === "silent") assert(failureElapsedMs >= 14500 && failureElapsedMs < 20000, "A loaded but never-ready SDK fails within its real 15-second deadline");
     await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
     assert.equal(await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).count(), 0, "A missing SDK cannot pretend to be playing");
-    const feedback = message.locator("..");
+    const feedback = page.locator('[data-testid="playback-feedback"]:visible');
+    assert.equal(await feedback.locator('details').getAttribute('open'), null, "Additional failure details start collapsed");
     const bounds = await feedback.boundingBox();
     assert(bounds && bounds.x >= -2 && bounds.x + bounds.width <= scenario.viewport.width + 2 && bounds.y >= -2 && bounds.y + bounds.height <= scenario.viewport.height + 2, `SDK failure message is visible inside the viewport: ${JSON.stringify(bounds)}`);
+    assert(bounds.height <= 96, `Collapsed playback feedback stays compact: ${bounds.height}px`);
+    await feedback.getByRole('button', { name: 'Retry', exact: true }).waitFor({ state: 'visible' });
+    const dockBounds = await dock.boundingBox();
+    assert(dockBounds && bounds.y + bounds.height <= dockBounds.y + 2, 'Feedback leaves transport controls accessible');
+    await page.screenshot({ path: path.join(output, `${scenario.name}-compact.png`) });
+    await feedback.locator('summary').click();
+    const expanded = await feedback.boundingBox();
+    assert(expanded && expanded.height > bounds.height, 'Details expands only on request');
+    const contrast = await feedback.getByRole('link', { name: 'Open YouTube', exact: true }).evaluate(link => {
+      const luminance = css => {
+        const components = css.match(/[\d.]+/g).slice(0, 3).map(value => {
+          const channel = Number(value) / 255;
+          return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+        });
+        return components[0] * .2126 + components[1] * .7152 + components[2] * .0722;
+      };
+      const foreground = luminance(getComputedStyle(link).color);
+      const linkBackground = getComputedStyle(link).backgroundColor.match(/[\d.]+/g).map(Number);
+      const panelBackground = getComputedStyle(link.closest('[data-testid="playback-feedback"]')).backgroundColor.match(/[\d.]+/g).map(Number);
+      const alpha = linkBackground[3] ?? 1;
+      const composite = luminance(`rgb(${panelBackground.slice(0, 3).map((value, index) => linkBackground[index] * alpha + value * (1 - alpha)).join(',')})`);
+      return (Math.max(foreground, composite) + .05) / (Math.min(foreground, composite) + .05);
+    });
+    assert(contrast >= 4.5, `YouTube link meets normal-text contrast: ${contrast}`);
     for (const action of await feedback.locator("button,a").all()) {
+      await action.scrollIntoViewIfNeeded();
       const actionBounds = await action.boundingBox();
-      assert(actionBounds && actionBounds.x >= bounds.x - 2 && actionBounds.x + actionBounds.width <= bounds.x + bounds.width + 2 && actionBounds.y >= bounds.y - 2 && actionBounds.y + actionBounds.height <= bounds.y + bounds.height + 2 && actionBounds.height >= 44, `Error action stays accessible inside feedback: ${await action.innerText()} ${JSON.stringify(actionBounds)}`);
+      assert(actionBounds && actionBounds.x >= expanded.x - 2 && actionBounds.x + actionBounds.width <= expanded.x + expanded.width + 2 && actionBounds.y >= expanded.y - 2 && actionBounds.y + actionBounds.height <= expanded.y + expanded.height + 2 && actionBounds.height >= 44, `Error action stays accessible inside feedback: ${await action.innerText()} ${JSON.stringify(actionBounds)}`);
     }
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false, "Error actions do not overflow horizontally");
     assert.equal(sdkRequests, 1, "A failed SDK is not retried automatically");
@@ -136,7 +173,7 @@ const results = [];
     assert.deepEqual(errors, [], "SDK failure and recovery cause no unhandled UI exceptions");
     assert.deepEqual(writes.filter(write => write.path !== "/api/media/resolve"), [], "Guest recovery does not write account data");
     await page.screenshot({ path: path.join(output, `${scenario.name}-recovered.png`) });
-    results.push({ scenario: scenario.name, passed: true, failureElapsedMs: Math.round(failureElapsedMs), sdkRequests, coverage: ["visible failure", "paused controls", "selected song retained", "no automatic SDK retries", "no alternative search loop", "manual retry recovery", "progressing unmuted playback", "viewport bounds", "guest isolation"] });
+    results.push({ scenario: scenario.name, passed: true, failureElapsedMs: Math.round(failureElapsedMs), sdkRequests, collapsedHeight: bounds.height, linkContrast: contrast, coverage: ["compact visible failure", "details disclosure", "accessible link contrast", "paused controls", "selected song retained", "no automatic SDK retries", "no alternative search loop", "manual retry recovery", "synthetic progressing unmuted playback", "viewport bounds", "guest isolation"] });
     await context.close();
   }
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify({ passed: true, syntheticOnly: true, results }, null, 2));

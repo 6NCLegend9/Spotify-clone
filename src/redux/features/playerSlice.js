@@ -185,7 +185,13 @@ const playerSlice = createSlice({
   name: 'player',
   initialState,
   reducers: {
-    restorePlayback: (_state, action) => {
+    restorePlayback: (state, action) => {
+      // A Play tap before the first session check wins over an older guest snapshot.
+      if (action.payload?.owner === 'guest' && state.playbackOwner === null
+        && (state.youtubeVideo?.id || state.activeSong?.id)) {
+        state.playbackOwner = 'guest';
+        return;
+      }
       const snapshot = normalizePlaybackSnapshot(action.payload?.snapshot);
       const queueMode = snapshot.queueMode || (snapshot.queueManualEnd ? 'collection' : 'radio');
       const youtubeVideo = decodePlayableYoutubeTrack(snapshot.youtubeVideo);
