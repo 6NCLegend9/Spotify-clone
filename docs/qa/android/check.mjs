@@ -25,10 +25,26 @@ assert.equal(media.duration, 200); assert.deepEqual(events, ["loadedmetadata"]);
 bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "ready", duration: 200, position: 0 }) });
 assert.equal(events.length, 1, "A seek becoming ready must not reset the deck");
 media.currentTime = 42; assert.equal(sent.at(-1).action, "seek");
+assert.equal(media.currentTime, 0, "Posting a seek must not manufacture native position");
+bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "seeked", duration: 200, position: 42 }) });
+assert.equal(media.currentTime, 42);
+media.currentTime = 17;
+assert.equal(media.currentTime, 42);
+bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "progress", duration: 200, position: 17 }) });
+assert.equal(media.currentTime, 17, "Older APK progress events still confirm a seek without a new event type");
 media.volume = .4; media.muted = false;
 assert.equal(sent.at(-1).value, .4);
-await media.play(); assert.equal(sent.at(-1).action, "play");
+const play = media.play(); assert.equal(sent.at(-1).action, "play");
+assert.equal(media.play(), play, "Duplicate Play shares the in-flight native request");
+let playResolved = false;
+void play.then(() => { playResolved = true; });
+await Promise.resolve();
+assert.equal(playResolved, false, "Posting Play is not evidence that native playback started");
+assert.equal(media.paused, true);
+bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "waiting", position: 42 }) });
+await Promise.resolve(); assert.equal(playResolved, false, "Buffering must not resolve Play");
 bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "playing", duration: 200, position: 43 }) });
+await play;
 assert.equal(media.paused, false); assert.equal(media.currentTime, 43);
 media.pause(); assert.equal(sent.at(-1).action, "pause");
 bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "pause", duration: 200, position: 43 }) });
@@ -45,7 +61,38 @@ media.remove(); assert.equal(sent.at(-1).action, "release");
 bridge.onmessage({ data: JSON.stringify({ id: load.id, event: "playing", position: 2 }) });
 assert.equal(media.currentTime, 0, "Disposed bridge listeners cannot change reset state");
 
-console.log("Android audio bridge checks passed: origin, metadata, seek, output volume, pause, end, stale events and cleanup.");
+for (const action of ["pause", "error", "clear", "dispose", "timeout"]) {
+  const candidate = createAndroidAudioElement("Pending native playback");
+  candidate.src = "https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef";
+  candidate.load();
+  const ownLoad = sent.at(-1);
+  let timeout;
+  const originalTimer = globalThis.setTimeout;
+  const originalClear = globalThis.clearTimeout;
+  if (action === "timeout") {
+    globalThis.setTimeout = (callback, ms) => { assert.equal(ms, 30_000); timeout = callback; return 1; };
+    globalThis.clearTimeout = () => {};
+  }
+  try {
+    const pending = candidate.play();
+    const rejected = assert.rejects(pending, error => {
+      if (["pause", "clear", "dispose"].includes(action)) return error.name === "AbortError";
+      return error.message === (action === "timeout" ? "native_playback_timeout" : "native_media_failed");
+    });
+    if (action === "pause") candidate.pause();
+    if (action === "error") bridge.onmessage({ data: JSON.stringify({ id: ownLoad.id, event: "error" }) });
+    if (action === "clear") candidate.removeAttribute("src");
+    if (action === "dispose") candidate.remove();
+    if (action === "timeout") timeout();
+    await rejected;
+  } finally {
+    candidate.remove();
+    globalThis.setTimeout = originalTimer;
+    globalThis.clearTimeout = originalClear;
+  }
+}
+
+console.log("Android audio bridge checks passed: origin, observed Play/seek, pending Play cancellation/error/deadline, duplicate requests, legacy native events, metadata, output volume, stale events and cleanup.");
 
 // Exercise the production deck lifecycle with an isolated resolver. No provider calls.
 let source = await readFile(new URL("../../../src/components/MusicPlayer/media/nativeMediaDeck.mjs", import.meta.url), "utf8");

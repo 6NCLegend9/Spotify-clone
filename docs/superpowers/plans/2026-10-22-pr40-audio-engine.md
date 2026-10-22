@@ -46,6 +46,8 @@ unavailable), **explicitly deferred** (outside the agreed first release).
 | N01 | Native Android owns queue, repeat/shuffle, advancement and next-source preparation | pending | Current single MediaItem plus JavaScript ended transition is insufficient. |
 | N02 | Native Android owns renewal and reconnect with scoped revocable authentication | pending | Current WebView timer is insufficient; never export storage/provider secrets to native UI code. |
 | N03 | Acknowledged play/pause/seek; intent separate from observed playback; generation/sequence protection | pending | Current bridge play resolves immediately and seek changes position optimistically. |
+| N03a | Legacy-compatible adapter Play waits for observed native playback; seek uses native position | verified | Isolated bridge/deck tests pass: delayed/duplicate Play, waiting, native playing, pause/error/clear/dispose/deadline, stale events, seeked and old-APK progress. Not device output proof. |
+| N03b | Native telemetry separates isPlaying from playWhenReady; seek discontinuity publishes position | implemented | Compiled into debug APK and instrumentation APK. Six unrelated native policy/unit tests pass; actual service execution remains unverified here. |
 | N04 | Notification/lock-screen/Bluetooth controls, interruptions, audio focus and route changes | pending | Verify actual service and platform controllers, including stale commands and user pause. |
 | N05 | Screen-off >=30 min, >=10 transitions, WebView suspended/destroyed, forced lease renewals | blocked | Requires new service implementation plus runtime test; emulator is distinct from a physical phone. |
 | N06 | Required Android HLS module, restricted manifest/segment URL policy and new native binary | pending | Existing APK permits only `/v1/assets/<32hex>` and lacks Media3 HLS. Website updates cannot supply native code. |
@@ -147,6 +149,28 @@ Initial automated commands (all exit 0 in the isolated PR worktree):
 - These are isolated local checks with mocked Blob requests, not a hosted upload
   or new extraction-time streaming implementation. SDK task/remote-part cleanup
   remains visible as B08a rather than being implied by file-handle closure.
+
+### Android observed playback and seek feedback
+
+- Traced `nativeMediaDeck` -> `androidAudioElement` -> MainActivity's same-origin
+  message listener -> PlaybackService -> ExoPlayer listener -> bridge events.
+- Adapter Play now shares a bounded pending promise and resolves on the native
+  `playing` event, not message posting. Pause, source change, disposal, native error
+  and a 30-second deadline settle pending requests. Seek position follows feedback.
+- Existing APKs already send playing/progress events, so they remain compatible;
+  new APKs also emit seeked and separate actual playback from playWhenReady.
+- `node docs/qa/android/check.mjs`: exit 0, isolated event-driven adapter/deck tests.
+- Android offline Gradle `:app:testDebugUnitTest :app:assembleDebug
+  :app:assembleDebugAndroidTest`: BUILD SUCCESSFUL; six unit tests, no failures.
+  Both APKs compiled; no instrumentation execution or physical speaker claim.
+- Debug APK SHA-256: `bd0e2931e7a33218df35636136ec03edc4166aecd4ac77d74e674d3aa5b5722d`.
+- Web `DISABLE_PWA=1 npm run check`: exit 0 (lint, typecheck, production build).
+  Subsequent browser regression work must be retested after its edits.
+- Isolated security checks: 2,612 web cases, zero external network attempts and
+  zero uncaught exceptions; 93 media cases, zero uncaught exceptions. Deliberately
+  injected/mock HTTP 500 responses are not production server failures.
+- This fixes adapter feedback only. Full versioned acknowledged commands, native
+  queue/renewal ownership, HLS, native DSP and background device tests remain open.
 
 ## Acceptance and review
 
