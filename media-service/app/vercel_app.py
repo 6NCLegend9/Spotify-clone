@@ -156,8 +156,10 @@ async def cleanup(client):
 async def persist(client, asset, qualities, who, uploaded):
     job_id = f"{int(time.time()):08x}{uuid.uuid4().hex[:24]}"
     asset_path, manifest_path = paths(job_id)
-    blob = await client.put(asset_path, asset["path"].read_bytes(), access="private",
-        content_type=asset["descriptor"]["mimeType"], add_random_suffix=False, multipart=True)
+    # Keep the file alive until the SDK finishes its bounded multipart reads.
+    with asset["path"].open("rb") as stream:
+        blob = await client.put(asset_path, stream, access="private",
+            content_type=asset["descriptor"]["mimeType"], add_random_suffix=False, multipart=True)
     uploaded.append(blob.pathname)
     value = {"jobId": job_id, "subscriber": who, "url": blob.url, "size": asset["size"],
         "descriptor": asset["descriptor"], "qualities": qualities}
