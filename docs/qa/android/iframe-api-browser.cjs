@@ -1,4 +1,4 @@
-// Actual production UI with guest APIs and an isolated synthetic IFrame SDK.
+// Actual compiled UI with isolated guest/authenticated APIs and a synthetic SDK.
 // No provider streams or external requests are sent. The timeout uses real time.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -16,7 +16,7 @@ const server = spawn(process.execPath, [path.join(root, "node_modules/next/dist/
   cwd: root, env: { ...process.env, NEXTAUTH_URL: origin, NEXTAUTH_SECRET: "isolated-sdk-qa", JWT_SECRET: "isolated-sdk-qa" }, stdio: ["ignore", "pipe", "pipe"],
 });
 server.stdout.pipe(log); server.stderr.pipe(log);
-// Delivered only when the user explicitly retries the failed SDK request.
+// Delivered after an explicit Retry or controlled release of delayed readiness.
 const syntheticSdk = `(${function installSyntheticSdk() {
   const players = [], calls = [];
   class Player {
@@ -61,6 +61,8 @@ const results = [];
   assert(ready, "Production server starts");
   browser = await chromium.launch({ headless: true });
   for (const scenario of [
+    { name: "mobile-fallback-delayed-sdk", viewport: { width: 390, height: 844 }, mobile: true, fallback: true },
+    { name: "mobile-fallback-paused-during-wait", viewport: { width: 390, height: 844 }, mobile: true, fallback: true, pauseDuringWait: true },
     { name: "mobile-delayed-session", viewport: { width: 390, height: 844 }, mobile: true, initial: "error", delaySession: true },
     { name: "mobile-script-error", viewport: { width: 390, height: 844 }, mobile: true, initial: "error", pauseBeforeReady: true },
     { name: "narrow-script-error", viewport: { width: 320, height: 720 }, mobile: true, initial: "error" },
@@ -72,18 +74,32 @@ const results = [];
       delete Object.getPrototypeOf(navigator).serviceWorker;
       localStorage.setItem("toturialComplete", "true");
       localStorage.setItem("heykasa.media.presentation", "audio");
+      window.qaMediaHandlers = {};
+      const setAction = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
+      navigator.mediaSession.setActionHandler = (action, handler) => {
+        window.qaMediaHandlers[action] = handler;
+        setAction(action, handler);
+      };
     });
     if (scenario.pauseBeforeReady) await context.addInitScript(() => { window.qaDelaySdkReady = 1200; });
     const page = await context.newPage(); currentPage = page;
     let sdkRequests = 0, sdkStartedAt = 0, permitSdk = false;
     let releaseSession;
     const sessionReady = new Promise(resolve => { releaseSession = resolve; });
+    let releaseSdk;
+    const sdkReady = new Promise(resolve => { releaseSdk = resolve; });
+    let sourceRequests = 0;
+    const sourceAttempts = [];
     const errors = [], searches = [], writes = [];
     page.on("pageerror", error => errors.push(error.message));
     await context.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url());
       if (url.href === "https://www.youtube.com/iframe_api") {
         sdkRequests++; if (!sdkStartedAt) sdkStartedAt = performance.now();
+        if (scenario.fallback) {
+          await sdkReady;
+          return route.fulfill({ contentType: "application/javascript", body: syntheticSdk });
+        }
         if (permitSdk) return route.fulfill({ contentType: "application/javascript", body: syntheticSdk });
         return scenario.initial === "error" ? route.abort("failed") : route.fulfill({ contentType: "application/javascript", body: "/* Loaded but intentionally never initializes YT.Player. */" });
       }
@@ -91,12 +107,22 @@ const results = [];
       if (!url.pathname.startsWith("/api/")) return route.continue();
       if (request.method() !== "GET") writes.push({ path: url.pathname, method: request.method() });
       let body = { success: true, data: [] };
-      if (url.pathname === "/api/auth/session") { if (scenario.delaySession) await sessionReady; body = {}; }
-      if (url.pathname === "/api/settings") body = { authenticated: false, settings: { privateSession: false, explicitContent: true } };
+      if (url.pathname === "/api/auth/session") {
+        if (scenario.delaySession) await sessionReady;
+        body = scenario.fallback ? { user: { id: "507f1f77bcf86cd799439013", name: "Fallback QA", email: "qa@example.invalid" }, expires: "2099-01-01T00:00:00Z" } : {};
+      }
+      if (url.pathname === "/api/settings") body = { authenticated: !!scenario.fallback, settings: { privateSession: false, explicitContent: true } };
       if (url.pathname === "/api/language") body = { success: true, language: ["English"] };
       if (url.pathname === "/api/userPlaylists") body = { success: true, data: { playlists: [] } };
       if (url.pathname === "/api/followedArtists") body = { success: true, data: [], artists: [] };
-      if (url.pathname === "/api/media/resolve") body = { enabled: false, reason: "authentication_required" };
+      if (url.pathname === "/api/media/resolve") {
+        if (scenario.fallback && request.method() === "POST") {
+          sourceRequests++;
+          sourceAttempts.push({ request: request.postDataJSON(), at: Math.round(performance.now() - sdkStartedAt) });
+          return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ state: "failed", reason: "source_access_restricted" }) });
+        }
+        body = scenario.fallback ? { enabled: true } : { enabled: false, reason: "authentication_required" };
+      }
       if (url.pathname === "/api/youtube-videos") body = { tracks: [track] };
       if (url.pathname === "/api/favourite") body = { success: true, data: { favourites: [] } };
       if (url.pathname === "/api/youtube-search") { searches.push(Object.fromEntries(url.searchParams)); body = { results: url.searchParams.get("type") === "video" ? [track] : [], nextPageToken: "" }; }
@@ -107,6 +133,45 @@ const results = [];
     const dock = page.locator("[data-testid='player-dock']");
     const selected = dock.getByRole("button", { name: `Expand player: ${track.title}`, exact: true });
     await selected.waitFor();
+    if (scenario.fallback) {
+      const waiting = page.getByText("Source playback is unavailable. Waiting for the YouTube player; retry playback if it cannot load.", { exact: true });
+      await waiting.waitFor();
+      assert(sourceRequests > 0, 'The production resolver/deck must actually attempt source playback before fallback');
+      assert.equal(await page.evaluate(() => !!window.YT?.Player), false, 'Fallback starts before SDK readiness');
+      await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
+      const requestsAtWait = sourceRequests;
+      if (scenario.pauseDuringWait) {
+        await page.waitForFunction(() => typeof window.qaMediaHandlers.pause === 'function');
+        await page.evaluate(() => window.qaMediaHandlers.pause());
+      }
+      // Exceed the real 8-second transition guard: waiting intent must not expire.
+      await pause(9000);
+      await selected.waitFor();
+      const requestsBeforeReadiness = sourceRequests;
+      assert.equal(requestsBeforeReadiness, requestsAtWait, 'Waiting cannot loop source extraction');
+      await page.screenshot({ path: path.join(output, `${scenario.name}-waiting.png`) });
+      releaseSdk();
+      if (scenario.pauseDuringWait) {
+        await page.waitForFunction(() => window.qaSdk?.active()?.ready);
+        await pause(500);
+        assert.notEqual(await page.evaluate(() => window.qaSdk.active().getPlayerState()), 1, 'An explicit notification Pause during provider wait remains authoritative');
+        assert.equal(await page.evaluate(() => window.qaSdk.calls.some(call => ['play', 'unmute'].includes(call.action))), false, 'SDK readiness cannot override the explicit Pause');
+        await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
+      } else {
+        await page.waitForFunction(() => window.qaSdk?.active()?.getPlayerState() === 1 && window.qaSdk.active().getCurrentTime() > 1 && !window.qaSdk.active().isMuted(), null, { timeout: 5000 });
+        await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).waitFor();
+      }
+      await waiting.waitFor({ state: 'hidden' });
+      await selected.waitFor();
+      assert.equal(sdkRequests, 1, 'Delayed fallback readiness needs no script reload or explicit Retry');
+      fs.writeFileSync(path.join(output, `${scenario.name}-source-attempts.json`), JSON.stringify({ requestsAtWait, requestsBeforeReadiness, requestsAfterReadiness: sourceRequests, sourceAttempts }, null, 2));
+      assert.equal(sourceRequests, requestsBeforeReadiness, 'SDK readiness cannot restart source extraction');
+      assert.deepEqual(errors, [], 'Delayed fallback has no unhandled UI exceptions');
+      await page.screenshot({ path: path.join(output, `${scenario.name}-ready.png`) });
+      results.push({ scenario: scenario.name, passed: true, sourceRequests, sdkRequests, explicitPause: !!scenario.pauseDuringWait, waitMs: 9000, coverage: ['actual source-failure-to-SDK fallback', 'wait exceeds transition guard', scenario.pauseDuringWait ? 'explicit Pause remains authoritative' : 'automatic resume without Retry', 'same selected occurrence', 'no source retry loop'] });
+      await context.close();
+      continue;
+    }
     if (scenario.delaySession) {
       const sessionResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/session');
       releaseSession();

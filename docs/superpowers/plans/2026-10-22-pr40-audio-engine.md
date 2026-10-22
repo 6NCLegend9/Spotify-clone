@@ -67,10 +67,13 @@ the pending native/durable-preparation requirements prevent that completion clai
 | B08a | Actual SDK in-flight multipart-task cancellation and remote incomplete-part cleanup | pending | Adapter file closure and mocked interruption do not prove remote multipart abort. Pinned SDK defaults can buffer six 8 MiB parts per preparation. |
 | B09 | Bounded cache, active-lease protection, abandoned-job cleanup and paginated segment cleanup | pending | Current object-count sweep cannot be treated as a segment-cache design. |
 | B10 | SSRF/redirect/DNS/IPv6/egress restrictions, subprocess/byte/time limits and redacted diagnostics | pending | Preserve existing supported-ID policy; no arbitrary remote-URL expansion before controls and tests. |
-| V01 | Controlled web/desktop/mobile startup, failure UI and Retry/late-readiness controls | verified | Five compiled-UI Playwright scenarios pass, including the reproduced stale-switch Retry defect and Pause before readiness. Synthetic SDK; installed apps/live playback remain V02. |
+| V01 | Controlled web/desktop/mobile startup, failure UI and Retry/late-readiness controls | verified | Seven compiled-UI Playwright scenarios pass, including stale-switch Retry, Pause before readiness and delayed source-to-iframe fallback with/without explicit Pause. Synthetic SDK; installed apps/live playback remain V02. |
 | V02 | Actual playback, DSP, seek, queue, renewal, reconnect and background verification by platform | blocked | Each behavior needs separate evidence; compilation and synthetic clocks do not pass this row. |
-| V03 | Publish commit, changed files, checks/results, limitations and unresolved checklist | pending | Reconcile at each PR milestone and before handoff. |
-| V04 | Second Codex review and back-and-forth integration review | pending | User will engage the reviewer after initial PR40 work. |
+| V03 | Publish commit, changed files, checks/results, limitations and unresolved checklist | implemented | PR40 contains the initial handoff; this review milestone records affected files, before/after evidence and remaining gates below. Report the pushed commit and its CI separately. |
+| V04 | Second Codex review and back-and-forth integration review | implemented | Reviewer found one P2 at 7f2a40a; R01/R02 are corrected and locally verified. Await review of the correction; agreement is not assumed. |
+| R01 | Delayed YouTube fallback resumes after SDK readiness without a user Pause | verified | Compiled-UI test failed at 7f2a40a, then passed after this correction: 9-second wait exceeds the transition guard; same occurrence progresses unmuted without Retry. Controlled SDK/API evidence only. |
+| R02 | Explicit Pause while fallback waits remains authoritative after SDK readiness | verified | Actual registered notification Pause handler invoked during the 9-second wait; ready active deck remains paused with no Play/unmute calls. Original Retry and Pause-before-ready scenarios also pass. Controlled browser evidence only. |
+| R03 | Keep PR40 in draft while this race or new-head CI is incomplete | verified | PR40 is draft. Every GitHub check on old head 7f2a40a is green, including API 33/36; that is not a CI pass for the upcoming fix. |
 
 ## Existing connected implementation
 
@@ -209,6 +212,43 @@ Initial automated commands (all exit 0 in the isolated PR worktree):
 - Original `/workspace/Spotify-clone` diff was checked byte-for-byte against its
   saved pre-work snapshot: unchanged. Work remains isolated in the PR worktree.
 
+### Independent review: provider wait versus explicit Pause
+
+- Reviewer reproduced a P2 regression at `7f2a40a`: source failure before SDK
+  readiness changed `userPausedRef` into a user Pause. The newly added compiled-UI
+  case reproduced this before the production edit: after a 9-second wait the
+  replacement player was paused/muted with `autoplay=0` and never resumed.
+- Traced source resolver failure -> pending iframe switch -> SDK watcher readiness
+  -> deck mounting/onReady, plus the UI and MediaSession Play/Pause handlers.
+  Pending provider wait now has a queue-occurrence-scoped marker. Explicit Pause
+  still overrides that marker. Consuming the switch clears the marker and uses
+  current intent; no captured playing snapshot was restored.
+- Affected files: `src/components/MusicPlayer/YouTubePlayer.jsx`,
+  `docs/qa/android/iframe-api-browser.cjs`, and this checklist. API/native bridge,
+  backend/storage and native binary contracts did not change in this correction.
+- `DISABLE_PWA=1 npm run check`: exit 0 (lint, types, production build).
+- `env -u MONGODB_URI -u DASHBOARD_MONGODB_URI node -r
+  /tmp/haykasa-playwright-system.cjs docs/qa/android/iframe-api-browser.cjs`: exit 0;
+  all seven compiled-UI cases pass. The two new cases hold actual SDK delivery for
+  9 seconds, beyond the real 8-second transition guard. Without Pause, the active
+  deck progresses unmuted and controls show Pause; explicit notification Pause
+  keeps it paused after readiness without any Play/unmute call. No Retry or SDK
+  reload is needed. Extraction request counts remain stable during wait/recovery.
+- Existing delayed-session Retry, Pause before player-ready, narrow/landscape
+  error UI, and real 15-second SDK timeout all remain covered and pass.
+- `node docs/qa/android/check.mjs`,
+  `node docs/qa/background-playback/check.cjs`,
+  `node docs/qa/vercel-media/config-check.cjs`, and `git diff --check`: exit 0.
+- Before evidence: `artifacts/pr40-provider-wait-review/before/`; passing results,
+  request diagnostics and wait/ready screenshots: `artifacts/android-iframe-api/`.
+  These use the actual compiled component and controlled SDK/API responses, with
+  external requests blocked. They do not establish audible/live provider playback.
+- All GitHub checks on the reviewed `7f2a40a` head passed, including Android 33/36
+  emulators. Those results do not pass the correction's new-head CI. PR40 remains
+  draft while CI and independent review proceed; no merge or native release.
+- S01/S02, streaming, native queue/renewal and DSP requirements remain open.
+  Physical-device/installed-app playback was not repeated for this web-player fix.
+
 ## Review handoff
 
 Independent corrections are in commits `c05e382` (startup/errors), `21d0efd`
@@ -218,7 +258,7 @@ integration evidence. Native changes are compiled into the locally built APK;
 neither a native release nor a production merge/activation has occurred.
 
 Existing CI already runs the updated Python adapter checks, the node/real-DOM
-Android bridge checks, the five compiled-UI SDK scenarios, Android build checks
+Android bridge checks, the seven compiled-UI SDK scenarios, Android build checks
 and API 33/36 emulator instrumentation. A configured workflow is not a passed
 workflow: record actual GitHub results separately after PR creation.
 

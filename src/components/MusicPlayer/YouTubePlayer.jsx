@@ -192,6 +192,7 @@ function YouTubePlayer() {
   const isJamGuest = jam?.role === "guest" && Boolean(jam.code);
   const jamLocked = isJamGuest && jam?.hasAux !== true;
   const userPausedRef = useRef(false);
+  const waitingForProviderRef = useRef(null);
   const pageHiddenWhilePlayingRef = useRef(false);
   const volumeLevelsRef = useRef({ playbackVolume, masterVolume });
   const volumeRestoreRef = useRef({ clear() {}, holds() { return false; } });
@@ -382,7 +383,9 @@ function YouTubePlayer() {
 
   const wantsPlayback = () =>
     !userPausedRef.current &&
-    (isPlayingRef.current || performance.now() < trackChangeUntilRef.current);
+    (isPlayingRef.current || performance.now() < trackChangeUntilRef.current
+      || (waitingForProviderRef.current !== null
+        && waitingForProviderRef.current === queueEntryIdentity(videoRef.current)));
 
   const isPageHidden = () =>
     typeof document !== "undefined" && document.visibilityState === "hidden";
@@ -1858,12 +1861,14 @@ function YouTubePlayer() {
   useEffect(() => {
     cancelFade();
     if (!video?.id) {
+      waitingForProviderRef.current = null;
       cancelCrossfade();
       clearActiveBufferTimers();
       destroyDeck("A");
       destroyDeck("B");
       return;
     }
+    if (waitingForProviderRef.current !== queueEntryIdentity(video)) waitingForProviderRef.current = null;
     if (!apiReady) return;
     const requestedSwitch = sourceSwitchRef.current;
     if (requestedSwitch && requestedSwitch.occurrence === queueEntryIdentity(video)) {
@@ -1871,7 +1876,8 @@ function YouTubePlayer() {
       destroyDeck("A"); destroyDeck("B");
       activeDeckRef.current = "A"; setActiveDeck("A");
       if (requestedSwitch.forceIframe && !window.YT?.Player) {
-        userPausedRef.current = true;
+        // Waiting stops the UI; it must not turn a provider delay into a user Pause.
+        waitingForProviderRef.current = wantsPlayback() ? queueEntryIdentity(video) : null;
         dispatch(playPause(false));
         setPlayerError({ message: "Source playback is unavailable. Waiting for the YouTube player; retry playback if it cannot load." });
         return;
@@ -1879,7 +1885,10 @@ function YouTubePlayer() {
       sourceSwitchRef.current = null;
       // Retry/Pause after the switch was requested takes precedence over its snapshot.
       const shouldPlay = wantsPlayback();
+      waitingForProviderRef.current = null;
       userPausedRef.current = !shouldPlay;
+      if (shouldPlay) markExpectPlaying();
+      dispatch(playPause(shouldPlay));
       syncPlaybackClock(requestedSwitch.position, 0);
       setPlayerError(null);
       mountDeck("A", video.id, {
