@@ -164,6 +164,10 @@ Initial automated commands (all exit 0 in the isolated PR worktree):
 - Existing APKs already send playing/progress events, so they remain compatible;
   new APKs also emit seeked and separate actual playback from playWhenReady.
 - `node docs/qa/android/check.mjs`: exit 0, isolated event-driven adapter/deck tests.
+- `node -r /tmp/haykasa-playwright-system.cjs docs/qa/android/browser.cjs`:
+  exit 0 with real Chromium DOM and a synthetic native bridge. Updated the fixture
+  to deliver native feedback before awaiting Play, and assert Play/seek remain
+  unconfirmed until feedback. No external media requests or device output proof.
 - Android offline Gradle `:app:testDebugUnitTest :app:assembleDebug
   :app:assembleDebugAndroidTest`: BUILD SUCCESSFUL; six unit tests, no failures.
   Both APKs compiled; no instrumentation execution or physical speaker claim.
@@ -204,6 +208,26 @@ Initial automated commands (all exit 0 in the isolated PR worktree):
   paths changed only for native telemetry; both native APKs compiled successfully.
 - Original `/workspace/Spotify-clone` diff was checked byte-for-byte against its
   saved pre-work snapshot: unchanged. Work remains isolated in the PR worktree.
+
+## Review handoff
+
+Independent corrections are in commits `c05e382` (startup/errors), `21d0efd`
+(upload allocation/checklist), `0a86e9b` (Android observed feedback) and `a9bbf33`
+(Retry/readiness intent). The subsequent fixture/handoff commit completes their
+integration evidence. Native changes are compiled into the locally built APK;
+neither a native release nor a production merge/activation has occurred.
+
+Existing CI already runs the updated Python adapter checks, the node/real-DOM
+Android bridge checks, the five compiled-UI SDK scenarios, Android build checks
+and API 33/36 emulator instrumentation. A configured workflow is not a passed
+workflow: record actual GitHub results separately after PR creation.
+
+The full first-release engine is **not complete**. Source access (S01/S02), native
+queue/renewal (N01/N02), protocol-v2 ownership, incremental delivery/durable cache,
+DSP protection and physical-device qualification remain open above. No planned
+feature has been shipped as an unconnected stub or passed via a simulated clock.
+The second Codex should review the committed diff and requirements by ID, identify
+concrete failures with reproduction evidence, and preserve these release gates.
 
 ## Acceptance and review
 
