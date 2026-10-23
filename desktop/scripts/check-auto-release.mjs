@@ -6,6 +6,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { resolveReleaseMetadata } from "./resolve-release-metadata.mjs";
+import { installationEligibleForRollout } from "../src/policy.mjs";
+import { compareReleaseVersions, versionOlderThan } from "../src/version.mjs";
 
 // Exercise the actual CLI: every blocked signed release must fail CI rather
 // than report success without publishing. Fixtures never build or publish an app.
@@ -86,15 +88,21 @@ for (const inputs of [
 // Exercise the actual updater against a newly published automatic release.
 // Imports are substituted so this test never downloads or installs anything.
 let checkCount = 0, installs = 0, feed;
+const publishedManifest = {
+  channel: "stable", latest: automatic.version, minimum: automatic.minimum_version,
+  published: true, signed: true, downloadUrl: "https://example.invalid/HayKasa.exe",
+  sha512: "a".repeat(86) + "==", sizeBytes: 100,
+};
+let manifest = publishedManifest;
 const listeners = new Map(), statuses = [];
 const engine = {
   on: (name, callback) => listeners.set(name, callback),
   setFeedURL: value => { feed = value; },
   checkForUpdates: async () => {
     checkCount++;
-    listeners.get("update-available")({ version: automatic.version });
+    listeners.get("update-available")({ version: manifest.latest });
     listeners.get("download-progress")({ percent: 50 });
-    listeners.get("update-downloaded")({ version: automatic.version });
+    listeners.get("update-downloaded")({ version: manifest.latest });
   },
   quitAndInstall: () => { installs++; },
 };
@@ -106,14 +114,10 @@ const sandbox = {
   UPDATE_FEED_BASE_URL: "https://haykasa.vercel.app/api/desktop/update",
   UPDATE_MANIFEST_URL: "https://haykasa.vercel.app/api/desktop/manifest", UPDATE_PREFLIGHT_TIMEOUT_MS: 1000,
   UPDATE_CHECK_INTERVAL_MS: 1000, UPDATE_INITIAL_DELAY_JITTER_MS: 0, UPDATE_INITIAL_DELAY_MIN_MS: 0,
-  effectiveUpdateChannel: () => "stable", installationEligibleForRollout: () => true,
-  versionOlderThan: () => false, URL, AbortSignal, process: { env: {} },
+  effectiveUpdateChannel: () => "stable", installationEligibleForRollout,
+  compareReleaseVersions, versionOlderThan, URL, AbortSignal, process: { env: {} },
   setTimeout, clearTimeout, setInterval, clearInterval,
-  fetch: async () => ({ ok: true, json: async () => ({
-    channel: "stable", latest: automatic.version, minimum: automatic.minimum_version,
-    published: true, signed: true, downloadUrl: "https://example.invalid/HayKasa.exe",
-    sha512: "a".repeat(86) + "==", sizeBytes: 100,
-  }) }),
+  fetch: async () => ({ ok: true, json: async () => manifest }),
 };
 vm.runInNewContext(updaterCode, sandbox);
 const notices = [], rendererMessages = [];
@@ -152,4 +156,50 @@ native.sendUpdateStatus(updater.getStatus());
 assert.equal(notices.length, 1, "Repeated state messages do not duplicate Windows notifications");
 await updater.installReadyUpdate(); assert.equal(installs, 1);
 updater.dispose();
+
+// A missing installation ID is outside a 25% rollout (bucket 99).
+for (const test of [
+  { name: "manual update opts into staged release", manual: true, percent: 25, state: "ready", checks: 1 },
+  { name: "automatic update retains staged rollout", percent: 25, state: "deferred", checks: 0 },
+  { name: "zero rollout remains paused for manual checks", manual: true, percent: 0, state: "deferred", checks: 0 },
+  { name: "equal version is current outside rollout", installed: automatic.version, percent: 25, state: "up-to-date", checks: 0 },
+  { name: "older release cannot replace newer installation", installed: "99.0.0", percent: 25, state: "up-to-date", checks: 0 },
+  { name: "manual stable upgrade from prerelease", installed: `${automatic.version}-beta.1`, manual: true, percent: 25, state: "ready", checks: 1 },
+  { name: "manual update cannot bypass signature", manual: true, percent: 25, manifest: { signed: false }, state: "disabled", checks: 0 },
+  { name: "manual update cannot bypass integrity", manual: true, percent: 25, manifest: { sha512: "invalid" }, state: "error", checks: 0 },
+  { name: "manual update cannot invent a release", manual: true, percent: 25, manifest: { published: false }, state: "disabled", checks: 0 },
+  { name: "required minimum keeps existing rollout exception", installed: "1.0.0", percent: 0, state: "ready", checks: 1 },
+  { name: "automatic updates can remain disabled", autoUpdate: false, percent: 100, state: "disabled", checks: 0 },
+  { name: "explicit check works with automatic updates disabled", autoUpdate: false, manual: true, percent: 25, state: "ready", checks: 1 },
+]) {
+  manifest = { ...publishedManifest, ...test.manifest };
+  const before = checkCount;
+  const candidate = new sandbox.DesktopUpdater({
+    app: { isPackaged: true, getVersion: () => test.installed || "1.2.8" },
+    store: { get: key => key === "autoUpdate" ? test.autoUpdate : undefined },
+    rolloutPercent: () => test.percent,
+  });
+  const state = await candidate.checkNow({ manual: test.manual === true });
+  assert.equal(state.state, test.state, test.name);
+  assert.equal(checkCount - before, test.checks, `${test.name}: native download checks`);
+  if (test.checks) assert.equal(state.version, manifest.latest, `${test.name}: exact newer release version`);
+  candidate.dispose();
+}
 console.log("PASS: signing readiness, blocked signed releases fail CI, secret redaction, automatic stable versioning, preserved internal/manual channels, updater discovery/download/restart states and Windows notification");
+console.log("PASS: manual and automatic rollout, paused releases, current/newer/prerelease versions and preserved signature/integrity gates");
+
+const { verifiedManifest } = await import("./check-release-delivery.mjs");
+manifest = verifiedManifest;
+const delivered = new sandbox.DesktopUpdater({
+  app: { isPackaged: true, getVersion: () => "1.0.0" },
+  store: { get: () => undefined }, rolloutPercent: () => 100,
+});
+const previousInstalls = installs;
+const deliveredStatus = await delivered.checkNow({ manual: true });
+assert.equal(deliveredStatus.state, "ready");
+assert.equal(deliveredStatus.version, verifiedManifest.latest);
+assert.equal(installs, previousInstalls, "Discovery/download do not force a restart");
+await delivered.installReadyUpdate();
+assert.equal(installs, previousInstalls + 1, "Explicit restart reaches the native installation command");
+delivered.dispose();
+console.log("PASS: produced fixture bundle reaches native ready/version and explicit install command; no real Windows installation performed");

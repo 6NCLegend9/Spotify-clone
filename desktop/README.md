@@ -330,6 +330,8 @@ If a run fails at `Check signing inputs before building` or `Validate signed rel
 
 Once publication succeeds, verify `/api/desktop/manifest?channel=stable` reports `published: true` and `signed: true`, and `/api/desktop/update/stable/latest.yml` serves the matching version. The existing production verifier performs these checks. A production key change requires an authorized Vercel deployment before it affects clients. The configured rollout percentage still controls which installations receive an automatic update.
 
+An explicit **Check for updates** opts into an active staged rollout; a 0% rollout still pauses optional updates. An installation already on the same or a newer version reports up-to-date instead of a deferred update. Signature, integrity, runtime feature and required-minimum checks remain in force. Bundle preparation validates the exact YAML version, installer path, SHA-512 and size before publication. Native updater fixes require a new Windows installer; a renderer deployment cannot change an existing EXE.
+
 #### Failure observed on October 16, 2026
 
 [Run 38977476332](https://github.com/6NCLegend9/Spotify-clone/actions/runs/38977476332) passed the web/native gate and failed because **all three release secrets were empty** in its signed job. Run 38809286479 failed at the same step. No signed release was published. At investigation time the public stable manifest remained unpublished and the download endpoint offered only the older `desktop-latest` manual installer. Resolving signing configuration is required before a code or workflow update can produce trusted automatic updates.
