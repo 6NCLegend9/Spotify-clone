@@ -4,18 +4,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import {
-  FiAlertCircle,
-  FiArrowLeft,
-  FiCheck,
-  FiChevronRight,
-  FiHeadphones,
-  FiLoader,
-  FiLock,
-  FiPlus,
-  FiSearch,
-  FiTrash2,
-  FiX,
-} from "react-icons/fi";
+  CircleAlert as FiAlertCircle,
+  ArrowLeft as FiArrowLeft,
+  Check as FiCheck,
+  ChevronRight as FiChevronRight,
+  Headphones as FiHeadphones,
+  LoaderCircle as FiLoader,
+  Lock as FiLock,
+  Plus as FiPlus,
+  Search as FiSearch,
+  Trash2 as FiTrash2,
+  X as FiX,
+} from "lucide-react";
 import AuthMessage from "@/components/AuthMessage";
 import { normalizeGenreName } from "@/utils/genreTaxonomy";
 import { requestJson } from "@/services/http";
@@ -106,7 +106,7 @@ function GenreChoice({ item, selected, parentName, onToggle, disabled = false })
             : "border-white/15 text-white/70 group-hover:border-[#096192]/60 group-hover:text-[#096192]"
         }`}
       >
-        {selected ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}
+        {selected ? <FiCheck size="1em" aria-hidden="true" /> : <FiPlus size="1em" aria-hidden="true" />}
       </span>
     </button>
   );
@@ -137,7 +137,7 @@ function CategoryCard({ item, index, selected, onBrowse, onToggle }) {
           </span>
           <span className="mt-0.5 flex items-center gap-0.5 text-[10px] leading-4 text-white/55">
             {childCount} subgenres
-            <FiChevronRight className="h-3 w-3" aria-hidden="true" />
+            <FiChevronRight size="1em" className="h-3 w-3" aria-hidden="true" />
           </span>
         </button>
         <button
@@ -151,7 +151,7 @@ function CategoryCard({ item, index, selected, onBrowse, onToggle }) {
               : "border-white/20 bg-black/20 text-white hover:border-[#096192] hover:text-[#096192]"
           }`}
         >
-          {selected ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}
+          {selected ? <FiCheck size="1em" aria-hidden="true" /> : <FiPlus size="1em" aria-hidden="true" />}
         </button>
       </div>
     </article>
@@ -265,7 +265,7 @@ function CustomGenreDialog({
             className="icon-btn h-11 w-11 shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Close custom genre dialog"
           >
-            <FiX aria-hidden="true" />
+            <FiX size="1em" aria-hidden="true" />
           </button>
         </div>
 
@@ -334,7 +334,7 @@ function CustomGenreDialog({
               disabled={!nameIsValid || loading}
               className="btn-primary min-w-40 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? <span className="custom-loader" aria-hidden="true" /> : <FiPlus aria-hidden="true" />}
+              {loading ? <span className="custom-loader" aria-hidden="true" /> : <FiPlus size="1em" aria-hidden="true" />}
               {loading ? "Creating" : "Create & select"}
             </button>
           </div>
@@ -712,9 +712,9 @@ export default function GenrePreferences({ status }) {
   const selectedCount = selectedGenres.length;
   const saveStatus = {
     idle: { icon: null, text: "Changes save automatically", className: "text-[#748493]" },
-    saving: { icon: <FiLoader className="animate-spin" aria-hidden="true" />, text: "Saving", className: "text-[#9aa8b5]" },
-    saved: { icon: <FiCheck aria-hidden="true" />, text: "Saved", className: "text-[#096192]" },
-    error: { icon: <FiAlertCircle aria-hidden="true" />, text: "Not saved", className: "text-amber-300" },
+    saving: { icon: <FiLoader size="1em" className="animate-spin" aria-hidden="true" />, text: "Saving", className: "text-[#9aa8b5]" },
+    saved: { icon: <FiCheck size="1em" aria-hidden="true" />, text: "Saved", className: "text-[#096192]" },
+    error: { icon: <FiAlertCircle size="1em" aria-hidden="true" />, text: "Not saved", className: "text-amber-300" },
   }[saveState];
 
   return (
@@ -733,7 +733,7 @@ export default function GenrePreferences({ status }) {
               className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[#096192]/25 bg-[#096192]/10 text-[#096192]"
               aria-hidden="true"
             >
-              <FiHeadphones className="h-5 w-5" />
+              <FiHeadphones size="1em" className="h-5 w-5" />
             </span>
             <div>
               <p className="eyebrow mb-2">Discovery</p>
@@ -770,7 +770,7 @@ export default function GenrePreferences({ status }) {
           <div className="flex flex-col items-start justify-between gap-5 rounded-2xl border border-white/10 bg-white/[0.035] p-5 sm:flex-row sm:items-center sm:p-6">
             <div className="flex items-start gap-4">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-[#9aa8b5]">
-                <FiLock aria-hidden="true" />
+                <FiLock size="1em" aria-hidden="true" />
               </span>
               <div>
                 <h3 className="font-semibold text-white">Sign in to personalize discovery</h3>
@@ -814,7 +814,7 @@ export default function GenrePreferences({ status }) {
                         aria-label={`Remove ${name} from your picks`}
                       >
                         {name}
-                        <FiX className="text-[#096192]" aria-hidden="true" />
+                        <FiX size="1em" className="text-[#096192]" aria-hidden="true" />
                       </button>
                     );
                   })}
@@ -838,7 +838,7 @@ export default function GenrePreferences({ status }) {
             <div className="flex flex-col gap-3 sm:flex-row">
               <label className="relative min-w-0 flex-1">
                 <span className="sr-only">Search genres, subgenres, and custom genres</span>
-                <FiSearch
+                <FiSearch size="1em"
                   className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#748493]"
                   aria-hidden="true"
                 />
@@ -859,7 +859,7 @@ export default function GenrePreferences({ status }) {
                     className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-[#9aa8b5] hover:bg-white/10 hover:text-white"
                     aria-label="Clear genre search"
                   >
-                    <FiX aria-hidden="true" />
+                    <FiX size="1em" aria-hidden="true" />
                   </button>
                 ) : null}
               </label>
@@ -868,7 +868,7 @@ export default function GenrePreferences({ status }) {
                 onClick={() => openCustomDialog(query.trim())}
                 className="btn-ghost h-12 shrink-0 px-4 text-sm"
               >
-                <FiPlus aria-hidden="true" /> Create custom
+                <FiPlus size="1em" aria-hidden="true" /> Create custom
               </button>
             </div>
 
@@ -905,7 +905,7 @@ export default function GenrePreferences({ status }) {
                       onClick={() => openCustomDialog(query.trim())}
                       className="btn-primary mt-4 h-10 px-4 text-xs"
                     >
-                      <FiPlus aria-hidden="true" /> Create “{query.trim()}”
+                      <FiPlus size="1em" aria-hidden="true" /> Create “{query.trim()}”
                     </button>
                   </div>
                 )}
@@ -917,7 +917,7 @@ export default function GenrePreferences({ status }) {
                   onClick={() => setActiveCategoryId(null)}
                   className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#9aa8b5] transition hover:text-white"
                 >
-                  <FiArrowLeft aria-hidden="true" /> All categories
+                  <FiArrowLeft size="1em" aria-hidden="true" /> All categories
                 </button>
                 <div className="mb-5">
                   <p className="eyebrow mb-2">Explore the sound</p>
@@ -1000,8 +1000,8 @@ export default function GenrePreferences({ status }) {
                                 className="inline-flex h-9 items-center gap-2 rounded-full bg-red-500 px-3 text-xs font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 {deletingId === item.id
-                                  ? <FiLoader className="animate-spin" aria-hidden="true" />
-                                  : <FiTrash2 aria-hidden="true" />}
+                                  ? <FiLoader size="1em" className="animate-spin" aria-hidden="true" />
+                                  : <FiTrash2 size="1em" aria-hidden="true" />}
                                 Delete
                               </button>
                               <button
@@ -1034,7 +1034,7 @@ export default function GenrePreferences({ status }) {
                               className="icon-btn h-9 w-9 shrink-0 text-[#9aa8b5] hover:border-red-400/50 hover:bg-red-400/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
                               aria-label={`Delete custom genre ${name}`}
                             >
-                              <FiTrash2 aria-hidden="true" />
+                              <FiTrash2 size="1em" aria-hidden="true" />
                             </button>
                           </div>
                         )}

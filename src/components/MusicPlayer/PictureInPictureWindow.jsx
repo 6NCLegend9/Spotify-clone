@@ -2,8 +2,15 @@
 
 import { formatDuration, formatElapsedTime } from "@/utils/trackDuration.mjs";
 import { createPortal } from "react-dom";
-import { FiPause, FiPlay, FiRotateCcw, FiRotateCw, FiX } from "react-icons/fi";
-import { MdSkipNext } from "react-icons/md";
+import {
+  Pause as FiPause,
+  Play as FiPlay,
+  RotateCcw as FiRotateCcw,
+  RotateCw as FiRotateCw,
+  X as FiX,
+  SkipForward as MdSkipNext,
+} from "lucide-react";
+
 import { activeLyricIndex } from "@/utils/lyricsLookup";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import ArtistNameLink from "@/components/ArtistNameLink";
@@ -44,7 +51,7 @@ export default function PictureInPictureWindow({
         <div className="yt-pip-doc-top">
           <p className="yt-pip-kicker">Now playing</p>
           <button type="button" aria-label="Close picture in picture" onClick={onClose}>
-            <FiX />
+            <FiX size="1em" />
           </button>
         </div>
         <p className="yt-pip-title">{cleanTitle(video.title)}</p>
@@ -61,12 +68,12 @@ export default function PictureInPictureWindow({
           <span>{formatDuration(duration)}</span>
         </div>
         <div className="yt-pip-controls">
-          <button type="button" aria-label="Back 10 seconds" onClick={() => onSeekBy(-10)}><FiRotateCcw /></button>
+          <button type="button" aria-label="Back 10 seconds" onClick={() => onSeekBy(-10)}><FiRotateCcw size="1em" /></button>
           <button type="button" aria-label={isPlaying ? "Pause" : "Play"} className="yt-pip-play" onClick={onPlayPause}>
-            {isPlaying ? <FiPause /> : <FiPlay />}
+            {isPlaying ? <FiPause size="1em" fill="currentColor" /> : <FiPlay size="1em" fill="currentColor" />}
           </button>
-          <button type="button" aria-label="Forward 10 seconds" onClick={() => onSeekBy(10)}><FiRotateCw /></button>
-          <button type="button" aria-label="Next song" onClick={onNext}><MdSkipNext /></button>
+          <button type="button" aria-label="Forward 10 seconds" onClick={() => onSeekBy(10)}><FiRotateCw size="1em" /></button>
+          <button type="button" aria-label="Next song" onClick={onNext}><MdSkipNext size="1em" /></button>
         </div>
         {queue.length > 0 && (
           <div className="yt-pip-queue">

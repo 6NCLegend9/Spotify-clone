@@ -6,7 +6,14 @@ import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { FiCheck, FiChevronDown, FiHeart, FiPlay, FiPlus, FiShuffle } from "react-icons/fi";
+import {
+  Check as FiCheck,
+  ChevronDown as FiChevronDown,
+  Heart as FiHeart,
+  Play as FiPlay,
+  Plus as FiPlus,
+  Shuffle as FiShuffle,
+} from "lucide-react";
 import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
 import MediaImage from "@/components/MediaImage";
@@ -342,7 +349,7 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
   };
 
   const songs = (list, queue = list) => <ol className={styles.songList}>{list.map((video, index) => <ContextMenuTarget as="li" key={video.id} className={styles.songRow}>
-    <button type="button" aria-label={`Play ${cleanTitle(video.title)}`} onClick={() => playTrack(video, queue)} className={styles.rowPlay}><span className={styles.rowIndex}>{index + 1}</span><FiPlay className={styles.rowPlayIcon} aria-hidden="true" /></button>
+    <button type="button" aria-label={`Play ${cleanTitle(video.title)}`} onClick={() => playTrack(video, queue)} className={styles.rowPlay}><span className={styles.rowIndex}>{index + 1}</span><FiPlay size="1em" fill="currentColor" className={styles.rowPlayIcon} aria-hidden="true" /></button>
     <div className={styles.songIdentity}>
       <MediaImage src={video.thumbnail} size="mq" alt="" width={44} height={44} className={styles.songArt} />
       <div className={styles.songCopy}>
@@ -362,7 +369,7 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
 
   return <div className={`page ${styles.page}`} aria-labelledby="artist-title">
     <div className={styles.stickyHeader} hidden={!compactHeader} role="region" aria-label="Artist quick controls">
-      <div className={styles.stickyContent}><button type="button" onClick={playAll} disabled={mainPlayDisabled} aria-label={`Play songs by ${displayTitle}`} className={styles.compactPlay}><FiPlay aria-hidden="true" /></button><span className={styles.compactTitle}>{displayTitle}</span></div>
+      <div className={styles.stickyContent}><button type="button" onClick={playAll} disabled={mainPlayDisabled} aria-label={`Play songs by ${displayTitle}`} className={styles.compactPlay}><FiPlay size="1em" fill="currentColor" aria-hidden="true" /></button><span className={styles.compactTitle}>{displayTitle}</span></div>
     </div>
     <header ref={heroRef} className={`${styles.hero} ${banner ? "" : styles.withoutBanner}`}>
       {banner ? <MediaImage src={banner} size="maxres" alt="" loading="eager" className={styles.banner} /> : artist.thumbnail ? <MediaImage src={artist.thumbnail} size="hq" alt="" loading="eager" className={styles.portrait} /> : null}
@@ -374,9 +381,9 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
 
     <div className={styles.content}>
       <div className={styles.actions} role="region" aria-label="Artist actions">
-        <button type="button" onClick={playAll} disabled={mainPlayDisabled} aria-label={`Play songs by ${displayTitle}`} className={styles.mainPlay}><FiPlay aria-hidden="true" /></button>
-        <button type="button" onClick={shuffle} disabled={mainPlayDisabled} aria-label={`Shuffle songs by ${displayTitle}`} title="Shuffle artist songs" className={styles.shuffle}><FiShuffle aria-hidden="true" /></button>
-        {status === "authenticated" ? <button type="button" onClick={() => void toggleFollow()} disabled={followBusy || followLoading || Boolean(followError) || loading || Boolean(error)} aria-pressed={followed} className={styles.follow}>{followed ? <FiCheck aria-hidden="true" /> : <FiPlus aria-hidden="true" />}{followBusy ? "Saving…" : followLoading ? "Loading follow…" : followed ? "Following" : "Follow"}</button> : status === "unauthenticated" ? <Link href="/login" className={styles.follow}>Log in to follow</Link> : null}
+        <button type="button" onClick={playAll} disabled={mainPlayDisabled} aria-label={`Play songs by ${displayTitle}`} className={styles.mainPlay}><FiPlay size="1em" fill="currentColor" aria-hidden="true" /></button>
+        <button type="button" onClick={shuffle} disabled={mainPlayDisabled} aria-label={`Shuffle songs by ${displayTitle}`} title="Shuffle artist songs" className={styles.shuffle}><FiShuffle size="1em" aria-hidden="true" /></button>
+        {status === "authenticated" ? <button type="button" onClick={() => void toggleFollow()} disabled={followBusy || followLoading || Boolean(followError) || loading || Boolean(error)} aria-pressed={followed} className={styles.follow}>{followed ? <FiCheck size="1em" aria-hidden="true" /> : <FiPlus size="1em" aria-hidden="true" />}{followBusy ? "Saving…" : followLoading ? "Loading follow…" : followed ? "Following" : "Follow"}</button> : status === "unauthenticated" ? <Link href="/login" className={styles.follow}>Log in to follow</Link> : null}
         <ItemMenu label={`${displayTitle} artist options`} className={styles.artistMenu} actions={[
           { label: "Copy artist link", onSelect: async () => { await navigator.clipboard.writeText(window.location.href); toast.success("Artist link copied"); } },
           { label: "Open artist on YouTube", onSelect: () => window.open(`https://www.youtube.com/channel/${encodeURIComponent(artistId)}`, "_blank", "noopener,noreferrer") },
@@ -413,14 +420,14 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
             <section aria-labelledby="artist-liked-title">
               <h2 id="artist-liked-title">You liked</h2>
               {status === "authenticated" ? likesError ? <UserMessage title={likesError.title} message={likesError.message} onRetry={() => setLikesRetryKey(value => value + 1)} busy={likesLoading} compact /> : likesLoading ? <p className={styles.sidebarHint} role="status">Loading your liked songs…</p> : likedTracks.length ? <button type="button" onClick={() => playTrack(likedTracks[0], likedTracks)} className={styles.likedCollection} aria-label={`Play ${likedTracks.length} liked ${likedTracks.length === 1 ? "song" : "songs"} by ${displayTitle}`}>
-                <span className={styles.likedArt}><MediaImage src={artist.thumbnail || sectionArtist?.thumbnail} size="hq" alt="" className={styles.likedPortrait} /><FiHeart aria-hidden="true" /></span><span><strong>{likedTracks.length} {likedTracks.length === 1 ? "song" : "songs"}</strong><span className={styles.sidebarHint}>By {displayTitle}</span></span>
+                <span className={styles.likedArt}><MediaImage src={artist.thumbnail || sectionArtist?.thumbnail} size="hq" alt="" className={styles.likedPortrait} /><FiHeart size="1em" aria-hidden="true" /></span><span><strong>{likedTracks.length} {likedTracks.length === 1 ? "song" : "songs"}</strong><span className={styles.sidebarHint}>By {displayTitle}</span></span>
               </button> : <p className={styles.sidebarHint}><strong>No liked songs yet</strong><br />Save a song by {displayTitle} to find it here.</p> : <p className={styles.sidebarHint}><Link href="/login">Log in</Link> to see songs you liked.</p>}
             </section>
             {latestRelease && <section aria-labelledby="artist-latest-title"><h2 id="artist-latest-title">Release spotlight</h2><Link href={musicReleaseHref(latestRelease.id)} prefetch={false} className={styles.spotlightLink}><MediaImage src={latestRelease.thumbnail} size="hq" alt="" className={styles.spotlightArt} /><span><strong>{cleanTitle(latestRelease.title)}</strong><span className={styles.sidebarHint}>{[latestRelease.year, latestRelease.type === "ep" ? "EP" : latestRelease.type === "single" ? "Single" : "Album"].filter(Boolean).join(" · ")}</span></span></Link></section>}
           </aside>
         </div>
 
-        {popularTracks.length > 0 && tracks.length > 0 && <details className={styles.channelCatalog}><summary className={styles.catalogSummary}>Songs &amp; videos<FiChevronDown aria-hidden="true" /></summary><section aria-label={`${displayTitle} channel songs`}>{songs(tracks)}{nextPageToken && <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className={`btn-ghost ${styles.loadMore}`}>{loadingMore ? "Loading more…" : "Load more songs"}</button>}</section></details>}
+        {popularTracks.length > 0 && tracks.length > 0 && <details className={styles.channelCatalog}><summary className={styles.catalogSummary}>Songs &amp; videos<FiChevronDown size="1em" aria-hidden="true" /></summary><section aria-label={`${displayTitle} channel songs`}>{songs(tracks)}{nextPageToken && <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className={`btn-ghost ${styles.loadMore}`}>{loadingMore ? "Loading more…" : "Load more songs"}</button>}</section></details>}
         {sectionsLoading && <p role="status" className={styles.catalogLoading}>Loading releases and playlists…</p>}
         {sectionsError && <div className={styles.catalogFeedback}><UserMessage title={sectionsError.title} message={sectionsError.message} onRetry={() => setSectionsRetryKey(value => value + 1)} busy={sectionsLoading} compact /></div>}
         <ArtistDiscography releases={releases} onPlay={release => playCollection(release, "album")} busyId={collectionBusyId} />
@@ -431,7 +438,7 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
         <RelatedArtistRail artists={relatedArtists} />
 
         <section className={styles.about} aria-label={`About ${displayTitle}`}>
-          {biography ? <details><summary id="artist-about" className={styles.aboutSummary}><h2>About {displayTitle}</h2><FiChevronDown aria-hidden="true" /></summary><div className={styles.aboutContent}>{artist.thumbnail && <MediaImage src={artist.thumbnail} size="hq" alt="" className={styles.aboutPortrait} />}<p className={styles.biography}>{cleanTitle(biography)}</p></div></details> : <><h2 id="artist-about" tabIndex={-1}>About {displayTitle}</h2><p className={styles.biography}>This channel hasn’t provided a biography yet.</p></>}
+          {biography ? <details><summary id="artist-about" className={styles.aboutSummary}><h2>About {displayTitle}</h2><FiChevronDown size="1em" aria-hidden="true" /></summary><div className={styles.aboutContent}>{artist.thumbnail && <MediaImage src={artist.thumbnail} size="hq" alt="" className={styles.aboutPortrait} />}<p className={styles.biography}>{cleanTitle(biography)}</p></div></details> : <><h2 id="artist-about" tabIndex={-1}>About {displayTitle}</h2><p className={styles.biography}>This channel hasn’t provided a biography yet.</p></>}
         </section>
       </>}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IoClose } from "react-icons/io5";
+import { X as IoClose } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { createPlaylist } from "@/services/playlistApi";
 import { useDispatch } from "react-redux";
@@ -105,7 +105,7 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
             className="icon-btn h-11 w-11"
             aria-label="Close"
           >
-            <IoClose aria-hidden="true" className="text-xl" />
+            <IoClose size="1em" aria-hidden="true" className="text-xl" />
           </button>
         </div>
         <UserMessage

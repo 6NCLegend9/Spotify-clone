@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FiMoreHorizontal } from "react-icons/fi";
+import { Ellipsis as FiMoreHorizontal } from "lucide-react";
 import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
 
 export default function ItemMenu({ label = "Item options", actions = [], className = "", children }) {
@@ -48,7 +48,7 @@ export default function ItemMenu({ label = "Item options", actions = [], classNa
   return <>
     <button ref={trigger} data-item-menu-trigger type="button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open}
       className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-gray-300 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] ${className}`}
-      onClick={(event) => { event.preventDefault(); event.stopPropagation(); setError(""); setOpen((value) => !value); }}>{children || <FiMoreHorizontal aria-hidden="true" />}</button>
+      onClick={(event) => { event.preventDefault(); event.stopPropagation(); setError(""); setOpen((value) => !value); }}>{children || <FiMoreHorizontal size="1em" aria-hidden="true" />}</button>
     {open && createPortal(<div ref={menu} role="menu" aria-label={label} data-item-actions-menu="true"
       style={{ position: "fixed", ...position, width: "min(240px, calc(100vw - 16px))" }}
       className="item-actions-menu z-[10000] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-md bg-[var(--navy-panel)] p-1 text-sm text-white shadow-2xl"

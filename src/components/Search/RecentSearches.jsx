@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useSelector } from "react-redux";
 import Link from "next/link";
-import { FiClock, FiX } from "react-icons/fi";
+import { Clock as FiClock, X as FiX } from "lucide-react";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import { requestJson } from "@/services/http";
 import UserMessage from "@/components/UserMessage";
@@ -55,8 +55,8 @@ function AccountRecentSearches() {
     <header className={styles.sectionHead}><h2>Recent searches</h2></header>
     {error && <UserMessage compact title="Recent searches unavailable" message="Your recent search change couldn’t be loaded or saved. Please try again." onRetry={() => setRetry(value => value + 1)} />}
     <div className={styles.recentGrid}>{queries.map(query => <article key={query} className={styles.recentCard}>
-      <Link href={`/search/${encodeURIComponent(query)}`}><span className={styles.recentIcon} aria-hidden="true"><FiClock /></span><strong title={query}>{query}</strong><small>Recent search</small></Link>
-      <button type="button" aria-label={`Remove recent search ${query}`} disabled={Boolean(removing)} onClick={() => void remove(query)}><FiX aria-hidden="true" /></button>
+      <Link href={`/search/${encodeURIComponent(query)}`}><span className={styles.recentIcon} aria-hidden="true"><FiClock size="1em" /></span><strong title={query}>{query}</strong><small>Recent search</small></Link>
+      <button type="button" aria-label={`Remove recent search ${query}`} disabled={Boolean(removing)} onClick={() => void remove(query)}><FiX size="1em" aria-hidden="true" /></button>
     </article>)}</div>
   </section>;
 }

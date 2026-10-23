@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Icons inherit their control's state color; explicit size utilities still win. */
+:where(svg.lucide) {
+  flex-shrink: 0;
+}
+
+:where(.btn-primary, .btn-ghost, .btn-danger) > :where(svg.lucide) {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+:where(.icon-btn) > :where(svg.lucide) {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.settings-app-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--accent);
+}
+
 @property --rail {
   syntax: "<length>";
   inherits: false;

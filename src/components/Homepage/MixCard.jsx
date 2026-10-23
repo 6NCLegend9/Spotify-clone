@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useDispatch } from "react-redux";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
-import { BsPlayFill } from "react-icons/bs";
+import { Play as BsPlayFill } from "lucide-react";
 import logo from "@/assets/HayKasa-logo-removebg.png";
 import { requestJson } from "@/services/http";
 import { mixBackground } from "@/utils/homeMixes";
@@ -108,7 +108,7 @@ export default function MixCard({ mix }) {
         aria-label={`Play ${mix.title}`}
         className="play-fab is-on !z-[4] disabled:opacity-50"
       >
-        <BsPlayFill aria-hidden="true" className="text-xl" />
+        <BsPlayFill size="1em" fill="currentColor" aria-hidden="true" className="text-xl" />
       </button>
     </div>
   );

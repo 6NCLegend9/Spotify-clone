@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FiImage, FiX } from "react-icons/fi";
+import { Image as FiImage, X as FiX } from "lucide-react";
 import toast from "react-hot-toast";
 import { resizeCoverFile } from "@/utils/imageOptimize";
 import { toUserError } from "@/utils/userError";
@@ -47,7 +47,7 @@ export default function CoverUploader({ value, onChange, disabled }) {
       <div className="flex items-center gap-3">
         <div className="h-16 w-16 overflow-hidden rounded-md bg-white/5">
           {value ? <img src={value} alt="" className="h-full w-full object-cover" /> : (
-            <span className="grid h-full w-full place-items-center text-gray-500"><FiImage aria-hidden="true" /></span>
+            <span className="grid h-full w-full place-items-center text-gray-500"><FiImage size="1em" aria-hidden="true" /></span>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -67,7 +67,7 @@ export default function CoverUploader({ value, onChange, disabled }) {
               className="icon-btn h-11 w-11"
               aria-label="Remove cover image"
             >
-              <FiX aria-hidden="true" />
+              <FiX size="1em" aria-hidden="true" />
             </button>
           ) : null}
         </div>

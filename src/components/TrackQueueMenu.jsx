@@ -6,8 +6,15 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
-import { FiChevronLeft, FiChevronRight, FiMoreHorizontal, FiPlayCircle, FiPlus } from "react-icons/fi";
-import { BiAddToQueue } from "react-icons/bi";
+import {
+  ChevronLeft as FiChevronLeft,
+  ChevronRight as FiChevronRight,
+  Ellipsis as FiMoreHorizontal,
+  CirclePlay as FiPlayCircle,
+  Plus as FiPlus,
+  ListPlus as BiAddToQueue,
+} from "lucide-react";
+
 import {
   addToQueue,
   playNextToQueue,
@@ -207,21 +214,21 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       {view === "actions" ? <>
         {onRemove && <button type="button" role="menuitem" className={`${actionClass} text-red-300`} onClick={async (event) => { event.preventDefault(); event.stopPropagation(); try { await onRemove(); closeMenu(); } catch (error) { toast.error(error?.message || "Could not remove this item."); } }}>{removeLabel}</button>}
         <button type="button" role="menuitem" onClick={playNext} className={actionClass}>
-          <FiPlayCircle aria-hidden="true" className="text-[var(--accent)]" />
+          <FiPlayCircle size="1em" aria-hidden="true" className="text-[var(--accent)]" />
           <span className="flex-1">Play next</span>
         </button>
         <button type="button" role="menuitem" onClick={add} className={actionClass}>
-          <BiAddToQueue aria-hidden="true" className="text-[var(--accent)]" />
+          <BiAddToQueue size="1em" aria-hidden="true" className="text-[var(--accent)]" />
           <span className="flex-1">Add to queue</span>
         </button>
         <button type="button" role="menuitem" onClick={openPlaylists} className={actionClass}>
-          <FiPlus aria-hidden="true" className="text-[var(--accent)]" />
+          <FiPlus size="1em" aria-hidden="true" className="text-[var(--accent)]" />
           <span className="flex-1">Add to playlist</span>
-          <FiChevronRight aria-hidden="true" className="opacity-45" />
+          <FiChevronRight size="1em" aria-hidden="true" className="opacity-45" />
         </button>
       </> : <>
         <button type="button" role="menuitem" onClick={() => setView("actions")} className={actionClass}>
-          <FiChevronLeft aria-hidden="true" />
+          <FiChevronLeft size="1em" aria-hidden="true" />
           <span className="flex-1">Add to playlist</span>
         </button>
         <div className="border-t border-[var(--hairline)] pt-1">
@@ -276,7 +283,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
         }}
         className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-gray-300 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
       >
-        <FiMoreHorizontal aria-hidden="true" />
+        <FiMoreHorizontal size="1em" aria-hidden="true" />
       </button>
       {menu}
     </span>

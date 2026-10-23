@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { FiPlus, FiRadio } from "react-icons/fi";
+import { Plus as FiPlus, Radio as FiRadio } from "lucide-react";
 import PlaylistModal from "@/components/Sidebar/PlaylistModal";
 import BottomSheet from "@/components/BottomSheet";
 import { requestJamOpen } from "@/utils/jam.mjs";
@@ -56,7 +56,7 @@ export default function CreateHub() {
           className="create-action"
         >
           <span className="create-action-icon">
-            <FiPlus aria-hidden="true" />
+            <FiPlus size="1em" aria-hidden="true" />
           </span>
           <span>
             <span className="block font-semibold">Playlist</span>
@@ -69,7 +69,7 @@ export default function CreateHub() {
           className="create-action"
         >
           <span className="create-action-icon">
-            <FiRadio aria-hidden="true" />
+            <FiRadio size="1em" aria-hidden="true" />
           </span>
           <span>
             <span className="block font-semibold">Jam</span>

@@ -1,8 +1,15 @@
 "use client";
 import React from "react";
-import { MdSkipNext, MdSkipPrevious } from "react-icons/md";
-import { BsFillPauseFill, BsFillPlayFill } from "react-icons/bs";
-import { TbRepeat, TbRepeatOnce, TbArrowsShuffle } from "react-icons/tb";
+import {
+  SkipForward as MdSkipNext,
+  SkipBack as MdSkipPrevious,
+  Pause as BsFillPauseFill,
+  Play as BsFillPlayFill,
+  Repeat as TbRepeat,
+  Repeat1 as TbRepeatOnce,
+  Shuffle as TbArrowsShuffle,
+} from "lucide-react";
+
 import Downloader from "./Downloader";
 import FavouriteButton from "./FavouriteButton";
 
@@ -47,7 +54,7 @@ const Controls = ({
         className={`${iconButtonClass} ${!fullScreen ? "hidden sm:grid" : "m-3"} p-1`}
       >
         {repeat ? (
-          <TbRepeatOnce size={25} color="#096192" aria-hidden="true" />
+          <TbRepeatOnce size={25} color="var(--accent)" aria-hidden="true" />
         ) : (
           <TbRepeat size={25} aria-hidden="true" />
         )}
@@ -70,9 +77,9 @@ const Controls = ({
         className={iconButtonClass}
       >
         {isPlaying ? (
-          <BsFillPauseFill size={45} color="#096192" aria-hidden="true" />
+          <BsFillPauseFill fill="currentColor" size={45} color="var(--accent)" aria-hidden="true" />
         ) : (
-          <BsFillPlayFill size={45} color="#096192" aria-hidden="true" />
+          <BsFillPlayFill fill="currentColor" size={45} color="var(--accent)" aria-hidden="true" />
         )}
       </button>
       <button

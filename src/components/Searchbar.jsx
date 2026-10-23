@@ -4,9 +4,16 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from "react-dom";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import ItemMenu from "@/components/ItemMenu";
-import { FiArrowLeft, FiArrowUpLeft, FiSearch, FiX } from "react-icons/fi";
-import { BsPlayFill } from "react-icons/bs";
-import { HiOutlineViewGrid, HiViewGrid } from "react-icons/hi";
+import {
+  ArrowLeft as FiArrowLeft,
+  ArrowUpLeft as FiArrowUpLeft,
+  Search as FiSearch,
+  X as FiX,
+  Play as BsPlayFill,
+  LayoutGrid as HiOutlineViewGrid,
+  LayoutGrid as HiViewGrid,
+} from "lucide-react";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -426,9 +433,9 @@ const AccountSearchbar = ({ accountKey }) => {
   return (
     <form ref={clusterRef} role="search" aria-label="Search music" onSubmit={handleSubmit} autoComplete="off" className="search-cluster-form">
       <div className={`search-field ${browseActive ? "is-browse" : ""}`}>
-        {overlaySuggestions && open && <button type="button" aria-label="Close search suggestions" className={styles.backButton} onClick={() => { setOpen(false); setActiveIndex(-1); inputRef.current?.blur(); }}><FiArrowLeft aria-hidden="true" /></button>}
+        {overlaySuggestions && open && <button type="button" aria-label="Close search suggestions" className={styles.backButton} onClick={() => { setOpen(false); setActiveIndex(-1); inputRef.current?.blur(); }}><FiArrowLeft size="1em" aria-hidden="true" /></button>}
         <label htmlFor={inputId} className="search-field-icon-hit">
-          <FiSearch aria-hidden="true" className="search-field-icon" />
+          <FiSearch size="1em" aria-hidden="true" className="search-field-icon" />
           <span className="sr-only">Search songs, artists, playlists, and genres</span>
         </label>
         <input
@@ -520,12 +527,12 @@ const AccountSearchbar = ({ accountKey }) => {
               inputRef.current?.focus();
             }}
           >
-            <FiX aria-hidden="true" />
+            <FiX size="1em" aria-hidden="true" />
           </button>
         ) : null}
         <span className="search-split" aria-hidden="true" />
         <Link href="/search" aria-label="Browse all" title="Browse all" aria-current={browseActive ? "page" : undefined} className={`search-browse ${browseActive ? "is-active" : ""}`}>
-          {browseActive ? <HiViewGrid aria-hidden="true" /> : <HiOutlineViewGrid aria-hidden="true" />}
+          {browseActive ? <HiViewGrid size="1em" fill="currentColor" aria-hidden="true" /> : <HiOutlineViewGrid size="1em" aria-hidden="true" />}
         </Link>
       </div>
       {(() => {
@@ -555,8 +562,8 @@ const AccountSearchbar = ({ accountKey }) => {
             {suggestionsLoading && <li role="row" className="px-4 py-2 text-xs text-[var(--muted)]"><span role="gridcell">Searching…</span></li>}
             {items.map((item, index) => item.type === "query" ? (
               <li key={item.key} role="row" className={styles.queryRow} onMouseMove={() => setActiveIndex(index)}>
-                <button id={`${listboxId}-option-${index}`} type="button" role="gridcell" aria-selected={selectedIndex === index} onClick={() => go(item.query)}><FiSearch aria-hidden="true" className="shrink-0" /><span>{item.query}</span></button>
-                <span role="gridcell"><button type="button" aria-label={`Use suggestion ${item.query}`} onClick={() => { setSearchTerm(item.query.slice(0, 100)); setOpen(true); setActiveIndex(-1); inputRef.current?.focus(); }}><FiArrowUpLeft aria-hidden="true" /></button></span>
+                <button id={`${listboxId}-option-${index}`} type="button" role="gridcell" aria-selected={selectedIndex === index} onClick={() => go(item.query)}><FiSearch size="1em" aria-hidden="true" className="shrink-0" /><span>{item.query}</span></button>
+                <span role="gridcell"><button type="button" aria-label={`Use suggestion ${item.query}`} onClick={() => { setSearchTerm(item.query.slice(0, 100)); setOpen(true); setActiveIndex(-1); inputRef.current?.focus(); }}><FiArrowUpLeft size="1em" aria-hidden="true" /></button></span>
               </li>
             ) : item.type === "artist" ? (
               <li key={item.key} role="row" onMouseMove={() => setActiveIndex(index)}>
@@ -568,7 +575,7 @@ const AccountSearchbar = ({ accountKey }) => {
               <ContextMenuTarget as="li" key={item.key} role="row" className="flex items-center" onMouseMove={() => setActiveIndex(index)}>
                 <button id={`${listboxId}-option-${index}`} type="button" role="gridcell" aria-selected={selectedIndex === index} onClick={() => go(item.query)}
                   className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-white ${selectedIndex === index ? "bg-white/10" : "hover:bg-white/10"}`}>
-                  <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
+                  <FiSearch size="1em" aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
                   <span className="min-w-0 flex-1 truncate">{item.query}</span>
                 </button>
                 <span role="gridcell"><ItemMenu label={`Options for search ${item.query}`} actions={[
@@ -594,7 +601,7 @@ const AccountSearchbar = ({ accountKey }) => {
                       aria-hidden="true"
                       className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/55 text-lg text-white md:group-hover/search-song:flex"
                     >
-                      <BsPlayFill />
+                      <BsPlayFill size="1em" fill="currentColor" />
                     </span>
                   </span>
                   <span className="min-w-0 flex-1">

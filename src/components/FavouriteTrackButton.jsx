@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { FiHeart } from "react-icons/fi";
+import { Heart as FiHeart } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { addFavourite, getFavourite } from "@/services/dataAPI";
 import { toUserError } from "@/utils/userError";
@@ -151,7 +151,7 @@ function AccountFavouriteButton({ owner, status, track, className }) {
         isSaved ? "text-[#096192]" : "text-gray-300"
       } ${className}`}
     >
-      <FiHeart className={isSaved ? "fill-current" : ""} />
+      <FiHeart size="1em" className={isSaved ? "fill-current" : ""} />
     </button>
   );
 }

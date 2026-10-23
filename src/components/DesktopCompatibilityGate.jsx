@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FiDownload, FiRefreshCw } from "react-icons/fi";
+import { Download as FiDownload, RefreshCw as FiRefreshCw } from "lucide-react";
 import { requestJson } from "@/services/http";
 import { getHeyKasaDesktopApi, getHeyKasaDesktopInfo } from "@/utils/desktopEnvironment";
 
@@ -101,12 +101,12 @@ export default function DesktopCompatibilityGate() {
         {error ? <p className="mt-4 text-sm leading-6 text-amber-200">{error}</p> : null}
         <div className="mt-6 flex flex-wrap gap-3">
           <button type="button" onClick={checkUpdate} disabled={busy} className="btn-primary min-h-11 gap-2 px-4 disabled:opacity-50">
-            <FiRefreshCw className={busy ? "animate-spin" : ""} aria-hidden="true" />
+            <FiRefreshCw size="1em" className={busy ? "animate-spin" : ""} aria-hidden="true" />
             {busy ? "Checking…" : "Update HayKasa"}
           </button>
           {state.manifest.published && state.manifest.downloadUrl ? (
             <a href={state.manifest.downloadUrl} className="btn-ghost min-h-11 gap-2 px-4" rel="noopener noreferrer">
-              <FiDownload aria-hidden="true" /> Download installer
+              <FiDownload size="1em" aria-hidden="true" /> Download installer
             </a>
           ) : null}
         </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Check, X } from "lucide-react";
 import { SpotlightCard } from "@/components/ReactBits/SpotlightCard";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import UserMessage from "@/components/UserMessage";
@@ -106,9 +107,7 @@ export default function VerifyEmailClient({ token }) {
                 Email Verified!
               </h2>
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#096192]/20 mb-4 mt-6">
-                <svg className="h-10 w-10 text-[#096192]" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
+                <Check className="h-10 w-10 text-[var(--accent)]" aria-hidden="true" />
               </div>
               <p className="mt-4 text-sm text-[#9aa8b5] font-medium">
                 Your email has been verified. You can now log in.
@@ -132,9 +131,7 @@ export default function VerifyEmailClient({ token }) {
                 Verification Failed
               </h2>
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20 mb-4 mt-6">
-                <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="h-8 w-8 text-red-500" aria-hidden="true" />
               </div>
               <div className="mt-5 text-left">
                 <UserMessage

@@ -45,7 +45,7 @@ import { createPlaylist } from "@/services/playlistApi";
 import useListeningInsights from "@/hooks/useListeningInsights";
 import { recordDiagnostic } from "@/utils/diagnostics.mjs";
 import { watchYoutubeIframeApi } from "@/utils/youtubeIframeApi.mjs";
-import { FiPlus, FiSearch, FiX, FiMaximize2 } from "react-icons/fi";
+import { Plus as FiPlus, Search as FiSearch, X as FiX, Maximize2 as FiMaximize2 } from "lucide-react";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
 import AddToPlaylistButton from "@/components/AddToPlaylistButton";
 const ClockedPictureInPictureWindow = dynamic(() => import("./ClockedPictureInPictureWindow"), { ssr: false });
@@ -3076,8 +3076,8 @@ function YouTubePlayer() {
         )}
         {pipFloat && videoVisible && (
           <div className="absolute inset-x-0 top-0 z-30 flex justify-end bg-gradient-to-b from-black/80 to-transparent">
-            <button type="button" aria-label="Expand floating video" title="Expand video" onClick={openVideoPresentation} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiMaximize2 /></button>
-            <button type="button" aria-label="Close floating video" title="Close floating video" onClick={closePictureInPicture} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiX /></button>
+            <button type="button" aria-label="Expand floating video" title="Expand video" onClick={openVideoPresentation} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiMaximize2 size="1em" /></button>
+            <button type="button" aria-label="Close floating video" title="Close floating video" onClick={closePictureInPicture} className="grid h-12 w-12 place-items-center text-white hover:bg-white/20"><FiX size="1em" /></button>
           </div>
         )}
         {playerError && pipFloat && (
@@ -3152,12 +3152,12 @@ function YouTubePlayer() {
         queueSearch={<div className="mb-4 border-b border-white/10 pb-4">
           <form onSubmit={handleAddSearch} className="flex gap-2">
             <input aria-label="Find songs to add" value={addQuery} onChange={(event) => setAddQuery(event.target.value)} placeholder="Find a song" className="h-12 min-w-0 flex-1 rounded border border-white/20 bg-transparent px-3 text-sm" />
-            <button type="submit" aria-label="Search queue additions" disabled={addSearching || jamLocked} className="grid h-12 w-12 place-items-center rounded bg-white/10 disabled:opacity-40"><FiSearch /></button>
+            <button type="submit" aria-label="Search queue additions" disabled={addSearching || jamLocked} className="grid h-12 w-12 place-items-center rounded bg-white/10 disabled:opacity-40"><FiSearch size="1em" /></button>
           </form>
           {addSearchError && <p role="alert" className="mt-2 text-sm text-red-300">{addSearchError}</p>}
           {addResults.map((item) => <div key={item.id} className="mt-2 flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate text-sm">{item.title}</span>
-            <button type="button" aria-label={`Add ${item.title} to queue`} onClick={() => handleAddTrack(item)} disabled={jamLocked} className="grid h-12 w-12 place-items-center rounded hover:bg-white/10"><FiPlus /></button>
+            <button type="button" aria-label={`Add ${item.title} to queue`} onClick={() => handleAddTrack(item)} disabled={jamLocked} className="grid h-12 w-12 place-items-center rounded hover:bg-white/10"><FiPlus size="1em" /></button>
           </div>)}
         </div>}
         onPip={togglePictureInPicture} pipActive={Boolean(pipWindow || pipFloat)}
