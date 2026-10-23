@@ -433,8 +433,8 @@ const AccountSearchbar = ({ accountKey }) => {
   return (
     <form ref={clusterRef} role="search" aria-label="Search music" onSubmit={handleSubmit} autoComplete="off" className="search-cluster-form">
       <div className={`search-field ${browseActive ? "is-browse" : ""}`}>
-        {overlaySuggestions && open && <button type="button" aria-label="Close search suggestions" className={styles.backButton} onClick={() => { setOpen(false); setActiveIndex(-1); inputRef.current?.blur(); }}><FiArrowLeft size="1em" aria-hidden="true" /></button>}
-        <label htmlFor={inputId} className="search-field-icon-hit">
+        {overlaySuggestions && open && <button type="button" aria-label="Close search suggestions" className="search-back" onClick={() => { setOpen(false); setActiveIndex(-1); inputRef.current?.blur(); }}><FiArrowLeft size="1em" aria-hidden="true" /></button>}
+        <label htmlFor={inputId} className={overlaySuggestions && open ? "sr-only" : "search-field-icon-hit"}>
           <FiSearch size="1em" aria-hidden="true" className="search-field-icon" />
           <span className="sr-only">Search songs, artists, playlists, and genres</span>
         </label>

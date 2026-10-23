@@ -3178,16 +3178,14 @@ body {
   backdrop-filter: blur(24px) saturate(140%);
 }
 
-.search-field,
-.navbar-search-cluster form {
+.search-field {
   border-color: var(--hairline);
   background: var(--fill);
   color: var(--text);
   box-shadow: var(--inset-shine);
 }
 
-.search-field:focus-within,
-.navbar-search-cluster form:focus-within {
+.search-field:focus-within {
   border-color: var(--accent);
   background: var(--navy-raised);
   box-shadow: var(--glow);

@@ -13,12 +13,17 @@
 .brand :global(.brand-mark-lockup) { height: 36px; width: 36px; }
 .navbar :global(.navbar-search-cluster) { width: 100%; max-width: none; display: flex; gap: 8px; justify-self: center; }
 .navbar :global(.nav-home-btn) { display: grid; width: 48px; height: 48px; min-width: 48px; background: var(--navy-raised); border: 0; color: #fff; box-shadow: none; }
-.navbar :global(.search-field) { flex: 1; width: 100%; height: 48px; min-height: 48px; border: 2px solid transparent; border-radius: 999px; background: var(--navy-raised); padding: 0 10px 0 14px; gap: 10px; box-shadow: none; }
+.navbar :global(.search-field) { flex: 1; width: 100%; height: 48px; min-height: 48px; border: 2px solid transparent; border-radius: 999px; background: var(--navy-raised); padding: 0 6px 0 12px; gap: 8px; box-shadow: none; }
 .navbar :global(.search-field:hover) { background: var(--navy-panel); border-color: var(--hairline-cyan); }
 .navbar :global(.search-field:focus-within) { background: var(--navy-panel); border-color: #fff; }
-.navbar :global(.search-field-input) { color: #fff; font-size: 15px; font-weight: 400; min-width: 0; letter-spacing: 0; }
+.navbar :global(.search-field-input) { color: #fff; font-size: 16px; font-weight: 400; min-width: 0; letter-spacing: 0; }
+.navbar :global(.search-field-input:focus-visible) { outline: none; }
 .navbar :global(.search-field-input::placeholder), .navbar :global(.search-field-icon) { color: #b3b3b3; }
-.navbar :global(.search-clear), .navbar :global(.search-browse) { min-width: 44px; width: 44px; height: 44px; color: #b3b3b3; }
+.navbar :global(.search-field-icon), .navbar :global(.search-clear svg), .navbar :global(.search-browse svg), .navbar :global(.search-back svg) { width: 22px; height: 22px; }
+.navbar :global(.search-clear), .navbar :global(.search-browse), .navbar :global(.search-back) { flex-shrink: 0; place-items: center; min-width: 44px; width: 44px; height: 44px; border-radius: 999px; color: #b3b3b3; }
+.navbar :global(.search-clear), .navbar :global(.search-back) { display: grid; }
+.navbar :global(.search-clear:hover), .navbar :global(.search-back:hover) { color: var(--text); background: var(--fill); }
+.navbar :global(.search-clear:focus-visible), .navbar :global(.search-browse:focus-visible), .navbar :global(.search-back:focus-visible) { outline: 2px solid var(--text); outline-offset: -4px; }
 .navbar :global(.search-split) { background: #7c7c7c; height: 24px; }
 .navbar :global(.search-suggest) { background: var(--navy-panel); border: 0; border-radius: 8px; box-shadow: 0 16px 40px #0008; }
 .account { background: var(--navy-raised); width: 48px; height: 48px; padding: 8px; }
@@ -118,8 +123,6 @@
  .navbar:has([role="combobox"][aria-expanded="true"]) { grid-template-columns: minmax(0,1fr); }
  .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-start), .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-end) { display: none; }
  .brand, .signup, .install, .navbar :global(.nav-home-btn), .navbar :global(.search-browse), .navbar :global(.search-split), .navbar :global(.navbar-slot-start) > :not(button), .navbar :global(.navbar-slot-start) > button:nth-of-type(2), .navbar :global(.navbar-slot-end) > :not(:last-child) { display: none; }
- .navbar :global(.search-field) { height: 44px; min-height: 44px; }
- .navbar :global(.search-field-input) { font-size: 16px; }
  .login { min-height: 44px; padding: 0 14px; font-size: 13px; }
  :global(.app-shell):has(.navbar) :global(.app-sidebar) { position: fixed; inset: 0 auto 0 0; z-index: 50; width: min(320px,86vw); height: 100%; transform: translateX(-100%); }
  :global(.app-shell):has(.navbar) :global(.app-sidebar.is-open) { transform: translateX(0); }
@@ -185,7 +188,6 @@
  :global(.app-shell[data-native-phone="true"]) .navbar:has([role="combobox"][aria-expanded="true"]) { grid-template-columns: minmax(0,1fr); }
  :global(.app-shell[data-native-phone="true"]) .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-start), :global(.app-shell[data-native-phone="true"]) .navbar:has([role="combobox"][aria-expanded="true"]) :global(.navbar-slot-end) { display: none; }
  :global(.app-shell[data-native-phone="true"]) .brand, :global(.app-shell[data-native-phone="true"]) .signup, :global(.app-shell[data-native-phone="true"]) .install, :global(.app-shell[data-native-phone="true"]) .navbar :global(.nav-home-btn), :global(.app-shell[data-native-phone="true"]) .navbar :global(.search-browse), :global(.app-shell[data-native-phone="true"]) .navbar :global(.search-split), :global(.app-shell[data-native-phone="true"]) .navbar :global(.navbar-slot-start) > :not(button), :global(.app-shell[data-native-phone="true"]) .navbar :global(.navbar-slot-start) > button:nth-of-type(2), :global(.app-shell[data-native-phone="true"]) .navbar :global(.navbar-slot-end) > :not(:last-child) { display: none; }
- :global(.app-shell[data-native-phone="true"]) .navbar :global(.search-field) { height: 44px; min-height: 44px; }
  :global(.app-shell[data-native-phone="true"]) .login { min-height: 44px; padding: 0 14px; font-size: 13px; }
  :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-sidebar) { position: fixed; inset: 0 auto 0 0; z-index: 50; width: min(320px,86vw); height: 100%; transform: translateX(-100%); }
  :global(.app-shell[data-native-phone="true"]):has(.navbar) :global(.app-sidebar.is-open) { transform: translateX(0); }
