@@ -1,4 +1,4 @@
-// Actual production UI with guest APIs and an isolated synthetic IFrame SDK.
+// Actual compiled UI with isolated guest/authenticated APIs and a synthetic SDK.
 // No provider streams or external requests are sent. The timeout uses real time.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -16,7 +16,7 @@ const server = spawn(process.execPath, [path.join(root, "node_modules/next/dist/
   cwd: root, env: { ...process.env, NEXTAUTH_URL: origin, NEXTAUTH_SECRET: "isolated-sdk-qa", JWT_SECRET: "isolated-sdk-qa" }, stdio: ["ignore", "pipe", "pipe"],
 });
 server.stdout.pipe(log); server.stderr.pipe(log);
-// Delivered only when the user explicitly retries the failed SDK request.
+// Delivered after an explicit Retry or controlled release of delayed readiness.
 const syntheticSdk = `(${function installSyntheticSdk() {
   const players = [], calls = [];
   class Player {
@@ -25,12 +25,12 @@ const syntheticSdk = `(${function installSyntheticSdk() {
       this.position = 0; this.started = 0; this.muted = true; this.destroyed = false;
       this.frame = document.createElement("iframe"); this.frame.title = "Synthetic SDK; no media";
       document.getElementById(elementId).replaceWith(this.frame);
-      players.push(this); calls.push({ action: "construct", id: this.id });
-      setTimeout(() => { if (!this.destroyed) options.events.onReady?.({ target: this }); }, 0);
+      players.push(this); calls.push({ action: "construct", id: this.id, autoplay: options.playerVars.autoplay });
+      setTimeout(() => { if (!this.destroyed) { this.ready = true; options.events.onReady?.({ target: this }); } }, window.qaDelaySdkReady || 0);
     }
     notify(state) { this.state = state; this.options.events.onStateChange?.({ target: this, data: state }); }
-    playVideo() { if (this.destroyed || this.state === 1) return; this.started = performance.now(); this.notify(1); }
-    pauseVideo() { this.position = this.getCurrentTime(); this.notify(2); }
+    playVideo() { calls.push({ action: "play", id: this.id }); if (this.destroyed || this.state === 1) return; this.started = performance.now(); this.notify(1); }
+    pauseVideo() { calls.push({ action: "pause", id: this.id }); this.position = this.getCurrentTime(); this.notify(2); }
     loadVideoById(value) { this.id = typeof value === "string" ? value : value.videoId; this.position = Number(value.startSeconds) || 0; calls.push({ action: "load", id: this.id }); this.playVideo(); }
     cueVideoById(value) { this.id = typeof value === "string" ? value : value.videoId; this.position = Number(value.startSeconds) || 0; this.notify(5); }
     getVideoData() { return { video_id: this.id }; }
@@ -46,7 +46,7 @@ const syntheticSdk = `(${function installSyntheticSdk() {
     destroy() { this.destroyed = true; this.frame.remove(); }
   }
   window.YT = { Player, PlayerState: { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 } };
-  window.qaSdk = { players, calls, active: () => players.filter(player => !player.destroyed).at(-1) };
+  window.qaSdk = { players, calls, active: () => players.find(player => !player.destroyed && player.frame.isConnected && player.frame.closest('[data-active-deck="true"]')) };
   window.onYouTubeIframeAPIReady?.();
 }.toString()})();`;
 let browser, currentPage;
@@ -61,8 +61,12 @@ const results = [];
   assert(ready, "Production server starts");
   browser = await chromium.launch({ headless: true });
   for (const scenario of [
-    { name: "mobile-script-error", viewport: { width: 390, height: 844 }, mobile: true, initial: "error" },
+    { name: "mobile-fallback-delayed-sdk", viewport: { width: 390, height: 844 }, mobile: true, fallback: true },
+    { name: "mobile-fallback-paused-during-wait", viewport: { width: 390, height: 844 }, mobile: true, fallback: true, pauseDuringWait: true },
+    { name: "mobile-delayed-session", viewport: { width: 390, height: 844 }, mobile: true, initial: "error", delaySession: true },
+    { name: "mobile-script-error", viewport: { width: 390, height: 844 }, mobile: true, initial: "error", pauseBeforeReady: true },
     { name: "narrow-script-error", viewport: { width: 320, height: 720 }, mobile: true, initial: "error" },
+    { name: "landscape-script-error", viewport: { width: 802, height: 345 }, mobile: true, initial: "error" },
     { name: "desktop-sdk-never-ready", viewport: { width: 1440, height: 1000 }, mobile: false, initial: "silent" },
   ]) {
     const context = await browser.newContext({ viewport: scenario.viewport, isMobile: scenario.mobile, hasTouch: scenario.mobile, serviceWorkers: "block", reducedMotion: "reduce" });
@@ -70,15 +74,32 @@ const results = [];
       delete Object.getPrototypeOf(navigator).serviceWorker;
       localStorage.setItem("toturialComplete", "true");
       localStorage.setItem("heykasa.media.presentation", "audio");
+      window.qaMediaHandlers = {};
+      const setAction = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
+      navigator.mediaSession.setActionHandler = (action, handler) => {
+        window.qaMediaHandlers[action] = handler;
+        setAction(action, handler);
+      };
     });
+    if (scenario.pauseBeforeReady) await context.addInitScript(() => { window.qaDelaySdkReady = 1200; });
     const page = await context.newPage(); currentPage = page;
     let sdkRequests = 0, sdkStartedAt = 0, permitSdk = false;
+    let releaseSession;
+    const sessionReady = new Promise(resolve => { releaseSession = resolve; });
+    let releaseSdk;
+    const sdkReady = new Promise(resolve => { releaseSdk = resolve; });
+    let sourceRequests = 0;
+    const sourceAttempts = [];
     const errors = [], searches = [], writes = [];
     page.on("pageerror", error => errors.push(error.message));
     await context.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url());
       if (url.href === "https://www.youtube.com/iframe_api") {
         sdkRequests++; if (!sdkStartedAt) sdkStartedAt = performance.now();
+        if (scenario.fallback) {
+          await sdkReady;
+          return route.fulfill({ contentType: "application/javascript", body: syntheticSdk });
+        }
         if (permitSdk) return route.fulfill({ contentType: "application/javascript", body: syntheticSdk });
         return scenario.initial === "error" ? route.abort("failed") : route.fulfill({ contentType: "application/javascript", body: "/* Loaded but intentionally never initializes YT.Player. */" });
       }
@@ -86,12 +107,22 @@ const results = [];
       if (!url.pathname.startsWith("/api/")) return route.continue();
       if (request.method() !== "GET") writes.push({ path: url.pathname, method: request.method() });
       let body = { success: true, data: [] };
-      if (url.pathname === "/api/auth/session") body = {};
-      if (url.pathname === "/api/settings") body = { authenticated: false, settings: { privateSession: false, explicitContent: true } };
+      if (url.pathname === "/api/auth/session") {
+        if (scenario.delaySession) await sessionReady;
+        body = scenario.fallback ? { user: { id: "507f1f77bcf86cd799439013", name: "Fallback QA", email: "qa@example.invalid" }, expires: "2099-01-01T00:00:00Z" } : {};
+      }
+      if (url.pathname === "/api/settings") body = { authenticated: !!scenario.fallback, settings: { privateSession: false, explicitContent: true } };
       if (url.pathname === "/api/language") body = { success: true, language: ["English"] };
       if (url.pathname === "/api/userPlaylists") body = { success: true, data: { playlists: [] } };
       if (url.pathname === "/api/followedArtists") body = { success: true, data: [], artists: [] };
-      if (url.pathname === "/api/media/resolve") body = { enabled: false, reason: "authentication_required" };
+      if (url.pathname === "/api/media/resolve") {
+        if (scenario.fallback && request.method() === "POST") {
+          sourceRequests++;
+          sourceAttempts.push({ request: request.postDataJSON(), at: Math.round(performance.now() - sdkStartedAt) });
+          return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ state: "failed", reason: "source_access_restricted" }) });
+        }
+        body = scenario.fallback ? { enabled: true } : { enabled: false, reason: "authentication_required" };
+      }
       if (url.pathname === "/api/youtube-videos") body = { tracks: [track] };
       if (url.pathname === "/api/favourite") body = { success: true, data: { favourites: [] } };
       if (url.pathname === "/api/youtube-search") { searches.push(Object.fromEntries(url.searchParams)); body = { results: url.searchParams.get("type") === "video" ? [track] : [], nextPageToken: "" }; }
@@ -102,18 +133,90 @@ const results = [];
     const dock = page.locator("[data-testid='player-dock']");
     const selected = dock.getByRole("button", { name: `Expand player: ${track.title}`, exact: true });
     await selected.waitFor();
+    if (scenario.fallback) {
+      const waiting = page.getByText("Source playback is unavailable. Waiting for the YouTube player; retry playback if it cannot load.", { exact: true });
+      await waiting.waitFor();
+      assert(sourceRequests > 0, 'The production resolver/deck must actually attempt source playback before fallback');
+      assert.equal(await page.evaluate(() => !!window.YT?.Player), false, 'Fallback starts before SDK readiness');
+      await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
+      const requestsAtWait = sourceRequests;
+      if (scenario.pauseDuringWait) {
+        await page.waitForFunction(() => typeof window.qaMediaHandlers.pause === 'function');
+        await page.evaluate(() => window.qaMediaHandlers.pause());
+      }
+      // Exceed the real 8-second transition guard: waiting intent must not expire.
+      await pause(9000);
+      await selected.waitFor();
+      const requestsBeforeReadiness = sourceRequests;
+      assert.equal(requestsBeforeReadiness, requestsAtWait, 'Waiting cannot loop source extraction');
+      await page.screenshot({ path: path.join(output, `${scenario.name}-waiting.png`) });
+      releaseSdk();
+      if (scenario.pauseDuringWait) {
+        await page.waitForFunction(() => window.qaSdk?.active()?.ready);
+        await pause(500);
+        assert.notEqual(await page.evaluate(() => window.qaSdk.active().getPlayerState()), 1, 'An explicit notification Pause during provider wait remains authoritative');
+        assert.equal(await page.evaluate(() => window.qaSdk.calls.some(call => ['play', 'unmute'].includes(call.action))), false, 'SDK readiness cannot override the explicit Pause');
+        await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
+      } else {
+        await page.waitForFunction(() => window.qaSdk?.active()?.getPlayerState() === 1 && window.qaSdk.active().getCurrentTime() > 1 && !window.qaSdk.active().isMuted(), null, { timeout: 5000 });
+        await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).waitFor();
+      }
+      await waiting.waitFor({ state: 'hidden' });
+      await selected.waitFor();
+      assert.equal(sdkRequests, 1, 'Delayed fallback readiness needs no script reload or explicit Retry');
+      fs.writeFileSync(path.join(output, `${scenario.name}-source-attempts.json`), JSON.stringify({ requestsAtWait, requestsBeforeReadiness, requestsAfterReadiness: sourceRequests, sourceAttempts }, null, 2));
+      assert.equal(sourceRequests, requestsBeforeReadiness, 'SDK readiness cannot restart source extraction');
+      assert.deepEqual(errors, [], 'Delayed fallback has no unhandled UI exceptions');
+      await page.screenshot({ path: path.join(output, `${scenario.name}-ready.png`) });
+      results.push({ scenario: scenario.name, passed: true, sourceRequests, sdkRequests, explicitPause: !!scenario.pauseDuringWait, waitMs: 9000, coverage: ['actual source-failure-to-SDK fallback', 'wait exceeds transition guard', scenario.pauseDuringWait ? 'explicit Pause remains authoritative' : 'automatic resume without Retry', 'same selected occurrence', 'no source retry loop'] });
+      await context.close();
+      continue;
+    }
+    if (scenario.delaySession) {
+      const sessionResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/session');
+      releaseSession();
+      await sessionResponse;
+      await pause(500);
+      await selected.waitFor({ timeout: 3000 });
+    }
     const message = page.getByText("The music player could not connect to YouTube.", { exact: true }).filter({ visible: true });
     await message.waitFor({ timeout: 20000 });
     const failureElapsedMs = performance.now() - sdkStartedAt;
     if (scenario.initial === "silent") assert(failureElapsedMs >= 14500 && failureElapsedMs < 20000, "A loaded but never-ready SDK fails within its real 15-second deadline");
     await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
     assert.equal(await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).count(), 0, "A missing SDK cannot pretend to be playing");
-    const feedback = message.locator("..");
+    const feedback = page.locator('[data-testid="playback-feedback"]:visible');
+    assert.equal(await feedback.locator('details').getAttribute('open'), null, "Additional failure details start collapsed");
     const bounds = await feedback.boundingBox();
     assert(bounds && bounds.x >= -2 && bounds.x + bounds.width <= scenario.viewport.width + 2 && bounds.y >= -2 && bounds.y + bounds.height <= scenario.viewport.height + 2, `SDK failure message is visible inside the viewport: ${JSON.stringify(bounds)}`);
+    assert(bounds.height <= 96, `Collapsed playback feedback stays compact: ${bounds.height}px`);
+    await feedback.getByRole('button', { name: 'Retry', exact: true }).waitFor({ state: 'visible' });
+    const dockBounds = await dock.boundingBox();
+    assert(dockBounds && bounds.y + bounds.height <= dockBounds.y + 2, 'Feedback leaves transport controls accessible');
+    await page.screenshot({ path: path.join(output, `${scenario.name}-compact.png`) });
+    await feedback.locator('summary').click();
+    const expanded = await feedback.boundingBox();
+    assert(expanded && expanded.height > bounds.height, 'Details expands only on request');
+    const contrast = await feedback.getByRole('link', { name: 'Open YouTube', exact: true }).evaluate(link => {
+      const luminance = css => {
+        const components = css.match(/[\d.]+/g).slice(0, 3).map(value => {
+          const channel = Number(value) / 255;
+          return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+        });
+        return components[0] * .2126 + components[1] * .7152 + components[2] * .0722;
+      };
+      const foreground = luminance(getComputedStyle(link).color);
+      const linkBackground = getComputedStyle(link).backgroundColor.match(/[\d.]+/g).map(Number);
+      const panelBackground = getComputedStyle(link.closest('[data-testid="playback-feedback"]')).backgroundColor.match(/[\d.]+/g).map(Number);
+      const alpha = linkBackground[3] ?? 1;
+      const composite = luminance(`rgb(${panelBackground.slice(0, 3).map((value, index) => linkBackground[index] * alpha + value * (1 - alpha)).join(',')})`);
+      return (Math.max(foreground, composite) + .05) / (Math.min(foreground, composite) + .05);
+    });
+    assert(contrast >= 4.5, `YouTube link meets normal-text contrast: ${contrast}`);
     for (const action of await feedback.locator("button,a").all()) {
+      await action.scrollIntoViewIfNeeded();
       const actionBounds = await action.boundingBox();
-      assert(actionBounds && actionBounds.x >= bounds.x - 2 && actionBounds.x + actionBounds.width <= bounds.x + bounds.width + 2 && actionBounds.y >= bounds.y - 2 && actionBounds.y + actionBounds.height <= bounds.y + bounds.height + 2 && actionBounds.height >= 44, `Error action stays accessible inside feedback: ${await action.innerText()} ${JSON.stringify(actionBounds)}`);
+      assert(actionBounds && actionBounds.x >= expanded.x - 2 && actionBounds.x + actionBounds.width <= expanded.x + expanded.width + 2 && actionBounds.y >= expanded.y - 2 && actionBounds.y + actionBounds.height <= expanded.y + expanded.height + 2 && actionBounds.height >= 44, `Error action stays accessible inside feedback: ${await action.innerText()} ${JSON.stringify(actionBounds)}`);
     }
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false, "Error actions do not overflow horizontally");
     assert.equal(sdkRequests, 1, "A failed SDK is not retried automatically");
@@ -126,6 +229,14 @@ const results = [];
     await page.screenshot({ path: path.join(output, `${scenario.name}.png`) });
     permitSdk = true;
     await feedback.getByRole("button", { name: "Retry", exact: true }).click();
+    if (scenario.pauseBeforeReady) {
+      await page.waitForFunction(() => window.qaSdk?.active());
+      await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).click();
+      await page.waitForFunction(() => window.qaSdk?.active()?.ready);
+      assert.notEqual(await page.evaluate(() => window.qaSdk.active().getPlayerState()), 1, 'Late SDK readiness respects a user Pause');
+      assert.equal(await page.evaluate(() => window.qaSdk.calls.some(call => call.action === 'unmute')), false, 'Late readiness cannot unmute a paused track');
+      await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).click();
+    }
     await page.waitForFunction(() => window.qaSdk?.active()?.getPlayerState() === 1 && window.qaSdk.active().getCurrentTime() > 1 && !window.qaSdk.active().isMuted());
     await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).waitFor();
     assert.equal(sdkRequests, 2, "Manual Retry starts exactly one fresh SDK request");
@@ -136,7 +247,7 @@ const results = [];
     assert.deepEqual(errors, [], "SDK failure and recovery cause no unhandled UI exceptions");
     assert.deepEqual(writes.filter(write => write.path !== "/api/media/resolve"), [], "Guest recovery does not write account data");
     await page.screenshot({ path: path.join(output, `${scenario.name}-recovered.png`) });
-    results.push({ scenario: scenario.name, passed: true, failureElapsedMs: Math.round(failureElapsedMs), sdkRequests, coverage: ["visible failure", "paused controls", "selected song retained", "no automatic SDK retries", "no alternative search loop", "manual retry recovery", "progressing unmuted playback", "viewport bounds", "guest isolation"] });
+    results.push({ scenario: scenario.name, passed: true, failureElapsedMs: Math.round(failureElapsedMs), sdkRequests, collapsedHeight: bounds.height, linkContrast: contrast, coverage: ["compact visible failure", "details disclosure", "accessible link contrast", "paused controls", "selected song retained", "no automatic SDK retries", "no alternative search loop", "manual retry recovery", "synthetic progressing unmuted playback", "viewport bounds", "guest isolation"] });
     await context.close();
   }
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify({ passed: true, syntheticOnly: true, results }, null, 2));
@@ -153,5 +264,11 @@ const results = [];
     return nodes;
   }).catch(() => null);
   if (geometry) fs.writeFileSync(path.join(output, "failure-geometry.json"), JSON.stringify(geometry, null, 2));
+  const state = await currentPage?.evaluate(() => ({
+    players: window.qaSdk?.players.map(player => ({ id: player.id, state: player.state, muted: player.muted, destroyed: player.destroyed, parent: player.frame.parentElement?.id })),
+    calls: window.qaSdk?.calls,
+    controls: [...document.querySelectorAll('[data-testid="player-dock"] button')].map(button => button.getAttribute('aria-label')),
+  })).catch(() => null);
+  if (state) fs.writeFileSync(path.join(output, "failure-state.json"), JSON.stringify(state, null, 2));
   console.error(error); process.exitCode = 1;
 }).finally(async () => { await browser?.close(); server.kill("SIGTERM"); log.end(); });

@@ -26,6 +26,20 @@ export function youtubeRecoveryScopeMatches(scope, track) {
   );
 }
 
+export function sourceAudioFallbackMessage(reason) {
+  switch (reason) {
+    case "authentication_required":
+      return "Source audio requires a signed-in account when available. YouTube playback has its own restrictions.";
+    case "service_disabled":
+      return "Source audio is currently disabled, so this track depends on YouTube playback.";
+    case "source_access_restricted":
+    case "source_http_forbidden":
+      return "The audio provider blocked this request. Open the track on YouTube. Signing in to HayKasa does not remove the provider's restriction.";
+    default:
+      return "Source audio is currently unavailable, so this track depends on YouTube playback.";
+  }
+}
+
 /**
  * Map a YouTube IFrame error code (or synthetic stall token) to user copy and
  * whether a same-id manual retry is useful.

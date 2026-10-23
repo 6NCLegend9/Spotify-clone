@@ -1,6 +1,7 @@
 const records = [];
 const EVENTS = new Set(["request", "api_error", "render_error", "chunk_error", "provider", "session_lookup", "playback_state", "playback_error"]);
-const CODES = new Set(["OK", "CIRCUIT_OPEN", "CANCELLED", "NETWORK_ERROR", "TIMEOUT", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "RATE_LIMITED", "VALIDATION_ERROR", "INTERNAL_ERROR", "PLAYBACK_ERROR", "playing", "paused", "buffering", "ended"]);
+const CODES = new Set(["OK", "CIRCUIT_OPEN", "CANCELLED", "NETWORK_ERROR", "TIMEOUT", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT", "RATE_LIMITED", "VALIDATION_ERROR", "INTERNAL_ERROR", "PLAYBACK_ERROR", "playing", "paused", "buffering", "ended", "sdk_unavailable", "native_fallback", "source_unavailable", "YOUTUBE_2", "YOUTUBE_5", "YOUTUBE_100", "YOUTUBE_101", "YOUTUBE_150", "YOUTUBE_153"]);
+const PROVIDER_REASONS = new Set(["service_disabled", "service_unconfigured", "service_unavailable", "authentication_required", "source_unavailable", "source_access_restricted", "source_tls_failed", "source_challenge_failed", "source_http_forbidden", "native_playback_failed", "native_media_failed"]);
 const ROUTES = new Set(["settings", "language", "favourite", "history", "recommendations", "userInfo", "userPlaylists", "playEvent", "youtube-search", "youtube-videos", "youtube-playlist", "youtube-channel", "youtube-captions", "lyrics", "notInterested", "snoozedTracks", "genres", "tags", "followedArtists"]);
 
 export function diagnosticRoute(value) {
@@ -17,6 +18,7 @@ export function diagnosticRecord(event, details = {}, now = Date.now()) {
   const record = { event: EVENTS.has(event) ? event : "api_error", at: new Date(Math.floor(now / 1000) * 1000).toISOString() };
   if (details.route) record.route = diagnosticRoute(details.route);
   if (CODES.has(details.code)) record.code = details.code;
+  if (record.event === "provider" && PROVIDER_REASONS.has(details.reason)) record.reason = details.reason;
   if (Number.isFinite(details.durationMs)) record.durationMs = Math.min(600_000, Math.max(0, Math.round(details.durationMs)));
   if (Number.isInteger(details.status) && details.status >= 100 && details.status <= 599) record.status = details.status;
   if (typeof details.requestId === "string" && /^[a-f0-9-]{36}$/i.test(details.requestId)) record.requestId = details.requestId;

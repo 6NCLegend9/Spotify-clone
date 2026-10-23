@@ -37,7 +37,10 @@ export async function callMediaService(config, path, { method = "GET", body, sub
 export function normalizeMediaResult(value, config) {
   if (!/^[a-f0-9]{32}$/.test(value?.jobId || "") || !["pending", "ready", "failed"].includes(value?.state)) throw new Error("Invalid media response");
   const result = { jobId: value.jobId, state: value.state };
-  if (value.state === "failed") result.reason = "source_unavailable";
+  if (value.state === "failed") {
+    // Only classified failures may cross the boundary; stderr can contain credentials.
+    result.reason = ["source_access_restricted", "source_tls_failed", "source_challenge_failed", "source_http_forbidden"].includes(value.reason) ? value.reason : "source_unavailable";
+  }
   if (value.state === "ready") {
     const asset = value.asset;
     const url = new URL(asset?.url || "");

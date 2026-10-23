@@ -6,6 +6,7 @@ import Link from "next/link";
 import { isTrackAllowed } from "@/utils/explicitContent.mjs";
 import {
   alternateSearchQuery,
+  sourceAudioFallbackMessage,
   youtubePlaybackFailurePolicy,
   youtubeRecoveryScope,
   youtubeRecoveryScopeMatches,
@@ -191,6 +192,7 @@ function YouTubePlayer() {
   const isJamGuest = jam?.role === "guest" && Boolean(jam.code);
   const jamLocked = isJamGuest && jam?.hasAux !== true;
   const userPausedRef = useRef(false);
+  const waitingForProviderRef = useRef(null);
   const pageHiddenWhilePlayingRef = useRef(false);
   const volumeLevelsRef = useRef({ playbackVolume, masterVolume });
   const volumeRestoreRef = useRef({ clear() {}, holds() { return false; } });
@@ -381,7 +383,9 @@ function YouTubePlayer() {
 
   const wantsPlayback = () =>
     !userPausedRef.current &&
-    (isPlayingRef.current || performance.now() < trackChangeUntilRef.current);
+    (isPlayingRef.current || performance.now() < trackChangeUntilRef.current
+      || (waitingForProviderRef.current !== null
+        && waitingForProviderRef.current === queueEntryIdentity(videoRef.current)));
 
   const isPageHidden = () =>
     typeof document !== "undefined" && document.visibilityState === "hidden";
@@ -960,7 +964,7 @@ function YouTubePlayer() {
   const handlePlaybackFailure = async ({ code = null, kind = "playback" } = {}) => {
     if (kind !== "autoplay" && getActivePlayer()?.provider === "native") {
       const player = getActivePlayer();
-      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player.getCurrentTime(), playing: isPlayingRef.current, forceIframe: true };
+      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player.getCurrentTime(), forceIframe: true };
       fallbackOccurrenceRef.current = sourceSwitchRef.current.occurrence;
       setSourceAudioReason("source_unavailable");
       setSourceRevision((value) => value + 1);
@@ -1172,7 +1176,9 @@ function YouTubePlayer() {
           event.target.mute();
           applyYouTubeCaptions(event.target, captionsEnabled && !karaokeHasLinesRef.current);
           if (playerVideoId(event.target) === videoId && occurrence === queueEntryIdentity(videoRef.current)) onDeckReady?.(event.target);
-          if (event.target.provider === "native" ? wantsPlayback() : autoplay) event.target.playVideo();
+          const shouldPlay = event.target.provider === "native" || key === activeDeckRef.current
+            ? wantsPlayback() : autoplay;
+          if (shouldPlay) event.target.playVideo();
         },
         onStateChange: (event) => {
           if (!isCurrent()) return;
@@ -1388,6 +1394,7 @@ function YouTubePlayer() {
         },
         onError: (event) => {
           if (!isCurrent()) return;
+          recordDiagnostic("playback_error", { code: `YOUTUBE_${event.data}` });
           if (key === activeDeckRef.current) {
             clearActiveBufferTimers();
             void handlePlaybackFailureRef.current?.({
@@ -1417,13 +1424,13 @@ function YouTubePlayer() {
           setMediaAsset(result.asset); setMediaQualities(result.qualities || []);
           setDeliveredVideoQuality(result.asset.height ? `${result.asset.height}p` : result.asset.codec);
         },
-        onFallback: ({ position, playing }) => {
+        onFallback: ({ position, reason }) => {
           if (!isCurrent() || key !== activeDeckRef.current) return;
           const currentOccurrence = queueEntryIdentity(videoRef.current);
-          recordDiagnostic("provider", { code: "native_fallback", status: "unavailable" });
-          setSourceAudioReason("source_unavailable");
+          recordDiagnostic("provider", { code: "native_fallback", reason });
+          setSourceAudioReason(reason || "source_unavailable");
           fallbackOccurrenceRef.current = currentOccurrence;
-          sourceSwitchRef.current = { occurrence: currentOccurrence, position, playing, forceIframe: true };
+          sourceSwitchRef.current = { occurrence: currentOccurrence, position, forceIframe: true };
           setSourceRevision((value) => value + 1);
         },
       });
@@ -1809,6 +1816,7 @@ function YouTubePlayer() {
       .then(({ enabled, reason }) => {
         if (controller.signal.aborted) return;
         setSourceAudioReason(enabled ? null : reason || "source_unavailable");
+        if (!enabled) recordDiagnostic("provider", { code: "source_unavailable", reason });
         if (enabled && status === "authenticated" && session?.user?.id && supportedMediaProfile("audio")) { setNativeAvailable(true); setApiReady(true); }
       })
       .catch(() => { if (!controller.signal.aborted) setSourceAudioReason("service_unavailable"); });
@@ -1834,7 +1842,7 @@ function YouTubePlayer() {
     trackChangeUntilRef.current = 0;
     setPlayerError({ kind: "provider", canRetry: true, message: "The music player could not connect to YouTube.", detail: "Check your connection and select Retry, or open this track on YouTube." });
     dispatch(playPause(false));
-    recordDiagnostic("provider", { code: "sdk_unavailable", status: "unavailable" });
+    recordDiagnostic("provider", { code: "sdk_unavailable" });
   }, [iframeApiFailed, video, isPlaying, nativeAvailable, sourceRevision, dispatch]);
 
   useEffect(() => {
@@ -1843,7 +1851,7 @@ function YouTubePlayer() {
     sourceContextRef.current = context;
     if (previous && previous !== context && videoRef.current?.id) {
       const player = getActivePlayer();
-      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player?.getCurrentTime?.() ?? restorePosition ?? playbackClock.read().position ?? 0, playing: isPlayingRef.current, forceIframe: false };
+      sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player?.getCurrentTime?.() ?? restorePosition ?? playbackClock.read().position ?? 0, forceIframe: false };
       destroyDeck("A"); destroyDeck("B");
       setSourceRevision((value) => value + 1);
     }
@@ -1853,12 +1861,14 @@ function YouTubePlayer() {
   useEffect(() => {
     cancelFade();
     if (!video?.id) {
+      waitingForProviderRef.current = null;
       cancelCrossfade();
       clearActiveBufferTimers();
       destroyDeck("A");
       destroyDeck("B");
       return;
     }
+    if (waitingForProviderRef.current !== queueEntryIdentity(video)) waitingForProviderRef.current = null;
     if (!apiReady) return;
     const requestedSwitch = sourceSwitchRef.current;
     if (requestedSwitch && requestedSwitch.occurrence === queueEntryIdentity(video)) {
@@ -1866,17 +1876,23 @@ function YouTubePlayer() {
       destroyDeck("A"); destroyDeck("B");
       activeDeckRef.current = "A"; setActiveDeck("A");
       if (requestedSwitch.forceIframe && !window.YT?.Player) {
-        userPausedRef.current = true;
+        // Waiting stops the UI; it must not turn a provider delay into a user Pause.
+        waitingForProviderRef.current = wantsPlayback() ? queueEntryIdentity(video) : null;
         dispatch(playPause(false));
         setPlayerError({ message: "Source playback is unavailable. Waiting for the YouTube player; retry playback if it cannot load." });
         return;
       }
       sourceSwitchRef.current = null;
-      userPausedRef.current = !requestedSwitch.playing;
+      // Retry/Pause after the switch was requested takes precedence over its snapshot.
+      const shouldPlay = wantsPlayback();
+      waitingForProviderRef.current = null;
+      userPausedRef.current = !shouldPlay;
+      if (shouldPlay) markExpectPlaying();
+      dispatch(playPause(shouldPlay));
       syncPlaybackClock(requestedSwitch.position, 0);
       setPlayerError(null);
       mountDeck("A", video.id, {
-        title: video.title, autoplay: requestedSwitch.playing,
+        title: video.title, autoplay: shouldPlay,
         forceIframe: requestedSwitch.forceIframe, startSeconds: requestedSwitch.position,
         onDeckReady: (player) => {
           // Initial position belongs to the deck; a later seek or pause takes precedence.
@@ -3073,7 +3089,7 @@ function YouTubePlayer() {
           >
             <p className="text-xs font-medium text-white">{playerError.message}</p>
             {playerError.detail && <p className="mt-1 text-xs text-gray-300">{playerError.detail}</p>}
-          {sourceAudioReason && <p className="mt-1 text-xs text-gray-300">{sourceAudioReason === "authentication_required" ? "Source audio requires a signed-in account when available. YouTube playback has its own restrictions." : "Source audio is currently unavailable, so this track depends on YouTube playback."}</p>}
+          {sourceAudioReason && <p className="mt-1 text-xs text-gray-300">{sourceAudioFallbackMessage(sourceAudioReason)}</p>}
             {playerError.kind === "autoplay" && (
               <p className="mt-1 text-[11px] text-gray-300">You may need to allow autoplay in your browser settings.</p>
             )}
@@ -3081,7 +3097,7 @@ function YouTubePlayer() {
               {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#096192] px-3 text-xs font-semibold text-white hover:bg-[#1171ba]">Retry</button>}
               <Link href={`/search/${encodeURIComponent(`${video.title || ""} ${video.channel || ""}`.trim().slice(0, 100))}`} className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white">Search other versions</Link>
               <button type="button" onClick={handleSkipPlaybackFailure} disabled={jamLocked} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
-              <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-[#096192] hover:bg-white/20">Open YouTube</a>
+              <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white underline underline-offset-2 hover:bg-white/20">Open YouTube</a>
             </div>
           </div>
         )}
@@ -3089,22 +3105,29 @@ function YouTubePlayer() {
       {playerError && (
         <div
           data-testid="playback-feedback"
-          className="yt-dock-feedback absolute z-20 border-t border-white/10 bg-black/90 px-4 py-3 text-center"
+          className="yt-dock-feedback absolute z-20 border-t border-white/10 bg-[var(--navy-surface)] px-4 py-3 text-left"
           role="alert"
           aria-live="assertive"
           aria-atomic="true"
         >
-          <p className="text-sm font-medium text-white">{playerError.message}</p>
-          {playerError.detail && <p className="mt-1 text-xs text-gray-300">{playerError.detail}</p>}
-          {sourceAudioReason && <p className="mt-1 text-xs text-gray-300">{sourceAudioReason === "authentication_required" ? "Source audio requires a signed-in account when available. YouTube playback has its own restrictions." : "Source audio is currently unavailable, so this track depends on YouTube playback."}</p>}
-          {playerError.kind === "autoplay" && (
-            <p className="mt-1 text-xs text-gray-300">You may need to allow autoplay in your browser settings.</p>
-          )}
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
-            {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 rounded-md bg-[#096192] px-3 text-xs font-semibold text-white hover:bg-[#1171ba]">Retry</button>}
-            <Link href={`/search/${encodeURIComponent(`${video.title || ""} ${video.channel || ""}`.trim().slice(0, 100))}`} className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white">Search other versions</Link>
-            <button type="button" onClick={handleSkipPlaybackFailure} disabled={jamLocked} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
-            <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-[#096192] hover:bg-white/20">Open YouTube</a>
+          <div className="flex items-start gap-3">
+            <details className="min-w-0 flex-1">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]">
+                <span className="text-sm font-medium text-white">{playerError.message}</span>
+                <span className="shrink-0 text-xs text-[var(--text)] underline underline-offset-2">Details</span>
+              </summary>
+              {playerError.detail && <p className="mt-2 text-xs text-gray-300">{playerError.detail}</p>}
+              {sourceAudioReason && <p className="mt-2 text-xs text-gray-300">{sourceAudioFallbackMessage(sourceAudioReason)}</p>}
+              {playerError.kind === "autoplay" && (
+                <p className="mt-2 text-xs text-gray-300">You may need to allow autoplay in your browser settings.</p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link href={`/search/${encodeURIComponent(`${video.title || ""} ${video.channel || ""}`.trim().slice(0, 100))}`} className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white">Search other versions</Link>
+                <button type="button" onClick={handleSkipPlaybackFailure} disabled={jamLocked} className="min-h-12 rounded-md bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40">Skip</button>
+                <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center rounded-md bg-white/10 px-3 text-xs font-semibold text-white underline underline-offset-2 hover:bg-white/20">Open YouTube</a>
+              </div>
+            </details>
+            {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 shrink-0 rounded-md bg-[#096192] px-3 text-xs font-semibold text-white hover:bg-[#1171ba]">Retry</button>}
           </div>
         </div>
       )}
@@ -3118,7 +3141,7 @@ function YouTubePlayer() {
           const player = getActivePlayer();
           if (!player || isJamGuest) return;
           setQualitySelection(selection);
-          sourceSwitchRef.current = { occurrence: queueEntryIdentity(video), position: player.getCurrentTime(), playing: isPlayingRef.current, forceIframe: false };
+          sourceSwitchRef.current = { occurrence: queueEntryIdentity(video), position: player.getCurrentTime(), forceIframe: false };
           fallbackOccurrenceRef.current = null;
           setSourceRevision((value) => value + 1);
         }} />}
