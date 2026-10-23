@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { resolveReleaseMetadata } from "./resolve-release-metadata.mjs";
 
-// Exercise the actual CLI: automatic missing setup skips publication, while an
-// explicit signed release stays strict. Fixtures never build or publish an app.
+// Exercise the actual CLI: every blocked signed release must fail CI rather
+// than report success without publishing. Fixtures never build or publish an app.
 const fixtureDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "haykasa-release-config-"));
 const fixtureSecrets = {
   CSC_LINK: "fixture-certificate-do-not-log", CSC_KEY_PASSWORD: "fixture-password-do-not-log",
@@ -18,12 +18,14 @@ try {
   const cases = [
     { name: "strict missing stable", status: 1, ready: false },
     { name: "strict missing beta", channel: "beta", status: 1, ready: false },
-    { name: "automatic missing", automatic: true, event: "push", status: 0, ready: false },
-    { name: "automatic partial", automatic: true, event: "push", values: { CSC_LINK: fixtureSecrets.CSC_LINK }, status: 0, ready: false },
+    { name: "automatic missing", automatic: true, event: "push", status: 1, ready: false },
+    { name: "automatic missing beta", channel: "beta", automatic: true, event: "push", status: 1, ready: false },
+    { name: "automatic partial", automatic: true, event: "push", values: { CSC_LINK: fixtureSecrets.CSC_LINK }, status: 1, ready: false },
     { name: "manual cannot opt out", automatic: true, event: "workflow_dispatch", status: 1, ready: false },
     { name: "strict ready", values: fixtureSecrets, status: 0, ready: true },
     { name: "automatic ready", automatic: true, event: "push", values: fixtureSecrets, status: 0, ready: true },
-    { name: "padded key", automatic: true, event: "push", values: { ...fixtureSecrets, HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: ` ${fixtureSecrets.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET}` }, status: 0, ready: false },
+    { name: "padded key", automatic: true, event: "push", values: { ...fixtureSecrets, HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: ` ${fixtureSecrets.HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET}` }, status: 1, ready: false },
+    { name: "automatic invalid beta", channel: "beta", automatic: true, event: "push", values: { ...fixtureSecrets, HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: "short" }, status: 1, ready: false },
     { name: "short key", values: { ...fixtureSecrets, HEYKASA_DESKTOP_MANIFEST_HMAC_SECRET: "short" }, status: 1, ready: false },
     { name: "internal without credentials", channel: "internal", status: 0, ready: true },
   ];
@@ -39,8 +41,10 @@ try {
     assert.equal(fs.readFileSync(output, "utf8"), `ready=${test.ready}\n`, test.name);
     const diagnostic = result.stdout + result.stderr + fs.readFileSync(summary, "utf8");
     for (const secret of Object.values(fixtureSecrets)) assert(!diagnostic.includes(secret), `${test.name}: do not log secrets`);
-    if (test.automatic && test.event === "push" && !test.ready) assert.match(diagnostic, /Automatic publication skipped/, test.name);
-    if (!test.ready && test.status === 1) assert.match(diagnostic, /Publication blocked/, test.name);
+    if (!test.ready) {
+      assert.match(diagnostic, /Publication blocked/, test.name);
+      if (test.automatic && test.event === "push") assert.match(diagnostic, /::error::/, `${test.name}: annotate the blocked release as a CI error`);
+    }
   }
 } finally { fs.rmSync(fixtureDirectory, { recursive: true, force: true }); }
 
@@ -95,7 +99,7 @@ const engine = {
   quitAndInstall: () => { installs++; },
 };
 let updaterCode = fs.readFileSync(new URL("../src/updater.mjs", import.meta.url), "utf8")
-  .replace(/^import[\s\S]*?from ["'][^"']+["'];\n/gm, "")
+  .replace(/^import[\s\S]*?from ["'][^"']+["'];\r?\n/gm, "")
   .replace("export class DesktopUpdater", "globalThis.DesktopUpdater = class DesktopUpdater");
 const sandbox = {
   updaterPackage: { autoUpdater: engine }, DESKTOP_API_VERSION: 1, DESKTOP_BUILD_CHANNEL: "stable",
@@ -148,4 +152,4 @@ native.sendUpdateStatus(updater.getStatus());
 assert.equal(notices.length, 1, "Repeated state messages do not duplicate Windows notifications");
 await updater.installReadyUpdate(); assert.equal(installs, 1);
 updater.dispose();
-console.log("PASS: signing readiness, strict manual release gates, automatic skip without credentials, secret redaction, automatic stable versioning, preserved internal/manual channels, updater discovery/download/restart states and Windows notification");
+console.log("PASS: signing readiness, blocked signed releases fail CI, secret redaction, automatic stable versioning, preserved internal/manual channels, updater discovery/download/restart states and Windows notification");
