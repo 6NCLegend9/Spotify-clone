@@ -131,6 +131,31 @@ function recoveryCase() {
     }
   }
   assert.deepEqual(buildRadioDiscoveryQueries({}),[]);
+  const {default:playerReducer,setYoutubeVideo,playPause,restorePlayback} = load('src/redux/features/playerSlice.js', {
+    '@reduxjs/toolkit':require('@reduxjs/toolkit'),
+    '../../utils/text.js':load('src/utils/text.js'),
+    '../../utils/playbackSnapshot.mjs':await import(moduleUrl('src/utils/playbackSnapshot.mjs')),
+    '../../utils/playerQueue.mjs':await import(moduleUrl('src/utils/playerQueue.mjs')),
+    '../../utils/songIdentity.mjs':await import(moduleUrl('src/utils/songIdentity.mjs')),
+    '../../utils/officialMusicSearch.mjs':await import(moduleUrl('src/utils/officialMusicSearch.mjs')),
+    '../../utils/radioSeed.mjs':await import(moduleUrl('src/utils/radioSeed.mjs')),
+  });
+  const picked = {id:'abcdefghijk',title:'Picked song',channel:'Artist'};
+  const older = {id:'lmnopqrstuv',title:'Older song',channel:'Another Artist'};
+  const selected = playerReducer(playerReducer(undefined,setYoutubeVideo(picked)),playPause(true));
+  const adopted = playerReducer(selected,restorePlayback({owner:'guest',snapshot:{youtubeVideo:older}}));
+  assert.equal(adopted.youtubeVideo,selected.youtubeVideo,'Resolving the first guest session preserves the user-selected occurrence');
+  assert.equal(adopted.isPlaying,true,'The initial account check must not cancel an explicit Play tap');
+  assert.equal(adopted.playbackOwner,'guest');
+  const restoredGuest = playerReducer(undefined,restorePlayback({owner:'guest',snapshot:{youtubeVideo:older,isPlaying:true}}));
+  assert.equal(restoredGuest.youtubeVideo.id,older.id,'An untouched startup still restores its older queue');
+  assert.equal(restoredGuest.isPlaying,false,'Stored queues never start automatically');
+  const alice = playerReducer(adopted,restorePlayback({owner:'account:alice',snapshot:{youtubeVideo:older}}));
+  assert.equal(alice.youtubeVideo.id,older.id,'Signing in loads the account queue rather than adopting guest playback');
+  const bob = playerReducer(alice,restorePlayback({owner:'account:bob',snapshot:null}));
+  assert.equal(bob.youtubeVideo,null,'Switching accounts cannot keep the previous account track');
+  assert.equal(playerReducer(alice,restorePlayback({owner:'guest',snapshot:null})).youtubeVideo,null,'Signing out clears personal playback');
+  assert.equal(playerReducer(adopted,restorePlayback({owner:null,snapshot:null})).youtubeVideo,null,'Explicit account-data clearing still clears the guest selection');
   for (const code of [100, '100', 101, '101', 150, '150', 153, '153']) {
     const recovery = recoveryCase();
     for (const attempts of [0, 2, 99]) {
@@ -240,5 +265,5 @@ function recoveryCase() {
   assert(pending.cancelled.includes('abandoned'),'Late abandoned receipts must be released');
   assert.equal(pending.timers.size,0);
   pending.deck.destroy();
-  console.log('PASS: API-valid radio discovery query boundaries and Unicode/suffix preservation, terminal unavailable/embed/verification errors, bounded upload recovery without automatic queue advancement, interrupted and healthy skip fades, pending startup fade cancellation, uninterrupted startup fade, authenticated background policy, guest/account isolation, explicit media-key intent, partial Media Session, Opus/AAC capability selection, native play/pause, synchronous and asynchronous denial, late rejection, decoding failure, cue-only playback, abandoned source cleanup, stale renewal and resolver isolation');
+  console.log('PASS: early Play intent survives guest initialization, stored queues remain paused and account changes remain isolated; API-valid radio query boundaries, bounded error recovery, skip/startup fades, authenticated background policy, media keys, Opus/AAC capability selection, native play/pause, late rejection, decoding failure, cue-only playback, stale renewal and resolver isolation');
 })().catch(error=>{console.error(error);process.exitCode=1});

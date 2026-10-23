@@ -22,9 +22,18 @@ export function createAndroidAudioElement(title = "") {
   media.title = String(title);
   let id = `audio_${crypto.randomUUID()}`;
   let source = "", current = 0, duration = 0, muted = true, volume = 1, paused = true, ended = false, loaded = false, disposed = false;
+  let pendingPlay;
   const post = (action, extra = {}) => { if (!disposed) bridge.postMessage(JSON.stringify({ id, action, ...extra })); };
   const emit = name => media.dispatchEvent(new Event(name));
+  const finishPlay = error => {
+    if (!pendingPlay) return;
+    const attempt = pendingPlay;
+    pendingPlay = null;
+    clearTimeout(attempt.timer);
+    if (error) attempt.reject(error); else attempt.resolve();
+  };
   const resetNativeSource = () => {
+    finishPlay(new DOMException("Playback source changed", "AbortError"));
     post("release");
     listeners.delete(id);
     id = `audio_${crypto.randomUUID()}`;
@@ -41,12 +50,13 @@ export function createAndroidAudioElement(title = "") {
     current = Number.isFinite(data.position) ? Math.max(0, data.position) : current;
     duration = Number.isFinite(data.duration) ? Math.max(0, data.duration) : duration;
     if (data.event === "ready" && !loaded) { loaded = true; emit("loadedmetadata"); }
-    if (data.event === "playing") { paused = false; ended = false; emit("playing"); }
-    if (data.event === "pause") { paused = true; emit("pause"); }
-    if (data.event === "ended") { ended = true; paused = true; emit("ended"); }
-    if (data.event === "error") emit("error");
+    if (data.event === "playing") { paused = false; ended = false; finishPlay(); emit("playing"); }
+    if (data.event === "pause") { paused = true; finishPlay(new DOMException("Playback paused", "AbortError")); emit("pause"); }
+    if (data.event === "ended") { ended = true; paused = true; finishPlay(new DOMException("Playback ended", "AbortError")); emit("ended"); }
+    if (data.event === "error") { finishPlay(new Error("native_media_failed")); emit("error"); }
     if (data.event === "waiting") emit("waiting");
     if (data.event === "progress") emit("timeupdate");
+    if (data.event === "seeked") { emit("seeked"); emit("timeupdate"); }
   };
   listeners.set(id, receive);
   Object.defineProperties(media, {
@@ -54,7 +64,7 @@ export function createAndroidAudioElement(title = "") {
     src: { get: () => source, set: value => { const next = String(value || ""); if (!next) clearSource(); else { source = next; loaded = false; ended = false; } } },
     currentSrc: { get: () => source },
     duration: { get: () => duration },
-    currentTime: { get: () => current, set: value => { current = Math.max(0, Number(value) || 0); post("seek", { value: current }); } },
+    currentTime: { get: () => current, set: value => { post("seek", { value: Math.max(0, Number(value) || 0) }); } },
     paused: { get: () => paused },
     ended: { get: () => ended },
     muted: { get: () => muted, set: value => { muted = Boolean(value); post("volume", { value: muted ? 0 : volume }); } },
@@ -67,11 +77,21 @@ export function createAndroidAudioElement(title = "") {
     resetNativeSource();
     post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) });
   };
-  media.play = () => { if (!source || disposed) return Promise.resolve(); paused = false; post("volume", { value: muted ? 0 : volume }); post("play"); return Promise.resolve(); };
-  media.pause = () => { paused = true; post("pause"); };
+  media.play = () => {
+    if (!source || disposed) return Promise.resolve();
+    if (pendingPlay) return pendingPlay.promise;
+    if (!paused && !ended) return Promise.resolve();
+    let resolve, reject;
+    const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+    pendingPlay = { promise, resolve, reject, timer: setTimeout(() => finishPlay(new Error("native_playback_timeout")), 30_000) };
+    try { post("volume", { value: muted ? 0 : volume }); post("play"); }
+    catch { finishPlay(new Error("native_playback_failed")); }
+    return promise;
+  };
+  media.pause = () => { finishPlay(new DOMException("Playback paused", "AbortError")); paused = true; post("pause"); };
   const removeAttribute = media.removeAttribute.bind(media);
   media.removeAttribute = name => { if (String(name).toLowerCase() === "src") clearSource(); removeAttribute(name); };
   const remove = media.remove.bind(media);
-  media.remove = () => { post("release"); disposed = true; listeners.delete(id); remove(); };
+  media.remove = () => { finishPlay(new DOMException("Playback disposed", "AbortError")); post("release"); disposed = true; listeners.delete(id); remove(); };
   return media;
 }

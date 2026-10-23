@@ -84,6 +84,9 @@ public final class PlaybackService extends MediaSessionService {
                         emit(key, state == Player.STATE_READY ? "ready" : state == Player.STATE_ENDED ? "ended" : "waiting");
                     }
                     @Override public void onIsPlayingChanged(boolean playing) { ExoPlayer own = players.get(key); emit(key, playing ? "playing" : own != null && own.getPlayWhenReady() ? "waiting" : "pause"); }
+                    @Override public void onPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
+                        if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) emit(key, "seeked");
+                    }
                     @Override public void onPlayerError(PlaybackException error) {
                         if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                             android.util.Log.d("HayKasaMediaQA", "error code=" + error.getErrorCodeName());
@@ -119,7 +122,8 @@ public final class PlaybackService extends MediaSessionService {
             JSONObject json = new JSONObject().put("id", id).put("event", event)
                 .put("position", Math.max(0, p.getCurrentPosition()) / 1000.0)
                 .put("duration", p.getDuration() > 0 ? p.getDuration() / 1000.0 : 0)
-                .put("playing", p.getPlayWhenReady());
+                .put("playing", p.isPlaying())
+                .put("playWhenReady", p.getPlayWhenReady());
             sink.send(json.toString());
         } catch (Exception ignored) { /* Never log signed media URLs or session cookies. */ }
     }

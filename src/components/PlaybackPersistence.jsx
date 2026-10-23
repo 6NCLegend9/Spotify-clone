@@ -27,6 +27,7 @@ export default function PlaybackPersistence() {
   }, [store]);
 
   useEffect(() => {
+    if (status === "loading") return undefined;
     const leavingJam = wasInJam.current && !inJam;
     wasInJam.current = inJam;
     if (inJam) return undefined;
@@ -36,7 +37,7 @@ export default function PlaybackPersistence() {
       const finalJamPlayback = store.getState().player;
       store.dispatch(playPause(false));
       if (owner) writePlaybackSnapshot(storage, owner, finalJamPlayback);
-    } else {
+    } else if (store.getState().player.playbackOwner !== owner) {
       store.dispatch(restorePlayback({ owner, snapshot: readPlaybackSnapshot(storage, owner) }));
     }
     if (!owner) return undefined;
@@ -79,7 +80,7 @@ export default function PlaybackPersistence() {
       document.removeEventListener("visibilitychange", onVisibility);
       flush();
     };
-  }, [owner, inJam, store]);
+  }, [owner, inJam, status, store]);
 
   return null;
 }

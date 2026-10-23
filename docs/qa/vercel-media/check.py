@@ -4,16 +4,19 @@ import inspect
 import json
 import os
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from typing import get_args, get_type_hints
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlsplit
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'media-service'))
 os.environ.update(JWT_SECRET='isolated-signing-secret-' * 3, BLOB_READ_WRITE_TOKEN='isolated-storage-token')
 from vercel.blob import AsyncBlobClient
+from vercel.blob.multipart.uploader import _aiter_part_bytes, DEFAULT_PART_SIZE
 # Check the actual pinned SDK accepts every argument used by the adapter.
 for name in ('put', 'get', 'list_objects', 'delete'):
     assert hasattr(AsyncBlobClient, name), name
@@ -30,6 +33,7 @@ from app.jobs import JobManager
 
 objects = {}
 calls = []
+upload_streams = []
 class Blob:
     async def list_objects(self, **kwargs):
         return SimpleNamespace(blobs=[SimpleNamespace(pathname=p) for p in sorted(objects) if p.startswith(kwargs['prefix'])],has_more=False)
@@ -37,6 +41,10 @@ class Blob:
         for path in paths: objects.pop(path, None)
     async def put(self, path, data, **kwargs):
         assert kwargs['access'] == 'private'
+        if hasattr(data, 'read'):
+            assert not data.closed
+            upload_streams.append(data)
+            data = b''.join(iter(lambda: data.read(64 * 1024), b''))
         objects[path] = data
         return SimpleNamespace(pathname=path,url='https://isolated.private.blob.vercel-storage.com/'+path)
     async def get(self, path, **kwargs):
@@ -63,11 +71,13 @@ async def main():
         assert (await client.post('/v1/jobs',content=b'x'*4097,headers=headers)).status_code == 413
         assert (await client.post('/v1/jobs',json={**payload,'videoId':'<script>'},headers=headers)).status_code == 422
         assert (await client.post('/v1/jobs',json=payload,headers={**headers,'X-Media-Public-Origin':'javascript:alert(1)'})).status_code == 400
-        response=await client.post('/v1/jobs',json=payload,headers=headers)
+        with patch.object(Path, 'read_bytes', side_effect=AssertionError('Whole-file upload allocation')):
+            response=await client.post('/v1/jobs',json=payload,headers=headers)
         assert response.status_code == 200, response.text
         value=response.json();job=value['jobId']
         assert value['state']=='ready' and value['asset']['url'].startswith('https://preview.example.test/v1/assets/')
         assert len(objects)==2
+        assert upload_streams[-1].closed, 'Successful upload retained an open asset file'
         # There is no persistent manager on the app: a new storage client reads
         # completed jobs and renews signed leases without original local files.
         assert not hasattr(media.app.state,'manager')
@@ -115,6 +125,18 @@ async def main():
         Blob.put=original_put
         assert failure.status_code==503 and 'private-storage-token' not in failure.text
         assert not objects, 'partial upload survived manifest failure'
+        assert upload_streams[-1].closed, 'Failed manifest upload retained the asset file'
+        async def interrupted_asset(self,path,data,**kwargs):
+            assert not data.closed
+            upload_streams.append(data)
+            assert data.read(4) == b'boun'
+            raise RuntimeError('private-storage-token-must-not-leak')
+        Blob.put=interrupted_asset
+        failure=await client.post('/v1/jobs',json=payload,headers=headers)
+        Blob.put=original_put
+        assert failure.status_code==503 and 'private-storage-token' not in failure.text
+        assert upload_streams[-1].closed, 'Interrupted asset upload retained the file'
+        assert not objects, 'Interrupted asset upload published a manifest'
         original_get=Blob.get
         async def failed_get(self,*args,**kwargs):
             raise RuntimeError('private-storage-token-must-not-leak')
@@ -122,6 +144,30 @@ async def main():
         outage=await client.get('/v1/jobs/'+job,headers=headers)
         Blob.get=original_get
         assert outage.status_code==503 and 'private-storage-token' not in outage.text
+    # Cancel while the uploader owns the file, rather than only after it returns.
+    entered = asyncio.Event()
+    async def cancelled_asset(self,path,data,**kwargs):
+        upload_streams.append(data)
+        assert not data.closed
+        entered.set()
+        await asyncio.Event().wait()
+    with tempfile.TemporaryDirectory(prefix='haykasa-cancel-upload-') as temporary:
+        path = Path(temporary) / 'asset.mp4'
+        path.write_bytes(b'bounded-audio-fixture')
+        asset = {'path':path, 'size':path.stat().st_size, 'descriptor':{'mimeType':'audio/mp4'}}
+        Blob.put = cancelled_asset
+        upload = asyncio.create_task(media.persist(Blob(), asset, [], 'a'*64, []))
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            upload.cancel()
+            try:
+                await upload
+            except asyncio.CancelledError:
+                pass
+            assert upload_streams[-1].closed, 'Cancellation retained an open upload file'
+            assert not objects, 'Cancelled upload published a manifest'
+        finally:
+            Blob.put = original_put
     stale=f'{int(time.time()-media.TTL-1):08x}'+'c'*24
     objects[media.paths(stale)[0]]=b'expired'
     objects['unrelated/customer-file']=b'keep'
@@ -129,7 +175,22 @@ async def main():
     assert objects=={'unrelated/customer-file':b'keep'}
     assert media.byte_range('bytes=-4',20)==(16,19,206)
     assert media.byte_range('bytes=4-',20)==(4,19,206)
-    print('PASS: actual SDK signatures, private uploads, completed request-scoped jobs, cross-instance poll/renew, account isolation, signed lease rejection before storage, HEAD/ranges, malformed bodies, cancellation, bounded TTL cleanup')
+    # Exercise the pinned SDK's actual file-body part iterator with a virtual file.
+    class BoundedFile:
+        def __init__(self):
+            self.remaining = 2 * DEFAULT_PART_SIZE + 17
+            self.read_sizes = []
+        def read(self, size=-1):
+            assert 0 < size <= DEFAULT_PART_SIZE, 'SDK attempted an unbounded file read'
+            self.read_sizes.append(size)
+            length = min(size, self.remaining)
+            self.remaining -= length
+            return b'a' * length
+    source = BoundedFile()
+    sizes = [len(part) async for part in _aiter_part_bytes(source, DEFAULT_PART_SIZE)]
+    assert sizes == [DEFAULT_PART_SIZE, DEFAULT_PART_SIZE, 17]
+    assert source.remaining == 0 and len(source.read_sizes) == 4
+    print('PASS: actual SDK signatures and bounded multipart file reads; no whole-file allocation; successful/interrupted upload file closure; private uploads, completed request-scoped jobs, cross-instance poll/renew, account isolation, signed lease rejection before storage, HEAD/ranges, malformed bodies, cancellation, bounded TTL cleanup')
 asyncio.run(main())
 
 from app.processes import failure_reason

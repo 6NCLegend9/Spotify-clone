@@ -28,6 +28,28 @@ assert.equal(measured.sampleRateHz,48000);assert.equal(measured.channels,2);
 const invalidMetadata=media.normalizeMediaResult({...value,asset:{...value.asset,audioBitrateKbps:Infinity,sampleRateHz:999999,channels:99}},config).asset;
 assert.equal(invalidMetadata.audioBitrateKbps,null);assert.equal(invalidMetadata.sampleRateHz,null);assert.equal(invalidMetadata.channels,null);
 assert.equal(invalidMetadata.audioBitrateEstimated,true);
+const diagnostics=load('src/utils/diagnostics.mjs');
+const playbackErrors=load('src/utils/youtubePlaybackError.mjs',{'./playerQueue.mjs':{queueEntryIdentity:track=>track?.id}});
+for(const reason of ['source_access_restricted','source_tls_failed','source_challenge_failed','source_http_forbidden']) {
+  const failed=media.normalizeMediaResult({jobId:'a'.repeat(32),state:'failed',reason},config);
+  assert.equal(failed.reason,reason,'The client must receive the safe upstream failure category');
+  const diagnostic=diagnostics.diagnosticRecord('provider',{code:'native_fallback',reason:failed.reason});
+  assert.equal(diagnostic.code,'native_fallback');
+  assert.equal(diagnostic.reason,reason,'Support diagnostics must preserve the classified failure');
+}
+for(const reason of ['private upstream log https://signed.example/?token=secret',null,{},'toString']) {
+  const failed=media.normalizeMediaResult({jobId:'a'.repeat(32),state:'failed',reason},config);
+  assert.equal(failed.reason,'source_unavailable','Never forward arbitrary worker details to the client');
+  assert.equal(diagnostics.diagnosticRecord('provider',{code:'native_fallback',reason}).reason,undefined);
+  assert.equal(playbackErrors.sourceAudioFallbackMessage(reason),playbackErrors.sourceAudioFallbackMessage('source_unavailable'));
+}
+assert.equal(diagnostics.diagnosticRecord('provider',{code:'sdk_unavailable'}).code,'sdk_unavailable');
+assert.equal(diagnostics.diagnosticRecord('provider',{code:'source_unavailable',reason:'service_disabled'}).reason,'service_disabled');
+for(const code of [2,5,100,101,150,153]) assert.equal(diagnostics.diagnosticRecord('playback_error',{code:`YOUTUBE_${code}`}).code,`YOUTUBE_${code}`);
+assert.equal(diagnostics.diagnosticRecord('playback_error',{code:'YOUTUBE_secret'}).code,undefined);
+assert.match(playbackErrors.sourceAudioFallbackMessage('service_disabled'),/disabled/i);
+assert.match(playbackErrors.sourceAudioFallbackMessage('source_access_restricted'),/provider.*blocked/i);
+assert.match(playbackErrors.sourceAudioFallbackMessage('authentication_required'),/signed-in/);
 assert.equal(media.validateMediaRequest({videoId:'abcdefghijk',mode:'audio',maxHeight:1080,profile:'auto'}).profile,'auto');
 assert.throws(()=>media.normalizeMediaResult({...value,asset:{...value.asset,url:'https://attacker.example.test/v1/assets/'+'b'.repeat(32)}},config));
 assert.equal(media.mediaServiceConfig({MEDIA_SERVICE_INTERNAL_URL:'https://user:password@binding.example.test',JWT_SECRET:secret}).enabled,false);
@@ -90,5 +112,5 @@ const route=load('src/app/api/media/preflight/route.js',{
     assert.equal(limits.at(-1).options.max,1);
   }
   assert.equal(new Set(limits.map(value=>value.key)).size,3);
-  console.log('PASS: internal binding paths, credential purpose separation, public asset origin validation, legacy service compatibility, production preflight exclusion, fixed live-song samples and independent bounded probes');
+  console.log('PASS: classified worker failures reach the player, support diagnostics retain safe provider codes without raw details; internal bindings, credential separation, asset origin validation, codec metadata, legacy service compatibility, production preflight exclusion and fixed bounded samples');
 })().catch(error=>{console.error(error);process.exitCode=1});
