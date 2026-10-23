@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FiDownload } from "react-icons/fi";
+import { Download as FiDownload } from "lucide-react";
 
 export default function ExportDataButton() {
   const [status, setStatus] = useState("idle");
@@ -34,7 +34,7 @@ export default function ExportDataButton() {
         disabled={status === "loading"}
         className="btn-ghost h-11 text-sm disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <FiDownload aria-hidden="true" />
+        <FiDownload size="1em" aria-hidden="true" />
         {status === "loading" ? "Preparing…" : "Export my data"}
       </button>
       {status === "error" ? (

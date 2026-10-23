@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
-import { BsPlayFill } from "react-icons/bs";
+import { Play as BsPlayFill } from "lucide-react";
 import MediaImage from "@/components/MediaImage";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import ItemMenu from "@/components/ItemMenu";
@@ -91,7 +91,7 @@ export default function RecommendationPlaylistCard({ playlist }) {
         aria-label={`Play ${title}`}
         className="play-fab is-on disabled:opacity-50"
       >
-        <BsPlayFill aria-hidden="true" />
+        <BsPlayFill size="1em" fill="currentColor" aria-hidden="true" />
       </button>
       <div className="absolute bottom-3 right-2 z-[4]">
         <ItemMenu

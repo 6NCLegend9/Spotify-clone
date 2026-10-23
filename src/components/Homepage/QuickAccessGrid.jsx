@@ -4,8 +4,8 @@ import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
-import { BsPlayFill } from "react-icons/bs";
-import { FiHeart } from "react-icons/fi";
+import { Play as BsPlayFill, Heart as FiHeart } from "lucide-react";
+
 import MediaImage from "@/components/MediaImage";
 import PlaylistCover from "@/components/PlaylistCover";
 import FxEq from "@/components/FxEq";
@@ -25,7 +25,7 @@ function QuickCard({ children, className = "", playing, ...props }) {
       {children}
       {playing ? <span className="home-quick-indicator"><FxEq /></span> : (
         <span className="home-quick-play">
-          <BsPlayFill aria-hidden="true" className="text-lg" />
+          <BsPlayFill size="1em" fill="currentColor" aria-hidden="true" className="text-lg" />
         </span>
       )}
     </Tag>
@@ -45,7 +45,7 @@ export default function QuickAccessGrid({ items }) {
           return (
             <QuickCard key="liked" href="/library/liked" aria-label="Open Liked Songs">
               <span className="grid h-16 w-16 shrink-0 place-items-center bg-gradient-to-br from-[#096192] via-[#24aae2] to-[#162943]">
-                <FiHeart aria-hidden="true" className="text-xl text-white" />
+                <FiHeart size="1em" aria-hidden="true" className="text-xl text-white" />
               </span>
               <span className="home-quick-title line-clamp-2">Liked Songs</span>
             </QuickCard>
@@ -87,7 +87,7 @@ export default function QuickAccessGrid({ items }) {
                 />
               ) : (
                 <span className="grid h-16 w-16 shrink-0 place-items-center bg-[#162943] text-[#096192]">
-                  <BsPlayFill aria-hidden="true" className="text-xl" />
+                  <BsPlayFill size="1em" fill="currentColor" aria-hidden="true" className="text-xl" />
                 </span>
               )}
               <span className="home-quick-title min-w-0 line-clamp-2" title={title}>{title}</span>

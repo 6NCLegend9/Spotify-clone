@@ -9,7 +9,7 @@ import {
   UPDATE_PREFLIGHT_TIMEOUT_MS,
 } from "./config.mjs";
 import { installationEligibleForRollout } from "./policy.mjs";
-import { versionOlderThan } from "./version.mjs";
+import { compareReleaseVersions, versionOlderThan } from "./version.mjs";
 import { effectiveUpdateChannel } from "./updateChannel.mjs";
 import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
 
@@ -147,7 +147,7 @@ export class DesktopUpdater {
     return manifest;
   }
 
-  manifestRolloutAllows(manifest) {
+  manifestRolloutAllows(manifest, { manual = false } = {}) {
     if (this.channel() !== "stable") return true;
     if (versionOlderThan(this.app.getVersion(), manifest?.minimum)) return true;
     if ((Number(manifest?.desktopApiVersion) || 0) > DESKTOP_API_VERSION) return true;
@@ -157,6 +157,8 @@ export class DesktopUpdater {
     } catch {
       percent = 0;
     }
+    // Explicit checks opt into an active rollout; zero remains a release pause.
+    if (manual && Number(percent) > 0) return true;
     return installationEligibleForRollout(
       this.store.get("installationId"),
       percent,
@@ -208,7 +210,13 @@ export class DesktopUpdater {
         });
         return this.getStatus();
       }
-      if (!this.manifestRolloutAllows(manifest)) {
+      const comparison = compareReleaseVersions(this.app.getVersion(), manifest.latest);
+      if (comparison === null) throw new Error("The installed desktop version is invalid.");
+      if (comparison >= 0) {
+        this.emit({ state: "up-to-date", version: this.app.getVersion(), progress: 0, detail: "HayKasa Desktop is up to date." });
+        return this.getStatus();
+      }
+      if (!this.manifestRolloutAllows(manifest, { manual })) {
         this.emit({
           state: "deferred",
           version: manifest.latest || this.app.getVersion(),

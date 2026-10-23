@@ -18,7 +18,7 @@ import PlayerVolume from "./PlayerVolume";
 const FullscreenTrack = dynamic(() => import("./FullscreenTrack"), { ssr: false });
 const Lyrics = dynamic(() => import("./Lyrics"), { ssr: false });
 const Downloader = dynamic(() => import("./Downloader"), { ssr: false });
-import { HiOutlineChevronDown } from "react-icons/hi";
+import { ChevronDown as HiOutlineChevronDown } from "lucide-react";
 import { addFavourite, getFavourite } from "@/services/dataAPI";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -485,7 +485,7 @@ const MusicPlayer = () => {
             fullScreen ? "top-16 right-7 md:top-10" : "right-2 top-2"
           }`}
         >
-          <HiOutlineChevronDown
+          <HiOutlineChevronDown size="1em"
             aria-hidden="true"
             className={`text-2xl ${fullScreen ? "" : "rotate-180"}`}
           />

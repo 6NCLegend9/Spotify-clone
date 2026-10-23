@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiCheckCircle, FiDownload, FiMonitor, FiRefreshCw } from "react-icons/fi";
+import { CircleCheck as FiCheckCircle, Download as FiDownload, Monitor as FiMonitor, RefreshCw as FiRefreshCw } from "lucide-react";
 import { requestJson } from "@/services/http";
 import useInstalledApp from "@/hooks/useInstalledApp";
 import {
@@ -200,7 +200,7 @@ export default function DesktopAppCard() {
     <section className="mb-8 glass-panel rounded-xl p-5 sm:p-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="eyebrow mb-2 flex items-center gap-2"><FiMonitor aria-hidden="true" /> HayKasa Desktop</p>
+          <p className="eyebrow mb-2 flex items-center gap-2"><FiMonitor className="settings-app-icon" aria-hidden="true" /> HayKasa Desktop</p>
           <h2 className="text-xl font-semibold">{isDesktop ? "Desktop app controls" : installedApp === null ? "HayKasa Desktop" : "Get HayKasa for Windows"}</h2>
           <p className="mt-2 max-w-2xl text-xs leading-5 text-[#9aa8b5]">
             {isDesktop
@@ -211,7 +211,7 @@ export default function DesktopAppCard() {
         </div>
         {isDesktop ? (
           <div className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-300">
-            <FiCheckCircle className="mr-1.5 inline" aria-hidden="true" /> Desktop detected
+            <FiCheckCircle size="1em" className="mr-1.5 inline" aria-hidden="true" /> Desktop detected
           </div>
         ) : null}
       </div>
@@ -307,7 +307,7 @@ export default function DesktopAppCard() {
                 disabled={Boolean(busy)}
                 className="btn-ghost min-h-11 gap-2 px-4 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <FiRefreshCw aria-hidden="true" className={busy === "check" ? "animate-spin" : ""} />
+                <FiRefreshCw size="1em" aria-hidden="true" className={busy === "check" ? "animate-spin" : ""} />
                 {busy === "check" ? "Checking…" : "Check for updates"}
               </button>
             ) : null}
@@ -352,11 +352,11 @@ export default function DesktopAppCard() {
                 rel="noopener noreferrer"
                 {...(manifest.portable ? {} : { download: "HayKasa-Setup-x64.exe" })}
               >
-                <FiDownload aria-hidden="true" /> {manifest.portable ? "Download portable build" : "Download for Windows"}
+                <FiDownload size="1em" aria-hidden="true" /> {manifest.portable ? "Download portable build" : "Download for Windows"}
               </a>
             ) : (
               <button type="button" disabled className="btn-primary min-h-11 shrink-0 gap-2 px-4 opacity-50">
-                <FiDownload aria-hidden="true" /> Installer unavailable
+                <FiDownload size="1em" aria-hidden="true" /> Installer unavailable
               </button>
             )}
           </div>

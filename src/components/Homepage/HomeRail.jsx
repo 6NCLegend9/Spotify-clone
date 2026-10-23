@@ -4,7 +4,7 @@ import { useRef } from "react";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import Link from "next/link";
 import { useDispatch } from "react-redux";
-import { BsPlayFill } from "react-icons/bs";
+import { Play as BsPlayFill } from "lucide-react";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import ArtistNameLink from "@/components/ArtistNameLink";
@@ -68,7 +68,7 @@ export function HomeSquareCard({ video, queue }) {
         <span className="home-square">
           <MediaImage src={cover} size="hq" alt="" className="h-full w-full object-cover" />
           <span className="home-square-play pointer-fine-only-grid">
-            <BsPlayFill aria-hidden="true" className="text-xl" />
+            <BsPlayFill size="1em" fill="currentColor" aria-hidden="true" className="text-xl" />
           </span>
         </span>
         <span className="home-shelf-title">{title}</span>

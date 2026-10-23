@@ -4,11 +4,22 @@ import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { FiDisc, FiHeart, FiHome, FiSearch, FiSettings, FiUsers } from "react-icons/fi";
-import { ArrowRight, LibraryBig, Plus } from "lucide-react";
-import { MdSportsEsports } from "react-icons/md";
+import {
+  Disc as FiDisc,
+  Heart as FiHeart,
+  House as FiHome,
+  Search as FiSearch,
+  Settings as FiSettings,
+  Users as FiUsers,
+  ArrowRight,
+  LibraryBig,
+  Plus,
+  Gamepad2 as MdSportsEsports,
+  X as IoClose,
+} from "lucide-react";
+
 import { canUseArcade } from "@/utils/arcadeAccess";
-import { IoClose } from "react-icons/io5";
+
 import { useNav } from "../Layout/AppShell";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import Playlists from "./Playlists";
@@ -43,12 +54,12 @@ const Sidebar = () => {
             { label: "Start a Jam", onSelect: () => status === "authenticated" ? requestJamOpen() : window.dispatchEvent(new Event("heykasa:open-create")) },
           ]}><Plus aria-hidden="true" size={22} /></ItemMenu>
           <Link href="/library" onClick={go} className="sidebar-toggle icon-btn non-phone-only-inline-flex" aria-label="Open full library" title="Open full library"><ArrowRight aria-hidden="true" size={20} /></Link>
-          <button type="button" onClick={close} className="sidebar-toggle icon-btn phone-only-flex" aria-label="Close menu"><IoClose aria-hidden="true" className="text-xl" /></button>
+          <button type="button" onClick={close} className="sidebar-toggle icon-btn phone-only-flex" aria-label="Close menu"><IoClose size="1em" aria-hidden="true" className="text-xl" /></button>
         </div>
       </div></div>
       {!collapsed && <nav aria-label="Primary" className="kasa-sidebar-nav">
-        <Link href="/" onClick={go} aria-current={isActive("/") ? "page" : undefined} title={collapsed ? "Home" : undefined} className={`nav-link ${isActive("/") ? "is-active" : ""}`}><FiHome aria-hidden="true" className="shrink-0 text-xl" /><span className={collapsed ? "phone-only-inline" : ""}>Home</span></Link>
-        <Link href="/search" onClick={go} aria-current={isActive("/search") ? "page" : undefined} title={collapsed ? "Search" : undefined} className={`nav-link ${isActive("/search") ? "is-active" : ""}`}><FiSearch aria-hidden="true" className="shrink-0 text-xl" /><span className={collapsed ? "phone-only-inline" : ""}>Search</span></Link>
+        <Link href="/" onClick={go} aria-current={isActive("/") ? "page" : undefined} title={collapsed ? "Home" : undefined} className={`nav-link ${isActive("/") ? "is-active" : ""}`}><FiHome size="1em" aria-hidden="true" className="shrink-0 text-xl" /><span className={collapsed ? "phone-only-inline" : ""}>Home</span></Link>
+        <Link href="/search" onClick={go} aria-current={isActive("/search") ? "page" : undefined} title={collapsed ? "Search" : undefined} className={`nav-link ${isActive("/search") ? "is-active" : ""}`}><FiSearch size="1em" aria-hidden="true" className="shrink-0 text-xl" /><span className={collapsed ? "phone-only-inline" : ""}>Search</span></Link>
       </nav>}
       <div id="sidebar-library-content" className="kasa-library-scroll">
         <Playlists compact={collapsed} />

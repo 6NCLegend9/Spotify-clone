@@ -1,7 +1,7 @@
 "use client";
 
-import { FiRefreshCw, FiUsers } from "react-icons/fi";
-import { GiMusicalNotes } from "react-icons/gi";
+import { RefreshCw as FiRefreshCw, Users as FiUsers, Music2 as GiMusicalNotes } from "lucide-react";
+
 import useCrowdRadio from "@/hooks/useCrowdRadio";
 import { cleanTitle } from "@/utils/text";
 
@@ -17,10 +17,10 @@ export default function KasaCrowd({ jam }) {
     <section className="rounded-xl border border-[#096192]/25 bg-[#096192]/[0.04] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-          <GiMusicalNotes aria-hidden="true" className="text-[#096192]" /> HayKasa Crowd
+          <GiMusicalNotes size="1em" aria-hidden="true" className="text-[#096192]" /> HayKasa Crowd
         </h3>
         <span className="flex items-center gap-1 text-[11px] text-[#9aa8b5]">
-          <FiUsers aria-hidden="true" /> {crowd.members.length} sharing
+          <FiUsers size="1em" aria-hidden="true" /> {crowd.members.length} sharing
         </span>
       </div>
       <p className="mt-2 text-[11px] leading-5 text-[#9aa8b5]">
@@ -54,7 +54,7 @@ export default function KasaCrowd({ jam }) {
           aria-busy={crowd.busy}
           className="btn-primary mt-3 min-h-11 w-full gap-2 disabled:cursor-wait disabled:opacity-60"
         >
-          <FiRefreshCw aria-hidden="true" className={crowd.busy ? "animate-spin" : ""} />
+          <FiRefreshCw size="1em" aria-hidden="true" className={crowd.busy ? "animate-spin" : ""} />
           {crowd.busy ? "Blending…" : crowd.station.length ? "Rebuild station" : "Build the room's station"}
         </button>
       ) : null}

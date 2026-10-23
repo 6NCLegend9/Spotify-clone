@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { FiPlus } from "react-icons/fi";
+import { Plus as FiPlus } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { addSongToPlaylist, getUserPlaylists } from "@/services/playlistApi";
 import EmptyState from "@/components/EmptyState";
@@ -102,7 +102,7 @@ export default function AddToPlaylistButton({ track, className = "" }) {
         onClick={openMenu}
         className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-gray-300 transition hover:bg-white/10 ${className}`}
       >
-        <FiPlus aria-hidden="true" />
+        <FiPlus size="1em" aria-hidden="true" />
       </button>
       {showMenu && menuPosition && typeof document !== "undefined" &&
         createPortal(

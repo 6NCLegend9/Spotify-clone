@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { FiArrowLeft, FiGrid, FiMaximize2, FiMinimize2 } from "react-icons/fi";
+import { ArrowLeft as FiArrowLeft, LayoutGrid as FiGrid, Maximize2 as FiMaximize2, Minimize2 as FiMinimize2 } from "lucide-react";
 import ArcadeGameSelect from "@/components/Arcade/ArcadeGameSelect";
 import ArcadeSongPicker from "@/components/Arcade/ArcadeSongPicker";
 import HowToPlayOverlay from "@/components/Arcade/HowToPlayOverlay";
@@ -421,7 +421,7 @@ export default function ArcadeStage() {
         <div className="flex items-center gap-2 px-3 py-2 pb-3 sm:px-4">
           {step === "select" ? (
             <Link href="/" className="icon-btn h-11 w-11 shrink-0" aria-label="Leave the arcade" title="Leave the arcade">
-              <FiArrowLeft aria-hidden="true" />
+              <FiArrowLeft size="1em" aria-hidden="true" />
             </Link>
           ) : (
             <button
@@ -431,7 +431,7 @@ export default function ArcadeStage() {
               aria-label="Back to game selection"
               title="Back to game selection"
             >
-              <FiGrid aria-hidden="true" />
+              <FiGrid size="1em" aria-hidden="true" />
             </button>
           )}
 
@@ -457,7 +457,7 @@ export default function ArcadeStage() {
             aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"}
             title={isFullscreen ? "Exit full screen" : "Enter full screen"}
           >
-            {isFullscreen ? <FiMinimize2 aria-hidden="true" /> : <FiMaximize2 aria-hidden="true" />}
+            {isFullscreen ? <FiMinimize2 size="1em" aria-hidden="true" /> : <FiMaximize2 size="1em" aria-hidden="true" />}
           </button>
         </div>
       </header>

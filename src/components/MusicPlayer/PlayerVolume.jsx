@@ -3,7 +3,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { BsFillVolumeMuteFill, BsFillVolumeUpFill, BsVolumeDownFill } from "react-icons/bs";
+import { VolumeX as BsFillVolumeMuteFill, Volume2 as BsFillVolumeUpFill, Volume1 as BsVolumeDownFill } from "lucide-react";
 import { updateSetting } from "@/redux/features/settingsSlice";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import useMediaQuery, { useIsPhoneViewport } from "@/hooks/useMediaQuery";

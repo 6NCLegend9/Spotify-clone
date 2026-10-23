@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FiPlay } from "react-icons/fi";
+import { Play as FiPlay } from "lucide-react";
 import HorizontalRail from "@/components/HorizontalRail";
 import MediaImage from "@/components/MediaImage";
 import ArtistNameLink from "@/components/ArtistNameLink";
@@ -41,7 +41,7 @@ export function ArtistDiscography({ releases, onPlay, busyId }) {
           <h3 className={styles.cardTitle}>{cleanTitle(release.title, "Release")}</h3>
           <p className={styles.cardDescription}>{[release.year, release.type === "ep" ? "EP" : release.type === "single" ? "Single" : "Album"].filter(Boolean).join(" · ")}</p>
         </Link>
-        <button type="button" className={styles.cardPlay} disabled={Boolean(busyId)} aria-busy={busyId === release.id} aria-label={`Play ${cleanTitle(release.title, "release")}`} onClick={() => void onPlay(release)}><FiPlay aria-hidden="true" /></button>
+        <button type="button" className={styles.cardPlay} disabled={Boolean(busyId)} aria-busy={busyId === release.id} aria-label={`Play ${cleanTitle(release.title, "release")}`} onClick={() => void onPlay(release)}><FiPlay size="1em" fill="currentColor" aria-hidden="true" /></button>
       </article>)}
     </Rail> : <section aria-labelledby="artist-discography-title"><div className={styles.sectionHeading}><h2 id="artist-discography-title">Discography</h2></div>{controls}<p className={styles.sectionEmpty}>No {filter === "albums" ? "albums" : "singles or EPs"} are available for this artist.</p></section>}
   </div>;
@@ -55,7 +55,7 @@ export function ArtistPlaylistRail({ playlists, artistName, onPlay, busyId }) {
         <h3 className={styles.cardTitle}>{cleanTitle(playlist.title, "Playlist")}</h3>
         <p className={styles.cardDescription}>{cleanTitle(playlist.description || "Playlist")}</p>
       </Link>
-      <button type="button" className={styles.cardPlay} disabled={Boolean(busyId)} aria-busy={busyId === playlist.id} aria-label={`Play ${cleanTitle(playlist.title, "playlist")}`} onClick={() => void onPlay(playlist)}><FiPlay aria-hidden="true" /></button>
+      <button type="button" className={styles.cardPlay} disabled={Boolean(busyId)} aria-busy={busyId === playlist.id} aria-label={`Play ${cleanTitle(playlist.title, "playlist")}`} onClick={() => void onPlay(playlist)}><FiPlay size="1em" fill="currentColor" aria-hidden="true" /></button>
     </article>)}
   </Rail>;
 }
@@ -64,7 +64,7 @@ export function ArtistVideoRail({ title, id, videos, onPlay }) {
   return <Rail title={title} id={id} items={videos}>
     {videos.map(video => <ContextMenuTarget as="article" key={video.id} className={`${styles.catalogCard} ${styles.videoCard}`}>
       <button type="button" className={styles.videoCover} aria-label={`Play ${cleanTitle(video.title)}`} onClick={() => onPlay(video, videos)}>
-        <MediaImage src={video.thumbnail} size="hq" alt="" className={styles.videoArt} /><span className={styles.videoPlay} aria-hidden="true"><FiPlay /></span>
+        <MediaImage src={video.thumbnail} size="hq" alt="" className={styles.videoArt} /><span className={styles.videoPlay} aria-hidden="true"><FiPlay size="1em" fill="currentColor" /></span>
       </button>
       <button type="button" onClick={() => onPlay(video, videos)} className={styles.cardTitle}>{cleanTitle(video.title, "Untitled video")}</button>
       <ArtistNameLink track={video} className={styles.cardDescription} />

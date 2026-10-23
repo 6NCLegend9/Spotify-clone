@@ -9,7 +9,7 @@ import { useSession } from "next-auth/react";
 import { signOutWithPrivacy as signOut } from "@/utils/signOut";
 import Link from "next/link";
 import { FaDiscord } from "react-icons/fa";
-import { FiCheck, FiLogOut, FiSave, FiSettings } from "react-icons/fi";
+import { Check as FiCheck, LogOut as FiLogOut, Save as FiSave, Settings as FiSettings } from "lucide-react";
 import { getDiscordPresenceStatus, subscribeDiscordPresenceStatus } from "@/utils/discordPresenceStatus";
 import { discordPresenceTransport } from "@/lib/discordPresenceClient";
 import DeleteAccountForm from "@/components/DeleteAccountForm";
@@ -266,13 +266,13 @@ function AccountSettings({ owner, status }) {
     <main className="page page-settings text-white">
       <header className="page-hero border-b border-white/10 pb-6">
         <div>
-          <p className="eyebrow mb-3 flex items-center gap-2"><FiSettings /> Settings</p>
+          <p className="eyebrow mb-3 flex items-center gap-2"><FiSettings size="1em" /> Settings</p>
           <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">Tune your listening.</h1>
           <p className="mt-3 max-w-2xl text-sm text-[#9aa8b5]">Playback, discovery, privacy, and audio preferences in one place.</p>
         </div>
         {status === "unauthenticated" ? (
           <Link href="/login" className="btn-primary h-10 shrink-0 px-4 text-sm">
-            <FiSave /> {saveLabel}
+            <FiSave size="1em" /> {saveLabel}
           </Link>
         ) : (
           <button
@@ -282,7 +282,7 @@ function AccountSettings({ owner, status }) {
             aria-busy={saveState === "saving"}
             className="btn-primary h-10 shrink-0 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saveState === "saved" ? <FiCheck aria-hidden="true" /> : <FiSave aria-hidden="true" />} {saveLabel}
+            {saveState === "saved" ? <FiCheck size="1em" aria-hidden="true" /> : <FiSave size="1em" aria-hidden="true" />} {saveLabel}
           </button>
         )}
       </header>
@@ -471,7 +471,7 @@ function AccountSettings({ owner, status }) {
               aria-busy={signingOutHere}
               onClick={signOutThisDevice}
             >
-              <FiLogOut aria-hidden="true" /> {signingOutHere ? "Signing out..." : "Sign out this device"}
+              <FiLogOut size="1em" aria-hidden="true" /> {signingOutHere ? "Signing out..." : "Sign out this device"}
             </button>
             <button
               type="button"
@@ -479,7 +479,7 @@ function AccountSettings({ owner, status }) {
               disabled={signingOutHere || signingOut}
               onClick={() => { setSessionError(null); setConfirmSignOut(true); }}
             >
-              <FiLogOut aria-hidden="true" /> Sign out all devices
+              <FiLogOut size="1em" aria-hidden="true" /> Sign out all devices
             </button>
           </div>
           <AccessibleDialog open={confirmSignOut} onClose={() => setConfirmSignOut(false)} disableClose={signingOut}
@@ -491,7 +491,7 @@ function AccountSettings({ owner, status }) {
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <button type="button" className="btn-ghost min-h-12 px-4" disabled={signingOut} onClick={() => setConfirmSignOut(false)}>Cancel</button>
               <button type="button" className="btn-primary min-h-12 gap-2 px-4" disabled={signingOut} aria-busy={signingOut} onClick={signOutAllDevices}>
-                <FiLogOut aria-hidden="true" /> {signingOut ? "Signing out..." : "Sign out all devices"}
+                <FiLogOut size="1em" aria-hidden="true" /> {signingOut ? "Signing out..." : "Sign out all devices"}
               </button>
             </div>
           </AccessibleDialog>

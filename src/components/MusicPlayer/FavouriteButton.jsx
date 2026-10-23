@@ -1,6 +1,5 @@
 import React from 'react'
-import {AiFillHeart, AiOutlineHeart} from 'react-icons/ai';
-
+import { Heart as AiFillHeart, Heart as AiOutlineHeart } from "lucide-react";
 
 const FavouriteButton = ({favouriteSongs, activeSong, loading, handleAddToFavourite, style}) => {
   const trackId = activeSong?.id;
@@ -20,7 +19,7 @@ const FavouriteButton = ({favouriteSongs, activeSong, loading, handleAddToFavour
           className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
         >
            {isSaved ? (
-             <AiFillHeart size={25} color={'var(--accent)'} className={`${style}`} />
+             <AiFillHeart fill="currentColor" size={25} color={'var(--accent)'} className={`${style}`} />
            ) : (
              <AiOutlineHeart size={25} color={'white'} className={`${style}`} />
            )}

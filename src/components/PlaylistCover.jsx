@@ -3,15 +3,15 @@
 import { useState } from "react";
 
 import {
-  FiActivity,
-  FiHeart,
-  FiMusic,
-  FiStar,
-  FiZap,
-  FiMonitor,
-  FiHeadphones,
-  FiTarget,
-} from "react-icons/fi";
+  Activity as FiActivity,
+  Heart as FiHeart,
+  Music as FiMusic,
+  Star as FiStar,
+  Zap as FiZap,
+  Monitor as FiMonitor,
+  Headphones as FiHeadphones,
+  Target as FiTarget,
+} from "lucide-react";
 import { getPlaylistTheme } from "@/utils/playlistThemes";
 
 const ICONS = {
@@ -52,10 +52,10 @@ export default function PlaylistCover({ playlist, className = "", showLabel = fa
     <div
       className={`grid aspect-square w-full place-items-center bg-gradient-to-br ${theme.gradient} text-white ${className}`}
     >
-      <div className="flex flex-col items-center gap-2 px-3 text-center">
-        <Icon className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" />
+      <div className="flex w-full min-w-0 flex-col items-center gap-2 text-center">
+        <Icon className="h-auto w-1/2 max-w-12 drop-shadow sm:max-w-14" />
         {showLabel ? (
-          <span className="text-[10px] font-bold uppercase tracking-widest text-white/90">
+          <span className="px-3 text-[10px] font-bold uppercase tracking-widest text-white/90">
             {theme.label}
           </span>
         ) : null}

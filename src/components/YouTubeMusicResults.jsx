@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useSession } from "next-auth/react";
 import { playPause, startYoutubePlayback } from "@/redux/features/playerSlice";
 import toast from "react-hot-toast";
-import { BsPlayFill } from "react-icons/bs";
+import { Play as BsPlayFill } from "lucide-react";
 import MediaImage from "@/components/MediaImage";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import FavouriteTrackButton from "@/components/FavouriteTrackButton";
@@ -430,7 +430,7 @@ export default function YouTubeMusicResults({ query }) {
             <MediaImage src={visibleResults[0].thumbnail} size="hq" alt="" className="mb-5 h-24 w-24 rounded-md object-cover shadow-xl" />
             <button type="button" onClick={() => playResult(visibleResults[0])} className="block w-full text-left text-2xl font-bold leading-tight hover:underline">{cleanTitle(visibleResults[0].title)}</button>
             <div className="mt-3 flex items-center gap-2 text-sm text-[var(--muted)]"><span className="rounded-full bg-black/25 px-3 py-1 text-white">Song</span><ArtistNameLink track={visibleResults[0]} /></div>
-            <button type="button" aria-label={"Play " + cleanTitle(visibleResults[0].title)} onClick={() => playResult(visibleResults[0])} className="play-fab play-fab--static absolute bottom-4 right-4 h-12 w-12"><BsPlayFill size={26} /></button>
+            <button type="button" aria-label={"Play " + cleanTitle(visibleResults[0].title)} onClick={() => playResult(visibleResults[0])} className="play-fab play-fab--static absolute bottom-4 right-4 h-12 w-12"><BsPlayFill fill="currentColor" size={26} /></button>
           </ContextMenuTarget>}
         </section>}
         <section aria-label="Songs">
@@ -443,7 +443,7 @@ export default function YouTubeMusicResults({ query }) {
                 <button type="button" onClick={() => playResult(video)} aria-label={"Play " + title} className="relative flex min-h-11 items-center gap-3">
                   <span className={styles.songNumber}>{index + 1}</span>
                   <MediaImage src={video.thumbnail} size="hq" alt="" className="h-10 w-10 rounded object-cover" />
-                  <span className={styles.songPlay}><BsPlayFill size={22} /></span>
+                  <span className={styles.songPlay}><BsPlayFill fill="currentColor" size={22} /></span>
                 </button>
                 <div className="min-w-0"><button type="button" onClick={() => playResult(video)} className="block w-full truncate text-left text-sm font-medium hover:underline" title={title}>{title}</button><ArtistNameLink track={video} className="mt-1 block truncate text-xs text-[var(--muted)] hover:text-white" /></div>
                 <FavouriteTrackButton track={video} className="!h-11 !w-11" />
@@ -539,7 +539,7 @@ export default function YouTubeMusicResults({ query }) {
                     aria-label={`Play playlist ${cleanTitle(album.title)}`}
                     className="play-fab absolute bottom-12 right-3 z-10 h-12 w-12 min-h-12 min-w-12 disabled:opacity-60"
                   >
-                    {loadingPlaylistId === album.id ? <span className="custom-loader" /> : <BsPlayFill aria-hidden="true" className="text-2xl" />}
+                    {loadingPlaylistId === album.id ? <span className="custom-loader" /> : <BsPlayFill size="1em" fill="currentColor" aria-hidden="true" className="text-2xl" />}
                   </button>
                 </article>
               );

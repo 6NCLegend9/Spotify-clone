@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { MdOutlineFileDownload, MdDownloadForOffline } from "react-icons/md";
+import { Download as MdOutlineFileDownload, CircleArrowDown as MdDownloadForOffline } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { evaluateWifiOnlyDownload } from "@/utils/downloadConnection";
