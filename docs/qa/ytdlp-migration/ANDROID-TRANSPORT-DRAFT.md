@@ -1,6 +1,6 @@
-# Android ordered transport: D06 draft 1
+# Android ordered transport: D06 draft 2
 
-Status: **proposal for joint review; no runtime implementation or qualification**. Based on PR42 `6cf7840e7c2e2a1b62296b438c4a34a1fbda6662`, replying to [C004](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6388875193). The player/native peer proposes the field names and limits below. C004 accepted the direction, not this schema.
+Status: **proposal for targeted joint re-review; no runtime implementation or qualification**. Draft 1 at `b0687e5` received core-design acceptance in [C006](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389302279). This revision, based on PR42 `9bab9d254e95046ed4a26f7f7693e46b299160b8`, addresses its two lifecycle/error and create/recover clarifications. Runtime implementation remains pending confirmation of these changes.
 
 This is capability `ordered-transport-v1`, not the complete catalog/queue/auth/streaming v2 contract. It corrects command/observation ambiguity without changing source delivery, granting guest access or promising background queue ownership. Existing `id`, `action`, `event`, `url`, `title`, `value`, position/duration fields and origin/frame/URL checks remain.
 
@@ -58,6 +58,11 @@ interface RequestError {
     | "REVISION_GAP" | "COUNTER_EXHAUSTED";
 }
 
+type ResultLookup =
+  | { webRevision: Positive; status: "pending" | "terminal";
+      result: TransportResult }
+  | { webRevision: Positive; status: "notFound"; result: null };
+
 interface OrderedResponse {
   id: string;
   event: "transportState" | "ready" | "progress" | "seeked"
@@ -68,6 +73,7 @@ interface OrderedResponse {
     result?: TransportResult;
     requestError?: RequestError; // invalid/replayed submission, not a new result
     replyTo?: UUID; // bind/state request correlation, never a transport command
+    lookup?: ResultLookup; // ReadState(forWebRevision), including cache absence
     snapshot: Snapshot;
   };
   position: number; // finite, >= 0, seconds; observed native position
@@ -79,11 +85,11 @@ interface OrderedResponse {
 
 The command identity is the tuple `(engineId, id, bindingId, webRevision)`; there is no independent command ID that can disagree with that tuple. A native intent decision and a native event each have their own counter. All three counters are scoped to that same tuple prefix, start with baseline 0 and first increment 1, and never wrap. Native creates `engineId` once per service incarnation. Each `load()` uses a new existing-format `id`. A successful bind/rebind establishes a fresh `bindingId` and resets counters while preserving native intent/output as the new baseline.
 
-Only Play/Pause increments `webRevision`. Seek, volume, release and source lifecycle must not consume transport revisions. In ordered mode they still carry `transport:{version:1,engineId,bindingId}` and pass existing value/security checks; their completion semantics are not expanded by D06. Every ordered native response for that load carries an ordered snapshot, including ready/progress/seek/error observations; those observations do not masquerade as command results. Ordered transport uses `transportState`, never the ambiguous legacy playing/pause event names. Untagged transport feedback is never consumed in ordered mode.
+Only Play/Pause increments `webRevision`. Seek, volume, release and source lifecycle must not consume transport revisions. In ordered mode they still carry `transport:{version:1,engineId,bindingId}` and pass existing value/security checks. Every ordered **playback-state** response carries an ordered snapshot, including ready/progress/seek/error observations; those observations do not masquerade as command results. The separately typed capability/control ACK/error envelopes below are non-state replies, including Release ACK after retirement. Ordered transport uses `transportState`, never the ambiguous legacy playing/pause event names. Untagged transport feedback is never consumed in ordered mode.
 
 Limits: keep the existing 12,288-character inbound bridge ceiling; at most two active load scopes, one pending Play and 32 terminal transport results per binding; a new revision may advance the processed watermark by at most 64. Results and outstanding bootstrap reservations are bounded independently. Validate number type, finiteness, integrality and range at both boundaries; Java `optInt`/`optLong` coercion is insufficient. Counter exhaustion invalidates the control binding and requires a new bind; no counter silently resets in place. Native audio/OS control is not restarted to repair metadata.
 
-Deadlines proposed here: probe 1,000 ms; Bind/ReadState and web Pause acknowledgement 2,000 ms; native grant/empty-load reservation 5,000 ms; native pending Play 30,000 ms; client pending Play 32,000 ms. Each request has one timer owned by its full scope/request identity. A client deadline reports unknown/error and resynchronizes; it is not evidence that native playback stopped.
+Deadlines proposed here: probe 1,000 ms; Bind/ReadState, lifecycle/control ACK and web Pause acknowledgement 2,000 ms; native grant/empty-load reservation 5,000 ms; native pending Play 30,000 ms; client pending Play 32,000 ms. Each request has one timer owned by its full scope/request identity. A client deadline reports unknown/error and resynchronizes; it is not evidence that native playback stopped. Lifecycle ACK timeout follows the state-read/no-automatic-retransmission rule below.
 
 ## Side-effect-free probe and explicit bind
 
@@ -107,15 +113,167 @@ type ReadState = {
   transport: Scope & { version: 1 };
   forWebRevision?: Positive;
 };
+
+type ScopedRequest = {
+  id: string; requestId: UUID;
+  transport: Scope & { version: 1 };
+};
+type LoadCommand = ScopedRequest & {
+  action: "load"; url: string; title: string;
+};
+type SeekCommand = ScopedRequest & { action: "seek"; value: number };
+type VolumeCommand = ScopedRequest & { action: "volume"; value: number };
+type ReleaseCommand = ScopedRequest & { action: "release" };
+type LifecycleCommand = LoadCommand | SeekCommand | VolumeCommand | ReleaseCommand;
+type LifecycleAction = LifecycleCommand["action"];
+type ControlAction = "transportHello" | "transportBind" | "transportReadState"
+  | LifecycleAction;
+
+type ControlAck = {
+  id: string; event: "transportControlAck"; version: 1;
+  requestId: UUID; scope: Scope;
+} & (
+  | { action: "load" | "seek"; phase: "accepted" }
+  | { action: "volume" | "release"; phase: "completed" }
+);
+type ErrorCorrelation =
+  | { action: ControlAction; requestId: UUID; attemptedScope?: Scope }
+  | { action: "play" | "pause"; webRevision: Positive; attemptedScope: Scope };
+type ControlError = {
+  id: string; event: "transportControlError"; version: 1;
+  correlation: ErrorCorrelation;
+  reason: "ENGINE_MISMATCH" | "BIND_CONFLICT" | "GRANT_EXPIRED"
+    | "NOT_FOUND" | "UNAVAILABLE" | "PROTOCOL_ERROR" | "INVALID_SCOPE"
+    | "INVALID_VALUE" | "LOAD_CONFLICT" | "COUNTER_EXHAUSTED";
+};
+
+// Complete ordered-protocol unions. The legacy wire remains a separate mode.
+type OrderedCommand = Hello | Bind | ReadState | TransportCommand | LifecycleCommand;
+type OrderedWireResponse = Capabilities | OrderedResponse | ControlAck | ControlError;
 ```
 
 1. Send Hello before creating a native load. Probe is read-only with respect to playback/mode: no player creation, Pause, release, source load or native mode switch. It may reserve one short-lived bind grant. The grant is a native-generated one-use nonce tied to the current trusted bridge attachment, `id`, engine and expected current binding. Keep at most four grants per attachment; reject excess reservations. Expiry uses native monotonic time; clients do not compare wall clocks. This is an IPC anti-replay nonce, not account authorization, a source credential or a renewal lease; never log its actual value.
 2. Wait up to 1,000 ms. With no correlated capability response, cache legacy mode for the current bridge attachment and keep existing notification Play behavior; do not impose another probe delay on every song. Ignore a late probe reply: probing did not switch the native load into ordered mode. A recognized but malformed response is a protocol error, not permission to downgrade. After any valid capability response, that attachment is latched capable and all remaining failures use error/resync handling, never legacy fallback. Further Hello calls obtain fresh per-load/rebind grants; they cannot downgrade it.
-3. Send Bind with a fresh binding UUID and the advertised expected binding. Native checks the current trusted attachment, current engine, grant and compare-and-swap of `expectedBindingId`. This prevents an old bind arriving last from retiring a newer binding. Consuming the grant establishes an empty scope for a new load, or atomically rebinds the same existing load without touching its player.
+3. Select the create or recover path below before sending Bind; do not copy an advertised null into a recovery Bind. Native checks the current trusted attachment, current engine, grant and compare-and-swap of `expectedBindingId`. A null expectation may allocate only an absent fresh ID; a non-null expectation may only rebind that existing load and must return NOT_FOUND if it is absent. This prevents an old bind arriving last from retiring a newer binding and prevents a recovery Bind from allocating a replacement. Consuming the grant creates the explicit new reservation or atomically rebinds the existing load without touching its player.
 4. Return `transportState` with `replyTo` matching Bind, `eventSeq:1`, counters 0 and the current baseline snapshot. Only this correlated response makes the client active. An empty reserved load has idle/non-playing baseline; an existing load retains its current native requested intent, output and position, with `intent.origin:"baseline"` and `intent.webRevision:null`. Reap an unpopulated load reservation after 5,000 ms from its initial Bind, including when the Bind reply is lost. Duplicate Bind/rebind cannot extend that deadline; no ExoPlayer exists before Load.
-5. Send the existing load command with the established scope; it creates/prepares the source once. Retrying the identical load within the binding returns the current state without preparing again; different source data under an already-loaded ID is `LOAD_CONFLICT`, requiring a fresh load ID. Releasing a load destroys its binding and grants. A replayed consumed grant cannot recreate it.
+5. Send the existing load command with the established scope; it creates/prepares the source once. Retrying the identical Load within the binding re-ACKs ControlAck/accepted without preparing again; use a separate ReadState for current state. Different source data under an already-loaded ID is `LOAD_CONFLICT`, requiring a fresh load ID. Releasing a load destroys its binding and grants. A replayed consumed grant cannot recreate it.
 
-For Bind errors use `{id,event:"transportControlError",requestId,reason}` with `reason` one of `ENGINE_MISMATCH`, `BIND_CONFLICT`, `GRANT_EXPIRED`, `NOT_FOUND`, `UNAVAILABLE` or `PROTOCOL_ERROR`. This is a non-state control response: it can fail bootstrap or trigger a fresh probe, but cannot alter current playback or adopt an unsolicited scope. An identical Bind replay while its binding remains current returns a fresh current snapshot without resetting counters. A replay after that binding is retired is rejected, not reactivated.
+Bind/Hello/ReadState failures use ControlError with the exact action/requestId correlation above; scoped lifecycle failures use the same union. Invalid or retired Play/Pause scope uses its full attempted-scope/revision correlation, not a historical TransportResult or RequestError for an unowned scope. If malformed input lacks a safely typed correlation, drop it with bounded diagnostics; never invent an ID/scope/revision for a reply. This response has no snapshot and cannot change paused, intent, selected source or player resources. Only the matching currently outstanding request may enter error/resync; a retired request's response is ignored.
+
+If eventSeq cannot advance, do not try to emit an ordered RequestError. Retain the exhausted binding as a non-authorizing CAS anchor and answer the next safely correlated scoped request with non-state ControlError/COUNTER_EXHAUSTED. An unsolicited observation with no request correlation is not emitted and must not fabricate a request ID. Hello/Bind remain available for recovery; no counter wraps and no player is restarted.
+
+### New creation versus recovery
+
+- **Create:** begin only from the normal fresh source/load decision, allocate an ID never used by that adapter, and retain the creation operation. Hello must report `currentBindingId:null`; non-null is a collision/conflict, not permission to take over an existing load. Bind uses a fresh binding ID and null expectation. After its correlated baseline, send Load for that original creation operation once. A subsequent Play requires the still-current explicit playback decision; a cancelled Play or persisted renderer snapshot cannot supply it.
+- **Recover:** retain the known engine/load/binding tuple and an in-flight Bind record. Hello must report the same engine and the same non-null binding anchor. Send a new Bind expecting that retained binding, then adopt native state without Load/Play replay. Changed engine means ENGINE_MISMATCH; a null binding means the old load/reservation is absent and recovery is NOT_FOUND. Do not send a null-expectation Bind, adopt a synthetic idle baseline or resend Load/Play. An unexpected non-null binding is BIND_CONFLICT, not an identity to copy into a takeover request.
+- **Lost Bind reply exception:** retain the exact in-flight Bind, including requestId/grant/new binding. If Hello reports its proposed new binding, replay that identical Bind once to recover its current snapshot. Native recognizes that exact completed Bind before grant-expiry/CAS checks and never resets it again. This is not adoption of an arbitrary advertised binding. If it has been reaped/released/replaced, replay fails and cannot recreate it. Continuing a still-live original creation after this reply is permitted; recreating a missing reservation is not.
+- Keep an exhausted/temporarily non-command-authorizing binding ID as the CAS anchor while its native load still exists. Hello reports that anchor so normal recovery can replace it; it must not advertise null while retaining a player. Existing legacy-owned IDs cannot be adopted through this ordered handshake and return UNAVAILABLE; their original clients remain compatible.
+
+These are client state-machine rules using the existing fields, not a new wire purpose flag. After missing-load/engine failure, a user recovery action may start a **new** normal creation with a fresh ID and source/playback decision; it cannot pretend to continue the old scope.
+
+### Lifecycle/control reply semantics
+
+Every scoped Load/Seek/Volume/Release has a unique requestId, independent of Play/Pause revisions. Bind and ReadState succeed through OrderedResponse.replyTo; Bind has no lookup, and ReadState includes lookup exactly when forWebRevision was requested. A cache-missing lookup is a successful fresh snapshot plus `{status:"notFound",result:null}`, not a failed ReadState or fabricated Play/Pause action. Pending lookup results have phase accepted; terminal lookups have phase completed/rejected. Failure of the state read itself returns correlated ControlError, with no snapshot.
+
+For lookup notFound, the fresh snapshot may still independently satisfy the existing current-intent/observed-playing completion rule. If it does not, terminate the unresolved local Play promise with local `native_outcome_unknown` and enter the bounded state-recovery path. Do not invent a native terminal result, replay Play or leave the promise pending. This local transport outcome must not enter a generic media-error fallback that pauses/releases the current native player; newer system intent and truthful output remain intact.
+
+Load/Seek success uses ControlAck/accepted after validation and the native API call: it does not confirm decoding or observed seek position. Later ready/seeked/progress remain ordered observations. Volume/completed confirms the setter was applied; Release/completed confirms resource/scope retirement, with no hardware-drain claim. A control ACK is not an authoritative playback snapshot and cannot resolve Play or change intent/output. No control request consumes a web transport revision.
+
+For an already-loaded ID, a changed URL/title is ControlError/LOAD_CONFLICT under that Load's requestId, before any mutation; the existing player/binding is preserved. An identical Load retry does not prepare again. Preserve the original requestId for specifically permitted Bind/Load retries; do not reuse one for a different request. Seek/Volume/Release have no automatic retransmission in this slice: uncertain outcome requires a state read, not replay. Only Play/Pause has the revision-backed lifetime duplicate guarantee. Unknown/retired lifecycle scopes return a control failure rather than recreating resources. Do not retain credentials/raw source data in replies. A native decoder failure is separately an ordered `event:"error"` observation, not a control-request error. Existing finite-number, seek/volume clamp, title-length and asset-URL policies still apply.
+
+### Typed wire traces for C006
+
+The UUIDs and asset URL below are synthetic constants, not actual playback data. Bind snapshots use the complete OrderedResponse shape above; abbreviated arrows in comments describe message order without replacing a wire field.
+
+```ts
+const E = "00000000-0000-4000-8000-000000000001";
+const NEW_E = "00000000-0000-4000-8000-000000000002";
+const B = "00000000-0000-4000-8000-000000000003";
+const OLD_B = "00000000-0000-4000-8000-000000000004";
+const G = "00000000-0000-4000-8000-000000000005";
+const FRESH_ID = "audio_00000000-0000-4000-8000-000000000006";
+const OLD_ID = "audio_00000000-0000-4000-8000-000000000007";
+const Q = "00000000-0000-4000-8000-000000000008";
+const scope = { engineId: E, bindingId: B };
+
+// CREATE: explicit fresh source decision -> fresh ID -> Hello/null -> Bind/null.
+const createHello: Hello = { id: FRESH_ID, action: "transportHello", requestId: Q };
+const createCaps: Capabilities = {
+  id: FRESH_ID, event: "transportCapabilities", requestId: Q,
+  version: 1, capability: "ordered-transport-v1", nativeBuildCode: 4,
+  engineId: E, currentBindingId: null, bindGrant: G, grantLifetimeMs: 5000,
+};
+const createBind: Bind = {
+  id: FRESH_ID, action: "transportBind",
+  requestId: "00000000-0000-4000-8000-000000000009", version: 1,
+  engineId: E, bindingId: B, expectedBindingId: null, bindGrant: G,
+};
+const bindBaseline: OrderedResponse = {
+  id: FRESH_ID, event: "transportState",
+  transport: { version: 1, ...scope, eventSeq: 1, replyTo: createBind.requestId,
+    snapshot: { processedWebRevision: 0, appliedWebRevision: 0,
+      intent: { revision: 0, playWhenReady: false, origin: "baseline", webRevision: null },
+      observed: { isPlaying: false, playWhenReady: false, state: "idle",
+        suppressionReason: 0, policyReason: "none" } } },
+  position: 0, duration: 0, playing: false, playWhenReady: false,
+};
+// Only after validating this correlated counter-0 baseline:
+const firstLoad: LoadCommand = {
+  id: FRESH_ID, action: "load",
+  requestId: "00000000-0000-4000-8000-00000000000a",
+  transport: { version: 1, ...scope }, title: "Synthetic example",
+  url: "https://haykasa.vercel.app/v1/assets/00000000000000000000000000000000",
+};
+const loadAccepted: ControlAck = {
+  id: FRESH_ID, event: "transportControlAck", version: 1,
+  requestId: firstLoad.requestId, action: "load", scope, phase: "accepted",
+};
+// New Load request for the same ID with different source data:
+const conflictingLoad: LoadCommand = {
+  ...firstLoad, requestId: "00000000-0000-4000-8000-00000000000b",
+  url: "https://haykasa.vercel.app/v1/assets/11111111111111111111111111111111",
+};
+const loadConflict: ControlError = {
+  id: FRESH_ID, event: "transportControlError", version: 1,
+  correlation: { action: "load", requestId: conflictingLoad.requestId,
+    attemptedScope: scope },
+  reason: "LOAD_CONFLICT", // no reprepare, snapshot or transport result
+};
+
+// RECOVER: retained (E, OLD_ID, OLD_B); same engine now reports null.
+const recoverHello: Hello = { id: OLD_ID, action: "transportHello", requestId: Q };
+const missingCaps: Capabilities = { ...createCaps, id: OLD_ID };
+// Client classifies NOT_FOUND: no null-expectation Bind, Load or Play.
+// An optional confirmation ReadState with the retained tuple also fails:
+const missingRead: ReadState = {
+  id: OLD_ID, action: "transportReadState",
+  requestId: "00000000-0000-4000-8000-00000000000c",
+  transport: { version: 1, engineId: E, bindingId: OLD_B },
+};
+const readFailed: ControlError = {
+  id: OLD_ID, event: "transportControlError", version: 1,
+  correlation: { action: "transportReadState", requestId: missingRead.requestId,
+    attemptedScope: { engineId: E, bindingId: OLD_B } },
+  reason: "NOT_FOUND", // not a successful idle baseline or decoder error
+};
+// If the probe instead reports NEW_E, recovery classifies ENGINE_MISMATCH:
+const changedEngineCaps: Capabilities = { ...missingCaps, engineId: NEW_E };
+// No Bind/Load/Play against OLD_ID in this engine. Fresh creation needs a new ID.
+
+// INVALID/RETIRED SCOPE: OLD_B command arrives while B owns FRESH_ID.
+const stalePause: TransportCommand = {
+  id: FRESH_ID, action: "pause",
+  transport: { version: 1, engineId: E, bindingId: OLD_B, webRevision: 2 },
+};
+const invalidScope: ControlError = {
+  id: FRESH_ID, event: "transportControlError", version: 1,
+  correlation: { action: "pause", webRevision: 2,
+    attemptedScope: { engineId: E, bindingId: OLD_B } },
+  reason: "INVALID_SCOPE", // cannot pause B, advance its watermarks or select it
+};
+```
+
+The examples are separate transactions; synthetic Q is reused only to keep independent probe examples short. Production request IDs are unique. For lost-reply recovery of a known Bind from OLD_B to B, native reports B: resend that exact original Bind/requestId/grant, not a new null-expectation Bind. If B was reaped, return NOT_FOUND; if another binding replaced B, return BIND_CONFLICT. Neither path allocates an idle replacement or issues Load/Play.
 
 The native side only upgrades a particular load after Bind; old web clients using new load IDs retain the original legacy envelope. On an ordered load, missing/malformed scope or ordering fields cause rejection/resync and never untagged fallback. Compatibility does not mean that old APKs qualify for this fix.
 
@@ -138,7 +296,7 @@ Process a correlated command result separately from snapshot freshness. A histor
 
 Native Play completion is qualified at the native observation time, not at delivery time. If a newer accepted snapshot has already superseded that intent, abort the still-local Play promise with AbortError; do not rewrite the native historical completed result. If a Play completion arrives with an obsolete event sequence while that Play intent remains current, do not resolve from the old envelope: use an already-fresh matching playing snapshot, or one ReadState(forWebRevision) round trip to confirm the terminal result/current intent. A fresh confirmed completion may resolve historically even if output has since buffered, but cannot announce current playing. A newer system Pause/Play makes the old local promise abort instead. State-read failure uses the bounded error/resync path, never an indefinitely pending promise. Acceptance alone never resolves Play.
 
-Apply current snapshots only when `eventSeq` is strictly newer than the last accepted snapshot. Duplicate sequences are ignored, not applied twice; a new response gets a new sequence even for a replayed result. Always keep the freshest valid **observed** state. Keep the local pending desired-intent overlay separate: while the newest issued web revision is unprocessed, an older native intent cannot clear that pending intent. Once `processedWebRevision` reaches it, use native intent, whether the command applied or was rejected. A rejection must remove the failed command's overlay; an unchanged applied watermark must not deadlock the UI. A fresh system Play after native Pause application can therefore override the Pause overlay without waiting for its historical ACK. Never emit playing or resolve Play from an obsolete event name alone.
+Apply current snapshots only when `eventSeq` is strictly newer than the last accepted snapshot. Duplicate sequences are ignored, not applied twice; a new response gets a new sequence even for a replayed result. Always keep the freshest valid **observed** state. Keep the local pending desired-intent overlay separate: while the newest issued web revision is unprocessed, an older native intent cannot clear that pending intent. In particular, a NEW eventSeq with observed playing but processedWebRevision below a pending web Pause updates observed telemetry only: it must not emit a DOM playing event that lets nativeMediaDeck restore play intent. Once `processedWebRevision` reaches it, use native intent, whether the command applied or was rejected. A rejection must remove the failed command's overlay; an unchanged applied watermark must not deadlock the UI. A fresh system Play after native Pause application can therefore override the Pause overlay without waiting for its historical ACK. Never emit playing or resolve Play from an obsolete event name alone.
 
 | Trigger | Required behavior |
 | --- | --- |
@@ -183,7 +341,7 @@ Here `W` is processed/applied web revision where both match, `I` native intent r
 | Newer volume/seek while Play pending | No transport watermark increment; Play is not superseded by another command domain. |
 | Old bind arrives after a newer bind; old engine/load/binding event; exhausted counter | Reject/ignore old scope; no reset of live counters or player restart. |
 | Pending Play, then rebind, then its old deadline fires | Old timer is cancelled/full-scope guarded; no mutation of the preserved output or new binding. |
-| Probe timeout then late response; tagged metadata malformed after bind | Legacy latch survives late probe; an active ordered binding never downgrades. |
+| Probe timeout then late response; tagged metadata malformed after bind | Legacy latch survives late probe; an active ordered binding never downgrades. A capable/new-build APK running in timed-out legacy mode is unqualified for this race fix; measure cold-start probe latency before treating 1s as a performance guarantee. |
 | Policy observation or pending-Play timeout after newer system intent | No invented user command; old timer cannot pause newer native intent. |
 
-No implementation, test execution, source-access, APK or device success is claimed by this draft. Existing confirmed defects remain open. Joint review must explicitly accept/change the field names, deadlines, cache/grant/gap limits, baseline reset and session wrapper approach before runtime work begins.
+No implementation, test execution, source-access, APK or device success is claimed by this draft. Existing confirmed defects remain open. C006 accepted the core design/initial limits; this revision requests targeted confirmation of the completed lifecycle/error union and creation/recovery rules before runtime work begins.
