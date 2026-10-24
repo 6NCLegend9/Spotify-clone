@@ -2,6 +2,8 @@
 
 Local audit at baseline 234fcd985556480ca44fc77d2b397c6cfdf8522f. No PR42 has been created. Runtime integration removal has not been implemented in this inventory stage.
 
+Both Codex sessions should read the [coordination handoff and ownership proposal](COORDINATION.md) before editing. The peer branch/worktree and acknowledgement remain pending; shared Business membership does not establish shared chat state or filesystem access.
+
 The user requested every related path, not just the video player. [inventory.json](inventory.json) lists 179 tracked text paths with matching line numbers: 121 runtime/native/source-adapter/build paths, 23 verification-code paths and 35 historical documentation / fixture paths. [call-map.json](call-map.json) records static imports, API consumers and the cross-process/native boundaries; connected files without a direct provider-name match are included for review. This is source-inspection evidence, not a successful playback test.
 
 | Flow / entry point | Current integration | Replacement work and compatibility obligation |
