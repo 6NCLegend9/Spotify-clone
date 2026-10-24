@@ -1,6 +1,6 @@
 import { formatDuration, formatElapsedTime } from "@/utils/trackDuration.mjs";
 import React from "react";
-import { GiFastBackwardButton, GiFastForwardButton } from "react-icons/gi";
+import { Rewind as GiFastBackwardButton, FastForward as GiFastForwardButton } from "lucide-react";
 
 const Seekbar = ({
   value,

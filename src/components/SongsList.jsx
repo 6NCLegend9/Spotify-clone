@@ -6,12 +6,12 @@ import {
   setActiveSong,
   setFullScreen,
 } from "@/redux/features/playerSlice";
-import { BsPlayFill } from "react-icons/bs";
+import { Play as BsPlayFill, Headphones as BiHeadphone, EllipsisVertical as PiDotsThreeVerticalBold, Trash2 as MdOutlineDeleteOutline } from "lucide-react";
 import { useDispatch } from "react-redux";
 import SongListSkeleton from "./SongListSkeleton";
-import { BiHeadphone } from "react-icons/bi";
+
 import { useSelector } from "react-redux";
-import { PiDotsThreeVerticalBold } from "react-icons/pi";
+
 import {
   addSongToPlaylist,
   deleteSongFromPlaylist,
@@ -20,7 +20,7 @@ import {
 import { cleanTitle } from "@/utils/text";
 import ArtistNameLink from "@/components/ArtistNameLink";
 import { toast } from "react-hot-toast";
-import { MdOutlineDeleteOutline } from "react-icons/md";
+
 import EmptyState from "./EmptyState";
 import UserMessage from "./UserMessage";
 import { toUserError } from "@/utils/userError";
@@ -186,7 +186,7 @@ const SongsList = ({
                       className=" absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[#096192]"
                     />
                   ) : (
-                    <BsPlayFill
+                    <BsPlayFill fill="currentColor"
                       size={25}
                       aria-hidden="true"
                       className=" group-hover:block hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-200"

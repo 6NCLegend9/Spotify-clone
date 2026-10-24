@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FiHeart } from "react-icons/fi";
+import { Heart as FiHeart } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -71,7 +71,7 @@ export default function LikePlaylistButton({ playlist, onChange, className = "" 
         liked ? "text-[#096192]" : "text-gray-300 hover:text-white"
       } ${className}`}
     >
-      <FiHeart className={liked ? "fill-current" : ""} />
+      <FiHeart size="1em" className={liked ? "fill-current" : ""} />
       <span>{count.toLocaleString()}</span>
     </button>
   );

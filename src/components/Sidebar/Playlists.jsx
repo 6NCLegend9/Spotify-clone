@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BsPinAngleFill } from "react-icons/bs";
+import { Heart, Pin as BsPinAngleFill } from "lucide-react";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
@@ -133,7 +133,7 @@ const AccountPlaylists = ({ owner, status, compact }) => {
   }, [refreshKey, status, owner]);
 
   if (compact) return <nav className="compact-library" aria-label="Your library shortcuts">
-    <Link href="/library/liked" title="Liked Songs" aria-label="Liked Songs" aria-current={pathname === "/library/liked" ? "page" : undefined} className="compact-library-liked"><span aria-hidden="true">♥</span></Link>
+    <Link href="/library/liked" title="Liked Songs" aria-label="Liked Songs" aria-current={pathname === "/library/liked" ? "page" : undefined} className="compact-library-liked"><Heart size={24} fill="currentColor" aria-hidden="true" /></Link>
     {playlists.map((playlist) => <Link key={playlist._id} href={`/library/playlist/${playlist._id}`} title={playlist.name} aria-label={`Open playlist ${playlist.name}`} aria-current={pathname === `/library/playlist/${playlist._id}` ? "page" : undefined} className="compact-library-cover"><PlaylistCover playlist={playlist} className="h-full w-full" /></Link>)}
     {artists.map((artist) => <Link key={followedArtistKey(artist)} href={artistPageHref(artist.channelId, artist.name)} title={artist.name} aria-label={`Open artist ${artist.name}`} className="compact-library-cover sidebar-library-art is-artist">{artist.thumbnail ? <img src={artist.thumbnail} alt="" width={48} height={48} /> : artist.name.slice(0, 1)}</Link>)}
     {loading && <span role="status" aria-label="Loading library" className="h-12 w-12 animate-pulse rounded bg-white/10" />}
@@ -154,7 +154,7 @@ const AccountPlaylists = ({ owner, status, compact }) => {
         {libraryItems.length > 0 && <LibraryList playlists={libraryItems} owner={owner}>{(playlist) => playlist.kind ? (
           <div key={playlist._id} className="sidebar-library-item">
             <Link href={playlist.kind === "liked" ? "/library/liked" : artistPageHref(playlist.channelId, playlist.name)} onClick={() => setShowNav(false)} aria-current={(playlist.kind === "liked" ? pathname === "/library/liked" : playlist.channelId && pathname === `/artist/${playlist.channelId}`) ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2">
-              <span className={`sidebar-library-art ${playlist.kind === "artist" ? "is-artist" : "is-liked"}`} aria-hidden="true">{playlist.thumbnail ? <img src={playlist.thumbnail} alt="" width={48} height={48} onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} /> : playlist.kind === "liked" ? "♥" : playlist.name.slice(0, 1)}</span>
+              <span className={`sidebar-library-art ${playlist.kind === "artist" ? "is-artist" : "is-liked"}`} aria-hidden="true">{playlist.thumbnail ? <img src={playlist.thumbnail} alt="" width={48} height={48} onError={(event) => { if (!event.currentTarget.src.endsWith("/icon-192x192.png")) event.currentTarget.src = "/icon-192x192.png"; }} /> : playlist.kind === "liked" ? <Heart size={24} fill="currentColor" /> : playlist.name.slice(0, 1)}</span>
               <span className="min-w-0"><span className="block truncate text-sm font-semibold">{playlist.name}</span><span className="mt-1 block truncate text-xs text-[var(--muted)]">{playlist.kind === "liked" ? "Pinned · Your saved songs" : "Artist"}</span></span>
             </Link>
           </div>
@@ -162,7 +162,7 @@ const AccountPlaylists = ({ owner, status, compact }) => {
           <ContextMenuTarget key={playlist._id} className="group flex items-center justify-between rounded-lg pr-1 hover:bg-[var(--navy-panel)]">
             <Link data-library-playlist="true" href={`/library/playlist/${playlist._id}`} onClick={() => setShowNav(false)} aria-current={pathname === `/library/playlist/${playlist._id}` ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
               <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md"><PlaylistCover playlist={playlist} className="h-full w-full" /></span>
-              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">{playlist.name}</span><span className="mt-1 flex items-center gap-1 truncate text-xs text-[var(--muted)]">{playlist.pinned && <BsPinAngleFill aria-label="Pinned" className="shrink-0 text-[var(--accent)]" />}Playlist · {playlist.user?.userName || "You"}</span></span>
+              <span className="min-w-0"><span className="block truncate text-sm font-semibold text-white">{playlist.name}</span><span className="mt-1 flex items-center gap-1 truncate text-xs text-[var(--muted)]">{playlist.pinned && <BsPinAngleFill size="1em" fill="currentColor" aria-label="Pinned" className="shrink-0 text-[var(--accent)]" />}Playlist · {playlist.user?.userName || "You"}</span></span>
             </Link>
             <PlaylistItemMenu playlist={playlist} />
           </ContextMenuTarget>

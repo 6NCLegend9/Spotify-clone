@@ -4,7 +4,7 @@ import { formatDuration } from "@/utils/trackDuration.mjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { FiArrowLeft, FiClock, FiLink, FiPlay } from "react-icons/fi";
+import { ArrowLeft as FiArrowLeft, Clock as FiClock, Link as FiLink, Play as FiPlay } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import AddToQueueButton from "@/components/AddToQueueButton";
@@ -101,7 +101,7 @@ export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist"
       <section className="bg-[linear-gradient(180deg,rgba(9,97,146,0.22),rgba(11,22,41,0.94))] px-[3vw] pb-8 pt-6">
         <div className="mx-auto w-full max-w-[1440px]">
           <button type="button" onClick={() => router.back()} className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-gray-300 hover:text-white">
-            <FiArrowLeft /> Back
+            <FiArrowLeft size="1em" /> Back
           </button>
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
             <MediaImage src={thumbnail || tracks[0]?.thumbnail} size="hq" alt="" className="aspect-square w-44 shrink-0 rounded-md object-cover shadow-2xl sm:w-56" />
@@ -117,7 +117,7 @@ export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist"
       <div className="mx-auto w-[min(94%,1440px)] pb-12">
         <section className="flex items-center gap-2 py-6" aria-label="Playlist actions">
           <button type="button" onClick={playAll} disabled={!tracks.length} aria-label={`Play ${title}`} className="play-fab play-fab--static h-14 w-14 min-h-14 min-w-14 disabled:opacity-40">
-            <FiPlay className="ml-1 fill-current" />
+            <FiPlay size="1em" fill="currentColor" className="ml-1 fill-current" />
           </button>
           <button
             type="button"
@@ -131,7 +131,7 @@ export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist"
             }}
             className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-gray-300 hover:bg-white/10 hover:text-white"
           >
-            <FiLink /> Copy link
+            <FiLink size="1em" /> Copy link
           </button>
         </section>
 
@@ -146,12 +146,12 @@ export default function DiscoveryPlaylist({ id, title: initialTitle = "Playlist"
         {!loading && !error && tracks.length > 0 && (
           <section aria-label={`${title} songs`}>
             <div className="grid grid-cols-[44px_minmax(0,1fr)_52px_52px] items-center gap-2 border-b border-white/10 px-2 pb-2 text-xs uppercase text-gray-400">
-              <span className="text-center">#</span><span>Title & artist</span><span className="text-center"><FiClock className="inline" /></span><span />
+              <span className="text-center">#</span><span>Title & artist</span><span className="text-center"><FiClock size="1em" className="inline" /></span><span />
             </div>
             {visibleTracks.map((track) => (
               <div key={track.id} className="group grid min-h-[66px] grid-cols-[44px_minmax(0,1fr)_52px_52px] items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.075]">
                 <button type="button" aria-label={`Play ${cleanTitle(track.title)}`} onClick={() => playTrack(track)} className="grid h-11 w-11 place-items-center rounded-full text-sm text-gray-400 hover:text-white">
-                  <span className="group-hover:hidden">{seededTracks.indexOf(track) + 1}</span><FiPlay className="hidden fill-current group-hover:block" />
+                  <span className="group-hover:hidden">{seededTracks.indexOf(track) + 1}</span><FiPlay size="1em" fill="currentColor" className="hidden fill-current group-hover:block" />
                 </button>
                 <div className="flex min-w-0 items-center gap-3 text-left">
                   <button type="button" onClick={() => playTrack(track)} aria-label={`Play artwork for ${cleanTitle(track.title)}`} className="shrink-0">

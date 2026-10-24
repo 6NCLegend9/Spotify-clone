@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Heart } from "lucide-react";
 import { approachSeconds, beatInterval, chartEnergy, notesInWindow, remapLanes } from "@/utils/arcadeChart.mjs";
 
 const LANE_X = [-2.15, 0, 2.15];
@@ -353,8 +354,8 @@ export default function BeatRunner3D({ analyzer, clock, chart, running, reducedM
         <p className="text-lg tabular-nums">{hud.points.toLocaleString()}</p>
         <p className="text-[11px] text-[#096192]">{hud.combo > 1 ? `${hud.combo}x combo` : `${hud.caught} beats caught`}</p>
       </div>
-      <p className="pointer-events-none absolute right-3 top-3 text-[11px] font-semibold text-[#ff4ecd]">
-        {"♥".repeat(hud.lives) || "—"}
+      <p aria-label={`${hud.lives} lives remaining`} className="pointer-events-none absolute right-3 top-3 flex gap-1 text-[11px] font-semibold text-[#ff4ecd]">
+        {hud.lives ? Array.from({ length: hud.lives }, (_, index) => <Heart key={index} size={12} fill="currentColor" aria-hidden="true" />) : "—"}
       </p>
       {failed ? (
         <div className="pointer-events-none absolute inset-0 bg-[#ff4ecd]/15" aria-hidden="true" />

@@ -4,7 +4,7 @@ import { formatDuration } from "@/utils/trackDuration.mjs";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { FiArrowLeft, FiClock, FiLink, FiPlay } from "react-icons/fi";
+import { ArrowLeft as FiArrowLeft, Clock as FiClock, Link as FiLink, Play as FiPlay } from "lucide-react";
 import toast from "react-hot-toast";
 import { startYoutubePlayback } from "@/redux/features/playerSlice";
 import MediaImage from "@/components/MediaImage";
@@ -97,7 +97,7 @@ export default function ArtistRelease({ albumId }) {
     <div className={`page ${styles.page}`}>
       <header className={styles.hero}>
         <button type="button" onClick={() => router.back()} className={styles.back}>
-          <FiArrowLeft aria-hidden="true" /> Back
+          <FiArrowLeft size="1em" aria-hidden="true" /> Back
         </button>
         {album && !loading && !error ? <div className={styles.heroIdentity}>
           <MediaImage src={album.thumbnail || tracks[0]?.thumbnail} size="hq" alt="" className={styles.cover} width={240} height={240} loading="eager" />
@@ -120,16 +120,16 @@ export default function ArtistRelease({ albumId }) {
         {!loading && !error && album && <>
           <section className={styles.actions} aria-label="Release actions">
             <button type="button" onClick={() => play()} disabled={!queue.length} aria-label={`Play ${title}`} className={styles.playAll}>
-              <FiPlay aria-hidden="true" />
+              <FiPlay size="1em" fill="currentColor" aria-hidden="true" />
             </button>
-            <button type="button" onClick={() => void copyLink()} className={styles.copyLink}><FiLink aria-hidden="true" /> Copy link</button>
+            <button type="button" onClick={() => void copyLink()} className={styles.copyLink}><FiLink size="1em" aria-hidden="true" /> Copy link</button>
           </section>
           {tracks.length === 0 ? <EmptyState title="No playable songs in this release" message="The catalog hasn’t provided playable songs for this release yet." /> : <section aria-label={`${title} songs`}>
-            <div className={styles.rowHeading} aria-hidden="true"><span>#</span><span>Title</span><span /><FiClock /><span /></div>
+            <div className={styles.rowHeading} aria-hidden="true"><span>#</span><span>Title</span><span /><FiClock size="1em" /><span /></div>
             <ol className={styles.trackList}>
               {tracks.map((track, index) => <ContextMenuTarget as="li" key={track.id} className={styles.trackRow}>
                 <button type="button" aria-label={`Play ${cleanTitle(track.title, "Untitled track")}`} onClick={() => play(track)} className={styles.rowPlay}>
-                  <span className={styles.rowNumber}>{index + 1}</span><FiPlay className={styles.rowPlayIcon} aria-hidden="true" />
+                  <span className={styles.rowNumber}>{index + 1}</span><FiPlay size="1em" fill="currentColor" className={styles.rowPlayIcon} aria-hidden="true" />
                 </button>
                 <div className={styles.songIdentity}>
                   <MediaImage src={track.thumbnail || album.thumbnail} size="mq" alt="" width={44} height={44} className={styles.trackArt} />

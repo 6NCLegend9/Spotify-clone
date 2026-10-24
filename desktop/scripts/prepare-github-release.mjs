@@ -8,6 +8,7 @@ import {
   desktopReleaseTag,
   normalizeDesktopReleaseChannel,
 } from "../../src/utils/desktopRelease.mjs";
+import { verifyDesktopUpdateMetadata } from "../../src/utils/desktopReleaseTrust.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const desktopRoot = path.resolve(__dirname, "..");
@@ -78,11 +79,7 @@ async function releaseFiles(version) {
   }
 
   const latestText = await fsp.readFile(path.join(distDir, "latest.yml"), "utf8");
-  if (!latestText.includes(version) || !latestText.includes(installer)) {
-    throw new Error("latest.yml does not reference the stamped desktop version and installer.");
-  }
-
-  return { installer, blockmap };
+  return { installer, blockmap, latestText };
 }
 
 const channel = normalizeDesktopReleaseChannel(process.env.HEYKASA_DESKTOP_RELEASE_CHANNEL);
@@ -102,6 +99,7 @@ if (channel === "stable" && version.includes("-")) throw new Error("Stable deskt
 const files = await releaseFiles(version);
 const installerPath = path.join(distDir, files.installer);
 const installerStat = await fsp.stat(installerPath);
+if (!installerStat.isFile() || installerStat.size <= 0) throw new Error("Desktop installer must be a nonempty file.");
 const installerSha512 = await sha512File(installerPath);
 const installerUrl = desktopGithubReleaseDownloadUrl(tag, files.installer);
 if (!installerUrl) throw new Error("Could not build the public GitHub installer URL.");
@@ -123,6 +121,7 @@ const payload = {
   signed: channel !== "internal",
   source: "github-release",
 };
+verifyDesktopUpdateMetadata(files.latestText, { version, installerFile: files.installer }, payload);
 
 let signature = "";
 if (channel !== "internal") {

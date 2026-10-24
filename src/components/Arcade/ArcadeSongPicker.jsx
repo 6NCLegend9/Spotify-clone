@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { FiActivity, FiClock, FiMusic, FiSearch, FiUpload } from "react-icons/fi";
+import {
+  Activity as FiActivity,
+  Clock as FiClock,
+  Music as FiMusic,
+  Search as FiSearch,
+  Upload as FiUpload,
+} from "lucide-react";
 import { requestJson } from "@/services/http";
 import { cleanTitle } from "@/utils/text";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
@@ -82,7 +88,7 @@ export default function ArcadeSongPicker({
                   : "bg-[#ffb648]/15 text-[#ffb648]"
             }`}
           >
-            {chartStatus === "analyzing" ? <FiClock aria-hidden="true" /> : <FiActivity aria-hidden="true" />}
+            {chartStatus === "analyzing" ? <FiClock size="1em" aria-hidden="true" /> : <FiActivity size="1em" aria-hidden="true" />}
             {chartStatus === "analyzing"
               ? "Reading the beat"
               : chart?.bpm
@@ -115,7 +121,7 @@ export default function ArcadeSongPicker({
       {tab === "file" ? (
         <>
           <label className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs font-semibold text-gray-200 transition hover:border-[#096192] hover:text-[#096192]">
-            <FiUpload aria-hidden="true" />
+            <FiUpload size="1em" aria-hidden="true" />
             {selectedLabel && analyzerMode === "fft" ? "Choose a different file" : "Choose an audio file"}
             <input
               type="file"
@@ -143,7 +149,7 @@ export default function ArcadeSongPicker({
                     onClick={() => onPickTrack(track)}
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.06]"
                   >
-                    <FiMusic aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
+                    <FiMusic size="1em" aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs text-gray-100">
                         {cleanTitle(track.title, "Untitled track")}
@@ -166,7 +172,7 @@ export default function ArcadeSongPicker({
       ) : (
         <>
           <label className="flex min-h-11 items-center gap-2 rounded-full border border-white/15 px-3 focus-within:border-[#096192]">
-            <FiSearch aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
+            <FiSearch size="1em" aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
             <span className="sr-only">Search for a song</span>
             <input
               type="search"
@@ -191,7 +197,7 @@ export default function ArcadeSongPicker({
                     onClick={() => onPickTrack(track)}
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-white/[0.06]"
                   >
-                    <FiMusic aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
+                    <FiMusic size="1em" aria-hidden="true" className="shrink-0 text-[#9aa8b5]" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs text-gray-100">
                         {cleanTitle(track.title, "Untitled track")}

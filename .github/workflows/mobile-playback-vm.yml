@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   offline-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -32,7 +32,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm install --no-save --package-lock=false playwright@1.56.1
-      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Install browser and window-manager dependencies
+        timeout-minutes: 6
+        run: |
+          # The hosted image's Azure mirror exhausted the job budget downloading packages.
+          # Prefer the same signed Ubuntu archives already configured as its fallbacks.
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            printf 'https://archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://security.ubuntu.com/ubuntu/\tpriority:2\n' | sudo tee /etc/apt/apt-mirrors.txt
+          fi
+          printf 'Acquire::Retries "1";\nAcquire::http::Timeout "15";\nAcquire::https::Timeout "15";\n' | sudo tee /etc/apt/apt.conf.d/99-ci-network
+          npx playwright install-deps chromium firefox webkit
+          sudo apt-get install -y --no-install-recommends openbox xdotool x11-utils
+      - name: Install all browser engines
+        timeout-minutes: 5
+        run: npx playwright install chromium firefox webkit
       - name: Measure audio fidelity in each browser engine
         run: node docs/qa/audio-quality/browser.cjs
         env:
@@ -43,7 +56,6 @@ jobs:
         run: |
           node docs/qa/android/check.mjs
           node docs/qa/android/browser.cjs
-      - run: sudo apt-get install -y openbox xdotool x11-utils
       - name: Test browser playback with real window minimization
         run: |
           xvfb-run -a bash -c '

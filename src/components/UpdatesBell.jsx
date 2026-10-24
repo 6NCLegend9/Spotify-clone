@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
-import { HiOutlineBell } from "react-icons/hi2";
-import { IoClose } from "react-icons/io5";
+import { Bell as HiOutlineBell, X as IoClose } from "lucide-react";
+
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { requestJson } from "@/services/http";
@@ -234,7 +234,7 @@ export default function UpdatesBell() {
         aria-haspopup="dialog"
         aria-controls="updates-panel"
       >
-        <HiOutlineBell aria-hidden="true" className="h-5 w-5" />
+        <HiOutlineBell size="1em" aria-hidden="true" className="h-5 w-5" />
         {hasUnread ? (
           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#096192] shadow-[0_0_0_2px_rgba(3,8,20,0.95)]">
             <span className="sr-only">{unreadCount} unread</span>
@@ -266,7 +266,7 @@ export default function UpdatesBell() {
                 className="icon-btn h-11 w-11"
                 aria-label="Close notifications"
               >
-                <IoClose aria-hidden="true" className="h-5 w-5" />
+                <IoClose size="1em" aria-hidden="true" className="h-5 w-5" />
               </button>
             </div>
             <div className="max-h-[70vh] space-y-3 overflow-y-auto px-4 py-4">

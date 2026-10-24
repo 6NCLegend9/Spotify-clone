@@ -1,7 +1,7 @@
 "use client";
 
 import { useSelector } from "react-redux";
-import { FiChevronLeft, FiX } from "react-icons/fi";
+import { ChevronLeft as FiChevronLeft, X as FiX } from "lucide-react";
 
 export default function DesktopNowPlayingPanel({ collapsed, onToggle }) {
   const track = useSelector((state) => state.player.youtubeVideo);
@@ -14,7 +14,7 @@ export default function DesktopNowPlayingPanel({ collapsed, onToggle }) {
         <button type="button" onClick={onToggle} className="icon-btn"
           aria-label={collapsed ? "Open now playing panel" : "Close now playing panel"}
           title={collapsed ? "Open now playing panel" : "Close now playing panel"}>
-          {collapsed ? <FiChevronLeft /> : <FiX />}
+          {collapsed ? <FiChevronLeft size="1em" /> : <FiX size="1em" />}
         </button>
       </header>
       <div id="kasa-now-playing-slot" hidden={collapsed} />

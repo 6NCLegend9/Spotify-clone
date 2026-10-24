@@ -51,7 +51,7 @@ export function parseDesktopUpdateMetadata(text) {
   };
 }
 
-function verifyDesktopUpdateMetadata(text, bundle, payload) {
+export function verifyDesktopUpdateMetadata(text, bundle, payload) {
   const metadata = parseDesktopUpdateMetadata(text);
   const file = yamlFileEntry(metadata.files, bundle.installerFile);
   if (!SEMVER.test(metadata.version) || metadata.version !== bundle.version) {

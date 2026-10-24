@@ -1,0 +1,157 @@
+{
+  "stage": "after",
+  "results": [
+    {
+      "name": "desktop-web",
+      "icons": {
+        "desktop": {
+          "width": 24,
+          "height": 24,
+          "color": "rgb(9, 97, 146)",
+          "strokeWidth": "2px",
+          "family": "lucide lucide-monitor settings-app-icon",
+          "fill": "none"
+        },
+        "android": {
+          "width": 24,
+          "height": 24,
+          "color": "rgb(9, 97, 146)",
+          "strokeWidth": "2px",
+          "family": "lucide lucide-smartphone settings-app-icon",
+          "fill": "none"
+        },
+        "playlistCover": {
+          "artwork": {
+            "x": 24,
+            "y": 357,
+            "width": 48,
+            "height": 48
+          },
+          "glyph": {
+            "x": 36,
+            "y": 369,
+            "width": 24,
+            "height": 24
+          },
+          "inside": true
+        }
+      },
+      "errors": [],
+      "coverage": "Settings headers, native update button, active navigation, no horizontal overflow; mocked APIs/native identity"
+    },
+    {
+      "name": "mobile-web",
+      "icons": {
+        "desktop": {
+          "width": 24,
+          "height": 24,
+          "color": "rgb(9, 97, 146)",
+          "strokeWidth": "2px",
+          "family": "lucide lucide-monitor settings-app-icon",
+          "fill": "none"
+        },
+        "android": {
+          "width": 24,
+          "height": 24,
+          "color": "rgb(9, 97, 146)",
+          "strokeWidth": "2px",
+          "family": "lucide lucide-smartphone settings-app-icon",
+          "fill": "none"
+        },
+        "playlistCover": {
+          "artwork": {
+            "x": -304,
+            "y": 413,
+            "width": 48,
+            "height": 48
+          },
+          "glyph": {
+            "x": -292,
+            "y": 425,
+            "width": 24,
+            "height": 24
+          },
+          "inside": true
+        }
+      },
+      "errors": [],
+      "coverage": "Settings headers, native update button, active navigation, no horizontal overflow; mocked APIs/native identity"
+    },
+    {
+      "name": "android-webview",
+      "icons": {
+        "desktop": {
+          "width": 24,
+          "height": 24,
+          "color": "rgb(9, 97, 146)",
+          "strokeWidth": "2px",
+          "family": "lucide lucide-monitor settings-app-icon",
+          "fill": "none"
+        },
+        "android": {
+          "width": 24,
+          "height": 24,
+          "color": "rgb(9, 97, 146)",
+          "strokeWidth": "2px",
+          "family": "lucide lucide-smartphone settings-app-icon",
+          "fill": "none"
+        },
+        "playlistCover": {
+          "artwork": {
+            "x": -304,
+            "y": 413,
+            "width": 48,
+            "height": 48
+          },
+          "glyph": {
+            "x": -292,
+            "y": 425,
+            "width": 24,
+            "height": 24
+          },
+          "inside": true
+        }
+      },
+      "errors": [],
+      "coverage": "Settings headers, native update button, active navigation, no horizontal overflow; mocked APIs/native identity"
+    },
+    {
+      "name": "windows-renderer",
+      "icons": {
+        "desktop": {
+          "width": 24,
+          "height": 24,
+          "color": "rgb(9, 97, 146)",
+          "strokeWidth": "2px",
+          "family": "lucide lucide-monitor settings-app-icon",
+          "fill": "none"
+        },
+        "android": {
+          "width": 24,
+          "height": 24,
+          "color": "rgb(9, 97, 146)",
+          "strokeWidth": "2px",
+          "family": "lucide lucide-smartphone settings-app-icon",
+          "fill": "none"
+        },
+        "playlistCover": {
+          "artwork": {
+            "x": 24,
+            "y": 357,
+            "width": 48,
+            "height": 48
+          },
+          "glyph": {
+            "x": 36,
+            "y": 369,
+            "width": 24,
+            "height": 24
+          },
+          "inside": true
+        }
+      },
+      "errors": [],
+      "coverage": "Settings headers, native update button, active navigation, no horizontal overflow; mocked APIs/native identity"
+    }
+  ]
+}

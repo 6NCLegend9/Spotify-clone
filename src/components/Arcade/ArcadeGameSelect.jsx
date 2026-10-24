@@ -1,6 +1,6 @@
 "use client";
 
-import { FiLock, FiPlay } from "react-icons/fi";
+import { Lock as FiLock, Play as FiPlay } from "lucide-react";
 import { ARCADE_GAMES } from "@/components/Arcade/arcadeGames";
 
 export default function ArcadeGameSelect({ onSelect }) {
@@ -32,9 +32,9 @@ export default function ArcadeGameSelect({ onSelect }) {
                     {game.tagline}
                   </span>
                   {game.ready ? (
-                    <FiPlay aria-hidden="true" className="text-[#096192]" />
+                    <FiPlay size="1em" fill="currentColor" aria-hidden="true" className="text-[#096192]" />
                   ) : (
-                    <FiLock aria-hidden="true" className="text-[#9aa8b5]" />
+                    <FiLock size="1em" aria-hidden="true" className="text-[#9aa8b5]" />
                   )}
                 </span>
                 <span className="text-base font-bold text-white">{game.title}</span>

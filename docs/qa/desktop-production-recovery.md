@@ -1,5 +1,54 @@
 # Production desktop recovery
 
+## Update delivery correction, 2026-10-23
+
+Scope: Windows Electron updates, the shared web manifest/feed APIs, GitHub release
+preparation and the existing CI callers. This work continues PR41; PR40 playback
+changes remain separate. Ponytail, cloud runtime/networking, Verification, CI/CD,
+environment-variable and CLI skills were read. No applicable AGENTS.md was found.
+
+| ID | Requirement | Status | Evidence / remaining gate |
+| --- | --- | --- | --- |
+| U01 | Instructions, skills, isolated changes | verified | Worktree `HayKasa-pr41-updates` starts at reviewed head `731c135`; other worktrees preserved. |
+| U02 | Trace Settings -> IPC -> native updater -> manifest/feed -> GitHub release | verified | Existing Settings check calls native `manual:true`; native install calls `quitAndInstall`; publication, manifest authentication and exact metadata identity remain connected. |
+| U03 | Explicit checks can receive a newer version during an active staged rollout | verified | Reproduced `deferred` instead of `ready` before editing. Controlled native-engine tests now pass; automatic checks retain their rollout bucket, 0% remains paused and required-minimum/API exceptions remain unchanged. |
+| U04 | Current/newer versions are distinguished from an available update | verified | Same/older/prerelease cases exercise the existing semantic comparator. Current/newer installations report up-to-date without attempting a download. |
+| U05 | Validate release metadata before publication | verified | Actual bundle CLI accepted mismatched YAML version before the fix. It now rejects mismatched version, installer path, SHA-512, file size and empty installers before emitting a new manifest. |
+| U06 | Prepared GitHub bundle reaches the player-independent native update flow | verified | Actual preparation CLI -> actual trust verifier -> actual manifest/feed routes -> native updater class reaches exact fixture version `1.2.3` and explicit install command. Redirects target the same verified version; missing/tampered assets fail closed. HTTP and electron-updater are controlled fixtures; this is not Windows installation proof. |
+| U07 | Signing inputs and production manifest authentication | blocked | Read-only Vercel metadata has no desktop manifest HMAC variable. GitHub environment/repository secret listing returns HTTP 403. No secret values read, generated, replaced or printed. |
+| U08 | Published signed release and installed 1.0.0 -> newer-version upgrade | blocked | Production has only the legacy manual installer and no complete stable feed. Requires valid Windows signing setup, approved publication and actual Windows upgrade verification. |
+| U09 | Diff, integration checks, updated PR and final evidence | implemented | Node 22 fixture/CRLF checks, mini-player/contract checks and full lint/typecheck/production build pass. Record pushed commit and new-head CI separately. PR remains draft. |
+
+The relevant code paths are `DesktopAppCard.jsx` -> `main.mjs` update IPC ->
+`updater.mjs` -> manifest and generic feed routes -> `desktopReleaseTrust.mjs` /
+`desktopRelease.mjs`. Release preparation uses the same exact metadata validator
+as delivery. The existing Desktop CI and signed-release web gate call
+`check-auto-release.mjs`, which now also executes `check-release-delivery.mjs`.
+No unused test entry point or new native bridge/API contract was introduced.
+
+Final local verification runs under Node 22. The extended checks cover manual opt-in
+at 25%, automatic deferral, 0% pause, equal/older/prerelease versions, disabled
+automatic updates, unchanged signature/hash/publication gates, prepared bundle
+identity, missing assets, tampered manifest authentication, corrupt metadata and
+empty installers. The fixture manifest becomes published/signed through the real
+route after verification; no production flags are hardcoded. Fixture authentication
+does not validate a Windows Authenticode certificate or execute an installer.
+
+These native updater changes must be included in a new Windows binary. Deploying
+the website alone does not replace code in an installed 1.0.0 EXE. The current
+production download remains a legacy manual installer until the signed release
+procedure below succeeds. No merge, production deployment, signing-key change,
+native release publication or installed-app upgrade was performed here.
+
+Commands: `node desktop/scripts/check-auto-release.mjs` (including the delivery
+fixture), its CRLF updater-source variation, `node desktop/scripts/check-mini-player.mjs`,
+canonical contract generation with no generated-file diff, and
+`DISABLE_PWA=1 npm run check` all exited 0. The initial manual-rollout regression
+failed with `deferred` versus `ready`; the initial bundle regression accepted
+`version: 99.0.0` for an installer stamped `1.2.3`. Both now pass their corrected
+assertions. Screenshots or synthetic ready events cannot replace a signed upgrade
+test over the public installed 1.0.0 build.
+
 ## Evidence collected on 2026-10-08
 
 The desktop source, Electron entry point, native preload, settings card, and

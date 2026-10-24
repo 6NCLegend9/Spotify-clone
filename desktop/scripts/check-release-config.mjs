@@ -22,16 +22,14 @@ function main() {
   const channel = process.env.HEYKASA_DESKTOP_RELEASE_CHANNEL || "stable";
   const automatic = process.argv.includes("--automatic") && process.env.GITHUB_EVENT_NAME === "push";
   const result = checkReleaseConfiguration(channel);
-  const title = !result.ready && automatic ? "Automatic desktop release skipped" : "Desktop release configuration";
+  const title = !result.ready && automatic ? "Automatic desktop release blocked" : "Desktop release configuration";
   const lines = [`## ${title}`, "", `Channel: ${channel}.`];
   if (channel === "internal") {
     lines.push("Unsigned internal build: signing credentials are not required. This does not enable stable automatic updates.");
   } else if (result.ready) {
     lines.push("Required signing inputs are present. Certificate validity and production manifest trust still require verification.");
   } else {
-    lines.push(automatic
-      ? "Automatic publication skipped: signing configuration is incomplete. No installer was built or published; installed apps will not receive a new signed update."
-      : "Publication blocked: signing configuration is incomplete. No signed installer can be released.", "");
+    lines.push("Publication blocked: signing configuration is incomplete. No installer was built or published; installed apps will not receive a new signed update.", "");
     for (const name of result.missing) lines.push(`- Missing: ${name}`);
     for (const name of result.invalid) lines.push(`- Invalid: ${name} must contain at least 32 characters with no leading or trailing whitespace.`);
     lines.push("", "Set these secrets in the protected GitHub desktop-release environment. Configure the same manifest HMAC key in production Vercel; do not paste secret values into logs or issues.", "See desktop/README.md#release-configuration-check for setup and recovery.");
@@ -40,8 +38,10 @@ function main() {
   console.log(lines.join("\n"));
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `ready=${result.ready}\n`);
-  if (!result.ready && automatic) console.log("::notice::Automatic desktop release skipped: configure the protected signing secrets to enable signed updates.");
-  if (!result.ready && !automatic) process.exitCode = 1;
+  if (!result.ready) {
+    console.log("::error::Desktop release blocked: configure the protected signing secrets to enable signed updates.");
+    process.exitCode = 1;
+  }
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {

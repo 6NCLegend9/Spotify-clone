@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FiDownload, FiSmartphone } from "react-icons/fi";
+import { Download as FiDownload, Smartphone as FiSmartphone } from "lucide-react";
 import { requestJson } from "@/services/http";
 
 export default function AndroidAppCard() {
@@ -29,7 +29,7 @@ export default function AndroidAppCard() {
     ? new Date(release.buildDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }) : "";
   return (
     <section aria-labelledby="android-app-heading" data-testid="android-download-card" className="mb-8 glass-panel rounded-xl p-5 sm:p-7">
-      <h2 id="android-app-heading" className="flex items-center gap-3 text-xl font-semibold"><FiSmartphone aria-hidden="true" />HayKasa for Android</h2>
+      <h2 id="android-app-heading" className="flex items-center gap-3 text-xl font-semibold"><FiSmartphone className="settings-app-icon" aria-hidden="true" />HayKasa for Android</h2>
       <p className="mt-2 text-sm text-[#9aa8b5]">Keep HayKasa on your phone with the Android app.</p>
       <div className="mt-6 rounded-lg border border-white/10 bg-black/10 p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -40,9 +40,9 @@ export default function AndroidAppCard() {
             <p role="status" className="mt-2 text-xs text-[#9aa8b5]">{status === "loading" ? "Checking download…" : !available ? "The Android download is temporarily unavailable. Please try again." : ""}</p>
           </div>
           {available ? (
-            <a href="/api/android/download" download="HayKasa-Android.apk" aria-describedby="android-install-note" onClick={() => setInstallationHelpOpen(true)} className="btn-primary min-h-11 shrink-0 gap-2 px-4"><FiDownload aria-hidden="true" />Download for Android</a>
+            <a href="/api/android/download" download="HayKasa-Android.apk" aria-describedby="android-install-note" onClick={() => setInstallationHelpOpen(true)} className="btn-primary min-h-11 shrink-0 gap-2 px-4"><FiDownload size="1em" aria-hidden="true" />Download for Android</a>
           ) : (
-            <button type="button" disabled className="btn-primary min-h-11 shrink-0 gap-2 px-4 opacity-50"><FiDownload aria-hidden="true" />{status === "loading" ? "Checking download…" : "Android download unavailable"}</button>
+            <button type="button" disabled className="btn-primary min-h-11 shrink-0 gap-2 px-4 opacity-50"><FiDownload size="1em" aria-hidden="true" />{status === "loading" ? "Checking download…" : "Android download unavailable"}</button>
           )}
         </div>
         {status !== "loading" && !available ? <button type="button" onClick={() => setRetry(value => value + 1)} className="btn-ghost mt-3 min-h-11 px-4">Try again</button> : null}

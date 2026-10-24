@@ -1,6 +1,6 @@
 "use client";
 
-import { RiWifiOffLine } from "react-icons/ri";
+import { WifiOff as RiWifiOffLine } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const OnlineStatus = () => {

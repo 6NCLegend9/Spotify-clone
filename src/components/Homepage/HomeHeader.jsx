@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { FiRefreshCw, FiSettings } from "react-icons/fi";
+import { RefreshCw as FiRefreshCw, Settings as FiSettings } from "lucide-react";
 import { useSelector } from "react-redux";
 import { useNav } from "../Layout/AppShell";
 import { selectEffectiveAppearance } from "@/redux/features/appearanceSlice";
@@ -74,7 +74,7 @@ export default function HomeHeader({ filter, onFilter, onRefresh, refreshing }) 
           aria-label={refreshing ? "Refreshing discovery" : "Refresh discovery"}
           className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-wait disabled:opacity-50"
         >
-          <FiRefreshCw aria-hidden="true" className={refreshing ? "animate-spin" : ""} />
+          <FiRefreshCw size="1em" aria-hidden="true" className={refreshing ? "animate-spin" : ""} />
           <span>{refreshing ? "Refreshing" : "Refresh"}</span>
         </button>
       </div>

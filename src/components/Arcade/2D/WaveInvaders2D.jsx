@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Heart } from "lucide-react";
 import useArcadeCanvas from "@/hooks/useArcadeCanvas";
 import { approachSeconds, chartEnergy, notesInWindow } from "@/utils/arcadeChart.mjs";
 
@@ -372,8 +373,8 @@ export default function WaveInvaders2D({
         <p className="text-lg tabular-nums">{hud.points.toLocaleString()}</p>
         <p className="text-[11px] text-[#096192]">{hud.combo > 1 ? `${hud.combo}x combo` : `${hud.hits} pulses`}</p>
       </div>
-      <p className="pointer-events-none absolute right-3 top-3 text-[11px] font-semibold text-[#ff4ecd]">
-        {"♥".repeat(hud.lives) || "—"}
+      <p aria-label={`${hud.lives} lives remaining`} className="pointer-events-none absolute right-3 top-3 flex gap-1 text-[11px] font-semibold text-[#ff4ecd]">
+        {hud.lives ? Array.from({ length: hud.lives }, (_, index) => <Heart key={index} size={12} fill="currentColor" aria-hidden="true" />) : "—"}
       </p>
       <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-[#9aa8b5]">
         Fire on the glow ring · {chart?.bpm || 120} BPM

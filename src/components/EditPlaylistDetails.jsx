@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FiX } from "react-icons/fi";
+import { X as FiX } from "lucide-react";
 import AccessibleDialog from "./AccessibleDialog";
 import CoverUploader from "./CoverUploader";
 import { updatePlaylist } from "@/services/playlistApi";
@@ -29,7 +29,7 @@ export default function EditPlaylistDetails({ playlist, onClose, onSaved }) {
   };
   return <AccessibleDialog open onClose={onClose} disableClose={busy} titleId={`edit-playlist-${playlist._id}`} panelClassName="w-full max-w-lg rounded-lg bg-[var(--navy-panel)] p-6 text-white shadow-2xl">
     <form onSubmit={save}>
-      <div className="mb-5 flex items-center justify-between"><h2 id={`edit-playlist-${playlist._id}`} className="text-2xl font-bold">Edit details</h2><button type="button" disabled={busy} onClick={onClose} aria-label="Close playlist details" className="icon-btn h-11 w-11"><FiX /></button></div>
+      <div className="mb-5 flex items-center justify-between"><h2 id={`edit-playlist-${playlist._id}`} className="text-2xl font-bold">Edit details</h2><button type="button" disabled={busy} onClick={onClose} aria-label="Close playlist details" className="icon-btn h-11 w-11"><FiX size="1em" /></button></div>
       <label className="block text-sm font-semibold">Name<input autoFocus required maxLength={80} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} className="field mt-2 w-full" /></label>
       <label className="mt-4 block text-sm font-semibold">Description<textarea maxLength={300} rows={3} value={description} disabled={busy} onChange={(event) => setDescription(event.target.value)} placeholder="Add an optional description" className="field mt-2 w-full resize-y" /></label>
       <div className="mt-4"><CoverUploader value={coverImage} onChange={setCoverImage} disabled={busy} /></div>

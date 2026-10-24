@@ -7,9 +7,8 @@ import { useSession } from "next-auth/react";
 import { signOutWithPrivacy as signOut } from "@/utils/signOut";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { GoHome, GoHomeFill } from "react-icons/go";
-import { FiChevronLeft } from "react-icons/fi";
-import { CircleArrowDown } from "lucide-react";
+import { House as GoHome, House as GoHomeFill, ChevronLeft as FiChevronLeft, CircleArrowDown } from "lucide-react";
+
 import BrandMark from "./Layout/BrandMark";
 import { useNav } from "./Layout/AppShell";
 import Searchbar from "./Searchbar";
@@ -74,7 +73,7 @@ const Navbar = () => {
       </div>
       <div className="navbar-search-cluster">
         <Link href="/" aria-label="Home" title="Home" aria-current={homeActive ? "page" : undefined} className={`nav-home-btn ${homeActive ? "is-active" : ""}`}>
-          {homeActive ? <GoHomeFill aria-hidden="true" /> : <GoHome aria-hidden="true" />}
+          {homeActive ? <GoHomeFill size="1em" fill="currentColor" aria-hidden="true" /> : <GoHome size="1em" aria-hidden="true" />}
         </Link>
         <Searchbar />
       </div>

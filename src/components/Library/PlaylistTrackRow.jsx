@@ -2,7 +2,7 @@
 
 import { formatDuration } from "@/utils/trackDuration.mjs";
 import { memo } from "react";
-import { FiHeart, FiPlay, FiTrash2 } from "react-icons/fi";
+import { Heart as FiHeart, Play as FiPlay, Trash2 as FiTrash2 } from "lucide-react";
 import AddToQueueButton from "@/components/AddToQueueButton";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import MediaImage from "@/components/MediaImage";
@@ -45,7 +45,7 @@ function PlaylistTrackRow({
         className={`grid h-11 w-11 place-items-center rounded-full text-sm ${active ? "text-[#096192]" : "text-gray-400 group-hover:text-white"}`}
       >
         <span className="group-hover:hidden">{index + 1}</span>
-        <FiPlay className="hidden fill-current group-hover:block" />
+        <FiPlay size="1em" fill="currentColor" className="hidden fill-current group-hover:block" />
       </button>
       <div className="flex min-w-0 items-center gap-3 text-left">
         <button type="button" disabled={unavailable} aria-label={`Play artwork for ${title}`} onClick={() => onPlay(track)} className="shrink-0">
@@ -81,7 +81,7 @@ function PlaylistTrackRow({
             onClick={() => onRemove(track)}
             className="pointer-hover-action grid h-11 w-11 place-items-center rounded-full text-gray-500 hover:bg-white/10 hover:text-white"
           >
-            {liked ? <FiHeart className="fill-current text-[#096192]" /> : <FiTrash2 />}
+            {liked ? <FiHeart size="1em" className="fill-current text-[#096192]" /> : <FiTrash2 size="1em" />}
           </button>
         ) : null}
       </div>

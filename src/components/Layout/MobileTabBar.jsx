@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GoHome, GoHomeFill } from "react-icons/go";
-import { LibraryBig, Plus, Search } from "lucide-react";
+import {
+  House as GoHome,
+  House as GoHomeFill,
+  LibraryBig,
+  Plus,
+  Search,
+} from "lucide-react";
 
 export default function MobileTabBar({ hidden = false }) {
   const pathname = usePathname();
@@ -25,7 +30,7 @@ export default function MobileTabBar({ hidden = false }) {
         aria-current={homeActive ? "page" : undefined}
         className={`app-tab ${homeActive ? "is-active" : ""}`}
       >
-        {homeActive ? <GoHomeFill aria-hidden="true" size={26} /> : <GoHome aria-hidden="true" size={26} />}
+        {homeActive ? <GoHomeFill fill="currentColor" aria-hidden="true" size={26} /> : <GoHome aria-hidden="true" size={26} />}
         <span>Home</span>
       </Link>
       <Link

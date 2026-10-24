@@ -6,17 +6,18 @@ import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
-  FiChevronDown,
-  FiGrid,
-  FiHeart,
-  FiList,
-  FiLock,
-  FiPlus,
-  FiSearch,
-  FiUsers,
-  FiZap,
-} from "react-icons/fi";
-import { BsPinAngleFill } from "react-icons/bs";
+  ChevronDown as FiChevronDown,
+  LayoutGrid as FiGrid,
+  Heart as FiHeart,
+  List as FiList,
+  Lock as FiLock,
+  Plus as FiPlus,
+  Search as FiSearch,
+  Users as FiUsers,
+  Zap as FiZap,
+  Pin as BsPinAngleFill,
+} from "lucide-react";
+
 import PlaylistModal from "@/components/Sidebar/PlaylistModal";
 import RecommendationPlaylistCard from "@/components/RecommendationPlaylistCard";
 import PlaylistCover from "@/components/PlaylistCover";
@@ -66,13 +67,13 @@ function CollectionBadges({ item }) {
   return (
     <div className="mt-3 flex min-h-6 flex-wrap items-center gap-2 text-[10px] font-semibold uppercase text-gray-300">
       {item.pinned && (
-        <span className="inline-flex items-center gap-1"><BsPinAngleFill className="text-[#096192]" /> Pinned</span>
+        <span className="inline-flex items-center gap-1"><BsPinAngleFill size="1em" fill="currentColor" className="text-[#096192]" /> Pinned</span>
       )}
       {item.smartShuffle && (
-        <span className="inline-flex items-center gap-1"><FiZap className="text-[var(--accent)]" /> Shuffle + Discovery</span>
+        <span className="inline-flex items-center gap-1"><FiZap size="1em" className="text-[var(--accent)]" /> Shuffle + Discovery</span>
       )}
       {item.collaborative && (
-        <span className="inline-flex items-center gap-1"><FiUsers /> Collaborative</span>
+        <span className="inline-flex items-center gap-1"><FiUsers size="1em" /> Collaborative</span>
       )}
     </div>
   );
@@ -82,7 +83,7 @@ function CollectionCover({ item }) {
   if (item.type === "liked") {
     return (
       <div className="grid aspect-square w-full place-items-center bg-gradient-to-br from-[#1399c6] via-[#096192] to-[#1171ba]">
-        <FiHeart className="h-16 w-16 fill-white text-white" />
+        <FiHeart size="1em" className="h-16 w-16 fill-white text-white" />
       </div>
     );
   }
@@ -135,7 +136,7 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
     <>
       <section className="glass-panel mt-2 flex flex-col gap-5 rounded-2xl px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <div className="flex min-w-0 items-start gap-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-[#096192]"><FiLock /></span>
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/10 text-[#096192]"><FiLock size="1em" /></span>
           <div>
             <h2 className="text-xl font-bold text-white">Keep every favorite within reach</h2>
             <p className="mt-2 max-w-xl text-sm text-gray-300">Save your favorite tracks in one place. Log in or create a free account.</p>
@@ -343,7 +344,7 @@ function AccountLibraryView({ session, status, owner }) {
         </div>
         {status === "authenticated" && (
           <button type="button" onClick={() => setShowCreate(true)} className="btn-primary h-10 px-4 text-sm">
-            <FiPlus /> New playlist
+            <FiPlus size="1em" /> New playlist
           </button>
         )}
       </header>
@@ -368,7 +369,7 @@ function AccountLibraryView({ session, status, owner }) {
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex min-h-11 items-center gap-2 rounded bg-[var(--navy-raised)] px-3 text-[var(--muted)]"><FiSearch aria-hidden="true" /><span className="sr-only">Search your library</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your library" className="w-40 min-w-0 bg-transparent text-sm text-white outline-none" /></label>
+              <label className="flex min-h-11 items-center gap-2 rounded bg-[var(--navy-raised)] px-3 text-[var(--muted)]"><FiSearch size="1em" aria-hidden="true" /><span className="sr-only">Search your library</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your library" className="w-40 min-w-0 bg-transparent text-sm text-white outline-none" /></label>
               <label className="relative flex items-center">
                 <span className="sr-only">Filter by playlist type</span>
                 <select
@@ -381,18 +382,18 @@ function AccountLibraryView({ session, status, owner }) {
                     <option key={item} value={item}>{item}</option>
                   ))}
                 </select>
-                <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
+                <FiChevronDown size="1em" className="pointer-events-none absolute right-3 text-gray-400" />
               </label>
               <div className="flex rounded-md bg-white/[0.07] p-1" aria-label="Library view">
-                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid /></button>
-                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList /></button>
+                <button type="button" aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")} className={`grid h-11 w-11 place-items-center rounded ${view === "grid" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiGrid size="1em" /></button>
+                <button type="button" aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")} className={`grid h-11 w-11 place-items-center rounded ${view === "list" ? "bg-white text-black" : "text-gray-300 hover:text-white"}`}><FiList size="1em" /></button>
               </div>
               <label className="relative flex items-center">
                 <span className="sr-only">Sort library</span>
                 <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-11 appearance-none rounded-md border border-white/10 bg-[#101f36] py-0 pl-3 pr-9 text-xs font-semibold text-white outline-none focus:border-[#096192]">
                   {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
-                <FiChevronDown className="pointer-events-none absolute right-3 text-gray-400" />
+                <FiChevronDown size="1em" className="pointer-events-none absolute right-3 text-gray-400" />
               </label>
             </div>
           </section>

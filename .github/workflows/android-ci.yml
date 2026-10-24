@@ -94,7 +94,7 @@ jobs:
 
   emulator:
     name: Android ${{ matrix.api-level }} emulator
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -116,11 +116,21 @@ jobs:
           node-version: 22.x
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Generate native bridge fixture from production code
+      - name: Install fixture audio encoder when missing
+        timeout-minutes: 5
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg
-          node docs/qa/android/create-fixture.cjs
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            # Avoid the slow Azure mirror; use the hosted image's Ubuntu archive fallbacks.
+            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+              printf 'https://archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://security.ubuntu.com/ubuntu/\tpriority:2\n' | sudo tee /etc/apt/apt-mirrors.txt
+            fi
+            printf 'Acquire::Retries "1";\nAcquire::http::Timeout "15";\nAcquire::https::Timeout "15";\n' | sudo tee /etc/apt/apt.conf.d/99-ci-network
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version
+      - name: Generate native bridge fixture from production code
+        run: node docs/qa/android/create-fixture.cjs
       - name: Build current web UI for isolated emulator verification
         run: npm run build
         env:
