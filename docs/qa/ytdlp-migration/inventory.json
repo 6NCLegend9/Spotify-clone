@@ -1,0 +1,2540 @@
+{
+  "baseline": "234fcd985556480ca44fc77d2b397c6cfdf8522f",
+  "source_assumption": "Awaiting clarification: yt-dlp remains the acquisition backend; direct application-owned YouTube Data API, youtubei.js and IFrame SDK calls are migration targets. Saved IDs/history must remain readable.",
+  "scan": "All tracked text files and matching paths; binary artifacts and credential files excluded. Historical documentation is tracked separately from runtime integrations.",
+  "counts": {
+    "build_security_configuration": 8,
+    "web_runtime": 107,
+    "native_runtime": 4,
+    "verification_code": 23,
+    "historical_docs_or_fixtures": 35,
+    "yt_dlp_source_adapter": 2
+  },
+  "files": [
+    {
+      "path": ".env.example",
+      "category": "build_security_configuration",
+      "lines": [
+        34,
+        35
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "category": "build_security_configuration",
+      "lines": [
+        26
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": ".github/workflows/android-ci.yml",
+      "category": "build_security_configuration",
+      "lines": [
+        13,
+        14,
+        27,
+        28
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": ".github/workflows/home-discovery-vm.yml",
+      "category": "build_security_configuration",
+      "lines": [
+        12,
+        14
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": ".github/workflows/mobile-playback-vm.yml",
+      "category": "build_security_configuration",
+      "lines": [
+        10
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": ".superdesign/init/layouts.md",
+      "category": "web_runtime",
+      "lines": [
+        48
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "GENRE_SYSTEM.md",
+      "category": "web_runtime",
+      "lines": [
+        61,
+        66
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "PRODUCTION.md",
+      "category": "web_runtime",
+      "lines": [
+        78,
+        129,
+        157,
+        235,
+        266,
+        269,
+        278
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "TODO.md",
+      "category": "web_runtime",
+      "lines": [
+        4,
+        32,
+        33,
+        38
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "android/README.md",
+      "category": "native_runtime",
+      "lines": [
+        7,
+        60,
+        64,
+        80,
+        106,
+        129
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "android/app/src/androidTest/assets/live-playback-probe.js",
+      "category": "verification_code",
+      "lines": [
+        5,
+        6,
+        9,
+        12,
+        13,
+        23,
+        29,
+        32,
+        36,
+        41,
+        42,
+        43,
+        46,
+        48,
+        57,
+        99,
+        101,
+        102
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "android/app/src/androidTest/java/app/haykasa/android/AndroidPlaybackTest.java",
+      "category": "verification_code",
+      "lines": [
+        107,
+        108,
+        109,
+        110,
+        120,
+        121,
+        381,
+        382,
+        383,
+        406,
+        410,
+        411,
+        412
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "android/app/src/androidTest/java/app/haykasa/android/AndroidUiTourTest.java",
+      "category": "verification_code",
+      "lines": [
+        146
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "android/app/src/main/java/app/haykasa/android/MainActivity.java",
+      "category": "native_runtime",
+      "lines": [
+        146
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "android/app/src/main/java/app/haykasa/android/WebDiagnostics.java",
+      "category": "native_runtime",
+      "lines": [
+        14,
+        15,
+        16
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "android/app/src/test/java/app/haykasa/android/WebDiagnosticsTest.java",
+      "category": "verification_code",
+      "lines": [
+        9,
+        10
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "desktop/src/artworkPalette.mjs",
+      "category": "native_runtime",
+      "lines": [
+        2,
+        3
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/AUDIT_P1_FIXES.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        12
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/GUEST_SEARCH_PLAYBACK_FIX.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        7,
+        13,
+        14,
+        25,
+        32,
+        38,
+        52,
+        55,
+        56,
+        60,
+        61,
+        66,
+        67,
+        78,
+        84
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/PERFORMANCE_REVIEW.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        191
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/PLAYER_OVERHAUL.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        10,
+        34,
+        36,
+        44,
+        54,
+        61,
+        63,
+        73
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/QA_FINDINGS.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        3
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/backend-reliability.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        3,
+        17,
+        31
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/android-playback-audit-2026-10-20.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        8,
+        9,
+        19,
+        21,
+        25,
+        42
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/android/iframe-api-browser.cjs",
+      "category": "verification_code",
+      "lines": [
+        50,
+        97,
+        104,
+        126,
+        128,
+        137,
+        182,
+        200,
+        215
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/android/iframe-api-check.mjs",
+      "category": "verification_code",
+      "lines": [
+        3,
+        5,
+        38,
+        57,
+        88,
+        94,
+        105,
+        117,
+        123,
+        135,
+        154,
+        163,
+        169,
+        177,
+        180,
+        193,
+        203,
+        213,
+        215,
+        224
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/android/live-probe-check.mjs",
+      "category": "verification_code",
+      "lines": [
+        8,
+        20,
+        34,
+        42,
+        47,
+        54,
+        61,
+        67,
+        69,
+        74,
+        81,
+        84
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/android/player-browser.cjs",
+      "category": "verification_code",
+      "lines": [
+        2,
+        75,
+        78,
+        98,
+        100,
+        116,
+        123,
+        132,
+        134,
+        136,
+        139,
+        142,
+        143,
+        145,
+        147,
+        148,
+        154,
+        162,
+        210
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/android/production-smoke.cjs",
+      "category": "verification_code",
+      "lines": [
+        30,
+        43,
+        113,
+        114,
+        155
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/android/run-emulator.sh",
+      "category": "verification_code",
+      "lines": [
+        32
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/artist-profile.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        14,
+        18,
+        20
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/audio-quality/README.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        27
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/audio-quality/browser.cjs",
+      "category": "verification_code",
+      "lines": [
+        73
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/audio-quality/check.py",
+      "category": "verification_code",
+      "lines": [
+        79
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/background-playback/check.cjs",
+      "category": "verification_code",
+      "lines": [
+        42,
+        43,
+        51,
+        68,
+        112,
+        129,
+        134,
+        145,
+        146,
+        147,
+        150,
+        151,
+        153,
+        154,
+        156,
+        157,
+        158,
+        162,
+        217,
+        218
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/desktop-panels/browser.cjs",
+      "category": "verification_code",
+      "lines": [
+        23,
+        43,
+        64
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/home-discovery/browser.cjs",
+      "category": "verification_code",
+      "lines": [
+        82
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/home-discovery/check.cjs",
+      "category": "verification_code",
+      "lines": [
+        64,
+        141,
+        145
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/mobile-source-playback/README.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        3,
+        11
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/mobile-source-playback/browser.cjs",
+      "category": "verification_code",
+      "lines": [
+        13,
+        33,
+        40
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/playlist-duration/browser.cjs",
+      "category": "verification_code",
+      "lines": [
+        49
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/playlist-duration/check.cjs",
+      "category": "verification_code",
+      "lines": [
+        77
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/ponytail-playback-audit-2026-10-21.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        3,
+        32,
+        44,
+        55,
+        59
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/pr23-ui-redesign.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        37,
+        118
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/pr25-duration-desktop.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        8,
+        36,
+        102,
+        107
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/production-audit-2026-10-20.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        18,
+        50,
+        66,
+        78,
+        88,
+        90
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/search/browser.cjs",
+      "category": "verification_code",
+      "lines": [
+        53,
+        69,
+        141
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/security-audit/REPORT.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        48,
+        277
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/security-audit/haykasa-security-audit.json",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        8088,
+        8104,
+        8120,
+        8136,
+        8152,
+        8168,
+        8184,
+        8200,
+        8216,
+        8232,
+        8248,
+        8264,
+        8280,
+        8296,
+        8312,
+        8328,
+        8344,
+        8360,
+        8376,
+        8387,
+        8403,
+        8410,
+        8411,
+        8419,
+        8426,
+        8427,
+        8435,
+        8442,
+        8443,
+        8451,
+        8458,
+        8459,
+        8467,
+        8474,
+        8475,
+        8483,
+        8490,
+        8491,
+        8499,
+        8506,
+        8507,
+        8515,
+        8522,
+        8523,
+        8531,
+        8538,
+        8539,
+        8547,
+        8554,
+        8555,
+        8563,
+        8570,
+        8571,
+        8579,
+        8586,
+        8587,
+        8595,
+        8602,
+        8603,
+        8611,
+        8618,
+        8619,
+        8627,
+        8634,
+        8635,
+        8643,
+        8650,
+        8651,
+        8659,
+        8666,
+        8667,
+        8675,
+        8682,
+        8683,
+        8691,
+        8698,
+        8699,
+        8707,
+        8714,
+        8715,
+        8723,
+        8730,
+        8731,
+        8739,
+        8746,
+        8747,
+        8755,
+        8762,
+        8763,
+        8771,
+        8778,
+        8779,
+        8787,
+        8794,
+        8795,
+        8803,
+        8810,
+        8811,
+        8819,
+        8826,
+        8827,
+        8835,
+        8842,
+        8843,
+        8851,
+        8858,
+        8859,
+        8867,
+        8874,
+        8875,
+        8883,
+        8890,
+        8891,
+        8899,
+        8906,
+        8907,
+        8915,
+        8922,
+        8923,
+        8931,
+        8938,
+        8939,
+        8947,
+        8954,
+        8955,
+        8963,
+        8970,
+        8971,
+        8979,
+        8986,
+        8987,
+        8995,
+        9002,
+        9003,
+        9011,
+        9018,
+        9019,
+        9027,
+        9034,
+        9035,
+        9043,
+        9059,
+        9075,
+        9091,
+        9107,
+        9123,
+        9139,
+        9155,
+        9171,
+        9187,
+        9203,
+        9219,
+        9235,
+        9251,
+        9267,
+        9283,
+        9299,
+        9315,
+        9331,
+        9347,
+        9363,
+        9379,
+        9395,
+        9411,
+        9427,
+        9443,
+        9459,
+        9475,
+        9491,
+        9507,
+        9523,
+        9539,
+        9555,
+        9571,
+        9587,
+        9603,
+        9619,
+        9635,
+        9651,
+        9667
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/security-audit/run.cjs",
+      "category": "verification_code",
+      "lines": [
+        44,
+        129
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/security-audit/secret-scan.json",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        5
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/vercel-media/README.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        35
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/vercel-media/RESULTS.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        11,
+        37,
+        58,
+        77,
+        87,
+        109,
+        112,
+        133,
+        137
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/vercel-media/WORKERS.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        9,
+        27,
+        33
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/vercel-media/check.py",
+      "category": "verification_code",
+      "lines": [
+        200
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/qa/vercel-media/config-check.cjs",
+      "category": "verification_code",
+      "lines": [
+        32,
+        48,
+        49
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-09-24-pr19-unified-web-desktop-performance.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        7,
+        31,
+        717,
+        723,
+        849,
+        930,
+        1061,
+        1135,
+        1138,
+        1143
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-09-26-pr19-final-integration-verification.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        5,
+        73,
+        79,
+        81,
+        112,
+        121
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-09-26-pr19-playback-responsive-hardening.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        5,
+        7,
+        9,
+        24,
+        39,
+        70,
+        86,
+        89,
+        104,
+        116,
+        132,
+        141,
+        145,
+        149,
+        161,
+        165,
+        168,
+        169,
+        170,
+        171,
+        174,
+        195,
+        199
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-09-26-pr19-playlist-performance-cleanup.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        44
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-09-26-pr19-search-radio-rate-limits.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        7,
+        15,
+        17,
+        30,
+        33,
+        35,
+        41,
+        42,
+        51,
+        55,
+        59,
+        66,
+        67,
+        68,
+        69,
+        88,
+        96,
+        100,
+        104,
+        108,
+        109,
+        115,
+        127,
+        143,
+        158,
+        174
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-09-26-pr19-system-hardening-index.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        16
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-06-pr23-responsive-ui-redesign.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        70,
+        81
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-10-ytdlp-playback.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        5,
+        19,
+        24,
+        90,
+        96,
+        97,
+        111
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-22-pr40-audio-engine.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        74,
+        80,
+        117,
+        226
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-24-pr18-roadmap-design.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        41,
+        50,
+        52,
+        54,
+        56,
+        91,
+        117,
+        119,
+        130,
+        259,
+        285,
+        287,
+        289,
+        292,
+        294,
+        331,
+        334,
+        339,
+        367,
+        368,
+        369,
+        407,
+        506
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-24-pr19-unified-web-desktop-performance-design.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        300,
+        350,
+        354,
+        375,
+        394,
+        714
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-26-pr19-system-hardening-design.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        115,
+        127,
+        129,
+        133,
+        138,
+        142,
+        175,
+        355,
+        377,
+        396
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-06-pr23-responsive-ui-redesign-design.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        52
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-10-ytdlp-playback-design.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        8,
+        16,
+        22,
+        24,
+        28,
+        46,
+        50,
+        56,
+        62,
+        64
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "docs/superpowers/verification/2026-10-10-ytdlp-playback.md",
+      "category": "historical_docs_or_fixtures",
+      "lines": [
+        12,
+        27,
+        38
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "media-service/README.md",
+      "category": "yt_dlp_source_adapter",
+      "lines": [
+        3,
+        29
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "media-service/app/jobs.py",
+      "category": "yt_dlp_source_adapter",
+      "lines": [
+        114
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "next.config.js",
+      "category": "build_security_configuration",
+      "lines": [
+        15,
+        33,
+        35,
+        36,
+        37,
+        92,
+        95,
+        96
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "package-lock.json",
+      "category": "build_security_configuration",
+      "lines": [
+        38,
+        8049,
+        8051
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "package.json",
+      "category": "build_security_configuration",
+      "lines": [
+        59
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "readme.md",
+      "category": "web_runtime",
+      "lines": [
+        19,
+        44,
+        47,
+        49,
+        62,
+        67,
+        117,
+        238
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "scripts/publish-android-preview.mjs",
+      "category": "web_runtime",
+      "lines": [
+        104
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/accessibility/page.jsx",
+      "category": "web_runtime",
+      "lines": [
+        126,
+        127,
+        197
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/artist-sections/route.js",
+      "category": "web_runtime",
+      "lines": [
+        2,
+        17
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/channel-rabbit-hole/route.js",
+      "category": "web_runtime",
+      "lines": [
+        4
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/crowd-radio/route.js",
+      "category": "web_runtime",
+      "lines": [
+        2,
+        21,
+        109,
+        175
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/favourite/route.js",
+      "category": "web_runtime",
+      "lines": [
+        17,
+        69,
+        71
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/history/route.js",
+      "category": "web_runtime",
+      "lines": [
+        13,
+        24,
+        69,
+        76,
+        78
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/playEvent/route.js",
+      "category": "web_runtime",
+      "lines": [
+        15,
+        37
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/recommendations/route.js",
+      "category": "web_runtime",
+      "lines": [
+        5,
+        72,
+        88,
+        107,
+        116,
+        130,
+        227,
+        232,
+        243,
+        248,
+        249,
+        259,
+        272
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/userPlaylists/route.js",
+      "category": "web_runtime",
+      "lines": [
+        24,
+        34,
+        62,
+        67,
+        90,
+        140
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/userPlaylists/songs/route.js",
+      "category": "web_runtime",
+      "lines": [
+        22,
+        32,
+        33,
+        35,
+        66,
+        105
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/youtube-album/route.js",
+      "category": "web_runtime",
+      "lines": [
+        2,
+        18,
+        22
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/youtube-captions/route.js",
+      "category": "web_runtime",
+      "lines": [
+        4,
+        5,
+        21,
+        25,
+        37
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/youtube-channel/route.js",
+      "category": "web_runtime",
+      "lines": [
+        2,
+        21,
+        34,
+        48
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/youtube-playlist/route.js",
+      "category": "web_runtime",
+      "lines": [
+        3,
+        50,
+        60,
+        86,
+        88,
+        121,
+        146,
+        158
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/youtube-search/route.js",
+      "category": "web_runtime",
+      "lines": [
+        5,
+        8,
+        38,
+        55,
+        57,
+        58,
+        71,
+        81,
+        83,
+        96,
+        106,
+        107,
+        111,
+        159
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/api/youtube-videos/route.js",
+      "category": "web_runtime",
+      "lines": [
+        2,
+        7,
+        28,
+        30,
+        39,
+        50,
+        54,
+        89
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/artist/page.jsx",
+      "category": "web_runtime",
+      "lines": [
+        11,
+        28
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/embed/playlist/[playlistId]/page.jsx",
+      "category": "web_runtime",
+      "lines": [
+        8,
+        63
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/following/page.jsx",
+      "category": "web_runtime",
+      "lines": [
+        10,
+        99
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/layout.js",
+      "category": "web_runtime",
+      "lines": [
+        238,
+        239,
+        240,
+        241,
+        242,
+        243
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/library/playlist/[playlistId]/page.jsx",
+      "category": "web_runtime",
+      "lines": [
+        3,
+        16
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/robots.js",
+      "category": "web_runtime",
+      "lines": [
+        8
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/search/[query]/page.jsx",
+      "category": "web_runtime",
+      "lines": [
+        2,
+        44
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/settings/page.jsx",
+      "category": "web_runtime",
+      "lines": [
+        310,
+        312,
+        329,
+        369,
+        403,
+        409,
+        413,
+        416
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/youtube-playlist/[id]/layout.js",
+      "category": "web_runtime",
+      "lines": [
+        2,
+        12,
+        13,
+        19,
+        38
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/app/youtube-playlist/[id]/page.jsx",
+      "category": "web_runtime",
+      "lines": [
+        13,
+        16
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Arcade/ArcadeSongPicker.jsx",
+      "category": "web_runtime",
+      "lines": [
+        14,
+        15,
+        20,
+        32,
+        33,
+        49,
+        51,
+        71,
+        72
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Arcade/ArcadeStage.jsx",
+      "category": "web_runtime",
+      "lines": [
+        23,
+        119,
+        120,
+        121,
+        133,
+        134,
+        191,
+        213,
+        230,
+        245,
+        269,
+        332,
+        337,
+        347,
+        350,
+        353,
+        354,
+        355,
+        359,
+        379,
+        394,
+        470
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/ArtistCatalogRails.jsx",
+      "category": "web_runtime",
+      "lines": [
+        53
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/ArtistProfile.jsx",
+      "category": "web_runtime",
+      "lines": [
+        17,
+        29,
+        116,
+        121,
+        152,
+        261,
+        287,
+        295,
+        309,
+        389
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/ArtistRelease.jsx",
+      "category": "web_runtime",
+      "lines": [
+        9,
+        21,
+        41,
+        50,
+        78
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/DiscoveryPlaylist.jsx",
+      "category": "web_runtime",
+      "lines": [
+        9,
+        20,
+        38,
+        39,
+        75,
+        78
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/FeedbackPreferences.jsx",
+      "category": "web_runtime",
+      "lines": [
+        6,
+        28
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Homepage/MixCard.jsx",
+      "category": "web_runtime",
+      "lines": [
+        14,
+        32,
+        33,
+        81
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Homepage/QuickAccessGrid.jsx",
+      "category": "web_runtime",
+      "lines": [
+        37,
+        70
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Layout/AppShell.jsx",
+      "category": "web_runtime",
+      "lines": [
+        71
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Layout/DesktopNowPlayingPanel.jsx",
+      "category": "web_runtime",
+      "lines": [
+        7
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Library/LibraryView.jsx",
+      "category": "web_runtime",
+      "lines": [
+        33,
+        34,
+        251,
+        254,
+        294,
+        311
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Library/PlaylistDetail.jsx",
+      "category": "web_runtime",
+      "lines": [
+        39,
+        40,
+        44,
+        119,
+        170,
+        172,
+        284,
+        299,
+        616
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Library/VirtualizedPlaylistTrackList.jsx",
+      "category": "web_runtime",
+      "lines": [
+        56,
+        78,
+        79,
+        81,
+        105,
+        187,
+        217
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/ListeningInsights.jsx",
+      "category": "web_runtime",
+      "lines": [
+        7,
+        38
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/MediaImage.jsx",
+      "category": "web_runtime",
+      "lines": [
+        4,
+        17
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "category": "web_runtime",
+      "lines": [
+        20,
+        61,
+        272,
+        323
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/MusicPlayer/PlayerDock.tsx",
+      "category": "web_runtime",
+      "lines": [
+        14
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "category": "web_runtime",
+      "lines": [
+        10,
+        11,
+        12,
+        13,
+        34,
+        35,
+        36,
+        47,
+        57,
+        69,
+        71,
+        75,
+        78,
+        115,
+        118,
+        124,
+        145,
+        158,
+        189,
+        270,
+        399,
+        405,
+        646,
+        653,
+        949,
+        983,
+        987,
+        996,
+        1010,
+        1048,
+        1059,
+        1085,
+        1116,
+        1150,
+        1154,
+        1160,
+        1177,
+        1397,
+        1439,
+        1487,
+        1725,
+        1828,
+        1843,
+        1882,
+        2237,
+        2241,
+        2321,
+        2401,
+        2415,
+        2442,
+        2514,
+        2850,
+        3007,
+        3009,
+        3032,
+        3038,
+        3039,
+        3040,
+        3041,
+        3100,
+        3127,
+        3190
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/MusicPlayer/index.jsx",
+      "category": "web_runtime",
+      "lines": [
+        27,
+        89,
+        129,
+        140,
+        161,
+        257,
+        318,
+        321,
+        331,
+        335,
+        337,
+        338,
+        339,
+        340,
+        450,
+        456,
+        457,
+        462,
+        472,
+        473,
+        494,
+        606,
+        617
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/MusicPlayer/mediaPresentation.module.css",
+      "category": "web_runtime",
+      "lines": [
+        114,
+        115
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/MusicPlayer/youtubeSanitizer.module.css",
+      "category": "web_runtime",
+      "lines": [
+        5,
+        6,
+        12,
+        18,
+        19,
+        37,
+        38,
+        47,
+        53
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/PlaybackPersistence.jsx",
+      "category": "web_runtime",
+      "lines": [
+        60,
+        61
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/RecentlyPlayed.jsx",
+      "category": "web_runtime",
+      "lines": [
+        50
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/RecommendationPlaylistCard.jsx",
+      "category": "web_runtime",
+      "lines": [
+        6,
+        28,
+        45
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/Searchbar.jsx",
+      "category": "web_runtime",
+      "lines": [
+        22,
+        27,
+        28,
+        47,
+        257,
+        258,
+        332
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/SongsHistory.jsx",
+      "category": "web_runtime",
+      "lines": [
+        10,
+        16,
+        17,
+        23,
+        26,
+        27,
+        35,
+        36,
+        37
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/TrackQueueMenu.jsx",
+      "category": "web_runtime",
+      "lines": [
+        21,
+        36,
+        109,
+        110
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/UpdatesBell.jsx",
+      "category": "web_runtime",
+      "lines": [
+        13,
+        208
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/components/YouTubeMusicResults.jsx",
+      "category": "web_runtime",
+      "lines": [
+        7,
+        27,
+        33,
+        42,
+        66,
+        268,
+        273,
+        347,
+        364,
+        400,
+        522
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/hooks/useArcadeClock.js",
+      "category": "web_runtime",
+      "lines": [
+        9,
+        50,
+        187,
+        189
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/hooks/useAudioAnalyzer.js",
+      "category": "web_runtime",
+      "lines": [
+        36,
+        37
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/hooks/useCrowdRadio.js",
+      "category": "web_runtime",
+      "lines": [
+        6,
+        41,
+        153,
+        155,
+        156,
+        164
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/hooks/useDesktopPlaybackBridge.js",
+      "category": "web_runtime",
+      "lines": [
+        18
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/hooks/useDiscordPresence.js",
+      "category": "web_runtime",
+      "lines": [
+        26,
+        38
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/hooks/useHomeHighlights.js",
+      "category": "web_runtime",
+      "lines": [
+        7,
+        28,
+        35
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/hooks/useJamSession.js",
+      "category": "web_runtime",
+      "lines": [
+        8,
+        9,
+        67,
+        83,
+        102,
+        103,
+        168,
+        171,
+        176,
+        177,
+        178,
+        189,
+        190,
+        267,
+        275,
+        276,
+        332,
+        333,
+        738,
+        739,
+        744,
+        875
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/hooks/useYoutubeCaptions.js",
+      "category": "web_runtime",
+      "lines": [
+        5,
+        7,
+        11,
+        16
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/redux/features/playerSlice.js",
+      "category": "web_runtime",
+      "lines": [
+        25,
+        26,
+        49,
+        58,
+        142,
+        153,
+        179,
+        180,
+        191,
+        197,
+        198,
+        199,
+        201,
+        203,
+        205,
+        206,
+        208,
+        209,
+        213,
+        214,
+        218,
+        219,
+        223,
+        228,
+        238,
+        239,
+        273,
+        277,
+        280,
+        281,
+        284,
+        285,
+        287,
+        288,
+        290,
+        294,
+        295,
+        298,
+        299,
+        300,
+        301,
+        302,
+        304,
+        317,
+        318,
+        319,
+        320,
+        325,
+        326,
+        344,
+        346,
+        348,
+        368,
+        369,
+        370,
+        378,
+        384,
+        385,
+        391,
+        395,
+        409,
+        425,
+        447,
+        448,
+        460,
+        465,
+        467,
+        469,
+        471,
+        478,
+        486,
+        487,
+        501,
+        507,
+        511,
+        516,
+        520,
+        524,
+        528,
+        529,
+        534,
+        538,
+        541,
+        543,
+        550,
+        555,
+        564,
+        582,
+        583,
+        585,
+        586
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/services/libraryApi.js",
+      "category": "web_runtime",
+      "lines": [
+        6,
+        8,
+        10,
+        41,
+        42,
+        73
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/sw.js",
+      "category": "web_runtime",
+      "lines": [
+        50
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/artistMusicCatalog.mjs",
+      "category": "web_runtime",
+      "lines": [
+        190,
+        191
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/commentVideoIds.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        3,
+        11
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/deploymentConfig.mjs",
+      "category": "web_runtime",
+      "lines": [
+        47
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/diagnostics.mjs",
+      "category": "web_runtime",
+      "lines": [
+        3,
+        5
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/discordPresence.mjs",
+      "category": "web_runtime",
+      "lines": [
+        34
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/discoveryPlaylist.mjs",
+      "category": "web_runtime",
+      "lines": [
+        6
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/eqPresets.js",
+      "category": "web_runtime",
+      "lines": [
+        49,
+        50,
+        57,
+        67
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/explicitContent.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        20,
+        29,
+        30,
+        33
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/followedReleases.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        8,
+        29
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/imageOptimize.js",
+      "category": "web_runtime",
+      "lines": [
+        10,
+        12,
+        14,
+        25
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/mediaUrl.mjs",
+      "category": "web_runtime",
+      "lines": [
+        2,
+        3,
+        4
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/playHome.js",
+      "category": "web_runtime",
+      "lines": [
+        5,
+        9,
+        11,
+        12,
+        22,
+        51,
+        66
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/playbackSnapshot.mjs",
+      "category": "web_runtime",
+      "lines": [
+        30,
+        47,
+        73,
+        74,
+        75,
+        76,
+        77,
+        80,
+        86,
+        93,
+        99,
+        101,
+        102
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/providerCache.js",
+      "category": "web_runtime",
+      "lines": [
+        6,
+        7,
+        8
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/providerCachePolicy.mjs",
+      "category": "web_runtime",
+      "lines": [
+        30
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/publicPlaylistShare.mjs",
+      "category": "web_runtime",
+      "lines": [
+        4,
+        5,
+        15,
+        21
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/radioEngine.mjs",
+      "category": "web_runtime",
+      "lines": [
+        4,
+        13,
+        73
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/radioSeed.mjs",
+      "category": "web_runtime",
+      "lines": [
+        105
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/searchRequestCache.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        15,
+        143
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/shareCard.mjs",
+      "category": "web_runtime",
+      "lines": [
+        7,
+        11,
+        12,
+        16,
+        18,
+        19,
+        24
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/songIdentity.mjs",
+      "category": "web_runtime",
+      "lines": [
+        46,
+        70,
+        125
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/text.js",
+      "category": "web_runtime",
+      "lines": [
+        87
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/thisDayOnKasa.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        14
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/weekPulse.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        19,
+        32,
+        44
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubeApi.js",
+      "category": "web_runtime",
+      "lines": [
+        4,
+        5,
+        8,
+        9,
+        20,
+        22,
+        30,
+        35,
+        48,
+        49,
+        52,
+        54,
+        84,
+        88,
+        139,
+        150,
+        240,
+        256,
+        260,
+        284,
+        308,
+        318,
+        366,
+        397,
+        415,
+        453,
+        531,
+        536,
+        537,
+        573,
+        575,
+        583,
+        595,
+        606,
+        609,
+        612,
+        799,
+        838,
+        864,
+        885,
+        893,
+        930,
+        972,
+        1001,
+        1002,
+        1005,
+        1078,
+        1084,
+        1085,
+        1087,
+        1093,
+        1097,
+        1120,
+        1122,
+        1136,
+        1148,
+        1150,
+        1176,
+        1179,
+        1183,
+        1187,
+        1199,
+        1210,
+        1212,
+        1213,
+        1234,
+        1251,
+        1253,
+        1264,
+        1266,
+        1274,
+        1275,
+        1276,
+        1287,
+        1288,
+        1293
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubeCaptions.mjs",
+      "category": "web_runtime",
+      "lines": [],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubeIframeApi.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        4,
+        10,
+        25,
+        33
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubePlaybackError.mjs",
+      "category": "web_runtime",
+      "lines": [
+        10,
+        19,
+        20,
+        32,
+        34,
+        37,
+        39,
+        44,
+        47,
+        53,
+        54,
+        61,
+        66,
+        67,
+        68,
+        84,
+        109
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubePresentationPolicy.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        6,
+        8,
+        9
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubeResumePolicy.mjs",
+      "category": "web_runtime",
+      "lines": [
+        4
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubeSearchFallback.mjs",
+      "category": "web_runtime",
+      "lines": [],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubeSearchPurpose.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        15,
+        17,
+        20,
+        21
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubeSearchUrl.mjs",
+      "category": "web_runtime",
+      "lines": [
+        1,
+        3,
+        15,
+        16
+      ],
+      "migration_status": "pending"
+    },
+    {
+      "path": "src/utils/youtubeVideoId.mjs",
+      "category": "web_runtime",
+      "lines": [
+        3
+      ],
+      "migration_status": "pending"
+    }
+  ]
+}

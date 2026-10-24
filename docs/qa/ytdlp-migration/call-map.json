@@ -1,0 +1,3624 @@
+{
+  "baseline": "234fcd985556480ca44fc77d2b397c6cfdf8522f",
+  "scope": "Static local imports and named API route references; not a runtime trace. Manual cross-process boundaries included.",
+  "imports": [
+    {
+      "caller": "src/app/accessibility/page.jsx",
+      "line": 1,
+      "dependency": "src/components/AccessibilityControls.jsx"
+    },
+    {
+      "caller": "src/app/accessibility/page.jsx",
+      "line": 2,
+      "dependency": "src/utils/siteConfig.js"
+    },
+    {
+      "caller": "src/app/album/[albumId]/page.jsx",
+      "line": 5,
+      "dependency": "src/components/ArtistRelease.jsx"
+    },
+    {
+      "caller": "src/app/api/artist-sections/route.js",
+      "line": 2,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/artist-sections/route.js",
+      "line": 3,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/artist-sections/route.js",
+      "line": 4,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/channel-rabbit-hole/route.js",
+      "line": 2,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/channel-rabbit-hole/route.js",
+      "line": 3,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/channel-rabbit-hole/route.js",
+      "line": 4,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/crowd-radio/route.js",
+      "line": 2,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/crowd-radio/route.js",
+      "line": 3,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/app/api/crowd-radio/route.js",
+      "line": 4,
+      "dependency": "src/utils/officialMusicSearch.mjs"
+    },
+    {
+      "caller": "src/app/api/crowd-radio/route.js",
+      "line": 5,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/app/api/crowd-radio/route.js",
+      "line": 6,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/crowd-radio/route.js",
+      "line": 12,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/crowd-radio/route.js",
+      "line": 13,
+      "dependency": "src/utils/userAccount.js"
+    },
+    {
+      "caller": "src/app/api/crowd-radio/route.js",
+      "line": 14,
+      "dependency": "src/models/JamRoom.js"
+    },
+    {
+      "caller": "src/app/api/favourite/route.js",
+      "line": 1,
+      "dependency": "src/utils/trustedOrigin.js"
+    },
+    {
+      "caller": "src/app/api/favourite/route.js",
+      "line": 3,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/favourite/route.js",
+      "line": 8,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/favourite/route.js",
+      "line": 9,
+      "dependency": "src/utils/userAccount.js"
+    },
+    {
+      "caller": "src/app/api/favourite/route.js",
+      "line": 10,
+      "dependency": "src/models/UserData.js"
+    },
+    {
+      "caller": "src/app/api/favourite/route.js",
+      "line": 11,
+      "dependency": "src/utils/documentMutation.mjs"
+    },
+    {
+      "caller": "src/app/api/favourite/route.js",
+      "line": 12,
+      "dependency": "src/utils/playlistDuration.mjs"
+    },
+    {
+      "caller": "src/app/api/followedArtists/releases/route.js",
+      "line": 4,
+      "dependency": "src/utils/followedReleases.mjs"
+    },
+    {
+      "caller": "src/app/api/followedArtists/route.js",
+      "line": 9,
+      "dependency": "src/utils/mediaUrl.mjs"
+    },
+    {
+      "caller": "src/app/api/history/route.js",
+      "line": 1,
+      "dependency": "src/utils/trustedOrigin.js"
+    },
+    {
+      "caller": "src/app/api/history/route.js",
+      "line": 3,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/history/route.js",
+      "line": 4,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/history/route.js",
+      "line": 5,
+      "dependency": "src/utils/userAccount.js"
+    },
+    {
+      "caller": "src/app/api/history/route.js",
+      "line": 6,
+      "dependency": "src/models/UserData.js"
+    },
+    {
+      "caller": "src/app/api/history/route.js",
+      "line": 7,
+      "dependency": "src/utils/documentMutation.mjs"
+    },
+    {
+      "caller": "src/app/api/history/route.js",
+      "line": 8,
+      "dependency": "src/utils/mediaUrl.mjs"
+    },
+    {
+      "caller": "src/app/api/notifications/route.js",
+      "line": 6,
+      "dependency": "src/utils/followedReleases.mjs"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 1,
+      "dependency": "src/utils/trustedOrigin.js"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 3,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 4,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 5,
+      "dependency": "src/utils/userAccount.js"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 6,
+      "dependency": "src/models/UserData.js"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 7,
+      "dependency": "src/utils/documentMutation.mjs"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 8,
+      "dependency": "src/utils/listeningInsights.mjs"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 9,
+      "dependency": "src/utils/weekPulse.mjs"
+    },
+    {
+      "caller": "src/app/api/playEvent/route.js",
+      "line": 10,
+      "dependency": "src/utils/weekPulseStore.mjs"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 1,
+      "dependency": "src/utils/trustedOrigin.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 3,
+      "dependency": "src/models/UserData.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 4,
+      "dependency": "src/models/Genre.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 5,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 6,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 7,
+      "dependency": "src/utils/explicitContent.mjs"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 8,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 9,
+      "dependency": "src/services/genreCatalog.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 10,
+      "dependency": "src/utils/genreTaxonomy.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 14,
+      "dependency": "src/utils/recommendationSeeds.mjs"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 15,
+      "dependency": "src/utils/officialMusicSearch.mjs"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 16,
+      "dependency": "src/utils/songIdentity.mjs"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 22,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 23,
+      "dependency": "src/utils/userAccount.js"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 24,
+      "dependency": "src/utils/recommendationFeedback.mjs"
+    },
+    {
+      "caller": "src/app/api/recommendations/route.js",
+      "line": 26,
+      "dependency": "src/utils/homeDiscovery.mjs"
+    },
+    {
+      "caller": "src/app/api/settings/route.js",
+      "line": 4,
+      "dependency": "src/utils/eqPresets.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 1,
+      "dependency": "src/utils/inputText.mjs"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 2,
+      "dependency": "src/utils/coverValidation.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 3,
+      "dependency": "src/utils/trustedOrigin.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 6,
+      "dependency": "src/models/User.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 7,
+      "dependency": "src/models/Playlist.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 8,
+      "dependency": "src/models/UserData.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 9,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 15,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 22,
+      "dependency": "src/utils/playlistThemes.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 23,
+      "dependency": "src/utils/userAccount.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 24,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 25,
+      "dependency": "src/utils/playlistAccess.mjs"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/route.js",
+      "line": 26,
+      "dependency": "src/utils/officialMusicSearch.mjs"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 1,
+      "dependency": "src/utils/trustedOrigin.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 2,
+      "dependency": "src/utils/playlistDuration.mjs"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 5,
+      "dependency": "src/utils/dbconnect.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 6,
+      "dependency": "src/models/Playlist.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 7,
+      "dependency": "src/utils/sessionAuth.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 8,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 14,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 15,
+      "dependency": "src/utils/playlistThemes.js"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 16,
+      "dependency": "src/utils/playlistAccess.mjs"
+    },
+    {
+      "caller": "src/app/api/userPlaylists/songs/route.js",
+      "line": 17,
+      "dependency": "src/utils/documentMutation.mjs"
+    },
+    {
+      "caller": "src/app/api/week-on-kasa/route.js",
+      "line": 6,
+      "dependency": "src/utils/weekPulse.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-album/route.js",
+      "line": 2,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/youtube-album/route.js",
+      "line": 3,
+      "dependency": "src/utils/artistMusicCatalog.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-album/route.js",
+      "line": 4,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/youtube-album/route.js",
+      "line": 5,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/youtube-captions/route.js",
+      "line": 2,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/youtube-captions/route.js",
+      "line": 3,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/youtube-captions/route.js",
+      "line": 4,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-captions/route.js",
+      "line": 5,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/youtube-channel/route.js",
+      "line": 2,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/youtube-channel/route.js",
+      "line": 3,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/youtube-channel/route.js",
+      "line": 4,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/youtube-playlist/route.js",
+      "line": 1,
+      "dependency": "src/utils/discoveryPlaylist.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-playlist/route.js",
+      "line": 3,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/youtube-playlist/route.js",
+      "line": 4,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/app/api/youtube-playlist/route.js",
+      "line": 5,
+      "dependency": "src/utils/officialMusicSearch.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-playlist/route.js",
+      "line": 6,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/youtube-playlist/route.js",
+      "line": 7,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 2,
+      "dependency": "src/utils/providerRequestContext.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 3,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 5,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 6,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 7,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 8,
+      "dependency": "src/utils/youtubeSearchPurpose.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 9,
+      "dependency": "src/utils/searchOptions.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 10,
+      "dependency": "src/utils/officialMusicSearch.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 11,
+      "dependency": "src/utils/radioSeed.mjs"
+    },
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 15,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/api/youtube-videos/route.js",
+      "line": 2,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/api/youtube-videos/route.js",
+      "line": 3,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/app/api/youtube-videos/route.js",
+      "line": 4,
+      "dependency": "src/utils/rateLimit.js"
+    },
+    {
+      "caller": "src/app/api/youtube-videos/route.js",
+      "line": 5,
+      "dependency": "src/utils/apiResponse.js"
+    },
+    {
+      "caller": "src/app/arcade/page.jsx",
+      "line": 6,
+      "dependency": "src/components/Arcade/ArcadeStage.jsx"
+    },
+    {
+      "caller": "src/app/artist/[artistId]/page.jsx",
+      "line": 4,
+      "dependency": "src/components/ArtistProfile.jsx"
+    },
+    {
+      "caller": "src/app/artist/page.jsx",
+      "line": 5,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/app/artist/page.jsx",
+      "line": 6,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/app/artist/page.jsx",
+      "line": 7,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/app/artist/page.jsx",
+      "line": 8,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/app/artist/page.jsx",
+      "line": 9,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/app/artist/page.jsx",
+      "line": 10,
+      "dependency": "src/utils/artistNavigation.mjs"
+    },
+    {
+      "caller": "src/app/artist/page.jsx",
+      "line": 11,
+      "dependency": "src/utils/youtubeSearchUrl.mjs"
+    },
+    {
+      "caller": "src/app/embed/not-found.js",
+      "line": 2,
+      "dependency": "src/utils/shareCard.mjs"
+    },
+    {
+      "caller": "src/app/embed/playlist/[playlistId]/page.jsx",
+      "line": 2,
+      "dependency": "src/utils/routeParams.js"
+    },
+    {
+      "caller": "src/app/embed/playlist/[playlistId]/page.jsx",
+      "line": 3,
+      "dependency": "src/utils/publicPlaylistShare.mjs"
+    },
+    {
+      "caller": "src/app/embed/playlist/[playlistId]/page.jsx",
+      "line": 9,
+      "dependency": "src/utils/shareCard.mjs"
+    },
+    {
+      "caller": "src/app/embed/playlist/[playlistId]/page.jsx",
+      "line": 10,
+      "dependency": "src/utils/siteConfig.js"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 6,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 7,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 8,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 9,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 10,
+      "dependency": "src/utils/youtubeSearchUrl.mjs"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 11,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 12,
+      "dependency": "src/utils/navCache.js"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 13,
+      "dependency": "src/utils/followedArtistsList.mjs"
+    },
+    {
+      "caller": "src/app/following/page.jsx",
+      "line": 14,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/app/jam/[code]/layout.js",
+      "line": 3,
+      "dependency": "src/utils/shareCard.mjs"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 3,
+      "dependency": "src/components/SongsHistory.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 4,
+      "dependency": "src/components/SettingsSync.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 5,
+      "dependency": "src/components/AppearanceSync.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 6,
+      "dependency": "src/components/LanguageSync.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 7,
+      "dependency": "src/redux/Providers.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 8,
+      "dependency": "src/components/topProgressBar/TopProgressBar.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 9,
+      "dependency": "src/components/NavigationProgress.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 10,
+      "dependency": "src/app/AuthProvider.js"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 11,
+      "dependency": "src/components/Layout/AppShell.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 12,
+      "dependency": "src/components/AccessibilityPreferences.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 13,
+      "dependency": "src/components/AnalyticsCleanup.jsx"
+    },
+    {
+      "caller": "src/app/layout.js",
+      "line": 25,
+      "dependency": "src/utils/siteConfig.js"
+    },
+    {
+      "caller": "src/app/library/liked/page.jsx",
+      "line": 1,
+      "dependency": "src/components/Library/PlaylistDetail.jsx"
+    },
+    {
+      "caller": "src/app/library/page.jsx",
+      "line": 1,
+      "dependency": "src/components/Library/LibraryView.jsx"
+    },
+    {
+      "caller": "src/app/library/playlist/[playlistId]/page.jsx",
+      "line": 1,
+      "dependency": "src/components/Library/PlaylistDetail.jsx"
+    },
+    {
+      "caller": "src/app/library/playlist/[playlistId]/page.jsx",
+      "line": 2,
+      "dependency": "src/utils/routeParams.js"
+    },
+    {
+      "caller": "src/app/library/playlist/[playlistId]/page.jsx",
+      "line": 3,
+      "dependency": "src/utils/shareCard.mjs"
+    },
+    {
+      "caller": "src/app/library/playlist/[playlistId]/page.jsx",
+      "line": 4,
+      "dependency": "src/utils/publicPlaylistShare.mjs"
+    },
+    {
+      "caller": "src/app/mix/[id]/page.jsx",
+      "line": 2,
+      "dependency": "src/components/DiscoveryPlaylist.jsx"
+    },
+    {
+      "caller": "src/app/mix/page.jsx",
+      "line": 1,
+      "dependency": "src/components/Homepage/MixCard.jsx"
+    },
+    {
+      "caller": "src/app/recently-played/page.jsx",
+      "line": 1,
+      "dependency": "src/components/RecentlyPlayed.jsx"
+    },
+    {
+      "caller": "src/app/robots.js",
+      "line": 1,
+      "dependency": "src/utils/siteConfig.js"
+    },
+    {
+      "caller": "src/app/search/[query]/page.jsx",
+      "line": 2,
+      "dependency": "src/components/YouTubeMusicResults.jsx"
+    },
+    {
+      "caller": "src/app/search/[query]/page.jsx",
+      "line": 3,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 6,
+      "dependency": "src/redux/features/settingsSlice.js"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 7,
+      "dependency": "src/utils/eqPresets.js"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 9,
+      "dependency": "src/utils/signOut.js"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 13,
+      "dependency": "src/utils/discordPresenceStatus.js"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 14,
+      "dependency": "src/lib/discordPresenceClient.js"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 15,
+      "dependency": "src/components/DeleteAccountForm.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 16,
+      "dependency": "src/components/ExportDataButton.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 17,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 18,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 19,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 20,
+      "dependency": "src/components/AccessibleDialog.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 21,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 22,
+      "dependency": "src/utils/browserNotifications.mjs"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 28,
+      "dependency": "src/components/GenrePreferences.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 31,
+      "dependency": "src/components/FeedbackPreferences.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 32,
+      "dependency": "src/components/SupportDiagnostics.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 33,
+      "dependency": "src/components/ListeningInsights.jsx"
+    },
+    {
+      "caller": "src/app/settings/page.jsx",
+      "line": 34,
+      "dependency": "src/components/AppearanceSettings.jsx"
+    },
+    {
+      "caller": "src/app/youtube-playlist/[id]/layout.js",
+      "line": 1,
+      "dependency": "src/utils/routeParams.js"
+    },
+    {
+      "caller": "src/app/youtube-playlist/[id]/layout.js",
+      "line": 2,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/app/youtube-playlist/[id]/layout.js",
+      "line": 3,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/app/youtube-playlist/[id]/layout.js",
+      "line": 4,
+      "dependency": "src/utils/shareCard.mjs"
+    },
+    {
+      "caller": "src/app/youtube-playlist/[id]/page.jsx",
+      "line": 5,
+      "dependency": "src/components/DiscoveryPlaylist.jsx"
+    },
+    {
+      "caller": "src/app/youtube-playlist/[id]/page.jsx",
+      "line": 6,
+      "dependency": "src/components/Skeleton.jsx"
+    },
+    {
+      "caller": "src/components/AddToQueueButton.jsx",
+      "line": 3,
+      "dependency": "src/components/TrackQueueMenu.jsx"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeSongPicker.jsx",
+      "line": 12,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeSongPicker.jsx",
+      "line": 13,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeSongPicker.jsx",
+      "line": 14,
+      "dependency": "src/utils/youtubeSearchUrl.mjs"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeSongPicker.jsx",
+      "line": 15,
+      "dependency": "src/utils/searchRequestCache.mjs"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeSongPicker.jsx",
+      "line": 16,
+      "dependency": "src/utils/playerQueue.mjs"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 3,
+      "dependency": "src/utils/arcadeAudioFile.mjs"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 10,
+      "dependency": "src/components/Arcade/ArcadeGameSelect.jsx"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 11,
+      "dependency": "src/components/Arcade/ArcadeSongPicker.jsx"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 12,
+      "dependency": "src/components/Arcade/HowToPlayOverlay.jsx"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 13,
+      "dependency": "src/components/Arcade/Rhythm/MagicTiles2D.jsx"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 14,
+      "dependency": "src/components/Arcade/2D/WaveInvaders2D.jsx"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 15,
+      "dependency": "src/components/Arcade/arcadeGames.js"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 16,
+      "dependency": "src/hooks/useAudioAnalyzer.js"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 17,
+      "dependency": "src/hooks/useArcadeClock.js"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 21,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 22,
+      "dependency": "src/utils/arcadeChart.mjs"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 23,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 24,
+      "dependency": "src/redux/features/loadingBarSlice.js"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 25,
+      "dependency": "src/utils/radioEngine.mjs"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 26,
+      "dependency": "src/utils/playerQueue.mjs"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 27,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 28,
+      "dependency": "src/components/Jam/JamProvider.jsx"
+    },
+    {
+      "caller": "src/components/Arcade/ArcadeStage.jsx",
+      "line": 31,
+      "dependency": "src/components/Arcade/3D/BeatRunner3D.jsx"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 6,
+      "dependency": "src/components/HorizontalRail.jsx"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 7,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 8,
+      "dependency": "src/components/ArtistNameLink.jsx"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 9,
+      "dependency": "src/components/AddToQueueButton.jsx"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 10,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 11,
+      "dependency": "src/utils/artistNavigation.mjs"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 12,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 13,
+      "dependency": "src/utils/trackDuration.mjs"
+    },
+    {
+      "caller": "src/components/ArtistCatalogRails.jsx",
+      "line": 14,
+      "dependency": "src/components/artistProfile.module.css"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 3,
+      "dependency": "src/utils/discoveryPlaylist.mjs"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 4,
+      "dependency": "src/utils/trackDuration.mjs"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 17,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 19,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 20,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 21,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 22,
+      "dependency": "src/components/Skeleton.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 23,
+      "dependency": "src/components/ArtistNameLink.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 24,
+      "dependency": "src/components/AddToQueueButton.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 25,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 26,
+      "dependency": "src/components/ItemMenu.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 27,
+      "dependency": "src/components/FavouriteTrackButton.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 28,
+      "dependency": "src/components/ArtistCatalogRails.jsx"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 29,
+      "dependency": "src/services/libraryApi.js"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 30,
+      "dependency": "src/utils/artistNavigation.mjs"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 31,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 32,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 33,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 34,
+      "dependency": "src/utils/accountNotifications.mjs"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 35,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 36,
+      "dependency": "src/utils/followedArtistsList.mjs"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 37,
+      "dependency": "src/components/artistProfile.module.css"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 3,
+      "dependency": "src/utils/trackDuration.mjs"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 9,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 10,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 11,
+      "dependency": "src/components/ArtistNameLink.jsx"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 12,
+      "dependency": "src/components/AddToQueueButton.jsx"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 13,
+      "dependency": "src/components/FavouriteTrackButton.jsx"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 14,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 15,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 16,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 17,
+      "dependency": "src/components/Skeleton.jsx"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 18,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 19,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 20,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 21,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 22,
+      "dependency": "src/components/artistRelease.module.css"
+    },
+    {
+      "caller": "src/components/CoverUploader.jsx",
+      "line": 6,
+      "dependency": "src/utils/imageOptimize.js"
+    },
+    {
+      "caller": "src/components/DiscordPresenceSync.jsx",
+      "line": 6,
+      "dependency": "src/hooks/useDiscordPresence.js"
+    },
+    {
+      "caller": "src/components/DiscordPresenceSync.jsx",
+      "line": 7,
+      "dependency": "src/hooks/useDesktopPlaybackBridge.js"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 3,
+      "dependency": "src/utils/trackDuration.mjs"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 9,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 10,
+      "dependency": "src/components/AddToQueueButton.jsx"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 11,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 12,
+      "dependency": "src/components/ArtistNameLink.jsx"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 13,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 14,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 15,
+      "dependency": "src/components/Skeleton.jsx"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 16,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 17,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 18,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 19,
+      "dependency": "src/utils/discoveryPlaylist.mjs"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 20,
+      "dependency": "src/utils/youtubeSearchUrl.mjs"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 21,
+      "dependency": "src/utils/siteConfig.js"
+    },
+    {
+      "caller": "src/components/ErrorBoundary.jsx",
+      "line": 5,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/components/FeedbackPreferences.jsx",
+      "line": 5,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/FeedbackPreferences.jsx",
+      "line": 6,
+      "dependency": "src/services/libraryApi.js"
+    },
+    {
+      "caller": "src/components/FeedbackPreferences.jsx",
+      "line": 7,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/FeedbackPreferences.jsx",
+      "line": 8,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/FeedbackPreferences.jsx",
+      "line": 9,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/Home.jsx",
+      "line": 5,
+      "dependency": "src/components/Homepage/QuickAccessGrid.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/Home.jsx",
+      "line": 11,
+      "dependency": "src/hooks/useHomeHighlights.js"
+    },
+    {
+      "caller": "src/components/Homepage/HomeHeader.jsx",
+      "line": 8,
+      "dependency": "src/components/Layout/AppShell.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/HomeRail.jsx",
+      "line": 8,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/HomeRail.jsx",
+      "line": 11,
+      "dependency": "src/components/Homepage/MixCard.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/HomeRail.jsx",
+      "line": 12,
+      "dependency": "src/utils/playHome.js"
+    },
+    {
+      "caller": "src/components/Homepage/HomeRail.jsx",
+      "line": 13,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/Homepage/HomeRail.jsx",
+      "line": 15,
+      "dependency": "src/utils/songIdentity.mjs"
+    },
+    {
+      "caller": "src/components/Homepage/MixCard.jsx",
+      "line": 9,
+      "dependency": "src/assets/HayKasa-logo-removebg.png"
+    },
+    {
+      "caller": "src/components/Homepage/MixCard.jsx",
+      "line": 10,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/Homepage/MixCard.jsx",
+      "line": 11,
+      "dependency": "src/utils/homeMixes.js"
+    },
+    {
+      "caller": "src/components/Homepage/MixCard.jsx",
+      "line": 12,
+      "dependency": "src/utils/playHome.js"
+    },
+    {
+      "caller": "src/components/Homepage/MixCard.jsx",
+      "line": 13,
+      "dependency": "src/utils/discoveryPlaylist.mjs"
+    },
+    {
+      "caller": "src/components/Homepage/MixCard.jsx",
+      "line": 14,
+      "dependency": "src/utils/youtubeSearchUrl.mjs"
+    },
+    {
+      "caller": "src/components/Homepage/MixCard.jsx",
+      "line": 15,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 3,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 4,
+      "dependency": "src/components/PlaylistItemMenu.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 9,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 10,
+      "dependency": "src/components/PlaylistCover.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 11,
+      "dependency": "src/components/FxEq.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 12,
+      "dependency": "src/components/AddToQueueButton.jsx"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 13,
+      "dependency": "src/utils/playHome.js"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 14,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/Homepage/QuickAccessGrid.jsx",
+      "line": 15,
+      "dependency": "src/utils/songIdentity.mjs"
+    },
+    {
+      "caller": "src/components/Jam/JamInvite.jsx",
+      "line": 4,
+      "dependency": "src/utils/shareCard.mjs"
+    },
+    {
+      "caller": "src/components/Jam/JamProvider.jsx",
+      "line": 4,
+      "dependency": "src/hooks/useJamSession.js"
+    },
+    {
+      "caller": "src/components/Jam/KasaCrowd.jsx",
+      "line": 5,
+      "dependency": "src/hooks/useCrowdRadio.js"
+    },
+    {
+      "caller": "src/components/Jam/KasaCrowd.jsx",
+      "line": 6,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 9,
+      "dependency": "src/components/Navbar.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 10,
+      "dependency": "src/components/Sidebar/Sidebar.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 11,
+      "dependency": "src/components/Layout/MobileTabBar.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 12,
+      "dependency": "src/components/Layout/DesktopNowPlayingPanel.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 13,
+      "dependency": "src/components/Layout/EmptyPlayerDock.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 14,
+      "dependency": "src/components/Layout/CreateHub.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 15,
+      "dependency": "src/components/Layout/Atmosphere.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 16,
+      "dependency": "src/components/Layout/PageTransit.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 17,
+      "dependency": "src/components/ErrorBoundary.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 18,
+      "dependency": "src/components/Homepage/OnlineStatus.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 19,
+      "dependency": "src/components/PullToRefresh.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 20,
+      "dependency": "src/components/Jam/JamProvider.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 21,
+      "dependency": "src/hooks/useNetworkRecovery.js"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 22,
+      "dependency": "src/hooks/useScrollPerformance.js"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 23,
+      "dependency": "src/hooks/usePointerTilt.js"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 24,
+      "dependency": "src/hooks/useMediaQuery.js"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 25,
+      "dependency": "src/components/PlaybackPersistence.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 26,
+      "dependency": "src/components/DiscordPresenceSync.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 27,
+      "dependency": "src/components/AppearanceBackdrop.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 28,
+      "dependency": "src/redux/features/appearanceSlice.js"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 29,
+      "dependency": "src/utils/authPaths.mjs"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 30,
+      "dependency": "src/utils/embedPaths.mjs"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 31,
+      "dependency": "src/utils/androidNavigation.mjs"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 32,
+      "dependency": "src/utils/responsivePolicy.mjs"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 35,
+      "dependency": "src/components/MusicPlayer/index.jsx"
+    },
+    {
+      "caller": "src/components/Layout/AppShell.jsx",
+      "line": 40,
+      "dependency": "src/components/Jam/JamController.jsx"
+    },
+    {
+      "caller": "src/components/Layout/NotFoundPlaybackGuard.jsx",
+      "line": 5,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 4,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 5,
+      "dependency": "src/components/PlaylistItemMenu.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 21,
+      "dependency": "src/components/Sidebar/PlaylistModal.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 22,
+      "dependency": "src/components/RecommendationPlaylistCard.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 23,
+      "dependency": "src/components/PlaylistCover.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 24,
+      "dependency": "src/components/LikePlaylistButton.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 25,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 26,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 27,
+      "dependency": "src/components/Skeleton.jsx"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 28,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 29,
+      "dependency": "src/services/playlistApi.js"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 35,
+      "dependency": "src/services/libraryApi.js"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 36,
+      "dependency": "src/utils/playlistThemes.js"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 37,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 38,
+      "dependency": "src/utils/navCache.js"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 39,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 40,
+      "dependency": "src/hooks/useLibraryPresentation.js"
+    },
+    {
+      "caller": "src/components/Library/LibraryView.jsx",
+      "line": 41,
+      "dependency": "src/utils/libraryPresentation.mjs"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 2,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 3,
+      "dependency": "src/components/PlaylistItemMenu.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 4,
+      "dependency": "src/components/EditPlaylistDetails.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 30,
+      "dependency": "src/services/dataAPI.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 36,
+      "dependency": "src/services/playlistApi.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 42,
+      "dependency": "src/services/libraryApi.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 45,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 46,
+      "dependency": "src/redux/features/loadingBarSlice.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 47,
+      "dependency": "src/components/PlaylistCover.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 48,
+      "dependency": "src/components/LikePlaylistButton.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 49,
+      "dependency": "src/components/CoverUploader.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 50,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 51,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 52,
+      "dependency": "src/components/AccessibleDialog.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 53,
+      "dependency": "src/components/Skeleton.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 54,
+      "dependency": "src/components/Library/VirtualizedPlaylistTrackList.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 55,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 56,
+      "dependency": "src/utils/playlistThemes.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 57,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 58,
+      "dependency": "src/utils/navCache.js"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 59,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 63,
+      "dependency": "src/utils/discoveryShufflePreference.mjs"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 67,
+      "dependency": "src/utils/shareCard.mjs"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 69,
+      "dependency": "src/utils/playlistDuration.mjs"
+    },
+    {
+      "caller": "src/components/Library/PlaylistTrackRow.jsx",
+      "line": 8,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/Library/PlaylistTrackRow.jsx",
+      "line": 10,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/Library/VirtualizedPlaylistTrackList.jsx",
+      "line": 4,
+      "dependency": "src/components/Library/PlaylistTrackRow.jsx"
+    },
+    {
+      "caller": "src/components/Library/VirtualizedPlaylistTrackList.jsx",
+      "line": 14,
+      "dependency": "src/utils/virtualPlaylist.mjs"
+    },
+    {
+      "caller": "src/components/ListeningInsights.jsx",
+      "line": 5,
+      "dependency": "src/redux/features/settingsSlice.js"
+    },
+    {
+      "caller": "src/components/ListeningInsights.jsx",
+      "line": 6,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/ListeningInsights.jsx",
+      "line": 7,
+      "dependency": "src/services/libraryApi.js"
+    },
+    {
+      "caller": "src/components/ListeningInsights.jsx",
+      "line": 8,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/ListeningInsights.jsx",
+      "line": 9,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/ListeningInsights.jsx",
+      "line": 10,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/MediaImage.jsx",
+      "line": 4,
+      "dependency": "src/utils/imageOptimize.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/ExpandedPlayer.tsx",
+      "line": 8,
+      "dependency": "src/components/MusicPlayer/PlayerDock.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/FullscreenTrack.jsx",
+      "line": 3,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/FullscreenTrack.jsx",
+      "line": 6,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/Lyrics.jsx",
+      "line": 8,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 7,
+      "dependency": "src/components/ArtistNameLink.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 8,
+      "dependency": "src/utils/artistNavigation.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 12,
+      "dependency": "src/components/MusicPlayer/player.types.ts"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 13,
+      "dependency": "src/components/MusicPlayer/PlayerDock.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 14,
+      "dependency": "src/components/MusicPlayer/PlayerTimeline.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 15,
+      "dependency": "src/components/MusicPlayer/mediaPresentation.module.css"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 16,
+      "dependency": "src/components/MusicPlayer/mediaPresentationState.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 17,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 18,
+      "dependency": "src/hooks/useMediaQuery.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 19,
+      "dependency": "src/utils/responsivePolicy.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 20,
+      "dependency": "src/utils/youtubePresentationPolicy.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 22,
+      "dependency": "src/components/MusicPlayer/SyncedLyrics.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/MediaPresentation.tsx",
+      "line": 23,
+      "dependency": "src/components/MusicPlayer/ClockedSyncedLyrics.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PictureInPictureWindow.jsx",
+      "line": 15,
+      "dependency": "src/utils/imageOptimize.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PictureInPictureWindow.jsx",
+      "line": 17,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/Player.jsx",
+      "line": 7,
+      "dependency": "src/utils/eqPresets.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/Player.jsx",
+      "line": 9,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/Player.jsx",
+      "line": 11,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 7,
+      "dependency": "src/components/ArtistNameLink.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 8,
+      "dependency": "src/components/Layout/AppShell.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 9,
+      "dependency": "src/components/MusicPlayer/player.types.ts"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 10,
+      "dependency": "src/components/MusicPlayer/PlayerTimeline.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 11,
+      "dependency": "src/components/MusicPlayer/MediaPresentation.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 12,
+      "dependency": "src/components/MusicPlayer/MediaPresentation.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 13,
+      "dependency": "src/components/MusicPlayer/playerDock.module.css"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 14,
+      "dependency": "src/components/MusicPlayer/youtubeSanitizer.module.css"
+    },
+    {
+      "caller": "src/components/MusicPlayer/PlayerDock.tsx",
+      "line": 16,
+      "dependency": "src/components/MusicPlayer/ExpandedPlayer.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/QueueEditor.tsx",
+      "line": 7,
+      "dependency": "src/components/MusicPlayer/PlayerDock.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/QueueEditor.tsx",
+      "line": 10,
+      "dependency": "src/components/TrackQueueMenu.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/Track.jsx",
+      "line": 2,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 6,
+      "dependency": "src/utils/explicitContent.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 13,
+      "dependency": "src/utils/youtubePlaybackError.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 14,
+      "dependency": "src/components/MusicPlayer/PlayerDock.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 15,
+      "dependency": "src/components/MusicPlayer/media/mediaPlayerStates.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 16,
+      "dependency": "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 17,
+      "dependency": "src/components/MusicPlayer/media/mediaCapabilities.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 18,
+      "dependency": "src/components/MusicPlayer/media/PlaybackQualityControl.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 27,
+      "dependency": "src/utils/playerQueue.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 43,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 44,
+      "dependency": "src/services/playlistApi.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 45,
+      "dependency": "src/hooks/useListeningInsights.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 46,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 47,
+      "dependency": "src/utils/youtubeIframeApi.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 49,
+      "dependency": "src/components/FavouriteTrackButton.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 50,
+      "dependency": "src/components/AddToPlaylistButton.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 51,
+      "dependency": "src/components/MusicPlayer/ClockedPictureInPictureWindow.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 52,
+      "dependency": "src/components/MusicPlayer/FloatingPlayer.tsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 53,
+      "dependency": "src/components/MusicPlayer/PlayerVolume.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 54,
+      "dependency": "src/components/Jam/JamProvider.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 55,
+      "dependency": "src/hooks/useSyncedLyrics.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 56,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 57,
+      "dependency": "src/utils/eqPresets.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 58,
+      "dependency": "src/utils/imageOptimize.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 66,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 67,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 68,
+      "dependency": "src/utils/radioSeed.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 69,
+      "dependency": "src/utils/youtubeSearchUrl.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 70,
+      "dependency": "src/components/MusicPlayer/playbackClock.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 71,
+      "dependency": "src/hooks/useYoutubeCaptions.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 72,
+      "dependency": "src/hooks/useWakeLock.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 73,
+      "dependency": "src/hooks/useKeyboardShortcuts.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 74,
+      "dependency": "src/redux/features/settingsSlice.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 75,
+      "dependency": "src/utils/youtubeResumePolicy.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 76,
+      "dependency": "src/utils/mediaSessionCompatibility.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 77,
+      "dependency": "src/utils/wakeLockPolicy.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 78,
+      "dependency": "src/utils/youtubePresentationPolicy.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 79,
+      "dependency": "src/components/MusicPlayer/ClockedCaptionKaraoke.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 2811,
+      "dependency": "src/components/MusicPlayer/PictureInPictureWindow.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 10,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 11,
+      "dependency": "src/components/MusicPlayer/Controls.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 12,
+      "dependency": "src/components/MusicPlayer/Player.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 13,
+      "dependency": "src/components/MusicPlayer/Seekbar.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 14,
+      "dependency": "src/components/MusicPlayer/Track.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 15,
+      "dependency": "src/components/AddToPlaylistButton.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 16,
+      "dependency": "src/utils/playlistDuration.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 17,
+      "dependency": "src/components/MusicPlayer/PlayerVolume.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 18,
+      "dependency": "src/components/MusicPlayer/FullscreenTrack.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 19,
+      "dependency": "src/components/MusicPlayer/Lyrics.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 20,
+      "dependency": "src/components/MusicPlayer/Downloader.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 22,
+      "dependency": "src/services/dataAPI.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 25,
+      "dependency": "src/components/MusicPlayer/FavouriteButton.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 26,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 27,
+      "dependency": "src/components/MusicPlayer/YouTubePlayer.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 28,
+      "dependency": "src/components/MusicPlayer/PictureInPictureWindow.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 29,
+      "dependency": "src/hooks/useSyncedLyrics.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 30,
+      "dependency": "src/hooks/usePlayerTransport.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 31,
+      "dependency": "src/hooks/useMediaSession.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 32,
+      "dependency": "src/hooks/useKeyboardShortcuts.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 33,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 34,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 35,
+      "dependency": "src/utils/appOrigin.mjs"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 36,
+      "dependency": "src/redux/features/settingsSlice.js"
+    },
+    {
+      "caller": "src/components/MusicPlayer/index.jsx",
+      "line": 222,
+      "dependency": "src/components/MusicPlayer/PictureInPictureWindow.jsx"
+    },
+    {
+      "caller": "src/components/MusicPlayer/media/nativeAudioGraph.mjs",
+      "line": 1,
+      "dependency": "src/utils/eqPresets.js"
+    },
+    {
+      "caller": "src/components/Navbar.jsx",
+      "line": 13,
+      "dependency": "src/components/Layout/AppShell.jsx"
+    },
+    {
+      "caller": "src/components/Navbar.jsx",
+      "line": 14,
+      "dependency": "src/components/Searchbar.jsx"
+    },
+    {
+      "caller": "src/components/Navbar.jsx",
+      "line": 15,
+      "dependency": "src/components/UpdatesBell.jsx"
+    },
+    {
+      "caller": "src/components/PlaybackPersistence.jsx",
+      "line": 6,
+      "dependency": "src/components/Jam/JamProvider.jsx"
+    },
+    {
+      "caller": "src/components/PlaybackPersistence.jsx",
+      "line": 7,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/PlaybackPersistence.jsx",
+      "line": 8,
+      "dependency": "src/utils/playbackSnapshot.mjs"
+    },
+    {
+      "caller": "src/components/PlaybackPersistence.jsx",
+      "line": 9,
+      "dependency": "src/utils/accountStorage.mjs"
+    },
+    {
+      "caller": "src/components/PlaybackPersistence.jsx",
+      "line": 10,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/components/RecentlyPlayed.jsx",
+      "line": 6,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/RecentlyPlayed.jsx",
+      "line": 7,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/components/RecentlyPlayed.jsx",
+      "line": 8,
+      "dependency": "src/utils/recentActivity.mjs"
+    },
+    {
+      "caller": "src/components/RecentlyPlayed.jsx",
+      "line": 9,
+      "dependency": "src/utils/playHome.js"
+    },
+    {
+      "caller": "src/components/RecentlyPlayed.jsx",
+      "line": 10,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/RecentlyPlayed.jsx",
+      "line": 11,
+      "dependency": "src/components/AddToQueueButton.jsx"
+    },
+    {
+      "caller": "src/components/RecentlyPlayed.jsx",
+      "line": 12,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 6,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 9,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 10,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 11,
+      "dependency": "src/components/ItemMenu.jsx"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 12,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 13,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 14,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 15,
+      "dependency": "src/utils/discoveryPlaylist.mjs"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 5,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 6,
+      "dependency": "src/components/ItemMenu.jsx"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 21,
+      "dependency": "src/redux/features/loadingBarSlice.js"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 22,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 23,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 24,
+      "dependency": "src/components/AddToQueueButton.jsx"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 25,
+      "dependency": "src/components/FavouriteTrackButton.jsx"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 26,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 27,
+      "dependency": "src/utils/youtubeSearchUrl.mjs"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 28,
+      "dependency": "src/utils/searchRequestCache.mjs"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 29,
+      "dependency": "src/utils/artistNavigation.mjs"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 30,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 31,
+      "dependency": "src/hooks/useMediaQuery.js"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 32,
+      "dependency": "src/utils/responsivePolicy.mjs"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 33,
+      "dependency": "src/utils/explicitContent.mjs"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 34,
+      "dependency": "src/components/Search/search.module.css"
+    },
+    {
+      "caller": "src/components/Searchbar.jsx",
+      "line": 35,
+      "dependency": "src/utils/searchResults.mjs"
+    },
+    {
+      "caller": "src/components/SettingsSync.jsx",
+      "line": 10,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/components/Sidebar/PlaylistModal.jsx",
+      "line": 16,
+      "dependency": "src/components/Layout/AppShell.jsx"
+    },
+    {
+      "caller": "src/components/Sidebar/Playlists.jsx",
+      "line": 10,
+      "dependency": "src/components/Layout/AppShell.jsx"
+    },
+    {
+      "caller": "src/components/Sidebar/Sidebar.jsx",
+      "line": 23,
+      "dependency": "src/components/Layout/AppShell.jsx"
+    },
+    {
+      "caller": "src/components/SongsHistory.jsx",
+      "line": 5,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/SongsHistory.jsx",
+      "line": 6,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/components/SongsHistory.jsx",
+      "line": 7,
+      "dependency": "src/utils/recentActivity.mjs"
+    },
+    {
+      "caller": "src/components/SongsList.jsx",
+      "line": 8,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/SongsList.jsx",
+      "line": 20,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/SupportDiagnostics.jsx",
+      "line": 8,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/components/TrackQueueMenu.jsx",
+      "line": 22,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/TrackQueueMenu.jsx",
+      "line": 23,
+      "dependency": "src/services/playlistApi.js"
+    },
+    {
+      "caller": "src/components/TrackQueueMenu.jsx",
+      "line": 24,
+      "dependency": "src/utils/appOrigin.mjs"
+    },
+    {
+      "caller": "src/components/TrackQueueMenu.jsx",
+      "line": 25,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/TrackQueueMenu.jsx",
+      "line": 26,
+      "dependency": "src/utils/anchoredMenu.mjs"
+    },
+    {
+      "caller": "src/components/UpdatesBell.jsx",
+      "line": 10,
+      "dependency": "src/hooks/useFocusTrap.js"
+    },
+    {
+      "caller": "src/components/UpdatesBell.jsx",
+      "line": 11,
+      "dependency": "src/hooks/useDismissOnOutside.js"
+    },
+    {
+      "caller": "src/components/UpdatesBell.jsx",
+      "line": 12,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/UpdatesBell.jsx",
+      "line": 13,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/UpdatesBell.jsx",
+      "line": 14,
+      "dependency": "src/utils/accountNotifications.mjs"
+    },
+    {
+      "caller": "src/components/UpdatesBell.jsx",
+      "line": 15,
+      "dependency": "src/utils/browserNotifications.mjs"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 3,
+      "dependency": "src/components/ContextMenuTarget.jsx"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 7,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 10,
+      "dependency": "src/components/MediaImage.jsx"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 11,
+      "dependency": "src/components/AddToQueueButton.jsx"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 12,
+      "dependency": "src/components/FavouriteTrackButton.jsx"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 13,
+      "dependency": "src/utils/artistNavigation.mjs"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 14,
+      "dependency": "src/components/ArtistNameLink.jsx"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 15,
+      "dependency": "src/components/Skeleton.jsx"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 18,
+      "dependency": "src/components/EmptyState.jsx"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 19,
+      "dependency": "src/components/UserMessage.jsx"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 20,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 21,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 22,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 23,
+      "dependency": "src/utils/siteConfig.js"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 24,
+      "dependency": "src/utils/accountNotifications.mjs"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 25,
+      "dependency": "src/utils/followedArtistsList.mjs"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 26,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 27,
+      "dependency": "src/utils/youtubeSearchUrl.mjs"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 28,
+      "dependency": "src/utils/explicitContent.mjs"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 29,
+      "dependency": "src/utils/trackDuration.mjs"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 30,
+      "dependency": "src/components/Search/search.module.css"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 31,
+      "dependency": "src/utils/searchResults.mjs"
+    },
+    {
+      "caller": "src/hooks/useArcadeClock.js",
+      "line": 4,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/hooks/useArcadeClock.js",
+      "line": 5,
+      "dependency": "src/utils/playerQueue.mjs"
+    },
+    {
+      "caller": "src/hooks/useCrowdRadio.js",
+      "line": 6,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/hooks/useCrowdRadio.js",
+      "line": 7,
+      "dependency": "src/utils/supabaseClient.js"
+    },
+    {
+      "caller": "src/hooks/useCrowdRadio.js",
+      "line": 8,
+      "dependency": "src/utils/radioEngine.mjs"
+    },
+    {
+      "caller": "src/hooks/useCrowdRadio.js",
+      "line": 9,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/hooks/useCrowdRadio.js",
+      "line": 10,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/hooks/useCrowdRadio.js",
+      "line": 11,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/hooks/useDesktopPlaybackBridge.js",
+      "line": 5,
+      "dependency": "src/components/Jam/JamProvider.jsx"
+    },
+    {
+      "caller": "src/hooks/useDesktopPlaybackBridge.js",
+      "line": 6,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/hooks/useDesktopPlaybackBridge.js",
+      "line": 7,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/hooks/useDiscordPresence.js",
+      "line": 5,
+      "dependency": "src/lib/discordPresenceClient.js"
+    },
+    {
+      "caller": "src/hooks/useDiscordPresence.js",
+      "line": 10,
+      "dependency": "src/utils/discordPresence.mjs"
+    },
+    {
+      "caller": "src/hooks/useDiscordPresence.js",
+      "line": 11,
+      "dependency": "src/utils/discordPresenceStatus.js"
+    },
+    {
+      "caller": "src/hooks/useDiscordPresence.js",
+      "line": 12,
+      "dependency": "src/utils/siteConfig.js"
+    },
+    {
+      "caller": "src/hooks/useDiscordPresence.js",
+      "line": 13,
+      "dependency": "src/components/Jam/JamProvider.jsx"
+    },
+    {
+      "caller": "src/hooks/useDiscordPresence.js",
+      "line": 14,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/hooks/useHomeFeed.js",
+      "line": 12,
+      "dependency": "src/utils/explicitContent.mjs"
+    },
+    {
+      "caller": "src/hooks/useHomeHighlights.js",
+      "line": 6,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/hooks/useHomeHighlights.js",
+      "line": 7,
+      "dependency": "src/services/libraryApi.js"
+    },
+    {
+      "caller": "src/hooks/useHomeHighlights.js",
+      "line": 8,
+      "dependency": "src/utils/accountCache.mjs"
+    },
+    {
+      "caller": "src/hooks/useHomeHighlights.js",
+      "line": 9,
+      "dependency": "src/utils/explicitContent.mjs"
+    },
+    {
+      "caller": "src/hooks/useHomeHighlights.js",
+      "line": 10,
+      "dependency": "src/utils/thisDayOnKasa.mjs"
+    },
+    {
+      "caller": "src/hooks/useJamSession.js",
+      "line": 12,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/hooks/useJamSession.js",
+      "line": 13,
+      "dependency": "src/utils/jamSignedChannel.mjs"
+    },
+    {
+      "caller": "src/hooks/useJamSession.js",
+      "line": 14,
+      "dependency": "src/utils/supabaseClient.js"
+    },
+    {
+      "caller": "src/hooks/useJamSession.js",
+      "line": 34,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/hooks/useJamSession.js",
+      "line": 41,
+      "dependency": "src/utils/jamAux.mjs"
+    },
+    {
+      "caller": "src/hooks/useJamSession.js",
+      "line": 42,
+      "dependency": "src/utils/jamRooms.mjs"
+    },
+    {
+      "caller": "src/hooks/useNetworkRecovery.js",
+      "line": 6,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/hooks/useYoutubeCaptions.js",
+      "line": 4,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/hooks/useYoutubeCaptions.js",
+      "line": 5,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/redux/features/playerSlice.js",
+      "line": 2,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/redux/features/playerSlice.js",
+      "line": 3,
+      "dependency": "src/utils/playbackSnapshot.mjs"
+    },
+    {
+      "caller": "src/redux/features/playerSlice.js",
+      "line": 9,
+      "dependency": "src/utils/playerQueue.mjs"
+    },
+    {
+      "caller": "src/redux/features/playerSlice.js",
+      "line": 10,
+      "dependency": "src/utils/songIdentity.mjs"
+    },
+    {
+      "caller": "src/redux/features/playerSlice.js",
+      "line": 11,
+      "dependency": "src/utils/officialMusicSearch.mjs"
+    },
+    {
+      "caller": "src/redux/features/playerSlice.js",
+      "line": 17,
+      "dependency": "src/utils/radioSeed.mjs"
+    },
+    {
+      "caller": "src/redux/features/settingsSlice.js",
+      "line": 2,
+      "dependency": "src/utils/eqPresets.js"
+    },
+    {
+      "caller": "src/redux/store.js",
+      "line": 6,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/redux/store.js",
+      "line": 11,
+      "dependency": "src/utils/eqPresets.js"
+    },
+    {
+      "caller": "src/redux/store.js",
+      "line": 13,
+      "dependency": "src/utils/explicitContent.mjs"
+    },
+    {
+      "caller": "src/services/http.js",
+      "line": 2,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/services/libraryApi.js",
+      "line": 1,
+      "dependency": "src/utils/accountStorage.mjs"
+    },
+    {
+      "caller": "src/services/libraryApi.js",
+      "line": 2,
+      "dependency": "src/services/http.js"
+    },
+    {
+      "caller": "src/services/libraryApi.js",
+      "line": 3,
+      "dependency": "src/utils/playlistDuration.mjs"
+    },
+    {
+      "caller": "src/services/libraryApi.js",
+      "line": 4,
+      "dependency": "src/utils/userError.js"
+    },
+    {
+      "caller": "src/utils/apiResponse.js",
+      "line": 3,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/utils/artistMusicCatalog.mjs",
+      "line": 1,
+      "dependency": "src/utils/apiResponseCore.mjs"
+    },
+    {
+      "caller": "src/utils/artistMusicCatalog.mjs",
+      "line": 2,
+      "dependency": "src/utils/mediaUrl.mjs"
+    },
+    {
+      "caller": "src/utils/artistMusicCatalog.mjs",
+      "line": 3,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/utils/artistNavigation.mjs",
+      "line": 1,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/utils/artistNavigation.mjs",
+      "line": 2,
+      "dependency": "src/utils/radioSeed.mjs"
+    },
+    {
+      "caller": "src/utils/authOptions.js",
+      "line": 24,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/utils/commentVideoIds.mjs",
+      "line": 1,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/utils/deploymentConfig.mjs",
+      "line": 1,
+      "dependency": "src/utils/appOrigin.mjs"
+    },
+    {
+      "caller": "src/utils/discordPresence.mjs",
+      "line": 1,
+      "dependency": "src/utils/jam.mjs"
+    },
+    {
+      "caller": "src/utils/followedReleases.mjs",
+      "line": 1,
+      "dependency": "src/utils/youtubeApi.js"
+    },
+    {
+      "caller": "src/utils/followedReleases.mjs",
+      "line": 2,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/utils/followedReleases.mjs",
+      "line": 3,
+      "dependency": "src/utils/followedArtistsList.mjs"
+    },
+    {
+      "caller": "src/utils/homeDiscovery.mjs",
+      "line": 1,
+      "dependency": "src/utils/songIdentity.mjs"
+    },
+    {
+      "caller": "src/utils/playHome.js",
+      "line": 6,
+      "dependency": "src/redux/features/playerSlice.js"
+    },
+    {
+      "caller": "src/utils/playHome.js",
+      "line": 7,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/utils/playbackSnapshot.mjs",
+      "line": 1,
+      "dependency": "src/utils/accountStorage.mjs"
+    },
+    {
+      "caller": "src/utils/playbackSnapshot.mjs",
+      "line": 2,
+      "dependency": "src/utils/artistNavigation.mjs"
+    },
+    {
+      "caller": "src/utils/providerCache.js",
+      "line": 2,
+      "dependency": "src/utils/providerCachePolicy.mjs"
+    },
+    {
+      "caller": "src/utils/providerCache.js",
+      "line": 3,
+      "dependency": "src/utils/providerRequestContext.mjs"
+    },
+    {
+      "caller": "src/utils/providerRequestContext.mjs",
+      "line": 2,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/utils/publicPlaylistShare.mjs",
+      "line": 2,
+      "dependency": "src/utils/dbconnect.js"
+    },
+    {
+      "caller": "src/utils/publicPlaylistShare.mjs",
+      "line": 3,
+      "dependency": "src/models/Playlist.js"
+    },
+    {
+      "caller": "src/utils/publicPlaylistShare.mjs",
+      "line": 4,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/utils/publicPlaylistShare.mjs",
+      "line": 5,
+      "dependency": "src/utils/shareCard.mjs"
+    },
+    {
+      "caller": "src/utils/radioEngine.mjs",
+      "line": 1,
+      "dependency": "src/utils/radioSeed.mjs"
+    },
+    {
+      "caller": "src/utils/radioEngine.mjs",
+      "line": 2,
+      "dependency": "src/utils/songIdentity.mjs"
+    },
+    {
+      "caller": "src/utils/radioSeed.mjs",
+      "line": 1,
+      "dependency": "src/utils/songIdentity.mjs"
+    },
+    {
+      "caller": "src/utils/searchRequestCache.mjs",
+      "line": 1,
+      "dependency": "src/utils/youtubeSearchPurpose.mjs"
+    },
+    {
+      "caller": "src/utils/sessionAuth.js",
+      "line": 6,
+      "dependency": "src/utils/diagnostics.mjs"
+    },
+    {
+      "caller": "src/utils/shareCard.mjs",
+      "line": 6,
+      "dependency": "src/utils/siteConfig.js"
+    },
+    {
+      "caller": "src/utils/shareCard.mjs",
+      "line": 7,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/utils/thisDayOnKasa.mjs",
+      "line": 1,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/utils/weekPulse.mjs",
+      "line": 1,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/utils/weekPulseStore.mjs",
+      "line": 3,
+      "dependency": "src/utils/weekPulse.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 1,
+      "dependency": "src/utils/apiResponseCore.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 2,
+      "dependency": "src/utils/providerTransport.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 3,
+      "dependency": "src/utils/providerRequestContext.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 4,
+      "dependency": "src/utils/providerCache.js"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 6,
+      "dependency": "src/utils/text.js"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 7,
+      "dependency": "src/utils/officialMusicSearch.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 8,
+      "dependency": "src/utils/youtubeSearchFallback.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 9,
+      "dependency": "src/utils/youtubeVideoId.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 10,
+      "dependency": "src/utils/commentVideoIds.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 11,
+      "dependency": "src/utils/artistMusicCatalog.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeApi.js",
+      "line": 20,
+      "dependency": "src/utils/youtubeCaptions.mjs"
+    },
+    {
+      "caller": "src/utils/youtubePlaybackError.mjs",
+      "line": 1,
+      "dependency": "src/utils/playerQueue.mjs"
+    },
+    {
+      "caller": "src/utils/youtubeSearchUrl.mjs",
+      "line": 1,
+      "dependency": "src/utils/youtubeSearchPurpose.mjs"
+    }
+  ],
+  "api_calls": [
+    {
+      "caller": "src/app/api/youtube-search/route.js",
+      "line": 38,
+      "route": "/api/youtube-search"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 93,
+      "route": "/api/artist-sections"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 152,
+      "route": "/api/youtube-channel"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 185,
+      "route": "/api/channel-rabbit-hole"
+    },
+    {
+      "caller": "src/components/ArtistProfile.jsx",
+      "line": 309,
+      "route": "/api/youtube-channel"
+    },
+    {
+      "caller": "src/components/ArtistRelease.jsx",
+      "line": 41,
+      "route": "/api/youtube-album"
+    },
+    {
+      "caller": "src/components/DiscoveryPlaylist.jsx",
+      "line": 39,
+      "route": "/api/youtube-playlist"
+    },
+    {
+      "caller": "src/components/GenrePreferences.jsx",
+      "line": 518,
+      "route": "/api/recommendations"
+    },
+    {
+      "caller": "src/components/Homepage/MixCard.jsx",
+      "line": 32,
+      "route": "/api/youtube-playlist"
+    },
+    {
+      "caller": "src/components/Library/PlaylistDetail.jsx",
+      "line": 239,
+      "route": "/api/recommendations"
+    },
+    {
+      "caller": "src/components/MusicPlayer/YouTubePlayer.jsx",
+      "line": 1814,
+      "route": "/api/media/resolve"
+    },
+    {
+      "caller": "src/components/MusicPlayer/media/resolveMediaAsset.mjs",
+      "line": 1,
+      "route": "/api/media/resolve"
+    },
+    {
+      "caller": "src/components/RecommendationPlaylistCard.jsx",
+      "line": 28,
+      "route": "/api/youtube-playlist"
+    },
+    {
+      "caller": "src/components/YouTubeMusicResults.jsx",
+      "line": 347,
+      "route": "/api/youtube-playlist"
+    },
+    {
+      "caller": "src/hooks/useCrowdRadio.js",
+      "line": 133,
+      "route": "/api/crowd-radio"
+    },
+    {
+      "caller": "src/hooks/useHomeFeed.js",
+      "line": 91,
+      "route": "/api/recommendations"
+    },
+    {
+      "caller": "src/hooks/useYoutubeCaptions.js",
+      "line": 16,
+      "route": "/api/youtube-captions"
+    },
+    {
+      "caller": "src/services/libraryApi.js",
+      "line": 73,
+      "route": "/api/youtube-videos"
+    },
+    {
+      "caller": "src/services/libraryApi.js",
+      "line": 136,
+      "route": "/api/recommendations"
+    },
+    {
+      "caller": "src/utils/youtubeSearchUrl.mjs",
+      "line": 16,
+      "route": "/api/youtube-search"
+    }
+  ],
+  "cross_process": [
+    {
+      "from": "src/components/MusicPlayer/media/androidAudioElement.mjs",
+      "to": "android/app/src/main/java/app/haykasa/android/MainActivity.java",
+      "boundary": "same-origin native media bridge"
+    },
+    {
+      "from": "android/app/src/main/java/app/haykasa/android/MainActivity.java",
+      "to": "android/app/src/main/java/app/haykasa/android/PlaybackService.java",
+      "boundary": "native media service"
+    },
+    {
+      "from": "src/utils/mediaService.mjs",
+      "to": "media-service/app/vercel_app.py",
+      "boundary": "authenticated private Vercel service binding"
+    },
+    {
+      "from": "media-service/app/vercel_app.py",
+      "to": "media-service/app/jobs.py",
+      "boundary": "preparation and metadata"
+    },
+    {
+      "from": "src/hooks/useDesktopPlaybackBridge.js",
+      "to": "desktop/src/playback.mjs",
+      "boundary": "desktop transport bridge"
+    }
+  ],
+  "connected_paths_without_direct_match": [
+    "src/app/AuthProvider.js",
+    "src/assets/HayKasa-logo-removebg.png",
+    "src/components/AccessibilityControls.jsx",
+    "src/components/AccessibilityPreferences.jsx",
+    "src/components/AccessibleDialog.jsx",
+    "src/components/AddToPlaylistButton.jsx",
+    "src/components/AddToQueueButton.jsx",
+    "src/components/AnalyticsCleanup.jsx",
+    "src/components/AppearanceBackdrop.jsx",
+    "src/components/AppearanceSettings.jsx",
+    "src/components/AppearanceSync.jsx",
+    "src/components/Arcade/2D/WaveInvaders2D.jsx",
+    "src/components/Arcade/3D/BeatRunner3D.jsx",
+    "src/components/Arcade/ArcadeGameSelect.jsx",
+    "src/components/Arcade/HowToPlayOverlay.jsx",
+    "src/components/Arcade/Rhythm/MagicTiles2D.jsx",
+    "src/components/Arcade/arcadeGames.js",
+    "src/components/ArtistNameLink.jsx",
+    "src/components/ContextMenuTarget.jsx",
+    "src/components/CoverUploader.jsx",
+    "src/components/DeleteAccountForm.jsx",
+    "src/components/DiscordPresenceSync.jsx",
+    "src/components/EditPlaylistDetails.jsx",
+    "src/components/EmptyState.jsx",
+    "src/components/ErrorBoundary.jsx",
+    "src/components/ExportDataButton.jsx",
+    "src/components/FavouriteTrackButton.jsx",
+    "src/components/FxEq.jsx",
+    "src/components/GenrePreferences.jsx",
+    "src/components/Homepage/OnlineStatus.jsx",
+    "src/components/HorizontalRail.jsx",
+    "src/components/ItemMenu.jsx",
+    "src/components/Jam/JamController.jsx",
+    "src/components/Jam/JamProvider.jsx",
+    "src/components/LanguageSync.jsx",
+    "src/components/Layout/Atmosphere.jsx",
+    "src/components/Layout/CreateHub.jsx",
+    "src/components/Layout/EmptyPlayerDock.jsx",
+    "src/components/Layout/MobileTabBar.jsx",
+    "src/components/Layout/PageTransit.jsx",
+    "src/components/Library/PlaylistTrackRow.jsx",
+    "src/components/LikePlaylistButton.jsx",
+    "src/components/MusicPlayer/ClockedCaptionKaraoke.jsx",
+    "src/components/MusicPlayer/ClockedPictureInPictureWindow.jsx",
+    "src/components/MusicPlayer/ClockedSyncedLyrics.jsx",
+    "src/components/MusicPlayer/Controls.jsx",
+    "src/components/MusicPlayer/Downloader.jsx",
+    "src/components/MusicPlayer/ExpandedPlayer.tsx",
+    "src/components/MusicPlayer/FavouriteButton.jsx",
+    "src/components/MusicPlayer/FloatingPlayer.tsx",
+    "src/components/MusicPlayer/FullscreenTrack.jsx",
+    "src/components/MusicPlayer/Lyrics.jsx",
+    "src/components/MusicPlayer/PictureInPictureWindow.jsx",
+    "src/components/MusicPlayer/Player.jsx",
+    "src/components/MusicPlayer/PlayerTimeline.tsx",
+    "src/components/MusicPlayer/PlayerVolume.jsx",
+    "src/components/MusicPlayer/Seekbar.jsx",
+    "src/components/MusicPlayer/SyncedLyrics.jsx",
+    "src/components/MusicPlayer/Track.jsx",
+    "src/components/MusicPlayer/media/PlaybackQualityControl.jsx",
+    "src/components/MusicPlayer/media/mediaCapabilities.mjs",
+    "src/components/MusicPlayer/media/mediaPlayerStates.mjs",
+    "src/components/MusicPlayer/media/nativeMediaDeck.mjs",
+    "src/components/MusicPlayer/mediaPresentationState.mjs",
+    "src/components/MusicPlayer/playbackClock.js",
+    "src/components/MusicPlayer/player.types.ts",
+    "src/components/MusicPlayer/playerDock.module.css",
+    "src/components/Navbar.jsx",
+    "src/components/NavigationProgress.jsx",
+    "src/components/PlaylistCover.jsx",
+    "src/components/PlaylistItemMenu.jsx",
+    "src/components/PullToRefresh.jsx",
+    "src/components/Search/search.module.css",
+    "src/components/SettingsSync.jsx",
+    "src/components/Sidebar/PlaylistModal.jsx",
+    "src/components/Sidebar/Sidebar.jsx",
+    "src/components/Skeleton.jsx",
+    "src/components/SupportDiagnostics.jsx",
+    "src/components/UserMessage.jsx",
+    "src/components/artistProfile.module.css",
+    "src/components/artistRelease.module.css",
+    "src/components/topProgressBar/TopProgressBar.jsx",
+    "src/hooks/useDismissOnOutside.js",
+    "src/hooks/useFocusTrap.js",
+    "src/hooks/useKeyboardShortcuts.js",
+    "src/hooks/useLibraryPresentation.js",
+    "src/hooks/useListeningInsights.js",
+    "src/hooks/useMediaQuery.js",
+    "src/hooks/useMediaSession.js",
+    "src/hooks/useNetworkRecovery.js",
+    "src/hooks/usePlayerTransport.js",
+    "src/hooks/usePointerTilt.js",
+    "src/hooks/useScrollPerformance.js",
+    "src/hooks/useSyncedLyrics.js",
+    "src/hooks/useWakeLock.js",
+    "src/lib/discordPresenceClient.js",
+    "src/models/Genre.js",
+    "src/models/JamRoom.js",
+    "src/models/Playlist.js",
+    "src/models/User.js",
+    "src/models/UserData.js",
+    "src/redux/Providers.jsx",
+    "src/redux/features/appearanceSlice.js",
+    "src/redux/features/loadingBarSlice.js",
+    "src/redux/features/settingsSlice.js",
+    "src/services/dataAPI.js",
+    "src/services/genreCatalog.js",
+    "src/services/http.js",
+    "src/services/playlistApi.js",
+    "src/utils/accountCache.mjs",
+    "src/utils/accountNotifications.mjs",
+    "src/utils/accountStorage.mjs",
+    "src/utils/anchoredMenu.mjs",
+    "src/utils/androidNavigation.mjs",
+    "src/utils/apiResponse.js",
+    "src/utils/apiResponseCore.mjs",
+    "src/utils/appOrigin.mjs",
+    "src/utils/arcadeAudioFile.mjs",
+    "src/utils/arcadeChart.mjs",
+    "src/utils/artistNavigation.mjs",
+    "src/utils/authPaths.mjs",
+    "src/utils/browserNotifications.mjs",
+    "src/utils/coverValidation.js",
+    "src/utils/dbconnect.js",
+    "src/utils/discordPresenceStatus.js",
+    "src/utils/discoveryShufflePreference.mjs",
+    "src/utils/documentMutation.mjs",
+    "src/utils/embedPaths.mjs",
+    "src/utils/followedArtistsList.mjs",
+    "src/utils/genreTaxonomy.js",
+    "src/utils/homeDiscovery.mjs",
+    "src/utils/homeMixes.js",
+    "src/utils/inputText.mjs",
+    "src/utils/jam.mjs",
+    "src/utils/jamAux.mjs",
+    "src/utils/jamRooms.mjs",
+    "src/utils/jamSignedChannel.mjs",
+    "src/utils/libraryPresentation.mjs",
+    "src/utils/listeningInsights.mjs",
+    "src/utils/mediaSessionCompatibility.mjs",
+    "src/utils/navCache.js",
+    "src/utils/officialMusicSearch.mjs",
+    "src/utils/playerQueue.mjs",
+    "src/utils/playlistAccess.mjs",
+    "src/utils/playlistDuration.mjs",
+    "src/utils/playlistThemes.js",
+    "src/utils/providerRequestContext.mjs",
+    "src/utils/providerTransport.mjs",
+    "src/utils/rateLimit.js",
+    "src/utils/recentActivity.mjs",
+    "src/utils/recommendationFeedback.mjs",
+    "src/utils/recommendationSeeds.mjs",
+    "src/utils/responsivePolicy.mjs",
+    "src/utils/routeParams.js",
+    "src/utils/searchOptions.mjs",
+    "src/utils/searchResults.mjs",
+    "src/utils/sessionAuth.js",
+    "src/utils/signOut.js",
+    "src/utils/siteConfig.js",
+    "src/utils/supabaseClient.js",
+    "src/utils/trackDuration.mjs",
+    "src/utils/trustedOrigin.js",
+    "src/utils/userAccount.js",
+    "src/utils/userError.js",
+    "src/utils/virtualPlaylist.mjs",
+    "src/utils/wakeLockPolicy.mjs",
+    "src/utils/weekPulseStore.mjs"
+  ]
+}
