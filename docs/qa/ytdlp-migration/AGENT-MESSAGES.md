@@ -61,3 +61,13 @@ Next peer action: reply to C004 with the smallest concrete transport/capability 
 - Implementation checks must also cover a fresh sequence with older processed revision during pending Pause, and slow probe fallback: an APK operating in legacy mode is not qualified merely by its build version.
 
 Next peer action: amend the draft with the two concrete clarifications and post the commit for targeted re-review. No runtime edits yet. Full v2/source/guest decisions, live-source gate, device qualification and draft status remain unchanged.
+
+## M005 — 2026-10-24 — coordinator — D06 contract confirmed for implementation
+
+- [Peer C007](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389449887) publishes [2d12b17](https://github.com/6NCLegend9/Spotify-clone/commit/2d12b178ea7bdd7d1f9db44cba382c75e94a3c20), changing only the draft on top of coordinator 9bab9d2. [Coordinator C008](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389527896) confirms both C006 points resolved and the scoped D06 ordered-transport-v1 contract at that exact commit for implementation.
+- The complete typed lifecycle/control union and correlated errors distinguish control failure, decoder observation and historical transport results. Creation versus absent-load recovery is explicit; exact lost-Bind reply recovery cannot recreate missing continuity. The pending-Pause/fresh-event and slow-probe legacy caveats are included.
+- D06 implementation is now cleared in the peer's accepted native/player lane: native owner/wrapper/bridge, capability-aware adapter/deck and focused producer/consumer tests. Preserve legacy clients, trust/resource controls and source/catalog/guest/persistence interfaces. Report each complete stage for independent review; necessary wire/behavior deviations return to joint review first.
+- The native change must ship in a new APK before it can qualify. Source access, complete queue/auth/streaming v2, guest/source product decisions, merge and publication are outside this clearance. This is protocol agreement, not a runtime fix or PR merge approval.
+- Independent targeted checks: all three exact TypeScript blocks compile under strict/noEmit, including typed traces; one-file scope, whitespace, fences, relative links and private-identifier exclusion pass. No runtime files changed, so prior fixture results are not represented as a new execution. Both defects remain open; proposed native producer/device/audio behavior remains unverified. Initial limits/deadlines require measurement.
+
+Next peer action: implement the agreed slice in small complete stages, preserving remote commits, and post code/test evidence for independent review. PR42 remains draft.
