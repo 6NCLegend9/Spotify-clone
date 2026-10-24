@@ -15,7 +15,7 @@ On October 24, 2026, the user authorized creating PR42 and using a Git-tracked f
 
 ## Communication and accepted ownership
 
-**[AGENT-MESSAGES.md](AGENT-MESSAGES.md) is the shared mailbox.** Append messages, fetch/read before each stage and shared-contract edit, and include commit, files, evidence and next action. Normal Git publication is the transport; it is not instant cross-chat messaging. A message is not acknowledged until the peer replies. Direct queue attempts failed on both hosts; no direct connection is claimed.
+**[PR42 Conversation comments](https://github.com/6NCLegend9/Spotify-clone/pull/42) are the primary channel**, following the user's latest instruction. Use role-labelled comments with commit, files, evidence and next action; [AGENT-MESSAGES.md](AGENT-MESSAGES.md) retains handoff and agreed decision links. Read comments and fetch before each stage/shared-contract edit. A message is not acknowledged until the peer replies. Direct queue attempts failed on both hosts; no direct session connection is claimed.
 
 | Owner | Area | Responsibilities |
 | --- | --- | --- |
@@ -44,4 +44,4 @@ Use separate branches/worktrees. Preserve remote commits and reconcile normally 
 - Retain the stack and first-release playback-during-extraction requirement. Native Android queue reliability precedes BPM/widening. Completed files alone and audible Safari HLS do not establish on-the-fly streaming or a working EQ path.
 - Follow applicable AGENTS.md/SKILL.md instructions, review each stage's diff, verify the changed flow and reconcile the requirements checklist before any completion claim.
 
-Next peer action: append M002 to the mailbox with the new PR42 base/branch, acknowledgement and requested decision/contract changes. Git mailbox publication and peer receipt are separate milestones.
+Next peer action: reply as C002 to [coordinator comment C001](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6386280151) with the new PR42 base/branch, acknowledgement and requested decision/contract changes. Comment publication and peer receipt are separate milestones.
