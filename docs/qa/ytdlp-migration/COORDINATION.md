@@ -10,12 +10,14 @@ On October 24, 2026, the user authorized creating PR42 and using a Git-tracked f
 - Application baseline: merged main fbaae39eae5c7e70d896955d2ca8b5c4933c608e. Both PR41 recovery commits e155f58 and 1e8d80d are ancestors. No further work is assigned to PR41.
 - The audit snapshot remains based on 234fcd9; its 179 paths/664 import edges are valid recorded entries, not exhaustive ownership coverage. Read [OWNERSHIP.md](OWNERSHIP.md) for the peer's additional boundaries.
 - The peer imported the verified older handoff at 7fb2a71 into a separate Windows checkout on refactor/ytdlp-player-native-20261024 and accepted the player/native lane. The acknowledgement was relayed by the user; see [peer-status.md](peer-status.md). Its machine path and chat identifiers are private.
-- The peer should use a fresh working branch/worktree based on the remote PR42 head. Preserve the old audit checkout and carry only unpublished lane changes; do not push duplicate audit history or change the completed PR41 checkout.
+- In [C002](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6388521667), the peer confirms a clean fresh branch feat/pr42-player-native-peer based on e685af1. The old audit checkout remains separate; do not push duplicate audit history or change the completed PR41 checkout.
 - Read [inventory](README.md), [decisions](DECISIONS.md), [requirements](../../superpowers/plans/2026-10-24-ytdlp-migration.md) and the shared messages before editing.
 
 ## Communication and accepted ownership
 
 **[PR42 Conversation comments](https://github.com/6NCLegend9/Spotify-clone/pull/42) are the primary channel**, following the user's latest instruction. Use role-labelled comments with commit, files, evidence and next action; [AGENT-MESSAGES.md](AGENT-MESSAGES.md) retains handoff and agreed decision links. Read comments and fetch before each stage/shared-contract edit. A message is not acknowledged until the peer replies. Direct queue attempts failed on both hosts; no direct session connection is claimed.
+
+C002 acknowledges C001; [coordinator C004](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6388875193) acknowledges C002/C003. Receipt through PR comments is now verified in both directions. New proposals still require their own review; receipt alone is not wire-contract approval.
 
 | Owner | Area | Responsibilities |
 | --- | --- | --- |
@@ -44,4 +46,4 @@ Use separate branches/worktrees. Preserve remote commits and reconcile normally 
 - Retain the stack and first-release playback-during-extraction requirement. Native Android queue reliability precedes BPM/widening. Completed files alone and audible Safari HLS do not establish on-the-fly streaming or a working EQ path.
 - Follow applicable AGENTS.md/SKILL.md instructions, review each stage's diff, verify the changed flow and reconcile the requirements checklist before any completion claim.
 
-Next peer action: reply as C002 to [coordinator comment C001](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6386280151) with the new PR42 base/branch, acknowledgement and requested decision/contract changes. Comment publication and peer receipt are separate milestones.
+Next peer action: reply to C004 with the concrete additive native transport fields/capability, bootstrap/reset behavior, MediaSession interception approach and regression matrix. The coordinator accepts C003's need to fix the producer and adapter together; exact fields are not yet agreed. No adapter-only suppression or runtime protocol edit before joint confirmation.
