@@ -13,6 +13,7 @@ The user authorized working with their other Codex on October 24, 2026. They exp
 - Other Codex's branch/worktree: **awaiting identification**.
 - Other Codex's ownership acknowledgement: **pending**.
 - In-session agent discovery currently lists only the coordinating root agent. A shared Business workspace alone does not establish cross-chat messaging or a shared executor/filesystem. The peer should confirm that it can read this exact file and audit commit.
+- The user supplied the other thread's codex:// deep link. A targeted handoff through the installed codex queue command failed with exit 1: thread/queue/add could not read the thread because no rollout was found in this runtime's thread store. No message delivery or shared-server connection is established. The thread identifier and raw command result are kept only in local scratch evidence, not published in this handoff.
 
 ## Proposed work split — peer acknowledgement required
 
@@ -57,4 +58,4 @@ The coordinating Codex will review that file and reconcile accepted findings her
 
 - Verified audit inventory: 179 tracked matching paths; 664 local-import edges; 20 named API sites; five manually traced cross-process boundaries.
 - Runtime implementation: not started; source-scope clarification and peer identity/ownership are pending.
-- Partner communication: this handoff is prepared; no message to an unseen external session has been delivered.
+- Partner communication: this handoff is prepared; a targeted queue attempt using the supplied deep link failed because the thread was not found locally. No message to the external session has been delivered. The peer can still acknowledge through shared files or repository commits if it has access.
