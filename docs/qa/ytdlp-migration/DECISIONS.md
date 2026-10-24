@@ -1,0 +1,26 @@
+# PR42 decisions to settle before shared runtime edits
+
+These are proposals. Only baseline reconciliation is resolved; source/guest product choices and final wire semantics are not approved by this document.
+
+| ID | Proposal / decision | Status |
+| --- | --- | --- |
+| D01 source | Preserve existing songs and provider IDs; obtain their media through the yt-dlp backend. Remove application-owned YouTube Data API, youtubei.js, IFrame SDK and embed fallback calls. YouTube remains an upstream source inside the acquisition adapter. Removing that source too requires an explicitly chosen replacement catalog and saved-track matching. | Awaiting user source choice. |
+| D02 guest | Preserve guest listening with a bounded, server-issued anonymous principal, scoped expiring leases, same-origin/CSRF controls, per-principal and project resource/rate limits, and revocation. Account/private features stay account-scoped; no provider or storage credentials go to clients. This must be implemented end to end, including native renewal authentication, rather than enabling an unused helper or bypassing the current account guard. | Awaiting guest-access agreement and detailed security review. |
+| D03 playback | Versioned capabilities/native-build handshake; source identity separate from queue occurrence and delivered rendition/asset; ownership epoch; command ID/generation; queue revision; ordered events; accepted/completed/rejected acknowledgements; observed playing separate from intent; prepared/buffered/native-seekable ranges and NOT_PREPARED seek rejection; scoped revocable leases; native-owned queue/renewal/reconnect; authoritative snapshots; logout revocation; legacy v1 completed-asset compatibility. Never persist/broadcast receipts or delivery credentials in tracks/Jam. | Peer proposed; coordinator accepts principles. Exact wire semantics and implementation not cleared. |
+| D04 baseline | PR42 starts from merged main fbaae39eae5c7e70d896955d2ca8b5c4933c608e, which includes PR41 recovery e155f58 and 1e8d80d. Existing PR41 checkouts remain preserved. | Resolved; both commit ancestry checks pass. |
+| D05 capabilities | Retain explicit format compatibility and the existing bounded VOD policy until new behavior is proved. Verify artist/channel/playlist/album/MPR/caption/filter/pagination behavior through yt-dlp. Define live/long-track handling explicitly; do not manufacture catalog results or silently remove sections. | Awaiting capability proof/policy review. |
+
+## Wire semantics that require both agents' agreement
+
+- Preparation identifies job, source, asset/rendition, ownership and generation; reports queued/preparing/playable/failed/cancelled distinctly and excludes private diagnostics. Source, delivered and processed audio metadata stay separate; unknown values remain unknown.
+- Play accepted during preparation is not completed playback. Completion follows actual engine/native feedback. Explicit Pause overrides older preparation/renewal/playing responses; stale source, epoch, generation, command and queue-revision events cannot restore older intent.
+- Advertise only ranges actually prepared and supported by the delivery/native path. Reject a seek beyond the supported intersection with NOT_PREPARED and preserve position; do not silently clamp and report success.
+- Android owns queue advancement, repeat/shuffle, next preparation, renewal and reconnect independently of WebView timers. Version/capability negotiation keeps old clients on compatible completed assets or clearly reports an update requirement.
+- Reuse shared preparation where safe, with durable job/ownership state, bounded concurrency/resource reservation and cancellation/TTL cleanup. Native renewal credentials must be narrowly scoped and revocable; raw provider/storage credentials never cross into renderer/native track metadata.
+- Preserve user account isolation, saved data and distinct repeated queue occurrences. The confirmed Jam occurrence-loss and adapter late-event defects need explicit cross-lane regression cases before being closed.
+
+## Existing release gates remain
+
+The first release still requires playback during extraction; completed assets are a fallback. A complete HLS/CMAF publication/seek policy, rather than raw fMP4 stdout alone, needs proof. Repeated uncached extraction/delivery/decoding from the intended deployment precedes production activation. Synthetic files and healthy deployment checks do not satisfy source access.
+
+Original/Processed modes, measured source fidelity, separate normalization/compression/limiting, native DSP and Safari HLS/EQ qualification remain tracked in the requirements checklist. Native queue reliability precedes BPM/widening. No hardware bit-perfect, true-peak or guaranteed source-bitrate claim is added here.

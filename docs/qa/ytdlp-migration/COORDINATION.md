@@ -1,61 +1,47 @@
-# Shared Codex coordination: yt-dlp migration
+# PR42 Codex coordination: yt-dlp migration
 
-The user authorized working with their other Codex on October 24, 2026. They explicitly said **do not create PR42 yet**. This file is the local handoff and proposed ownership record; it does not establish that the other session has connected or accepted a task.
+On October 24, 2026, the user authorized creating PR42 and using a Git-tracked file for the two Codex sessions to exchange messages. This supersedes the earlier local-only/no-PR instruction. It does not authorize merging, production activation, provider-access changes or native publication.
 
-## Current handoff
+## Shared handoff
 
-- Repository: 6NCLegend9/Spotify-clone.
-- Working directory: /workspace/HayKasa-ytdlp-local.
-- Local branch: refactor/ytdlp-only-local-20261024.
-- Audit commit: c0a10ef, based on PR41 source 234fcd9.
-- Current application changes on this branch: none; the audit and requirements are committed locally.
-- Read [integration inventory](README.md), [all matching paths](inventory.json), [call map](call-map.json), and the [requirements checklist](../../superpowers/plans/2026-10-24-ytdlp-migration.md) before editing.
-- Other Codex's branch/worktree: **awaiting identification**.
-- Other Codex's ownership acknowledgement: **pending**.
-- In-session agent discovery currently lists only the coordinating root agent. A shared Business workspace alone does not establish cross-chat messaging or a shared executor/filesystem. The peer should confirm that it can read this exact file and audit commit.
-- The user supplied the other thread's codex:// deep link. A targeted handoff through the installed codex queue command failed with exit 1: thread/queue/add could not read the thread because no rollout was found in this runtime's thread store. No message delivery or shared-server connection is established. The thread identifier and raw command result are kept only in local scratch evidence, not published in this handoff.
+- Repository: 6NCLegend9/Spotify-clone; PR base: main.
+- Shared PR branch: feat/pr42-ytdlp-migration. The coordinator owns PR creation to avoid duplicate PRs; the peer contributes reviewed lane commits to this branch.
+- Coordinator worktree: /workspace/HayKasa-pr42, isolated from existing worktrees.
+- Application baseline: merged main fbaae39eae5c7e70d896955d2ca8b5c4933c608e. Both PR41 recovery commits e155f58 and 1e8d80d are ancestors. No further work is assigned to PR41.
+- The audit snapshot remains based on 234fcd9; its 179 paths/664 import edges are valid recorded entries, not exhaustive ownership coverage. Read [OWNERSHIP.md](OWNERSHIP.md) for the peer's additional boundaries.
+- The peer imported the verified older handoff at 7fb2a71 into a separate Windows checkout on refactor/ytdlp-player-native-20261024 and accepted the player/native lane. The acknowledgement was relayed by the user; see [peer-status.md](peer-status.md). Its machine path and chat identifiers are private.
+- The peer should use a fresh working branch/worktree based on the remote PR42 head. Preserve the old audit checkout and carry only unpublished lane changes; do not push duplicate audit history or change the completed PR41 checkout.
+- Read [inventory](README.md), [decisions](DECISIONS.md), [requirements](../../superpowers/plans/2026-10-24-ytdlp-migration.md) and the shared messages before editing.
 
-## Proposed work split — peer acknowledgement required
+## Communication and accepted ownership
 
-| Owner | Area | Files / responsibilities |
+**[AGENT-MESSAGES.md](AGENT-MESSAGES.md) is the shared mailbox.** Append messages, fetch/read before each stage and shared-contract edit, and include commit, files, evidence and next action. Normal Git publication is the transport; it is not instant cross-chat messaging. A message is not acknowledged until the peer replies. Direct queue attempts failed on both hosts; no direct connection is claimed.
+
+| Owner | Area | Responsibilities |
 | --- | --- | --- |
-| Coordinating Codex | Backend catalog and acquisition | media-service/, server catalog adapter replacing src/utils/youtubeApi.js, API handlers, source-access evidence, bounded subprocess/cache/ownership/security behavior. |
-| Other Codex | Player and native playback | MusicPlayer components/decks, Android service/bridge, desktop transport, media-session/queue/background behavior and native capability compatibility. |
-| Coordinating Codex integrates; both review | Shared contracts and persisted data | playerSlice, playbackSnapshot, route schemas, guest ownership, source/asset metadata, build/CSP policies and tests whose assertions span both lanes. Agree the contract before changing producers/consumers separately. |
+| Coordinator | Backend catalog and acquisition | media-service/, server catalog adapter replacing src/utils/youtubeApi.js, API handlers, source-access evidence, bounded subprocess/cache/ownership/security behavior. |
+| Player/native peer; accepted by coordinator | Player and native playback | Web/Electron player consumers, Android service/bridge/policy/build, desktop IPC/transport/mini-player, native queue/media-session/background reliability and relevant tests. |
+| Both review; coordinator integrates | Shared contracts and persisted data | playerSlice, playbackSnapshot, route schemas, Jam occurrence identity/signing, guest ownership, source/asset metadata, CSP/build policies and cross-lane tests. Agree interfaces before changing producers/consumers independently. |
 
-These are proposed lanes, not permission to overwrite work already in progress. If the peer already owns either area, record that before either agent edits its files. Do not check out, reset, stash or clean another worktree. Use separate branches/worktrees; exchange reviewed commits or patches. No force-pushes or destructive data migration.
+Use separate branches/worktrees. Preserve remote commits and reconcile normally when the shared branch advances. No force-push, reset, stash or cleanup of another agent's work. A conflict or ownership question goes in the mailbox before overlapping edits.
 
-## Decisions that remain open
+## Decisions still open
 
-1. **Source scope:** remove direct application YouTube APIs/embeds/SDK while obtaining existing YouTube media through yt-dlp, or also remove YouTube content and choose another catalog/source. The user's clarification is pending. yt-dlp is not an independent music catalog.
-2. **Guest listening:** current direct-media resolution requires an account, while current guests use the embed. Removing it requires a bounded guest ownership/authentication design or an explicitly agreed product change.
-3. **Catalog capability:** prove channel/playlist/album/caption support through yt-dlp, including legacy MPR album identifiers. Do not replace unsupported sections with invented data or silently remove them.
-4. **Native contract:** service queue ownership, renewal/reconnect, command acknowledgements and older-client behavior must be defined before changing the bridge and its caller independently.
+1. Source scope: retain existing YouTube media through yt-dlp while removing application-owned APIs/embeds/SDK, or choose replacement sources and saved-track matching. yt-dlp is not an independent music catalog.
+2. Guest access: preserve listening through a bounded ownership/authentication model. The current direct-media resolver requires an account; removing the embed without its replacement changes guest behavior.
+3. Catalog/live/long-track capabilities: prove channel/playlist/album/MPR/caption/filter/pagination support or report explicit capability limits. No invented data or silent feature removal.
+4. Playback contract: the coordinator accepts the peer's high-level v2 principles, not a frozen wire schema. Exact command/event ordering, preparation/seek ranges, native renewal/queue ownership and legacy behavior require joint agreement.
 
-## Gates both agents must preserve
+[DECISIONS.md](DECISIONS.md) records proposals and their status. No overlapping runtime implementation is cleared by an acknowledgement of ownership alone.
 
-- No PR42 creation, merge, production activation, native release or provider-credential/access-method changes in the current local stage.
-- Source access is the first feasibility gate. The last production capability read returned service_disabled; earlier hosted extraction returned source_access_restricted. Keep synthetic/local fixture results separate from real extraction, delivery, decoding, audible output and screen-off proof.
-- PR41's icon preview also hit a Vercel media-container registry push denial. Do not describe a failed/unavailable deployment as a working source test.
-- Keep source codec preservation, SSRF/TLS protections, bounded CPU/disk/output, scoped asset ownership, leases and cleanup. Do not force readiness flags true.
-- Preserve existing saved songs, playlists, favorites, follows, queues, account isolation and private-session rules. Neutral naming requires compatible legacy reads.
-- Retain the stack. Native Android queue reliability precedes BPM/widening. Completed files alone do not satisfy the previously agreed playback-during-extraction requirement. Safari HLS audibility does not prove its EQ path.
-- Read applicable AGENTS.md / SKILL.md instructions, inspect each stage's diff, run relevant checks and reconcile the checklist before claiming completion.
+## Gates and current evidence
 
-## Peer acknowledgement / review exchange
+- Runtime migration has not started. The adapter late-event and Jam occurrence-loss defects were independently reproduced using actual modules with isolated fixtures; fixes remain assigned/pending. See [verification](peer-review-verification.md).
+- Final PR41 checks and Vercel preview passed. The earlier media-container registry denial is historical. This resolves the stale-baseline/deployment-readiness report, not source feasibility.
+- Fresh production capability read: enabled:false, reason:service_disabled. Earlier hosted extraction returned source_access_restricted. Repeated uncached extraction, delivery and decoding from the intended deployment remain the first source gate; synthetic fixtures are not live playback or screen-off proof.
+- Preserve source codecs where compatible, SSRF/TLS protections, bounded CPU/disk/output, scoped ownership, leases and cleanup. Never force readiness flags true.
+- Preserve saved songs/playlists/follows, repeated queue occurrences, account isolation and private-session rules through compatible legacy reads. Delivery credentials/receipts must not enter persisted tracks or Jam broadcasts.
+- Retain the stack and first-release playback-during-extraction requirement. Native Android queue reliability precedes BPM/widening. Completed files alone and audible Safari HLS do not establish on-the-fly streaming or a working EQ path.
+- Follow applicable AGENTS.md/SKILL.md instructions, review each stage's diff, verify the changed flow and reconcile the requirements checklist before any completion claim.
 
-The peer should create a separate peer-status.md beside this file containing:
-
-- Its branch/worktree and base commit, confirming access to this handoff.
-- The accepted file ownership, current dirty files/commits, and any overlap.
-- Its review of the source scope, catalog feasibility and proposed playback contract.
-- Findings with exact file/line references, reproductions and severity; distinguish confirmed defects from risks.
-- For each completed stage: commit or patch, affected files, checks/results, known limits and a request for the other agent's independent review.
-
-The coordinating Codex will review that file and reconcile accepted findings here and in the requirements checklist. A proposed change is not agreed until the peer's acknowledgement/review exists. If the sessions cannot see the same files, exchange the branch/commit/patch through the repository before editing overlapping code; do not assume shared chat memory.
-
-## Coordinator status
-
-- Verified audit inventory: 179 tracked matching paths; 664 local-import edges; 20 named API sites; five manually traced cross-process boundaries.
-- Runtime implementation: not started; source-scope clarification and peer identity/ownership are pending.
-- Partner communication: this handoff is prepared; a targeted queue attempt using the supplied deep link failed because the thread was not found locally. No message to the external session has been delivered. The peer can still acknowledge through shared files or repository commits if it has access.
+Next peer action: append M002 to the mailbox with the new PR42 base/branch, acknowledgement and requested decision/contract changes. Git mailbox publication and peer receipt are separate milestones.

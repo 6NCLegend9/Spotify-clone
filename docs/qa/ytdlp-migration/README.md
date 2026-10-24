@@ -1,10 +1,10 @@
 # YouTube integration inventory and yt-dlp replacement map
 
-Local audit at baseline 234fcd985556480ca44fc77d2b397c6cfdf8522f. No PR42 has been created. Runtime integration removal has not been implemented in this inventory stage.
+PR42 starts from merged main fbaae39eae5c7e70d896955d2ca8b5c4933c608e, including the final PR41 recovery fixes. The original lexical audit remains a snapshot at 234fcd985556480ca44fc77d2b397c6cfdf8522f. Runtime integration removal has not been implemented in this initial coordination stage.
 
-Both Codex sessions should read the [coordination handoff and ownership proposal](COORDINATION.md) before editing. The peer branch/worktree and acknowledgement remain pending; shared Business membership does not establish shared chat state or filesystem access.
+Both Codex sessions should read the [coordination handoff](COORDINATION.md), [ownership supplement](OWNERSHIP.md), [decision status](DECISIONS.md) and [shared messages](AGENT-MESSAGES.md) before editing. The user relayed the peer's acknowledgement, and the coordinator accepted its player/native lane. The hosts have separate filesystems and no working direct session connection; the Git mailbox still requires an actual reply to establish receipt.
 
-The user requested every related path, not just the video player. [inventory.json](inventory.json) lists 179 tracked text paths with matching line numbers: 121 runtime/native/source-adapter/build paths, 23 verification-code paths and 35 historical documentation / fixture paths. [call-map.json](call-map.json) records static imports, API consumers and the cross-process/native boundaries; connected files without a direct provider-name match are included for review. This is source-inspection evidence, not a successful playback test.
+The user requested every related path, not just the video player. [inventory.json](inventory.json) lists 179 tracked text paths with matching line numbers: 121 runtime/native/source-adapter/build paths, 23 verification-code paths and 35 historical documentation / fixture paths. [call-map.json](call-map.json) records static imports, API consumers and manually traced boundaries; connected files without a direct provider-name match are included for review. The peer found additional IPC/native/security boundaries, now explicit in the ownership supplement. These records validate recorded entries, not exhaustive ownership or successful playback.
 
 | Flow / entry point | Current integration | Replacement work and compatibility obligation |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ The user requested every related path, not just the video player. [inventory.jso
 ## Confirmed blockers and limits
 
 - Production /api/media/resolve returned enabled:false, reason:service_disabled in the latest read-only check. Earlier hosted probes reached storage/range delivery, then failed with source_access_restricted. These are distinct failures and neither establishes usable live audio.
-- PR41's icon deployment hit a media container-registry push denial. A fresh functioning deployment is needed for the source-access gate. This local stage does not change production flags, provider credentials or registry contents.
+- Final PR41 checks and preview passed; the previous media-container registry denial is historical. PR42 must pass its own checks. Healthy deployment does not establish source access, and this stage does not change production flags, provider credentials or registry contents.
 - The source service pins yt-dlp 2026.8.19 / EJS 0.8.0. The official GitHub latest release and PyPI metadata checked during this audit identify yt-dlp 2026.10.21, which still pins EJS 0.8.0. An upgrade must be qualified; its existence does not prove that the hosted source restriction is resolved.
 - Removing application-owned YouTube APIs/embeds while retrieving YouTube media through yt-dlp still uses YouTube as an upstream content source. Removing that source entirely requires choosing replacement media/catalog sources. That scope clarification is pending.
 

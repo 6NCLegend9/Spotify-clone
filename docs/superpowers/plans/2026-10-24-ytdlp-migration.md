@@ -1,7 +1,7 @@
-# Local yt-dlp migration: requirements and integration inventory
+# PR42 yt-dlp migration: requirements and integration inventory
 
-Baseline: 234fcd985556480ca44fc77d2b397c6cfdf8522f, including PR41's icon/search work.
-Local branch: refactor/ytdlp-only-local-20261024. The user explicitly said not to create PR42 yet. No PR, push, deployment, production activation or native release is authorized by this local migration stage.
+Application baseline: merged main fbaae39eae5c7e70d896955d2ca8b5c4933c608e, including PR41's final recovery fixes. The lexical audit is frozen at 234fcd985556480ca44fc77d2b397c6cfdf8522f; the ownership supplement corrects its coverage gaps.
+Shared branch: feat/pr42-ytdlp-migration; coordinator worktree: /workspace/HayKasa-pr42. The user's latest instruction authorizes PR42 creation/push and Git-file collaboration, superseding the earlier local-only restriction. Merge, production activation, provider-access changes and native publication are not authorized. Shared runtime edits await the recorded decisions and contract agreement.
 
 ## Scope decision
 
@@ -13,13 +13,13 @@ Statuses: pending, implemented, verified, blocked or explicitly deferred. Verifi
 
 | ID | Requirement / affected platforms | Status | Evidence / next step |
 | --- | --- | --- | --- |
-| W01 | Read instructions and relevant skills; inspect environment | Verified | No applicable AGENTS.md found. Ponytail restored/read; cloud runtime/networking, full-flow verification and Vercel Services read. Unrelated Discord/database bindings must not be used for HayKasa tests. |
-| W02 | Isolate work and preserve PR41 | Verified | New local worktree at /workspace/HayKasa-ytdlp-local based on 234fcd9. Original worktrees unchanged. No PR42 created. |
-| W03 | Inventory all tracked integration paths, dependencies, native code, configuration and checks | Verified | docs/qa/ytdlp-migration/inventory.json: 179 matching tracked text paths; 107 web runtime, 4 native runtime, 8 build/security configuration, 2 source-adapter paths, 23 verification-code paths, 35 historical/fixture paths. call-map.json adds 664 import edges, 20 named API call sites and 167 connected paths without direct matches. All recorded paths/line numbers validated against the baseline worktree; cross-process boundaries traced separately. Excludes credentials and binary artifacts. |
+| W01 | Read instructions and relevant skills; inspect environment | Verified | No applicable AGENTS.md found. Current Ponytail skill, cloud runtime/networking read; full-flow verification and Vercel Services guidance retained. Unrelated Discord/database bindings are excluded from HayKasa tests. |
+| W02 | Isolate work and include the final merged PR41 fixes | Verified | /workspace/HayKasa-pr42 starts at main fbaae39. Both e155f58 and 1e8d80d ancestry checks pass. Existing worktrees remain preserved; no further PR41 edits. |
+| W03 | Inventory integration paths, dependencies, native code, configuration and checks | Implemented | Original snapshot validates 179 matching paths/664 import edges, not complete ownership. OWNERSHIP.md explicitly adds the peer's missing IPC/native/security/event boundaries. Each implementation stage must trace its actual flow and update coverage. |
 | W04 | Determine whether YouTube remains an upstream source | Pending | Clarification requested. yt-dlp can obtain media from YouTube without using its embedded player; this still uses YouTube content. |
-| W05 | Coordinate implementation and independent review with the user's other Codex | Implemented | docs/qa/ytdlp-migration/COORDINATION.md records the local handoff, proposed backend/player-native ownership and review protocol. Other-session branch/worktree, shared-file access and ownership acknowledgement are still pending; no cross-chat connection is claimed. |
+| W05 | Coordinate implementation and independent review with the user's other Codex | Implemented | User-relayed peer acknowledgement recorded; coordinator accepts player/native lane and owns backend/catalog. AGENT-MESSAGES.md is the append-only Git mailbox; M001 requests a reply from the fresh PR42 base. Direct messaging failed; peer receipt of the published branch is not yet verified. |
 | S01 | Repeated uncached extraction and actual decoding from intended deployed environment | Blocked | Earlier hosted attempts returned source_access_restricted. Latest production capability check returned enabled:false, reason:service_disabled. Keep activation disabled; no inference of playback success from repository support. |
-| S02 | Resolve deployment readiness before hosted verification | Blocked | PR41 icon preview failed pushing its media container image to Vercel's registry. Requires a working diagnostic deployment before new hosted extraction evidence. No production/provider access changes in this local stage. |
+| S02 | Resolve deployment readiness before hosted verification | Verified | Final PR41 checks and preview passed; the earlier registry denial is historical. This establishes baseline deployment readiness only. PR42 needs its own checks; live source feasibility S01 remains blocked. |
 | C01 | Search, filters, pagination, artist/channel metadata, playlists and albums through yt-dlp | Pending | Replace Data API and youtubei.js calls together with server routes and consumers. Confirm yt-dlp support for each operation; do not invent catalog data or silently drop features. |
 | C02 | Captions, artist discovery, comments-derived recommendations and followed releases | Pending | These call the shared YouTube helper and need explicit replacements or visible capability failures. Preserve private-session and account boundaries. |
 | C03 | Bounded shared metadata caching, request coalescing, concurrency and validation | Pending | Reuse existing provider cache/rate-limit boundaries where applicable. Validate arguments and normalized results on both service boundaries. |
@@ -39,8 +39,16 @@ Statuses: pending, implemented, verified, blocked or explicitly deferred. Verifi
 | A02 | EQ, normalization/DRC/limiting distinction and measured sample-peak protection | Pending | Android native EQ and the promised protection remain unfinished per the PR40 checklist. Source migration alone does not complete DSP. |
 | A03 | Safari HLS processing qualification and fallback | Blocked | Physical supported iPhone/Mac tests remain unavailable. Audible HLS or canPlayType does not prove the Web Audio EQ path. |
 | A04 | True-peak guarantee, hardware bit-perfect output, BPM and stereo widening | Explicitly deferred | Retain previously agreed scope; native queue reliability and source access come first. |
-| T01 | Stage-by-stage diffs, checks and actual flow verification | Pending | Validate search/catalog, stream delivery/decoding, seeking, queue, renewal, reconnect and background separately. Stop provider-backed testing at the first failed source boundary; independent isolated checks may continue. |
-| T02 | Final checklist, affected files, commits and explicit remaining blockers | Pending | Record source inspection, fixtures, emulator and physical-device results separately. No external PR/push until the user requests it. |
+| T01 | Stage-by-stage diffs, checks and actual flow verification | Pending | Initial peer review independently reproduced the adapter late-event and Jam occurrence-loss defects with actual modules and isolated fixtures; see peer-review-verification.md. Fixes and full playback/seek/queue/renewal/reconnect/background checks remain pending. Source-backed testing stops at the first failed boundary. |
+| T02 | Final checklist, affected files, commits and explicit remaining blockers | Pending | Initial coordination stage is documentation/evidence only; PR42 creation/push is now explicitly authorized. Reconcile each subsequent implementation stage and distinguish source inspection, fixtures, emulators and physical-device proof. |
+
+## Initial coordination milestone — 2026-10-24
+
+Implemented: reconciled main baseline, accepted lane split, appended coordinator message M001, recorded the relayed peer acknowledgement, supplemented missing ownership boundaries and published portable defect reproductions. No runtime files were changed in this milestone.
+
+Verified locally: both PR41 recovery ancestry checks; all 179 recorded paths and baseline line ranges; all 664 recorded import endpoints; relative Markdown links and private-identifier exclusion; diff whitespace check. The actual-module reproductions confirmed the two existing defects with synthetic DOM/native feedback and no external requests. These checks do not prove either defect fixed, complete inventory coverage, live audio or physical-device behavior. Full application compilation was not repeated for this documentation/evidence-only milestone.
+
+Pending: remote PR42 checks, peer reply M002, source/guest/capability/wire-contract decisions and every unfinished implementation/qualification item above. Earlier PR41 deployment results are baseline evidence only. PR42 stays draft; source access remains disabled/unproven.
 
 ## Initial integration trace
 
