@@ -83,7 +83,8 @@
       "serialize-javascript": "7.0.5"
     },
     "@serwist/next": {
-      "browserslist": "4.28.7"
+      "browserslist": "4.28.7",
+      "zod": "4.6.6"
     },
     "source-map-js": "1.2.2"
   },

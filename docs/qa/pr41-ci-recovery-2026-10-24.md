@@ -10,6 +10,8 @@ At PR head `234fcd985556480ca44fc77d2b397c6cfdf8522f`:
 
 The package downloads selected Azure's Ubuntu mirror. The [exact runner image configuration](https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/scripts/build/configure-apt-sources.sh) already supplies signed Ubuntu archive/security fallbacks.
 
+The recovery commit `e155f582f2aa321d55fb753c576ae759be20863e` also exposed a production-audit failure for [Zod GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), whose patched version is 4.6.6. Serwist 9.5.12 pins an older Zod; the existing `@serwist/next` override now selects 4.6.6 for that subtree. Only the resolved Zod version, tarball URL and integrity change in the lockfile. Serwist and unrelated dependency versions remain unchanged.
+
 ## Workflow changes
 
 Both affected jobs use Ubuntu 24.04 and prefer those existing HTTPS Ubuntu mirrors. APT uses 15-second socket timeouts and one retry. Dependency installation has its own step deadline so a stalled download cannot consume the entire test budget.
