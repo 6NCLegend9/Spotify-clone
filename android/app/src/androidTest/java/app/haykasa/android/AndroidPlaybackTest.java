@@ -445,7 +445,12 @@ public class AndroidPlaybackTest {
                 AtomicReference<org.json.JSONObject> measurement = new AtomicReference<>();
                 for (int attempt = 0; attempt < 100 && measurement.get() == null; attempt++) {
                     main(() -> {
-                        androidx.media3.exoplayer.ExoPlayer player = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                        // The session owns a forwarding transport wrapper; inspect the actual decoder.
+                        androidx.media3.exoplayer.ExoPlayer player;
+                        try {
+                            Field playersField = PlaybackService.class.getDeclaredField("players"); playersField.setAccessible(true);
+                            player = ((java.util.Map<String, androidx.media3.exoplayer.ExoPlayer>)playersField.get(service)).get(id);
+                        } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
                         androidx.media3.exoplayer.DecoderCounters counters = player.getAudioDecoderCounters();
                         if (counters != null) counters.ensureUpdated();
                         androidx.media3.common.Format format = player.getAudioFormat();
@@ -510,7 +515,12 @@ public class AndroidPlaybackTest {
             js(web, "document.getElementById('play').click()"); waitJs(web, "qaDeck.getCurrentTime() > 1 && qaDeck.getPlayerState() === 1");
             AtomicReference<Boolean> decodedAudio = new AtomicReference<>(false);
             main(() -> {
-                androidx.media3.exoplayer.ExoPlayer active = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                androidx.media3.exoplayer.ExoPlayer active;
+                try {
+                    Field playersField = PlaybackService.class.getDeclaredField("players"); playersField.setAccessible(true);
+                    Field activeField = PlaybackService.class.getDeclaredField("activeId"); activeField.setAccessible(true);
+                    active = ((java.util.Map<String, androidx.media3.exoplayer.ExoPlayer>)playersField.get(service)).get(activeField.get(service));
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
                 androidx.media3.exoplayer.DecoderCounters counters = active.getAudioDecoderCounters();
                 if (counters != null) counters.ensureUpdated();
                 decodedAudio.set(active.isPlaying() && active.getVolume() > 0 && active.getAudioFormat() != null

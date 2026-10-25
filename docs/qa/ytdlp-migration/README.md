@@ -33,3 +33,5 @@ The user requested every related path, not just the video player. [inventory.jso
 - Removing application-owned YouTube APIs/embeds while retrieving YouTube media through yt-dlp still uses YouTube as an upstream content source. Removing that source entirely requires choosing replacement media/catalog sources. That scope clarification is pending.
 
 The full [requirements checklist](../../superpowers/plans/2026-10-24-ytdlp-migration.md) retains the agreed source-access gate, Android queue ownership, security, compatibility, DSP, Safari and extraction-time-streaming requirements. No compilation, mock or string rename will be counted as proof of live background playback.
+
+The narrower existing Android transport correction is tracked in [D06 implementation evidence](D06-IMPLEMENTATION.md). Its native side is implemented and locally checked; ordered web integration and Android/device qualification remain pending. It does not complete the provider migration.

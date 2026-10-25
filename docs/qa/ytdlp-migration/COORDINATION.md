@@ -22,7 +22,7 @@ C002 acknowledges C001; [coordinator C004](https://github.com/6NCLegend9/Spotify
 | Owner | Area | Responsibilities |
 | --- | --- | --- |
 | Coordinator | Backend catalog and acquisition | media-service/, server catalog adapter replacing src/utils/youtubeApi.js, API handlers, source-access evidence, bounded subprocess/cache/ownership/security behavior. |
-| Player/native peer; accepted by coordinator | Player and native playback | Web/Electron player consumers, Android service/bridge/policy/build, desktop IPC/transport/mini-player, native queue/media-session/background reliability and relevant tests. |
+| Coordinator temporarily while peer is unavailable; C009/user instruction | Player and native playback | Web/Electron player consumers, Android service/bridge/policy/build, desktop IPC/transport/mini-player, native queue/media-session/background reliability and relevant tests. Peer coordinates before resuming overlapping files. |
 | Both review; coordinator integrates | Shared contracts and persisted data | playerSlice, playbackSnapshot, route schemas, Jam occurrence identity/signing, guest ownership, source/asset metadata, CSP/build policies and cross-lane tests. Agree interfaces before changing producers/consumers independently. |
 
 Use separate branches/worktrees. Preserve remote commits and reconcile normally when the shared branch advances. No force-push, reset, stash or cleanup of another agent's work. A conflict or ownership question goes in the mailbox before overlapping edits.
@@ -40,7 +40,7 @@ The narrower D06 existing Android transport fix is now confirmed at 2d12b17 in [
 
 ## Gates and current evidence
 
-- Runtime migration has not started. D06's adapter/native transport implementation is cleared, not yet implemented or qualified. Jam occurrence-loss remains jointly reviewed/pending. Both defects were independently reproduced using actual modules with isolated fixtures; see [verification](peer-review-verification.md).
+- Provider migration has not started. D06's native producer/service/wrapper is implemented and locally compiled/JVM-tested; the ordered adapter and actual instrumentation/device qualification remain pending. Jam occurrence-loss remains jointly reviewed/pending. See [D06 evidence](D06-IMPLEMENTATION.md) and the original [reproductions](peer-review-verification.md).
 - Final PR41 checks and Vercel preview passed. The earlier media-container registry denial is historical. This resolves the stale-baseline/deployment-readiness report, not source feasibility.
 - Fresh production capability read: enabled:false, reason:service_disabled. Earlier hosted extraction returned source_access_restricted. Repeated uncached extraction, delivery and decoding from the intended deployment remain the first source gate; synthetic fixtures are not live playback or screen-off proof.
 - Preserve source codecs where compatible, SSRF/TLS protections, bounded CPU/disk/output, scoped ownership, leases and cleanup. Never force readiness flags true.
@@ -48,4 +48,4 @@ The narrower D06 existing Android transport fix is now confirmed at 2d12b17 in [
 - Retain the stack and first-release playback-during-extraction requirement. Native Android queue reliability precedes BPM/widening. Completed files alone and audible Safari HLS do not establish on-the-fly streaming or a working EQ path.
 - Follow applicable AGENTS.md/SKILL.md instructions, review each stage's diff, verify the changed flow and reconcile the requirements checklist before any completion claim.
 
-Next peer action: implement the D06 contract at 2d12b17 in small complete native/player stages, as confirmed in C008. Include actual native producer/wrapper checks and capability-aware adapter/deck integration; preserve legacy behavior. Post commit/files/checks/limits for independent review at each milestone. Any necessary deviation from the agreed wire/behavior returns to joint review before modification. No source activation, merge or native publication.
+Next coordinator action: implement the capability-aware adapter/deck and regressions while API33/36 CI verifies the native producer. Post code/checks/limits at each complete milestone. Peer reviews on return before overlapping edits. Preserve legacy behavior and return necessary wire/behavior changes to explicit review. No source activation, merge or native publication.

@@ -71,3 +71,11 @@ Next peer action: amend the draft with the two concrete clarifications and post 
 - Independent targeted checks: all three exact TypeScript blocks compile under strict/noEmit, including typed traces; one-file scope, whitespace, fences, relative links and private-identifier exclusion pass. No runtime files changed, so prior fixture results are not represented as a new execution. Both defects remain open; proposed native producer/device/audio behavior remains unverified. Initial limits/deadlines require measurement.
 
 Next peer action: implement the agreed slice in small complete stages, preserving remote commits, and post code/test evidence for independent review. PR42 remains draft.
+
+## M006 — 2026-10-25 — coordinator — takeover and native producer stage
+
+The user reports the peer ran out of time and authorizes the coordinator to continue. [C009](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6400510927) records temporary ownership of the native/player lane; [C010](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6401024958) records the native implementation/checks. Peer should coordinate before overlapping edits on return.
+
+Native owner, scoped bridge/attachment handling, session wrapper and service wiring are implemented. Local debug/release JVM suites pass 18 tests each (including 12 new owner cases); both lint variants report zero errors; APK/AAB build and instrumentation compilation pass. Eight actual service/session instrumentation cases are added, not locally executed because this host lacks an emulator/KVM. Android version 1.0.3/code4 includes the required native changes; no native release is published. See [D06 implementation evidence](D06-IMPLEMENTATION.md).
+
+The web adapter is still legacy at this milestone; original Pause-race and Jam occurrence-loss defects remain open. Next coordinator task is ordered adapter/deck integration and regression tests, while API33/36 CI validates the native stage. Full source/guest/v2 gates and draft status remain unchanged. This record does not establish audible playback, physical-device behavior or live source access.
