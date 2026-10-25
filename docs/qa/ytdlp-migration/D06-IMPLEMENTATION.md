@@ -2,6 +2,8 @@
 
 Contract: [ordered-transport-v1 at 2d12b17](ANDROID-TRANSPORT-DRAFT.md), confirmed in [C008](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389527896). The user asked the coordinator to continue when the peer ran out of time; [C009](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6400510927) records the temporary lane takeover.
 
+Current milestone: native `1c6b433` and client `90c3602` are implemented. All runtime-stage GitHub checks and the Vercel preview status pass; the preview retry is READY. Source access, full migration/native queue/renewal, physical-device and artifact-inspection limitations remain open below and in the checklist.
+
 ## Native stage — 2026-10-25
 
 Native milestone `1c6b433` is implemented and locally checked. It was intentionally not an end-to-end fix claim: the adapter was still legacy at that commit. The subsequent client stage below connects the consumer. Jam persistence is outside D06 and remains open.
@@ -71,3 +73,13 @@ The build uses locked dependencies in this isolated worktree. Unrelated host cre
 The existing security assertions pass across 2,612 isolated cases: zero uncaught exceptions and zero network attempts. Its field named `http500` counts all 5xx responses; all 62 recorded responses were expected `503` results for unconfigured/stubbed media or catalog services, not HTTP500 crashes.
 
 Next: publish the complete client stage and inspect its CI/emulator results. The Android race is fixed in the scripted consumer and component regressions; final producer/consumer qualification remains pending. Source access, native queue/renewal v2, interruption/Bluetooth/physical-device qualification and Jam occurrence loss remain open in the checklist. PR42 remains draft; no native release or production activation.
+
+## Runtime-stage CI — `90c3602`
+
+[Android run 40226176682](https://github.com/6NCLegend9/Spotify-clone/actions/runs/40226176682) reports API33 emulator, API36 emulator and APK jobs successful. This run includes the new actual-producer/WebView assertions described above, in addition to the eight service/session cases. The main check, offline-browser, homepage-browser and sandbox-regressions jobs also pass for this runtime commit; [C013](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6402313465) records the outcomes.
+
+Artifact retrieval for both API33 and API36 returned HTTP403 from unexpired download URLs. The uploaded XML/screenshots could not be independently inspected from this host. These are CI-reported execution results; no exact per-suite counts, screenshot inspection, physical-device audio or live-source success is inferred. Physical interruption/Bluetooth/screen-off qualification and old-binary device qualification remain open.
+
+Vercel initially failed for a separate confirmed infrastructure reason: the project's media repository had reached its 50-image limit. Under the user's existing unused-image cleanup authorization, all 35 retained deployments were enumerated (no next page), the actual image build references of all 30 READY deployments were audited, and current production was explicitly protected. Twenty images referenced by neither retained source SHAs nor active build references were removed sequentially. A fresh registry listing confirmed exactly the 30 protected images remained before the retry. No deployment was deleted; production remains READY at `fbaae39` / `dpl_CZdXuHfMnRLQzp41Hcm5GbpVi6ee`.
+
+Preview-only retry [dpl_6J3GyzCQMQryWCYED3JoYad1GGNZ](https://spotify-clone-6y01blrdn-6nclegend9s-projects.vercel.app) reached READY at runtime SHA `90c36020710a6b660bfb2966b3d052ce1724ac62`, branch `feat/pr42-ytdlp-migration`, with no production target. GitHub's Vercel context then reported SUCCESS; all runtime checks are green. A fresh production capability read still returns `enabled:false, reason:service_disabled`. No provider access or native release was activated.

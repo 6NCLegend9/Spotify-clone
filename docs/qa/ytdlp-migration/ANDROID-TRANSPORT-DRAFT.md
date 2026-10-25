@@ -1,6 +1,6 @@
 # Android ordered transport: D06 draft 2
 
-Status: **proposal for targeted joint re-review; no runtime implementation or qualification**. Draft 1 at `b0687e5` received core-design acceptance in [C006](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389302279). This revision, based on PR42 `9bab9d254e95046ed4a26f7f7693e46b299160b8`, addresses its two lifecycle/error and create/recover clarifications. Runtime implementation remains pending confirmation of these changes.
+Status: **draft 2 confirmed for scoped implementation at `2d12b17` in [C008](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389527896)**. The wire schema and behavior below are unchanged by this status update. Subsequent implementation and qualification limits are recorded in [D06-IMPLEMENTATION.md](D06-IMPLEMENTATION.md); this document alone is not runtime evidence. Draft 1 at `b0687e5` received core-design acceptance in [C006](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389302279). Draft 2, based on PR42 `9bab9d254e95046ed4a26f7f7693e46b299160b8`, resolved its lifecycle/error and create/recover clarifications.
 
 This is capability `ordered-transport-v1`, not the complete catalog/queue/auth/streaming v2 contract. It corrects command/observation ambiguity without changing source delivery, granting guest access or promising background queue ownership. Existing `id`, `action`, `event`, `url`, `title`, `value`, position/duration fields and origin/frame/URL checks remain.
 

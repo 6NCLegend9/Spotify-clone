@@ -15,3 +15,13 @@ The 179-path inventory and 664-edge call map are a validated lexical snapshot at
 Named missing event paths are now explicit: main/native replies → preload/bridge → player consumer; OS/MediaSession → native transport; native Back → androidNavigation → AppShell; Jam signed channel → /api/jam/events → authorization/signature validation → saved queue sanitization. A mapping omission is not evidence of an authorization bypass.
 
 The peer owns the isolated adapter defect investigation/fix. Jam occurrence identity and guest/receipt/queue schemas remain jointly reviewed. Direct application YouTube dependency removal, compatibility aliases and source-provider mappings must be distinguished; do not delete data or weaken policies solely to make a text search return zero matches.
+
+## D06 implementation supplement — 2026-10-25
+
+Under the user's takeover instruction in C009, the coordinator temporarily implements the player/native lane while the peer is unavailable. The original lexical inventory remains a historical snapshot; these new boundaries are explicitly included:
+
+- `OrderedTransport.java` owns native decisions, results and scoped timers; `OrderedMediaBridge.java` owns capability/control parsing and attachment authority; `SessionTransportPlayer.java` intercepts explicit MediaSession controls. `PlaybackService.java` and `MainActivity.java` connect them. `OrderedTransportTest.java` and `OrderedBridgeTest.java` exercise actual production classes/service/session.
+- `orderedAndroidTransport.mjs` consumes the confirmed protocol; `androidAudioElement.mjs` projects intent/output separately; `nativeMediaDeck.mjs` and `YouTubePlayer.jsx` handle explicit controls, current store state and visible control-channel recovery.
+- `docs/qa/android/ordered-check.mjs` and `ordered-player-check.cjs` supplement the retained legacy checks. `create-fixture.cjs` packages production modules for `AndroidPlaybackTest.java` and delegates the actual document lifecycle. Android, Play Store and browser CI run the new checks; the browser module loader includes the new dependency.
+
+See [D06 implementation/evidence](D06-IMPLEMENTATION.md). This adds no source/catalog/guest/queue-persistence ownership grant and does not settle the full-v2 contracts. The peer reviews the published native/client commits before overlapping edits on return.
