@@ -4,7 +4,7 @@ Contract: [ordered-transport-v1 at 2d12b17](ANDROID-TRANSPORT-DRAFT.md), confirm
 
 ## Native stage — 2026-10-25
 
-Implemented and locally checked; **not an end-to-end fix claim**. The current web adapter still uses legacy messages. Both original defects remain open; Jam persistence is outside this stage.
+Native milestone `1c6b433` is implemented and locally checked. It was intentionally not an end-to-end fix claim: the adapter was still legacy at that commit. The subsequent client stage below connects the consumer. Jam persistence is outside D06 and remains open.
 
 | Component | Implementation | Verification / remaining work |
 | --- | --- | --- |
@@ -12,7 +12,7 @@ Implemented and locally checked; **not an end-to-end fix claim**. The current we
 | [OrderedMediaBridge](../../../android/app/src/main/java/app/haykasa/android/OrderedMediaBridge.java) | Strict typed parsing, trusted attachment authority supplied by Java, bounded Hello grants/empty reservations, CAS Bind/rebind, full-scope control, non-state lifecycle ACK/errors and ordered snapshots. | Compiles and passes lint. Actual Android service/JSON producer tests are added and compiled; not locally executed. |
 | [PlaybackService](../../../android/app/src/main/java/app/haykasa/android/PlaybackService.java) / [SessionTransportPlayer](../../../android/app/src/main/java/app/haykasa/android/SessionTransportPlayer.java) | Session-only explicit system intent hook, raw-player web/policy changes, active-load/raw identity guards, current-getter observations, and one wrapper/raw release owner. Preserves legacy envelopes. | Local build succeeds. Actual MediaController/decoder/notification/foreground behavior needs emulator/device results. |
 | [MainActivity](../../../android/app/src/main/java/app/haykasa/android/MainActivity.java) | Per-document attachment retirement, queued-command/sink identity checks and no untagged error fallback for ordered requests. | Compiles/lints; document replacement and real WebView bridge integration still need execution. |
-| Web adapter/deck | Existing legacy implementation retained at this milestone. | Ordered consumer, recovery/error visibility and ordering regressions pending. Do not qualify an old APK or a probe-timeout legacy session. |
+| Web adapter/deck | Existing legacy implementation retained at the native milestone. The subsequent client stage is described below. | Do not qualify an old APK or a probe-timeout legacy session. |
 
 Android version is **1.0.3 / code 4**. Standard `desugar_jdk_libs:2.1.5` keeps the Java functional APIs available on the existing API23 minimum; the minimum OS is unchanged. A new installed native binary is required. No artifact was published as a release and production was not activated.
 
@@ -35,4 +35,39 @@ Run with a task-local JDK21/Android SDK36 and the environment's existing proxy/C
 
 No source extraction, live bitrate, native queue ownership, source renewal/reconnect, DSP, or Safari/iPhone success is established by this stage. The source-access gate and unresolved source/guest/full-v2 decisions remain in the [requirements checklist](../../superpowers/plans/2026-10-24-ytdlp-migration.md).
 
-Next: connect and regression-test the capability-aware web adapter/deck, verify the real producer/consumer path and older clients, then reconcile CI/device evidence. PR42 remains draft.
+Native-stage CI: [Android run 40218841017](https://github.com/6NCLegend9/Spotify-clone/actions/runs/40218841017) reports API33, API36 and APK jobs successful for `1c6b433`. The main `check` job also passed; `sandbox-regressions` was cancelled. Artifact download failed from this host, and log retrieval returned no content. These are reported CI outcomes, not independently inspected per-test counts, screenshots or audible evidence.
+
+## Negotiated client and integration stage — 2026-10-25
+
+The confirmed wire contract is unchanged. No provider, catalog, guest authentication, queue persistence, production flags or full-v2 ownership interfaces change in this stage.
+
+| Component | Implementation | Local verification |
+| --- | --- | --- |
+| [orderedAndroidTransport.mjs](../../../src/components/MusicPlayer/media/orderedAndroidTransport.mjs) | Bounded capability negotiation and cached legacy mode, exact scope/CAS recovery, strict frame invariants, pending-intent overlay, correlated immutable results, separate actual output, scoped deadlines and lifecycle controls. A known binding reconnects without replaying Load/Play/seek/volume; missing continuity requires a deliberate new-source decision. | 23 actual consumer/deck cases with scripted envelopes cover delayed/fresh-old-processed frames, notification Play, supersession, terminal replay, pre-application rejection, no-op Pause, timeouts, counter validation, bounded requests, reset, missing load and legacy latch/downgrade behavior. Fixtures are not native producer proof. |
+| [androidAudioElement.mjs](../../../src/components/MusicPlayer/media/androidAudioElement.mjs) | Existing legacy envelope retained. Ordered intent/output/error events are separate, no DOM `playing` is fabricated from posting Play, source IDs retire, and decoder errors are reported once per load. | Retained legacy bridge/deck regression suite and real headless Chromium DOM check pass. They use a synthetic bridge, not an Android emulator. |
+| [nativeMediaDeck.mjs](../../../src/components/MusicPlayer/media/nativeMediaDeck.mjs) | Consumes ordered intent independently of output. Transport failure does not pause/release/retry the decoder. Exposes deliberate reconnect and fresh-source reload; lifecycle release does not impersonate user Pause. Recovered metadata preserves native position and intent. | Actual deck plus actual adapter fixtures verify delayed ACK behavior, no corrective commands, no source fallback on control failure and reconnect without replay. |
+| [YouTubePlayer.jsx](../../../src/components/MusicPlayer/YouTubePlayer.jsx) | Qualified native commands bypass renderer watchdog/visibility/seek replay; explicit app/Jam/repeat controls remain connected. Native intent updates store/refs, while stale effects read the latest store. Existing error/retry UI separates reconnect from track reload. | [Component callback checks](../android/ordered-player-check.cjs) execute production callbacks/effects in isolated state; prove stale Pause/React output cannot issue corrective commands and actual output cannot clear a control-channel error. Lint/typecheck/production build pass. |
+| APK integration fixture / [AndroidPlaybackTest](../../../android/app/src/androidTest/java/app/haykasa/android/AndroidPlaybackTest.java) | Uses the production adapter/deck, real WebMessage bridge and real Media3 decoder with local PCM bytes. Now asserts negotiated mode, holds actual producer replies across Pause/system Play, replays the older ACK, checks native intent ownership, and reconnects without a new web revision. Navigation delegates document-attachment lifecycle. | Generated fixture and instrumentation compile. **The new connected assertions have not yet been executed locally or by CI at this milestone.** No KVM/emulator is available on this host. |
+
+Checks run for the client stage:
+
+```sh
+npm run android:check
+NODE_PATH=<existing-playwright-install> node docs/qa/android/browser.cjs
+node docs/qa/background-playback/check.cjs
+node docs/qa/mobile-source-playback/check.cjs
+node docs/qa/android/resolve-check.cjs
+node docs/qa/android/release-check.mjs
+node docs/qa/security-audit/run.cjs <scratch-report.json> --verify-fixes
+npm run lint
+npm run typecheck
+npm run build
+node docs/qa/android/create-fixture.cjs
+./android/gradlew -p android --no-daemon compileDebugAndroidTestJavaWithJavac
+```
+
+The build uses locked dependencies in this isolated worktree. Unrelated host credentials are unset; no database, real user account, source activation or provider permission is assumed. The test-only resolver and PCM fixture do not prove authenticated source extraction, delivered bitrate or audible hardware output. Web and Play Store/Android/browser CI check entry points include the new regression scripts.
+
+The existing security assertions pass across 2,612 isolated cases: zero uncaught exceptions and zero network attempts. Its field named `http500` counts all 5xx responses; all 62 recorded responses were expected `503` results for unconfigured/stubbed media or catalog services, not HTTP500 crashes.
+
+Next: publish the complete client stage and inspect its CI/emulator results. The Android race is fixed in the scripted consumer and component regressions; final producer/consumer qualification remains pending. Source access, native queue/renewal v2, interruption/Bluetooth/physical-device qualification and Jam occurrence loss remain open in the checklist. PR42 remains draft; no native release or production activation.

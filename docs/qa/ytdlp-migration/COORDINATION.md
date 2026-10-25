@@ -40,7 +40,7 @@ The narrower D06 existing Android transport fix is now confirmed at 2d12b17 in [
 
 ## Gates and current evidence
 
-- Provider migration has not started. D06's native producer/service/wrapper is implemented and locally compiled/JVM-tested; the ordered adapter and actual instrumentation/device qualification remain pending. Jam occurrence-loss remains jointly reviewed/pending. See [D06 evidence](D06-IMPLEMENTATION.md) and the original [reproductions](peer-review-verification.md).
+- Provider migration has not started. D06 native producer/service/wrapper and negotiated adapter/deck/component are implemented. Local consumer/component/legacy/Chromium/build checks pass; native-stage API33/36 CI reports success. New connected producer/consumer assertions are compiled and await their own emulator execution; physical qualification remains pending. Jam occurrence-loss remains jointly reviewed/pending. See [D06 evidence](D06-IMPLEMENTATION.md) and the original [reproductions](peer-review-verification.md).
 - Final PR41 checks and Vercel preview passed. The earlier media-container registry denial is historical. This resolves the stale-baseline/deployment-readiness report, not source feasibility.
 - Fresh production capability read: enabled:false, reason:service_disabled. Earlier hosted extraction returned source_access_restricted. Repeated uncached extraction, delivery and decoding from the intended deployment remain the first source gate; synthetic fixtures are not live playback or screen-off proof.
 - Preserve source codecs where compatible, SSRF/TLS protections, bounded CPU/disk/output, scoped ownership, leases and cleanup. Never force readiness flags true.
@@ -48,4 +48,4 @@ The narrower D06 existing Android transport fix is now confirmed at 2d12b17 in [
 - Retain the stack and first-release playback-during-extraction requirement. Native Android queue reliability precedes BPM/widening. Completed files alone and audible Safari HLS do not establish on-the-fly streaming or a working EQ path.
 - Follow applicable AGENTS.md/SKILL.md instructions, review each stage's diff, verify the changed flow and reconcile the requirements checklist before any completion claim.
 
-Next coordinator action: implement the capability-aware adapter/deck and regressions while API33/36 CI verifies the native producer. Post code/checks/limits at each complete milestone. Peer reviews on return before overlapping edits. Preserve legacy behavior and return necessary wire/behavior changes to explicit review. No source activation, merge or native publication.
+Next coordinator action: publish the complete client stage and review connected API33/36 checks. Post code/checks/limits at each complete milestone. Peer reviews on return before overlapping edits. Preserve legacy behavior and return necessary wire/behavior changes to explicit review. No source activation, merge or native publication.

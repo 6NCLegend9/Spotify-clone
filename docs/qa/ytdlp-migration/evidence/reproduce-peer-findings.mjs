@@ -23,6 +23,9 @@ const { createAndroidAudioElement } = await import(new URL(
 const media = createAndroidAudioElement("Peer review fixture");
 media.src = `https://haykasa.vercel.app/v1/assets/${"0".repeat(32)}`;
 media.load();
+// With the negotiated client this reproduces the OLD-APK compatibility path.
+// The ordered-capable APK is covered by ordered-check.mjs and instrumentation.
+await new Promise(resolve => setTimeout(resolve, 1010));
 const load = commands.findLast(command => command.action === "load");
 const playResult = media.play().then(
   () => ({ state: "resolved" }),

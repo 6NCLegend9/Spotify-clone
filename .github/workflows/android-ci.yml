@@ -7,6 +7,7 @@ on:
     paths:
       - "android/**"
       - "src/components/MusicPlayer/media/androidAudioElement.mjs"
+      - "src/components/MusicPlayer/media/orderedAndroidTransport.mjs"
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mediaService.mjs"
@@ -21,6 +22,7 @@ on:
     paths:
       - "android/**"
       - "src/components/MusicPlayer/media/androidAudioElement.mjs"
+      - "src/components/MusicPlayer/media/orderedAndroidTransport.mjs"
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mediaService.mjs"
@@ -63,6 +65,8 @@ jobs:
       - name: Check web audio bridge
         run: |
           node docs/qa/android/check.mjs
+          node docs/qa/android/ordered-check.mjs
+          node docs/qa/android/ordered-player-check.cjs
           node docs/qa/android/resolve-check.cjs
           node docs/qa/android/release-check.mjs
           node docs/qa/android/iframe-api-check.mjs

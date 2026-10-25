@@ -12,7 +12,7 @@
     "dev:webpack": "next dev",
     "build": "next build",
     "start": "next start",
-    "android:check": "node docs/qa/android/check.mjs",
+    "android:check": "node docs/qa/android/check.mjs && node docs/qa/android/ordered-check.mjs && node docs/qa/android/ordered-player-check.cjs",
     "android:build": "node scripts/android-build.mjs",
     "android:bundle": "node scripts/android-build.mjs --bundle",
     "desktop": "npm --prefix desktop start",

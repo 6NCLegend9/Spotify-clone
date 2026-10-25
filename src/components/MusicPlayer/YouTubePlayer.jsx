@@ -395,6 +395,9 @@ function YouTubePlayer() {
   };
 
   const resumePlayer = (player, { explicitUserAction = false } = {}) => {
+    // Native owns recovery and system intent. A renderer watchdog/visibility
+    // callback must not turn its stale state into a new ordered Play command.
+    if (player?.orderedTransport && !explicitUserAction) return;
     const hidden = isPageHidden();
     if (shouldDeferYoutubeResume({ hidden, explicitUserAction, provider: player?.provider, authenticated: backgroundAccountRef.current })) {
       markBackgroundPlayback();
@@ -704,6 +707,7 @@ function YouTubePlayer() {
   };
 
   const scheduleActiveBufferRecovery = (key, player, generation) => {
+    if (player?.orderedTransport) return;
     if (player?.provider === "native" && player.isResolving) return;
     if (isPageHidden()) {
       markBackgroundPlayback();
@@ -821,6 +825,7 @@ function YouTubePlayer() {
   };
 
   const watchActiveProgress = (key, player, generation) => {
+    if (player?.orderedTransport) return;
     if (player?.provider === "native" && player.isResolving) return;
     if (isPageHidden()) {
       markBackgroundPlayback();
@@ -1178,7 +1183,28 @@ function YouTubePlayer() {
           if (playerVideoId(event.target) === videoId && occurrence === queueEntryIdentity(videoRef.current)) onDeckReady?.(event.target);
           const shouldPlay = event.target.provider === "native" || key === activeDeckRef.current
             ? wantsPlayback() : autoplay;
-          if (shouldPlay) event.target.playVideo();
+          if (shouldPlay && !event.target.nativeTransportRestored) event.target.playVideo();
+        },
+        onTransportIntent: (event) => {
+          if (!isCurrent() || key !== activeDeckRef.current || typeof event.data?.playing !== "boolean") return;
+          const playing = event.data.playing;
+          userPausedRef.current = !playing;
+          isPlayingRef.current = playing;
+          if (!playing) clearActiveBufferTimers();
+          if (store.getState().player.isPlaying !== playing) dispatch(playPause(playing));
+        },
+        onTransportError: (event) => {
+          if (!isCurrent() || key !== activeDeckRef.current) return;
+          clearActiveBufferTimers();
+          setPlayerError({
+            kind: "transport", canRetry: true, needsSource: event.data?.needsSource === true,
+            message: event.data?.needsSource
+              ? "The Android playback session ended. Reload the track to restore controls."
+              : "Playback controls lost connection. Music may still be playing. Reconnect to restore controls.",
+          });
+        },
+        onTransportRecovered: () => {
+          if (isCurrent() && key === activeDeckRef.current) setPlayerError((current) => current?.kind === "transport" ? null : current);
         },
         onStateChange: (event) => {
           if (!isCurrent()) return;
@@ -1191,7 +1217,7 @@ function YouTubePlayer() {
               }
             }
             if (key === activeDeckRef.current) {
-              setPlayerError(null);
+              setPlayerError((current) => current?.kind === "transport" ? current : null);
               const playingId = playerVideoId(event.target);
               const playingIdentity = queueEntryIdentity(videoRef.current);
               if (
@@ -1228,8 +1254,15 @@ function YouTubePlayer() {
           if (key !== activeDeckRef.current) return;
           const stateCode = ({ 0: "ended", 1: "playing", 2: "paused", 3: "buffering" })[event.data];
           if (stateCode) recordDiagnostic("playback_state", { code: stateCode });
-          // Notification/headphone/audio-focus controls are native user intent.
-          // Do not undo them with the embedded player's automatic resume policy.
+          // Qualified native intent is delivered separately from observed
+          // decoder state. Neither a delayed Pause ACK nor focus suppression
+          // may manufacture user intent or trigger corrective renderer commands.
+          if (event.target.orderedTransport && event.data === MEDIA_PLAYER_STATES.PAUSED) {
+            clearActiveBufferTimers();
+            return;
+          }
+          // Older APKs retain their notification behavior, but cannot be
+          // qualified for ordered-state guarantees without a binary update.
           if (event.target.androidNative && event.data === MEDIA_PLAYER_STATES.PAUSED) {
             userPausedRef.current = true;
             clearActiveBufferTimers();
@@ -1237,8 +1270,9 @@ function YouTubePlayer() {
             return;
           }
           if (event.data === MEDIA_PLAYER_STATES.PLAYING) {
-            if (event.target.androidNative) userPausedRef.current = false;
-            if (userPausedRef.current && !isPlayingRef.current) {
+            if (event.target.androidNative && !event.target.orderedTransport) userPausedRef.current = false;
+            if (event.target.orderedTransport && !event.target.nativePlayIntent) return;
+            if (!event.target.orderedTransport && userPausedRef.current && !isPlayingRef.current) {
               event.target.pauseVideo?.();
               return;
             }
@@ -1292,7 +1326,7 @@ function YouTubePlayer() {
               if (isPlayingRef.current) {
                 event.target.unMute?.();
                 applyPlaybackVolume(event.target);
-                event.target.playVideo?.();
+                if (!event.target.orderedTransport) event.target.playVideo?.();
               }
               return;
             }
@@ -2113,7 +2147,8 @@ function YouTubePlayer() {
         pendingJamPlaybackRef.current = null;
         userPausedRef.current = !pendingJamPlayback.isPlaying;
         if (pendingJamPlayback.isPlaying) {
-          resumePlayer(activePlayer);
+          if (activePlayer.orderedTransport) activePlayer.playVideo();
+          else resumePlayer(activePlayer);
         } else {
           cancelFade();
           activePlayer.pauseVideo?.();
@@ -2369,7 +2404,9 @@ function YouTubePlayer() {
   const replayCurrent = () => {
     markExpectPlaying();
     seekOnCurrentTrack(0);
-    resumePlayer(getActivePlayer());
+    const player = getActivePlayer();
+    if (player?.orderedTransport) player.playVideo();
+    else resumePlayer(player);
     dispatch(playPause(true));
   };
 
@@ -2534,6 +2571,17 @@ function YouTubePlayer() {
     if (crossfadeInProgressRef.current || isSeekGuarded()) return;
     const player = getActivePlayer();
     if (!player?.getPlayerState) return;
+    if (player.orderedTransport) {
+      // Read the store now: a native command can arrive between the render
+      // scheduling this effect and its execution.
+      const wanted = store.getState().player.isPlaying === true;
+      userPausedRef.current = !wanted;
+      isPlayingRef.current = wanted;
+      if (wanted === player.nativePlayIntent) return;
+      if (wanted) resumePlayer(player, { explicitUserAction: true });
+      else player.pauseVideo();
+      return;
+    }
     if (isPlaying) {
       userPausedRef.current = false;
       resumePlayer(player);
@@ -2574,7 +2622,7 @@ function YouTubePlayer() {
       // Arm before resume because the iframe can asynchronously snap its own
       // volume back to 100 while processing visibility/unmute transitions.
       scheduleVolumeRestore();
-      if (shouldResume) {
+      if (shouldResume && !getActivePlayer()?.orderedTransport) {
         resumePlayer(getActivePlayer());
         dispatch(playPause(true));
       }
@@ -2652,7 +2700,7 @@ function YouTubePlayer() {
       } else {
         player?.seekTo?.(time, true);
       }
-      if (isPlayingRef.current) {
+      if (isPlayingRef.current && !player?.orderedTransport) {
         player?.unMute?.();
         applyPlaybackVolume(player);
         player?.playVideo?.();
@@ -2670,6 +2718,7 @@ function YouTubePlayer() {
 
     if (isPlaying) {
       userPausedRef.current = true;
+      isPlayingRef.current = false;
       pageHiddenWhilePlayingRef.current = false;
       dispatch(playPause(false));
       player?.pauseVideo?.();
@@ -2677,6 +2726,7 @@ function YouTubePlayer() {
     }
 
     userPausedRef.current = false;
+    isPlayingRef.current = true;
     dispatch(playPause(true));
     if (!player?.playVideo) return;
     player.unMute?.();
@@ -2684,9 +2734,26 @@ function YouTubePlayer() {
     player.playVideo();
   };
 
-  const handleRetryPlayback = () => {
+  const handleRetryPlayback = async () => {
     const current = videoRef.current;
     if (!current?.id) return;
+    if (playerError?.kind === "transport") {
+      const player = getActivePlayer();
+      if (!player?.orderedTransport) return;
+      const identity = queueEntryIdentity(current);
+      if (playerError.needsSource) {
+        setPlayerError(null);
+        player.reloadTransportSource({ autoplay: store.getState().player.isPlaying });
+      } else {
+        try { await player.reconnectControls(); }
+        catch (error) {
+          if (getActivePlayer() !== player || queueEntryIdentity(videoRef.current) !== identity) return;
+          setPlayerError({ kind: "transport", canRetry: true, needsSource: error?.needsSource === true,
+            message: error?.needsSource ? "The Android playback session ended. Reload the track to restore controls." : "Playback controls could not reconnect. Retry to restore controls." });
+        }
+      }
+      return;
+    }
     abortCrossfade();
     setPlayerError(null);
     markExpectPlaying();
