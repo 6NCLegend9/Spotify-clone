@@ -1,270 +1,282 @@
-<div align="center">
-  <img src="./src/assets/HayKasa-banner-removebg.png" alt="HayKasa" width="620" />
+# HayKasa
 
-  # HayKasa
+**Music discovery, personal libraries, and queue-based playback across web, Windows, and Android.**
 
-  **Music discovery, queues, playlists, and playback for web, Windows, and an Android preview app.**
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)](./package.json)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)](./package.json)
+[![Windows Desktop](https://img.shields.io/badge/Windows-Electron-47848F?logo=electron&logoColor=white)](./desktop/README.md)
+[![Android Preview](https://img.shields.io/badge/Android-Preview-3DDC84?logo=android&logoColor=white)](./android/README.md)
+[![CI](https://github.com/6NCLegend9/Spotify-clone/actions/workflows/ci.yml/badge.svg)](https://github.com/6NCLegend9/Spotify-clone/actions/workflows/ci.yml)
 
-  [![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)](./package.json)
-  [![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)](./package.json)
-  [![Electron Desktop](https://img.shields.io/badge/Desktop-Electron-47848F?logo=electron&logoColor=white)](./desktop/README.md)
-  [![Android Preview](https://img.shields.io/badge/Android-Preview-3DDC84?logo=android&logoColor=white)](./android/README.md)
-  [![CI](https://github.com/6NCLegend9/Spotify-clone/actions/workflows/ci.yml/badge.svg)](https://github.com/6NCLegend9/Spotify-clone/actions/workflows/ci.yml)
+[Open HayKasa](https://haykasa.vercel.app) · [Downloads and releases](https://github.com/6NCLegend9/Spotify-clone/releases) · [Quick start](#quick-start) · [Architecture](#architecture) · [Documentation](#documentation) · [Contributing](#contributing)
 
-  [Open HayKasa](https://haykasa.vercel.app) · [Releases](https://github.com/6NCLegend9/Spotify-clone/releases) · [Android](./android/README.md) · [Windows](./desktop/README.md) · [Documentation](#documentation)
-</div>
+![HayKasa banner](./src/assets/HayKasa-banner-removebg.png)
 
----
+## Purpose and vision
 
-HayKasa combines a Next.js music application with YouTube-backed discovery/playback, personal libraries, queue controls, account-aware recommendations, synchronized lyrics/captions, Jam sessions, a Windows desktop shell, and an Android WebView/Media3 preview.
+HayKasa helps listeners organize music and discover something new from one shared application. It combines search, saved libraries, familiar recommendations, exploration, and listening together through Jam sessions.
 
-## Product preview
+The project is for listeners using browsers or installed apps, and developers contributing to a shared web product with native integrations. Its approach keeps accounts and libraries in the same backend while Windows and Android add operating-system controls. The repository is named `Spotify-clone`; the application is branded **HayKasa**.
 
-<div align="center">
-  <img src="./public/haykasa-og.png" alt="HayKasa product preview" width="100%" />
-</div>
+## Key features
 
-The preview is a repository-owned brand image. UI screenshots and dated verification reports are linked in the [documentation index](#documentation).
-
-## What HayKasa includes
-
-- **Search and discovery** — song, artist, and playlist results with filters, pagination, deduplication, and direct artist-channel links. Query submission stays on the search index. The homepage balances familiar recommendations with exploration using favorite genres/artists and listening/search activity.
-- **Queue-first playback** — play next, append, reorder/remove, queue persistence, recovery from provider failures, repeat/shuffle controls, and a responsive expanded player.
-- **Library tools** — liked songs, user playlists, collaborators, public/private access controls, listening history, followed artists, and playlist browsing.
-- **Lyrics and captions** — synchronized lyric/caption surfaces tied to the active player.
-- **HayKasa Jam** — signed realtime session events, host/guest roles, shared playback state, AUX controls, persistent rooms, and QR/link sharing.
-- **Responsive UI** — desktop multi-panel shell, mobile tab navigation, bottom player, expanded media, keyboard/media-session controls, reduced-motion support, and accessibility settings.
-- **Windows desktop** — sandboxed Electron shell, system-browser auth, Discord Desktop IPC, tray/startup controls, appearance profiles, diagnostics, safe mode, and a signing-gated native updater.
-- **Android** — the production mobile interface in a restricted WebView, native Media3 playback for successfully resolved audio, safe screen insets, media controls, Back navigation, document-picker uploads, renderer-crash recovery, and Google Play update prompts for store installs.
+- **Search and discovery:** song, artist, and playlist results; suggestions, filters, pagination, and individual artist-channel links. Submitting a query opens the search index.
+- **Personalized home:** familiar recommendations balanced with exploration, using favorite genres/artists and listening/search activity, with deduplication across sections.
+- **Queue controls:** play next, append, reorder, remove, shuffle, repeat, and saved playback snapshots.
+- **Personal library:** liked songs, playlists, collaborators, public/private visibility, followed artists, and listening history.
+- **Lyrics and captions:** timed text associated with the active track when available from the provider.
+- **Jam sessions:** shared listening, host/guest controls, QR/link invitations, and server-authorized realtime events.
+- **Responsive interface:** desktop library/player panels, mobile navigation, keyboard controls, and accessibility preferences.
+- **Native integration:** Windows tray, media controls, Discord presence, and updater; Android Media3 audio service, lock-screen controls, safe screen insets, and Play Store update prompts.
 
 ## Platform status and playback limits
 
-| Component | Status and requirements |
+| Platform or component | Current behavior and limits |
 | --- | --- |
-| Web / PWA | The primary application. YouTube embedding remains subject to provider restrictions; background playback is not guaranteed by installing a PWA. |
-| Windows | Web changes arrive through the production website. Native updates require a published, complete signed release and configured signing credentials. See [release setup](./desktop/README.md#release-configuration-check). |
-| Android | This branch builds Android 1.0.2 (version code 3) as a debug preview or release AAB; the separately published APK can be older. The standard APK always loads `https://haykasa.vercel.app`, including when downloaded through localhost. Web changes need deployment; native changes need a new build. Play installs check for published native updates on foreground entry; sideloaded previews do not auto-update. See [build and activation requirements](./android/README.md). |
-| Source audio / yt-dlp | Optional for authenticated mobile audio. The hosted retest passed storage and signed range delivery, but YouTube rejected extraction with `source_access_restricted`. Production source playback remains disabled; see the dated [live verification results](./docs/qa/vercel-media/RESULTS.md). |
+| **Web / PWA** | Primary application. Embedded YouTube remains a playback path and is subject to provider restrictions. Installing the PWA does not guarantee background playback on phones. |
+| **Windows desktop** | Electron loads the production website. Native updates require a complete, authenticated release bundle and valid Windows code signing. Web deployment alone does not update Electron or its native integrations. |
+| **Android preview** | This checkout declares **1.0.3 / version code 4**, Android 6.0+. The standard APK loads the production website, including when downloaded from a local site. Public APKs may be older. Website changes require deployment; Java/service changes require a new binary. |
+| **Source audio / yt-dlp** | Implemented as an optional authenticated path for web, desktop, and Android. Production source playback remains disabled in the latest recorded verification; hosted extraction encountered `source_access_restricted`. Storage or range-delivery success does not prove playable live audio. |
 
-Android's native service can continue a resolved audio asset outside the WebView. Embedded YouTube remains a foreground fallback. Native notification next/previous is not implemented. Reliable suspended-WebView queue continuation, process restoration, and physical-device battery behavior are not established by the controlled emulator tests.
+Android's service can play a successfully resolved, completed audio asset outside the WebView. Next/previous queue advancement and source renewal still depend on JavaScript; a fully native background queue is unfinished. Native EQ, normalization, and mono processing are also unfinished. The embedded fallback remains a foreground path.
 
-## Architecture
+**PR42 is a draft migration.** Ordered Android transport is implemented with recorded fixture and CI evidence, but removing YouTube integrations, proving repeated deployed source access, native queue ownership, streaming during extraction, and the full DSP design remain incomplete. Consult the [requirements checklist](./docs/superpowers/plans/2026-10-24-ytdlp-migration.md), [transport implementation evidence](./docs/qa/ytdlp-migration/D06-IMPLEMENTATION.md), and dated [hosted verification results](./docs/qa/vercel-media/RESULTS.md). Physical-device audio and Safari EQ qualification remain separate requirements.
 
-```text
-Browser / PWA
-    |
-    v
-Next.js 15 App Router on Vercel
-    |
-    +--> API routes / auth / recommendation services
-    |        |
-    |        +--> MongoDB / Mongoose
-    |        +--> YouTube APIs
-    |        +--> Supabase Realtime for Jam transport
-    |
-    +--> Redux client state + player controllers
-             |
-             +--> YouTube embedded playback / local media surfaces
-             +--> authenticated mobile source resolver
-                       |
-                       +--> optional yt-dlp / FFmpeg media service
-                       +--> signed, seekable audio assets
+## Quick start
 
-Windows Desktop
-    |
-    +--> hardened Electron main + preload boundary
-    |
-    +--> loads https://haykasa.vercel.app
-    |
-    +--> /api/desktop/manifest + /api/desktop/update/*
-              |
-              +--> validated public GitHub Release assets
+### 1. Install prerequisites
 
-Android Preview
-    |
-    +--> trusted production WebView + restricted message bridge
-    +--> native Media3 service for resolved source audio
-    +--> foreground embedded-player fallback when source audio is unavailable
-```
+- **Node.js 22.x and npm**, matching [package.json](./package.json), [.nvmrc](./.nvmrc), and CI.
+- **Git** to clone the repository.
+- **MongoDB with transaction support:** use a development Atlas database, replica set, or supported sharded deployment. Playlist/account operations use transactions; a standalone MongoDB server is insufficient.
+- **SMTP credentials** for signup verification and password reset. Email/password login requires a verified account; Google sign-in is currently disabled in [siteConfig.js](./src/utils/siteConfig.js).
 
-The native shells reuse the web product and its authenticated APIs. They add platform capabilities while server credentials stay on the backend.
+Use a development database and mail configuration. Optional integrations are listed below.
 
-## Windows desktop and updates
+### 2. Clone and configure
 
-Already-installed desktop builds use stable HayKasa compatibility endpoints:
-
-```text
-HayKasa Desktop
-  -> https://haykasa.vercel.app/api/desktop/manifest
-  -> https://haykasa.vercel.app/api/desktop/update/<channel>/latest.yml
-  -> public GitHub Release assets
-  -> electron-updater
-  -> Windows Authenticode verification
-```
-
-That indirection lets existing clients receive a new native release even when the artifact origin changes. Stable/beta releases are versioned GitHub Releases with a complete updater bundle (`latest.yml`, versioned installer, blockmap, and authenticated release manifest). The server fails closed when a bundle is incomplete or its signed manifest does not match the public release assets.
-
-See [desktop/README.md](./desktop/README.md) for the native security boundary, release channels, signing model, staged rollout, and operational controls.
-
-## Tech stack
-
-| Layer | Main technologies |
-| --- | --- |
-| Web | Next.js 15, React 18, Tailwind CSS, Framer Motion |
-| Client state | Redux Toolkit, Redux Persist |
-| Auth | NextAuth, bcrypt, Google OAuth |
-| Data | MongoDB, Mongoose |
-| Playback/discovery | YouTube APIs / `youtubei.js`, browser media APIs |
-| Optional source service | Python, yt-dlp, FFmpeg, Vercel Services/private Blob or single-instance Docker |
-| Realtime | Supabase Realtime with server-signed Jam events |
-| Desktop | Electron, electron-builder, electron-updater |
-| Android | Java, Android WebView, AndroidX Media3, Gradle |
-| Code checks | ESLint, TypeScript, production builds |
-| Deployment | Vercel + GitHub Actions + GitHub Releases |
-
-## Requirements
-
-- Node.js **22.x**
-- npm
-- MongoDB
-- SMTP credentials for account email flows
-- optional integration configuration described in [.env.example](./.env.example); Google sign-in is currently disabled by `GOOGLE_SIGN_IN_ENABLED` in [site configuration](./src/utils/siteConfig.js), in addition to requiring credentials
-
-Windows desktop development additionally requires the normal Electron/electron-builder platform prerequisites. Stable/beta publication requires the protected signing secrets documented in [desktop/README.md](./desktop/README.md).
-
-Android builds require JDK 21, Android SDK platform 36, and build tools 36.0.0. The app supports Android 6.0+; emulator checks target Android 13 and Android 16. See [Android prerequisites](./android/README.md#build-and-install).
-
-## Local development
-
-Clone the repository and install the locked dependencies:
-
-```sh
+```bash
 git clone https://github.com/6NCLegend9/Spotify-clone.git
 cd Spotify-clone
 npm ci
-```
-
-Copy the environment template:
-
-```sh
 cp .env.example .env.local
 ```
 
-For local auth, keep the app and NextAuth on the same loopback origin:
+In Windows PowerShell, use `Copy-Item .env.example .env.local` for the copy step. The tracked [.env.example](./.env.example) starts with production URLs: **replace them before running locally**.
+
+Edit `.env.local` with your development values:
 
 ```dotenv
 NEXTAUTH_URL=http://localhost:3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+MONGODB_URI=mongodb+srv://YOUR_DB_USER:YOUR_DB_PASSWORD@YOUR_CLUSTER/haykasa_dev
+JWT_SECRET=YOUR_GENERATED_AUTH_SECRET
+NEXTAUTH_SECRET=YOUR_GENERATED_AUTH_SECRET
+RATE_LIMIT_SECRET=YOUR_SEPARATE_GENERATED_RATE_LIMIT_SECRET
+MAIL_HOST=YOUR_SMTP_HOST
+MAIL_PORT=465
+MAIL_SECURE=true
+MAIL_USER=YOUR_SMTP_USER
+MAIL_PASS=YOUR_SMTP_PASSWORD
+MAIL_FROM="HayKasa <YOUR_VERIFIED_SENDER_EMAIL>"
 ```
 
-Start the web app:
+Replace every `YOUR_*` placeholder. Generate a random secret with this command, run it again for an independent rate-limit secret, and store the results only in your local configuration:
 
-```sh
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+Use the same auth value for `JWT_SECRET` and `NEXTAUTH_SECRET`. Both app URLs must match the actual origin, including host and port. Set either `MONGODB_URI` or `MONGODB_URL`; if both are populated, `MONGODB_URL` takes precedence. Use `DB_NAME` if the URI does not select the intended database. Adjust SMTP port/TLS settings for your provider.
+
+### 3. Start the application
+
+```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open [http://localhost:3000](http://localhost:3000). Configure working MongoDB and SMTP before testing signup, email verification, password reset, or library writes. Restart the development server after changing environment variables.
 
-### Desktop development
+### Optional integrations
 
-From the repository root:
+| Integration | Configuration and prerequisites |
+| --- | --- |
+| Official YouTube Data API | Server-only `YOUTUBE_API_KEY`. The current catalog also has a no-key fallback; availability depends on upstream access. |
+| Jam | `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, with the matching Supabase project configuration. |
+| Source audio | Server-side media credentials, storage, and a qualified extraction/delivery environment. Follow the [media service guide](./media-service/README.md) and [Vercel guide](./docs/qa/vercel-media/README.md). |
+| Discord presence | Desktop integration and Discord application configuration; see the [desktop guide](./desktop/README.md). |
+
+Keep private credentials out of `NEXT_PUBLIC_*` variables, Git, screenshots, and logs. Supabase's public client key does not replace server authorization. Google OAuth credentials alone do not enable the disabled sign-in feature.
+
+## Usage and examples
+
+### Use the interface
+
+1. Open **Search**, enter a song or artist, and submit to see results. Select an artist result or individual artist link to open that channel.
+2. Sign up, verify your email, and sign in to save likes and playlists in **Your Library**.
+3. Use a track's menu to **Play next**, **Add to queue**, or **Add to playlist**. Open the queue panel to manage upcoming tracks.
+4. Set favorite genres/artists to influence Home; listening and search activity provide additional recommendation signals.
+5. Open **Settings** for playback preferences and platform downloads. Jam requires its realtime integration to be configured.
+
+### Inspect local endpoints
+
+These read-only examples target your local server. Search depends on provider access and rate limits:
+
+```bash
+curl --get 'http://localhost:3000/api/youtube-search' \
+  --data-urlencode 'q=2Pac' \
+  --data-urlencode 'type=video'
+```
+
+Check whether the current client is eligible for source playback:
+
+```bash
+curl 'http://localhost:3000/api/media/resolve'
+```
+
+An unconfigured service reports `service_unconfigured`; a configured but disabled internal service reports `service_disabled`. An enabled service requires an authenticated session. Neither an enabled capability response nor metadata establishes successful extraction or decoded audio.
+
+## Tech stack
+
+| Layer | Technologies |
+| --- | --- |
+| Web interface | Next.js 15 App Router, React 18, Tailwind CSS, Framer Motion |
+| Client state | Redux Toolkit, Redux Persist |
+| Authentication and persistence | NextAuth credentials/session handling, bcrypt, MongoDB, Mongoose, SMTP |
+| Discovery and playback | YouTube APIs / `youtubei.js`, embedded player, browser media APIs and Web Audio |
+| Optional source service | Python / FastAPI, yt-dlp, FFmpeg, private Vercel Blob or standalone Docker |
+| Realtime | Supabase Realtime with server-signed Jam events |
+| Windows | Electron, electron-builder, electron-updater |
+| Android | Java, WebView, AndroidX Media3, Google Play in-app updates, Gradle |
+| Checks and delivery | ESLint, TypeScript, browser/native fixtures, GitHub Actions, Vercel, GitHub Releases |
+
+Exact dependency declarations and pins live in [package.json](./package.json), [desktop/package.json](./desktop/package.json), [Android build configuration](./android/app/build.gradle), and [media-service requirements](./media-service/requirements.txt).
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser["Browser / PWA"] --> App["Next.js + React"]
+    Desktop["Electron shell"] --> App
+    Android["Android WebView"] --> App
+    App --> API["Next.js API routes"]
+    App --> Player["Shared player controller"]
+    API --> DB["MongoDB"]
+    API --> Catalog["YouTube catalog"]
+    API --> Jam["Supabase Realtime"]
+    API --> Media["Optional yt-dlp / FFmpeg service"]
+    Media --> Assets["Completed assets / signed byte ranges"]
+    Assets --> Player
+    Player --> WebOutput["Browser media / embedded player"]
+    Player --> Native["Android Media3 service"]
+```
+
+- **UI and state:** App Router pages and React components consume APIs; Redux holds player/queue state, with local snapshots for recovery. MongoDB holds account-owned libraries and activity.
+- **Playback:** the shared controller selects the embedded provider or resolves a source asset through `/api/media/resolve`. The media service prepares complete files and issues signed delivery URLs. Current completed-file delivery is not streaming during extraction.
+- **Android boundary:** trusted-origin WebView messages reach `MainActivity`, the ordered bridge, and `PlaybackService`. The service separates play intent, command acknowledgements, and observed playback. Older APKs retain a legacy path; they do not gain native capabilities through a website update.
+- **Desktop boundary:** a sandboxed renderer uses a restricted preload API for native controls. Packaged builds load `https://haykasa.vercel.app`; development overrides are restricted to loopback origins.
+- **Trust and storage:** APIs validate sessions, origins, and ownership. Job/receipt secrets remain server-side; expiring delivery URLs are private bearer capabilities. Jam publishes authorized signed events.
+
+The source-access feasibility gate must pass before source playback is activated or the working fallback is removed. The [migration map](./docs/qa/ytdlp-migration/README.md) traces affected catalog, player, native, API, persistence, and security components.
+
+## Project structure
+
+```text
+Spotify-clone/
+├── src/
+│   ├── app/                 # App Router pages and API routes
+│   ├── components/          # Search, library, Jam, layout, and shared player
+│   │   └── MusicPlayer/media/ # Resolver, browser DSP, and Android adapters
+│   ├── hooks/               # Player, platform, captions, and UI integrations
+│   ├── models/              # Mongoose persistence models
+│   ├── redux/               # Client state and persistence integration
+│   └── utils/               # Auth, catalog, recommendations, and validation
+├── android/                 # WebView shell, Media3 service, and native tests
+├── desktop/                 # Electron main/preload, updater, and packaging
+├── desktop-bridge/          # Legacy development-only Discord bridge
+├── media-service/           # Python extraction, storage, and signed delivery
+├── contracts/               # Shared desktop contract source
+├── scripts/                 # Development, configuration, and release tooling
+├── public/                  # App icons, artwork, and static assets
+├── docs/                    # QA evidence, specifications, and requirements
+├── .github/workflows/       # Web, native, security, and release pipelines
+└── .env.example             # Environment variable template
+```
+
+## Platform development
+
+### Windows desktop
+
+Desktop development starts its own renderer at **`http://127.0.0.1:3003`**. Before starting, set both `NEXTAUTH_URL` and `NEXT_PUBLIC_APP_URL` in `.env.local` to that exact origin; the launcher does not change them for you. Use Node.js 22 and run these commands from the repository root:
 
 ```powershell
 npm run desktop:install
 npm run desktop:dev
 ```
 
-The development command starts the local web renderer and Electron together.
-Use `npm run desktop` to launch the production renderer instead.
-
-Windows installer build, also from the root:
+Use `npm run desktop` to launch Electron against the production website. Build and verify Windows packages on Windows:
 
 ```powershell
+npm run desktop:pack
 npm run desktop:build
 ```
 
-`desktop:pack` creates an unpacked Windows application. `desktop:build` writes
-the NSIS installer to `desktop/dist/`; root `build` builds only the web app.
-Packaging does not publish downloads or updates. Public desktop releases use
-the protected signed-release workflow.
+The unpacked application and NSIS installer are written under `desktop/dist/`. Root `npm run build` builds only the web application. Packaging does not publish updates. See [desktop setup and signing](./desktop/README.md).
 
-### Android development
+### Android
 
-Use **Download for Android** in Settings to obtain the newest validated public preview. The card shows its source build/date; the legacy [PR35 preview](https://github.com/6NCLegend9/Spotify-clone/releases/download/android-preview/HayKasa-Android.apk) remains available as a fallback and can be older than this branch. See [public preview downloads](./android/README.md#public-preview-download).
+Install **JDK 21**, **Android SDK platform 36**, and **build tools 36.0.0**; set `JAVA_HOME` and `ANDROID_HOME` to those installations. From the root:
 
-Samsung Auto Blocker can show **Unknown app blocked** for this APK because it is installed outside approved app stores. Use the browser without an APK, or review the [Samsung installation guidance](./android/README.md#samsung-unknown-app-blocked). APK signing alone does not remove this phone policy.
-
-After installing the Android prerequisites, run from the repository root:
-
-```sh
+```bash
 npm run android:check
 npm run android:build
 npm run android:bundle
 ```
 
-The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`; the bundle command writes `android/app/build/outputs/bundle/release/app-release.aab`. Without release-signing configuration the AAB is unsigned and cannot be uploaded to Play. The [Android workflow](./.github/workflows/android-ci.yml) uploads the debug APK, unsigned review bundle, and device reports. The manual [Play Store bundle workflow](./.github/workflows/android-play-store.yml) uses protected upload-key secrets to produce a verified signed AAB. See [Play Store release setup](./android/README.md#play-store-release-bundle) before distribution.
+The debug APK is `android/app/build/outputs/apk/debug/app-debug.apk`; the release bundle is `android/app/build/outputs/bundle/release/app-release.aab`. Without release-signing configuration the AAB is unsigned and cannot be uploaded to Play. A debug preview uses a separate application ID and is not a Play Store release.
 
-The [Publish Android Preview workflow](./.github/workflows/android-preview-release.yml) waits for a successful main APK build and Android 13/16 emulator checks, then publishes an immutable source-SHA preview. Settings selects the newest validated versioned release; older APKs are preserved. Preview APKs still require manual installation. See the [playback and session audit](./docs/qa/android-playback-audit-2026-10-20.md) and [main production website/Windows/Android audit](./docs/qa/production-audit-2026-10-20.md). Dedicated [Windows](./.github/workflows/desktop-production-smoke.yml) and [Android](./.github/workflows/android-production-qa.yml) production checks install the actual public downloads and preserve screenshots and diagnostic artifacts.
-
-### Optional media service
-
-Use the [media service guide](./media-service/README.md) for a single-instance Docker deployment or the [Vercel deployment guide](./docs/qa/vercel-media/README.md) for the stateless service and private Blob storage. Keep resolver credentials server-side. A successful live extraction, download, and decode is required before enabling source playback.
-
-The [audio fidelity checks](./docs/qa/audio-quality/README.md) cover automatic Opus/AAC selection, packet-preserving remux, delivered quality metadata and shared browser sound processing. Native source eligibility includes signed-in web, desktop and Android; production activation remains gated on successful live verification.
+**Download for Android** in Settings selects a validated public preview, which may predate this checkout. Preview APKs require manual installation; Play-installed builds use Play update prompts for published versions. Samsung Auto Blocker may block sideloaded APKs even when signed. See [Android installation and release guidance](./android/README.md), including the Play signing process and emulator-test limits.
 
 ## Verification
 
-Run the web gate:
+Run the standard web gate with Node.js 22:
 
-```sh
+```bash
 npm run check
 ```
 
-That executes ESLint, Next.js-generated type checks, TypeScript validation, and a production Next.js build. Additional workflows run the focused regression, browser, security, native, and packaging checks below.
+This runs ESLint, Next.js type generation, TypeScript checking, and a production build. Use `npm run build` followed by `npm start` to serve the production web build locally; these commands do not publish a deployment.
 
-| Checks | Entry point |
+| Check | Command or workflow |
 | --- | --- |
-| Production dependency audit and web/regression gates | [CI workflow](./.github/workflows/ci.yml) |
-| Security, authorization, file/media fuzz fixtures and worker checks | [Security regression workflow](./.github/workflows/security-regression.yml) |
-| Desktop/mobile homepage, panel layout, search, and player Skip/error behavior | [Homepage/browser workflow](./.github/workflows/home-discovery-vm.yml) |
-| Mobile background-playback browser checks | [Mobile playback workflow](./.github/workflows/mobile-playback-vm.yml) |
-| Playlist spacing and duration browser checks | [Playlist workflow](./.github/workflows/playlist-duration-vm.yml) |
-| Android bridge/resolver, unit/lint/APK/AAB builds and Android 13/16 instrumentation | [Android workflow](./.github/workflows/android-ci.yml) and [QA fixtures](./docs/qa/android/) |
-| Signed Android App Bundle for owner upload to Play Console | [Manual Play Store workflow](./.github/workflows/android-play-store.yml) |
-| Desktop contract and native checks | [Desktop CI](./.github/workflows/desktop-ci.yml) |
-| Windows packaging | [Desktop package CI](./.github/workflows/desktop-package-ci.yml) |
-| Unsigned desktop preview artifacts | [Desktop preview workflow](./.github/workflows/desktop-preview.yml) |
+| Production dependency advisories | `npm run audit:production` |
+| Android adapter/deck/component regressions | `npm run android:check` |
+| Generated desktop contract consistency | `npm run check:desktop-contract` |
+| Web and focused regression checks | [CI](./.github/workflows/ci.yml) |
+| Authorization, corruption/fuzzing, and media worker fixtures | [Security Regression](./.github/workflows/security-regression.yml) |
+| Homepage, search, panels, and player browser scenarios | [Homepage/browser checks](./.github/workflows/home-discovery-vm.yml) |
+| Controlled mobile background playback | [Mobile Playback VM](./.github/workflows/mobile-playback-vm.yml) |
+| Playlist spacing and duration | [Playlist checks](./.github/workflows/playlist-duration-vm.yml) |
+| Android unit/lint/APK/AAB and API 33/36 instrumentation | [Android APK](./.github/workflows/android-ci.yml) |
+| Desktop contract and Windows packaging | [Desktop CI](./.github/workflows/desktop-ci.yml), [package CI](./.github/workflows/desktop-package-ci.yml) |
+| Actual public downloads | [Windows smoke check](./.github/workflows/desktop-production-smoke.yml), [Android production QA](./.github/workflows/android-production-qa.yml) |
 
-Browser and emulator media fixtures use controlled APIs/audio. Passing them does not prove live YouTube extraction, physical-device behavior, or production credentials. Consult each report's date and scope.
+**Match evidence to the claim.** Code inspection, compilation, controlled browser fixtures, CI-reported emulator execution, physical-device behavior, and live source playback are different levels of evidence. Synthetic audio and green CI do not establish hosted extraction, measured live bitrate, audible hardware output, or phone app-switching reliability. Read each report's date, commit, and limits.
 
-## Production and release operations
+## Deployment and updates
 
-Production configuration, deployment validation, caching, service-worker behavior, and operational checks are documented in [PRODUCTION.md](./PRODUCTION.md).
+Production configuration and smoke checks are documented in [PRODUCTION.md](./PRODUCTION.md). [vercel.json](./vercel.json) defines the Next.js frontend and media container, service binding, and signed-asset routing. Source playback requires qualified extraction, credentials, private storage, and the explicit activation gate.
 
-The [desktop release workflow](./.github/workflows/desktop-release.yml) attempts an automatic stable release after pushes to `main` and also supports manual channel/version selection:
+`npm run check:deployment` validates **production** configuration names and values; it rejects local HTTP origins and does not test credentials or service connectivity. Run it with the intended production configuration, then perform the real smoke checks before promotion.
 
-- **stable** — signed, non-prerelease, `desktop-vX.Y.Z`, main branch only
-- **beta** — signed GitHub prerelease, `desktop-beta-vX.Y.Z[-suffix]`
-- **internal** — unsigned GitHub prerelease for testing, `desktop-internal-vX.Y.Z[-suffix]`
+| Delivery path | Publication requirements |
+| --- | --- |
+| Web changes | Deploy the web application. Both packaged native shells load the production site. |
+| Windows native updates | The [Desktop Release workflow](./.github/workflows/desktop-release.yml) attempts stable releases on `main` and supports manual channels. Stable/beta require signing, authenticated release metadata, installer, `latest.yml`, and blockmap. Internal/preview artifacts do not establish stable updater eligibility. Check setup with `npm run desktop:release:check`. |
+| Android preview | [Publish Android Preview](./.github/workflows/android-preview-release.yml) publishes immutable source-SHA previews only after qualifying main builds and emulator checks. Sideloaded previews need manual installation. |
+| Android Play release | The protected [Play Store workflow](./.github/workflows/android-play-store.yml) prepares a signed AAB; Play Console submission, approval, and rollout are separate owner actions. Installed store builds can then prompt for available updates. |
 
-The stable/beta workflow verifies the Windows Authenticode signature before a public GitHub Release is created and verifies the published updater assets after release.
-
-Check signing configuration with `npm run desktop:release:check`. Automatic and manual signed releases fail before building when signing inputs are missing or invalid, with a diagnostic naming the blocked configuration. No installer is published by a blocked run. Building an unsigned preview does not enable stable automatic updates. See [signing setup](./desktop/README.md#release-configuration-check) and the [desktop recovery guide](./docs/qa/desktop-production-recovery.md).
-
-## Security principles
-
-HayKasa's security-sensitive paths are designed to fail closed:
-
-- stale/revoked account sessions are rejected before private reads or writes;
-- password-reset tokens are one-time and revoke previous sessions;
-- playlist access and collaboration are authorization-checked server-side;
-- Jam realtime commands are server-authorized, signed, replay-protected, and role-scoped;
-- the Electron renderer is sandboxed and receives only a narrow preload API;
-- the Android bridge accepts only trusted-origin main-frame messages and validated asset URLs;
-- stable/beta desktop releases require both authenticated release metadata and valid Windows code signing;
-- native updater, policy, Discord, and diagnostics failures are isolated from normal music playback.
-
-For deeper operational detail, see [desktop/README.md](./desktop/README.md), [PRODUCTION.md](./PRODUCTION.md), and the focused documents under [`docs/`](./docs/).
+Unsigned desktop preview artifacts are available through the [Desktop Preview workflow](./.github/workflows/desktop-preview.yml). Keep the native signing and update trust checks intact. Merging web code is not evidence that a new APK/EXE was published or installed.
 
 ## Documentation
 
@@ -295,6 +307,13 @@ This index links every other tracked Markdown document in the repository. Dated 
 
 ### QA guides, audits, and verification reports
 
+- [Audio fidelity, packet-preserving remux, and browser DSP checks](./docs/qa/audio-quality/README.md)
+- [Android playback and session audit — 2026-10-20](./docs/qa/android-playback-audit-2026-10-20.md)
+- [Production web/Windows/Android audit — 2026-10-20](./docs/qa/production-audit-2026-10-20.md)
+- [Ponytail playback audit — 2026-10-21](./docs/qa/ponytail-playback-audit-2026-10-21.md)
+- [Shared UI icon verification — 2026-10-23](./docs/qa/ui-icons-2026-10-23.md)
+- [Search bar sizing verification — 2026-10-23](./docs/qa/search-bar-2026-10-23.md)
+- [PR41 CI and preview recovery — 2026-10-24](./docs/qa/pr41-ci-recovery-2026-10-24.md)
 - [Balanced homepage discovery and deduplication](./docs/qa/home-discovery/README.md)
 - [Artist channel layout and navigation](./docs/qa/artist-profile.md)
 - [Playlist row spacing and saved durations](./docs/qa/playlist-duration/README.md)
@@ -313,6 +332,22 @@ This index links every other tracked Markdown document in the repository. Dated 
 - [PR28 playlist creation and presentation](./docs/qa/pr28-playlists/README.md)
 - [PR28 music interface changes](./docs/qa/pr28-spotify-ui.md)
 - [PR28 Windows desktop update preparation](./docs/qa/pr28-windows-desktop.md)
+
+### Active audio and migration work
+
+These files separate agreed contracts and implemented slices from pending or blocked requirements. Earlier handoffs remain historical; use the requirements checklist and latest implementation evidence for current status.
+
+- [Audio-engine requirements, findings, and first-release gates](./docs/superpowers/plans/2026-10-22-pr40-audio-engine.md)
+- [PR42 migration requirements and status checklist](./docs/superpowers/plans/2026-10-24-ytdlp-migration.md)
+- [Integration inventory and replacement map](./docs/qa/ytdlp-migration/README.md)
+- [Source, guest-access, and contract decision status](./docs/qa/ytdlp-migration/DECISIONS.md)
+- [Confirmed D06 ordered Android transport contract](./docs/qa/ytdlp-migration/ANDROID-TRANSPORT-DRAFT.md)
+- [D06 native/client implementation and verification evidence](./docs/qa/ytdlp-migration/D06-IMPLEMENTATION.md)
+- [Coordination process and approval boundaries](./docs/qa/ytdlp-migration/COORDINATION.md)
+- [Component ownership and integration boundaries](./docs/qa/ytdlp-migration/OWNERSHIP.md)
+- [Shared decision and handoff messages](./docs/qa/ytdlp-migration/AGENT-MESSAGES.md)
+- [Independent review reproductions](./docs/qa/ytdlp-migration/peer-review-verification.md)
+- [Initial peer acknowledgement and inventory gaps](./docs/qa/ytdlp-migration/peer-status.md)
 
 ### Historical implementation plans
 
@@ -362,16 +397,22 @@ These files include older palette and component references. The implemented styl
 - [Artist-profile screenshots](./docs/qa/artist-profile/)
 - [Responsive UI screenshots](./docs/qa/pr23-ui/)
 
-## Authorship and license
+## Contributing
 
-Original contributions and modifications authored by **6NCLegend9 and collaborators** remain the copyright of their respective authors and are released under the [MIT License](./LICENSE).
+1. Start from an up-to-date branch and create a focused working branch. Install with `npm ci` to preserve the lockfile.
+2. Trace the affected UI, player, API, native bridge/service, and persistence paths before editing. Update connected contracts and consumers together, retaining compatibility for existing accounts and installed clients.
+3. Keep changes small. Update the relevant guide and add a focused regression check for changed behavior; documentation-only changes need link, example, and consistency checks.
+4. Run `npm run check` for web code and the affected platform/security checks. Report the commands, results, source commit, and device limitations in the pull request. Compilation alone does not prove playback.
+5. Open a pull request describing the problem, resulting behavior, and validation. For active PR42 work, read the [coordination instructions](./docs/qa/ytdlp-migration/COORDINATION.md) and existing comments before overlapping edits.
 
-Include [LICENSE](./LICENSE) when redistributing the software. Third-party dependencies and media retain their respective licenses.
+File reproducible bugs through [GitHub Issues](https://github.com/6NCLegend9/Spotify-clone/issues/new/choose), including platform, app version/build, steps, and redacted logs. Do not post credentials, account data, signed delivery URLs, or exploitable security details in public reports. Arrange a private disclosure channel with the maintainer for sensitive findings.
+
+Preserve session revocation, account/playlist authorization, signed Jam events, trusted native origins, SSRF restrictions, bounded extraction/storage, and updater signature verification. Keep secrets and generated builds out of commits. [PRODUCTION.md](./PRODUCTION.md) covers rollout and operational security.
+
+## License
+
+HayKasa is released under the [MIT License](./LICENSE), copyright © 2026 **6NCLegend9 and contributors**. Include the license when redistributing the software. Third-party dependencies and media retain their own licenses; see [home background attribution](./docs/HOME_BACKGROUND_LICENSES.md) for bundled image sources.
 
 ---
 
-<div align="center">
-  <img src="./src/assets/HayKasa-logo-removebg.png" alt="HayKasa logo" width="90" />
-  <br />
-  <strong>HayKasa — music lives here.</strong>
-</div>
+**HayKasa — music lives here.**
