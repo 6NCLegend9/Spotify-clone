@@ -116,7 +116,10 @@ final class OrderedMediaBridge {
         if (load != null && (!load.authorized || load.attachment != attachment)
             || load == null && host.hasPlayer(id)) { error(msg, sink, "UNAVAILABLE"); return; }
         if (expected != null && load == null) { error(msg, sink, "NOT_FOUND"); return; }
-        if (!Objects.equals(expected, load == null ? null : load.owner.bindingId)) {
+        // Only the exact lost-reply retry above may reuse the current ID.
+        // Resetting that live scope would make old revisions authoritative again.
+        if (!Objects.equals(expected, load == null ? null : load.owner.bindingId)
+            || load != null && binding.equals(load.owner.bindingId)) {
             error(msg, sink, "BIND_CONFLICT"); return;
         }
         Grant grant = grants.get(grantId);

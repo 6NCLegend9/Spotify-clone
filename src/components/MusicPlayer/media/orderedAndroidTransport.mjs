@@ -85,6 +85,7 @@ class OrderedAndroidTransport {
     Object.assign(this, { id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, cache });
     this.phase = "idle";
     this.controls = new Map();
+    this.pendingReadRevision = null;
     this.records = new Map();
     this.incoming = [];
     this.revision = 0;
@@ -272,7 +273,12 @@ class OrderedAndroidTransport {
           this.overlay = null;
           this._fail("OUTCOME_UNKNOWN");
         }
-        if (this.phase === "active") this._flush();
+        if (this.phase === "active") {
+          const next = this.pendingReadRevision;
+          this.pendingReadRevision = null;
+          if (next !== null) this._readState(next);
+          this._flush();
+        }
       }
     }
     this._supersededPlay();
@@ -324,9 +330,9 @@ class OrderedAndroidTransport {
     }
     record.result = result;
     if (result.phase === "accepted") return;
-    clearTimeout(record.timer);
-    record.watched = false;
     if (record !== this.playing) {
+      clearTimeout(record.timer);
+      record.watched = false;
       if (result.phase === "rejected" && result.webRevision === this.revision && result.reason !== "SUPERSEDED") this._fail(result.reason);
       return;
     }
@@ -357,7 +363,12 @@ class OrderedAndroidTransport {
   }
   _readState(revision) {
     if (!this.scope || this.phase !== "active") { this._fail("UNAVAILABLE"); return; }
-    if ([...this.controls.values()].some(record => record.message.action === "transportReadState")) return;
+    if ([...this.controls.values()].some(record => record.message.action === "transportReadState")) {
+      // General reads coalesce, but a required result lookup must follow the
+      // outstanding read. Keep one latest revision and the original Play timer.
+      if (revision != null) this.pendingReadRevision = Math.max(this.pendingReadRevision ?? 0, revision);
+      return;
+    }
     this._request("transportReadState", { transport: { version: 1, ...this.scope },
       ...(revision == null ? {} : { forWebRevision: revision }) });
   }
@@ -442,12 +453,14 @@ class OrderedAndroidTransport {
   _finishPlay(error) {
     const own = this.playing;
     if (!own) return;
-    this.playing = null; clearTimeout(own.timer);
+    this.playing = null; clearTimeout(own.timer); own.watched = false;
+    if (this.pendingReadRevision === own.revision) this.pendingReadRevision = null;
     if (error) own.reject(error); else own.resolve();
   }
   _clearControls() {
     for (const record of this.controls.values()) clearTimeout(record.timer);
     this.controls.clear();
+    this.pendingReadRevision = null;
   }
   _fail(code, needsSource = false, blocked = false) {
     if (this.phase === "disposed" || this.phase === "legacy") return;

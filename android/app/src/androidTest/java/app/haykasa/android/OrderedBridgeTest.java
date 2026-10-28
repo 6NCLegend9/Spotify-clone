@@ -184,6 +184,38 @@ public class OrderedBridgeTest {
         send(request("release")); assertNull(raw());
     }
 
+    @Test public void currentBindingReuseCannotResetTheReplayWatermark() throws Exception {
+        bootstrap(); load(); ExoPlayer original = raw();
+        transport("play", 1); transport("pause", 2);
+        long intentRevision = snapshot().getJSONObject("intent").getLong("revision");
+        send(new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid()));
+        JSONObject caps = last("transportCapabilities");
+        JSONObject reused = new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
+            .put("requestId", uuid()).put("engineId", engine).put("bindingId", bindingId)
+            .put("expectedBindingId", bindingId).put("bindGrant", caps.getString("bindGrant"));
+        send(reused);
+        JSONObject error = last("transportControlError");
+        assertEquals("BIND_CONFLICT", error.getString("reason"));
+        assertEquals(reused.getString("requestId"), error.getJSONObject("correlation").getString("requestId"));
+        transport("play", 1); // Cached old Play cannot override the newer Pause.
+        send(request("transportReadState"));
+        assertEquals(2, snapshot().getLong("processedWebRevision"));
+        assertEquals(intentRevision, snapshot().getJSONObject("intent").getLong("revision"));
+        assertFalse(snapshot().getJSONObject("intent").getBoolean("playWhenReady"));
+        main(() -> assertFalse(original.getPlayWhenReady()));
+        assertSame(original, raw());
+        send(binding); // Exact lost-reply retry remains idempotent.
+        assertEquals(2, snapshot().getLong("processedWebRevision"));
+        // Rejection must not consume the grant or prevent a genuine new scope.
+        String previous = bindingId; bindingId = uuid();
+        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
+            .put("requestId", uuid()).put("engineId", engine).put("bindingId", bindingId)
+            .put("expectedBindingId", previous).put("bindGrant", caps.getString("bindGrant")));
+        assertEquals(bindingId, last("transportState").getJSONObject("transport").getString("bindingId"));
+        assertEquals(0, snapshot().getLong("processedWebRevision"));
+        assertSame(original, raw());
+    }
+
     @Test public void actualSessionPlayAfterPauseUsesNewIntentWithoutAnotherWebPlay() throws Exception {
         try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
             bootstrap(); load(); transport("play", 1);

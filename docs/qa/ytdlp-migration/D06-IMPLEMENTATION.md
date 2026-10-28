@@ -2,7 +2,7 @@
 
 Contract: [ordered-transport-v1 at 2d12b17](ANDROID-TRANSPORT-DRAFT.md), confirmed in [C008](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389527896). The user asked the coordinator to continue when the peer ran out of time; [C009](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6400510927) records the temporary lane takeover.
 
-Current milestone: native `1c6b433` and client `90c3602` are implemented. All runtime-stage GitHub checks and the Vercel preview status pass; the preview retry is READY. Source access, full migration/native queue/renewal, physical-device and artifact-inspection limitations remain open below and in the checklist.
+Baseline milestones are native `1c6b433`, client `90c3602`, and documentation head `4d5efe2`. Their recorded checks/preview are historical evidence. Codex 2 reviewed that head in [C018](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6479042645); the three corrections and new verification are recorded below. The baseline emulator XML inspection limitation is resolved by that independent review; screenshots, physical-device audio, live source access and the broader migration remain unqualified. New-head CI results are reported separately in [PR42 comments](https://github.com/6NCLegend9/Spotify-clone/pull/42).
 
 ## Native stage — 2026-10-25
 
@@ -83,3 +83,28 @@ Artifact retrieval for both API33 and API36 returned HTTP403 from unexpired down
 Vercel initially failed for a separate confirmed infrastructure reason: the project's media repository had reached its 50-image limit. Under the user's existing unused-image cleanup authorization, all 35 retained deployments were enumerated (no next page), the actual image build references of all 30 READY deployments were audited, and current production was explicitly protected. Twenty images referenced by neither retained source SHAs nor active build references were removed sequentially. A fresh registry listing confirmed exactly the 30 protected images remained before the retry. No deployment was deleted; production remains READY at `fbaae39` / `dpl_CZdXuHfMnRLQzp41Hcm5GbpVi6ee`.
 
 Preview-only retry [dpl_6J3GyzCQMQryWCYED3JoYad1GGNZ](https://spotify-clone-6y01blrdn-6nclegend9s-projects.vercel.app) reached READY at runtime SHA `90c36020710a6b660bfb2966b3d052ce1724ac62`, branch `feat/pr42-ytdlp-migration`, with no production target. GitHub's Vercel context then reported SUCCESS; all runtime checks are green. A fresh production capability read still returns `enabled:false, reason:service_disabled`. No provider access or native release was activated.
+
+## C018 review corrections — 2026-10-28
+
+**Codex 1 (Coordinator)** acknowledges **Codex 2 (Player/native peer)** in [C019](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6479411431). Baseline is exact `4d5efe2`; these are corrections to the existing D06 implementation, with no wire-schema change or source activation.
+
+The affected story is application Play/Pause → Android media adapter → ordered bridge/service → correlated results and state → Play promise and UI. The backend resolver, storage, catalog and web/Electron playback paths are unchanged. Native validation requires a rebuilt APK; deploying JavaScript cannot replace the installed service.
+
+| Review issue | Reproduction at baseline | Correction and focused evidence |
+| --- | --- | --- |
+| Play confirmation lost behind another ReadState | Actual adapter with controlled replies/timers: general state read is held, an obsolete matching Play completion arrives, then the general buffering reply returns. After 40 seconds both Play calls remain pending, no error is exposed, and zero timers remain. Only the initial volume ACK is lost; subsequent volume ACKs succeed. | Keep one queued latest revision lookup behind the in-flight read, and retain the original 32-second Play deadline until settlement. Clear queued work on settlement/recovery/disposal. Three new cases cover successful confirmation without fabricated playing, missing confirmation, repeated calls, and deadline preservation. All 26 scripted consumer/deck cases pass. |
+| Rebinding to the current binding ID resets native replay protection | Actual bridge/owner/policy compiled with isolated platform/host stubs: Play W1 → Pause W2 → fresh-grant B-to-B Bind → replay W1 changes processed revisions `2 → 0 → 1`, writes `2 → 3`, and intent to playing. | Reject non-identical Bind reuse with BIND_CONFLICT before consuming the grant or retiring the owner. The same isolated check now reports `2 → 2 → 2`, writes `2 → 2`, and paused output. Exact lost-reply Bind and fresh-ID rebind remain valid. New actual-service `currentBindingReuseCannotResetTheReplayWatermark` verifies these boundaries in instrumentation. |
+| Windows checkout breaks component verification | Feeding CRLF bytes to the actual baseline script fails at the LF-only Redux-effect marker: Production callback missing. | Normalize source newlines at the verification boundary, then execute the same production callbacks/effect with fresh isolated state for LF and CRLF inputs. Removing normalization makes the CRLF test fail. Full `npm run android:check` also passes on a separate real-CRLF file checkout on Linux. The Android workflow now adds a Windows job that explicitly checks out/asserts CRLF and runs that exact command. |
+
+Local checks for this correction:
+
+- Full `npm run android:check`: retained legacy regressions, **26** ordered consumer/deck cases, and both LF/CRLF component runs pass.
+- `npm run check`: ESLint, generated types/TypeScript and normal PWA production build pass on Node22.
+- Real headless Chromium adapter check passes; its bridge is synthetic and is not an Android device.
+- Debug/release JVM suites: **18 each**, zero failures/errors/skips; both lint variants: zero errors/fatal issues; APK/AAB build and instrumentation compilation pass.
+- The new service instrumentation case is compiled locally, not executed on this host; no emulator/KVM is available here. Exact-head API33/API36 and actual Windows execution must be read from their own CI run, not inferred from the baseline.
+- Workflow YAML parsing, diff/whitespace inspection, frozen-contract preservation and documentation-link checks are performed for this milestone.
+
+Baseline evidence update: Codex 2 C018 downloaded both artifacts from [run 40315715423](https://github.com/6NCLegend9/Spotify-clone/actions/runs/40315715423), matched artifact digests, and inspected their XML: API33 and API36 each **19 tests**, zero failures/errors/skips. That resolves the earlier download/XML limitation for `4d5efe2`. It does not qualify this correction head or establish visual screenshot review, live extraction or physical audibility.
+
+All three narrow review requirements are tracked as locally verified in the [requirements checklist](../../superpowers/plans/2026-10-24-ytdlp-migration.md); actual-platform execution is tracked separately. PR42 stays draft. Source/guest/full-v2 decisions, complete provider migration, native queue/renewal, DSP, Jam occurrence persistence, physical devices and live-source playback remain open. No release, merge, production change or provider-access change is included.

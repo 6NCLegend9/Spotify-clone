@@ -74,10 +74,7 @@ class Native {
     } else if (["volume", "seek"].includes(command.action) && command.transport) {
       if (this.holdAck !== command.action) this.ack(command);
     } else if (command.action === "transportReadState") {
-      const revision = command.forWebRevision, result = this.history.get(revision);
-      this.frame({ replyTo: command.requestId, ...(revision === undefined ? {} : {
-        lookup: { webRevision: revision, status: result ? result.phase === "accepted" ? "pending" : "terminal" : "notFound", result: result || null },
-      }) });
+      if (!this.holdRead) this.readState(command);
     } else if (command.action === "release" && command.id === this.id
       && (!command.transport || command.transport.bindingId === this.binding)) this.binding = null;
   }
@@ -85,6 +82,12 @@ class Native {
     this.deliver({ id: command.id, event: "transportControlAck", version: 1,
       action: command.action, requestId: command.requestId, scope: this.scope(),
       phase: ["load", "seek"].includes(command.action) ? "accepted" : "completed" });
+  }
+  readState(command) {
+    const revision = command.forWebRevision, result = this.history.get(revision);
+    this.frame({ replyTo: command.requestId, ...(revision === undefined ? {} : {
+      lookup: { webRevision: revision, status: result ? result.phase === "accepted" ? "pending" : "terminal" : "notFound", result: result || null },
+    }) });
   }
   frame({ event = "transportState", deliver = true, ...extra } = {}) {
     const packet = copy({ id: this.id, event, transport: { version: 1, ...this.scope(), eventSeq: ++this.seq,
@@ -217,6 +220,53 @@ try {
     assert.equal(result.state, "resolved"); assert(n.last("transportReadState"));
     assert.equal(n.audio.nativeObservedPlaying, false);
     assert.equal(n.events.filter(event => event === "playing").length, 0);
+  });
+  // A lifecycle ACK timeout may already own the one allowed state read when
+  // an old Play completion needs its own correlated result confirmation.
+  for (const respond of [true, false]) await check(`overlapping Play confirmation ${respond ? "completes" : "times out visibly"}`, async n => {
+    const result = track(n.audio.play()), command = n.last("play");
+    const old = n.decide(command, { deliver: false });
+    n.observed = { ...n.observed, isPlaying: false, state: "buffering" }; n.frame({ event: "waiting" });
+    n.holdRead = true; n.holdAck = "volume"; n.audio.volume = .4;
+    tick(2000);
+    const general = n.last("transportReadState");
+    assert.equal(general.forWebRevision, undefined);
+    n.holdAck = null; // Only the initial ACK is lost; repeated Play's volume ACK succeeds.
+    n.deliver(old); n.deliver(old);
+    const repeated = track(n.audio.play());
+    n.readState(general); await flush();
+    const confirmation = n.last("transportReadState");
+    assert.notEqual(confirmation.requestId, general.requestId, "Required lookup must survive an outstanding general read");
+    assert.equal(confirmation.forWebRevision, command.transport.webRevision);
+    assert.equal(n.sent.filter(value => value.action === "transportReadState").length, 2, "Repeated completion coalesces one confirmation");
+    if (respond) {
+      n.readState(confirmation); await flush();
+      assert.equal(result.state, "resolved"); assert.equal(repeated.state, "resolved");
+      assert.equal(n.audio.nativeTransportError, null);
+      assert.equal(n.events.filter(event => event === "playing").length, 0, "Historical completion does not invent audible output");
+    } else {
+      tick(2001); await flush();
+      assert.equal(result.error.code, "TIMEOUT"); assert.equal(repeated.error.code, "TIMEOUT");
+      assert.equal(n.audio.nativeTransportError.code, "TIMEOUT");
+    }
+    tick(40_000); await flush();
+    assert.notEqual(result.state, "pending"); assert.notEqual(repeated.state, "pending");
+    assert.equal(n.sent.filter(value => value.action === "pause").length, 0);
+    assert.equal(n.sent.filter(value => value.action === "load").length, 1);
+  });
+  await check("queued confirmation retains the original Play deadline", async n => {
+    const result = track(n.audio.play()), old = n.decide(n.last("play"), { deliver: false });
+    n.observed = { ...n.observed, isPlaying: false, state: "buffering" }; n.frame({ event: "waiting" });
+    tick(29_000);
+    n.holdRead = true; n.holdAck = "volume"; n.audio.volume = .4;
+    tick(2000); const general = n.last("transportReadState");
+    n.deliver(old); tick(900); n.readState(general);
+    tick(101); await flush();
+    assert.equal(result.error.code, "TIMEOUT", "Confirmation must not clear or extend the 32-second deadline");
+    assert.equal(n.audio.nativeTransportError.code, "TIMEOUT");
+    n.readState(n.last("transportReadState")); await flush();
+    assert.equal(result.state, "rejected", "A late read cannot reopen a settled request");
+    assert.equal(n.sent.filter(value => value.action === "pause").length, 0);
   });
   await check("late acceptance cannot reopen a terminal Play result", async n => {
     const result = track(n.audio.play()); const command = n.last("play");
