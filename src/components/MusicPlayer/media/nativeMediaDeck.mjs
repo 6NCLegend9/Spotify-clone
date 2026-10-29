@@ -20,11 +20,16 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   let generation = 0, controller, receipt, asset, ready = false, destroyed = false, refreshed = false, renewTimer, graph, announcedReady = false;
   const emit = (name, data) => { if (!destroyed) events[name]?.({ target: deck, data }); };
   const setState = (next) => { state = next; emit("onStateChange", next); };
+  const releaseSource = () => {
+    // Release is lifecycle cleanup, not a new user Pause in the ordered protocol.
+    if (!media.orderedTransport) media.pause();
+    media.removeAttribute("src"); media.load();
+  };
   const fallback = (reason) => {
     if (destroyed) return;
     playAttempt++;
     const snapshot = { position: ready ? media.currentTime : position, playing: intent, reason };
-    media.pause();
+    releaseSource();
     controller?.abort();
     clearTimeout(renewTimer);
     onFallback?.(snapshot);
@@ -37,9 +42,12 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     const ownGeneration = generation;
     const fail = (error) => {
       if (destroyed || !intent || attempt !== playAttempt || ownGeneration !== generation || error?.name === "AbortError") return;
+      // The decoder may still be playing. A control-channel failure must not
+      // release it, retry its source, or fall back to another provider.
+      if (error?.nativeTransport) return;
       if (error?.name === "NotAllowedError") {
         intent = false;
-        media.pause();
+        if (!media.orderedTransport) media.pause();
         emit("onAutoplayBlocked");
       } else fallback("native_playback_failed");
     };
@@ -72,7 +80,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       renewTimer = setTimeout(() => {
         if (destroyed || own !== generation) return;
         position = media.currentTime || position;
-        media.pause();
+        if (!media.orderedTransport) media.pause();
         refreshed = true;
         void resolve(true);
       }, Math.min(2_147_483_647, Math.max(1000, asset.expiresAt - Date.now() - 60_000)));
@@ -83,7 +91,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   const clearSource = () => {
     generation++; playAttempt++; controller?.abort(); clearTimeout(renewTimer);
     ready = false; asset = null;
-    media.pause(); media.removeAttribute("src"); media.load();
+    releaseSource();
     cancelMediaReceipt(receipt); receipt = null;
   };
   const updateTitle = (value, nextId) => {
@@ -95,13 +103,29 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   listen("loadedmetadata", () => {
     if (destroyed || !asset || media.currentSrc !== asset.url) return;
     ready = true;
+    const restored = media.nativeTransportRestored;
+    if (restored) intent = media.nativePlayIntent;
     const duration = Number.isFinite(media.duration) ? media.duration : asset?.duration || 0;
-    media.currentTime = Math.max(0, Math.min(position, Math.max(0, duration - .1)));
+    if (!restored) media.currentTime = Math.max(0, Math.min(position, Math.max(0, duration - .1)));
     if (!announcedReady) { announcedReady = true; emit("onReady"); }
-    if (intent) resume(); else setState(STATES.CUED);
+    if (restored) setState(media.nativeObservedPlaying ? STATES.PLAYING : intent ? STATES.BUFFERING : STATES.PAUSED);
+    else if (intent) resume(); else setState(STATES.CUED);
   });
-  listen("playing", () => { if (media.isAndroidNativeMedia) intent = true; if (intent) setState(STATES.PLAYING); else media.pause(); });
-  listen("pause", () => { if (ready && !media.ended) { if (media.isAndroidNativeMedia) intent = false; setState(STATES.PAUSED); } });
+  listen("transportintent", () => {
+    // Ignore only the initial, empty baseline. Native controls during source
+    // renewal and a recovered binding remain authoritative while not ready.
+    if (!ready && !media.nativeTransportRestored && media.nativeIntentOrigin === "baseline") return;
+    intent = media.nativePlayIntent;
+    emit("onTransportIntent", { playing: intent, origin: media.nativeIntentOrigin });
+  });
+  listen("transporterror", () => emit("onTransportError", media.nativeTransportError));
+  listen("transportrecovered", () => emit("onTransportRecovered"));
+  listen("playing", () => {
+    if (media.isAndroidNativeMedia && !media.orderedTransport) intent = true;
+    if (intent) setState(STATES.PLAYING);
+    else if (!media.orderedTransport) media.pause();
+  });
+  listen("pause", () => { if (ready && !media.ended) { if (media.isAndroidNativeMedia && !media.orderedTransport) intent = false; setState(STATES.PAUSED); } });
   listen("waiting", () => { if (intent) setState(STATES.BUFFERING); });
   listen("ended", () => { position = media.currentTime; setState(STATES.ENDED); });
   listen("error", () => {
@@ -115,7 +139,17 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   const deck = {
     provider: "native",
     androidNative: Boolean(media.isAndroidNativeMedia),
+    get orderedTransport() { return Boolean(media.orderedTransport); },
+    get nativePlayIntent() { return media.nativePlayIntent; },
+    get nativeTransportRestored() { return Boolean(media.nativeTransportRestored); },
+    get nativeObservedPlaying() { return media.nativeObservedPlaying; },
     get isResolving() { return !ready; },
+    reconnectControls: () => media.reconnectTransport(),
+    reloadTransportSource({ autoplay: nextIntent }) {
+      if (destroyed) return;
+      clearSource(); position = 0; intent = nextIntent === true; refreshed = false;
+      void resolve();
+    },
     playVideo() {
       if (destroyed) return;
       intent = true;
@@ -156,7 +190,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       destroyed = true; generation++; playAttempt++; controller?.abort(); clearTimeout(renewTimer);
       cancelMediaReceipt(receipt);
       for (const [name, callback] of listeners) media.removeEventListener(name, callback);
-      media.pause(); media.removeAttribute("src"); media.load(); media.remove(); graph?.close();
+      releaseSource(); media.remove(); graph?.close();
     },
   };
   void resolve();

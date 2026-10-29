@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "checkedDate": "2026-10-29",
+  "productionPlaybackActivated": false,
+  "sourceGate": "failed",
+  "audioStartupLatencyMs": null,
+  "liveBitrateVerified": false,
+  "limits": [
+    "elapsedMs includes tool/protection/HTTP/worker overhead; it is not time to first audio.",
+    "Both SDK versions stop at AAC extraction; Opus/auto and real-source delivery/decoding are not reached.",
+    "Private storage/range probes use generated media, not the requested live song."
+  ],
+  "runs": [
+    {
+      "elapsedMs": 18687,
+      "status": 503,
+      "body": {
+        "ready": false,
+        "sample": "on-and-on",
+        "storage": "passed",
+        "range": "passed",
+        "stage": "extraction_mp4-aac",
+        "reason": "source_access_restricted"
+      },
+      "provenance": "Observed tool result recorded in PR42 C031; preserved from before workspace restart.",
+      "sourceCommit": "fbf3cfc07889b6bcf299487e9b1a2a477fbf0961",
+      "deploymentId": "dpl_4VJBaxm2eK7JVjSXge2s6wBDvjfW",
+      "ytDlpVersion": "2026.8.19"
+    },
+    {
+      "elapsedMs": 15658,
+      "status": 503,
+      "body": {
+        "ready": false,
+        "sample": "invincible",
+        "storage": "passed",
+        "range": "passed",
+        "stage": "extraction_mp4-aac",
+        "reason": "source_access_restricted"
+      },
+      "provenance": "Observed tool result recorded in PR42 C031; preserved from before workspace restart.",
+      "sourceCommit": "fbf3cfc07889b6bcf299487e9b1a2a477fbf0961",
+      "deploymentId": "dpl_4VJBaxm2eK7JVjSXge2s6wBDvjfW",
+      "ytDlpVersion": "2026.8.19"
+    },
+    {
+      "sample": "on-and-on",
+      "elapsedMs": 41235,
+      "status": 503,
+      "body": {
+        "ready": false,
+        "sample": "on-and-on",
+        "storage": "passed",
+        "range": "passed",
+        "stage": "extraction_mp4-aac",
+        "reason": "source_access_restricted"
+      },
+      "sourceCommit": "2694bb72a7b0e0658316532655d3bfd74a82b797",
+      "deploymentId": "dpl_7qbCbWHWdKDzufGwnC4ukBcyhULq",
+      "ytDlpVersion": "2026.10.26"
+    },
+    {
+      "sample": "invincible",
+      "elapsedMs": 51095,
+      "status": 503,
+      "body": {
+        "ready": false,
+        "sample": "invincible",
+        "storage": "passed",
+        "range": "passed",
+        "stage": "extraction_mp4-aac",
+        "reason": "source_access_restricted"
+      },
+      "sourceCommit": "2694bb72a7b0e0658316532655d3bfd74a82b797",
+      "deploymentId": "dpl_7qbCbWHWdKDzufGwnC4ukBcyhULq",
+      "ytDlpVersion": "2026.10.26"
+    }
+  ],
+  "diagnosticConfiguration": {
+    "key": "MEDIA_SERVICE_DEPLOYMENT_PROBE",
+    "target": "preview",
+    "gitBranch": "feat/pr42-ytdlp-migration",
+    "resetValue": "0",
+    "resetConfirmed": true,
+    "providerAuthenticationChanged": false
+  }
+}

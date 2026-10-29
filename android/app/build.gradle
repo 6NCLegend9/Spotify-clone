@@ -30,8 +30,8 @@ android {
         applicationId 'app.haykasa.android'
         minSdk 23
         targetSdk 36
-        versionCode 3
-        versionName '1.0.2'
+        versionCode 4
+        versionName '1.0.3'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     sourceSets { androidTest.assets.srcDirs += "build/generated/qaAssets" }
@@ -52,9 +52,15 @@ android {
             if (configureReleaseSigning) signingConfig signingConfigs.release
         }
     }
-    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        // Keep Java functional APIs available on the existing Android 6 minimum.
+        coreLibraryDesugaringEnabled true
+    }
 }
 dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
     implementation 'androidx.webkit:webkit:1.14.0'
     implementation 'androidx.media3:media3-exoplayer:1.8.0'
     implementation 'androidx.media3:media3-session:1.8.0'

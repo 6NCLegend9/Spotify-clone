@@ -2,11 +2,17 @@ name: Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      retired_binding_diagnostic:
+        description: "Apply the known-failing N02g service regression for diagnosis only"
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
       - "android/**"
       - "src/components/MusicPlayer/media/androidAudioElement.mjs"
+      - "src/components/MusicPlayer/media/orderedAndroidTransport.mjs"
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mediaService.mjs"
@@ -21,6 +27,7 @@ on:
     paths:
       - "android/**"
       - "src/components/MusicPlayer/media/androidAudioElement.mjs"
+      - "src/components/MusicPlayer/media/orderedAndroidTransport.mjs"
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mediaService.mjs"
@@ -40,6 +47,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  windows-bridge:
+    name: Windows Android bridge checks (CRLF)
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+      - name: Materialize a Windows CRLF checkout
+        run: git -c core.autocrlf=true checkout-index --force --all
+      - name: Verify CRLF input and the full Android check command
+        run: |
+          node -e "if (!require('node:fs').readFileSync('src/components/MusicPlayer/YouTubePlayer.jsx', 'utf8').includes('\r\n')) throw new Error('Expected a CRLF checkout')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run android:check
+
   apk:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -63,6 +87,8 @@ jobs:
       - name: Check web audio bridge
         run: |
           node docs/qa/android/check.mjs
+          node docs/qa/android/ordered-check.mjs
+          node docs/qa/android/ordered-player-check.cjs
           node docs/qa/android/resolve-check.cjs
           node docs/qa/android/release-check.mjs
           node docs/qa/android/iframe-api-check.mjs
@@ -116,6 +142,11 @@ jobs:
           node-version: 22.x
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Enable the N02g retired-binding diagnostic
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.retired_binding_diagnostic }}
+        run: |
+          git apply --check docs/qa/ytdlp-migration/evidence/retired-binding-replay.patch
+          git apply docs/qa/ytdlp-migration/evidence/retired-binding-replay.patch
       - name: Install fixture audio encoder when missing
         timeout-minutes: 5
         run: |

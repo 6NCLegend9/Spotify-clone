@@ -20,7 +20,7 @@ assert.match(asset.digest, /^sha256:[a-f0-9]{64}$/);
 assert.equal(fs.statSync(apk).size, asset.size);
 const digest = crypto.createHash('sha256').update(fs.readFileSync(apk)).digest('hex');
 assert.equal(`sha256:${digest}`, asset.digest, 'Installed APK must be byte-identical to the public release asset');
-const adb = (...args) => execFileSync('adb', args, { maxBuffer: 12 * 1024 * 1024 });
+const adb = (...args) => execFileSync('adb', args, { maxBuffer: 12 * 1024 * 1024, timeout: 15000, killSignal: 'SIGKILL' });
 const report = {
   schemaVersion: 1, startedAt: new Date().toISOString(), mode: 'exact-public-apk-and-main-production',
   testRunnerCommit: process.env.GITHUB_SHA || null, origin,
@@ -72,6 +72,10 @@ async function providerRejections(page) {
 }
 (async () => {
   let device, page;
+  // Keep an unresponsive WebView/ADB cleanup from losing the last observations.
+  const watchdog = setTimeout(() => {
+    report.deadlineExceeded = true; report.functionalPass = false; save(); process.exit(1);
+  }, 12 * 60 * 1000);
   try {
     const aapt = path.join(process.env.ANDROID_HOME, 'build-tools/36.0.0/aapt');
     const badging = execFileSync(aapt, ['dump', 'badging', apk], { encoding: 'utf8' });
@@ -149,6 +153,7 @@ async function providerRejections(page) {
       report.cookieInspection = 'document.cookie names only; HttpOnly cookies unavailable';
     }
     await page.waitForTimeout(3000); await capture('01-home-guest');
+    if (process.env.HAYKASA_PRODUCTION_QA_LIVE_ONLY !== '1') {
     await step('02-search-browse', async () => { await navigate('/search', '.page-search'); await capture('02-search-browse'); });
     await step('03-search-results', async () => { await navigate('/search/2pac', '[data-search-track]'); await page.waitForTimeout(1500); await capture('03-search-results'); });
     const artist = await page.locator('.page-search a[href^="/artist/UC"]').first().getAttribute('href').catch(() => null);
@@ -161,6 +166,7 @@ async function providerRejections(page) {
     await step('10-settings-landscape', async () => { adb('shell', 'settings', 'put', 'system', 'user_rotation', '1'); await page.waitForFunction(() => innerWidth > innerHeight, null, { timeout: 15000 }); await page.waitForTimeout(1500); await capture('10-settings-landscape'); const landscape = report.screens.at(-1); if (!landscape.tabbar.some(item => item.height >= 44 && item.top >= 0 && item.bottom <= landscape.height + 1)) finding('Rotated Android phone switches to desktop navigation', 'Medium', 'Open Settings in the public APK, then rotate the phone to landscape', landscape); });
     adb('shell', 'settings', 'put', 'system', 'user_rotation', '0');
     await page.waitForTimeout(1000);
+    }
     await step('11-live-playback', async () => {
       await navigate('/search/Cartoon%20On%20On%20NCS?type=video', '[data-search-track] button[aria-label^="Play "]');
       report.playedSelection = await page.locator('[data-search-track] button[aria-label^="Play "]').first().getAttribute('aria-label');
@@ -192,18 +198,19 @@ async function providerRejections(page) {
       report.backgroundMediaSession = adb('shell', 'dumpsys', 'media_session').toString().slice(0, 15000);
       adb('shell', 'am', 'start', '-W', '-n', `${pkg}/app.haykasa.android.MainActivity`); await page.waitForTimeout(1500); await capture('15-return-from-background');
     });
-    report.completed = true;
+    report.completed = true; save();
   } catch (error) {
-    report.completed = false; report.fatal = { name: error.name, message: error.message.slice(0, 1200) }; try { shot('99-incomplete'); } catch {}
+    report.completed = false; report.fatal = { name: error.name, message: error.message.slice(0, 1200) }; save(); try { shot('99-incomplete'); } catch {}
     process.exitCode = 1;
   } finally {
-    report.finishedAt = new Date().toISOString();
-    try { const crashes = adb('logcat', '-d', 'AndroidRuntime:E', '*:S').toString(); fs.writeFileSync(path.join(output, 'crashes.log'), crashes); report.androidRuntimeCrash = /FATAL EXCEPTION/.test(crashes); if (report.androidRuntimeCrash) finding('Installed public Android APK crashes', 'High', 'Launch and tour the public APK in a fresh API36 emulator', 'See crashes.log'); } catch {}
+    report.finishedAt = new Date().toISOString(); save();
+    try { const crashes = adb('logcat', '-d', 'AndroidRuntime:E', '*:S').toString(); fs.writeFileSync(path.join(output, 'crashes.log'), crashes); report.androidRuntimeCrash = /FATAL EXCEPTION/.test(crashes); if (report.androidRuntimeCrash) finding('Installed public Android APK crashes', 'High', 'Launch and tour the public APK in a fresh API36 emulator', 'See crashes.log'); } catch { report.crashInspectionUnavailable = true; }
     try { fs.writeFileSync(path.join(output, 'chromium.log'), adb('logcat', '-d', 'chromium:E', '*:S')); } catch {}
     try { fs.writeFileSync(path.join(output, 'app-services.txt'), adb('shell', 'dumpsys', 'activity', 'services', 'app.haykasa.android.debug')); } catch {}
     report.functionalPass = report.completed === true && !report.findings.length && !report.pageErrors.length;
     save(); console.log(JSON.stringify({ completed: report.completed, functionalPass: report.functionalPass, findings: report.findings.map(item => ({ title: item.title, severity: item.severity })), evidence: output }));
     await device?.close().catch(() => {});
+    clearTimeout(watchdog);
     if (!report.functionalPass) process.exitCode = 1;
   }
 })().catch(error => { report.fatal = { name: error.name, message: error.message.slice(0, 1000) }; save(); process.exitCode = 1; });

@@ -15,15 +15,18 @@ const { chromium } = require('playwright');
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto('https://haykasa.vercel.app/android-qa');
-    const source = fs.readFileSync(path.join(__dirname, '../../../src/components/MusicPlayer/media/androidAudioElement.mjs'), 'utf8').replace(/^export /gm, '');
-    await page.addScriptTag({ content: 'window.nativeMessages=[]; window.HayKasaAndroidMedia={postMessage:value=>nativeMessages.push(JSON.parse(value))};' + source + ';window.nativeFactory=createAndroidAudioElement;' });
+    const ordered = fs.readFileSync(path.join(__dirname, '../../../src/components/MusicPlayer/media/orderedAndroidTransport.mjs'), 'utf8').replace(/^export /gm, '');
+    const source = fs.readFileSync(path.join(__dirname, '../../../src/components/MusicPlayer/media/androidAudioElement.mjs'), 'utf8').replace(/^import .*;\n/m, '').replace(/^export /gm, '');
+    await page.addScriptTag({ content: 'window.nativeMessages=[]; window.HayKasaAndroidMedia={postMessage:value=>nativeMessages.push(JSON.parse(value))};(()=>{' + ordered + '\n' + source + ';window.nativeFactory=createAndroidAudioElement;})();' });
     const result = await page.evaluate(async () => {
       const audio = nativeFactory('Synthetic audio');
       document.getElementById('host').replaceChildren(audio);
       const events = [];
       for (const type of ['loadedmetadata', 'playing', 'pause', 'ended']) audio.addEventListener(type, () => events.push(type));
       audio.src = 'https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=synthetic';
-      audio.load(); let id = nativeMessages.at(-1).id;
+      audio.load();
+      await new Promise(resolve => setTimeout(resolve, 1010)); // Silent legacy APK negotiation.
+      let id = nativeMessages.at(-1).id;
       const emit = event => HayKasaAndroidMedia.onmessage({ data: JSON.stringify({ id, event, duration: 180, position: 12 }) });
       emit('ready'); audio.muted = false; audio.volume = .4;
       let playResolved = false;

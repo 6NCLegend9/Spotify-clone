@@ -32,6 +32,16 @@ public class AndroidPlaybackTest {
         IBinder binder = serviceRule.bindService(new Intent(context, PlaybackService.class).setAction("app.haykasa.android.BIND"));
         return ((PlaybackService.LocalBinder)binder).service();
     }
+    private OrderedTransport.Snapshot transportSnapshot(PlaybackService service) throws Exception {
+        Field bridge = PlaybackService.class.getDeclaredField("ordered"); bridge.setAccessible(true);
+        Field active = PlaybackService.class.getDeclaredField("activeId"); active.setAccessible(true);
+        AtomicReference<OrderedTransport.Snapshot> snapshot = new AtomicReference<>();
+        main(() -> {
+            try { snapshot.set(((OrderedMediaBridge)bridge.get(service)).owner((String)active.get(service)).snapshot()); }
+            catch (IllegalAccessException error) { throw new AssertionError(error); }
+        });
+        return snapshot.get();
+    }
     private void main(Runnable r) { InstrumentationRegistry.getInstrumentation().runOnMainSync(r); }
     private void waitActivityStage(MainActivity activity, androidx.test.runner.lifecycle.Stage expected, String message) throws Exception {
         AtomicReference<androidx.test.runner.lifecycle.Stage> observed = new AtomicReference<>();
@@ -445,7 +455,12 @@ public class AndroidPlaybackTest {
                 AtomicReference<org.json.JSONObject> measurement = new AtomicReference<>();
                 for (int attempt = 0; attempt < 100 && measurement.get() == null; attempt++) {
                     main(() -> {
-                        androidx.media3.exoplayer.ExoPlayer player = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                        // The session owns a forwarding transport wrapper; inspect the actual decoder.
+                        androidx.media3.exoplayer.ExoPlayer player;
+                        try {
+                            Field playersField = PlaybackService.class.getDeclaredField("players"); playersField.setAccessible(true);
+                            player = ((java.util.Map<String, androidx.media3.exoplayer.ExoPlayer>)playersField.get(service)).get(id);
+                        } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
                         androidx.media3.exoplayer.DecoderCounters counters = player.getAudioDecoderCounters();
                         if (counters != null) counters.ensureUpdated();
                         androidx.media3.common.Format format = player.getAudioFormat();
@@ -493,6 +508,7 @@ public class AndroidPlaybackTest {
                     web.setWebViewClient(new android.webkit.WebViewClient() {
                         @Override public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, android.webkit.WebResourceRequest request) { return respond.apply(request); }
                         @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) { return delegate.shouldOverrideUrlLoading(view, request); }
+                        @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) { delegate.onPageStarted(view, url, icon); }
                         @Override public void onPageFinished(WebView view, String url) { delegate.onPageFinished(view, url); }
                         @Override public void onReceivedError(WebView view, android.webkit.WebResourceRequest request, android.webkit.WebResourceError error) { delegate.onReceivedError(view, request, error); }
                         @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) { return delegate.onRenderProcessGone(view, detail); }
@@ -504,13 +520,19 @@ public class AndroidPlaybackTest {
                 } catch (Exception e) { throw new RuntimeException(e); }
             });
             WebView web = ref.get(); waitJs(web, "window.qaReady === true");
+            assertEquals("The actual APK and production adapter must negotiate ordered transport", "true", js(web, "qaDeck.orderedTransport === true"));
             assertEquals("Production resolver reached the isolated API", "true", js(web, "qaResolveRequests > 0"));
             System.out.println("ANDROID_QA_WEBVIEW " + WebView.getCurrentWebViewPackage().versionName);
             System.out.println("ANDROID_QA_ABORT_ANY " + js(web, "typeof AbortSignal.any"));
             js(web, "document.getElementById('play').click()"); waitJs(web, "qaDeck.getCurrentTime() > 1 && qaDeck.getPlayerState() === 1");
             AtomicReference<Boolean> decodedAudio = new AtomicReference<>(false);
             main(() -> {
-                androidx.media3.exoplayer.ExoPlayer active = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                androidx.media3.exoplayer.ExoPlayer active;
+                try {
+                    Field playersField = PlaybackService.class.getDeclaredField("players"); playersField.setAccessible(true);
+                    Field activeField = PlaybackService.class.getDeclaredField("activeId"); activeField.setAccessible(true);
+                    active = ((java.util.Map<String, androidx.media3.exoplayer.ExoPlayer>)playersField.get(service)).get(activeField.get(service));
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
                 androidx.media3.exoplayer.DecoderCounters counters = active.getAudioDecoderCounters();
                 if (counters != null) counters.ensureUpdated();
                 decodedAudio.set(active.isPlaying() && active.getVolume() > 0 && active.getAudioFormat() != null
@@ -521,6 +543,35 @@ public class AndroidPlaybackTest {
                     + " audioFormat=" + (active.getAudioFormat() == null ? "none" : active.getAudioFormat().sampleMimeType));
             });
             assertTrue("The native audio renderer must decode output buffers at a nonzero volume", decodedAudio.get());
+            // Hold actual producer frames, not hand-written envelopes. An old
+            // playing observation after local Pause must stay telemetry-only;
+            // later explicit MediaSession Play must win over the delayed ACK.
+            js(web, "(()=>{const bridge=HayKasaAndroidMedia;const receive=bridge.onmessage;window.qaHeldFrames=[];window.qaHoldReplies=true;bridge.onmessage=message=>{const value=JSON.parse(message.data);if(window.qaHoldReplies&&value.transport&&value.transport.snapshot.intent.origin!=='system')qaHeldFrames.push(message);else receive(message)};window.qaFlushReplies=()=>{window.qaHoldReplies=false;const frames=qaHeldFrames.splice(0);for(const frame of frames)receive(frame)}})()");
+            waitJs(web, "qaHeldFrames.some(m=>JSON.parse(m.data).transport.snapshot.observed.isPlaying)");
+            js(web, "document.getElementById('pause').click();window.qaPlayingEventsAfterPause=qaEvents.filter(e=>e===1).length");
+            // Deliver the saved old playing frame through the real consumer
+            // while native Pause acknowledgement remains withheld.
+            js(web, "(()=>{const old=qaHeldFrames.find(m=>JSON.parse(m.data).transport.snapshot.observed.isPlaying);window.qaHoldReplies=false;HayKasaAndroidMedia.onmessage(old);window.qaHoldReplies=true})()");
+            assertEquals("Stale playing cannot undo pending local Pause", "true", js(web, "qaDeck.nativePlayIntent===false && qaEvents.filter(e=>e===1).length===qaPlayingEventsAfterPause"));
+            AtomicReference<Boolean> nativePaused = new AtomicReference<>(false);
+            for (int i = 0; i < 50; i++) {
+                main(() -> nativePaused.set(!service.getSessions().get(0).getPlayer().getPlayWhenReady()));
+                if (nativePaused.get()) break;
+                Thread.sleep(100);
+            }
+            assertTrue("Native must apply Pause before explicit system Play", nativePaused.get());
+            shell("cmd media_session dispatch play");
+            waitJs(web, "qaDeck.nativePlayIntent===true && qaDeck.getPlayerState()===1");
+            js(web, "qaFlushReplies()");
+            waitJs(web, "qaDeck.getPlayerState()===1 && qaDeck.nativeObservedPlaying===true");
+            assertEquals("Delayed Pause ACK must not replace system intent with corrective web Play", "system", transportSnapshot(service).intent().origin());
+            assertEquals("Ordered integration must not hide transport/decoder failures", "true", js(web, "!window.qaTransportError&&!window.qaFailure"));
+            // A real rebind reports the current decoder state and position;
+            // it must not replay the renderer's earlier Play/seek/load.
+            js(web, "window.qaReconnectDone=false;qaDeck.reconnectControls().then(()=>{window.qaReconnectDone=true},()=>{window.qaReconnectFailed=true})");
+            waitJs(web, "qaReconnectDone===true && qaDeck.getPlayerState()===1");
+            assertEquals("Rebind is not an explicit new Play", 0, transportSnapshot(service).processed());
+            assertEquals("Rebind preserves native intent as baseline", "baseline", transportSnapshot(service).intent().origin());
             screenshot("native-playing");
             ActivityManager manager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
             assertTrue("Playing audio needs a foreground notification service", manager.getRunningServices(100).stream().anyMatch(s -> s.service.getClassName().equals(PlaybackService.class.getName()) && s.foreground));

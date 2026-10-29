@@ -1,0 +1,43 @@
+diff --git a/android/app/src/androidTest/java/app/haykasa/android/OrderedBridgeTest.java b/android/app/src/androidTest/java/app/haykasa/android/OrderedBridgeTest.java
+--- a/android/app/src/androidTest/java/app/haykasa/android/OrderedBridgeTest.java
++++ b/android/app/src/androidTest/java/app/haykasa/android/OrderedBridgeTest.java
+@@ -314,3 +314,39 @@
+         return out.array();
+     }
++
++    @Test public void retiredBindingCannotBeReactivatedAfterAnIntermediateScope() throws Exception {
++        bootstrap(); load(); ExoPlayer original = raw();
++        String retired = bindingId;
++        transport("play", 1); transport("pause", 2);
++        send(new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid()));
++        JSONObject caps = last("transportCapabilities");
++        bindingId = uuid();
++        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
++            .put("requestId", uuid()).put("engineId", engine).put("bindingId", bindingId)
++            .put("expectedBindingId", retired).put("bindGrant", caps.getString("bindGrant")));
++        transport("pause", 1);
++        send(new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid()));
++        caps = last("transportCapabilities");
++        String reuseRequest = uuid();
++        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
++            .put("requestId", reuseRequest).put("engineId", engine).put("bindingId", retired)
++            .put("expectedBindingId", bindingId).put("bindGrant", caps.getString("bindGrant")));
++        boolean rejected = false;
++        for (JSONObject packet : packets) {
++            JSONObject correlation = packet.optJSONObject("correlation");
++            if ("transportControlError".equals(packet.optString("event")) && correlation != null
++                && reuseRequest.equals(correlation.optString("requestId"))
++                && "BIND_CONFLICT".equals(packet.optString("reason"))) rejected = true;
++        }
++        // Replay the original old Play even when rejection was missing.
++        send(new JSONObject().put("id", id).put("action", "play")
++            .put("transport", scope().put("bindingId", retired).put("webRevision", 1)));
++        assertTrue("A retired binding must not regain old command authority", rejected);
++        assertEquals("INVALID_SCOPE", last("transportControlError").getString("reason"));
++        send(request("transportReadState"));
++        assertEquals(1, snapshot().getLong("processedWebRevision"));
++        assertFalse(snapshot().getJSONObject("intent").getBoolean("playWhenReady"));
++        main(() -> assertFalse(original.getPlayWhenReady()));
++        assertSame(original, raw());
++    }
+ }
