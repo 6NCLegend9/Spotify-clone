@@ -27,9 +27,9 @@ C002 acknowledges C001; [coordinator C004](https://github.com/6NCLegend9/Spotify
 
 Use separate branches/worktrees. Preserve remote commits and reconcile normally when the shared branch advances. No force-push, reset, stash or cleanup of another agent's work. A conflict or ownership question goes in the mailbox before overlapping edits.
 
-## Decisions still open
+## Decision status and remaining gates
 
-1. Source scope: retain existing YouTube media through yt-dlp while removing application-owned APIs/embeds/SDK, or choose replacement sources and saved-track matching. yt-dlp is not an independent music catalog.
+1. Source scope is acknowledged in C029: index and replace application-owned YouTube integrations with yt-dlp while preserving saved media. The user restates this on2026-10-29; source feasibility is an execution gate, not another pending confirmation of the instruction.
 2. Guest access: preserve listening through a bounded ownership/authentication model. The current direct-media resolver requires an account; removing the embed without its replacement changes guest behavior.
 3. Catalog/live/long-track capabilities: prove channel/playlist/album/MPR/caption/filter/pagination support or report explicit capability limits. No invented data or silent feature removal.
 4. Playback contract: the coordinator accepts the peer's high-level v2 principles, not a frozen wire schema. Exact command/event ordering, preparation/seek ranges, native renewal/queue ownership and legacy behavior require joint agreement.
@@ -40,16 +40,20 @@ The narrower D06 existing Android transport fix is now confirmed at 2d12b17 in [
 
 ## Gates and current evidence
 
-- Provider migration has not started. D06 and the three C018 corrections are implemented through runtime 264de97; C023 records 11 green checks, inspected actual Windows logs and SHA256-verified API33/API36 XML (20 tests each). The former artifact-download limitation is resolved for those runs; physical/audible qualification remains pending. C025 reproduces a longer retired-binding sequence that is not in the normal gate and awaits a jointly reviewed identity/capacity policy. Jam occurrence loss remains pending. See [D06 evidence](D06-IMPLEMENTATION.md) and the original [reproductions](peer-review-verification.md).
+- Provider removal remains unimplemented. yt-dlp is updated to 2026.10.26 at 2694bb7 with EJS 0.8.0. C032 records actual Windows/Android/browser/source outcomes. Normal 1ec8cac has 11 green checks, but opt-in N02g fails on both emulators (21 each, 20 pass) and public native live playback fails. Jam, full queue/renewal/DSP and physical audio remain open.
 - Final PR41 checks and Vercel preview passed. The earlier media-container registry denial is historical. This resolves the stale-baseline/deployment-readiness report, not source feasibility.
-- Latest recorded production capability: enabled:false, reason:service_disabled. Earlier hosted extraction returned source_access_restricted. Repeated uncached extraction, delivery and decoding from the intended deployment remain the first source gate; synthetic fixtures are not live playback or screen-off proof.
+- Production capability remains enabled:false/reason:service_disabled. Four uncached fixed-song requests across August/current SDK previews fail 503 source_access_restricted after generated storage/ranges pass. No actual-source decoding/startup/bitrate is established. Branch-preview diagnostic configuration is verified reset 0; no production activation/provider authentication changes.
 - Preserve source codecs where compatible, SSRF/TLS protections, bounded CPU/disk/output, scoped ownership, leases and cleanup. Never force readiness flags true.
 - Preserve saved songs/playlists/follows, repeated queue occurrences, account isolation and private-session rules through compatible legacy reads. Delivery credentials/receipts must not enter persisted tracks or Jam broadcasts.
 - Retain the stack and first-release playback-during-extraction requirement. Native Android queue reliability precedes BPM/widening. Completed files alone and audible Safari HLS do not establish on-the-fly streaming or a working EQ path.
 - Follow applicable AGENTS.md/SKILL.md instructions, review each stage's diff, verify the changed flow and reconcile the requirements checklist before any completion claim.
 
-Next coordinator/peer action: independently review the completed C018 corrections and the C025 retired-identity reproduction/proposal. Artifact XML inspection for the tested runs is complete. Source/guest/full-v2 decisions and the source-access gate remain open before provider-dependent implementation. Physical interruption/background qualification is separate. Coordinate before overlapping edits, preserve legacy behavior and return necessary wire/behavior changes to explicit review. No source activation, merge or native publication.
+Next coordinator/peer action: review C025/C030 and agree the bounded/compatible retired-identity correction; review the current provider index and C032 source failures. An authorized alternative staging worker/VM has been requested while unblocked work continues. Guest/full-v2 and physical/native qualification remain open. No activation, merge or native publication.
 
 ## Graphify review — 2026-10-29
 
 Codex 1 uses Ponytail and the local Graphify Codex skill as requested. Code-only maps cover 36 player and 9 Android core files; outputs/caches stay outside the source tree. [Portable map/query evidence](evidence/graphify-d06-review.json) records exact source commit, scope, confidence and diagnostics. Each graph has one source-explained self-loop; post-build diagnostics cannot prove full extraction coverage. Graph topology is not a defect reproduction. C025 uses actual production Java sources with isolated platform/host code and provides a [compiled diagnostic service patch](evidence/retired-binding-replay.patch). No runtime or frozen-wire change is made by this review.
+
+## Full index and cross-platform verification — 2026-10-29
+
+The [current index](inventory-current.json) and [generator](evidence/index-provider-paths.cjs) supersede the initial snapshot for path coverage. [Graphify provenance](evidence/graphify-migration-index.json) covers 487 supported code files; inferred edges and coverage limits remain explicit. [Cross-platform results](evidence/cross-platform-20261029.json) link exact artifact digests and limits; [source probes](evidence/source-access-20261029.json) record the failed gate. PR comments are signed Codex 1; no peer acknowledgement of the new policy/results is assumed.
