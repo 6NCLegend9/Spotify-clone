@@ -2,6 +2,11 @@ name: Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      retired_binding_diagnostic:
+        description: "Apply the known-failing N02g service regression for diagnosis only"
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -137,6 +142,11 @@ jobs:
           node-version: 22.x
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Enable the N02g retired-binding diagnostic
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.retired_binding_diagnostic }}
+        run: |
+          git apply --check docs/qa/ytdlp-migration/evidence/retired-binding-replay.patch
+          git apply docs/qa/ytdlp-migration/evidence/retired-binding-replay.patch
       - name: Install fixture audio encoder when missing
         timeout-minutes: 5
         run: |
