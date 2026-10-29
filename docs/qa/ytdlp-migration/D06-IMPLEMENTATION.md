@@ -2,7 +2,7 @@
 
 Contract: [ordered-transport-v1 at 2d12b17](ANDROID-TRANSPORT-DRAFT.md), confirmed in [C008](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6389527896). The user asked the coordinator to continue when the peer ran out of time; [C009](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6400510927) records the temporary lane takeover.
 
-Baseline milestones are native `1c6b433`, client `90c3602`, and documentation head `4d5efe2`. Their recorded checks/preview are historical evidence. Codex 2 reviewed that head in [C018](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6479042645); the three corrections and new verification are recorded below. The baseline emulator XML inspection limitation is resolved by that independent review; screenshots, physical-device audio, live source access and the broader migration remain unqualified. New-head CI results are reported separately in [PR42 comments](https://github.com/6NCLegend9/Spotify-clone/pull/42).
+Baseline milestones are native `1c6b433`, client `90c3602`, and documentation head `4d5efe2`. Codex 2 reviewed that head in [C018](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6479042645); its three corrections pass the inspected Windows/emulator checks at `264de97`. The latest review below confirms a separate retired-binding defect, N02g; it is not fixed or covered by those checks. Screenshots, physical-device audio, live source access and the broader migration remain unqualified. Exact-head outcomes are recorded in [PR42 comments](https://github.com/6NCLegend9/Spotify-clone/pull/42).
 
 ## Native stage — 2026-10-25
 
@@ -112,3 +112,51 @@ All three narrow review requirements are tracked as locally verified in the [req
 ### CI runner compatibility follow-up
 
 The correction commit is `1309a66a2b28a7f524a708e83f91919d9cee121e`. Its new Windows CRLF job passes, with the full command and both component variants visible in the inspected log; main, security and mobile-browser checks also pass. [Android run 40763330538](https://github.com/6NCLegend9/Spotify-clone/actions/runs/40763330538) passes APK and both emulator jobs. Codex 1 downloaded both emulator artifacts, matched their SHA256 digests to metadata, and inspected XML: **API33: 20 tests; API36: 20 tests; zero failures/errors/skips**, including the new actual-service binding-reuse regression. Screenshots were not visually reviewed. Downloaded APK check reports also show 18 passing JVM tests per variant. This is controlled emulator/build evidence, not physical/live-source/audio proof. Homepage run `40763330551` fails before tests at browser installation: `Playwright does not support chromium on ubuntu26.04-x64`. The floating `ubuntu-latest` image changed to an unsupported OS for the existing Playwright 1.56.1 pin. Homepage and its sibling playlist browser workflow now explicitly use Ubuntu24.04, matching the mobile job. Dependencies, assertions and test deadlines are unchanged. Native/emulator and follow-up-head CI results are reported separately in PR42 comments.
+
+### Inspected final runtime checks — `264de97`
+
+[C023](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6480384925) records all 11 completed checks/status entries as green for `264de976b150ee8dfe0baf38c3bb61407d5a857c`. Application/native runtime is unchanged from `1309a66`. The actual Windows log includes the CRLF guard, full Android check command, 26 consumer/deck cases and both LF/CRLF component runs. API33/API36 XML from [run 40765070207](https://github.com/6NCLegend9/Spotify-clone/actions/runs/40765070207) is independently inspected, with 20 tests per API and zero failures/errors/skips. Artifact digests match GitHub metadata:
+
+| API | Artifact ID | SHA256 |
+| --- | --- | --- |
+| 33 | 12850566746 | `751d903325b32eb1d6975ab114b4a6ebf418115c3f22821e5ef9c9c0af8b43b6` |
+| 36 | 12850636482 | `50269f447d34e020e0c3e35c1cff56f09127860aeb5e3b77cd96998dcc8989e6` |
+
+These reports include the **current-ID** reuse case. They do not include the **retired-ID** sequence below. A documentation-only follow-up does not establish a newer device/audio result.
+
+## Ponytail and Graphify review — 2026-10-29
+
+[C024](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6502711954) resumes the review with Ponytail and Graphify's Codex skill. Graphify 0.9.95 is installed in an isolated cloud tool environment; its local Codex skill is installed/read. This does not install anything on the user's PC or in account Settings. No application dependencies are added.
+
+Two code-only scopes at exact source `264de97` cover **36 player files** (320 nodes, 688 edges) and **9 Android core files** (251 nodes, 573 edges). Four CSS files are unclassified/excluded; this is not a layout or full-repository audit. Extraction uses no model API calls. [Portable scope/query evidence](evidence/graphify-d06-review.json) records file lists, graph digests, complete focused queries, navigation hubs and diagnostics. Graphs/reports/caches stay outside the application worktree.
+
+The main navigation hubs are OrderedAndroidTransport/YouTubePlayer/MusicPlayer and PlaybackService/OrderedMediaBridge/OrderedTransport. Manual tracing connects the renderer's binding selection and bridge messages to native Bind validation, owner retirement and PlaybackService mutation. Each graph has one source-explained self-loop: scheduled source renewal in nativeMediaDeck, and overloaded command delegation in PlaybackService. No missing/dangling endpoints are reported in the normalized graphs; that does not prove complete extraction or recover raw producer losses. External taglib-wasm is a reference label, not a verified repository file. Graph topology guides inspection; the following actual-source execution establishes the defect.
+
+### N02g — P2 / Medium: retired binding regains command authority
+
+**Status: confirmed, unfixed.** Same engine, live load and trusted attachment throughout:
+
+1. Bind B1; send Play W1, then Pause W2.
+2. Obtain a fresh Hello grant and correctly rebind to B2; send Pause W1 in B2.
+3. Obtain another fresh grant. Bind with `bindingId=B1` and `expectedBindingId=B2`.
+4. Replay the original B1 Play W1.
+
+Expected: reject the retired identity without changing current Pause/output/watermarks; old Play remains out of scope. Actual: native accepts B1 again and creates a new owner with reset counters. The old Play becomes authoritative. [OrderedMediaBridge](../../../android/app/src/main/java/app/haykasa/android/OrderedMediaBridge.java) rejects the current ID and preserves exact Bind retries, but retains no retired-identity check. The frozen D06 reset rule forbids reusing retired bindings.
+
+Actual production OrderedMediaBridge, OrderedTransport and MediaPolicy compiled with isolated clock/Handler/player-host code produce:
+
+```text
+Current-ID rebind: rejected=true; processed=2 -> 2 -> 2; writes=2 -> 2; playing=false
+Retired-ID reuse: rejected=false; writes=3 -> 4; processed=1; playing=true
+AssertionError: Retired binding reuse must not revive old command authority
+```
+
+The normal renderer chooses fresh UUIDs. This is a native validation failure under a malformed sequence; an ordinary-client restart, remote authorization bypass and audible physical-device restart have not been demonstrated.
+
+The [portable diagnostic patch](evidence/retired-binding-replay.patch) adds `retiredBindingCannotBeReactivatedAfterAnIntermediateScope` to the actual-service instrumentation suite. It requires BIND_CONFLICT, submits the old Play even if rejection is missing, then checks INVALID_SCOPE, current Pause/watermark and unchanged player ownership. Its proposed Java method compiles with `compileDebugAndroidTestJavaWithJavac`; the original source is restored byte-for-byte. The patch is **not enabled in the normal gate or emulator-executed**. The standalone actual-source reproduction fails at the tested runtime, as expected for this open defect. Existing green 20-test reports cannot qualify it.
+
+### Proposed correction and integration gate
+
+[Codex 1 C025](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6503058848) requests joint review of a native-issued binding identity tied to the one-use Hello grant, including negotiated capability and older-renderer/new-binary behavior. A v1 retained-history alternative must specify bounded capacity plus exhaustion/release/recovery semantics. Remembering just one prior ID or retaining unbounded history is insufficient. Any correction must retain exact lost-Bind retries, fresh-scope recovery, current Pause, notification Play and legacy behavior, then enable this regression and test the actual service on API33/API36.
+
+This review changes evidence and maintained status only. The shared frozen contract and runtime remain unchanged; no peer approval is assumed. N02g stays pending in the checklist and PR42 stays draft. Source/guest/full-v2 decisions, repeated uncached deployed source playback, native queue/renewal, DSP, Jam persistence, physical qualification and native publication remain open.
