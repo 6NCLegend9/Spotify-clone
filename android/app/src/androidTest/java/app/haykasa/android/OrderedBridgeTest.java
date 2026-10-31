@@ -68,9 +68,12 @@ public class OrderedBridgeTest {
         });
     }
     private JSONObject last(String event) {
+        return last(event, id);
+    }
+    private JSONObject last(String event, String loadId) {
         for (int index = packets.size() - 1; index >= 0; index--) {
             JSONObject value = packets.get(index);
-            if (id.equals(value.optString("id")) && event.equals(value.optString("event"))) return value;
+            if (loadId.equals(value.optString("id")) && event.equals(value.optString("event"))) return value;
         }
         throw new AssertionError("Missing native event " + event);
     }
@@ -434,7 +437,7 @@ public class OrderedBridgeTest {
         bootstrap(); load(); String firstId = id; ExoPlayer first = raw();
         bootstrap(); load(); ExoPlayer second = raw(); send(hello()); JSONObject caps = last("transportCapabilities");
         JSONObject invalid = proposedBind(caps, caps.getString("issuedBindingId"), null).put("id", "audio_" + uuid());
-        send(invalid); assertEquals("BIND_CONFLICT", last("transportControlError").getString("reason"));
+        send(invalid); assertEquals("BIND_CONFLICT", last("transportControlError", invalid.getString("id")).getString("reason"));
         assertEquals(2, bridge().size()); assertSame(second, raw());
         String secondId = id; id = firstId; assertSame(first, raw()); id = secondId;
     }
@@ -496,7 +499,7 @@ public class OrderedBridgeTest {
                 web.setWebViewClient(new android.webkit.WebViewClient() {
                     @Override public android.webkit.WebResourceResponse shouldInterceptRequest(android.webkit.WebView view, android.webkit.WebResourceRequest request) {
                         String page = request.getUrl().getQueryParameter("old-player-qa") != null ? oldPage
-                            : "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><h1>Reloaded player fixture</h1>";
+                            : "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='color:#f1f5ff;background:#060d1b;font-family:sans-serif'><h1>Reloaded player fixture</h1>";
                         return new android.webkit.WebResourceResponse("text/html", "UTF-8", new java.io.ByteArrayInputStream(page.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
                     }
                     @Override public void onPageStarted(android.webkit.WebView view, String url, android.graphics.Bitmap icon) { delegate.onPageStarted(view, url, icon); }

@@ -3211,7 +3211,7 @@ function YouTubePlayer() {
               Update HayKasa for Android for the latest playback fixes. Check settings for available updates.
             </p>
             <Link href="/settings#android-app-heading"
-              className="btn-primary min-h-12 shrink-0 px-4 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">
+              className="btn-primary min-h-12 max-w-full shrink-0 whitespace-normal px-4 text-center text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">
               Check app updates
             </Link>
           </div>
