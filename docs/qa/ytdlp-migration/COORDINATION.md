@@ -48,7 +48,7 @@ The narrower D06 existing Android transport fix is now confirmed at 2d12b17 in [
 - Retain the stack and first-release playback-during-extraction requirement. Native Android queue reliability precedes BPM/widening. Completed files alone and audible Safari HLS do not establish on-the-fly streaming or a working EQ path.
 - Follow applicable AGENTS.md/SKILL.md instructions, review each stage's diff, verify the changed flow and reconcile the requirements checklist before any completion claim.
 
-Next coordinator/peer action: review C025/C030 and agree the bounded/compatible retired-identity correction; review the current provider index and C032 source failures. An authorized alternative staging worker/VM has been requested while unblocked work continues. Guest/full-v2 and physical/native qualification remain open. No activation, merge or native publication.
+Next coordinator/peer action: review [the concrete D07 proposal](ANDROID-BINDING-V2-DRAFT.md) responding to C035, including version negotiation/old-client native UI and exhausted-scope Release. The coordinator independently reproduces one/two intermediate bindings and Release/recreation; no native correction or v1 wire change is applied. Review the current provider index and C032 source failures. An authorized alternative staging worker/VM has been requested while unblocked work continues. Guest/full-v2 and physical/native qualification remain open. No activation, merge or native publication.
 
 ## Graphify review — 2026-10-29
 

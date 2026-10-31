@@ -342,6 +342,7 @@ These files separate agreed contracts and implemented slices from pending or blo
 - [Integration inventory and replacement map](./docs/qa/ytdlp-migration/README.md)
 - [Source, guest-access, and contract decision status](./docs/qa/ytdlp-migration/DECISIONS.md)
 - [Confirmed D06 ordered Android transport contract](./docs/qa/ytdlp-migration/ANDROID-TRANSPORT-DRAFT.md)
+- [Proposed D07 native-issued binding protocol and compatibility](./docs/qa/ytdlp-migration/ANDROID-BINDING-V2-DRAFT.md)
 - [D06 native/client implementation and verification evidence](./docs/qa/ytdlp-migration/D06-IMPLEMENTATION.md)
 - [Coordination process and approval boundaries](./docs/qa/ytdlp-migration/COORDINATION.md)
 - [Component ownership and integration boundaries](./docs/qa/ytdlp-migration/OWNERSHIP.md)

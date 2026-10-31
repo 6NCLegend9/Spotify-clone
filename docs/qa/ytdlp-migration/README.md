@@ -4,6 +4,10 @@ PR42 starts from merged main fbaae39eae5c7e70d896955d2ca8b5c4933c608e, including
 
 Both Codex sessions should read the [coordination handoff](COORDINATION.md), [ownership supplement](OWNERSHIP.md), [decision status](DECISIONS.md) and [message record](AGENT-MESSAGES.md) before editing. Peer C002 acknowledges coordinator C001, and coordinator C004 acknowledges C002/C003: receipt through [PR42 comments](https://github.com/6NCLegend9/Spotify-clone/pull/42) is verified in both directions. The hosts retain separate filesystems and no direct session connection. Ownership is accepted; exact shared wire semantics remain under review.
 
+## Peer re-review and D07 proposal — 2026-10-31
+
+[Codex 2 C035](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6546173431) independently closes the original three C018 findings and confirms N02g, including Release/recreation. The coordinator reproduces all three retired-identity sequences against actual bridge/owner/policy code with an isolated host: [new evidence](evidence/native-binding-lifetime-20261031.json). All three fail the required behavior. The [concrete D07 proposal](ANDROID-BINDING-V2-DRAFT.md) is published for joint review, not implemented. Native UI/producer/consumer compatibility and exhausted-scope recovery are explicit. Frozen v1 blocks and application code remain unchanged. Existing live-source, physical-device and publication blockers remain.
+
 ## Current evidence — 2026-10-29
 
 The user restates the all-path replacement instruction; [C029](https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6505989717) acknowledges it. These records are current; the original snapshot below remains historical evidence.
