@@ -26,6 +26,7 @@ import static org.junit.Assert.*;
 
 /** Latest production JS against actual native binaries; no source extraction or real account. */
 @RunWith(AndroidJUnit4.class)
+@androidx.test.filters.SdkSuppress(minSdkVersion = 33)
 @androidx.media3.common.util.UnstableApi
 public class NativeCompatibilityTest {
     @Rule public final ServiceTestRule services = new ServiceTestRule();
@@ -41,11 +42,23 @@ public class NativeCompatibilityTest {
         fail("Compatibility did not settle: " + expression + "; " + js(web, "JSON.stringify(qaSample())"));
     }
     private void evidence(String name, JSONObject value) throws Exception {
-        String encoded = android.util.Base64.encodeToString(value.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
-        String cmd = "mkdir -p /sdcard/Download/haykasa-emulator-qa; echo '" + encoded
-            + "' | base64 -d > /sdcard/Download/haykasa-emulator-qa/" + name + ".json";
+        if (!name.matches("[a-z0-9-]+")) throw new IllegalArgumentException("Invalid evidence name");
         try (java.io.InputStream in = new android.os.ParcelFileDescriptor.AutoCloseInputStream(
-            InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(cmd))) { in.readAllBytes(); }
+            InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("mkdir -p /sdcard/Download/haykasa-emulator-qa"))) { in.readAllBytes(); }
+        String expected = value.toString(2);
+        String encoded = android.util.Base64.encodeToString(expected.getBytes(java.nio.charset.StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
+        String file = "/sdcard/Download/haykasa-emulator-qa/" + name + ".json";
+        // As in AndroidPlaybackTest: UiAutomation executes argv, not shell operators.
+        android.os.ParcelFileDescriptor[] io = InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommandRw("sh");
+        try (java.io.OutputStream input = new android.os.ParcelFileDescriptor.AutoCloseOutputStream(io[1])) {
+            input.write(("echo " + encoded + " | base64 -d > " + file + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        try (java.io.InputStream output = new android.os.ParcelFileDescriptor.AutoCloseInputStream(io[0])) { output.readAllBytes(); }
+        try (java.io.InputStream input = new android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("cat " + file))) {
+            assertEquals("Compatibility JSON must exist and match the actual observation", expected,
+                new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
     @Test @SuppressWarnings("unchecked") public void latestRendererPlaysAndReportsTheNativeCapabilityTruthfully() throws Exception {
         android.os.Bundle args = InstrumentationRegistry.getArguments();

@@ -9,6 +9,22 @@ fi
 compat_root="$(mktemp -d "${RUNNER_TEMP:-/tmp}/haykasa-native-compat.XXXXXX")"
 compat_artifacts="$qa_root/artifacts/android-emulator/compatibility"
 mkdir -p "$compat_artifacts"
+verify_record() {
+  local version=$1 build=$2 baseline=$3
+  adb pull "/sdcard/Download/haykasa-emulator-qa/compatibility-v$version.json" "$compat_artifacts/" >/dev/null
+  node - "$compat_artifacts/compatibility-v$version.json" "$version" "$build" "$baseline" <<'JS'
+const fs = require('node:fs');
+const [file, version, build, baseline] = process.argv.slice(2);
+const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+if (value.expectedTransportVersion !== Number(version)
+  || (Number(build) ? value.nativeBuildCode !== Number(build) : value.nativeBuildCode < 5)
+  || (baseline && value.nativeBaseline !== baseline)
+  || value.sample?.transportVersion !== Number(version)
+  || value.sample?.orderedTransport !== (Number(version) > 0)
+  || value.sample?.transportError || value.sample?.failure
+  || value.syntheticSource !== true || value.liveSource !== false) throw new Error('Invalid compatibility observation');
+JS
+}
 collect_compatibility() {
   local status=$?
   for version in 0 1; do
@@ -19,6 +35,7 @@ collect_compatibility() {
   exit "$status"
 }
 trap collect_compatibility EXIT
+verify_record 2 0 ""
 for entry in \
   "1:ee493867576844d3cc758486fdb1d01648ae1266:4" \
   "0:fbaae39eae5c7e70d896955d2ca8b5c4933c608e:3"; do
@@ -48,6 +65,7 @@ for entry in \
     connectedDebugAndroidTest || status=$?
   cp -R "$checkout/android/app/build/outputs/androidTest-results" "$compat_artifacts/v$version/" 2>/dev/null || true
   if [[ "$status" -ne 0 ]]; then exit "$status"; fi
+  verify_record "$version" "$build" "$baseline"
 done
 # Restore the current QA app; historical packages are never distributed.
 adb uninstall app.haykasa.android.debug.test >/dev/null 2>&1 || true
