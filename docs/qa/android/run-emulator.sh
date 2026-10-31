@@ -49,3 +49,4 @@ if [[ ! "$qa_commit" =~ ^[a-f0-9]{40}$ ]]; then echo "Invalid QA source commit."
   -Pandroid.testInstrumentationRunnerArguments.qaCurrentWeb=1 \
   -Pandroid.testInstrumentationRunnerArguments.qaCommit="$qa_commit" \
   connectedDebugAndroidTest
+bash "$qa_root/docs/qa/android/run-native-compatibility.sh"
