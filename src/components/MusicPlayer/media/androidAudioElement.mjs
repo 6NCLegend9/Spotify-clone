@@ -27,6 +27,7 @@ export function createAndroidAudioElement(title = "") {
   let source = "", current = 0, duration = 0, muted = true, volume = 1, paused = true, ended = false, loaded = false, disposed = false;
   let pendingPlay;
   let legacyLoaded = false;
+  let transportVersion = null;
   let ordered, transportError, observedPlaying = false, announcedPlaying = false, announcedPause = true, decoderError = false, lastIntent, lastWaiting = false;
   const post = (action, extra = {}) => {
     if (disposed) return;
@@ -50,6 +51,7 @@ export function createAndroidAudioElement(title = "") {
     listeners.set(id, receive);
     loaded = false; ended = false; paused = true; current = 0; duration = 0;
     observedPlaying = false; announcedPlaying = false; announcedPause = true; decoderError = false; lastIntent = undefined; lastWaiting = false; transportError = null;
+    transportVersion = null;
   };
   const clearSource = () => {
     if (disposed) return;
@@ -82,6 +84,11 @@ export function createAndroidAudioElement(title = "") {
         ordered = null;
         post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) });
         return { play: () => media.play(), pause: () => media.pause() };
+      },
+      onCapability: ({ version }) => {
+        if (disposed || ordered !== own) return;
+        transportVersion = version;
+        emit("transportcapability");
       },
       onFailure: error => {
         if (disposed || ordered !== own) return;
@@ -129,11 +136,16 @@ export function createAndroidAudioElement(title = "") {
     });
     ordered = own;
     if (own) own.start(source, String(media.title || "HayKasa").slice(0, 300));
-    else post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) });
+    else {
+      transportVersion = 0;
+      emit("transportcapability");
+      post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) });
+    }
   };
   Object.defineProperties(media, {
     isAndroidNativeMedia: { value: true },
     orderedTransport: { get: () => Boolean(ordered?.supported) },
+    nativeTransportVersion: { get: () => transportVersion },
     nativePlayIntent: { get: () => ordered ? ordered.desired : !paused },
     nativeIntentOrigin: { get: () => ordered?.view().origin || "baseline" },
     nativeObservedPlaying: { get: () => observedPlaying },
@@ -145,12 +157,12 @@ export function createAndroidAudioElement(title = "") {
     currentTime: { get: () => current, set: value => {
       const seconds = Math.max(0, Number(value) || 0);
       if (!Number.isFinite(seconds)) return;
-      if (ordered) ordered.seek(seconds); else post("seek", { value: seconds });
+      if (ordered) ordered.seek(seconds); else if (legacyLoaded) post("seek", { value: seconds });
     } },
     paused: { get: () => paused },
     ended: { get: () => ended },
-    muted: { get: () => muted, set: value => { muted = Boolean(value); if (ordered) ordered.volume(muted ? 0 : volume); else post("volume", { value: muted ? 0 : volume }); } },
-    volume: { get: () => volume, set: value => { volume = Math.max(0, Math.min(1, Number(value) || 0)); if (ordered) ordered.volume(muted ? 0 : volume); else post("volume", { value: muted ? 0 : volume }); } },
+    muted: { get: () => muted, set: value => { muted = Boolean(value); if (ordered) ordered.volume(muted ? 0 : volume); else if (legacyLoaded) post("volume", { value: muted ? 0 : volume }); } },
+    volume: { get: () => volume, set: value => { volume = Math.max(0, Math.min(1, Number(value) || 0)); if (ordered) ordered.volume(muted ? 0 : volume); else if (legacyLoaded) post("volume", { value: muted ? 0 : volume }); } },
   });
   media.load = () => {
     if (disposed) return;
@@ -167,6 +179,7 @@ export function createAndroidAudioElement(title = "") {
       ordered.volume(muted ? 0 : volume);
       return ordered.play();
     }
+    if (!legacyLoaded) return Promise.reject(nativeTransportError("UNAVAILABLE"));
     if (pendingPlay) return pendingPlay.promise;
     if (!paused && !ended) return Promise.resolve();
     let resolve, reject;
@@ -178,7 +191,7 @@ export function createAndroidAudioElement(title = "") {
   };
   media.pause = () => {
     finishPlay(new DOMException("Playback paused", "AbortError")); paused = true;
-    if (ordered) { lastIntent = false; announcedPlaying = false; ordered.pause(); } else post("pause");
+    if (ordered) { lastIntent = false; announcedPlaying = false; ordered.pause(); } else if (legacyLoaded) post("pause");
   };
   media.reconnectTransport = () => ordered ? ordered.recover() : Promise.reject(nativeTransportError("UNSUPPORTED"));
   const removeAttribute = media.removeAttribute.bind(media);

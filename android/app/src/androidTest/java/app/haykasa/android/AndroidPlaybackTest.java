@@ -61,12 +61,12 @@ public class AndroidPlaybackTest {
         for (int i = 0; i < 100; i++) { if ("true".equals(js(web, code))) return; Thread.sleep(200); }
         fail("Condition did not become true: " + code + "; state=" + js(web, "JSON.stringify(window.qaSample?.())"));
     }
-    private void shell(String command) throws Exception {
+    private static void shell(String command) throws Exception {
         try (java.io.InputStream in = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command))) {
             byte[] buffer = new byte[1024]; while (in.read(buffer) != -1) { /* Consume command completion. */ }
         }
     }
-    private void screenshot(String name) throws Exception {
+    static void screenshot(String name) throws Exception {
         if (!name.matches("[a-z0-9-]+")) throw new IllegalArgumentException("Invalid screenshot name");
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         Thread.sleep(500); // Allow the committed WebView frame to reach the emulator display.
@@ -442,14 +442,26 @@ public class AndroidPlaybackTest {
             for (String codec : new String[]{"opus", "aac"}) {
                 byte[] audio;
                 try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("quality-" + codec + (codec.equals("opus") ? ".webm" : ".m4a"))) { audio = in.readAllBytes(); }
-                String id = "quality-" + codec;
+                String id = "audio_" + java.util.UUID.randomUUID();
+                AtomicReference<org.json.JSONObject> qualityScope = new AtomicReference<>();
                 String expectedMime = codec.equals("opus") ? "audio/opus" : "audio/mp4a-latm";
                 main(() -> {
                     try {
                         ((DefaultMediaSourceFactory)factoryField.get(service)).setDataSourceFactory(() -> new ByteArrayDataSource(audio));
-                        service.command(new org.json.JSONObject().put("id", id).put("action", "load").put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001?signature=synthetic"), message -> {});
-                        service.command(new org.json.JSONObject().put("id", id).put("action", "volume").put("value", .36), message -> {});
-                        service.command(new org.json.JSONObject().put("id", id).put("action", "play"), message -> {});
+                        AtomicReference<org.json.JSONObject> reply = new AtomicReference<>();
+                        PlaybackService.Sink sink = message -> { try { reply.set(new org.json.JSONObject(message)); } catch (org.json.JSONException error) { throw new RuntimeException(error); } };
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "transportHello")
+                            .put("requestId", java.util.UUID.randomUUID().toString()).put("supportedTransportVersions", new org.json.JSONArray().put(2).put(1)), sink);
+                        org.json.JSONObject caps = reply.get();
+                        org.json.JSONObject scope = new org.json.JSONObject().put("version", 2).put("engineId", caps.getString("engineId")).put("bindingId", caps.getString("issuedBindingId"));
+                        qualityScope.set(scope);
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
+                            .put("requestId", java.util.UUID.randomUUID().toString()).put("engineId", caps.getString("engineId"))
+                            .put("bindingId", caps.getString("issuedBindingId")).put("expectedBindingId", org.json.JSONObject.NULL).put("bindGrant", caps.getString("bindGrant")), sink);
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "load").put("requestId", java.util.UUID.randomUUID().toString())
+                            .put("transport", scope).put("title", "Synthetic codec fixture").put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001?signature=synthetic"), sink);
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "volume").put("requestId", java.util.UUID.randomUUID().toString()).put("transport", scope).put("value", .36), sink);
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "play").put("transport", new org.json.JSONObject(scope.toString()).put("webRevision", 1)), sink);
                     } catch (Exception error) { throw new RuntimeException(error); }
                 });
                 AtomicReference<org.json.JSONObject> measurement = new AtomicReference<>();
@@ -477,7 +489,7 @@ public class AndroidPlaybackTest {
                 }
                 assertNotNull("Native renderer must decode actual " + codec + " source buffers", measurement.get());
                 results.put(measurement.get());
-                main(() -> { try { service.command(new org.json.JSONObject().put("id", id).put("action", "release"), message -> {}); } catch (Exception error) { throw new RuntimeException(error); } });
+                main(() -> { try { service.command(new org.json.JSONObject().put("id", id).put("action", "release").put("requestId", java.util.UUID.randomUUID().toString()).put("transport", qualityScope.get()), message -> {}); } catch (Exception error) { throw new RuntimeException(error); } });
             }
         } finally {
             main(service::releaseAll);
@@ -521,6 +533,7 @@ public class AndroidPlaybackTest {
             });
             WebView web = ref.get(); waitJs(web, "window.qaReady === true");
             assertEquals("The actual APK and production adapter must negotiate ordered transport", "true", js(web, "qaDeck.orderedTransport === true"));
+            assertEquals("The actual native producer and renderer must use D07", "2", js(web, "qaDeck.nativeTransportVersion"));
             assertEquals("Production resolver reached the isolated API", "true", js(web, "qaResolveRequests > 0"));
             System.out.println("ANDROID_QA_WEBVIEW " + WebView.getCurrentWebViewPackage().versionName);
             System.out.println("ANDROID_QA_ABORT_ANY " + js(web, "typeof AbortSignal.any"));

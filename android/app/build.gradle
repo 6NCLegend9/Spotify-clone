@@ -30,8 +30,8 @@ android {
         applicationId 'app.haykasa.android'
         minSdk 23
         targetSdk 36
-        versionCode 4
-        versionName '1.0.3'
+        versionCode 5
+        versionName '1.0.4'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     sourceSets { androidTest.assets.srcDirs += "build/generated/qaAssets" }

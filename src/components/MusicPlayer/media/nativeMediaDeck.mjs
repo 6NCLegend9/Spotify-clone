@@ -120,6 +120,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   });
   listen("transporterror", () => emit("onTransportError", media.nativeTransportError));
   listen("transportrecovered", () => emit("onTransportRecovered"));
+  listen("transportcapability", () => emit("onTransportCapability", { version: media.nativeTransportVersion }));
   listen("playing", () => {
     if (media.isAndroidNativeMedia && !media.orderedTransport) intent = true;
     if (intent) setState(STATES.PLAYING);
@@ -140,6 +141,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     provider: "native",
     androidNative: Boolean(media.isAndroidNativeMedia),
     get orderedTransport() { return Boolean(media.orderedTransport); },
+    get nativeTransportVersion() { return media.nativeTransportVersion; },
     get nativePlayIntent() { return media.nativePlayIntent; },
     get nativeTransportRestored() { return Boolean(media.nativeTransportRestored); },
     get nativeObservedPlaying() { return media.nativeObservedPlaying; },

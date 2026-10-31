@@ -7,10 +7,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/** Native D06 handshake/codec. Attachment authority is supplied by Java, never by JSON. */
+/** Native D07 handshake/codec. Attachment authority is supplied by Java, never by JSON. */
 @androidx.media3.common.util.UnstableApi
 final class OrderedMediaBridge {
     private static final long GRANT_MS = 5_000;
@@ -19,7 +20,7 @@ final class OrderedMediaBridge {
     private final Handler handler;
     private final Map<String, Load> loads = new LinkedHashMap<>();
     private final Map<String, Grant> grants = new LinkedHashMap<>();
-    private record Grant(Object attachment, String id, String expected, long expires) {}
+    private record Grant(Object attachment, String id, String expected, String binding, long expires) {}
     private static final class Load {
         final String id;
         final Object attachment;
@@ -42,27 +43,39 @@ final class OrderedMediaBridge {
     Iterable<String> ids() { return new ArrayList<>(loads.keySet()); }
     OrderedTransport owner(String id) { Load load = loads.get(id); return load == null ? null : load.owner; }
 
+    /** True means the host must show its native player-update surface, not retry legacy playback. */
     boolean handle(JSONObject msg, PlaybackService.Sink sink, Object attachment) {
         String action = text(msg, "action"), id = text(msg, "id");
-        if (!action.startsWith("transport") && !msg.has("transport") && !contains(id)) return false;
-        if (!MediaPolicy.isId(id)) return true;
+        if (!MediaPolicy.isId(id)) return false;
         try {
-            if ("transportHello".equals(action)) { hello(msg, sink, attachment); return true; }
-            if ("transportBind".equals(action)) { bind(msg, sink, attachment); return true; }
-            Load load = loads.get(id);
-            if (load == null) { error(msg, sink, "NOT_FOUND"); return true; }
-            if (!load.authorized || load.attachment != attachment || !scopeMatches(msg, load)) {
-                error(msg, sink, "INVALID_SCOPE"); return true;
+            if ("transportHello".equals(action)) {
+                if (!msg.has("supportedTransportVersions")) {
+                    error(msg, sink, "UNAVAILABLE", 1); return true;
+                }
+                hello(msg, sink, attachment); return false;
             }
-            if (load.owner.exhausted()) { error(msg, sink, "COUNTER_EXHAUSTED"); return true; }
+            JSONObject attempted = "transportBind".equals(action) ? msg : msg.optJSONObject("transport");
+            boolean playback = "load".equals(action) || "play".equals(action) || "pause".equals(action)
+                || "seek".equals(action) || "volume".equals(action) || "release".equals(action);
+            if (playback && attempted == null || attempted != null && Long.valueOf(1).equals(number(attempted, "version", true))) {
+                error(msg, sink, "UNAVAILABLE", 1); return true;
+            }
+            if ("transportBind".equals(action)) { bind(msg, sink, attachment); return false; }
+            Load load = loads.get(id);
+            if (load == null) { error(msg, sink, "NOT_FOUND"); return false; }
+            if (!load.authorized || load.attachment != attachment || !scopeMatches(msg, load)) {
+                error(msg, sink, "INVALID_SCOPE"); return false;
+            }
+            // Release needs no event counter, but still requires the exact current trusted scope.
+            if (load.owner.exhausted() && !"release".equals(action)) { error(msg, sink, "COUNTER_EXHAUSTED"); return false; }
             load.sink = sink;
             if ("play".equals(action) || "pause".equals(action)) {
                 Long revision = number(msg.optJSONObject("transport"), "webRevision", true);
-                if (revision == null) { error(msg, sink, "PROTOCOL_ERROR"); return true; }
+                if (revision == null) { error(msg, sink, "PROTOCOL_ERROR"); return false; }
                 load.owner.command(revision, action, host.hasPlayer(id));
                 if (load.owner.exhausted()) error(msg, sink, "COUNTER_EXHAUSTED");
             } else if ("transportReadState".equals(action)) {
-                if (!uuid(text(msg, "requestId"))) { error(msg, sink, "PROTOCOL_ERROR"); return true; }
+                if (!uuid(text(msg, "requestId"))) { error(msg, sink, "PROTOCOL_ERROR"); return false; }
                 Long revision = msg.has("forWebRevision") ? number(msg, "forWebRevision", true) : null;
                 if (msg.has("forWebRevision") && revision == null) error(msg, sink, "PROTOCOL_ERROR");
                 else {
@@ -74,12 +87,17 @@ final class OrderedMediaBridge {
             // Never turn a control failure into a legacy decoder error or print signed URLs.
             error(msg, sink, "UNAVAILABLE");
         }
-        return true;
+        return false;
     }
 
     private void hello(JSONObject msg, PlaybackService.Sink sink, Object attachment) throws JSONException {
         String id = text(msg, "id"), request = text(msg, "requestId");
-        if (!loadId(id) || !uuid(request)) { error(msg, sink, "PROTOCOL_ERROR"); return; }
+        JSONArray versions = msg.optJSONArray("supportedTransportVersions");
+        if (!loadId(id) || !uuid(request) || versions == null || versions.length() != 2
+            || !(versions.opt(0) instanceof Number) || !(versions.opt(1) instanceof Number)
+            || ((Number)versions.opt(0)).doubleValue() != 2 || ((Number)versions.opt(1)).doubleValue() != 1) {
+            error(msg, sink, "PROTOCOL_ERROR"); return;
+        }
         Load existing = loads.get(id);
         if (existing != null && (!existing.authorized || existing.attachment != attachment)
             || existing == null && host.hasPlayer(id)) { error(msg, sink, "UNAVAILABLE"); return; }
@@ -88,13 +106,14 @@ final class OrderedMediaBridge {
         long reserved = grants.values().stream().filter(value -> value.attachment() == attachment).count();
         if (reserved >= 4) { error(msg, sink, "UNAVAILABLE"); return; }
         String grant = UUID.randomUUID().toString();
+        String issued = UUID.randomUUID().toString();
         String expected = existing == null ? null : existing.owner.bindingId;
-        grants.put(grant, new Grant(attachment, id, expected, now + GRANT_MS));
+        grants.put(grant, new Grant(attachment, id, expected, issued, now + GRANT_MS));
         send(sink, new JSONObject().put("id", id).put("event", "transportCapabilities")
-            .put("requestId", request).put("version", 1).put("capability", "ordered-transport-v1")
+            .put("requestId", request).put("version", 2).put("capability", "ordered-transport-v2")
             .put("nativeBuildCode", host.nativeBuildCode()).put("engineId", engineId)
             .put("currentBindingId", expected == null ? JSONObject.NULL : expected)
-            .put("bindGrant", grant).put("grantLifetimeMs", GRANT_MS));
+            .put("issuedBindingId", issued).put("bindGrant", grant).put("grantLifetimeMs", GRANT_MS));
     }
 
     private void bind(JSONObject msg, PlaybackService.Sink sink, Object attachment) throws JSONException {
@@ -102,7 +121,7 @@ final class OrderedMediaBridge {
         String expected = msg.isNull("expectedBindingId") ? null : text(msg, "expectedBindingId");
         if (!loadId(id) || !uuid(text(msg, "requestId")) || !uuid(binding) || !uuid(grantId)
             || !msg.has("expectedBindingId") || expected != null && !uuid(expected)
-            || !Long.valueOf(1).equals(number(msg, "version", true))) {
+            || !Long.valueOf(2).equals(number(msg, "version", true))) {
             error(msg, sink, "PROTOCOL_ERROR"); return;
         }
         if (!engineId.equals(text(msg, "engineId"))) { error(msg, sink, "ENGINE_MISMATCH"); return; }
@@ -116,8 +135,8 @@ final class OrderedMediaBridge {
         if (load != null && (!load.authorized || load.attachment != attachment)
             || load == null && host.hasPlayer(id)) { error(msg, sink, "UNAVAILABLE"); return; }
         if (expected != null && load == null) { error(msg, sink, "NOT_FOUND"); return; }
-        // Only the exact lost-reply retry above may reuse the current ID.
-        // Resetting that live scope would make old revisions authoritative again.
+        // A live or retired identity can only come from its original native grant.
+        // Checking the current ID alone would let B1 -> B2 -> B1 reset authority.
         if (!Objects.equals(expected, load == null ? null : load.owner.bindingId)
             || load != null && binding.equals(load.owner.bindingId)) {
             error(msg, sink, "BIND_CONFLICT"); return;
@@ -127,7 +146,8 @@ final class OrderedMediaBridge {
         if (grant.expires() <= SystemClock.elapsedRealtime()) {
             grants.remove(grantId); error(msg, sink, "GRANT_EXPIRED"); return;
         }
-        if (grant.attachment() != attachment || !grant.id().equals(id) || !Objects.equals(grant.expected(), expected)) {
+        if (grant.attachment() != attachment || !grant.id().equals(id) || !Objects.equals(grant.expected(), expected)
+            || !grant.binding().equals(binding)) {
             error(msg, sink, "BIND_CONFLICT"); return;
         }
         if (load == null && !host.reserveOrderedSlot(id)) { error(msg, sink, "UNAVAILABLE"); return; }
@@ -197,7 +217,7 @@ final class OrderedMediaBridge {
 
     private void ack(JSONObject msg, PlaybackService.Sink sink, String binding, String phase) throws JSONException {
         send(sink, new JSONObject().put("id", text(msg, "id")).put("event", "transportControlAck")
-            .put("version", 1).put("requestId", text(msg, "requestId")).put("action", text(msg, "action"))
+            .put("version", 2).put("requestId", text(msg, "requestId")).put("action", text(msg, "action"))
             .put("scope", scope(binding)).put("phase", phase));
     }
 
@@ -209,12 +229,13 @@ final class OrderedMediaBridge {
     }
 
     void forget(String id) {
+        // Remove even unused grants for an absent/reaped/evicted load.
+        grants.entrySet().removeIf(entry -> entry.getValue().id().equals(id));
         Load load = loads.remove(id);
         if (load == null) return;
         load.owner.retire();
         if (load.reservation != null) handler.removeCallbacks(load.reservation);
         load.sink = null;
-        grants.entrySet().removeIf(entry -> entry.getValue().id().equals(id));
     }
 
     void detach(Object attachment) {
@@ -238,7 +259,7 @@ final class OrderedMediaBridge {
                     .put("revision", intent.revision()).put("playWhenReady", intent.playWhenReady())
                     .put("origin", intent.origin()).put("webRevision", intent.webRevision() == null ? JSONObject.NULL : intent.webRevision()))
                 .put("observed", actual);
-            JSONObject transport = scope(update.bindingId()).put("version", 1).put("eventSeq", update.sequence()).put("snapshot", snapshot);
+            JSONObject transport = scope(update.bindingId()).put("version", 2).put("eventSeq", update.sequence()).put("snapshot", snapshot);
             if (update.result() != null) transport.put("result", result(update.result()));
             if (update.requestError() != null) transport.put("requestError", new JSONObject()
                 .put("webRevision", update.requestRevision()).put("action", update.requestAction()).put("reason", update.requestError()));
@@ -261,6 +282,10 @@ final class OrderedMediaBridge {
     }
 
     private void error(JSONObject msg, PlaybackService.Sink sink, String reason) {
+        error(msg, sink, reason, 2);
+    }
+
+    private void error(JSONObject msg, PlaybackService.Sink sink, String reason, int version) {
         try {
             String id = text(msg, "id"), action = text(msg, "action");
             JSONObject correlation = new JSONObject().put("action", action);
@@ -281,7 +306,7 @@ final class OrderedMediaBridge {
                 correlation.put("requestId", text(msg, "requestId"));
             }
             send(sink, new JSONObject().put("id", id).put("event", "transportControlError")
-                .put("version", 1).put("correlation", correlation).put("reason", reason));
+                .put("version", version).put("correlation", correlation).put("reason", reason));
         } catch (JSONException ignored) { /* A malformed request has no fabricated correlation. */ }
     }
 
@@ -290,14 +315,20 @@ final class OrderedMediaBridge {
     }
     private boolean scopeMatches(JSONObject msg, Load load) {
         JSONObject scope = msg.optJSONObject("transport");
-        return scope != null && Long.valueOf(1).equals(number(scope, "version", true))
+        return scope != null && Long.valueOf(2).equals(number(scope, "version", true))
             && engineId.equals(text(scope, "engineId")) && load.owner.bindingId.equals(text(scope, "bindingId"));
     }
     private static boolean sameBind(JSONObject a, JSONObject b) {
-        if (a == null) return false;
-        for (String key : new String[]{"id", "requestId", "engineId", "bindingId", "bindGrant"})
-            if (!text(a, key).equals(text(b, key))) return false;
-        return Objects.equals(a.opt("expectedBindingId"), b.opt("expectedBindingId"));
+        if (a == null || a.length() != b.length()) return false;
+        java.util.Iterator<?> keys = a.keys();
+        while (keys.hasNext()) {
+            String key = (String)keys.next();
+            if (!b.has(key)) return false;
+            // JSON's 2 and 2.0 are the same valid version; copying the envelope canonicalizes it.
+            if ("version".equals(key) ? !Objects.equals(number(a, key, true), number(b, key, true))
+                : !Objects.equals(a.opt(key), b.opt(key))) return false;
+        }
+        return true;
     }
     static String text(JSONObject object, String key) {
         return object != null && object.opt(key) instanceof String ? (String)object.opt(key) : "";

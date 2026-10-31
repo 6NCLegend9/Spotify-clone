@@ -258,6 +258,7 @@ function YouTubePlayer() {
   audioSettingsRef.current = { bands: bandsForPreset(eqPreset, eqBands), normalization, monoAudio };
   const [deliveredVideoQuality, setDeliveredVideoQuality] = useState("");
   const [playerError, setPlayerError] = useState(null);
+  const [androidUpdateRequired, setAndroidUpdateRequired] = useState(false);
   const [addQuery, setAddQuery] = useState("");
   const [addResults, setAddResults] = useState([]);
   const [addSearching, setAddSearching] = useState(false);
@@ -1205,6 +1206,10 @@ function YouTubePlayer() {
         },
         onTransportRecovered: () => {
           if (isCurrent() && key === activeDeckRef.current) setPlayerError((current) => current?.kind === "transport" ? null : current);
+        },
+        onTransportCapability: (event) => {
+          if (!isCurrent() || key !== activeDeckRef.current || !event.target.androidNative) return;
+          setAndroidUpdateRequired(event.data?.version === 0 || event.data?.version === 1);
         },
         onStateChange: (event) => {
           if (!isCurrent()) return;
@@ -3195,6 +3200,20 @@ function YouTubePlayer() {
               </div>
             </details>
             {playerError.canRetry !== false && <button type="button" onClick={handleRetryPlayback} className="min-h-12 shrink-0 rounded-md bg-[#096192] px-3 text-xs font-semibold text-white hover:bg-[#1171ba]">Retry</button>}
+          </div>
+        </div>
+      )}
+      {!playerError && androidUpdateRequired && (
+        <div data-testid="android-player-update" role="status" aria-live="polite"
+          className="yt-dock-feedback absolute z-20 border-t border-white/10 bg-[var(--navy-surface)] px-4 py-3 text-left">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="min-w-0 flex-1 text-sm leading-6 text-[var(--text)]">
+              Update HayKasa for Android for the latest playback fixes. Check settings for available updates.
+            </p>
+            <Link href="/settings#android-app-heading"
+              className="btn-primary min-h-12 shrink-0 px-4 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">
+              Check app updates
+            </Link>
           </div>
         </div>
       )}

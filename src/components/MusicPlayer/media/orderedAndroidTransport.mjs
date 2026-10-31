@@ -40,9 +40,9 @@ function validResult(value, maximum) {
 }
 
 /** Syntax AND cross-field invariants are checked before a frame changes state. */
-function validFrame(value, maximum) {
+function validFrame(value, maximum, version) {
   const t = value?.transport, s = t?.snapshot, i = s?.intent, o = s?.observed;
-  if (!object(value) || !stateEvents.has(value.event) || !validScope(t) || t.version !== 1
+  if (!object(value) || !stateEvents.has(value.event) || !validScope(t) || t.version !== version
     || !safe(t.eventSeq, true) || !object(s) || !object(i) || !object(o)
     || !safe(s.processedWebRevision) || s.processedWebRevision > maximum
     || !safe(s.appliedWebRevision) || s.appliedWebRevision > s.processedWebRevision
@@ -81,8 +81,8 @@ export function createOrderedAndroidTransport(options) {
 }
 
 class OrderedAndroidTransport {
-  constructor({ id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError }, cache) {
-    Object.assign(this, { id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, cache });
+  constructor({ id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability }, cache) {
+    Object.assign(this, { id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability, cache });
     this.phase = "idle";
     this.controls = new Map();
     this.pendingReadRevision = null;
@@ -151,7 +151,7 @@ class OrderedAndroidTransport {
   }
   _hello(recovering) {
     this.recovering = recovering;
-    this._request("transportHello");
+    this._request("transportHello", { supportedTransportVersions: [2, 1] });
   }
   _legacy() {
     if (this.phase === "disposed") return;
@@ -159,6 +159,7 @@ class OrderedAndroidTransport {
     this.cache.mode = "legacy";
     this._clearControls();
     this.phase = "legacy";
+    this.onCapability?.({ version: 0, nativeBuildCode: null });
     const queued = this.queued;
     const api = this.onLegacy();
     if (queued?.playing) Promise.resolve(api.play()).then(queued.resolve, queued.reject);
@@ -173,11 +174,15 @@ class OrderedAndroidTransport {
       if (record?.message.action !== "transportHello") return;
       this._take(data.requestId);
       this.cache.mode = "capable";
-      if (data.version !== 1 || data.capability !== "ordered-transport-v1" || !safe(data.nativeBuildCode, true)
+      if (![1, 2].includes(data.version) || data.capability !== `ordered-transport-v${data.version}` || !safe(data.nativeBuildCode, true)
         || !uuid(data.engineId) || !(data.currentBindingId === null || uuid(data.currentBindingId))
-        || !uuid(data.bindGrant) || data.grantLifetimeMs !== 5000) {
+        || !uuid(data.bindGrant) || data.grantLifetimeMs !== 5000
+        || data.version === 2 && (!uuid(data.issuedBindingId) || data.issuedBindingId === data.currentBindingId)
+        || this.cache.version !== undefined && this.cache.version !== data.version) {
         this._fail("PROTOCOL_ERROR", false, true); return;
       }
+      this.version = this.cache.version = data.version;
+      this.onCapability?.({ version: data.version, nativeBuildCode: data.nativeBuildCode });
       if (this.recovering) {
         const known = this.scope || (this.bindRequest && { engineId: this.bindRequest.engineId, bindingId: this.bindRequest.bindingId });
         if (!known || data.engineId !== known.engineId) { this._fail("ENGINE_MISMATCH", true); return; }
@@ -189,7 +194,8 @@ class OrderedAndroidTransport {
         }
         if (!this.scope || data.currentBindingId !== this.scope.bindingId) { this._fail("BIND_CONFLICT", true); return; }
       } else if (data.currentBindingId !== null) { this._fail("BIND_CONFLICT", true); return; }
-      this.bindRequest = { version: 1, engineId: data.engineId, bindingId: crypto.randomUUID(),
+      this.bindRequest = { version: this.version, engineId: data.engineId,
+        bindingId: this.version === 2 ? data.issuedBindingId : crypto.randomUUID(),
         expectedBindingId: this.recovering ? this.scope.bindingId : null,
         bindGrant: data.bindGrant, requestId: crypto.randomUUID() };
       this.phase = "binding";
@@ -203,7 +209,7 @@ class OrderedAndroidTransport {
     if (!validScope(data.transport)) { this._fail("PROTOCOL_ERROR", false, true); return; }
     if (!sameScope(data.transport, candidate)) return;
     const maximum = this.phase === "binding" ? 0 : this.revision;
-    if (!validFrame(data, maximum)) { this._fail("PROTOCOL_ERROR", false, true); return; }
+    if (!validFrame(data, maximum, this.version)) { this._fail("PROTOCOL_ERROR", false, true); return; }
     if (this.phase === "binding") {
       const record = this.controls.get(data.transport.replyTo);
       if (record?.message.action !== "transportBind") {
@@ -286,13 +292,13 @@ class OrderedAndroidTransport {
   _load() {
     if (this.loadSent) { this._readState(); return; }
     this.loadSent = true;
-    this._request("load", { ...this.source, transport: { version: 1, ...this.scope } });
+    this._request("load", { ...this.source, transport: { version: this.version, ...this.scope } });
     this._flush();
   }
   _ack(data) {
     const own = this.controls.get(data.requestId);
     if (!own || !["load", "seek", "volume", "release"].includes(own.message.action)) return;
-    if (data.version !== 1 || data.action !== own.message.action || !sameScope(data.scope, own.message.transport)
+    if (data.version !== this.version || data.action !== own.message.action || !sameScope(data.scope, own.message.transport)
       || data.phase !== (["load", "seek"].includes(data.action) ? "accepted" : "completed")) {
       this._fail("PROTOCOL_ERROR", false, true); return;
     }
@@ -308,7 +314,9 @@ class OrderedAndroidTransport {
     if (!c.requestId && !sameScope(c.attemptedScope, this.scope)) return;
     if (c.attemptedScope !== undefined && (!validScope(c.attemptedScope)
       || c.requestId && !sameScope(c.attemptedScope, own.message.transport || own.message))) return;
-    if (data.version !== 1 || !controlReasons.has(data.reason)) {
+    const validVersion = this.version !== undefined ? data.version === this.version
+      : action === "transportHello" && [1, 2].includes(data.version);
+    if (!validVersion || !controlReasons.has(data.reason)) {
       this._fail("PROTOCOL_ERROR", false, true); return;
     }
     if (action === "transportHello") this.cache.mode = "capable";
@@ -369,7 +377,7 @@ class OrderedAndroidTransport {
       if (revision != null) this.pendingReadRevision = Math.max(this.pendingReadRevision ?? 0, revision);
       return;
     }
-    this._request("transportReadState", { transport: { version: 1, ...this.scope },
+    this._request("transportReadState", { transport: { version: this.version, ...this.scope },
       ...(revision == null ? {} : { forWebRevision: revision }) });
   }
   _flush() {
@@ -404,7 +412,7 @@ class OrderedAndroidTransport {
     while (this.records.size > 33) this.records.delete(this.records.keys().next().value);
     if (own.restoreVolume) this.volume(own.volume);
     if (this.phase !== "active") return;
-    this._post({ action: own.action, transport: { version: 1, ...this.scope, webRevision: own.revision } });
+    this._post({ action: own.action, transport: { version: this.version, ...this.scope, webRevision: own.revision } });
   }
   play() {
     if (this.phase === "disposed") return Promise.reject(abort());
@@ -429,11 +437,11 @@ class OrderedAndroidTransport {
   volume(value) {
     if (!Number.isFinite(value) || value < 0 || value > 1) return;
     this.volumeValue = value;
-    if (this.phase === "active" && this.loadSent) this._request("volume", { value, transport: { version: 1, ...this.scope } });
+    if (this.phase === "active" && this.loadSent) this._request("volume", { value, transport: { version: this.version, ...this.scope } });
   }
   seek(value) {
     if (!Number.isFinite(value) || value < 0) return;
-    if (this.phase === "active" && this.loadSent) this._request("seek", { value, transport: { version: 1, ...this.scope } });
+    if (this.phase === "active" && this.loadSent) this._request("seek", { value, transport: { version: this.version, ...this.scope } });
     else if (!this.loadSent) this.seekValue = value;
   }
   recover() {
@@ -486,7 +494,7 @@ class OrderedAndroidTransport {
     this.incoming.length = 0;
     for (const scope of scopes) {
       try { this.send({ id: this.id, action: "release", requestId: crypto.randomUUID(),
-        transport: { version: 1, engineId: scope.engineId, bindingId: scope.bindingId } }); } catch { /* Detached. */ }
+        transport: { version: this.version, engineId: scope.engineId, bindingId: scope.bindingId } }); } catch { /* Detached. */ }
     }
   }
 }

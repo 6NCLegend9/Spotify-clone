@@ -63,34 +63,13 @@ public final class PlaybackService extends MediaSessionService {
     @Nullable @Override public MediaSession onGetSession(MediaSession.ControllerInfo info) {
         return info.isTrusted() || info.getUid() == getApplicationInfo().uid ? session : null;
     }
-    public void command(JSONObject msg, Sink sink) throws Exception {
-        command(msg, sink, localAttachment);
+    public boolean command(JSONObject msg, Sink sink) throws Exception {
+        return command(msg, sink, localAttachment);
     }
-    public void command(JSONObject msg, Sink sink, Object attachment) throws Exception {
+    /** Returns whether this renderer needs the host's native player-update UI. */
+    public boolean command(JSONObject msg, Sink sink, Object attachment) throws Exception {
         if (Looper.myLooper() != handler.getLooper()) throw new IllegalStateException("Media commands require the application looper");
-        if (ordered.handle(msg, sink, attachment)) return;
-        String id = msg.optString("id"), action = msg.optString("action");
-        if (!MediaPolicy.isId(id)) return;
-        if ("release".equals(action)) { releasePlayer(id); return; }
-        ExoPlayer player = players.get(id);
-        if ("load".equals(action)) {
-            String url = msg.optString("url");
-            if (!MediaPolicy.isAsset(url)) {
-                sink.send(new JSONObject().put("id", id).put("event", "error").toString());
-                return;
-            }
-            loadPlayer(id, url, msg.optString("title", "HayKasa"), sink);
-            return;
-        }
-        if (player == null) return;
-        if (("seek".equals(action) || "volume".equals(action)) && !Double.isFinite(msg.optDouble("value", Double.NaN))) return;
-        switch (action) {
-            case "play": setTransportPlaying(id, true); break;
-            case "pause": setTransportPlaying(id, false); break;
-            case "seek": seekPlayer(id, msg.optDouble("value", 0)); break;
-            case "volume": volumePlayer(id, msg.optDouble("value", 1)); break;
-            default: break;
-        }
+        return ordered.handle(msg, sink, attachment);
     }
 
     int nativeBuildCode() {
@@ -168,6 +147,11 @@ public final class PlaybackService extends MediaSessionService {
     void setTransportPlaying(String id, boolean playing) {
         ExoPlayer player = players.get(id);
         if (player == null) throw new IllegalStateException("Media load missing");
+        if (playing) {
+            // Start only after native scope/revision validation, never for a stale renderer Play.
+            // The MediaSessionService owns the foreground notification while audio is playing.
+            try { startService(new Intent(this, PlaybackService.class)); } catch (IllegalStateException ignored) {}
+        }
         if (playing && !id.equals(activeId)) {
             ExoPlayer previous = players.get(activeId);
             if (previous != null) {

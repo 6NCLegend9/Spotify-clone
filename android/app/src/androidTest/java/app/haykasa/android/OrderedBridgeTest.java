@@ -22,6 +22,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
@@ -42,6 +43,7 @@ public class OrderedBridgeTest {
     private JSONObject binding;
     private String id, engine, bindingId;
     private MediaController controller;
+    private boolean lastCommandNeedsUpdate;
     private static String uuid() { return UUID.randomUUID().toString(); }
     private void main(Runnable run) { InstrumentationRegistry.getInstrumentation().runOnMainSync(run); }
 
@@ -53,12 +55,15 @@ public class OrderedBridgeTest {
         main(() -> { if (controller != null) controller.release(); if (service != null) service.releaseAll(); });
     }
     private void send(JSONObject command) {
+        send(command, attachment);
+    }
+    private void send(JSONObject command, Object sender) {
         main(() -> {
             try {
-                service.command(command, json -> {
+                lastCommandNeedsUpdate = service.command(command, json -> {
                     try { packets.add(new JSONObject(json)); }
                     catch (Exception error) { throw new AssertionError("Native producer emitted invalid JSON", error); }
-                }, attachment);
+                }, sender);
             } catch (Exception error) { throw new AssertionError(error); }
         });
     }
@@ -69,19 +74,34 @@ public class OrderedBridgeTest {
         }
         throw new AssertionError("Missing native event " + event);
     }
-    private JSONObject scope() throws Exception { return new JSONObject().put("version", 1).put("engineId", engine).put("bindingId", bindingId); }
+    private JSONObject scope() throws Exception { return new JSONObject().put("version", 2).put("engineId", engine).put("bindingId", bindingId); }
     private JSONObject request(String action) throws Exception {
         return new JSONObject().put("id", id).put("action", action).put("requestId", uuid()).put("transport", scope());
     }
+    private JSONObject hello() throws Exception {
+        return new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid())
+            .put("supportedTransportVersions", new JSONArray().put(2).put(1));
+    }
+    private JSONObject proposedBind(JSONObject caps, String next, String expected) throws Exception {
+        return new JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
+            .put("requestId", uuid()).put("engineId", engine).put("bindingId", next)
+            .put("expectedBindingId", expected == null ? JSONObject.NULL : expected)
+            .put("bindGrant", caps.getString("bindGrant"));
+    }
+    private OrderedMediaBridge bridge() throws Exception {
+        Field field = PlaybackService.class.getDeclaredField("ordered"); field.setAccessible(true);
+        return (OrderedMediaBridge)field.get(service);
+    }
     private void bootstrap() throws Exception {
         id = "audio_" + uuid();
-        send(new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid()));
+        send(hello());
         JSONObject caps = last("transportCapabilities");
-        assertEquals("ordered-transport-v1", caps.getString("capability"));
+        assertEquals("ordered-transport-v2", caps.getString("capability"));
+        assertEquals(2, caps.getInt("version"));
         assertTrue(caps.getInt("nativeBuildCode") > 0);
         assertTrue(caps.isNull("currentBindingId"));
-        engine = caps.getString("engineId"); bindingId = uuid();
-        binding = new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
+        engine = caps.getString("engineId"); bindingId = caps.getString("issuedBindingId");
+        binding = new JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
             .put("requestId", uuid()).put("engineId", engine).put("bindingId", bindingId)
             .put("expectedBindingId", JSONObject.NULL).put("bindGrant", caps.getString("bindGrant"));
         send(binding);
@@ -170,10 +190,10 @@ public class OrderedBridgeTest {
         send(binding); // Lost-reply retry does not reset counters.
         assertEquals(1, snapshot().getLong("processedWebRevision"));
         String old = bindingId;
-        send(new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid()));
+        send(hello());
         JSONObject caps = last("transportCapabilities");
-        assertEquals(old, caps.getString("currentBindingId")); bindingId = uuid();
-        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
+        assertEquals(old, caps.getString("currentBindingId")); bindingId = caps.getString("issuedBindingId");
+        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
             .put("requestId", uuid()).put("engineId", engine).put("bindingId", bindingId)
             .put("expectedBindingId", old).put("bindGrant", caps.getString("bindGrant")));
         assertEquals(0, snapshot().getLong("processedWebRevision"));
@@ -188,9 +208,9 @@ public class OrderedBridgeTest {
         bootstrap(); load(); ExoPlayer original = raw();
         transport("play", 1); transport("pause", 2);
         long intentRevision = snapshot().getJSONObject("intent").getLong("revision");
-        send(new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid()));
+        send(hello());
         JSONObject caps = last("transportCapabilities");
-        JSONObject reused = new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
+        JSONObject reused = new JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
             .put("requestId", uuid()).put("engineId", engine).put("bindingId", bindingId)
             .put("expectedBindingId", bindingId).put("bindGrant", caps.getString("bindGrant"));
         send(reused);
@@ -207,8 +227,8 @@ public class OrderedBridgeTest {
         send(binding); // Exact lost-reply retry remains idempotent.
         assertEquals(2, snapshot().getLong("processedWebRevision"));
         // Rejection must not consume the grant or prevent a genuine new scope.
-        String previous = bindingId; bindingId = uuid();
-        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
+        String previous = bindingId; bindingId = caps.getString("issuedBindingId");
+        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
             .put("requestId", uuid()).put("engineId", engine).put("bindingId", bindingId)
             .put("expectedBindingId", previous).put("bindGrant", caps.getString("bindGrant")));
         assertEquals(bindingId, last("transportState").getJSONObject("transport").getString("bindingId"));
@@ -248,11 +268,11 @@ public class OrderedBridgeTest {
         assertEquals("completed", last("transportControlAck").getString("phase"));
         send(binding);
         assertEquals("NOT_FOUND", last("transportControlError").getString("reason"));
-        send(new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid()));
+        send(hello());
         JSONObject caps = last("transportCapabilities");
         assertTrue(caps.isNull("currentBindingId"));
         // Even a fresh grant cannot turn a non-null recovery expectation into creation.
-        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
+        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
             .put("requestId", uuid()).put("engineId", engine).put("bindingId", uuid())
             .put("expectedBindingId", bindingId).put("bindGrant", caps.getString("bindGrant")));
         assertEquals("NOT_FOUND", last("transportControlError").getString("reason"));
@@ -288,11 +308,11 @@ public class OrderedBridgeTest {
         });
         send(request("transportReadState"));
         assertEquals("COUNTER_EXHAUSTED", last("transportControlError").getString("reason"));
-        send(new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid()));
+        send(hello());
         JSONObject caps = last("transportCapabilities");
         String previous = bindingId;
-        assertEquals(previous, caps.getString("currentBindingId")); bindingId = uuid();
-        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 1)
+        assertEquals(previous, caps.getString("currentBindingId")); bindingId = caps.getString("issuedBindingId");
+        send(new JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
             .put("requestId", uuid()).put("engineId", engine).put("bindingId", bindingId)
             .put("expectedBindingId", previous).put("bindGrant", caps.getString("bindGrant")));
         assertEquals(0, snapshot().getLong("processedWebRevision"));
@@ -301,8 +321,267 @@ public class OrderedBridgeTest {
         send(request("release")); assertNull(raw());
     }
 
+    private void assertRetiredBindingCannotReturn(int intermediateScopes) throws Exception {
+        bootstrap(); load(); ExoPlayer original = raw(); String retired = bindingId;
+        JSONObject oldPlay = new JSONObject().put("id", id).put("action", "play")
+            .put("transport", scope().put("webRevision", 1));
+        send(oldPlay); transport("pause", 2);
+        for (int i = 0; i < intermediateScopes; i++) {
+            send(hello()); JSONObject caps = last("transportCapabilities");
+            String prior = bindingId; bindingId = caps.getString("issuedBindingId");
+            send(proposedBind(caps, bindingId, prior)); transport("pause", 1);
+        }
+        send(hello()); JSONObject caps = last("transportCapabilities");
+        send(proposedBind(caps, retired, bindingId));
+        assertEquals("BIND_CONFLICT", last("transportControlError").getString("reason"));
+        send(oldPlay);
+        assertEquals("INVALID_SCOPE", last("transportControlError").getString("reason"));
+        send(request("transportReadState"));
+        assertEquals(1, snapshot().getLong("processedWebRevision"));
+        assertFalse(snapshot().getJSONObject("intent").getBoolean("playWhenReady"));
+        main(() -> assertFalse(original.getPlayWhenReady())); assertSame(original, raw());
+    }
+    @Test public void retiredBindingCannotBeReactivatedAfterAnIntermediateScope() throws Exception {
+        assertRetiredBindingCannotReturn(1);
+    }
+    @Test public void retiredBindingCannotBeReactivatedAfterSeveralIntermediateScopes() throws Exception {
+        assertRetiredBindingCannotReturn(2);
+    }
+    @Test public void releaseInvalidatesConsumedAndUnusedGrantsAndNeverRevivesOldPlay() throws Exception {
+        bootstrap(); load(); String retired = bindingId;
+        JSONObject oldPlay = new JSONObject().put("id", id).put("action", "play").put("transport", scope().put("webRevision", 2));
+        transport("pause", 1); send(oldPlay);
+        send(hello()); JSONObject unused = last("transportCapabilities");
+        send(request("release")); assertNull(raw());
+        send(binding); assertEquals("NOT_FOUND", last("transportControlError").getString("reason"));
+        send(proposedBind(unused, unused.getString("issuedBindingId"), null));
+        assertEquals("NOT_FOUND", last("transportControlError").getString("reason"));
+        send(hello()); JSONObject fresh = last("transportCapabilities"); assertTrue(fresh.isNull("currentBindingId"));
+        send(proposedBind(fresh, retired, null));
+        assertEquals("BIND_CONFLICT", last("transportControlError").getString("reason")); assertNull(raw());
+        bindingId = fresh.getString("issuedBindingId"); send(proposedBind(fresh, bindingId, null));
+        load(); transport("pause", 1); ExoPlayer current = raw(); send(oldPlay);
+        assertEquals("INVALID_SCOPE", last("transportControlError").getString("reason"));
+        send(request("transportReadState")); assertEquals(1, snapshot().getLong("processedWebRevision"));
+        main(() -> assertFalse(current.getPlayWhenReady()));
+    }
+    @Test public void alteredAndCompetingGrantsPreserveOwnerSourcePositionAndGain() throws Exception {
+        bootstrap(); load(); ExoPlayer original = raw();
+        main(() -> { original.seekTo(2800); original.setVolume(.42f); });
+        send(hello()); JSONObject first = last("transportCapabilities");
+        send(hello()); JSONObject second = last("transportCapabilities");
+        String prior = bindingId;
+        JSONObject valid = proposedBind(first, first.getString("issuedBindingId"), prior);
+        OrderedTransport oldOwner = bridge().owner(id);
+        for (String key : new String[]{"bindingId", "expectedBindingId", "engineId", "id"}) {
+            JSONObject invalid = new JSONObject(valid.toString());
+            invalid.put(key, key.equals("id") ? "audio_" + uuid() : uuid()); send(invalid);
+            assertSame(oldOwner, bridge().owner(id)); assertSame(original, raw());
+        }
+        send(valid, new Object()); assertEquals("UNAVAILABLE", last("transportControlError").getString("reason"));
+        assertSame(oldOwner, bridge().owner(id));
+        send(valid); bindingId = first.getString("issuedBindingId");
+        assertNotSame(oldOwner, bridge().owner(id)); assertSame(original, raw());
+        send(proposedBind(second, second.getString("issuedBindingId"), prior));
+        assertEquals("BIND_CONFLICT", last("transportControlError").getString("reason"));
+        main(() -> {
+            assertEquals(2800, original.getCurrentPosition()); assertEquals(.42f, original.getVolume(), .001f);
+            assertFalse(original.getPlayWhenReady()); assertEquals(1, original.getMediaItemCount());
+        });
+        send(request("transportReadState")); assertEquals(0, snapshot().getLong("processedWebRevision"));
+    }
+    @Test public void exactBindRetrySurvivesGrantExpiryButNotReplacement() throws Exception {
+        bootstrap(); load(); transport("pause", 1); ExoPlayer original = raw();
+        send(new JSONObject(binding.toString()).put("version", 2d));
+        assertEquals(binding.getString("requestId"), last("transportState").getJSONObject("transport").getString("replyTo"));
+        Thread.sleep(5100); send(binding);
+        assertEquals(1, snapshot().getLong("processedWebRevision")); assertSame(original, raw());
+        send(hello()); JSONObject caps = last("transportCapabilities");
+        String old = bindingId; bindingId = caps.getString("issuedBindingId"); send(proposedBind(caps, bindingId, old));
+        OrderedTransport owner = bridge().owner(id); send(binding);
+        assertEquals("BIND_CONFLICT", last("transportControlError").getString("reason"));
+        assertSame(owner, bridge().owner(id)); assertSame(original, raw());
+    }
+    @Test public void expiredUnusedGrantCannotReplaceItsCurrentOwner() throws Exception {
+        bootstrap(); load(); send(hello()); JSONObject caps = last("transportCapabilities");
+        ExoPlayer original = raw(); OrderedTransport owner = bridge().owner(id);
+        Thread.sleep(5100); send(proposedBind(caps, caps.getString("issuedBindingId"), bindingId));
+        assertEquals("GRANT_EXPIRED", last("transportControlError").getString("reason"));
+        assertSame(owner, bridge().owner(id)); assertSame(original, raw());
+    }
+    @Test public void unpopulatedRebindDoesNotExtendReapingOrKeepUnusedGrants() throws Exception {
+        bootstrap(); JSONObject consumed = new JSONObject(binding.toString());
+        long start = android.os.SystemClock.elapsedRealtime(); Thread.sleep(2600);
+        send(hello()); JSONObject caps = last("transportCapabilities");
+        String prior = bindingId; bindingId = caps.getString("issuedBindingId"); send(proposedBind(caps, bindingId, prior));
+        send(hello()); JSONObject unused = last("transportCapabilities");
+        Thread.sleep(Math.max(0, 5500 - (android.os.SystemClock.elapsedRealtime() - start)));
+        assertNull(bridge().owner(id)); assertNull(raw());
+        send(consumed); assertEquals("NOT_FOUND", last("transportControlError").getString("reason"));
+        send(proposedBind(unused, unused.getString("issuedBindingId"), null));
+        assertEquals("NOT_FOUND", last("transportControlError").getString("reason"));
+    }
+    @Test public void fourGrantCeilingDoesNotConsumeAValidCandidateOrEvictPlayback() throws Exception {
+        bootstrap(); load(); ExoPlayer original = raw(); JSONObject first = null;
+        for (int i = 0; i < 4; i++) { send(hello()); if (first == null) first = last("transportCapabilities"); }
+        send(hello()); assertEquals("UNAVAILABLE", last("transportControlError").getString("reason"));
+        assertSame(original, raw()); assertEquals(1, bridge().size());
+        String previous = bindingId; bindingId = first.getString("issuedBindingId"); send(proposedBind(first, bindingId, previous));
+        assertSame(original, raw()); send(hello());
+        assertEquals(bindingId, last("transportCapabilities").getString("currentBindingId"));
+    }
+    @Test public void failedCreationAtCapacityCannotEvictEitherPlayer() throws Exception {
+        bootstrap(); load(); String firstId = id; ExoPlayer first = raw();
+        bootstrap(); load(); ExoPlayer second = raw(); send(hello()); JSONObject caps = last("transportCapabilities");
+        JSONObject invalid = proposedBind(caps, caps.getString("issuedBindingId"), null).put("id", "audio_" + uuid());
+        send(invalid); assertEquals("BIND_CONFLICT", last("transportControlError").getString("reason"));
+        assertEquals(2, bridge().size()); assertSame(second, raw());
+        String secondId = id; id = firstId; assertSame(first, raw()); id = secondId;
+    }
+    @Test public void evictionInvalidatesTheOldLoadsUnusedGrant() throws Exception {
+        bootstrap(); load(); String firstId = id; send(hello()); JSONObject oldCaps = last("transportCapabilities");
+        bootstrap(); load(); bootstrap(); load(); String currentId = id; ExoPlayer current = raw();
+        id = firstId; assertNull(raw());
+        send(proposedBind(oldCaps, oldCaps.getString("issuedBindingId"), null));
+        assertEquals("NOT_FOUND", last("transportControlError").getString("reason"));
+        id = currentId; assertSame(current, raw()); assertEquals(2, bridge().size());
+    }
+    @Test public void eachExhaustedCounterAllowsFreshRebindAndScopedReleaseWithoutOutputReplay() throws Exception {
+        for (String counter : new String[]{"processed", "intent", "sequence"}) {
+            bootstrap(); load(); transport("pause", 1); ExoPlayer original = raw();
+            main(() -> { original.seekTo(2800); original.setVolume(.42f); });
+            OrderedTransport owner = bridge().owner(id);
+            Field field = OrderedTransport.class.getDeclaredField(counter); field.setAccessible(true);
+            main(() -> {
+                try {
+                    if (counter.equals("intent")) field.set(owner, new OrderedTransport.Intent(OrderedTransport.MAX, false, "policy", null));
+                    else field.setLong(owner, OrderedTransport.MAX);
+                } catch (Exception failure) { throw new AssertionError(failure); }
+            });
+            send(request("transportReadState")); assertEquals("COUNTER_EXHAUSTED", last("transportControlError").getString("reason"));
+            send(hello()); JSONObject caps = last("transportCapabilities"); assertEquals(bindingId, caps.getString("currentBindingId"));
+            String previous = bindingId; bindingId = caps.getString("issuedBindingId"); send(proposedBind(caps, bindingId, previous));
+            assertEquals(0, snapshot().getLong("processedWebRevision")); assertSame(original, raw());
+            main(() -> { assertFalse(original.getPlayWhenReady()); assertEquals(2800, original.getCurrentPosition()); assertEquals(.42f, original.getVolume(), .001f); });
+            OrderedTransport fresh = bridge().owner(id);
+            main(() -> { try { Field seq = OrderedTransport.class.getDeclaredField("sequence"); seq.setAccessible(true); seq.setLong(fresh, OrderedTransport.MAX); } catch (Exception failure) { throw new AssertionError(failure); } });
+            send(new JSONObject().put("id", id).put("action", "release").put("requestId", uuid()).put("transport", scope().put("bindingId", previous)));
+            assertEquals("INVALID_SCOPE", last("transportControlError").getString("reason")); assertSame(original, raw());
+            send(request("release")); assertEquals("completed", last("transportControlAck").getString("phase")); assertNull(raw());
+        }
+    }
+    @Test public void oldAndMalformedRendererRequestsNeverEnterLegacyPlayback() throws Exception {
+        bootstrap(); load(); ExoPlayer original = raw(); OrderedTransport owner = bridge().owner(id);
+        JSONObject oldHello = new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid());
+        send(oldHello); assertTrue(lastCommandNeedsUpdate); assertEquals(1, last("transportControlError").getInt("version"));
+        assertEquals("UNAVAILABLE", last("transportControlError").getString("reason"));
+        send(new JSONObject().put("id", id).put("action", "play")); assertTrue(lastCommandNeedsUpdate);
+        send(new JSONObject().put("id", id).put("action", "pause").put("transport", scope().put("version", 1).put("webRevision", 1)));
+        assertTrue(lastCommandNeedsUpdate); assertSame(owner, bridge().owner(id)); assertSame(original, raw());
+        for (Object offer : new Object[]{new JSONArray().put(2), new JSONArray().put("2").put(1), JSONObject.NULL}) {
+            send(hello().put("supportedTransportVersions", offer));
+            assertFalse(lastCommandNeedsUpdate); assertEquals("PROTOCOL_ERROR", last("transportControlError").getString("reason"));
+        }
+        main(() -> assertFalse(original.getPlayWhenReady()));
+    }
+
+    private void oldRendererPage(ActivityScenario<MainActivity> scenario, JSONObject command) throws Exception {
+        String oldPage = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><script>"
+            + "window.HayKasaAndroidMedia.postMessage(" + JSONObject.quote(command.toString()) + ");</script>";
+        scenario.onActivity(activity -> {
+            try {
+                Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                android.webkit.WebView web = (android.webkit.WebView)field.get(activity);
+                android.webkit.WebViewClient delegate = web.getWebViewClient(); web.stopLoading();
+                web.setWebViewClient(new android.webkit.WebViewClient() {
+                    @Override public android.webkit.WebResourceResponse shouldInterceptRequest(android.webkit.WebView view, android.webkit.WebResourceRequest request) {
+                        String page = request.getUrl().getQueryParameter("old-player-qa") != null ? oldPage
+                            : "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><h1>Reloaded player fixture</h1>";
+                        return new android.webkit.WebResourceResponse("text/html", "UTF-8", new java.io.ByteArrayInputStream(page.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                    }
+                    @Override public void onPageStarted(android.webkit.WebView view, String url, android.graphics.Bitmap icon) { delegate.onPageStarted(view, url, icon); }
+                    @Override public void onPageFinished(android.webkit.WebView view, String url) { delegate.onPageFinished(view, url); }
+                });
+                web.loadUrl(MediaPolicy.ORIGIN + "/?old-player-qa=1");
+            } catch (Exception failure) { throw new AssertionError(failure); }
+        });
+    }
+    private static void enlargeText(android.view.View view) {
+        if (view instanceof android.widget.TextView) ((android.widget.TextView)view).setTextSize(36);
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup)view;
+            for (int i = 0; i < group.getChildCount(); i++) enlargeText(group.getChildAt(i));
+        }
+    }
+    @Test public void nativeUpdateUiPreservesAudioAndOsControlsUntilExplicitReload() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            bootstrap(); load(); transport("play", 1); waitFor(() -> hasResult(1, "completed"));
+            ExoPlayer original = raw();
+            JSONObject oldHello = new JSONObject().put("id", id).put("action", "transportHello").put("requestId", uuid());
+            oldRendererPage(scenario, oldHello);
+            AtomicReference<android.widget.Button> button = new AtomicReference<>();
+            waitFor(() -> {
+                scenario.onActivity(activity -> button.set(activity.findViewById(android.R.id.button1)));
+                return button.get() != null;
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scenario.onActivity(activity -> {
+                assertEquals(activity.getString(R.string.reload_player), button.get().getText().toString());
+                assertTrue(button.get().isShown()); assertTrue(button.get().isFocusable());
+                assertTrue(button.get().getHeight() >= 48 * activity.getResources().getDisplayMetrics().density);
+                assertTrue(original.getPlayWhenReady());
+            });
+            AndroidPlaybackTest.screenshot("native-player-update-portrait");
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_TAB);
+            main(() -> assertTrue("Reload must be reachable by keyboard", button.get().hasFocus()));
+            scenario.onActivity(activity -> activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
+            waitFor(() -> {
+                java.util.concurrent.atomic.AtomicBoolean wide = new java.util.concurrent.atomic.AtomicBoolean();
+                scenario.onActivity(activity -> wide.set(activity.getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE));
+                return wide.get();
+            });
+            AndroidPlaybackTest.screenshot("native-player-update-landscape");
+            // Stress the real native error layout with 200% text, without changing VM system settings.
+            scenario.onActivity(activity -> enlargeText((android.view.View)button.get().getParent()));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            main(() -> {
+                android.widget.ScrollView scroll = (android.widget.ScrollView)button.get().getParent().getParent();
+                scroll.setSmoothScrollingEnabled(false);
+                scroll.fullScroll(android.view.View.FOCUS_DOWN);
+            });
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            main(() -> {
+                android.graphics.Rect visible = new android.graphics.Rect();
+                assertTrue(button.get().getGlobalVisibleRect(visible));
+                assertEquals("Large-text Reload must remain fully reachable", button.get().getHeight(), visible.height());
+                assertTrue(original.getPlayWhenReady());
+            });
+            AndroidPlaybackTest.screenshot("native-player-update-large-text");
+            AtomicReference<ListenableFuture<MediaController>> future = new AtomicReference<>();
+            main(() -> future.set(new MediaController.Builder(context, service.getSessions().get(0).getToken())
+                .setApplicationLooper(Looper.getMainLooper()).buildAsync()));
+            controller = future.get().get(10, TimeUnit.SECONDS);
+            main(() -> controller.pause()); waitFor(() -> !snapshot().optJSONObject("observed").optBoolean("playWhenReady"));
+            main(() -> controller.play()); waitFor(() -> snapshot().optJSONObject("observed").optBoolean("isPlaying"));
+            main(() -> button.get().performClick());
+            waitFor(() -> {
+                java.util.concurrent.atomic.AtomicBoolean reloaded = new java.util.concurrent.atomic.AtomicBoolean();
+                scenario.onActivity(activity -> {
+                    try {
+                        Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                        android.webkit.WebView web = (android.webkit.WebView)field.get(activity);
+                        reloaded.set(activity.findViewById(android.R.id.button1) == null && (MediaPolicy.ORIGIN + "/?utm_source=android").equals(web.getUrl()));
+                    } catch (Exception failure) { throw new AssertionError(failure); }
+                });
+                return reloaded.get();
+            });
+            AndroidPlaybackTest.screenshot("native-player-update-reloaded");
+            assertSame(original, raw()); main(() -> assertTrue(original.getPlayWhenReady()));
+        }
+    }
+
     private static byte[] tone() {
-        int rate = 48000, samples = rate * 12, bytes = samples * 4;
+        int rate = 48000, samples = rate * 30, bytes = samples * 4;
         ByteBuffer out = ByteBuffer.allocate(44 + bytes).order(ByteOrder.LITTLE_ENDIAN);
         out.put(new byte[]{'R','I','F','F'}).putInt(36 + bytes).put(new byte[]{'W','A','V','E','f','m','t',' '})
             .putInt(16).putShort((short)1).putShort((short)2).putInt(rate).putInt(rate * 4)

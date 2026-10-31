@@ -50,7 +50,10 @@ final class OrderedTransport {
         intent = new Intent(0, baselineIntent, "baseline", null);
     }
 
-    boolean exhausted() { return exhausted; }
+    boolean exhausted() {
+        if (processed == MAX || intent.revision() == MAX || sequence == MAX) exhaust();
+        return exhausted;
+    }
     boolean live() { return live; }
     Intent intent() { return intent; }
     Snapshot snapshot() {

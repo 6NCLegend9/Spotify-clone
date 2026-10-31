@@ -13,7 +13,7 @@ function verify(rawSource) {
     assert(first >= 0 && last > first, `Production callback missing: ${start}`);
     return source.slice(first, last);
   };
-  let playing = false, error = null, pauses = 0, plays = 0, dispatches = 0;
+  let playing = false, error = null, pauses = 0, plays = 0, dispatches = 0, updateRequired = false;
   const player = { orderedTransport: true, androidNative: true, nativePlayIntent: true,
     playVideo() { plays++; }, pauseVideo() { pauses++; }, getPlayerState: () => 1, unMute() {},
   };
@@ -23,6 +23,7 @@ function verify(rawSource) {
     store: { getState: () => ({ player: { isPlaying: playing } }) },
     dispatch(action) { playing = action; dispatches++; }, playPause: value => value,
     clearActiveBufferTimers() {}, setPlayerError(value) { error = typeof value === 'function' ? value(error) : value; },
+    setAndroidUpdateRequired(value) { updateRequired = value; },
     hasUnmutedOnce: true, firstPlayingHandled: true, activeTrackStartedRef: { current: { identity: 'one', videoId: 'synthetic01', startedAt: 1 } },
     queueEntryIdentity: () => 'one', videoRef: { current: { id: 'synthetic01' } }, playerVideoId: () => 'synthetic01',
     handoffWaitingRef: { current: null }, markActivePlaybackHealthy() {}, recordDiagnostic() {},
@@ -33,6 +34,15 @@ function verify(rawSource) {
   };
   vm.runInNewContext(part('const options = {', 'const occurrence = queueEntryIdentity(videoRef.current);')
     + '\nglobalThis.events = options.events;', context);
+
+  context.events.onTransportCapability({ target: player, data: { version: 1 } });
+  assert.equal(updateRequired, true);
+  context.events.onTransportCapability({ target: player, data: { version: 2 } });
+  assert.equal(updateRequired, false);
+  context.events.onTransportCapability({ target: { androidNative: false }, data: { version: 0 } });
+  assert.equal(updateRequired, false, 'Browser/desktop controls do not receive an Android update notice');
+  context.events.onTransportCapability({ target: player, data: { version: 0 } });
+  assert.equal(updateRequired, true, 'Silent legacy binaries expose their update requirement');
 
   // A fresh native command updates intent independently of actual output or a
   // pending React render. The old Pause observation must not send a new command.

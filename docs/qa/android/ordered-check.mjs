@@ -8,6 +8,7 @@ const copy = value => JSON.parse(JSON.stringify(value));
 const E = "00000000-0000-4000-8000-000000000001";
 const G = "00000000-0000-4000-8000-000000000002";
 const assetUrl = "https://haykasa.vercel.app/v1/assets/00000000000000000000000000000000";
+const defaultVersion = process.argv.includes("--v2") ? 2 : 1;
 const originalSet = globalThis.setTimeout, originalClear = globalThis.clearTimeout;
 let now = 0, timerId = 0;
 const timers = new Map();
@@ -30,7 +31,8 @@ const track = promise => {
 };
 
 class Native {
-  constructor({ legacy = false, malformedCapabilities = false } = {}) {
+  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false } = {}) {
+    this.version = version; this.malformedIssued = malformedIssued;
     this.legacy = legacy; this.sent = []; this.history = new Map(); this.seq = 0;
     this.malformedCapabilities = malformedCapabilities;
     this.processed = 0; this.applied = 0;
@@ -56,11 +58,14 @@ class Native {
     this.sent.push(copy(command));
     if (command.action === "transportHello") {
       if (this.legacy) return;
+      assert.deepEqual(command.supportedTransportVersions, [2, 1]);
       const existing = command.id === this.id;
+      this.issued = crypto.randomUUID();
       this.id = command.id;
       this.deliver({ id: this.id, event: "transportCapabilities", requestId: command.requestId,
-        version: 1, capability: "ordered-transport-v1", nativeBuildCode: this.malformedCapabilities ? null : 4, engineId: this.engine || E,
-        currentBindingId: existing ? this.binding || null : null, bindGrant: G, grantLifetimeMs: 5000 });
+        version: this.version, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
+        currentBindingId: existing ? this.binding || null : null, bindGrant: G, grantLifetimeMs: 5000,
+        ...(this.version === 2 ? { issuedBindingId: this.malformedIssued ? null : this.issued } : {}) });
     } else if (command.action === "transportBind") {
       this.id = command.id; this.binding = command.bindingId; this.seq = 0;
       this.processed = 0; this.applied = 0; this.history.clear();
@@ -79,7 +84,7 @@ class Native {
       && (!command.transport || command.transport.bindingId === this.binding)) this.binding = null;
   }
   ack(command) {
-    this.deliver({ id: command.id, event: "transportControlAck", version: 1,
+    this.deliver({ id: command.id, event: "transportControlAck", version: this.version,
       action: command.action, requestId: command.requestId, scope: this.scope(),
       phase: ["load", "seek"].includes(command.action) ? "accepted" : "completed" });
   }
@@ -90,7 +95,7 @@ class Native {
     }) });
   }
   frame({ event = "transportState", deliver = true, ...extra } = {}) {
-    const packet = copy({ id: this.id, event, transport: { version: 1, ...this.scope(), eventSeq: ++this.seq,
+    const packet = copy({ id: this.id, event, transport: { version: this.version, ...this.scope(), eventSeq: ++this.seq,
       snapshot: { processedWebRevision: this.processed, appliedWebRevision: this.applied,
         intent: this.intent, observed: this.observed }, ...extra },
       position: this.position, duration: this.observed.state === "idle" ? 0 : 200,
@@ -122,7 +127,7 @@ class Native {
     this.holdAck = action;
     if (action === "volume") this.audio.volume = .4;
     const command = this.last(action);
-    this.deliver({ id: this.id, event: "transportControlError", version: 1,
+    this.deliver({ id: this.id, event: "transportControlError", version: this.version,
       correlation: { action, requestId: command.requestId, attemptedScope: this.scope() }, reason: "UNAVAILABLE" });
     this.holdAck = null;
   }
@@ -136,6 +141,55 @@ async function check(name, run, options) {
 }
 
 try {
+  await check("v2 adopts the native-issued ID and tags every scoped command", async n => {
+    assert.equal(n.audio.nativeTransportVersion, 2);
+    assert.equal(n.last("transportBind").bindingId, n.issued);
+    n.audio.muted = false; n.audio.volume = .37; n.audio.currentTime = 12;
+    const play = track(n.audio.play()); n.decide(n.last("play")); await flush();
+    assert.equal(play.state, "resolved");
+    n.audio.pause(); n.decide(n.last("pause"));
+    assert(n.sent.filter(x => x.transport).every(x => x.transport.version === 2));
+    assert(!n.sent.some(x => ["load", "volume", "seek", "play", "pause"].includes(x.action) && !x.transport), "Initial media configuration must not send legacy commands to a new binary");
+  }, { version: 2 });
+  await check("v2 rejects an invalid native-issued identity before Bind", async n => {
+    assert.equal(n.audio.nativeTransportError.code, "PROTOCOL_ERROR");
+    assert(!n.last("transportBind")); assert(!n.last("load"));
+  }, { version: 2, malformedIssued: true });
+  await check("v2 preserves native Pause and OS Play through rebind without output replay", async n => {
+    const first = track(n.audio.play()); n.decide(n.last("play")); await flush();
+    n.audio.pause(); const delayed = n.decide(n.last("pause"), { deliver: false });
+    n.system(true); n.deliver(delayed); n.position = 43;
+    const before = n.sent.length;
+    await n.audio.reconnectTransport();
+    assert.equal(n.last("transportBind").bindingId, n.issued);
+    assert.equal(n.audio.nativePlayIntent, true); assert.equal(n.audio.currentTime, 43);
+    assert(!n.sent.slice(before).some(x => ["load", "play", "seek", "volume"].includes(x.action)));
+    assert.equal(first.state, "resolved");
+  }, { version: 2 });
+  await check("v2 never accepts a v1 state inside its negotiated scope", async n => {
+    const reply = n.frame({ deliver: false }); reply.transport.version = 1;
+    n.deliver(reply);
+    assert.equal(n.audio.nativeTransportError.code, "PROTOCOL_ERROR");
+    assert(!n.sent.some(x => x.action === "pause"));
+  }, { version: 2 });
+  await check("v2 rejects a v1 control ACK without stopping current playback", async n => {
+    const play = track(n.audio.play()); n.decide(n.last("play")); await flush();
+    n.holdAck = "volume"; n.audio.volume = .47; const command = n.last("volume");
+    n.deliver({ id: command.id, event: "transportControlAck", version: 1, action: "volume",
+      requestId: command.requestId, scope: n.scope(), phase: "completed" });
+    assert.equal(n.audio.nativeTransportError.code, "PROTOCOL_ERROR");
+    assert.equal(n.observed.isPlaying, true); assert.equal(play.state, "resolved");
+    assert(!n.last("pause"));
+  }, { version: 2 });
+  await check("v2 cannot downgrade its attachment during recovery", async n => {
+    n.version = 1;
+    await assert.rejects(n.audio.reconnectTransport(), error => error.code === "PROTOCOL_ERROR");
+    assert.equal(n.sent.filter(x => x.action === "transportBind").length, 1);
+  }, { version: 2 });
+  await check("old v1 binary exposes the explicit update capability", async n => {
+    assert.equal(n.audio.nativeTransportVersion, 1);
+    assert.equal(n.audio.orderedTransport, true);
+  }, { version: 1 });
   await check("delayed old playing cannot undo explicit Pause", async n => {
     const play = track(n.audio.play());
     const old = n.decide(n.last("play"), { deliver: false });
@@ -322,6 +376,7 @@ try {
   }, { malformedCapabilities: true });
   await check("old APK fallback is cached and notification Play remains compatible", async n => {
     tick(1000); assert.equal(n.audio.orderedTransport, false);
+    assert.equal(n.audio.nativeTransportVersion, 0);
     const result = track(n.audio.play()); n.deliver({ id: n.id, event: "playing", position: 1, duration: 200 }); await flush();
     assert.equal(result.state, "resolved");
     n.audio.pause(); n.deliver({ id: n.id, event: "playing", position: 2, duration: 200 });
@@ -370,7 +425,7 @@ try {
     const beforeDestroy = n.sent.length;
     deck.destroy();
     assert(!n.sent.slice(beforeDestroy).some(value => value.action === "pause"), "Lifecycle release is not a new user Pause");
-    assert.equal(n.last("release").transport.version, 1);
+    assert.equal(n.last("release").transport.version, n.version);
   });
   await check("qualified deck transport failure does not retry the source or release playback", async n => {
     n.audio.remove(); const failures = [], transport = [];
@@ -384,7 +439,7 @@ try {
     assert(!n.sent.slice(before).some(value => ["pause", "release", "load", "play"].includes(value.action)));
     deck.destroy();
   });
-  console.log(`Ordered Android consumer checks passed: ${passed} cases (scripted protocol fixtures; no device/source/audio claim).`);
+  console.log(`Ordered Android consumer checks passed: ${passed} cases (default v${defaultVersion}; scripted protocol fixtures; no device/source/audio claim).`);
 } finally {
   globalThis.setTimeout = originalSet; globalThis.clearTimeout = originalClear;
 }
