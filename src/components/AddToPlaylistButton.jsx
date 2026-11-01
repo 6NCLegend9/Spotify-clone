@@ -137,9 +137,7 @@ function AccountAddToPlaylistButton({ track, className = "", scope }) {
     setMenuPosition(placeAnchoredMenu({ trigger: rect, menuHeight: 280, menuWidth: 224,
       viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, gap: 6 }));
     setShowMenu(true);
-    if (playlists === null) {
-      await loadPlaylists();
-    }
+    await loadPlaylists();
   };
 
   const handleAdd = async (playlist) => {

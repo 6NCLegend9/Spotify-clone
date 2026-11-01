@@ -184,7 +184,7 @@ function AccountTrackQueueMenu({ track, className = "", buttonLabel = "Track opt
     }
     if (!scope.isCurrent()) return;
     setView("playlists");
-    if (playlists === null) void loadPlaylists();
+    void loadPlaylists();
   };
 
   const addToPlaylist = async (playlist) => {

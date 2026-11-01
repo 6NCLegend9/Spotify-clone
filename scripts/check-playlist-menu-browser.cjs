@@ -113,6 +113,15 @@ async function scenario(name, kind, mode, run, viewport = { width: 1440, height:
   browser = await chromium.launch({ headless: true, ...(process.env.HAYKASA_BROWSER_EXECUTABLE ? { executablePath: process.env.HAYKASA_BROWSER_EXECUTABLE } : {}) });
   try {
     for (const kind of ['add', 'track']) {
+      await scenario(kind + '-same-owner-created-playlist', kind, 'empty', async page => {
+        await open(page, kind);
+        await page.waitForFunction(() => document.querySelector('[role=menu]')?.textContent.includes('No playlists yet'));
+        await close(page, kind);
+        await page.evaluate(() => { qaListMode = 'normal'; });
+        await open(page, kind);
+        await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).waitFor({ timeout: 3000 });
+        assert.deepEqual(await page.evaluate(() => qaFetchCalls), ['A', 'A']);
+      });
       await scenario(kind + '-cached-owner-switch', kind, 'normal', async page => {
         await open(page, kind); await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).waitFor(); await close(page, kind);
         await page.evaluate(() => qaSetOwner('B')); await page.waitForFunction(() => qaStorage.getActiveAccountOwner() === 'account:B');
