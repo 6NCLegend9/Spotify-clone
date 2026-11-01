@@ -32,4 +32,6 @@ jobs:
       - run: node docs/qa/playlist-duration/check.cjs
       - run: node docs/qa/home-discovery/check.cjs
       - run: node docs/qa/integration-conflicts/check.cjs
+      - name: Verify persistent Jam queue occurrences
+        run: node --test scripts/check-jam-persistence.mjs
       - run: npm run check
