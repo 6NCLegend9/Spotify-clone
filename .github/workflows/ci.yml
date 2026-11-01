@@ -60,7 +60,7 @@ jobs:
         run: node --test scripts/check-desktop-auth-grants.mjs scripts/check-notification-reads.mjs scripts/check-jam-room-index.mjs
 
   desktop-discord-ipc:
-    name: Discord IPC (${{ matrix.os }})
+    name: Desktop IPC and policy (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
     strategy:
@@ -74,3 +74,5 @@ jobs:
           node-version: 22.x
       - name: Verify real IPC cancellation, clear and reconnect behavior
         run: node --test desktop/scripts/check-discord-ipc.mjs
+      - name: Verify bounded desktop policy startup and disposal
+        run: node --test desktop/scripts/check-policy-deadline.mjs
