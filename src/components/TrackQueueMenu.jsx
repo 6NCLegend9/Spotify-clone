@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import {
@@ -24,15 +23,21 @@ import { addSongToPlaylist, getUserPlaylists } from "@/services/playlistApi";
 import { loginPath } from "@/utils/appOrigin.mjs";
 import { toUserError } from "@/utils/userError";
 import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
 
 const MENU_WIDTH = 224;
 const ACTIONS_HEIGHT = 156;
 const PLAYLISTS_HEIGHT = 320;
 
-export default function TrackQueueMenu({ track, className = "", buttonLabel = "Track options", onRemove, removeLabel = "Remove" }) {
+export default function TrackQueueMenu(props) {
+  const scope = useAccountScope();
+  return <AccountTrackQueueMenu key={scope.key} {...props} scope={scope} />;
+}
+
+function AccountTrackQueueMenu({ track, className = "", buttonLabel = "Track options", onRemove, removeLabel = "Remove", scope }) {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { status } = useSession();
+  const { status } = scope;
   const youtubeVideo = useSelector((state) => state.player.youtubeVideo);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState("actions");
@@ -143,10 +148,11 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
   };
 
   const loadPlaylists = async () => {
-    if (loadingPlaylists) return;
+    if (loadingPlaylists || !scope.isCurrent()) return;
     setLoadingPlaylists(true);
     setPlaylistError("");
     const response = await getUserPlaylists();
+    if (!scope.isCurrent()) return;
     if (response?.success) {
       const list = Array.isArray(response.data?.playlists)
         ? response.data.playlists.filter((playlist) => playlist && typeof playlist === "object" && playlist._id)
@@ -176,14 +182,16 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       router.push(loginPath(window.location.href, window.location.origin));
       return;
     }
+    if (!scope.isCurrent()) return;
     setView("playlists");
     if (playlists === null) void loadPlaylists();
   };
 
   const addToPlaylist = async (playlist) => {
-    if (!playlist?._id || addingPlaylistId) return;
+    if (!playlist?._id || addingPlaylistId || !scope.isCurrent()) return;
     setAddingPlaylistId(playlist._id);
     const response = await addSongToPlaylist(playlist._id, track.id, track.duration);
+    if (!scope.isCurrent()) return;
     setAddingPlaylistId(null);
     if (response?.success) {
       toast.success(`Added to ${playlist.name || "playlist"}`);
