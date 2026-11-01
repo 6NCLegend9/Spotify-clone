@@ -11,6 +11,12 @@ on:
       - 'src/app/AuthProvider.js'
       - 'src/utils/youtubeIframeApi.mjs'
       - 'src/components/SupportDiagnostics.jsx'
+      - 'src/components/AddToPlaylistButton.jsx'
+      - 'src/components/TrackQueueMenu.jsx'
+      - 'src/components/AccountPrivacyBoundary.jsx'
+      - 'src/hooks/useAccountScope.js'
+      - 'src/utils/accountStorage.mjs'
+      - 'scripts/check-playlist-menu-browser.cjs'
       - 'src/components/YouTubeMusicResults.jsx'
       - 'src/app/search/**'
       - 'src/utils/searchResults.mjs'
@@ -62,6 +68,8 @@ jobs:
       - run: node docs/qa/android/auth-session-browser.cjs
       - run: node docs/qa/android/iframe-api-browser.cjs
       - run: node docs/qa/android-installation/browser.cjs
+      - name: Verify playlist account privacy and real keyboard interactions
+        run: node scripts/check-playlist-menu-browser.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -74,4 +82,5 @@ jobs:
             artifacts/android-installation/
             artifacts/auth-session/
             artifacts/android-iframe-api/
+            artifacts/playlist-menu/
           retention-days: 7
