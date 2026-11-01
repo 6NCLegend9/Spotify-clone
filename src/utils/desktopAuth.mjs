@@ -4,7 +4,7 @@ const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const PKCE_VERIFIER = /^[A-Za-z0-9._~-]{43,128}$/;
 
 function boundedBase64Url(value, min, max) {
-  const text = String(value || "").trim();
+  const text = typeof value === "string" ? value.trim() : "";
   return text.length >= min && text.length <= max && BASE64URL.test(text) ? text : "";
 }
 
@@ -22,7 +22,7 @@ export function normalizeDesktopPkceChallenge(value) {
 }
 
 export function normalizeDesktopPkceVerifier(value) {
-  const text = String(value || "").trim();
+  const text = typeof value === "string" ? value.trim() : "";
   return PKCE_VERIFIER.test(text) ? text : "";
 }
 

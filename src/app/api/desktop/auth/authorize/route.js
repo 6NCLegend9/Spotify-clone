@@ -63,6 +63,7 @@ export async function GET(request) {
     stateHash: hashDesktopAuthValue(state),
     pkceChallenge: challenge,
     userId: account.user._id,
+    sessionVersion: account.user.sessionVersion ?? 0,
     expiresAt: new Date(Date.now() + AUTH_TTL_MS),
   });
 

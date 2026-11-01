@@ -14,7 +14,7 @@ import {
   safeUtf8Equal,
 } from "@/utils/desktopAuth.mjs";
 import { isRateLimited } from "@/utils/rateLimit";
-import { sessionIdentity } from "@/utils/sessionIdentity.mjs";
+import { isCurrentSession } from "@/utils/sessionIdentity.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,8 +83,10 @@ export async function POST(request) {
   if (!consumed) return jsonError("This desktop sign-in request was already used.", 401);
 
   const user = await User.findById(grant.userId);
-  const identity = sessionIdentity(user);
-  if (!user || user.isVerified !== true || !identity) {
+  // Keep the issuing session's identity: a concurrent revocation must never upgrade this grant.
+  const id = String(grant.userId);
+  const identity = { id, sub: id, sessionVersion: grant.sessionVersion };
+  if (!isCurrentSession(identity, user)) {
     return jsonError("The account is no longer available for desktop sign-in.", 401);
   }
 
