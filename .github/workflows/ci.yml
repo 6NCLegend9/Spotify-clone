@@ -27,6 +27,8 @@ jobs:
       - run: npm run audit:production
       - name: Verify authentication email serialization with the installed SDK
         run: node --test scripts/check-auth-email.mjs
+      - name: Verify unavailable databases fail closed with actionable responses
+        run: node --test scripts/check-database-unavailability.mjs
       - run: node docs/qa/pr28-playlists/check.cjs
       - run: node docs/qa/background-playback/check.cjs
       - run: node docs/qa/mobile-source-playback/check.cjs
