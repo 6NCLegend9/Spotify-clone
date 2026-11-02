@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -35,7 +35,7 @@ function AccountAddToPlaylistButton({ track, className = "", scope }) {
   const [loadError, setLoadError] = useState(null);
   const [addingId, setAddingId] = useState(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!showMenu) return undefined;
     const place = () => {
       const rect = buttonRef.current?.getBoundingClientRect();

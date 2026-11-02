@@ -197,7 +197,20 @@ async function scenario(name, kind, mode, run, viewport = { width: 1440, height:
     for (const [name, viewport, largeText] of [['narrow', { width: 320, height: 640 }, false], ['landscape', { width: 844, height: 390 }, false], ['large-text', { width: 320, height: 640 }, true], ['large-text-right', { width: 320, height: 640 }, true]]) await scenario('add-layout-' + name, 'add', 'normal', async page => {
       if (largeText) await page.addStyleTag({ content: 'html{font-size:32px!important}' });
       if (name === 'large-text-right') await trigger(page, 'add').evaluate(node => { node.parentElement.style.cssText = 'position:fixed;right:8px;top:40px'; });
+      await page.evaluate(() => {
+        window.qaFirstMenuFrame = new Promise(resolve => {
+          const sample = () => {
+            const menu = document.querySelector('[role=menu]');
+            if (!menu) return requestAnimationFrame(sample);
+            const r = menu.getBoundingClientRect();
+            resolve({ left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight });
+          };
+          requestAnimationFrame(sample);
+        });
+      });
       await open(page, 'add'); await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).waitFor();
+      const firstFrame = await page.evaluate(() => qaFirstMenuFrame);
+      assert(firstFrame.left >= 0 && firstFrame.right <= firstFrame.width + 1 && firstFrame.top >= 0 && firstFrame.bottom <= firstFrame.height + 1, 'First menu frame: ' + JSON.stringify(firstFrame));
       const target = await trigger(page, 'add').evaluate(node => { const r = node.getBoundingClientRect(); return { width: r.width, height: r.height }; });
       assert(target.width >= 44 && target.height >= 44, 'The trigger must retain a 44px touch target');
       const bounds = await page.getByRole('menu').evaluate(node => { const r = node.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight }; });

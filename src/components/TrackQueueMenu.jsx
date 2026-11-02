@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
@@ -56,7 +56,7 @@ function AccountTrackQueueMenu({ track, className = "", buttonLabel = "Track opt
     setPlaylistError("");
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return undefined;
     const place = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
