@@ -102,7 +102,7 @@ function radioOriginContext(track) {
 function pruneAutomaticRadioUpcoming(queue, current, { history = [] } = {}) {
   const list = Array.isArray(queue) ? queue : [];
   if (!current?.id || list.length < 2) return list;
-  const currentIndex = list.findIndex((item) => sameOccurrence(item, current) || item?.id === current.id);
+  const currentIndex = currentOccurrenceIndex(list, current);
   if (currentIndex < 0) return list;
 
   const head = list.slice(0, currentIndex + 1);
@@ -141,11 +141,23 @@ function syncLegacyQueueMode(state) {
 function nextQueueEntry(state, rawTrack, source = 'context') {
   const decoded = decodePlayableYoutubeTrack(rawTrack);
   if (!decoded?.id) return null;
-  state.queueSequence += 1;
+  let queueEntryId;
+  // Hydrated Jam queues can carry occurrence ids without a matching counter.
+  // New rows must not alias a current, queued or previously played occurrence.
+  do {
+    state.queueSequence = Number.isSafeInteger(state.queueSequence)
+      && state.queueSequence >= 0 && state.queueSequence < Number.MAX_SAFE_INTEGER
+      ? state.queueSequence + 1 : 1;
+    queueEntryId = `${source}:${state.queueSequence}:${decoded.id}`;
+  } while (
+    state.youtubeVideo?.queueEntryId === queueEntryId
+    || state.youtubeQueue.some((track) => track.queueEntryId === queueEntryId)
+    || state.history.some((track) => track.queueEntryId === queueEntryId)
+  );
   return {
     ...decoded,
     queueSource: decoded.queueSource === 'user' ? 'user' : source,
-    queueEntryId: decoded.queueEntryId || `${source}:${state.queueSequence}:${decoded.id}`,
+    queueEntryId,
   };
 }
 
@@ -167,6 +179,14 @@ function sameOccurrence(left, right) {
   return left.id === right.id;
 }
 
+function currentOccurrenceIndex(queue, current) {
+  if (!current?.id) return -1;
+  // Content-id fallback is only for legacy current tracks without an occurrence.
+  return queue.findIndex((item) => current.queueEntryId
+    ? item?.queueEntryId === current.queueEntryId
+    : item?.id === current.id);
+}
+
 function pushHistory(state, track) {
   if (!track?.id) return;
   const last = state.history[state.history.length - 1];
@@ -176,9 +196,9 @@ function pushHistory(state, track) {
 }
 
 function syncUserQueue(state) {
-  state.userQueue = state.youtubeQueue.filter(
-    (entry) => entry?.queueSource === 'user' && !sameOccurrence(entry, state.youtubeVideo),
-  );
+  const currentIndex = currentOccurrenceIndex(state.youtubeQueue, state.youtubeVideo);
+  state.userQueue = state.youtubeQueue.slice(currentIndex + 1)
+    .filter((entry) => entry?.queueSource === 'user');
 }
 
 const playerSlice = createSlice({
@@ -323,8 +343,8 @@ const playerSlice = createSlice({
       state.position = 0;
       state.restorePosition = null;
       const current = state.youtubeVideo;
-      const currentIndex = state.youtubeQueue.findIndex((item) => sameOccurrence(item, current)
-        || item?.id === current.id);
+      const currentIndex = currentOccurrenceIndex(state.youtubeQueue, current);
+      const occurrence = currentIndex >= 0 ? state.youtubeQueue[currentIndex] : current;
       const replacementTrack = state.queueMode === 'radio'
         ? preserveRadioReplacementMetadata(current, replacement)
         : replacement;
@@ -332,14 +352,14 @@ const playerSlice = createSlice({
         state,
         {
           ...replacementTrack,
-          queueEntryId: current.queueEntryId,
-          queueSource: current.queueSource || 'context',
+          queueEntryId: current.queueEntryId || occurrence.queueEntryId,
+          queueSource: current.queueSource || occurrence.queueSource || 'context',
         },
-        current.queueSource === 'user' ? 'user' : 'context',
+        (current.queueSource || occurrence.queueSource) === 'user' ? 'user' : 'context',
       );
       if (!nextEntry) return;
       // Preserve the failed row's queue identity so membership/mode stay stable.
-      nextEntry.queueEntryId = current.queueEntryId || nextEntry.queueEntryId;
+      nextEntry.queueEntryId = current.queueEntryId || occurrence.queueEntryId || nextEntry.queueEntryId;
       if (currentIndex >= 0) {
         state.youtubeQueue[currentIndex] = nextEntry;
       } else {
@@ -389,6 +409,42 @@ const playerSlice = createSlice({
         state.queueManualEnd = true;
       }
       state.youtubeQueue = nextQueue;
+      syncUserQueue(state);
+    },
+
+    replaceUpcomingYoutubeQueue: (state, action) => {
+      const { tracks, expectedCurrent, expectedOwner } = action.payload || {};
+      const current = state.youtubeVideo;
+      if (typeof expectedOwner !== 'string' || state.playbackOwner !== expectedOwner) return;
+      // Async station results must not take over a newer selection, including
+      // another occurrence of the same song before React has rendered it.
+      if (expectedCurrent?.id) {
+        if (current?.id !== expectedCurrent.id
+          || (current.queueEntryId || null) !== (expectedCurrent.queueEntryId || null)) return;
+      } else if (current?.id || state.activeSong?.id) return;
+
+      const upcoming = (Array.isArray(tracks) ? tracks : [])
+        .map((track) => nextQueueEntry(state, { ...track, queueEntryId: null, queueSource: 'context' }))
+        .filter(Boolean);
+      if (!upcoming.length) return;
+      const currentIndex = currentOccurrenceIndex(state.youtubeQueue, current);
+      const prefix = current?.id
+        ? currentIndex >= 0 ? state.youtubeQueue.slice(0, currentIndex + 1) : [current]
+        : [];
+      state.queueUndo = null;
+      state.youtubeQueue = [...prefix, ...upcoming];
+      state.queueMode = 'collection';
+      state.queueManualEnd = true;
+      if (!current?.id) {
+        state.youtubeVideo = upcoming[0];
+        state.activeSong = {};
+        state.currentSongs = [];
+        state.currentIndex = 0;
+        state.isActive = false;
+        state.isPlaying = true;
+        state.position = 0;
+        state.restorePosition = null;
+      }
       syncUserQueue(state);
     },
 
@@ -583,6 +639,7 @@ export const {
   replaceCurrentYoutubeTrack,
   playPreviousFromHistory,
   setYoutubeQueue,
+  replaceUpcomingYoutubeQueue,
   startYoutubePlayback,
   editQueue,
   undoQueueEdit,
