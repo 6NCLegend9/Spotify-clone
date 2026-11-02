@@ -25,6 +25,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run audit:production
+      - name: Verify authentication email serialization with the installed SDK
+        run: node --test scripts/check-auth-email.mjs
       - run: node docs/qa/pr28-playlists/check.cjs
       - run: node docs/qa/background-playback/check.cjs
       - run: node docs/qa/mobile-source-playback/check.cjs
