@@ -2,20 +2,26 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
 import test from "node:test";
 import ts from "typescript";
 import * as core from "../src/utils/apiResponseCore.mjs";
 import * as diagnostics from "../src/utils/diagnostics.mjs";
 import { mongoPoolSize } from "../src/utils/mongoPoolSize.mjs";
+import * as identities from "../src/utils/sessionIdentity.mjs";
+import * as desktopAuth from "../src/utils/desktopAuth.mjs";
 
 const require = createRequire(import.meta.url);
 const next = require("next/server");
 const esm = value => ({ __esModule: true, default: value });
 function load(file, dependencies, env = {}, globals = {}) {
-  const input = file === "../src/utils/dbconnect.js" && process.env.HAYKASA_DATABASE_BASELINE
+  let input = file === "../src/utils/dbconnect.js" && process.env.HAYKASA_DATABASE_BASELINE
     ? process.env.HAYKASA_DATABASE_BASELINE : new URL(file, import.meta.url);
+  const authBaseline = { "../src/utils/sessionAuth.js": "sessionAuth.js",
+    "../src/app/api/desktop/auth/authorize/route.js": "authorize.js", "../src/app/api/desktop/auth/exchange/route.js": "exchange.js" }[file];
+  if (authBaseline && process.env.HAYKASA_AUTH_OUTAGE_BASELINE) input = path.join(process.env.HAYKASA_AUTH_OUTAGE_BASELINE, authBaseline);
   const source = ts.transpileModule(readFileSync(input, "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText;
   const loaded = { exports: {} };
   new Function("require", "module", "exports", "process", "globalThis", source)(name => {
@@ -120,4 +126,49 @@ test("query/programming errors remain500 instead of being mislabeled as a connec
     assert.equal(response.status, 500);
     assert(!JSON.stringify(await response.json()).includes("LOCAL_PRIVATE"));
   }
+});
+
+test("authenticated session lookup preserves503 and Retry-After through its outage wrapper", async () => {
+  const fixture = database();
+  const session = load("../src/utils/sessionAuth.js", {
+    "next-auth/jwt": { getToken: async () => ({ id: "000000000000000000000042", sub: "000000000000000000000042", sessionVersion: 0 }) },
+    "@/models/User": esm({ findById: () => { throw new Error("must not query an unavailable database"); } }),
+    "@/utils/dbconnect": esm(fixture.db), "@/utils/authToken": { tokenOptions: () => ({}) },
+    "@/utils/sessionIdentity.mjs": identities, "@/utils/diagnostics.mjs": diagnostics,
+    "@/utils/apiResponseCore.mjs": core,
+  });
+  const invalid = await session.resolveSessionUser(null);
+  assert.equal(invalid, null, "invalid identities still fail authentication normally");
+  const error = await session.getSessionUser(request()).catch(value => value);
+  assert(error instanceof session.SessionLookupUnavailableError);
+  assert.equal(error.cause.code, "SERVICE_UNAVAILABLE");
+  assert(!JSON.stringify(error).includes("cause"), "private causes remain non-enumerable");
+  const response = api.handleApiError(error);
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("retry-after"), "30");
+});
+
+for (const [kind, phase] of [["authorize", "session"], ["authorize", "limiter"], ["exchange", "limiter"], ["exchange", "database"]]) test(`desktop ${kind} returns a safe503 on unavailable ${phase}`, async () => {
+  const outage = new core.ApiRouteError("SERVICE_UNAVAILABLE", { headers: { "Retry-After": "30" } });
+  const deps = {
+    "node:crypto": crypto, "@/models/DesktopAuthGrant": {}, "@/models/User": {},
+    "@/utils/apiResponse": api, "@/utils/apiResponseCore.mjs": core,
+    "@/utils/rateLimit": { isRateLimited: async () => { if (phase === "limiter") throw outage; return { limited: false }; } },
+    "@/utils/userAccount": { getAuthenticatedAccount: async () => { if (phase === "session") throw outage; return { user: { _id: "000000000000000000000042" }, email: "qa@example.invalid" }; } },
+    "@/utils/desktopAuth.mjs": desktopAuth, "@/utils/dbconnect": esm(async () => { throw outage; }),
+    "@/utils/authToken": {}, "@/utils/sessionIdentity.mjs": identities, "next-auth/jwt": {},
+  };
+  const routes = load(`../src/app/api/desktop/auth/${kind}/route.js`, deps);
+  const state = "state_".padEnd(48, "x"), verifier = "v".repeat(64);
+  const call = kind === "authorize"
+    ? new next.NextRequest(`http://127.0.0.1/api/desktop/auth/authorize?state=${state}&challenge=${desktopAuth.desktopPkceChallenge(verifier)}`)
+    : new next.NextRequest("http://127.0.0.1/api/desktop/auth/exchange", { method: "POST", body: JSON.stringify({ code: "c".repeat(43), state, verifier }) });
+  const response = await routes[kind === "authorize" ? "GET" : "POST"](call);
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("retry-after"), "30");
+  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  const payload = await response.json();
+  assert.equal(payload.code, "SERVICE_UNAVAILABLE");
+  assert.equal(typeof payload.error, "string", "old desktop clients can still read the error string");
+  assert.equal(payload.sessionToken, undefined);
 });

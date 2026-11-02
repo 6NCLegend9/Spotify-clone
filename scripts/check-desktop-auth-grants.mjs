@@ -45,6 +45,7 @@ const responses = load("../src/utils/apiResponse.js", {
 const limit = { getClientKey: () => "local-grant-qa", isRateLimited: async () => ({ limited: false }) };
 let account, beforeLookup, beforeEncode;
 const authorize = load("../src/app/api/desktop/auth/authorize/route.js", {
+  "@/utils/apiResponse": responses,
   "node:crypto": crypto,
   "@/models/DesktopAuthGrant": esmDefault(DesktopAuthGrant),
   "@/utils/rateLimit": limit,
@@ -52,6 +53,7 @@ const authorize = load("../src/app/api/desktop/auth/authorize/route.js", {
   "@/utils/desktopAuth.mjs": desktopAuth,
 });
 const exchange = load("../src/app/api/desktop/auth/exchange/route.js", {
+  "@/utils/apiResponse": responses,
   "@/utils/apiResponseCore.mjs": core,
   "next-auth/jwt": { encode: async options => {
     if (beforeEncode) await beforeEncode();

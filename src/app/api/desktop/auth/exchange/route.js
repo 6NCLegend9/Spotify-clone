@@ -15,6 +15,7 @@ import {
 } from "@/utils/desktopAuth.mjs";
 import { isRateLimited } from "@/utils/rateLimit";
 import { isCurrentSession } from "@/utils/sessionIdentity.mjs";
+import { handleApiError } from "@/utils/apiResponse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ function jsonError(message, status = 400) {
   return Response.json({ error: message }, { status, headers: responseHeaders() });
 }
 
-export async function POST(request) {
+async function exchange(request) {
   let body;
   try {
     body = await readRequestJson(request, { maxBytes: 4096 });
@@ -114,4 +115,14 @@ export async function POST(request) {
     cookieName: secure ? "__Secure-next-auth.session-token" : "next-auth.session-token",
     expiresAt,
   }, { headers: responseHeaders() });
+}
+
+export async function POST(request) {
+  try {
+    return await exchange(request);
+  } catch (error) {
+    const response = handleApiError(error, "Desktop exchange");
+    for (const [key, value] of Object.entries(responseHeaders())) response.headers.set(key, value);
+    return response;
+  }
 }
