@@ -88,4 +88,44 @@ const results = [];
       await context.close();
     }
   }
+  // Exercise the real SessionProvider transition that the Android guest tour
+  // exposed: generation changes after loading must restart the public read.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  await context.addInitScript(() => {
+    for (let prototype = navigator; prototype; prototype = Object.getPrototypeOf(prototype)) {
+      if (Object.hasOwn(prototype, 'serviceWorker')) delete prototype.serviceWorker;
+    }
+    localStorage.setItem('toturialComplete', 'true');
+  });
+  let releaseSession;
+  const sessionReady = new Promise(resolve => { releaseSession = resolve; });
+  const page = await context.newPage(), errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  let publicReads = 0;
+  await context.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.origin !== origin) return route.abort();
+    if (!url.pathname.startsWith('/api/')) return route.continue();
+    let body = { success: true, data: [] };
+    if (url.pathname === '/api/auth/session') { await sessionReady; body = {}; }
+    if (url.pathname === '/api/settings') body = { authenticated: false, settings: {} };
+    if (url.pathname === '/api/language') body = { authenticated: false, language: [] };
+    if (url.pathname === '/api/recommendations') { publicReads++; body = { sections: { featuredPlaylists: [] } }; }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  const sessionRequested = page.waitForRequest(request => new URL(request.url()).pathname === '/api/auth/session');
+  await page.goto(origin + '/library', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await sessionRequested;
+  await page.locator('.page .animate-shimmer').first().waitFor();
+  releaseSession();
+  await page.locator('.page').getByRole('link', { name: 'Log in', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'No featured playlists right now', exact: true }).waitFor();
+  assert.equal(await page.locator('.page .animate-shimmer').count(), 0);
+  assert.equal(publicReads, 1, 'Guest resolution makes exactly one public-library read');
+  assert.deepEqual(errors, []);
+  await page.screenshot({ path: path.join(output, 'mobile-guest-library.png') });
+  results.push({ device: 'mobile', scenario: 'guest-session-resolution', status: 'passed', publicReads });
+  fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(results, null, 2));
+  console.log('PASS mobile/guest-session-resolution: initial loading completes without stalling');
+  await context.close();
 })().catch(error => { console.error(error); process.exitCode = 1; fs.writeFileSync(path.join(output, 'failure.txt'), String(error.stack)); }).finally(async () => { await browser?.close(); server.kill('SIGTERM'); log.end(); });

@@ -44,7 +44,7 @@ async function setup(page, options = {}) {
   for (const file of ['react/umd/react.development.js', 'react-dom/umd/react-dom.development.js', '@reduxjs/toolkit/dist/redux-toolkit.umd.js']) await page.addScriptTag({ path: path.join(root, 'node_modules', file) });
   await page.evaluate(({ sources, entries, options }) => {
     const copy = value => JSON.parse(JSON.stringify(value));
-    window.qaSession = options.guest ? { data: null, status: 'unauthenticated' } : { data: { user: { id: 'A', name: 'Playlist QA' } }, status: 'authenticated' };
+    window.qaSession = options.loading ? { data: null, status: 'loading' } : options.guest ? { data: null, status: 'unauthenticated' } : { data: { user: { id: 'A', name: 'Playlist QA' } }, status: 'authenticated' };
     window.qaCalls = []; window.qaPending = []; window.qaToasts = []; window.qaRoutes = [];
     window.qaModes = { metadata: options.metadata || 'normal', read: options.read || 'normal', discovery: options.discovery || 'normal', mixA: 'hold', mixB: options.holdMixB ? 'hold' : 'normal' };
     const ids = ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'aaaaaaaaaaa', 'ccccccccccc'];
@@ -321,6 +321,19 @@ async function scenario(name, run, options = {}, viewport = { width: 390, height
       assert.equal(await page.getByRole('button', { name: 'Remove Alpha song from playlist' }).count(), 0);
       assert.equal(await page.getByRole('button', { name: 'Playlist options', exact: true }).count(), 0);
     }, { guest: true });
+    await scenario('guest-session-resolution-loads-details-without-resetting-early-play', async page => {
+      await page.evaluate(() => {
+        window.qaDestructiveClears = 0;
+        window.addEventListener('heykasa:account-data-cleared', () => qaDestructiveClears++);
+        const track = qaMetadata.bbbbbbbbbbb;
+        qaStore.dispatch(qaActions.startYoutubePlayback({ queue: [track], track, queueMode: 'radio' }));
+        qaSetOwner(null);
+      });
+      await ready(page);
+      assert.equal((await state(page)).youtubeVideo.id, 'bbbbbbbbbbb');
+      assert.equal((await state(page)).isPlaying, true);
+      assert.equal(await page.evaluate(() => qaDestructiveClears), 0);
+    }, { guest: true, loading: true });
     await scenario('empty-playlist-search-action-and-no-play', async page => {
       await page.getByRole('heading', { name: 'Let’s find some songs for your playlist' }).waitFor();
       assert.equal(await page.getByRole('button', { name: 'Play QA playlist', exact: true }).isDisabled(), true);

@@ -49,7 +49,7 @@ async function setup(page, kind, options = {}) {
     const copy = value => JSON.parse(JSON.stringify(value));
     const owned = owner => ({ _id: owner + '-own', name: owner + ' private playlist', user: { _id: owner, userName: owner }, description: '', visibility: 'private', songs: [], items: [], liked: false, likesCount: 0 });
     const saved = { _id: 'public-1', name: 'Saved public playlist', user: { _id: 'other', userName: 'Other creator' }, description: '', visibility: 'public', songs: [], items: [], liked: true, likesCount: 1 };
-    window.qaSession = options.guest ? { data: null, status: 'unauthenticated' } : { data: { user: { id: 'A' } }, status: 'authenticated' };
+    window.qaSession = options.loading ? { data: null, status: 'loading' } : options.guest ? { data: null, status: 'unauthenticated' } : { data: { user: { id: 'A' } }, status: 'authenticated' };
     window.qaCalls = []; window.qaEvents = []; window.qaToasts = []; window.qaRoutes = []; window.qaCallbacks = []; window.qaPending = [];
     window.qaModes = { lists: options.holdLists ? 'hold' : 'normal' };
     window.qaDatabase = { A: [owned('A'), copy(saved)], B: [owned('B')] };
@@ -142,7 +142,7 @@ async function setup(page, kind, options = {}) {
     render();
     if (!qaShown) { document.getElementById('opener').focus(); qaShown = true; render(); }
   }, { sources, entries, kind, options });
-  await page.waitForFunction(guest => qaStorage.getActiveAccountOwner() === (guest ? null : 'account:A'), Boolean(options.guest));
+  if (!options.loading) await page.waitForFunction(guest => qaStorage.getActiveAccountOwner() === (guest ? null : 'account:A'), Boolean(options.guest));
 }
 async function scenario(name, kind, run, options = {}, viewport = { width: 390, height: 844 }) {
   const page = await browser.newPage({ viewport });
@@ -322,6 +322,12 @@ async function dialogFits(page, buttonName) {
       await page.getByRole('link', { name: 'Featured public playlist', exact: true }).waitFor();
       assert.deepEqual(await page.evaluate(() => qaCalls.map(call => call.kind)), ['public']);
     }, { guest: true });
+    await scenario('library-loading-session-resolves-to-guest-without-stalling', 'library', async page => {
+      await page.evaluate(() => qaSetOwner(null));
+      await page.getByRole('link', { name: 'Featured public playlist', exact: true }).waitFor();
+      assert.deepEqual(await page.evaluate(() => qaCalls.map(call => call.kind)), ['public']);
+      assert.equal(await page.locator('.animate-shimmer').count(), 0);
+    }, { guest: true, loading: true });
     await scenario('createhub-owner-change-closes-dialog', 'hub', async page => {
       await page.evaluate(() => window.dispatchEvent(new Event('heykasa:create-playlist')));
       await page.getByRole('dialog', { name: 'Create playlist' }).waitFor(); await page.getByLabel('Name', { exact: true }).fill('A hub draft');
