@@ -4,6 +4,9 @@ on:
     paths:
       - 'src/components/Library/**'
       - 'src/components/Homepage/MixCard.jsx'
+      - 'src/components/ArtistProfile.jsx'
+      - 'src/components/ArtistCatalogRails.jsx'
+      - 'src/components/YouTubeMusicResults.jsx'
       - 'src/utils/playHome.js'
       - 'src/components/Sidebar/Playlist*'
       - 'src/components/Sidebar/Playlists.jsx'
@@ -15,6 +18,7 @@ on:
       - 'src/app/AuthProvider.js'
       - 'src/hooks/useAccountScope.js'
       - 'src/hooks/usePlaylistAddition.js'
+      - 'src/hooks/usePlaybackRequest.js'
       - 'src/utils/accountStorage.mjs'
       - 'src/redux/features/playerSlice.js'
       - 'src/services/libraryApi.js'

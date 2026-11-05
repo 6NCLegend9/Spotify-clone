@@ -31,7 +31,7 @@ function include(file) {
   }
   return key;
 }
-const entries = Object.fromEntries(Object.entries({ detail: 'components/Library/PlaylistDetail.jsx', mix: 'components/Homepage/MixCard.jsx', player: 'redux/features/playerSlice.js', boundary: 'components/AccountPrivacyBoundary.jsx', storage: 'utils/accountStorage.mjs', events: 'utils/playlistEvents.mjs', items: 'utils/playlistItems.mjs' }).map(([key, file]) => [key, include(path.join(root, 'src', file))]));
+const entries = Object.fromEntries(Object.entries({ detail: 'components/Library/PlaylistDetail.jsx', mix: 'components/Homepage/MixCard.jsx', recommendation: 'components/RecommendationPlaylistCard.jsx', search: 'components/YouTubeMusicResults.jsx', artist: 'components/ArtistProfile.jsx', player: 'redux/features/playerSlice.js', boundary: 'components/AccountPrivacyBoundary.jsx', storage: 'utils/accountStorage.mjs', events: 'utils/playlistEvents.mjs', items: 'utils/playlistItems.mjs' }).map(([key, file]) => [key, include(path.join(root, 'src', file))]));
 const manifest = JSON.parse(fs.readFileSync(path.join(root, '.next/app-build-manifest.json'), 'utf8'));
 const css = (manifest.pages['/layout'] || []).filter(name => name.endsWith('.css')).map(name => fs.readFileSync(path.join(root, '.next', name), 'utf8')).join('\n') + styles.join('\n');
 const results = [];
@@ -46,6 +46,7 @@ async function setup(page, options = {}) {
     const copy = value => JSON.parse(JSON.stringify(value));
     window.qaSession = options.loading ? { data: null, status: 'loading' } : options.guest ? { data: null, status: 'unauthenticated' } : { data: { user: { id: 'A', name: 'Playlist QA' } }, status: 'authenticated' };
     window.qaCalls = []; window.qaPending = []; window.qaToasts = []; window.qaRoutes = [];
+    window.qaQuery = 'QA collection'; window.qaCollectionId = 'mixA'; window.qaSearchParams = 'type=playlist';
     window.qaModes = { metadata: options.metadata || 'normal', read: options.read || 'normal', discovery: options.discovery || 'normal', mixA: 'hold', mixB: options.holdMixB ? 'hold' : 'normal' };
     const ids = ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'aaaaaaaaaaa', 'ccccccccccc'];
     window.qaPlaylist = { _id: '507f1f77bcf86cd799439012', name: 'QA playlist', description: 'Songs for the day', visibility: options.guest ? 'public' : 'private', user: { _id: options.guest ? 'other' : 'A', userName: 'Playlist QA' }, collaborators: options.collaborator ? [{ _id: 'B' }] : [], songs: options.empty ? [] : ids, items: options.empty ? [] : ids.map((id, index) => ({ id, entryId: 'entry-' + index, addedAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString() })), revision: 0, songDurations: { aaaaaaaaaaa: 180, bbbbbbbbbbb: 240, ccccccccccc: 120 }, liked: false, smartShuffle: Boolean(options.smart) };
@@ -61,6 +62,11 @@ async function setup(page, options = {}) {
       if (parsed.pathname === '/api/youtube-videos') return deliver('metadata', { tracks: parsed.searchParams.getAll('id').flatMap(id => qaMetadata[id] ? [copy(qaMetadata[id])] : []) });
       if (parsed.pathname === '/api/recommendations') return deliver('discovery', { sections: { trending: [{ id: 'ddddddddddd', title: 'Discovery song', duration: 200 }] } });
       if (parsed.pathname === '/api/youtube-playlist') return deliver(parsed.searchParams.get('id'), { tracks: [copy(qaMetadata[parsed.searchParams.get('id') === 'mixA' ? 'aaaaaaaaaaa' : 'bbbbbbbbbbb'])] });
+      if (parsed.pathname === '/api/youtube-search') return Promise.resolve({ results: [{ id: 'mixA', title: 'Mix A', channel: 'QA artist' }, { id: 'mixB', title: 'Mix B', channel: 'QA artist' }] });
+      if (parsed.pathname === '/api/youtube-channel') return Promise.resolve({ artist: { id: parsed.searchParams.get('id'), title: 'QA artist' }, tracks: [copy(qaMetadata.aaaaaaaaaaa)] });
+      if (parsed.pathname === '/api/artist-sections') return Promise.resolve({ artist: { id: parsed.searchParams.get('id') }, playlists: [{ id: 'mixA', title: 'Mix A' }, { id: 'mixB', title: 'Mix B' }] });
+      if (parsed.pathname === '/api/channel-rabbit-hole') return Promise.resolve({ tracks: [] });
+      if (parsed.pathname === '/api/followedArtists') return Promise.resolve({ success: true, data: [], artists: [] });
       if (parsed.pathname === '/api/favourite') return deliver('read', { data: { favourites: ['aaaaaaaaaaa', 'bbbbbbbbbbb'], favouriteDurations: qaPlaylist.songDurations } });
       if (parsed.pathname === '/api/userPlaylists/songs') {
         if (!config.method || config.method === 'GET') return deliver('read', { success: true, data: copy(qaPlaylist) });
@@ -87,7 +93,7 @@ async function setup(page, options = {}) {
       if (name === 'react-dom') return ReactDOM;
       if (name === '@reduxjs/toolkit') return RTK;
       if (name === 'next-auth/react') return { useSession: () => qaSession };
-      if (name === 'next/navigation') return { useRouter: () => router, usePathname: () => '/library/playlist/' + qaPlaylist._id };
+      if (name === 'next/navigation') return { useRouter: () => router, usePathname: () => '/search/' + qaQuery, useSearchParams: () => new URLSearchParams(qaSearchParams) };
       if (name === 'next/link') return { __esModule: true, default: ({ href, prefetch, ...props }) => React.createElement('a', { ...props, href }) };
       if (name === 'react-redux') return { useDispatch: () => store.dispatch, useStore: () => store, useSelector: select => React.useSyncExternalStore(store.subscribe, () => select(store.getState())) };
       if (name === 'next/image') return { __esModule: true, default: ({ unoptimized, ...props }) => React.createElement('img', props) };
@@ -96,7 +102,7 @@ async function setup(page, options = {}) {
       if (name === 'lucide-react') return new Proxy({}, { get: () => props => React.createElement('svg', { ...props, width: '1em', height: '1em' }) });
       if (name === 'react-hot-toast') return { __esModule: true, default: toast, toast };
       if (name === '@/services/http') return { requestJson };
-      if (name === '@/services/dataAPI') return { addFavourite: async () => ({ success: true, data: { favourites: ['bbbbbbbbbbb'] } }) };
+      if (name === '@/services/dataAPI') return { getFavourite: async () => ['aaaaaaaaaaa', 'bbbbbbbbbbb'], addFavourite: async () => ({ success: true, data: { favourites: ['bbbbbbbbbbb'] } }) };
       if (cache[name]) return cache[name].exports;
       const source = sources[name]; if (!source) throw new Error('Missing fixture module ' + name);
       const module = { exports: {} }; cache[name] = module;
@@ -106,13 +112,18 @@ async function setup(page, options = {}) {
     const player = require(entries.player); window.qaActions = player;
     store = RTK.configureStore({ reducer: (state, action) => {
       if (action.type === 'qa/patch-player') return { ...state, player: { ...state.player, ...action.payload } };
-      return { player: player.default(state?.player, action), loadingBar: { isTyping: false } };
+      return { player: player.default(state?.player, action), loadingBar: { isTyping: false }, settings: { privateSession: true, explicitContent: false } };
     } });
     window.qaStore = store; window.qaStorage = require(entries.storage); window.qaEvents = require(entries.events);
     const Detail = require(entries.detail).default, Mix = require(entries.mix).default, Boundary = require(entries.boundary).default;
+    const Recommendation = require(entries.recommendation).default, Search = require(entries.search).default, Artist = require(entries.artist).default;
     const host = ReactDOM.createRoot(document.getElementById('root'));
     window.qaMounted = true;
-    const render = () => ReactDOM.flushSync(() => host.render(React.createElement(React.Fragment, null, React.createElement(Boundary), qaMounted && (options.mix
+    const render = () => ReactDOM.flushSync(() => host.render(React.createElement(React.Fragment, null, React.createElement(Boundary), qaMounted && (options.surface === 'recommendation'
+      ? React.createElement('div', { style: { width: 'min(180px,100%)' } }, React.createElement(Recommendation, { playlist: { id: qaCollectionId, title: 'Mix A', channel: 'QA artist' } }))
+      : options.surface === 'search' ? React.createElement(Search, { query: qaQuery })
+      : options.surface === 'artist' ? React.createElement(Artist, { artistId: qaCollectionId === 'mixA' ? 'UCabcdefghijklmnopqrstuv' : 'UCzyxwvutsrqponmlkjihgfed', initialName: 'QA artist' })
+      : options.mix
       ? React.createElement(React.Fragment, null, React.createElement(Mix, { mix: { id: 'mixA', playlistId: 'mixA', title: 'Mix A' } }), React.createElement(Mix, { mix: { id: 'mixB', playlistId: 'mixB', title: 'Mix B' } }))
       : React.createElement(Detail, { kind: options.liked ? 'liked' : 'playlist', playlistId: qaPlaylist._id })))));
     window.qaSetOwner = id => { qaSession = id ? { data: { user: { id } }, status: 'authenticated' } : { data: null, status: 'unauthenticated' }; render(); };
@@ -181,6 +192,66 @@ async function scenario(name, run, options = {}, viewport = { width: 390, height
       await page.evaluate(() => qaResolve('mixA')); await page.waitForFunction(() => qaStore.getState().player.youtubeVideo?.id === 'aaaaaaaaaaa');
       assert.equal((await state(page)).isPlaying, true);
     }, { mix: true });
+    for (const surface of ['recommendation', 'search', 'artist']) await scenario(surface + '-delayed-collection-respects-pause', async page => {
+      const play = page.getByRole('button', { name: surface === 'search' ? 'Play playlist Mix A' : 'Play Mix A', exact: true });
+      // Invoke the actual handler separately from the card overlap regression.
+      await play.waitFor(); await play.evaluate(button => button.click());
+      await page.waitForFunction(() => qaPending.some(item => item.kind === 'mixA'));
+      await page.evaluate(() => { qaStore.dispatch(qaActions.playPause(false)); qaResolve('mixA'); }); await settle(page);
+      assert.equal((await state(page)).isPlaying, false); assert.equal((await state(page)).youtubeVideo, null);
+    }, { surface, guest: true }, surface === 'search' ? { width: 1440, height: 1000 } : undefined);
+    for (const surface of ['recommendation', 'search', 'artist']) {
+      const name = surface === 'search' ? 'Play playlist Mix A' : 'Play Mix A';
+      const viewport = surface === 'search' ? { width: 1440, height: 1000 } : undefined;
+      for (const change of ['new-play', 'owner', 'clear', 'unmount', 'identity']) await scenario(surface + '-pending-collection-yields-to-' + change, async page => {
+        await page.getByRole('button', { name, exact: true }).waitFor();
+        await page.getByRole('button', { name, exact: true }).evaluate(button => button.click());
+        await page.waitForFunction(() => qaPending.some(item => item.kind === 'mixA'));
+        await page.evaluate(change => {
+          if (change === 'new-play') {
+            const track = qaMetadata.bbbbbbbbbbb;
+            qaStore.dispatch(qaActions.startYoutubePlayback({ track, queue: [track], queueMode: 'collection' }));
+          } else if (change === 'owner') qaSetOwner('B');
+          else if (change === 'clear') qaStorage.clearLocalAccountCaches({ notify: true });
+          else if (change === 'unmount') { qaMounted = false; qaRender(); }
+          else { qaQuery = 'New query'; qaCollectionId = 'mixB'; qaRender(); }
+          qaResolve('mixA');
+        }, change);
+        await settle(page);
+        assert.equal((await state(page)).youtubeVideo?.id || null, change === 'new-play' ? 'bbbbbbbbbbb' : null);
+        assert.deepEqual(await page.evaluate(() => qaToasts), []);
+      }, { surface }, viewport);
+      await scenario(surface + '-current-collection-error-can-retry-and-play', async page => {
+        await page.evaluate(() => { qaModes.mixA = 'error'; });
+        const play = page.getByRole('button', { name, exact: true });
+        await play.waitFor(); await play.evaluate(button => button.click());
+        await page.waitForFunction(() => qaToasts.length === 1);
+        await page.waitForFunction(name => ![...document.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === name)?.disabled, name);
+        await page.evaluate(() => { qaModes.mixA = 'hold'; });
+        await play.evaluate(button => button.click());
+        await page.waitForFunction(() => qaPending.some(item => item.kind === 'mixA'));
+        await page.evaluate(() => qaResolve('mixA'));
+        await page.waitForFunction(() => qaStore.getState().player.youtubeVideo?.id === 'aaaaaaaaaaa');
+        assert.equal((await state(page)).isPlaying, true);
+      }, { surface, guest: true }, viewport);
+    }
+    await scenario('recommendation-menu-open-playlist-navigates', async page => {
+      await page.getByRole('button', { name: 'Playlist options for Mix A' }).click();
+      await page.getByRole('menuitem', { name: 'Open playlist', exact: true }).focus(); await page.keyboard.press('Enter'); await settle(page);
+      assert.equal((await page.evaluate(() => qaRoutes)).length, 1);
+      assert((await page.evaluate(() => qaRoutes[0])).startsWith('/youtube-playlist/mixA'));
+      assert.equal(await page.getByRole('alert').count(), 0);
+      assert.equal((await state(page)).youtubeVideo, null);
+    }, { surface: 'recommendation', guest: true });
+    await scenario('recommendation-play-and-menu-do-not-overlap', async page => {
+      const play = await page.getByRole('button', { name: 'Play Mix A', exact: true }).boundingBox();
+      const menu = await page.getByRole('button', { name: 'Playlist options for Mix A' }).boundingBox();
+      assert(play && menu);
+      assert(play.width >= 44 && play.height >= 44 && menu.width >= 44 && menu.height >= 44);
+      assert(play.x + play.width <= menu.x || menu.x + menu.width <= play.x || play.y + play.height <= menu.y || menu.y + menu.height <= play.y, 'Play and menu have separate hit areas');
+      await page.getByRole('button', { name: 'Play Mix A', exact: true }).click();
+      assert.equal(await page.evaluate(() => qaPending.filter(item => item.kind === 'mixA').length), 1, 'Actual pointer reaches Play');
+    }, { surface: 'recommendation', guest: true });
     await scenario('duplicates-hydrate-once-with-date-and-total', async page => {
       await ready(page); assert.deepEqual(await order(page), ['entry-0', 'entry-1', 'entry-2', 'entry-3']);
       assert.equal(await row(page, 'entry-2').locator('[data-track-duration]').innerText(), '3:00');

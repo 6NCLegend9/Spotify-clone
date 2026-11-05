@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
 import { Play as BsPlayFill } from "lucide-react";
@@ -14,17 +14,16 @@ import { discoveryPlaylistHref } from "@/utils/discoveryPlaylist.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { toUserError } from "@/utils/userError";
 import useAccountScope from "@/hooks/useAccountScope";
-import { beginPlaybackRequest } from "@/redux/features/playerSlice";
+import usePlaybackRequest from "@/hooks/usePlaybackRequest";
 
 export default function MixCard({ mix }) {
   const scope = useAccountScope();
-  return <AccountMixCard key={`${scope.key}:${mix.id || mix.playlistId || mix.title}`} mix={mix} />;
+  return <AccountMixCard key={`${scope.key}:${mix.playlistId || mix.id}:${mix.query || mix.title}`} mix={mix} />;
 }
 
 function AccountMixCard({ mix }) {
   const dispatch = useDispatch();
-  const store = useStore();
-  const scope = useAccountScope();
+  const { begin, scope } = usePlaybackRequest();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const palette = mix.palette || {};
@@ -32,12 +31,10 @@ function AccountMixCard({ mix }) {
   const playMix = async (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    if (pending.current || !scope.isCurrentView() || (scope.status === "authenticated" && !scope.isCurrent())) return;
+    if (pending.current) return;
+    const current = begin();
+    if (!current) return;
     pending.current = true;
-    dispatch(beginPlaybackRequest());
-    const revision = store.getState().player.playbackIntentRevision;
-    const current = () => scope.isCurrentView() && (scope.status !== "authenticated" || scope.isCurrent())
-      && store.getState().player.playbackIntentRevision === revision;
     setBusy(true);
     try {
       let tracks = mix.tracks;

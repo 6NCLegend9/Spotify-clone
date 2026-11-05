@@ -29,8 +29,16 @@ import { isTrackAllowed } from "@/utils/explicitContent.mjs";
 import { formatDuration } from "@/utils/trackDuration.mjs";
 import styles from "./Search/search.module.css";
 import { uniqueSearchResults } from "@/utils/searchResults.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
+import usePlaybackRequest from "@/hooks/usePlaybackRequest";
 
 export default function YouTubeMusicResults({ query }) {
+  const scope = useAccountScope();
+  const searchParams = useSearchParams();
+  return <AccountSearchResults key={`${scope.key}:${query}:${searchParams}`} query={query} />;
+}
+
+function AccountSearchResults({ query }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -58,6 +66,8 @@ export default function YouTubeMusicResults({ query }) {
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
   const dispatch = useDispatch();
+  const { begin, scope } = usePlaybackRequest();
+  const playlistPending = useRef(false);
   const playResult = (video) => {
     const title = cleanTitle(video.title);
     const channel = cleanArtist(video.channel);
@@ -340,7 +350,10 @@ export default function YouTubeMusicResults({ query }) {
   const songsToShow = isAll ? visibleResults.slice(0, 4) : visibleResults;
 
   const playPlaylist = async (playlist) => {
-    if (loadingPlaylistId) return;
+    if (playlistPending.current) return;
+    const current = begin();
+    if (!current) return;
+    playlistPending.current = true;
     setLoadingPlaylistId(playlist.id);
     try {
       const data = await requestJson(
@@ -351,6 +364,7 @@ export default function YouTubeMusicResults({ query }) {
           fallbackMessage: "We couldn’t load this playlist. Please try again.",
         },
       );
+      if (!current()) return;
       const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
       if (tracks.length === 0) {
         toast.error("This playlist has no playable videos.");
@@ -364,13 +378,15 @@ export default function YouTubeMusicResults({ query }) {
       dispatch(startYoutubePlayback({ queue: seeded, track: seeded[0], autoExtend: false }));
       dispatch(playPause(true));
     } catch (error) {
+      if (!current()) return;
       const userError = toUserError(error, {
         title: "Playlist unavailable",
         message: "We couldn’t load this playlist. Please try again.",
       });
       toast.error(userError.message);
     } finally {
-      setLoadingPlaylistId(null);
+      playlistPending.current = false;
+      if (scope.isCurrentView()) setLoadingPlaylistId(null);
     }
   };
 
@@ -535,7 +551,7 @@ export default function YouTubeMusicResults({ query }) {
                   <button
                     type="button"
                     onClick={() => playPlaylist(album)}
-                    disabled={loadingPlaylistId === album.id}
+                    disabled={Boolean(loadingPlaylistId)}
                     aria-label={`Play playlist ${cleanTitle(album.title)}`}
                     className="play-fab absolute bottom-12 right-3 z-10 h-12 w-12 min-h-12 min-w-12 disabled:opacity-60"
                   >

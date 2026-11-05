@@ -110,7 +110,7 @@ const results = [];
     if (url.pathname === '/api/auth/session') { await sessionReady; body = {}; }
     if (url.pathname === '/api/settings') body = { authenticated: false, settings: {} };
     if (url.pathname === '/api/language') body = { authenticated: false, language: [] };
-    if (url.pathname === '/api/recommendations') { publicReads++; body = { sections: { featuredPlaylists: [] } }; }
+    if (url.pathname === '/api/recommendations') { publicReads++; body = { sections: { featuredPlaylists: [{ id: 'PL_QA_COLLECTION_1234', title: 'Guest discovery collection', channel: 'QA creator' }] } }; }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
   const sessionRequested = page.waitForRequest(request => new URL(request.url()).pathname === '/api/auth/session');
@@ -119,9 +119,15 @@ const results = [];
   await page.locator('.page .animate-shimmer').first().waitFor();
   releaseSession();
   await page.locator('.page').getByRole('link', { name: 'Log in', exact: true }).waitFor();
-  await page.getByRole('heading', { name: 'No featured playlists right now', exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Open playlist Guest discovery collection', exact: true }).waitFor();
   assert.equal(await page.locator('.page .animate-shimmer').count(), 0);
   assert.equal(publicReads, 1, 'Guest resolution makes exactly one public-library read');
+  const play = await page.getByRole('button', { name: 'Play Guest discovery collection', exact: true }).boundingBox();
+  const menu = await page.getByRole('button', { name: 'Playlist options for Guest discovery collection', exact: true }).boundingBox();
+  assert(play && menu && play.y + play.height <= menu.y, 'Actual compiled Play and menu do not overlap');
+  await page.getByRole('button', { name: 'Playlist options for Guest discovery collection' }).click();
+  await page.getByRole('menuitem', { name: 'Open playlist', exact: true }).waitFor();
+  await page.keyboard.press('Escape');
   assert.deepEqual(errors, []);
   await page.screenshot({ path: path.join(output, 'mobile-guest-library.png') });
   results.push({ device: 'mobile', scenario: 'guest-session-resolution', status: 'passed', publicReads });
