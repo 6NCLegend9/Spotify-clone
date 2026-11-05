@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 import toast from "react-hot-toast";
 import { Bell as HiOutlineBell, X as IoClose } from "lucide-react";
 
@@ -109,8 +109,8 @@ function AccountUpdatesBell({ scope }) {
     return () => { mountedRef.current = false; requestControllerRef.current.abort(); };
   }, []);
   const dispatch = useDispatch();
-  const privateSession = useSelector((state) => state.settings?.privateSession === true);
-  const browserNotifications = useSelector((state) => state.settings?.browserNotifications === true);
+  const store = useStore();
+  const loadVersionRef = useRef(0);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -130,6 +130,7 @@ function AccountUpdatesBell({ scope }) {
 
   const load = useCallback(async ({ announce = false } = {}) => {
     if (!isCurrent()) return;
+    const version = ++loadVersionRef.current;
     lastCheckRef.current = Date.now();
     try {
       const payload = await requestJson("/api/notifications", {
@@ -140,18 +141,23 @@ function AccountUpdatesBell({ scope }) {
         fallbackTitle: "Notifications unavailable",
         fallbackMessage: "Could not load your notifications.",
       });
-      if (!isCurrent()) return;
+      if (!isCurrent() || version !== loadVersionRef.current) return;
       const next = applyLocalSeen(payload, authenticated ? [] : guestSeenIds());
       const nextUnread = next.items.filter((item) => item.unread && item.type === "release");
-      if (announce && !privateSession) {
+      // Read the store at the side-effect boundary, including a preference
+      // changed before React has rendered it. An older account's settings must
+      // never opt this account into notifications while SettingsSync catches up.
+      const settings = store.getState().settings;
+      const canAnnounce = settings?.owner === scopeRef.current.owner && settings.privateSession !== true;
+      if (announce && canAnnounce) {
         const fresh = nextUnread.filter((item) => !knownUnreadRef.current.has(item.id));
         if (fresh.length === 1) {
           const item = fresh[0];
           toast(`${item.title} just dropped “${item.body}”.`);
-          if (browserNotifications && document.visibilityState !== "visible") showDesktopAlert(item);
+          if (settings.browserNotifications === true && document.visibilityState !== "visible") showDesktopAlert(item);
         } else if (fresh.length > 1) {
           toast(`${fresh.length} new songs from artists you follow.`);
-          if (browserNotifications && document.visibilityState !== "visible") {
+          if (settings.browserNotifications === true && document.visibilityState !== "visible") {
             showDesktopAlert({
               id: "release-batch",
               title: "New music on HayKasa",
@@ -167,9 +173,9 @@ function AccountUpdatesBell({ scope }) {
     } catch {
       // Playback and navigation stay available if the inbox cannot refresh.
     } finally {
-      if (isCurrent()) setLoading(false);
+      if (isCurrent() && version === loadVersionRef.current) setLoading(false);
     }
-  }, [authenticated, browserNotifications, privateSession, isCurrent]);
+  }, [authenticated, isCurrent, store]);
 
   useEffect(() => {
     if (status === "loading") return undefined;
@@ -199,6 +205,7 @@ function AccountUpdatesBell({ scope }) {
     if (!isCurrent()) return;
     const unreadIds = ids.filter(Boolean);
     if (unreadIds.length === 0) return;
+    loadVersionRef.current += 1;
     setItems((current) => current.map((item) => (
       unreadIds.includes(item.id) ? { ...item, unread: false } : item
     )));

@@ -81,6 +81,7 @@ async function setup(page, kind, mode) {
       if (name === '@/redux/features/playerSlice') return { startYoutubePlayback: payload => ({ type: 'test/play', payload }) };
       if (name === 'react-redux') return {
         useDispatch: () => qaDispatch,
+        useStore: () => qaStore,
         useSelector: pick => React.useSyncExternalStore(qaStore.subscribe, () => pick(qaStore.getState())),
       };
       if (cache[name]) return cache[name].exports;
