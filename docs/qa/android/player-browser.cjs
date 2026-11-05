@@ -29,7 +29,7 @@ let browser, page;
     await pause(500);
   }
   assert(ready, "Production server starts");
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, ...(process.env.HAYKASA_BROWSER_EXECUTABLE ? { executablePath: process.env.HAYKASA_BROWSER_EXECUTABLE } : {}) });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: "block", reducedMotion: "reduce" });
   const installSyntheticPlayer = () => {
     delete Object.getPrototypeOf(navigator).serviceWorker;

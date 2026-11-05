@@ -71,6 +71,7 @@ import useWakeLock from "@/hooks/useWakeLock";
 import useKeyboardShortcuts from "@/hooks/useKeyboardShortcuts";
 import { updateSetting } from "@/redux/features/settingsSlice";
 import { authenticatedPlaybackOwner, shouldDeferYoutubeResume } from "@/utils/youtubeResumePolicy.mjs";
+import { accountStorageGeneration } from "@/utils/accountStorage.mjs";
 import { publishMediaMetadata, publishMediaPlaybackState } from "@/utils/mediaSessionCompatibility.mjs";
 import { shouldHoldPlaybackWakeLock } from "@/utils/wakeLockPolicy.mjs";
 import { hiddenYoutubeViewportStyle, HIDDEN_YOUTUBE_VIEWPORT } from "@/utils/youtubePresentationPolicy.mjs";
@@ -267,7 +268,17 @@ function YouTubePlayer() {
   const karaokeLines = useYoutubeCaptions(videoId, karaokeSurface && captionsEnabled);
   const karaokeHasLines = karaokeLines.length > 0;
   karaokeHasLinesRef.current = karaokeHasLines;
-  const autoExtendingRef = useRef(false);
+  const autoExtendingRef = useRef(null);
+  const lastExtendScopeRef = useRef(null);
+  const asyncPlaybackLifetimeRef = useRef(null);
+  useEffect(() => {
+    const lifetime = {};
+    asyncPlaybackLifetimeRef.current = lifetime;
+    return () => {
+      if (asyncPlaybackLifetimeRef.current === lifetime) asyncPlaybackLifetimeRef.current = null;
+      autoExtendingRef.current?.controller?.abort();
+    };
+  }, []);
   const lastExtendEmptyRef = useRef(false);
   const lastExtendAtRef = useRef(0);
   const extendQueueRef = useRef(async () => []);
@@ -383,6 +394,35 @@ function YouTubePlayer() {
     (isPlayingRef.current || performance.now() < trackChangeUntilRef.current
       || (waitingForProviderRef.current !== null
         && waitingForProviderRef.current === queueEntryIdentity(videoRef.current)));
+
+  // Queue-only preparation may finish while paused. Changing playback also
+  // requires the command revision captured after the initiating Play/Next.
+  const capturePlaybackScope = ({ intent = true } = {}) => {
+    const initial = store.getState();
+    const revision = initial.player.playbackIntentRevision;
+    const identity = queueEntryIdentity(videoRef.current);
+    const id = videoRef.current?.id;
+    const owner = playbackOwner;
+    const mode = queueMode;
+    const manualEnd = queueManualEnd;
+    const context = JSON.stringify(playbackContext);
+    const room = JSON.stringify([jamRef.current?.code, jamRef.current?.role, jamRef.current?.status]);
+    const privateMode = initial.settings.privateSession === true;
+    const generation = accountStorageGeneration();
+    const lifetime = asyncPlaybackLifetimeRef.current;
+    return () => {
+      const latest = store.getState();
+      const player = latest.player;
+      return Boolean(lifetime) && asyncPlaybackLifetimeRef.current === lifetime
+        && accountStorageGeneration() === generation && player.playbackOwner === owner
+        && player.youtubeVideo?.id === id && queueEntryIdentity(player.youtubeVideo) === identity
+        && player.queueMode === mode && player.queueManualEnd === manualEnd
+        && JSON.stringify(player.playbackContext) === context
+        && JSON.stringify([jamRef.current?.code, jamRef.current?.role, jamRef.current?.status]) === room
+        && (latest.settings.privateSession === true) === privateMode
+        && (!intent || player.playbackIntentRevision === revision);
+    };
+  };
 
   const isPageHidden = () =>
     typeof document !== "undefined" && document.visibilityState === "hidden";
@@ -964,6 +1004,8 @@ function YouTubePlayer() {
   };
 
   const handlePlaybackFailure = async ({ code = null, kind = "playback" } = {}) => {
+    const isCurrent = capturePlaybackScope();
+    if (!isCurrent()) return;
     if (kind !== "autoplay" && getActivePlayer()?.provider === "native") {
       const player = getActivePlayer();
       sourceSwitchRef.current = { occurrence: queueEntryIdentity(videoRef.current), position: player.getCurrentTime(), forceIframe: true };
@@ -988,8 +1030,9 @@ function YouTubePlayer() {
     const current = videoRef.current;
     const recoveryScope = youtubeRecoveryScope(current);
     if (!recoveryScope.identity || !recoveryScope.videoId) return;
-    if (failureResolveRef.current === recoveryScope.identity) return;
-    failureResolveRef.current = recoveryScope.identity;
+    if (failureResolveRef.current?.identity === recoveryScope.identity && failureResolveRef.current.isCurrent()) return;
+    const request = { identity: recoveryScope.identity, isCurrent };
+    failureResolveRef.current = request;
 
     try {
       abortCrossfade();
@@ -1047,7 +1090,7 @@ function YouTubePlayer() {
         alternateState.attempts += 1;
         alternateState.rejectedIds.add(current.id);
         const alternate = await resolveAlternateUpload(current, alternateState.rejectedIds);
-        if (!youtubeRecoveryScopeMatches(recoveryScope, videoRef.current)) return;
+        if (!isCurrent() || !youtubeRecoveryScopeMatches(recoveryScope, videoRef.current)) return;
         if (alternate?.id && isTrackAllowed(alternate, store.getState().settings.explicitContent)) {
           alternateState.rejectedIds.add(alternate.id);
           toast(`Trying another upload of “${current.title || "this song"}”.`);
@@ -1070,7 +1113,7 @@ function YouTubePlayer() {
       getActivePlayer()?.pauseVideo?.();
       stopWithError(policy.error);
     } finally {
-      if (failureResolveRef.current === recoveryScope.identity) failureResolveRef.current = null;
+      if (failureResolveRef.current === request) failureResolveRef.current = null;
     }
   };
   handlePlaybackFailureRef.current = handlePlaybackFailure;
@@ -2302,103 +2345,115 @@ function YouTubePlayer() {
   };
 
   const extendQueue = async () => {
-    if (manualEndRef.current || autoExtendingRef.current || repeatRef.current) return [];
-    if (lastExtendEmptyRef.current && Date.now() - lastExtendAtRef.current < 15000) return [];
-    autoExtendingRef.current = true;
+    if (manualEndRef.current || repeatRef.current) return [];
+    const pending = autoExtendingRef.current;
+    if (pending?.isCurrent?.()) return pending.promise;
+    const isCurrent = capturePlaybackScope({ intent: false });
+    if (!isCurrent()) return [];
+    if (lastExtendEmptyRef.current && lastExtendScopeRef.current?.()
+      && Date.now() - lastExtendAtRef.current < 15000) return [];
+    pending?.controller?.abort();
+    const request = { isCurrent, controller: new AbortController(), promise: null };
+    autoExtendingRef.current = request;
+    lastExtendScopeRef.current = isCurrent;
     lastExtendAtRef.current = Date.now();
-    try {
-      const current = videoRef.current;
-      const list = Array.isArray(queueRef.current) ? queueRef.current : [];
-      if (!current?.id) return [];
+    request.promise = (async () => {
+      try {
+        const current = videoRef.current;
+        const list = Array.isArray(queueRef.current) ? queueRef.current : [];
+        if (!current?.id) return [];
 
-      const origin = (
-        playbackContext?.type === "radio" && playbackContext?.id
-          ? list.find((item) => item?.id === playbackContext.id)
-          : null
-      ) || list[0] || current;
-      const originArtist = String(
-        origin?.radioSeedArtist
-        || radioArtistIdentity(origin)
-        || current?.radioSeedArtist
-        || radioArtistIdentity(current)
-        || "",
-      ).trim();
-      const originSeed = String(
-        origin?.seedQuery
-        || playbackContext?.name
-        || origin?.genre
-        || current?.seedQuery
-        || current?.genre
-        || "",
-      ).trim();
-      const originGenre = String(origin?.genre || current?.genre || "").trim();
-      const seeds = buildRadioDiscoveryQueries(current, {
-        originTrack: origin,
-        contextName: playbackContext?.name || originSeed,
-        limit: 4,
-      });
-      if (!seeds.length) return [];
+        const origin = (
+          playbackContext?.type === "radio" && playbackContext?.id
+            ? list.find((item) => item?.id === playbackContext.id)
+            : null
+        ) || list[0] || current;
+        const originArtist = String(
+          origin?.radioSeedArtist
+          || radioArtistIdentity(origin)
+          || current?.radioSeedArtist
+          || radioArtistIdentity(current)
+          || "",
+        ).trim();
+        const originSeed = String(
+          origin?.seedQuery
+          || playbackContext?.name
+          || origin?.genre
+          || current?.seedQuery
+          || current?.genre
+          || "",
+        ).trim();
+        const originGenre = String(origin?.genre || current?.genre || "").trim();
+        const seeds = buildRadioDiscoveryQueries(current, {
+          originTrack: origin,
+          contextName: playbackContext?.name || originSeed,
+          limit: 4,
+        });
+        if (!seeds.length) return [];
 
-      const currentIndex = queueTrackIndex(list, current);
-      const upcoming = currentIndex >= 0 ? list.slice(currentIndex + 1) : [];
-      const excludedArtists = collectRadioArtistExclusions({
-        history: playbackHistory,
-        current,
-        upcoming,
-        historyLimit: 6,
-        upcomingLimit: 8,
-      });
-      const existingIds = new Set(list.map((item) => item?.id).filter(Boolean));
+        const currentIndex = queueTrackIndex(list, current);
+        const upcoming = currentIndex >= 0 ? list.slice(currentIndex + 1) : [];
+        const excludedArtists = collectRadioArtistExclusions({
+          history: playbackHistory,
+          current,
+          upcoming,
+          historyLimit: 6,
+          upcomingLimit: 8,
+        });
+        const existingIds = new Set(list.map((item) => item?.id).filter(Boolean));
 
-      const searches = await Promise.all(
-        seeds.map((seed) => {
-          const params = new URLSearchParams({ type: "video", q: seed });
-          if (originArtist) params.set("seedArtist", originArtist);
-          return requestJson(buildYoutubeSearchUrl(params, "radio"), {
-            fallbackTitle: "Queue search is temporarily unavailable",
-            fallbackMessage: "We couldn’t find more tracks right now.",
-          }).catch(() => null);
-        }),
-      );
+        const searches = await Promise.all(
+          seeds.map((seed) => {
+            const params = new URLSearchParams({ type: "video", q: seed });
+            if (originArtist) params.set("seedArtist", originArtist);
+            return requestJson(buildYoutubeSearchUrl(params, "radio"), {
+              signal: request.controller.signal,
+              fallbackTitle: "Queue search is temporarily unavailable",
+              fallbackMessage: "We couldn’t find more tracks right now.",
+            }).catch(() => null);
+          }),
+        );
 
-      const pool = [];
-      const seenCandidates = new Set();
-      for (const data of searches) {
-        for (const item of Array.isArray(data?.results) ? data.results : []) {
-          if (!item?.id || existingIds.has(item.id) || seenCandidates.has(item.id)) continue;
-          seenCandidates.add(item.id);
-          pool.push({
-            ...item,
-            seedQuery: originSeed || item.seedQuery || current?.seedQuery || item.channel,
-            genre: originGenre || item.genre || "",
-          });
+        const pool = [];
+        const seenCandidates = new Set();
+        for (const data of searches) {
+          for (const item of Array.isArray(data?.results) ? data.results : []) {
+            if (!item?.id || existingIds.has(item.id) || seenCandidates.has(item.id)) continue;
+            seenCandidates.add(item.id);
+            pool.push({
+              ...item,
+              seedQuery: originSeed || item.seedQuery || current?.seedQuery || item.channel,
+              genre: originGenre || item.genre || "",
+            });
+          }
         }
-      }
 
-      const nextTracks = diversifyRadioTracks(pool.filter((track) => isTrackAllowed(track, store.getState().settings.explicitContent)), {
-        seedArtist: originArtist,
-        excludeArtists: excludedArtists,
-        excludeTracks: list,
-        limit: 16,
-        maxPerArtist: 1,
-        maxSeedArtist: 0,
-        artistGap: 4,
-      });
+        const nextTracks = diversifyRadioTracks(pool.filter((track) => isTrackAllowed(track, store.getState().settings.explicitContent)), {
+          seedArtist: originArtist,
+          excludeArtists: excludedArtists,
+          excludeTracks: list,
+          limit: 16,
+          maxPerArtist: 1,
+          maxSeedArtist: 0,
+          artistGap: 4,
+        });
 
-      if (manualEndRef.current || current?.id !== videoRef.current?.id) return [];
-      if (nextTracks.length > 0) {
-        dispatch(appendToQueue(nextTracks));
-        lastExtendEmptyRef.current = false;
-      } else {
-        lastExtendEmptyRef.current = true;
+        if (!isCurrent() || request.controller.signal.aborted) return [];
+        const previous = new Set(store.getState().player.youtubeQueue.map(queueEntryIdentity));
+        if (nextTracks.length > 0) dispatch(appendToQueue(nextTracks));
+        if (!isCurrent()) return [];
+        // Only normalized occurrences accepted by the reducer may be selected.
+        const accepted = store.getState().player.youtubeQueue.filter(track => !previous.has(queueEntryIdentity(track)));
+        lastExtendEmptyRef.current = accepted.length === 0;
+        return accepted;
+      } catch {
+        if (isCurrent()) lastExtendEmptyRef.current = true;
+        return [];
+      } finally {
+        if (autoExtendingRef.current === request) autoExtendingRef.current = null;
       }
-      return nextTracks;
-    } catch {
-      lastExtendEmptyRef.current = true;
-      return [];
-    } finally {
-      autoExtendingRef.current = false;
-    }
+    })();
+    return request.promise;
   };
   extendQueueRef.current = extendQueue;
 
@@ -2418,6 +2473,7 @@ function YouTubePlayer() {
       dispatch(playPause(false));
       return;
     }
+    if (!capturePlaybackScope({ intent: false })()) return false;
     const current = videoRef.current;
     if (status === "authenticated" && current?.id) {
       recordPlayEvent(current.id, completed ? "completed" : "skipped");
@@ -2428,7 +2484,9 @@ function YouTubePlayer() {
     }
     markExpectPlaying();
     dispatch(playPause(true));
-    const immediate = getNextVideo({ avoidId });
+    const isCurrent = capturePlaybackScope();
+    const selected = store.getState().player;
+    const immediate = nextQueueTrack(selected.youtubeQueue, selected.youtubeVideo, repeatRef.current, { avoidId });
     if (immediate) {
       const decision = queueAdvanceDecision(current, immediate, { avoidId });
       if (decision === "blocked") return false;
@@ -2446,9 +2504,10 @@ function YouTubePlayer() {
       dispatch(playPause(false));
       return false;
     }
-    const extras = await extendQueueRef.current();
-    const next = getNextVideo({ avoidId })
-      || extras.find((item) => item?.id && (!avoidId || item.id !== avoidId));
+    await extendQueueRef.current();
+    if (!isCurrent()) return false;
+    const latest = store.getState().player;
+    const next = nextQueueTrack(latest.youtubeQueue, latest.youtubeVideo, repeatRef.current, { avoidId });
     if (next && next.id !== avoidId) {
       dispatch(setYoutubeVideo(next));
       return true;
@@ -2468,7 +2527,7 @@ function YouTubePlayer() {
     if (!video?.id || isJamGuest || repeat || queueManualEnd) return;
     if (remainingAfterCurrent() > 2) return;
     void extendQueueRef.current();
-  }, [isJamGuest, video?.id, video?.queueEntryId, safeQueue.length, repeat, queueManualEnd]);
+  }, [isJamGuest, video?.id, video?.queueEntryId, safeQueue.length, repeat, queueManualEnd, playbackOwner, playbackContext, privateSession]);
 
   const searchForQueueTracks = async () => {
     const query = addQuery.trim();

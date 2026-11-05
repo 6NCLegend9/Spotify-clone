@@ -33,6 +33,8 @@ jobs:
       - name: Verify playlist occurrence, shuffle and queue behavior
         run: node scripts/check-playlist-playback.cjs
       - run: node docs/qa/background-playback/check.cjs
+      - name: Verify asynchronous player commands and preparation ownership
+        run: node scripts/check-player-command-order.cjs
       - run: node docs/qa/mobile-source-playback/check.cjs
       - run: node docs/qa/vercel-media/config-check.cjs
       - run: node docs/qa/playlist-duration/check.cjs
@@ -41,6 +43,12 @@ jobs:
       - name: Verify persistent Jam queue occurrences
         run: node --test scripts/check-jam-persistence.mjs
       - run: npm run check
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: player-command-order-results
+          path: artifacts/player-command-order/results.json
+          retention-days: 7
 
   backend-database-regressions:
     runs-on: ubuntu-latest
