@@ -18,14 +18,25 @@ let authenticated = true, modelMode = 'empty', playlist = null;
 function chain(value) {
  const q = { then: (ok, fail) => Promise.resolve(value).then(ok, fail) };
  for (const m of ['select', 'lean', 'session', 'sort', 'populate', 'limit']) q[m] = () => q;
+ q.lean = async () => { const doc = await value; return typeof doc?.toObject === 'function' ? doc.toObject({flattenMaps:true}) : doc; };
  return q;
 }
 const mockModel = new Proxy({}, {get: (_, key) => {
  if (key === 'db') return {transaction: async (cb) => cb({})};
+ if (key === 'populate') return async doc => doc;
  if (key === 'findById') return () => chain(modelMode === 'playlist' ? playlist : syntheticData);
  if (key === 'findOne') return () => chain(null);
  if (key === 'find') return () => chain([]);
- if (key === 'create') return async (v) => Array.isArray(v) ? v.map(x => ({...x, _id:'507f1f77bcf86cd799439013'})) : {...v,_id:'507f1f77bcf86cd799439013'};
+ if (key === 'create') return async (v) => {
+  const document = value => { const doc={...value,_id:'507f1f77bcf86cd799439013'}; doc.populate=async()=>doc; return doc; };
+  return Array.isArray(v) ? v.map(document) : document(v);
+ };
+ if (key === 'findOneAndUpdate') return (_, changes) => chain((async () => {
+  if(modelMode !== 'playlist' || !playlist) return null;
+  playlist.set(changes.$set || {});
+  for(const [field, amount] of Object.entries(changes.$inc || {})) playlist.set(field,(playlist[field] || 0)+amount);
+  await playlist.validate(); return playlist;
+ })());
  if (key === 'findByIdAndUpdate') return (_, changes) => chain({ ...syntheticData, settings: Object.fromEntries(Object.entries(changes.$set || {}).filter(([k])=>k.startsWith('settings.')).map(([k,v])=>[k.slice(9),v])) });
  if (key === 'updateOne' || key === 'deleteOne' || key === 'updateMany') return async () => ({modifiedCount:1});
  return undefined;
