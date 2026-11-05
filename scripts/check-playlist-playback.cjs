@@ -103,7 +103,7 @@ async function check(name, test) {
   await check('empty-deck station keeps its selected first occurrence when shuffle is enabled', () => {
     let before = reducer(undefined, actions.restorePlayback({ owner: 'account:A', snapshot: null }));
     before = shuffle(before, true);
-    const after = reducer(before, actions.replaceUpcomingYoutubeQueue({ tracks: songs, expectedOwner: 'account:A' }));
+    const after = reducer(before, actions.replaceUpcomingYoutubeQueue({ tracks: songs, expectedOwner: 'account:A', expectedIntentRevision: before.playbackIntentRevision }));
     assert.equal(after.youtubeVideo.id, songs[0].id);
     assert.equal(after.youtubeQueue[0].queueEntryId, after.youtubeVideo.queueEntryId);
     assert.deepEqual(contents(shuffle(after, false)), songs.map(song => song.id));

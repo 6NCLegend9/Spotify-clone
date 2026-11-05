@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector, useStore } from "react-redux";
 import { useSession } from "next-auth/react";
 import useAccountScope from "@/hooks/useAccountScope";
-import { replaceUpcomingYoutubeQueue } from "@/redux/features/playerSlice";
+import { beginPlaybackRequest, replaceUpcomingYoutubeQueue } from "@/redux/features/playerSlice";
 import { getSupabase, isSupabaseConfigured } from "@/utils/supabaseClient";
 import { blendProfiles, buildRadioQueue, spreadByOwner } from "@/utils/radioEngine.mjs";
 import { isJamCode } from "@/utils/jam.mjs";
@@ -146,10 +146,15 @@ export default function useCrowdRadio({ code, role, status, enabled = true }) {
       setError({ scope: roomScope, message: "Nobody in the room has shared any taste yet." });
       return;
     }
+    // An idle Build requests playback. A refresh for an existing track only
+    // replaces upcoming songs, so a later Pause must not discard that refresh.
+    if (!player.youtubeVideo?.id) dispatch(beginPlaybackRequest());
+    const expectedIntentRevision = store.getState().player.playbackIntentRevision;
     const request = { scope };
     pending.current = request;
     const isCurrent = () => pending.current === request
-      && requestScope.current === scope && accountScope.isCurrent();
+      && requestScope.current === scope && accountScope.isCurrent()
+      && (player.youtubeVideo?.id || store.getState().player.playbackIntentRevision === expectedIntentRevision);
     setBusy(scope);
     setError(null);
     try {
@@ -177,6 +182,7 @@ export default function useCrowdRadio({ code, role, status, enabled = true }) {
         tracks: fair,
         expectedCurrent: player.youtubeVideo,
         expectedOwner: player.playbackOwner,
+        expectedIntentRevision,
       }));
       // The reducer can reject a newer selection before this hook re-renders.
       if (store.getState().player !== before) setStation({ scope: roomScope, tracks: fair, owners: blended });

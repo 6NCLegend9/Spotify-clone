@@ -27,6 +27,7 @@ function include(file) {
 }
 const entries = {
   hook: include(path.join(root, 'src/hooks/useCrowdRadio.js')),
+  request: include(path.join(root, 'src/hooks/usePlaybackRequest.js')),
   player: include(path.join(root, 'src/redux/features/playerSlice.js')),
   boundary: include(path.join(root, 'src/components/AccountPrivacyBoundary.jsx')),
   storage: include(path.join(root, 'src/utils/accountStorage.mjs')),
@@ -91,7 +92,7 @@ async function setup(page, empty = false) {
       new Function('module', 'exports', 'require', source.code)(loaded, loaded.exports, spec => require(source.dependencies[spec]));
       return loaded.exports;
     }
-    const player = require(entries.player), useCrowd = require(entries.hook).default, Boundary = require(entries.boundary).default;
+    const player = require(entries.player), useCrowd = require(entries.hook).default, usePlaybackRequest = require(entries.request).default, Boundary = require(entries.boundary).default;
     window.qaStorage = require(entries.storage); window.qaQueue = require(entries.queue); window.qaActions = player;
     store = RTK.configureStore({ reducer: { player: player.default }, middleware: [] }); window.qaStore = store;
     const dispatch = store.dispatch;
@@ -100,6 +101,7 @@ async function setup(page, empty = false) {
     if (!empty) store.dispatch(player.startYoutubePlayback({ track: songs[0], queue: [songs[0], songs[3]], index: 0, queueMode: 'collection' }));
     function App() {
       const crowd = useCrowd(qaRoom); window.qaCrowd = crowd;
+      window.qaPlayRequest = usePlaybackRequest();
       return React.createElement('button', { onClick: () => void crowd.buildStation(), disabled: crowd.busy }, 'Build');
     }
     const host = ReactDOM.createRoot(document.getElementById('root'));
@@ -177,6 +179,20 @@ async function browserCheck(name, run, empty = false) {
     assert.equal(new Set(after.youtubeQueue.map(track => track.queueEntryId)).size, after.youtubeQueue.length);
     const advanced = reducer(after, actions.setYoutubeVideo(after.youtubeQueue[2]));
     assert.deepEqual(advanced.userQueue, []); assert.equal(advanced.history.at(-1).id, songs[1].id);
+  });
+  await check('idle station response cannot override a newer Pause', () => {
+    const before = reducer(undefined, actions.restorePlayback({ owner: 'account:A', snapshot: null }));
+    const paused = reducer(before, actions.playPause(false));
+    const after = reducer(paused, actions.replaceUpcomingYoutubeQueue({ tracks: [songs[1]], expectedCurrent: null,
+      expectedOwner: before.playbackOwner, expectedIntentRevision: before.playbackIntentRevision }));
+    assert.strictEqual(after, paused);
+  });
+  await check('idle station auto-start requires a current intent ticket', () => {
+    const before = reducer(undefined, actions.restorePlayback({ owner: 'account:A', snapshot: null }));
+    const payload = { tracks: [songs[1]], expectedCurrent: null, expectedOwner: before.playbackOwner };
+    assert.strictEqual(reducer(before, actions.replaceUpcomingYoutubeQueue(payload)), before);
+    const after = reducer(before, actions.replaceUpcomingYoutubeQueue({ ...payload, expectedIntentRevision: before.playbackIntentRevision }));
+    assert.equal(after.youtubeVideo.id, songs[1].id); assert.equal(after.isPlaying, true);
   });
   for (const change of ['track', 'occurrence', 'owner', 'empty-to-active']) await check(`authoritative station action rejects stale ${change}`, () => {
     const before = change === 'empty-to-active'
@@ -265,6 +281,36 @@ async function browserCheck(name, run, empty = false) {
         const state = qaStore.getState().player;
         return [state.youtubeVideo.id, state.youtubeVideo.queueEntryId === state.youtubeQueue[0].queueEntryId, state.isPlaying, qaCommands.filter(command => command.type === 'player/replaceUpcomingYoutubeQueue').length];
       }), [songs[1].id, true, true, 1]);
+    }, true);
+    await browserCheck('current-track Crowd refresh preserves a newer pending collection Play', async page => {
+      await page.getByRole('button', { name: 'Build' }).click(); await page.waitForFunction(() => qaPending.length === 1);
+      await page.evaluate(async () => {
+        window.qaTicket = qaPlayRequest.begin();
+        qaResolve(); await qaSettled();
+      });
+      assert.equal(await page.evaluate(() => qaTicket()), true);
+      await page.evaluate(() => {
+        if (qaTicket()) qaStore.dispatch(qaActions.startYoutubePlayback({ queue: [{ id: 'xxxxxxxxxxx', title: 'New collection' }], track: { id: 'xxxxxxxxxxx', title: 'New collection' }, queueMode: 'collection' }));
+      });
+      assert.equal(await page.evaluate(() => qaStore.getState().player.youtubeVideo.id), songs[3].id);
+    });
+    for (const holdRender of [false, true]) await browserCheck(`idle Crowd response respects Pause${holdRender ? ' before render' : ''}`, async page => {
+      await page.getByRole('button', { name: 'Build' }).click(); await page.waitForFunction(() => qaPending.length === 1);
+      await page.evaluate(async holdRender => {
+        qaHoldNotifications = holdRender;
+        qaStore.dispatch(qaActions.playPause(false));
+        window.qaUnchanged = qaStore.getState().player;
+        qaResolve(); await qaSettled();
+      }, holdRender);
+      assert.deepEqual(await page.evaluate(() => [qaStore.getState().player === qaUnchanged, qaCrowd.station.length, qaCrowd.busy]), [true, 0, false]);
+    }, true);
+    await browserCheck('idle Crowd response yields to a newer Play still loading', async page => {
+      await page.getByRole('button', { name: 'Build' }).click(); await page.waitForFunction(() => qaPending.length === 1);
+      await page.evaluate(async () => {
+        qaStore.dispatch(qaActions.beginPlaybackRequest());
+        window.qaUnchanged = qaStore.getState().player; qaResolve(); await qaSettled();
+      });
+      assert.deepEqual(await page.evaluate(() => [qaStore.getState().player === qaUnchanged, qaCrowd.station.length, qaCrowd.busy]), [true, 0, false]);
     }, true);
     for (const change of ['track', 'occurrence', 'room', 'role', 'disconnect', 'account', 'logout', 'privacy-clear', 'owner-before-render', 'track-before-render', 'empty-to-active-before-render']) {
       await browserCheck(`pending Crowd result cannot overwrite ${change}`, async page => {

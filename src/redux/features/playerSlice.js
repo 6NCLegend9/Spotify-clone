@@ -438,7 +438,7 @@ const playerSlice = createSlice({
     },
 
     replaceUpcomingYoutubeQueue: (state, action) => {
-      const { tracks, expectedCurrent, expectedOwner } = action.payload || {};
+      const { tracks, expectedCurrent, expectedOwner, expectedIntentRevision } = action.payload || {};
       const current = state.youtubeVideo;
       if (typeof expectedOwner !== 'string' || state.playbackOwner !== expectedOwner) return;
       // Async station results must not take over a newer selection, including
@@ -446,13 +446,13 @@ const playerSlice = createSlice({
       if (expectedCurrent?.id) {
         if (current?.id !== expectedCurrent.id
           || (current.queueEntryId || null) !== (expectedCurrent.queueEntryId || null)) return;
-      } else if (current?.id || state.activeSong?.id) return;
+      } else if (current?.id || state.activeSong?.id
+        || expectedIntentRevision !== state.playbackIntentRevision) return;
 
       const upcoming = (Array.isArray(tracks) ? tracks : [])
         .map((track) => nextQueueEntry(state, { ...track, queueEntryId: null, queueSource: 'context' }))
         .filter(Boolean);
       if (!upcoming.length) return;
-      advancePlaybackIntent(state);
       const currentIndex = currentOccurrenceIndex(state.youtubeQueue, current);
       const prefix = current?.id
         ? currentIndex >= 0 ? state.youtubeQueue.slice(0, currentIndex + 1) : [current]
@@ -469,6 +469,7 @@ const playerSlice = createSlice({
       state.queueMode = 'collection';
       state.queueManualEnd = true;
       if (!current?.id) {
+        advancePlaybackIntent(state);
         state.youtubeVideo = upcoming[0];
         state.activeSong = {};
         state.currentSongs = [];
