@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useSession } from "next-auth/react";
 import { accountOwner } from "@/utils/accountCache.mjs";
 import { ACCOUNT_DATA_CLEARED, accountStorageGeneration, canWriteAccountCache } from "@/utils/accountStorage.mjs";
@@ -23,8 +23,10 @@ export default function useAccountScope() {
     live.current = true;
     return () => { live.current = false; };
   }, []);
-  const isCurrent = () => live.current && latest.current === key
-    && status === "authenticated" && Boolean(owner)
-    && generation === accountStorageGeneration() && canWriteAccountCache(owner);
-  return { owner, status, key, isCurrent };
+  const isCurrentView = useCallback(() => live.current && latest.current === key
+    && generation === accountStorageGeneration(), [generation, key]);
+  const isCurrent = useCallback(() => isCurrentView() && status === "authenticated"
+    && Boolean(owner) && canWriteAccountCache(owner), [isCurrentView, owner, status]);
+  return useMemo(() => ({ owner, status, key, isCurrent, isCurrentView }),
+    [isCurrent, isCurrentView, key, owner, status]);
 }

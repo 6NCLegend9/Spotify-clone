@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
 import { Play as BsPlayFill } from "lucide-react";
@@ -13,16 +13,31 @@ import { playHomeTracks } from "@/utils/playHome";
 import { discoveryPlaylistHref } from "@/utils/discoveryPlaylist.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { toUserError } from "@/utils/userError";
+import useAccountScope from "@/hooks/useAccountScope";
+import { beginPlaybackRequest } from "@/redux/features/playerSlice";
 
 export default function MixCard({ mix }) {
+  const scope = useAccountScope();
+  return <AccountMixCard key={`${scope.key}:${mix.id || mix.playlistId || mix.title}`} mix={mix} />;
+}
+
+function AccountMixCard({ mix }) {
   const dispatch = useDispatch();
+  const store = useStore();
+  const scope = useAccountScope();
+  const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const palette = mix.palette || {};
 
   const playMix = async (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    if (busy) return;
+    if (pending.current || !scope.isCurrentView() || (scope.status === "authenticated" && !scope.isCurrent())) return;
+    pending.current = true;
+    dispatch(beginPlaybackRequest());
+    const revision = store.getState().player.playbackIntentRevision;
+    const current = () => scope.isCurrentView() && (scope.status !== "authenticated" || scope.isCurrent())
+      && store.getState().player.playbackIntentRevision === revision;
     setBusy(true);
     try {
       let tracks = mix.tracks;
@@ -42,6 +57,7 @@ export default function MixCard({ mix }) {
         tracks = mix.playlistId ? data?.tracks : data?.results;
       }
 
+      if (!current()) return;
       const playable = Array.isArray(tracks) ? tracks : [];
       if (!playable.length) {
         toast.error("This playlist has no playable tracks right now.");
@@ -69,9 +85,10 @@ export default function MixCard({ mix }) {
         },
       );
     } catch (error) {
-      toast.error(toUserError(error).message);
+      if (current()) toast.error(toUserError(error).message);
     } finally {
-      setBusy(false);
+      pending.current = false;
+      if (scope.isCurrentView()) setBusy(false);
     }
   };
 

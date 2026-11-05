@@ -6,6 +6,7 @@ import {
   queueOccurrenceMatches,
   resolveQueueStartIndex,
   restoreQueueOccurrenceState,
+  reorderContextUpcoming,
 } from '../../utils/playerQueue.mjs';
 import { canonicalSongIdentity, sameRadioSongFamily } from '../../utils/songIdentity.mjs';
 import { isMusicPlaybackCandidate } from '../../utils/officialMusicSearch.mjs';
@@ -35,7 +36,17 @@ const initialState = {
   userQueue: [],
   history: [],
   queueSequence: 0,
+  shuffleEnabled: false,
+  unshuffledQueueEntryIds: [],
+  playbackIntentRevision: 0,
 };
+
+// Pending asynchronous Play requests yield to newer playback commands from any
+// control (including OS/native controls). Position ticks and provider replacement
+// metadata do not invalidate them. This is transient, never restored from disk.
+function advancePlaybackIntent(state) {
+  state.playbackIntentRevision = (state.playbackIntentRevision || 0) + 1;
+}
 
 function normalizeContext(value) {
   if (!value || typeof value !== 'object') return null;
@@ -205,6 +216,7 @@ const playerSlice = createSlice({
   name: 'player',
   initialState,
   reducers: {
+    beginPlaybackRequest: advancePlaybackIntent,
     restorePlayback: (state, action) => {
       // A Play tap before the first session check wins over an older guest snapshot.
       if (action.payload?.owner === 'guest' && state.playbackOwner === null
@@ -241,6 +253,7 @@ const playerSlice = createSlice({
         queueManualEnd: snapshot.queueManualEnd,
         playbackOwner: action.payload?.owner || null,
         restorePosition: youtubeVideo ? snapshot.position : null,
+        playbackIntentRevision: (state.playbackIntentRevision || 0) + 1,
       };
     },
 
@@ -252,12 +265,14 @@ const playerSlice = createSlice({
     },
 
     setActiveSong: (state, action) => {
+      advancePlaybackIntent(state);
       state.queueUndo = null;
       state.position = 0;
       state.restorePosition = null;
       state.youtubeVideo = null;
       state.youtubeQueue = [];
       state.userQueue = [];
+      state.unshuffledQueueEntryIds = [];
       state.playbackContext = null;
       state.queueMode = 'collection';
       syncLegacyQueueMode(state);
@@ -270,6 +285,7 @@ const playerSlice = createSlice({
 
     nextSong: (state, action) => {
       if (state.currentSongs.length > 0) {
+        advancePlaybackIntent(state);
         state.activeSong = decodeTrackFields(state.currentSongs[action.payload]);
         state.currentIndex = action.payload;
         state.isActive = true;
@@ -279,6 +295,7 @@ const playerSlice = createSlice({
 
     prevSong: (state, action) => {
       if (state.currentSongs.length > 0) {
+        advancePlaybackIntent(state);
         state.activeSong = decodeTrackFields(state.currentSongs[action.payload]);
         state.currentIndex = action.payload;
         state.isActive = true;
@@ -286,8 +303,12 @@ const playerSlice = createSlice({
       }
     },
 
-    playPause: (state, action) => {
-      state.isPlaying = action.payload;
+    playPause: {
+      prepare: (playing, { intent = true } = {}) => ({ payload: playing, meta: { intent } }),
+      reducer: (state, action) => {
+        if (action.meta?.intent !== false) advancePlaybackIntent(state);
+        state.isPlaying = action.payload;
+      },
     },
 
     setYoutubeVideo: (state, action) => {
@@ -296,6 +317,7 @@ const playerSlice = createSlice({
       state.restorePosition = null;
       let nextVideo = decodePlayableYoutubeTrack(action.payload);
       if (!nextVideo?.id) return;
+      advancePlaybackIntent(state);
 
       if (nextVideo?.id && state.youtubeVideo?.id && state.queueMode === 'radio'
         && !state.youtubeQueue.some((item) => item?.id === nextVideo.id)
@@ -352,6 +374,7 @@ const playerSlice = createSlice({
         state,
         {
           ...replacementTrack,
+          ...(current.playlistEntryId ? { playlistEntryId: current.playlistEntryId } : {}),
           queueEntryId: current.queueEntryId || occurrence.queueEntryId,
           queueSource: current.queueSource || occurrence.queueSource || 'context',
         },
@@ -381,6 +404,7 @@ const playerSlice = createSlice({
     playPreviousFromHistory: (state) => {
       const previous = state.history.pop();
       if (!previous?.id) return;
+      advancePlaybackIntent(state);
 
       state.queueUndo = null;
       state.position = 0;
@@ -407,6 +431,7 @@ const playerSlice = createSlice({
       if (!sameMembership) {
         state.queueMode = 'collection';
         state.queueManualEnd = true;
+        state.unshuffledQueueEntryIds = nextQueue.map((track) => track.queueEntryId || track.id);
       }
       state.youtubeQueue = nextQueue;
       syncUserQueue(state);
@@ -427,12 +452,20 @@ const playerSlice = createSlice({
         .map((track) => nextQueueEntry(state, { ...track, queueEntryId: null, queueSource: 'context' }))
         .filter(Boolean);
       if (!upcoming.length) return;
+      advancePlaybackIntent(state);
       const currentIndex = currentOccurrenceIndex(state.youtubeQueue, current);
       const prefix = current?.id
         ? currentIndex >= 0 ? state.youtubeQueue.slice(0, currentIndex + 1) : [current]
         : [];
       state.queueUndo = null;
       state.youtubeQueue = [...prefix, ...upcoming];
+      state.unshuffledQueueEntryIds = state.youtubeQueue.map((track) => track.queueEntryId || track.id);
+      if (state.shuffleEnabled) {
+        state.youtubeQueue = reorderContextUpcoming(state.youtubeQueue, current?.id ? current : upcoming[0], {
+          enabled: true,
+          seed: action.payload?.shuffleSeed,
+        });
+      }
       state.queueMode = 'collection';
       state.queueManualEnd = true;
       if (!current?.id) {
@@ -448,7 +481,9 @@ const playerSlice = createSlice({
       syncUserQueue(state);
     },
 
-    startYoutubePlayback: (state, action) => {
+    startYoutubePlayback: {
+      prepare: (payload) => ({ payload: { ...payload, shuffleSeed: Math.random() } }),
+      reducer: (state, action) => {
       const requestedMode = action.payload?.queueMode;
       const queueMode = requestedMode === 'collection'
         ? 'collection'
@@ -494,12 +529,20 @@ const playerSlice = createSlice({
       }
       if (!track) return;
 
+      advancePlaybackIntent(state);
       state.queueUndo = null;
       state.queueMode = queueMode;
       state.queueManualEnd = !autoExtend;
       state.playbackContext = normalizeContext(action.payload?.context)
         || (queueMode === 'radio' ? radioOriginContext(rawTrack) : null);
       state.userQueue = [];
+      state.unshuffledQueueEntryIds = queue.map((item) => item.queueEntryId || item.id);
+      if (state.shuffleEnabled) {
+        // A fresh launch has no played prefix: shuffle every other occurrence,
+        // including songs preceding an explicitly selected middle row.
+        queue = reorderContextUpcoming([track, ...queue.filter(item => !sameOccurrence(item, track))], track,
+          { enabled: true, seed: action.payload.shuffleSeed });
+      }
       state.youtubeQueue = queue;
       state.youtubeVideo = track;
       state.activeSong = {};
@@ -510,6 +553,27 @@ const playerSlice = createSlice({
       state.position = 0;
       state.restorePosition = null;
       state.history = [];
+      syncUserQueue(state);
+      },
+    },
+
+    setQueueShuffle: {
+      prepare: (enabled) => ({ payload: { enabled: enabled === true, seed: Math.random() } }),
+      reducer: (state, action) => {
+        const enabled = action.payload?.enabled === true;
+        if (state.shuffleEnabled === enabled) return;
+        state.queueUndo = null;
+        if (enabled) {
+          state.unshuffledQueueEntryIds = state.youtubeQueue.map((track) => track.queueEntryId || track.id);
+        }
+        state.shuffleEnabled = enabled;
+        state.youtubeQueue = reorderContextUpcoming(state.youtubeQueue, state.youtubeVideo, {
+          enabled,
+          originalIdentities: state.unshuffledQueueEntryIds,
+          seed: action.payload?.seed,
+        });
+        syncUserQueue(state);
+      },
     },
 
     editQueue: (state, action) => {
@@ -554,7 +618,12 @@ const playerSlice = createSlice({
       const track = nextQueueEntry(state, action.payload, 'user');
       if (!track?.id) return;
       state.queueUndo = null;
-      state.youtubeQueue.push(track);
+      const currentIndex = currentOccurrenceIndex(state.youtubeQueue, state.youtubeVideo);
+      const boundary = currentIndex < 0 ? 0 : currentIndex + 1;
+      const upcoming = state.youtubeQueue.slice(boundary);
+      const pendingUsers = upcoming.filter((item) => item.queueSource === 'user');
+      const pendingContext = upcoming.filter((item) => item.queueSource !== 'user');
+      state.youtubeQueue = [...state.youtubeQueue.slice(0, boundary), ...pendingUsers, track, ...pendingContext];
       syncUserQueue(state);
     },
 
@@ -629,6 +698,7 @@ const playerSlice = createSlice({
 });
 
 export const {
+  beginPlaybackRequest,
   restorePlayback,
   setPlaybackPosition,
   setActiveSong,
@@ -641,6 +711,7 @@ export const {
   setYoutubeQueue,
   replaceUpcomingYoutubeQueue,
   startYoutubePlayback,
+  setQueueShuffle,
   editQueue,
   undoQueueEdit,
   expireQueueUndo,

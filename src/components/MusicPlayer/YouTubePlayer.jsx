@@ -22,8 +22,6 @@ import {
   queueEntryIdentity,
   queueOccurrenceMatches,
   queueTrackIndex,
-  restoreQueueOrder,
-  shuffleUpcoming,
 } from "@/utils/playerQueue.mjs";
 import { useDispatch, useSelector, useStore } from "react-redux";
 import { useSession } from "next-auth/react";
@@ -33,7 +31,7 @@ import {
   playPreviousFromHistory,
   setYoutubeVideo,
   replaceCurrentYoutubeTrack,
-  setYoutubeQueue,
+  setQueueShuffle,
   addToQueue,
   appendToQueue,
   setPlaybackPosition,
@@ -145,17 +143,15 @@ const recordPlayEvent = (id, event) => {
 function YouTubePlayer() {
   const dispatch = useDispatch();
   const store = useStore();
-  const [shuffle, setShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState("off");
   const repeat = repeatMode !== "off";
   const repeatModeRef = useRef(repeatMode);
   repeatModeRef.current = repeatMode;
   const repeatRef = useRef(false);
-  const unshuffledRef = useRef([]);
   repeatRef.current = repeat;
   const { data: session, status } = useSession();
   const jam = useJam();
-  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner, queueUndo, queueManualEnd, queueMode, playbackContext, history: playbackHistory } = useSelector(
+  const { youtubeVideo: rawVideo, youtubeQueue: rawQueue, isPlaying, restorePosition, playbackOwner, queueUndo, queueManualEnd, queueMode, playbackContext, shuffleEnabled: shuffle, history: playbackHistory } = useSelector(
     (state) => state.player,
   );
   const backgroundAccountRef = useRef(false);
@@ -982,7 +978,7 @@ function YouTubePlayer() {
       userPausedRef.current = true;
       trackChangeUntilRef.current = 0;
       setPlayerError(error);
-      dispatch(playPause(false));
+      dispatch(playPause(false, { intent: false }));
     };
     // Jam guests follow the host's queue, so they surface the error instead of swapping tracks.
     if (isJamGuestRef.current || kind === "autoplay") {
@@ -1033,7 +1029,7 @@ function YouTubePlayer() {
         };
         setPlayerError(null);
         markExpectPlaying();
-        dispatch(playPause(true));
+        dispatch(playPause(true, { intent: false }));
         const player = getActivePlayer();
         const resumeAt = Math.max(0, player?.getCurrentTime?.() || 0);
         if (player?.loadVideoById) {
@@ -1271,7 +1267,7 @@ function YouTubePlayer() {
           if (event.target.androidNative && event.data === MEDIA_PLAYER_STATES.PAUSED) {
             userPausedRef.current = true;
             clearActiveBufferTimers();
-            dispatch(playPause(false));
+            dispatch(playPause(false, { intent: false }));
             return;
           }
           if (event.data === MEDIA_PLAYER_STATES.PLAYING) {
@@ -1282,7 +1278,7 @@ function YouTubePlayer() {
               return;
             }
             userPausedRef.current = false;
-            dispatch(playPause(true));
+            dispatch(playPause(true, { intent: Boolean(event.target.androidNative && !event.target.orderedTransport) }));
           }
           if (
             event.data === MEDIA_PLAYER_STATES.CUED ||
@@ -1303,17 +1299,17 @@ function YouTubePlayer() {
               // Keep foreground-resume intent, but report the actual paused
               // engine state to the UI and notification controls.
               publishMediaPlaybackState(navigator.mediaSession, false);
-              dispatch(playPause(false));
+              dispatch(playPause(false, { intent: false }));
               return;
             }
             clearActiveBufferTimers();
             if (userPausedRef.current) {
-              dispatch(playPause(false));
+              dispatch(playPause(false, { intent: false }));
               return;
             }
             if (wantsPlayback()) {
               resumePlayer(event.target);
-              dispatch(playPause(true));
+              dispatch(playPause(true, { intent: false }));
               return;
             }
           }
@@ -1880,7 +1876,7 @@ function YouTubePlayer() {
     userPausedRef.current = true;
     trackChangeUntilRef.current = 0;
     setPlayerError({ kind: "provider", canRetry: true, message: "The music player could not connect to YouTube.", detail: "Check your connection and select Retry, or open this track on YouTube." });
-    dispatch(playPause(false));
+    dispatch(playPause(false, { intent: false }));
     recordDiagnostic("provider", { code: "sdk_unavailable" });
   }, [iframeApiFailed, video, isPlaying, nativeAvailable, sourceRevision, dispatch]);
 
@@ -1917,7 +1913,7 @@ function YouTubePlayer() {
       if (requestedSwitch.forceIframe && !window.YT?.Player) {
         // Waiting stops the UI; it must not turn a provider delay into a user Pause.
         waitingForProviderRef.current = wantsPlayback() ? queueEntryIdentity(video) : null;
-        dispatch(playPause(false));
+        dispatch(playPause(false, { intent: false }));
         setPlayerError({ message: "Source playback is unavailable. Waiting for the YouTube player; retry playback if it cannot load." });
         return;
       }
@@ -1927,7 +1923,7 @@ function YouTubePlayer() {
       waitingForProviderRef.current = null;
       userPausedRef.current = !shouldPlay;
       if (shouldPlay) markExpectPlaying();
-      dispatch(playPause(shouldPlay));
+      dispatch(playPause(shouldPlay, { intent: false }));
       syncPlaybackClock(requestedSwitch.position, 0);
       setPlayerError(null);
       mountDeck("A", video.id, {
@@ -2046,7 +2042,7 @@ function YouTubePlayer() {
         destroyDeck(outgoingKey);
         setPlayerError(null);
         syncPlaybackClock(idle.getCurrentTime?.(), idle.getDuration?.());
-        dispatch(playPause(true));
+        dispatch(playPause(true, { intent: false }));
         return true;
       };
 
@@ -2083,7 +2079,7 @@ function YouTubePlayer() {
     setPlayerError(null);
     syncPlaybackClock(0, 0);
     setDeliveredVideoQuality("");
-    dispatch(playPause(true));
+    dispatch(playPause(true, { intent: false }));
     const existing = getActivePlayer();
     const preferNative = nativeAvailable && supportedMediaProfile(videoVisible ? "video" : "audio") && fallbackOccurrenceRef.current !== occurrenceIdentity;
     if (existing?.loadVideoById && (existing.provider === "native" || !preferNative)) {
@@ -2629,7 +2625,7 @@ function YouTubePlayer() {
       scheduleVolumeRestore();
       if (shouldResume && !getActivePlayer()?.orderedTransport) {
         resumePlayer(getActivePlayer());
-        dispatch(playPause(true));
+        dispatch(playPause(true, { intent: false }));
       }
     };
     const markHidden = () => {
@@ -3074,13 +3070,7 @@ function YouTubePlayer() {
 
   const toggleShuffle = () => {
     if (isJamGuest) return;
-    if (!shuffle) {
-      unshuffledRef.current = safeQueue.map(queueEntryIdentity);
-      dispatch(setYoutubeQueue(shuffleUpcoming(safeQueue, queueEntryIdentity(video))));
-    } else {
-      dispatch(setYoutubeQueue(restoreQueueOrder(safeQueue, unshuffledRef.current)));
-    }
-    setShuffle(!shuffle);
+    dispatch(setQueueShuffle(!shuffle));
   };
   const currentQueueIndex = queueTrackIndex(safeQueue, video);
   const upcoming = currentQueueIndex === -1 ? safeQueue : safeQueue.slice(currentQueueIndex + 1);
