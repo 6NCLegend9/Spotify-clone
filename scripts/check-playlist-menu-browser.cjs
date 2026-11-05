@@ -8,7 +8,7 @@ const ts = require(path.join(root, 'node_modules/typescript'));
 const output = path.resolve(process.env.HAYKASA_PLAYLIST_MENU_EVIDENCE || path.join(root, 'artifacts/playlist-menu'));
 fs.mkdirSync(output, { recursive: true });
 const sources = {};
-const stubs = new Set(['react', 'react-dom', 'next/navigation', 'next-auth/react', 'next/link', 'react-redux', 'react-hot-toast', 'lucide-react', '@/services/playlistApi', '@/redux/features/playerSlice']);
+const stubs = new Set(['react', 'react-dom', 'next/navigation', 'next-auth/react', 'next/link', 'react-redux', 'react-hot-toast', 'lucide-react', '@/services/playlistApi', '@/redux/features/playerSlice', '@/redux/features/loadingBarSlice', '../Layout/AppShell']);
 function include(file) {
   const key = path.relative(root, file).replaceAll(path.sep, '/');
   if (sources[key]) return key;
@@ -39,9 +39,10 @@ async function setup(page, kind, mode = 'normal') {
   await page.addScriptTag({ path: path.join(root, 'node_modules/react-dom/umd/react-dom.development.js') });
   await page.evaluate(({ sources, entries, kind, mode }) => {
     window.qaSession = { data: { user: { id: 'A' } }, status: 'authenticated' };
-    window.qaFetchCalls = []; window.qaAddCalls = []; window.qaToasts = []; window.qaPendingLists = []; window.qaPendingAdds = [];
+    window.qaFetchCalls = []; window.qaAddCalls = []; window.qaAddRequests = []; window.qaToasts = []; window.qaEvents = []; window.qaPendingLists = []; window.qaPendingAdds = []; window.qaAddMode = "normal"; window.qaCreated = []; window.qaMoves = []; window.qaTrack = { id: "abcdefghijk", title: "QA track", duration: 180 }; window.qaMenuProps = {};
+    window.addEventListener("heykasa:playlists-changed", event => qaEvents.push(event.detail));
     window.qaHoldLists = mode === 'loading'; window.qaHoldAdds = false; window.qaListMode = mode;
-    const list = owner => [1, 2, 3].map(index => ({ _id: `${owner}-${index}`, name: `${owner} private playlist ${index}` }));
+    const list = owner => [...[1, 2, 3].map(index => ({ _id: `${owner}-${index}`, name: `${owner} private playlist ${index}` })), ...qaCreated.filter(item => item.owner === owner)];
     const response = owner => ['error', 'unauthorized'].includes(qaListMode) ? { success: false, code: qaListMode === 'unauthorized' ? 'UNAUTHORIZED' : 'UNKNOWN' } : { success: true, data: { playlists: qaListMode === 'empty' ? [] : list(owner) } };
     const toast = message => qaToasts.push(String(message)); toast.error = toast; toast.success = toast;
     const cache = {};
@@ -54,15 +55,28 @@ async function setup(page, kind, mode = 'normal') {
       if (name === 'react-redux') return { useDispatch: () => () => {}, useSelector: pick => pick({ player: { youtubeVideo: { id: 'abcdefghijk' } } }) };
       if (name === 'react-hot-toast') return { toast };
       if (name === 'lucide-react') return new Proxy({}, { get: () => props => React.createElement('svg', { ...props, width: '1em', height: '1em' }) });
+      if (name === '../Layout/AppShell') return { useNav: () => ({ setShowNav() {} }) };
+      if (name === '@/redux/features/loadingBarSlice') return { setIsTyping: value => value };
       if (name === '@/redux/features/playerSlice') return { addToQueue() {}, playNextToQueue() {}, startYoutubePlayback() {} };
       if (name === '@/services/playlistApi') return {
         getUserPlaylists: () => {
           const owner = qaSession.data?.user?.id || 'guest'; qaFetchCalls.push(owner);
           return qaHoldLists ? new Promise(resolve => qaPendingLists.push({ owner, resolve })) : Promise.resolve(response(owner));
         },
-        addSongToPlaylist: id => {
+        addSongToPlaylist: (id, song, duration, options) => {
           const owner = qaSession.data?.user?.id || 'guest'; qaAddCalls.push({ owner, id });
-          return qaHoldAdds ? new Promise(resolve => qaPendingAdds.push({ owner, resolve })) : Promise.resolve({ success: true });
+          qaAddRequests.push({ owner, id, song, duration, options });
+          const playlist = [...list(owner), ...qaCreated].find(item => item._id === id);
+          const result = qaAddMode === 'duplicate' && !options.allowDuplicate
+            ? { success: true, duplicate: true, added: false, data: { playlist } }
+            : qaAddMode === 'error' ? { success: false, code: 'NETWORK_ERROR' }
+              : { success: true, added: true, data: { playlist: { ...playlist, songs: [song] } } };
+          return qaHoldAdds ? new Promise(resolve => qaPendingAdds.push({ owner, resolve, result })) : Promise.resolve(result);
+        },
+        createPlaylist: name => {
+          const owner = qaSession.data?.user?.id || 'guest';
+          const playlist = { owner, _id: `created-${qaCreated.length}`, name, songs: [] };
+          qaCreated.push(playlist); return Promise.resolve({ success: true, data: { playlist } });
         },
       };
       if (cache[name]) return cache[name].exports;
@@ -77,11 +91,12 @@ async function setup(page, kind, mode = 'normal') {
     const render = () => ReactDOM.flushSync(() => host.render(React.createElement(React.Fragment, null,
       React.createElement(Boundary), React.createElement('div', { id: 'fixture' },
         React.createElement('button', { id: 'before' }, 'Before'),
-        React.createElement(Component, { track: { id: 'abcdefghijk', title: 'QA track', duration: 180 } }),
+        React.createElement(Component, { track: qaTrack, ...qaMenuProps }),
         React.createElement('button', { id: 'after' }, 'After')))));
+    window.qaRerender = render;
     window.qaSetOwner = owner => { qaSession = owner ? { data: { user: { id: owner } }, status: 'authenticated' } : { data: null, status: 'unauthenticated' }; render(); };
     window.qaResolveLists = owner => { for (const pending of qaPendingLists.splice(0)) { if (pending.owner === owner) pending.resolve(response(owner)); else qaPendingLists.push(pending); } };
-    window.qaResolveAdds = owner => { for (const pending of qaPendingAdds.splice(0)) { if (pending.owner === owner) pending.resolve({ success: true }); else qaPendingAdds.push(pending); } };
+    window.qaResolveAdds = owner => { for (const pending of qaPendingAdds.splice(0)) { if (pending.owner === owner) pending.resolve(pending.result); else qaPendingAdds.push(pending); } };
     render();
   }, { sources, entries, kind, mode });
   await page.waitForFunction(() => qaStorage.getActiveAccountOwner() === 'account:A');
@@ -169,11 +184,117 @@ async function scenario(name, kind, mode, run, viewport = { width: 1440, height:
         assert.deepEqual(await page.evaluate(() => qaAddCalls), [{ owner: 'A', id: 'A-1' }, { owner: 'B', id: 'B-1' }]);
       });
     }
+    for (const kind of ['add', 'track']) {
+      await scenario(kind + '-duplicate-confirm-and-cancel', kind, 'normal', async page => {
+        await page.evaluate(() => { qaAddMode = 'duplicate'; });
+        await open(page, kind);
+        await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Already in playlist', exact: true }).waitFor();
+        assert.equal(await page.getByRole('menu').count(), 0);
+        assert.deepEqual(await page.evaluate(() => qaToasts), [], 'A duplicate no-op is not an add success');
+        await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        assert.equal(await trigger(page, kind).evaluate(node => node === document.activeElement), true, 'Cancel restores the original menu trigger');
+        assert.equal(await page.evaluate(() => qaAddRequests.length), 1);
+        await open(page, kind); await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Already in playlist', exact: true }).waitFor();
+        await page.getByRole('button', { name: 'Add another copy', exact: true }).click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        const requests = await page.evaluate(() => qaAddRequests);
+        assert.equal(requests.length, 3);
+        assert.equal(requests[1].options.requestId, requests[2].options.requestId, 'Confirmation preserves one add intent');
+        assert.equal(requests[1].options.allowDuplicate, false);
+        assert.equal(requests[2].options.allowDuplicate, true);
+        assert.equal(await page.evaluate(() => qaEvents.length), 1);
+        assert.deepEqual(await page.evaluate(() => qaToasts), ['Added to A private playlist 1']);
+      });
+      await scenario(kind + '-uncertain-add-retry-id', kind, 'normal', async page => {
+        await page.evaluate(() => { qaAddMode = 'error'; }); await open(page, kind);
+        await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).click();
+        await page.waitForFunction(() => qaToasts.length === 1);
+        await page.evaluate(() => { qaAddMode = 'normal'; });
+        await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).click();
+        await page.getByRole('menu').waitFor({ state: 'detached' });
+        const requests = await page.evaluate(() => qaAddRequests);
+        assert.equal(requests[0].options.requestId, requests[1].options.requestId);
+        assert.equal(await page.evaluate(() => qaEvents.length), 1);
+      });
+      await scenario(kind + '-duplicate-account-clear', kind, 'normal', async page => {
+        await page.evaluate(() => { qaAddMode = 'duplicate'; }); await open(page, kind);
+        await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Already in playlist', exact: true }).waitFor();
+        await page.evaluate(() => qaSetOwner('B'));
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        assert.equal(await page.locator('body').innerText().then(text => text.includes('A private')), false);
+        assert.equal(await page.evaluate(() => qaAddRequests.length), 1);
+        assert.deepEqual(await page.evaluate(() => qaEvents), []);
+      });
+      await scenario(kind + '-create-and-add', kind, 'normal', async page => {
+        await open(page, kind); await page.getByRole('menuitem', { name: 'Create playlist', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Create playlist', exact: true }).waitFor();
+        await page.getByLabel('Name', { exact: true }).fill('New mix');
+        await page.getByRole('button', { name: 'Create', exact: true }).click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        await page.waitForFunction(() => qaAddRequests.length === 1);
+        assert.equal(await page.evaluate(() => qaAddRequests[0].id), 'created-0');
+        assert.equal(await page.evaluate(() => qaEvents.length), 2, 'Creation and addition publish their own canonical updates');
+      });
+    }
+    for (const kind of ['add', 'track']) {
+      await scenario(kind + '-created-playlist-add-failure-retry', kind, 'normal', async page => {
+        await page.evaluate(() => { qaAddMode = 'error'; });
+        await open(page, kind); await page.getByRole('menuitem', { name: 'Create playlist', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Create playlist', exact: true }).waitFor();
+        await page.getByLabel('Name', { exact: true }).fill('Retry mix');
+        await page.getByRole('button', { name: 'Create', exact: true }).click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        await page.waitForFunction(() => qaAddRequests.length === 1 && qaToasts.length === 2);
+        assert.equal(await page.evaluate(() => qaCreated.length), 1, 'A failed add does not erase the successful creation');
+        assert.equal(await page.evaluate(() => qaEvents.length), 1);
+        await page.evaluate(() => { qaAddMode = 'normal'; });
+        await open(page, kind); await page.getByRole('menuitem', { name: 'Retry mix', exact: true }).click();
+        await page.getByRole('menu').waitFor({ state: 'detached' });
+        const requests = await page.evaluate(() => qaAddRequests);
+        assert.equal(requests.length, 2);
+        assert.equal(requests[0].options.requestId, requests[1].options.requestId);
+        assert.equal(await page.evaluate(() => qaEvents.length), 2);
+      });
+      for (const [name, viewport, largeText] of [['narrow', { width: 320, height: 640 }, false], ['landscape', { width: 844, height: 390 }, false], ['large-text', { width: 320, height: 640 }, true]]) {
+        await scenario(kind + '-duplicate-layout-' + name, kind, 'normal', async page => {
+          await page.evaluate(() => { qaAddMode = 'duplicate'; qaTrack = { ...qaTrack, title: '非常に長い曲のタイトル مرحبا 🎧 '.repeat(12) }; qaRerender(); });
+          if (largeText) await page.addStyleTag({ content: 'html{font-size:32px!important}' });
+          await open(page, kind); await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).click();
+          const dialog = page.getByRole('dialog', { name: 'Already in playlist', exact: true }); await dialog.waitFor();
+          const bounds = await dialog.evaluate(node => { const r = node.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight }; });
+          assert(bounds.left >= 0 && bounds.right <= bounds.width + 1 && bounds.top >= 0 && bounds.bottom <= bounds.height + 1, JSON.stringify(bounds));
+          const confirm = page.getByRole('button', { name: 'Add another copy', exact: true });
+          await confirm.focus();
+          await confirm.evaluate(node => node.scrollIntoView({ block: 'nearest' }));
+          assert.equal(await confirm.evaluate(node => { const r = node.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && r.height >= 44; }), true, 'Confirm remains reachable with large text and long labels');
+          await page.screenshot({ path: path.join(output, kind + '-duplicate-layout-' + name + '.png') });
+          await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' });
+          assert.equal(await trigger(page, kind).evaluate(node => node === document.activeElement), true);
+        }, viewport);
+      }
+    }
+    await scenario('track-unavailable-reorder-and-remove', 'track', 'normal', async page => {
+      await page.evaluate(() => {
+        qaTrack = { ...qaTrack, unavailable: true };
+        qaMenuProps = { onMoveUp: () => qaMoves.push('up'), onMoveDown: () => qaMoves.push('down'), onRemove: () => qaMoves.push('remove') }; qaRerender();
+      });
+      await trigger(page, 'track').click();
+      assert.equal(await page.getByRole('menuitem', { name: 'Play next', exact: true }).isEnabled(), false);
+      assert.equal(await page.getByRole('menuitem', { name: 'Add to queue', exact: true }).isEnabled(), false);
+      await page.getByRole('menuitem', { name: 'Move up', exact: true }).click();
+      await trigger(page, 'track').click(); await page.getByRole('menuitem', { name: 'Move down', exact: true }).click();
+      await trigger(page, 'track').click(); await page.getByRole('menuitem', { name: 'Remove', exact: true }).click();
+      assert.deepEqual(await page.evaluate(() => qaMoves), ['up', 'down', 'remove']);
+    });
     await scenario('add-normal-keyboard', 'add', 'normal', async page => {
       await open(page, 'add', true); const first = page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }); await first.waitFor();
       assert.equal(await first.evaluate(node => node === document.activeElement), true, 'Opening the menu must move focus inside');
-      for (const [key, index] of [['ArrowDown', 2], ['ArrowUp', 1], ['End', 3], ['Home', 1]]) {
-        await page.keyboard.press(key); assert.equal(await page.getByRole('menuitem', { name: `A private playlist ${index}`, exact: true }).evaluate(node => node === document.activeElement), true, key);
+      for (const [key, index] of [['ArrowDown', 2], ['ArrowUp', 1], ['End', 'create'], ['Home', 1]]) {
+        await page.keyboard.press(key); assert.equal(await page.getByRole('menuitem', { name: index === 'create' ? 'Create playlist' : `A private playlist ${index}`, exact: true }).evaluate(node => node === document.activeElement), true, key);
       }
       await page.keyboard.press('Escape'); await page.getByRole('menu').waitFor({ state: 'detached', timeout: 3000 });
       assert.equal(await trigger(page, 'add').evaluate(node => node === document.activeElement), true);

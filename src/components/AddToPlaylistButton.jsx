@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus as FiPlus } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { addSongToPlaylist, getUserPlaylists } from "@/services/playlistApi";
+import { getUserPlaylists } from "@/services/playlistApi";
 import EmptyState from "@/components/EmptyState";
 import UserMessage from "@/components/UserMessage";
 import { toUserError } from "@/utils/userError";
@@ -14,6 +14,9 @@ import { loginPath } from "@/utils/appOrigin.mjs";
 import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
 import { getFocusableElements } from "@/hooks/useFocusTrap";
 import useAccountScope from "@/hooks/useAccountScope";
+import usePlaylistAddition from "@/hooks/usePlaylistAddition";
+import PlaylistDuplicateDialog from "@/components/PlaylistDuplicateDialog";
+import PlaylistModal from "@/components/Sidebar/PlaylistModal";
 
 const menuItemClass = "block min-h-11 w-full truncate rounded-md px-2 py-2 text-left text-sm text-white hover:bg-[var(--navy-panel)] hover:text-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50";
 
@@ -33,7 +36,13 @@ function AccountAddToPlaylistButton({ track, className = "", scope }) {
   const [playlists, setPlaylists] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
-  const [addingId, setAddingId] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const closeMenu = () => {
+    if (menuRef.current?.contains(document.activeElement)) buttonRef.current?.focus();
+    setShowMenu(false);
+  };
+  const addition = usePlaylistAddition(scope, closeMenu);
+  const { addingId } = addition;
 
   useLayoutEffect(() => {
     if (!showMenu) return undefined;
@@ -140,25 +149,7 @@ function AccountAddToPlaylistButton({ track, className = "", scope }) {
     await loadPlaylists();
   };
 
-  const handleAdd = async (playlist) => {
-    if (addingId || !playlist?._id || !track?.id || !scope.isCurrent()) return;
-    setAddingId(playlist._id);
-    const res = await addSongToPlaylist(playlist._id, track.id, track.duration);
-    if (!scope.isCurrent()) return;
-    setAddingId(null);
-    if (res?.success) toast.success(`Added to ${playlist.name || "playlist"}`);
-    else {
-      const normalized = toUserError(res);
-      toast.error((normalized.code === "UNAUTHORIZED"
-        ? normalized
-        : toUserError(res, {
-          title: "Song not added",
-          message: "We couldn’t add that song. Please try again.",
-        })).message);
-    }
-    if (menuRef.current?.contains(document.activeElement)) buttonRef.current?.focus();
-    setShowMenu(false);
-  };
+  const handleAdd = playlist => addition.add(playlist, track);
 
   return (
     <div className="relative inline-block">
@@ -212,7 +203,7 @@ function AccountAddToPlaylistButton({ track, className = "", scope }) {
               {!loading && !loadError && playlists?.length === 0 && <div role="status">
                 <EmptyState
                   title="No playlists yet"
-                  message="Create a playlist from Your Library first."
+                  message="Create a playlist to keep this song."
                 />
               </div>}
               {!loading && !loadError && playlists?.map((playlist) => (
@@ -227,10 +218,19 @@ function AccountAddToPlaylistButton({ track, className = "", scope }) {
                   {addingId === playlist._id ? "Adding…" : playlist.name || "Untitled playlist"}
                 </button>
               ))}
+              {!loading && !loadError && <button type="button" role="menuitem" disabled={Boolean(addingId)} className={menuItemClass}
+                onClick={() => { closeMenu(); setCreating(true); }}>Create playlist</button>}
             </div>
           </>,
           document.body,
         )}
+      <PlaylistDuplicateDialog addition={addition} />
+      <PlaylistModal show={creating} setShow={setCreating} navigateOnCreate={false}
+        onCreated={playlist => {
+          if (!scope.isCurrent()) return;
+          setPlaylists(current => [playlist, ...(current || [])]);
+          void handleAdd(playlist);
+        }} />
     </div>
   );
 }
