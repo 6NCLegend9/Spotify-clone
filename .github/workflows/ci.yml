@@ -30,6 +30,8 @@ jobs:
       - name: Verify unavailable databases fail closed with actionable responses
         run: node --test scripts/check-database-unavailability.mjs
       - run: node docs/qa/pr28-playlists/check.cjs
+      - name: Verify playlist occurrence, shuffle and queue behavior
+        run: node scripts/check-playlist-playback.cjs
       - run: node docs/qa/background-playback/check.cjs
       - run: node docs/qa/mobile-source-playback/check.cjs
       - run: node docs/qa/vercel-media/config-check.cjs
@@ -80,3 +82,33 @@ jobs:
         run: node --test desktop/scripts/check-discord-ipc.mjs
       - name: Verify bounded desktop policy startup and disposal
         run: node --test desktop/scripts/check-policy-deadline.mjs
+
+  playlist-database-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HAYKASA_TEST_MONGO_URI: mongodb://127.0.0.1:27018/?directConnection=true&replicaSet=haykasaqa
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify transactional playlists and concurrent mutations on an isolated replica set
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name haykasa-playlist-qa --memory=1g --cpus=1 --pids-limit=128 -p 127.0.0.1:27018:27017 mongo@sha256:8bb4442761a63a8dda452744082cdac9644b429807eb977b42324a63cef59ca4 --replSet haykasaqa --bind_ip_all --wiredTigerCacheSizeGB 0.25
+          trap 'docker logs --tail 30 haykasa-playlist-qa; docker rm -f haykasa-playlist-qa' EXIT
+          for attempt in $(seq 1 60); do
+            if docker exec haykasa-playlist-qa mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec haykasa-playlist-qa mongosh --quiet --eval 'rs.initiate({_id:"haykasaqa",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for attempt in $(seq 1 60); do
+            if docker exec haykasa-playlist-qa mongosh --quiet --eval 'quit(db.hello().isWritablePrimary ? 0 : 1)' >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec haykasa-playlist-qa mongosh --quiet --eval 'quit(db.hello().isWritablePrimary ? 0 : 1)'
+          node --test scripts/check-playlist-items.mjs

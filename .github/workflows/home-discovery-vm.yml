@@ -21,6 +21,9 @@ on:
       - 'src/components/ListeningInsights.jsx'
       - 'src/components/GenrePreferences.jsx'
       - 'src/components/UpdatesBell.jsx'
+      - 'src/app/settings/page.jsx'
+      - 'src/components/PlaylistCover.jsx'
+      - 'src/components/PullToRefresh.jsx'
       - 'src/components/LanguageSync.jsx'
       - 'src/hooks/useCrowdRadio.js'
       - 'src/redux/features/playerSlice.js'
@@ -29,6 +32,8 @@ on:
       - 'scripts/check-crowd-player.cjs'
       - 'scripts/check-settings-privacy-browser.cjs'
       - 'scripts/check-settings-scope-browser.cjs'
+      - 'scripts/check-notification-privacy-browser.cjs'
+      - 'scripts/check-playlist-adjacent-browser.cjs'
       - 'src/components/YouTubeMusicResults.jsx'
       - 'src/app/search/**'
       - 'src/utils/searchResults.mjs'
@@ -88,6 +93,10 @@ jobs:
         run: node scripts/check-settings-privacy-browser.cjs
       - name: Verify genre, notification and language account isolation
         run: node scripts/check-settings-scope-browser.cjs
+      - name: Verify current notification preferences and delayed permission isolation
+        run: node scripts/check-notification-privacy-browser.cjs
+      - name: Verify cover fallback and cancelled pull gestures
+        run: node scripts/check-playlist-adjacent-browser.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -104,4 +113,6 @@ jobs:
             artifacts/crowd-player/
             artifacts/settings-privacy/
             artifacts/settings-scope/
+            artifacts/notification-privacy/
+            artifacts/playlist-adjacent/
           retention-days: 7

@@ -8,7 +8,8 @@ const output = path.join(root, 'artifacts/playlist-duration');
 fs.mkdirSync(output, { recursive: true });
 const port = 3013, origin = `http://127.0.0.1:${port}`;
 const log = fs.createWriteStream(path.join(output, 'server.log'));
-const server = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '--hostname', '127.0.0.1', '--port', String(port)], { cwd: root, env: { ...process.env, NODE_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1', NEXTAUTH_URL: origin, NEXTAUTH_SECRET: 'isolated-playlist-browser-secret', JWT_SECRET: 'isolated-playlist-browser-secret' }, stdio: ['ignore', 'pipe', 'pipe'] });
+const production = process.env.HAYKASA_QA_PRODUCTION === '1';
+const server = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), production ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', String(port)], { cwd: root, env: { ...process.env, NODE_ENV: production ? 'production' : 'development', NEXT_TELEMETRY_DISABLED: '1', NEXTAUTH_URL: origin, NEXTAUTH_SECRET: 'isolated-playlist-browser-secret', JWT_SECRET: 'isolated-playlist-browser-secret' }, stdio: ['ignore', 'pipe', 'pipe'] });
 server.stdout.pipe(log); server.stderr.pipe(log);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 let browser;
@@ -21,7 +22,7 @@ const results = [];
     await wait(1000);
   }
   assert(ready);
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, ...(process.env.HAYKASA_BROWSER_EXECUTABLE ? { executablePath: process.env.HAYKASA_BROWSER_EXECUTABLE } : {}) });
   for (const [device, viewport] of Object.entries({ mobile: { width: 390, height: 844 }, desktop: { width: 1440, height: 1000 } })) {
     for (const scenario of ['liked-saved', 'playlist-saved', 'liked-legacy', 'liked-unknown', 'playlist-virtual']) {
       const liked = scenario.startsWith('liked');
@@ -29,6 +30,12 @@ const results = [];
       const durationMap = scenario.includes('unknown') || scenario.includes('legacy') ? {} : Object.fromEntries(ids.map(id => [id, 218]));
       const context = await browser.newContext({ viewport, isMobile: device === 'mobile', hasTouch: device === 'mobile', serviceWorkers: 'block', reducedMotion: 'reduce' });
       await context.addInitScript(({ id }) => {
+        // Playlist tests do not exercise PWA registration. Playwright's blocked
+        // register() resolves undefined, unlike a real browser registration;
+        // expose the supported no-service-worker branch instead of that shim.
+        for (let prototype = navigator; prototype; prototype = Object.getPrototypeOf(prototype)) {
+          if (Object.hasOwn(prototype, 'serviceWorker')) delete prototype.serviceWorker;
+        }
         localStorage.setItem('toturialComplete', 'true');
         sessionStorage.setItem('HayKasa-track-cache-v1', JSON.stringify({ [id]: { track: { id, title: 'Stale track', duration: 0 }, expiresAt: Date.now() + 999999 } }));
       }, { id: ids[0] });
@@ -42,6 +49,7 @@ const results = [];
         let body = { success: true, data: [] };
         if (url.pathname === '/api/auth/session') body = { user: { id: '507f1f77bcf86cd799439013', name: 'Playlist QA', email: 'qa@example.invalid' }, expires: '2099-01-01T00:00:00Z' };
         if (url.pathname === '/api/settings') body = { authenticated: true, settings: { explicitContent: false, privateSession: false } };
+        if (url.pathname === '/api/language') body = { authenticated: true, language: [] };
         if (url.pathname === '/api/favourite') body = { success: true, data: { favourites: ids, favouriteDurations: durationMap } };
         if (url.pathname === '/api/userPlaylists/songs') body = { success: true, data: { _id: '507f1f77bcf86cd799439012', name: 'QA playlist', user: { _id: '507f1f77bcf86cd799439013', userName: 'Playlist QA' }, songs: ids, songDurations: durationMap, collaborators: [] } };
         if (url.pathname === '/api/userPlaylists') body = { success: true, data: { playlists: [] } };

@@ -239,8 +239,8 @@ async function routeCall(file,method,body,url='/api/audit',origin) {
   assert.equal(networkAttempts,0);
  }
  const output=process.argv[2]||path.join(os.tmpdir(),'haykasa-security-audit.json');
- const summary={routeInventory:routeFiles.length,cases:results.length,networkAttempts,exceptions:results.filter(x=>x.error).length,http500:results.filter(x=>x.observation?.status>=500).length,results,logs};
+ const summary={routeInventory:routeFiles.length,cases:results.length,networkAttempts,exceptions:results.filter(x=>x.error).length,http500:results.filter(x=>x.observation?.status===500).length,http5xx:results.filter(x=>x.observation?.status>=500).length,serviceUnavailable:results.filter(x=>x.observation?.status===503).length,results,logs};
  fs.writeFileSync(output,JSON.stringify(summary,null,2)+'\n');
  fs.rmSync(folders,{recursive:true,force:true});
- console.log(JSON.stringify({output,routeInventory:routeFiles.length,cases:results.length,networkAttempts,exceptions:summary.exceptions,http500:summary.http500}));
+ console.log(JSON.stringify({output,routeInventory:routeFiles.length,cases:results.length,networkAttempts,exceptions:summary.exceptions,http500:summary.http500,http5xx:summary.http5xx,serviceUnavailable:summary.serviceUnavailable}));
 })().catch(e=>{console.error(e);process.exitCode=1});
