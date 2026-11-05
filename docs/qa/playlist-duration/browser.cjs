@@ -56,7 +56,7 @@ const results = [];
         if (url.pathname === '/api/media/resolve') body = { enabled: false };
         if (url.pathname === '/api/youtube-videos') {
           detailsRequests++;
-          body = { tracks: url.searchParams.getAll('id').map((id, i) => ({ id, title: i === 0 ? 'A very long song title '.repeat(15) : `Song ${id}`, channel: 'Artist', duration: scenario.includes('legacy') ? 218 : 0 })) };
+          body = { tracks: url.searchParams.getAll('id').map((id, i) => ({ id, title: scenario === 'playlist-saved' && i < 2 ? 'Same title QA' : i === 0 ? 'A very long song title '.repeat(15) : `Song ${id}`, channel: 'Artist', duration: scenario.includes('legacy') ? 218 : 0 })) };
         }
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
@@ -80,6 +80,21 @@ const results = [];
       await row.locator('[data-item-menu-trigger]').click();
       await page.getByRole('menu').waitFor();
       assert.equal(await row.evaluate(node => node.getBoundingClientRect().height), 66, 'Open menu does not expand row');
+      if (device === 'mobile' && scenario === 'playlist-saved') {
+        await page.keyboard.press('Escape');
+        await row.getByRole('button', { name: 'Play artwork for Same title QA', exact: true }).click();
+        const dock = page.getByTestId('player-dock');
+        await dock.waitFor();
+        const before = await dock.getAttribute('data-playback-entry-id');
+        assert(before, 'The dock identifies the actual queue occurrence');
+        const label = await dock.getByRole('button', { name: /^Expand player:/ }).getAttribute('aria-label');
+        await dock.locator('button[aria-label="Next song"]:visible').click();
+        await page.waitForFunction(previous => {
+          const identity = document.querySelector('[data-testid="player-dock"]')?.getAttribute('data-playback-entry-id');
+          return identity && identity !== previous;
+        }, before);
+        assert.equal(await dock.getByRole('button', { name: /^Expand player:/ }).getAttribute('aria-label'), label, 'Different selected recordings can have identical displayed titles');
+      }
       assert.equal(errors.length, 0, errors.join('; '));
       await page.screenshot({ path: path.join(output, `${device}-${scenario}.png`) });
       results.push({ device, scenario, status: 'passed', metrics, detailsRequests });

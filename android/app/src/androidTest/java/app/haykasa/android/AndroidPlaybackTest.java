@@ -141,9 +141,12 @@ public class AndroidPlaybackTest {
         report.put("manualSkipVerified", false);
         report.put("manualSkip", skip);
         skip.put("outcome", "attempting_next_song");
-        // Titles are compared inside the disposable page only. Evidence records
-        // the change as a boolean, never the selected title/account state.
-        js(web, "(()=>{const label=()=>document.querySelector('[data-testid=\"player-dock\"] [aria-label^=\"Expand player:\"]')?.getAttribute('aria-label')||'';const initial=label();const oldFeedback=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');const state={selectedChanged:false,feedbackNodeChanged:false,feedbackCleared:false};const observe=()=>{state.selectedChanged=!!label()&&label()!==initial;const feedback=qaLivePlayback.snapshot().ui.feedbackVisible;const node=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');if(!feedback)state.feedbackCleared=true;state.feedbackNodeChanged=state.selectedChanged&&feedback&&node!==oldFeedback};const observer=new MutationObserver(observe);observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true});window.__qaManualSkip={state,observe,cleanup:()=>observer.disconnect()};observe()})()");
+        // Different recordings/occurrences can have the same displayed title.
+        // Compare identity inside the disposable page; export only the boolean.
+        boolean occurrenceIdentity = "true".equals(js(web, "!!document.querySelector('[data-testid=\"player-dock\"]')?.getAttribute('data-playback-entry-id')"));
+        assertTrue("The current-build dock must expose its actual selected occurrence", !QaCurrentWeb.enabled() || occurrenceIdentity);
+        skip.put("selectionIdentityBasis", occurrenceIdentity ? "queue_occurrence" : "legacy_display_label");
+        js(web, "(()=>{const selection=()=>document.querySelector('[data-testid=\"player-dock\"]')?.getAttribute('data-playback-entry-id')||document.querySelector('[data-testid=\"player-dock\"] [aria-label^=\"Expand player:\"]')?.getAttribute('aria-label')||'';const initial=selection();const oldFeedback=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');const state={selectedChanged:false,feedbackNodeChanged:false,feedbackCleared:false};const observe=()=>{state.selectedChanged=!!selection()&&selection()!==initial;const feedback=qaLivePlayback.snapshot().ui.feedbackVisible;const node=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');if(!feedback)state.feedbackCleared=true;state.feedbackNodeChanged=state.selectedChanged&&feedback&&node!==oldFeedback};const observer=new MutationObserver(observe);observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true});window.__qaManualSkip={state,observe,cleanup:()=>observer.disconnect()};observe()})()");
         long started = android.os.SystemClock.elapsedRealtime();
         org.json.JSONObject sample = new org.json.JSONObject();
         try {
