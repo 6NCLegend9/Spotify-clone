@@ -225,7 +225,7 @@ function AccountTrackQueueMenu({ track, className = "", buttonLabel = "Track opt
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <p className="break-words px-3 py-2 text-xs font-semibold text-gray-400">{track.title || track.name || "Track"}</p>
+      <p title={track.title || track.name || "Track"} className="line-clamp-2 break-words px-3 py-2 text-xs font-semibold text-gray-400">{track.title || track.name || "Track"}</p>
       {view === "actions" ? <>
         {onRemove && <button type="button" role="menuitem" className={`${actionClass} text-red-300`} onClick={event => void runItemAction(event, onRemove)}>{removeLabel}</button>}
         {onMoveUp && <button type="button" role="menuitem" className={actionClass} onClick={event => void runItemAction(event, onMoveUp)}><ArrowUp size="1em" aria-hidden="true" /><span>Move up</span></button>}

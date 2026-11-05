@@ -898,6 +898,7 @@ select:-webkit-autofill {
   .collection-hero { background: linear-gradient(180deg, var(--navy-raised), var(--navy-panel)); }
   .is-liked-collection .collection-hero { background: linear-gradient(180deg, #1399c6, var(--navy-panel)); }
   .collection-artwork { align-self: center; }
+  .collection-hero-content { flex-direction: column; }
   .collection-tracks { container-type: inline-size; }
   .playlist-track-row, .playlist-track-heading { grid-template-columns: minmax(0, 1fr) max(44px, 3rem) 44px; }
   .playlist-track-row > :first-child, .playlist-track-heading > :first-child { display: none; }

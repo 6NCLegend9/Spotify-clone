@@ -426,11 +426,11 @@ function AccountPlaylistDetail({ kind, playlistId, session, scope }) {
       {editDetails && isOwner && !isLiked && collection && <EditPlaylistDetails playlist={collection} onClose={() => setEditDetails(false)} onSaved={applyCollection} />}
       {!error && collection ? (
         <ContextMenuTarget as="section" className="collection-hero px-[3vw] pb-8 pt-8">
-          <div className="collection-hero-content mx-auto flex w-full max-w-[1440px] flex-col gap-6">
+          <div className="collection-hero-content mx-auto flex w-full max-w-[1440px] gap-6">
             {isLiked ? (
-              <LikedCover className="collection-artwork aspect-square w-48 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60" />
+              <LikedCover className="collection-artwork aspect-square w-48 max-w-full shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60" />
             ) : (
-              <div className="collection-artwork aspect-square w-48 shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60"><PlaylistCover
+              <div className="collection-artwork aspect-square w-48 max-w-full shrink-0 rounded-[4px] shadow-2xl sm:w-52 lg:w-60"><PlaylistCover
                 playlist={{
                   ...collection,
                   cover: tracks[0]?.thumbnail,

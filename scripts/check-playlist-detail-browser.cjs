@@ -248,6 +248,19 @@ async function scenario(name, run, options = {}, viewport = { width: 390, height
       await page.waitForFunction(() => document.querySelectorAll('.playlist-track-row')[1]?.dataset.playlistEntry === 'entry-1');
       assert.deepEqual(await page.evaluate(() => qaCalls.filter(call => call.method === 'PATCH').map(call => call.body.expectedRevision)), [0, 1]);
     });
+    await scenario('desktop-drag-reorders-without-playing-and-ignores-external-drops', async page => {
+      await ready(page);
+      await row(page, 'entry-2').dragTo(row(page, 'entry-0'));
+      await page.waitForFunction(() => qaPlaylist.items[0].entryId === 'entry-2');
+      assert.equal((await state(page)).isPlaying, false);
+      const transfer = await page.evaluateHandle(() => { const data = new DataTransfer(); data.setData('text/plain', 'external-file-or-text'); return data; });
+      await row(page, 'entry-0').dispatchEvent('drop', { dataTransfer: transfer });
+      assert.equal(await page.evaluate(() => qaCalls.filter(call => call.method === 'PATCH').length), 1);
+      await transfer.dispose();
+      await row(page, 'entry-0').dragTo(row(page, 'entry-3'), { targetPosition: { x: 10, y: 62 } });
+      await page.waitForFunction(() => qaPlaylist.items.at(-1).entryId === 'entry-0');
+      assert.equal(await page.evaluate(() => qaCalls.filter(call => call.method === 'PATCH').at(-1).body.beforeEntryId), null);
+    }, {}, { width: 1440, height: 1000 });
     await scenario('reorder-conflict-keeps-concurrent-song-and-reloads', async page => {
       await ready(page); await page.evaluate(() => {
         qaPlaylist.items.push({ id: 'bbbbbbbbbbb', entryId: 'concurrent-entry', addedAt: new Date().toISOString() });
@@ -302,6 +315,7 @@ async function scenario(name, run, options = {}, viewport = { width: 390, height
     }, { empty: true });
     for (const [label, viewport, large] of [['phone', { width: 390, height: 844 }, false], ['narrow', { width: 320, height: 640 }, false], ['landscape', { width: 844, height: 390 }, false], ['desktop', { width: 1440, height: 1000 }, false], ['large-text', { width: 320, height: 640 }, true]]) await scenario('layout-' + label, async page => {
       await ready(page);
+      assert.equal(await page.locator('.collection-hero-content').evaluate(node => getComputedStyle(node).flexDirection), viewport.width >= 560 ? 'row' : 'column');
       if (large) await page.addStyleTag({ content: 'html{font-size:32px!important}' });
       await page.evaluate(() => { qaMetadata.aaaaaaaaaaa.title = 'مرحبا 🎵 — LongSong'.repeat(60); sessionStorage.clear(); qaEvents.notifyPlaylistChanged({ owner: 'account:A', playlist: qaPlaylist }); });
       await row(page, 'entry-0').locator('[data-track-duration]').waitFor();
