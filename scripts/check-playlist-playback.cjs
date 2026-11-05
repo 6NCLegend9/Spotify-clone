@@ -141,6 +141,30 @@ async function check(name, test) {
     assert.notEqual(next.queueEntryId, after.youtubeVideo.queueEntryId);
     assert.equal(queueHelpers.queueAdvanceDecision(after.youtubeVideo, next), 'advance');
   });
+  await check('Play next on the current song creates an explicit replay without restarting current audio', () => {
+    const before = { ...collection(), position: 73, isPlaying: false };
+    const after = reducer(before, actions.playNextToQueue(before.youtubeVideo));
+    const next = queueHelpers.nextQueueTrack(after.youtubeQueue, after.youtubeVideo);
+    assert.equal(next.id, before.youtubeVideo.id); assert.notEqual(next.queueEntryId, before.youtubeVideo.queueEntryId);
+    assert.equal(after.position, 73); assert.equal(after.isPlaying, false);
+    assert.equal(after.youtubeVideo.queueEntryId, before.youtubeVideo.queueEntryId);
+  });
+  await check('Play next selects the specified saved duplicate rather than the first content match', () => {
+    const queue = [songs[0], { ...songs[0], playlistEntryId: 'copy-one' }, songs[1], { ...songs[0], playlistEntryId: 'copy-two' }];
+    const before = collection(queue);
+    const selected = before.youtubeQueue[3];
+    const after = reducer(before, actions.playNextToQueue(queue[3]));
+    assert.equal(queueHelpers.nextQueueTrack(after.youtubeQueue, after.youtubeVideo).queueEntryId, selected.queueEntryId);
+    assert.equal(after.youtubeQueue.length, before.youtubeQueue.length);
+    assert(after.youtubeQueue.some(track => track.playlistEntryId === 'copy-one'));
+  });
+  await check('Play next from a played row preserves the played prefix and creates a fresh occurrence', () => {
+    const before = collection(songs, 2), prefix = occurrences(before).slice(0, 3);
+    const after = reducer(before, actions.playNextToQueue(before.youtubeQueue[0]));
+    assert.deepEqual(occurrences(after).slice(0, 3), prefix);
+    const next = queueHelpers.nextQueueTrack(after.youtubeQueue, after.youtubeVideo);
+    assert.equal(next.id, songs[0].id); assert.notEqual(next.queueEntryId, prefix[0]);
+  });
   await check('restoring pending queue excludes already played user occurrences and current', () => {
     let state = collection();
     state = reducer(state, actions.addToQueue(songs[3]));

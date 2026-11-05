@@ -659,9 +659,6 @@ const playerSlice = createSlice({
       const incoming = decodePlayableYoutubeTrack(action.payload);
       if (!incoming?.id) return;
 
-      // Playing the current recording "next" is a no-op rather than an accidental duplicate.
-      if (state.youtubeVideo?.id === incoming.id) return;
-
       state.queueUndo = null;
       const currentIdentity = state.youtubeVideo?.queueEntryId || state.youtubeVideo?.id;
       let currentIndex = currentIdentity
@@ -669,17 +666,17 @@ const playerSlice = createSlice({
           || item.queueEntryId === currentIdentity || item.id === currentIdentity)
         : -1;
 
-      // If this recording already exists in the queue, promote that exact occurrence.
-      // Add to Queue remains occurrence-based and may intentionally contain duplicates;
-      // Play Next behaves like Spotify and repositions an existing matching row.
-      let candidateIndex = state.youtubeQueue.findIndex((item, index) =>
-        index !== currentIndex && item?.id === incoming.id,
+      // Promote the selected upcoming occurrence. Playing a current/past row
+      // next is an explicit replay: create a fresh entry without stealing history.
+      const candidateIndex = state.youtubeQueue.findIndex((item, index) =>
+        index > currentIndex && item?.id === incoming.id && (incoming.queueEntryId
+          ? item.queueEntryId === incoming.queueEntryId
+          : incoming.playlistEntryId ? item.playlistEntryId === incoming.playlistEntryId : true),
       );
       let track;
       if (candidateIndex >= 0) {
         [track] = state.youtubeQueue.splice(candidateIndex, 1);
         track.queueSource = 'user';
-        if (candidateIndex < currentIndex) currentIndex -= 1;
       } else {
         track = nextQueueEntry(state, incoming, 'user');
       }

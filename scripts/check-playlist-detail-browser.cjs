@@ -229,6 +229,9 @@ async function scenario(name, run, options = {}, viewport = { width: 390, height
       await row(page, 'entry-2').getByRole('button', { name: 'Play artwork for Alpha song' }).click();
       assert.equal((await state(page)).youtubeVideo.playlistEntryId, 'entry-2'); assert.equal((await state(page)).youtubeQueue.length, 4);
       await page.getByRole('button', { name: 'Clear search', exact: true }).click(); await page.getByLabel('Sort playlist', { exact: true }).selectOption('custom');
+      // useDeferredValue may commit the cleared filter after the input/select
+      // events. Wait for the observable result, never a fixed delay.
+      await page.waitForFunction(() => document.querySelectorAll('.playlist-track-row').length === 4);
       assert.deepEqual(await order(page), ['entry-0', 'entry-1', 'entry-2', 'entry-3']);
       assert.equal(await page.evaluate(() => qaCalls.filter(call => ['PATCH', 'DELETE', 'POST'].includes(call.method)).length), 0);
     });
@@ -238,6 +241,16 @@ async function scenario(name, run, options = {}, viewport = { width: 390, height
       await row(page, 'entry-2').waitFor({ state: 'detached' }); assert.deepEqual(await order(page), ['entry-0', 'entry-1', 'entry-3']);
       const call = await page.evaluate(() => qaCalls.find(call => call.method === 'DELETE'));
       assert.deepEqual(call.body, { playlistID: '507f1f77bcf86cd799439012', song: 'aaaaaaaaaaa', entryId: 'entry-2', expectedRevision: 0 });
+    });
+    await scenario('play-next-on-saved-duplicate-and-current-row-is-effective', async page => {
+      await ready(page); await row(page, 'entry-0').getByRole('button', { name: 'Play artwork for Alpha song' }).click();
+      const currentId = (await state(page)).youtubeVideo.queueEntryId;
+      await row(page, 'entry-2').getByRole('button', { name: 'Queue options' }).click(); await page.getByRole('menuitem', { name: 'Play next', exact: true }).click();
+      assert.equal((await state(page)).youtubeQueue[1].playlistEntryId, 'entry-2');
+      await row(page, 'entry-0').getByRole('button', { name: 'Queue options' }).click(); await page.getByRole('menuitem', { name: 'Play next', exact: true }).click();
+      const result = await state(page); assert.equal(result.youtubeQueue[1].id, 'aaaaaaaaaaa');
+      assert.notEqual(result.youtubeQueue[1].queueEntryId, currentId); assert.equal(result.youtubeVideo.queueEntryId, currentId);
+      assert.equal(result.youtubeQueue.length, 5);
     });
     await scenario('keyboard-touch-reorder-saves-entry-and-revision', async page => {
       await ready(page); await row(page, 'entry-2').getByRole('button', { name: 'Queue options' }).click();
