@@ -34,8 +34,7 @@ import usePlaybackRequest from "@/hooks/usePlaybackRequest";
 
 export default function YouTubeMusicResults({ query }) {
   const scope = useAccountScope();
-  const searchParams = useSearchParams();
-  return <AccountSearchResults key={`${scope.key}:${query}:${searchParams}`} query={query} />;
+  return <AccountSearchResults key={`${scope.key}:${query}`} query={query} />;
 }
 
 function AccountSearchResults({ query }) {
@@ -48,6 +47,7 @@ function AccountSearchResults({ query }) {
   const order = searchParams.get("order") === "date" ? "date" : "relevance";
   const length = resultType === "video" && ["short", "medium", "long"].includes(searchParams.get("duration")) ? searchParams.get("duration") : "any";
   const searchUrl = buildYoutubeSearchUrl({ q: query, type: resultType, order, duration: length }, "interactive");
+  const playlistScope = JSON.stringify([view, searchUrl]);
   const changeSearch = (key, value) => {
     const parameters = new URLSearchParams(searchParams.toString());
     if (key === "type" && value === "all") parameters.delete(key);
@@ -66,8 +66,8 @@ function AccountSearchResults({ query }) {
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
   const dispatch = useDispatch();
-  const { begin, scope } = usePlaybackRequest();
-  const playlistPending = useRef(false);
+  const { begin, scope } = usePlaybackRequest(playlistScope);
+  const playlistPending = useRef(null);
   const playResult = (video) => {
     const title = cleanTitle(video.title);
     const channel = cleanArtist(video.channel);
@@ -95,6 +95,11 @@ function AccountSearchResults({ query }) {
   const [updatingArtists, setUpdatingArtists] = useState([]);
   const extrasRequestId = useRef(0);
   const extrasController = useRef(null);
+
+  useEffect(() => {
+    playlistPending.current = null;
+    setLoadingPlaylistId(null);
+  }, [playlistScope]);
 
   useEffect(() => {
     setUpdatingArtists([]);
@@ -353,7 +358,7 @@ function AccountSearchResults({ query }) {
     if (playlistPending.current) return;
     const current = begin();
     if (!current) return;
-    playlistPending.current = true;
+    playlistPending.current = current;
     setLoadingPlaylistId(playlist.id);
     try {
       const data = await requestJson(
@@ -385,8 +390,10 @@ function AccountSearchResults({ query }) {
       });
       toast.error(userError.message);
     } finally {
-      playlistPending.current = false;
-      if (scope.isCurrentView()) setLoadingPlaylistId(null);
+      if (playlistPending.current === current) {
+        playlistPending.current = null;
+        if (scope.isCurrentView()) setLoadingPlaylistId(null);
+      }
     }
   };
 

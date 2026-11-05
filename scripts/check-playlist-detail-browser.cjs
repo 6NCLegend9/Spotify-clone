@@ -46,7 +46,7 @@ async function setup(page, options = {}) {
     const copy = value => JSON.parse(JSON.stringify(value));
     window.qaSession = options.loading ? { data: null, status: 'loading' } : options.guest ? { data: null, status: 'unauthenticated' } : { data: { user: { id: 'A', name: 'Playlist QA' } }, status: 'authenticated' };
     window.qaCalls = []; window.qaPending = []; window.qaToasts = []; window.qaRoutes = [];
-    window.qaQuery = 'QA collection'; window.qaCollectionId = 'mixA'; window.qaSearchParams = 'type=playlist';
+    window.qaQuery = 'QA collection'; window.qaCollectionId = 'mixA'; window.qaSearchParams = options.searchParams ?? 'type=playlist';
     window.qaModes = { metadata: options.metadata || 'normal', read: options.read || 'normal', discovery: options.discovery || 'normal', mixA: 'hold', mixB: options.holdMixB ? 'hold' : 'normal' };
     const ids = ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'aaaaaaaaaaa', 'ccccccccccc'];
     window.qaPlaylist = { _id: '507f1f77bcf86cd799439012', name: 'QA playlist', description: 'Songs for the day', visibility: options.guest ? 'public' : 'private', user: { _id: options.guest ? 'other' : 'A', userName: 'Playlist QA' }, collaborators: options.collaborator ? [{ _id: 'B' }] : [], songs: options.empty ? [] : ids, items: options.empty ? [] : ids.map((id, index) => ({ id, entryId: 'entry-' + index, addedAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString() })), revision: 0, songDurations: { aaaaaaaaaaa: 180, bbbbbbbbbbb: 240, ccccccccccc: 120 }, liked: false, smartShuffle: Boolean(options.smart) };
@@ -62,7 +62,7 @@ async function setup(page, options = {}) {
       if (parsed.pathname === '/api/youtube-videos') return deliver('metadata', { tracks: parsed.searchParams.getAll('id').flatMap(id => qaMetadata[id] ? [copy(qaMetadata[id])] : []) });
       if (parsed.pathname === '/api/recommendations') return deliver('discovery', { sections: { trending: [{ id: 'ddddddddddd', title: 'Discovery song', duration: 200 }] } });
       if (parsed.pathname === '/api/youtube-playlist') return deliver(parsed.searchParams.get('id'), { tracks: [copy(qaMetadata[parsed.searchParams.get('id') === 'mixA' ? 'aaaaaaaaaaa' : 'bbbbbbbbbbb'])] });
-      if (parsed.pathname === '/api/youtube-search') return Promise.resolve({ results: [{ id: 'mixA', title: 'Mix A', channel: 'QA artist' }, { id: 'mixB', title: 'Mix B', channel: 'QA artist' }] });
+      if (parsed.pathname === '/api/youtube-search') return Promise.resolve({ results: parsed.searchParams.get('type') === 'video' ? [copy(qaMetadata.aaaaaaaaaaa)] : parsed.searchParams.get('type') === 'channel' ? [{ id: 'UCabcdefghijklmnopqrstuv', title: 'QA artist' }] : [{ id: 'mixA', title: 'Mix A', channel: 'QA artist' }, { id: 'mixB', title: 'Mix B', channel: 'QA artist' }] });
       if (parsed.pathname === '/api/youtube-channel') return Promise.resolve({ artist: { id: parsed.searchParams.get('id'), title: 'QA artist' }, tracks: [copy(qaMetadata.aaaaaaaaaaa)] });
       if (parsed.pathname === '/api/artist-sections') return Promise.resolve({ artist: { id: parsed.searchParams.get('id') }, playlists: [{ id: 'mixA', title: 'Mix A' }, { id: 'mixB', title: 'Mix B' }] });
       if (parsed.pathname === '/api/channel-rabbit-hole') return Promise.resolve({ tracks: [] });
@@ -252,6 +252,65 @@ async function scenario(name, run, options = {}, viewport = { width: 390, height
       await page.getByRole('button', { name: 'Play Mix A', exact: true }).click();
       assert.equal(await page.evaluate(() => qaPending.filter(item => item.kind === 'mixA').length), 1, 'Actual pointer reaches Play');
     }, { surface: 'recommendation', guest: true });
+    await scenario('search-filter-navigation-preserves-refine-focus', async page => {
+      await page.getByText('Refine search', { exact: true }).click();
+      await page.getByLabel('Sort search results', { exact: true }).focus();
+      await page.evaluate(() => {
+        window.qaFocused = document.activeElement;
+        window.qaBeforeRevision = qaStore.getState().player.playbackIntentRevision;
+        qaSearchParams = 'type=playlist&order=date'; qaRender();
+      }); await settle(page);
+      assert.equal(await page.evaluate(() => document.activeElement === qaFocused), true);
+      assert.equal(await page.locator('details').evaluate(node => node.open), true);
+      assert.equal(await page.evaluate(() => qaStore.getState().player.playbackIntentRevision === qaBeforeRevision), true);
+    }, { surface: 'search', guest: true }, { width: 1440, height: 1000 });
+    await scenario('search-filter-change-cancels-old-collection-request', async page => {
+      const play = page.getByRole('button', { name: 'Play playlist Mix A', exact: true });
+      await play.waitFor(); await play.evaluate(button => button.click());
+      await page.waitForFunction(() => qaPending.some(item => item.kind === 'mixA'));
+      await page.evaluate(() => { qaSearchParams = 'type=playlist&order=date'; qaRender(); }); await settle(page);
+      await page.evaluate(() => qaResolve('mixA')); await settle(page);
+      assert.equal((await state(page)).youtubeVideo, null);
+    }, { surface: 'search', guest: true }, { width: 1440, height: 1000 });
+    for (const outcome of ['success', 'error']) await scenario('search-filter-roundtrip-keeps-old-' + outcome + '-retired', async page => {
+      const play = page.getByRole('button', { name: 'Play playlist Mix A', exact: true });
+      await play.waitFor(); await play.evaluate(button => button.click());
+      await page.waitForFunction(() => qaPending.some(item => item.kind === 'mixA'));
+      await page.evaluate(() => { qaSearchParams = 'type=playlist&order=date'; qaRender(); }); await settle(page);
+      await page.evaluate(() => { qaSearchParams = 'type=playlist'; qaRender(); }); await settle(page);
+      await page.evaluate(outcome => {
+        if (outcome === 'success') qaResolve('mixA');
+        else {
+          const selected = qaPending.filter(item => item.kind === 'mixA');
+          qaPending = qaPending.filter(item => item.kind !== 'mixA');
+          for (const item of selected) item.reject({ code: 'SERVICE_UNAVAILABLE', status: 503 });
+        }
+      }, outcome); await settle(page);
+      assert.equal((await state(page)).youtubeVideo, null);
+      assert.deepEqual(await page.evaluate(() => qaToasts), []);
+    }, { surface: 'search', guest: true }, { width: 1440, height: 1000 });
+    await scenario('search-All-to-Songs-retires-the-hidden-playlist-request', async page => {
+      const play = page.getByRole('button', { name: 'Play playlist Mix A', exact: true });
+      await play.waitFor(); await play.evaluate(button => button.click());
+      await page.waitForFunction(() => qaPending.some(item => item.kind === 'mixA'));
+      await page.evaluate(() => { qaSearchParams = 'type=video'; qaRender(); }); await settle(page);
+      await page.evaluate(() => qaResolve('mixA')); await settle(page);
+      assert.equal((await state(page)).youtubeVideo, null);
+    }, { surface: 'search', guest: true, searchParams: '' }, { width: 1440, height: 1000 });
+    await scenario('old-search-response-does-not-clear-new-request-busy-state', async page => {
+      const first = page.getByRole('button', { name: 'Play playlist Mix A', exact: true });
+      await first.waitFor(); await first.evaluate(button => button.click());
+      await page.waitForFunction(() => qaPending.some(item => item.kind === 'mixA'));
+      await page.evaluate(() => { qaSearchParams = 'type=playlist&order=date'; qaRender(); }); await settle(page);
+      const next = page.getByRole('button', { name: 'Play playlist Mix B', exact: true });
+      await next.waitFor(); await next.evaluate(button => button.click());
+      await page.waitForFunction(() => qaPending.some(item => item.kind === 'mixB'));
+      await page.evaluate(() => qaResolve('mixA')); await settle(page);
+      assert.equal(await next.isDisabled(), true);
+      assert.equal((await state(page)).youtubeVideo, null);
+      await page.evaluate(() => qaResolve('mixB'));
+      await page.waitForFunction(() => qaStore.getState().player.youtubeVideo?.id === 'bbbbbbbbbbb');
+    }, { surface: 'search', guest: true, holdMixB: true }, { width: 1440, height: 1000 });
     await scenario('duplicates-hydrate-once-with-date-and-total', async page => {
       await ready(page); assert.deepEqual(await order(page), ['entry-0', 'entry-1', 'entry-2', 'entry-3']);
       assert.equal(await row(page, 'entry-2').locator('[data-track-duration]').innerText(), '3:00');
