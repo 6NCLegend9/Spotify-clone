@@ -15,5 +15,9 @@ const schema = new mongoose.Schema({
   hostSeenAt: { type: Date },
 });
 schema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-schema.index({ hostId: 1, nameKey: 1 }, { unique: true, sparse: true });
+schema.index({ hostId: 1, nameKey: 1 }, {
+  name: "jam_named_room_host_name_unique",
+  unique: true,
+  partialFilterExpression: { persistent: true, nameKey: { $type: "string" } },
+});
 export default mongoose.models.jamRoom || mongoose.model("jamRoom", schema, "jamRooms");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Heart, Pin as BsPinAngleFill } from "lucide-react";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
@@ -10,24 +10,25 @@ import { getUserPlaylists } from "@/services/playlistApi";
 import { useNav } from "../Layout/AppShell";
 import UserMessage from "@/components/UserMessage";
 import { toUserError } from "@/utils/userError";
-import { useSession } from "next-auth/react";
-import { accountOwner } from "@/utils/accountCache.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
 import PlaylistCover from "@/components/PlaylistCover";
 import LibraryList from "./LibraryList";
 import { requestJson } from "@/services/http";
 import { followedArtistsForDisplay, followedArtistKey } from "@/utils/followedArtistsList.mjs";
 import { artistPageHref } from "@/utils/artistNavigation.mjs";
 import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
+import { PLAYLISTS_CHANGED_EVENT, applyPlaylistChange, isCurrentPlaylistEvent } from "@/utils/playlistEvents.mjs";
 
 // Cached across client-side navigations and remounts within the session so the
 // sidebar shows the last-known list (or empty state) instantly instead of
 // flashing "Loading playlists…" on every route transition.
 let cachedPlaylists = null;
 
-const AccountPlaylists = ({ owner, status, compact }) => {
+const AccountPlaylists = ({ scope, compact }) => {
+  const { owner, status } = scope;
   const pathname = usePathname();
   const { setShowNav } = useNav();
-  const cached = cachedPlaylists?.owner === owner && Date.now() - cachedPlaylists.savedAt < 300_000
+  const cached = cachedPlaylists?.key === scope.key && scope.isCurrent() && Date.now() - cachedPlaylists.savedAt < 300_000
     ? cachedPlaylists.data : null;
   const [playlists, setPlaylists] = useState(() => cached ?? []);
   const [loading, setLoading] = useState(() => cached === null);
@@ -38,30 +39,32 @@ const AccountPlaylists = ({ owner, status, compact }) => {
   const [artistsLoading, setArtistsLoading] = useState(false);
   const [artistsError, setArtistsError] = useState(false);
   const [artistRefresh, setArtistRefresh] = useState(0);
+  const requestGeneration = useRef(0);
 
   useEffect(() => {
-    if (status !== "authenticated" || !owner) return undefined;
+    if (!scope.isCurrent()) return undefined;
     const controller = new AbortController();
     let generation = 0;
     const load = async () => {
+      if (!scope.isCurrent()) return;
       const request = ++generation;
       setArtistsLoading(true);
       setArtistsError(false);
       try {
         const json = await requestJson("/api/followedArtists", { signal: controller.signal });
-        if (!controller.signal.aborted && request === generation) {
+        if (!controller.signal.aborted && request === generation && scope.isCurrent()) {
           setArtists(followedArtistsForDisplay({ followedArtists: json.data, followedArtistsMeta: json.artists }));
         }
       } catch {
-        if (!controller.signal.aborted && request === generation) setArtistsError(true);
+        if (!controller.signal.aborted && request === generation && scope.isCurrent()) setArtistsError(true);
       } finally {
-        if (!controller.signal.aborted && request === generation) setArtistsLoading(false);
+        if (!controller.signal.aborted && request === generation && scope.isCurrent()) setArtistsLoading(false);
       }
     };
     void load();
     window.addEventListener(FOLLOWS_CHANGED_EVENT, load);
     return () => { controller.abort(); window.removeEventListener(FOLLOWS_CHANGED_EVENT, load); };
-  }, [status, owner, artistRefresh]);
+  }, [scope, artistRefresh]);
 
   const libraryItems = [
     ...(status === "authenticated" && filter !== "artists" ? [{ _id: "liked", name: "Liked Songs", kind: "liked", pinned: true }] : []),
@@ -75,7 +78,7 @@ const AccountPlaylists = ({ owner, status, compact }) => {
     if (status === "loading") {
       return;
     }
-    if (status !== "authenticated" || !owner) {
+    if (!scope.isCurrent()) {
       cachedPlaylists = null;
       setPlaylists([]);
       setError(toUserError({ code: "UNAUTHORIZED" }));
@@ -85,18 +88,20 @@ const AccountPlaylists = ({ owner, status, compact }) => {
 
     let active = true;
     const getPlaylists = async () => {
-      if (cachedPlaylists?.owner !== owner) setLoading(true);
+      const request = ++requestGeneration.current;
+      const current = () => active && request === requestGeneration.current && scope.isCurrent();
+      if (cachedPlaylists?.key !== scope.key) setLoading(true);
       setError(null);
       try {
         const res = await getUserPlaylists();
-        if (!active) return;
+        if (!current()) return;
         if (res?.success === true) {
           const list = Array.isArray(res.data?.playlists)
             ? res.data.playlists.filter(
               (playlist) => playlist && typeof playlist === "object" && playlist._id,
             )
             : [];
-          cachedPlaylists = { owner, data: list, savedAt: Date.now() };
+          cachedPlaylists = { key: scope.key, data: list, savedAt: Date.now() };
           setPlaylists(list);
         } else {
           const normalized = toUserError(res);
@@ -107,30 +112,37 @@ const AccountPlaylists = ({ owner, status, compact }) => {
               message: "We couldn’t load your playlists. Please try again.",
             }));
         }
+      } catch (cause) {
+        if (current()) setError(toUserError(cause, {
+          title: "Playlists unavailable", message: "We couldn’t load your playlists. Please try again.",
+        }));
       } finally {
-        if (active) setLoading(false);
+        if (current()) setLoading(false);
       }
     };
     getPlaylists();
     const onChanged = (event) => {
-      if (event.detail?.owner && event.detail.owner !== owner) return;
-      const created = event.detail?.playlist;
-      if (created?._id) {
+      if (!isCurrentPlaylistEvent(event, scope)) return;
+      // Invalidate an in-flight read synchronously, before React re-runs this effect.
+      requestGeneration.current += 1;
+      if (event.detail?.playlist?._id || event.detail?.deletedId) {
         setPlaylists((current) => {
-          const list = [created, ...current.filter((item) => item._id !== created._id)];
-          cachedPlaylists = { owner, data: list, savedAt: Date.now() };
+          if (!scope.isCurrent()) return current;
+          const list = applyPlaylistChange(current, event.detail, owner);
+          cachedPlaylists = { key: scope.key, data: list, savedAt: Date.now() };
           return list;
         });
         setError(null);
+        setLoading(false);
       }
       setRefreshKey((value) => value + 1);
     };
-    window.addEventListener("heykasa:playlists-changed", onChanged);
+    window.addEventListener(PLAYLISTS_CHANGED_EVENT, onChanged);
     return () => {
       active = false;
-      window.removeEventListener("heykasa:playlists-changed", onChanged);
+      window.removeEventListener(PLAYLISTS_CHANGED_EVENT, onChanged);
     };
-  }, [refreshKey, status, owner]);
+  }, [refreshKey, scope, owner, status]);
 
   if (compact) return <nav className="compact-library" aria-label="Your library shortcuts">
     <Link href="/library/liked" title="Liked Songs" aria-label="Liked Songs" aria-current={pathname === "/library/liked" ? "page" : undefined} className="compact-library-liked"><Heart size={24} fill="currentColor" aria-hidden="true" /></Link>
@@ -172,9 +184,8 @@ const AccountPlaylists = ({ owner, status, compact }) => {
   );
 };
 const Playlists = ({ compact = false }) => {
-  const { data: session, status } = useSession();
-  const owner = accountOwner(session, status);
-  return <AccountPlaylists key={owner || status} owner={owner} status={status} compact={compact} />;
+  const scope = useAccountScope();
+  return <AccountPlaylists key={scope.key} scope={scope} compact={compact} />;
 };
 export default Playlists;
 

@@ -15,6 +15,8 @@ const events = [];
 for (const name of ["loadedmetadata", "playing", "pause", "timeupdate", "ended", "error"]) media.addEventListener(name, () => events.push(name));
 media.src = "https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=synthetic";
 media.load();
+// A silent old APK is negotiated once per attachment; legacy remains unqualified.
+await new Promise(resolve => setTimeout(resolve, 1010));
 const load = sent.at(-1);
 assert.equal(load.action, "load"); assert.equal(load.title, "Test song");
 assert.equal(media.currentSrc, media.src);

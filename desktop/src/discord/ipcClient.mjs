@@ -136,6 +136,9 @@ export class DiscordIpcClient {
     this.buffer = Buffer.alloc(0);
     this.pending = new Map();
     this.connecting = null;
+    this.cancelConnecting = null;
+    this.generation = 0;
+    this.activityGeneration = 0;
     this.everConnected = false;
     this.joinHandler = null;
     this.subscribedJoin = false;
@@ -149,24 +152,38 @@ export class DiscordIpcClient {
     return Boolean(this.socket && !this.socket.destroyed);
   }
 
-  async ensureConnected() {
-    if (this.connected) return;
-    if (this.connecting) return this.connecting;
-    this.connecting = this.connectAny().finally(() => {
-      this.connecting = null;
-    });
-    return this.connecting;
+  assertCurrent(generation, socket, activityGeneration) {
+    if (generation !== this.generation || socket && (this.socket !== socket || socket.destroyed)) {
+      throw new Error("Discord desktop connection closed.");
+    }
+    if (activityGeneration !== undefined && activityGeneration !== this.activityGeneration) {
+      throw new Error("Discord desktop activity was cleared.");
+    }
   }
 
-  async connectAny() {
+  async ensureConnected(generation = this.generation) {
+    this.assertCurrent(generation);
+    if (this.connected) return;
+    if (this.connecting) return this.connecting;
+    const connecting = this.connectAny(generation).finally(() => {
+      if (this.connecting === connecting) this.connecting = null;
+    });
+    this.connecting = connecting;
+    return connecting;
+  }
+
+  async connectAny(generation = this.generation) {
     let lastError = null;
     for (const ipcPath of discordIpcPaths()) {
+      this.assertCurrent(generation);
       try {
-        await this.connectPipe(ipcPath);
+        await this.connectPipe(ipcPath, generation);
+        this.assertCurrent(generation);
         this.everConnected = true;
         console.info(`[HayKasa Desktop] Discord IPC connected: ${ipcPath}`);
         return;
       } catch (error) {
+        this.assertCurrent(generation);
         lastError = error;
       }
     }
@@ -174,7 +191,8 @@ export class DiscordIpcClient {
     throw new Error(`Discord Desktop is not running or its IPC pipe is unavailable${detail}`);
   }
 
-  connectPipe(ipcPath) {
+  connectPipe(ipcPath, generation = this.generation) {
+    this.assertCurrent(generation);
     return new Promise((resolve, reject) => {
       const socket = net.createConnection(ipcPath);
       let buffer = Buffer.alloc(0);
@@ -186,9 +204,12 @@ export class DiscordIpcClient {
         socket.off("error", onError);
         socket.off("close", onClose);
         socket.off("data", onData);
+        socket.off("connect", onConnect);
+        if (this.cancelConnecting === cancel) this.cancelConnecting = null;
       };
       const finish = (error) => {
         if (settled) return;
+        if (generation !== this.generation) error = new Error("Discord desktop connection closed.");
         settled = true;
         cleanup();
         if (error) {
@@ -199,10 +220,12 @@ export class DiscordIpcClient {
         this.attachSocket(socket, buffer);
         resolve();
       };
+      const cancel = () => finish(new Error("Discord desktop connection closed."));
       const onError = (error) => finish(error);
       const onClose = () => finish(new Error("Discord IPC closed during handshake."));
       const onData = (chunk) => {
         try {
+          this.assertCurrent(generation);
           buffer = Buffer.concat([buffer, chunk]);
           const decoded = decodeIpcFrames(buffer);
           buffer = decoded.rest;
@@ -229,17 +252,30 @@ export class DiscordIpcClient {
         }
       };
 
+      const onConnect = () => {
+        if (settled) return;
+        try {
+          this.assertCurrent(generation);
+          socket.write(encodeIpcFrame(IPC_HANDSHAKE, { v: 1, client_id: this.clientId }));
+        } catch (error) {
+          finish(error);
+        }
+      };
+
+      this.cancelConnecting = cancel;
       socket.once("error", onError);
       socket.once("close", onClose);
       socket.on("data", onData);
-      socket.once("connect", () => {
-        socket.write(encodeIpcFrame(IPC_HANDSHAKE, { v: 1, client_id: this.clientId }));
-      });
+      socket.once("connect", onConnect);
     });
   }
 
   attachSocket(socket, initialBuffer) {
-    if (this.socket && this.socket !== socket) this.socket.destroy();
+    if (this.socket && this.socket !== socket) {
+      this.rejectPending(new Error("Discord IPC connection replaced."));
+      this.socket.destroy();
+    }
+    this.subscribedJoin = false;
     this.socket = socket;
     this.buffer = initialBuffer;
     socket.on("data", (chunk) => this.handleData(socket, chunk));
@@ -247,6 +283,7 @@ export class DiscordIpcClient {
     socket.on("close", () => {
       if (this.socket !== socket) return;
       this.socket = null;
+      this.subscribedJoin = false;
       this.buffer = Buffer.alloc(0);
       this.rejectPending(new Error("Discord IPC connection closed."));
     });
@@ -259,7 +296,10 @@ export class DiscordIpcClient {
       this.buffer = Buffer.concat([this.buffer, chunk]);
       const decoded = decodeIpcFrames(this.buffer);
       this.buffer = decoded.rest;
-      for (const frame of decoded.frames) this.handleFrame(frame);
+      for (const frame of decoded.frames) {
+        if (this.socket !== socket || socket.destroyed) break;
+        this.handleFrame(frame);
+      }
     } catch (error) {
       this.rejectPending(error);
       socket.destroy();
@@ -301,16 +341,19 @@ export class DiscordIpcClient {
     entry.resolve(frame.payload?.data ?? frame.payload);
   }
 
-  rejectPending(error) {
-    for (const entry of this.pending.values()) {
+  rejectPending(error, activityGeneration) {
+    for (const [nonce, entry] of this.pending) {
+      if (activityGeneration !== undefined && entry.activityGeneration !== activityGeneration) continue;
       clearTimeout(entry.timer);
       entry.reject(error);
+      this.pending.delete(nonce);
     }
-    this.pending.clear();
   }
 
-  async command(cmd, args, extra = {}) {
-    await this.ensureConnected();
+  async command(cmd, args, extra = {}, activityGeneration) {
+    const generation = this.generation;
+    await this.ensureConnected(generation);
+    this.assertCurrent(generation, undefined, activityGeneration);
     const socket = this.socket;
     if (!socket || socket.destroyed) throw new Error("Discord IPC is not connected.");
     const nonce = crypto.randomUUID();
@@ -319,7 +362,7 @@ export class DiscordIpcClient {
         this.pending.delete(nonce);
         reject(new Error("Discord did not answer the Rich Presence command in time."));
       }, IPC_TIMEOUT_MS);
-      this.pending.set(nonce, { resolve, reject, timer });
+      this.pending.set(nonce, { resolve, reject, timer, activityGeneration });
       try {
         socket.write(encodeIpcFrame(IPC_FRAME, { cmd, args, nonce, ...extra }));
       } catch (error) {
@@ -331,20 +374,29 @@ export class DiscordIpcClient {
   }
 
   async subscribeJoinEvents() {
-    if (this.subscribedJoin) return;
-    this.subscribedJoin = true;
+    const generation = this.generation;
+    let socket;
     try {
+      await this.ensureConnected(generation);
+      socket = this.socket;
+      this.assertCurrent(generation, socket);
+      if (this.subscribedJoin) return;
+      this.subscribedJoin = true;
       await this.command("SUBSCRIBE", {}, { evt: "ACTIVITY_JOIN" });
+      this.assertCurrent(generation, socket);
       await this.command("SUBSCRIBE", {}, { evt: "ACTIVITY_JOIN_REQUEST" });
     } catch {
-      this.subscribedJoin = false;
+      if (generation === this.generation && this.socket === socket) this.subscribedJoin = false;
     }
   }
 
   async setActivity(input) {
+    const generation = this.generation;
+    const activityGeneration = this.activityGeneration;
     const activity = sanitizeActivity(input);
     if (!activity) {
-      await this.command("SET_ACTIVITY", { pid: process.pid });
+      await this.command("SET_ACTIVITY", { pid: process.pid }, {}, activityGeneration);
+      this.assertCurrent(generation, undefined, activityGeneration);
       return;
     }
 
@@ -365,11 +417,14 @@ export class DiscordIpcClient {
 
     let lastError = null;
     for (const candidate of attempts) {
+      this.assertCurrent(generation, undefined, activityGeneration);
       try {
-        await this.command("SET_ACTIVITY", { pid: process.pid, activity: candidate });
+        await this.command("SET_ACTIVITY", { pid: process.pid, activity: candidate }, {}, activityGeneration);
+        this.assertCurrent(generation, undefined, activityGeneration);
         void this.subscribeJoinEvents();
         return;
       } catch (error) {
+        this.assertCurrent(generation, undefined, activityGeneration);
         lastError = error;
       }
     }
@@ -377,11 +432,19 @@ export class DiscordIpcClient {
   }
 
   async clearActivity() {
-    if (!this.connected && !this.everConnected) return;
+    const previous = this.activityGeneration;
+    this.activityGeneration += 1;
+    this.rejectPending(new Error("Discord desktop activity was cleared."), previous);
+    // A closed IPC session already removed its presence; clearing must not reconnect while opting out.
+    if (!this.connected) { this.disconnect(); return; }
     await this.setActivity(null);
   }
 
   disconnect() {
+    this.generation += 1;
+    this.connecting = null;
+    this.cancelConnecting?.();
+    this.cancelConnecting = null;
     this.subscribedJoin = false;
     this.rejectPending(new Error("Discord desktop connection closed."));
     this.socket?.destroy();

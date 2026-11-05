@@ -46,7 +46,7 @@ mocks['@/utils/userAccount'] = { getAuthenticatedAccount: async () => ({ userDat
 mocks['@/utils/sessionAuth'] = { getSessionUser: async () => ({ _id: playlist.user }) };
 mocks['@/utils/dbconnect'] = { default: async () => {} };
 mocks['@/models/UserData'] = { default: 'profile' };
-mocks['@/models/Playlist'] = { default: 'playlist' };
+mocks['@/models/Playlist'] = { default: { populate: async document => document } };
 mocks['@/utils/documentMutation.mjs'] = { ...realMutation, mutateDocument: async (model, _, transform) => {
   const document = model === 'profile' ? profile : playlist;
   Object.assign(document, transform(document)); return document;

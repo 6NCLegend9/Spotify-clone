@@ -206,8 +206,8 @@ jobs:
           node-version: 22.x
       - name: Install desktop dependencies
         run: npm ci --no-audit --no-fund
-      - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
+      - name: Audit shipped runtime and build dependencies
+        run: npm audit --include=dev --audit-level=high
       - name: Stamp internal release version
         shell: pwsh
         run: |
@@ -296,8 +296,8 @@ jobs:
         run: node scripts/check-release-config.mjs
       - name: Install desktop dependencies
         run: npm ci --no-audit --no-fund
-      - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
+      - name: Audit shipped runtime and build dependencies
+        run: npm audit --include=dev --audit-level=high
       - name: Validate release version monotonicity
         env:
           HEYKASA_DESKTOP_REQUESTED_VERSION: ${{ needs.prepare.outputs.version }}
@@ -334,6 +334,9 @@ jobs:
         shell: pwsh
         run: |
           npm sbom --omit=dev --sbom-format=cyclonedx | Out-File -FilePath dist/heykasa-desktop-sbom.cdx.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Desktop SBOM generation failed" }
+          node scripts/include-electron-in-sbom.mjs dist/heykasa-desktop-sbom.cdx.json
+          if ($LASTEXITCODE -ne 0) { throw "Desktop runtime missing from SBOM" }
           $sbom = Get-Content dist/heykasa-desktop-sbom.cdx.json -Raw | ConvertFrom-Json
           if ($sbom.bomFormat -ne 'CycloneDX') { throw "Desktop SBOM generation failed" }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

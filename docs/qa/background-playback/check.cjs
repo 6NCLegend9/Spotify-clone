@@ -63,6 +63,8 @@ function recoveryCase() {
     endFadeOccurrenceRef:{current:null}, MEDIA_PLAYER_STATES:{PLAYING:1}, playerVideoId:value=>value.getVideoData().video_id,
     userPausedRef:{current:false}, trackChangeUntilRef:{current:0}, isJamGuestRef:{current:false},
     failureResolveRef:{current:null}, sameIdRetryRef:{current:null}, alternateAttemptRef:{current:{identity:null}},
+    playbackOwner:'guest', queueMode:'radio', queueManualEnd:false, playbackContext:null,
+    asyncPlaybackLifetimeRef:{current:{}}, jamRef:{current:null}, accountStorageGeneration:()=>0,
     abortCrossfade(){}, clearActiveBufferTimers(){}, markExpectPlaying(){},
     setPlayerError(value){ if (value) calls.stops++; },
     playPause:value=>({type:'playPause', value}), replaceCurrentYoutubeTrack:value=>({type:'replace', value}),
@@ -71,7 +73,10 @@ function recoveryCase() {
       if (action.type === 'replace') context.videoRef.current = {...context.videoRef.current, ...action.value};
     },
     resolveAlternateUpload:async()=>{ calls.searches++; return {id:`alternate0${calls.searches}`, title:'Synthetic alternate'}; },
-    store:{getState:()=>({settings:{explicitContent:true}})}, isTrackAllowed:()=>true,
+    store:{getState:()=>({settings:{explicitContent:true,privateSession:false},player:{
+      playbackOwner:'guest',youtubeVideo:context.videoRef.current,playbackIntentRevision:0,
+      queueMode:'radio',queueManualEnd:false,playbackContext:null,
+    }})}, isTrackAllowed:()=>true,
     playNextOrContinueRef:{current:async()=>{ calls.advances++; return true; }},
   };
   context.video = context.videoRef.current;
@@ -91,7 +96,8 @@ function recoveryCase() {
     now = until;
   };
   // Exercise production callbacks rather than reproducing their branching here.
-  vm.runInNewContext(part('const cancelFade = () =>', 'const emptyRecovery =')
+  vm.runInNewContext(part('const capturePlaybackScope =', 'const isPageHidden =')
+    + part('const cancelFade = () =>', 'const emptyRecovery =')
     + part('const fadeOutThenSkip = (run) =>', 'const handleNext =')
     + part('const handlePlaybackFailure = async', 'handlePlaybackFailureRef.current = handlePlaybackFailure;')
     + part('// Fade a newly-started track in from silence', 'const seekOnCurrentTrack =')

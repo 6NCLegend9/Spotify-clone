@@ -14,7 +14,8 @@ import {
   safeUtf8Equal,
 } from "@/utils/desktopAuth.mjs";
 import { isRateLimited } from "@/utils/rateLimit";
-import { sessionIdentity } from "@/utils/sessionIdentity.mjs";
+import { isCurrentSession } from "@/utils/sessionIdentity.mjs";
+import { handleApiError } from "@/utils/apiResponse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ function jsonError(message, status = 400) {
   return Response.json({ error: message }, { status, headers: responseHeaders() });
 }
 
-export async function POST(request) {
+async function exchange(request) {
   let body;
   try {
     body = await readRequestJson(request, { maxBytes: 4096 });
@@ -83,8 +84,10 @@ export async function POST(request) {
   if (!consumed) return jsonError("This desktop sign-in request was already used.", 401);
 
   const user = await User.findById(grant.userId);
-  const identity = sessionIdentity(user);
-  if (!user || user.isVerified !== true || !identity) {
+  // Keep the issuing session's identity: a concurrent revocation must never upgrade this grant.
+  const id = String(grant.userId);
+  const identity = { id, sub: id, sessionVersion: grant.sessionVersion };
+  if (!isCurrentSession(identity, user)) {
     return jsonError("The account is no longer available for desktop sign-in.", 401);
   }
 
@@ -112,4 +115,14 @@ export async function POST(request) {
     cookieName: secure ? "__Secure-next-auth.session-token" : "next-auth.session-token",
     expiresAt,
   }, { headers: responseHeaders() });
+}
+
+export async function POST(request) {
+  try {
+    return await exchange(request);
+  } catch (error) {
+    const response = handleApiError(error, "Desktop exchange");
+    for (const [key, value] of Object.entries(responseHeaders())) response.headers.set(key, value);
+    return response;
+  }
 }

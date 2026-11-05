@@ -2,10 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch, useSelector, useStore } from "react-redux";
 import { EQ_PRESETS, updateEqBands, updateSetting } from "@/redux/features/settingsSlice";
 import { EQ_BAND_FREQS, bandsForPreset } from "@/utils/eqPresets";
-import { useSession } from "next-auth/react";
 import { signOutWithPrivacy as signOut } from "@/utils/signOut";
 import Link from "next/link";
 import { FaDiscord } from "react-icons/fa";
@@ -18,7 +17,7 @@ import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
 import AccessibleDialog from "@/components/AccessibleDialog";
-import { accountOwner } from "@/utils/accountCache.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
 import { browserNotificationPermission, browserNotificationsEnabled, requestBrowserNotificationPermission } from "@/utils/browserNotifications.mjs";
 
 const normalizationOptions = [["quiet", "Quiet"], ["normal", "Original"], ["loud", "Loud"]];
@@ -126,13 +125,14 @@ function SelectControl({ label, value, options, onChange }) {
 }
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession();
-  const owner = accountOwner(session, status);
-  return <AccountSettings key={owner || status} owner={owner} status={status} />;
+  const scope = useAccountScope();
+  return <AccountSettings key={scope.key} scope={scope} />;
 }
 
-function AccountSettings({ owner, status }) {
+function AccountSettings({ scope }) {
+  const { owner, status } = scope;
   const dispatch = useDispatch();
+  const store = useStore();
   const settings = useSelector((state) => state.settings);
   const [saveState, setSaveState] = useState("idle");
   const [saveError, setSaveError] = useState(null);
@@ -173,7 +173,9 @@ function AccountSettings({ owner, status }) {
   }, []);
 
   const changeBrowserNotifications = async (enabled) => {
-    if (notificationPending) return;
+    const current = () => scope.isCurrentView() && (status !== "authenticated" || scope.isCurrent())
+      && store.getState().settings.owner === owner;
+    if (notificationPending || !current()) return;
     setNotificationError(null);
     if (!enabled) {
       set("browserNotifications", false);
@@ -183,6 +185,9 @@ function AccountSettings({ owner, status }) {
     setNotificationPending(true);
     try {
       const permission = await requestBrowserNotificationPermission();
+      // Browser permission is site-wide, but this preference belongs only to
+      // the initiating mounted account/privacy generation.
+      if (!current()) return;
       setNotificationPermission(permission);
       set("browserNotifications", permission === "granted");
       if (permission !== "granted") setNotificationError({
@@ -190,9 +195,9 @@ function AccountSettings({ owner, status }) {
         message: "Allow notifications in your browser's site settings, then try again.",
       });
     } catch {
-      setNotificationError({ title: "Notifications unavailable", message: "This browser could not enable notifications. Try again or check its site settings." });
+      if (current()) setNotificationError({ title: "Notifications unavailable", message: "This browser could not enable notifications. Try again or check its site settings." });
     } finally {
-      setNotificationPending(false);
+      if (current()) setNotificationPending(false);
     }
   };
 

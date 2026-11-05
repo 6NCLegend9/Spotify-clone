@@ -5,6 +5,7 @@ import { apiError, handleApiError, readRequestJson } from "@/utils/apiResponse";
 import { isRateLimited } from "@/utils/rateLimit";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
 import { mergeSeenNotificationIds, sanitizeNotificationIds } from "@/utils/accountNotifications.mjs";
+import { mutateDocument } from "@/utils/documentMutation.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -30,9 +31,10 @@ export async function POST(request) {
       return NextResponse.json({ success: true, seenNotificationIds: userData.seenNotificationIds || [] });
     }
 
-    const seenNotificationIds = mergeSeenNotificationIds(userData.seenNotificationIds, ids);
-    await UserData.updateOne({ _id: userData._id }, { $set: { seenNotificationIds } });
-    return NextResponse.json({ success: true, seenNotificationIds });
+    const updated = await mutateDocument(UserData, userData._id, current => ({
+      seenNotificationIds: mergeSeenNotificationIds(current.seenNotificationIds, ids),
+    }));
+    return NextResponse.json({ success: true, seenNotificationIds: updated.seenNotificationIds || [] });
   } catch (error) {
     return handleApiError(error, "Mark notifications read");
   }

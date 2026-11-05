@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useDispatch } from "react-redux";
 import { toast } from "react-hot-toast";
@@ -13,16 +13,28 @@ import { playHomeTracks } from "@/utils/playHome";
 import { discoveryPlaylistHref } from "@/utils/discoveryPlaylist.mjs";
 import { buildYoutubeSearchUrl } from "@/utils/youtubeSearchUrl.mjs";
 import { toUserError } from "@/utils/userError";
+import useAccountScope from "@/hooks/useAccountScope";
+import usePlaybackRequest from "@/hooks/usePlaybackRequest";
 
 export default function MixCard({ mix }) {
+  const scope = useAccountScope();
+  return <AccountMixCard key={`${scope.key}:${mix.playlistId || mix.id}:${mix.query || mix.title}`} mix={mix} />;
+}
+
+function AccountMixCard({ mix }) {
   const dispatch = useDispatch();
+  const { begin, scope } = usePlaybackRequest();
+  const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const palette = mix.palette || {};
 
   const playMix = async (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    if (busy) return;
+    if (pending.current) return;
+    const current = begin();
+    if (!current) return;
+    pending.current = true;
     setBusy(true);
     try {
       let tracks = mix.tracks;
@@ -42,6 +54,7 @@ export default function MixCard({ mix }) {
         tracks = mix.playlistId ? data?.tracks : data?.results;
       }
 
+      if (!current()) return;
       const playable = Array.isArray(tracks) ? tracks : [];
       if (!playable.length) {
         toast.error("This playlist has no playable tracks right now.");
@@ -69,9 +82,10 @@ export default function MixCard({ mix }) {
         },
       );
     } catch (error) {
-      toast.error(toUserError(error).message);
+      if (current()) toast.error(toUserError(error).message);
     } finally {
-      setBusy(false);
+      pending.current = false;
+      if (scope.isCurrentView()) setBusy(false);
     }
   };
 

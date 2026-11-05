@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 const POLICY_REFRESH_MS = 15 * 60 * 1000;
+const POLICY_REQUEST_TIMEOUT_MS = 5_000;
 const DEFAULT_POLICY = Object.freeze({
   formatVersion: 1,
   maintenance: false,
@@ -58,10 +59,12 @@ export function effectiveUpdateRolloutPercent(snapshot) {
 }
 
 export class DesktopPolicy {
-  constructor({ url, fetchImpl = globalThis.fetch, onChange = () => {} }) {
+  constructor({ url, fetchImpl = globalThis.fetch, onChange = () => {}, requestTimeoutMs = POLICY_REQUEST_TIMEOUT_MS }) {
     this.url = String(url || "");
     this.fetchImpl = fetchImpl;
     this.onChange = onChange;
+    this.requestTimeoutMs = Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0
+      ? Math.min(requestTimeoutMs, POLICY_REQUEST_TIMEOUT_MS) : POLICY_REQUEST_TIMEOUT_MS;
     this.value = {
       ...DEFAULT_POLICY,
       features: { ...DEFAULT_POLICY.features },
@@ -69,6 +72,8 @@ export class DesktopPolicy {
     this.updatedAt = 0;
     this.timer = null;
     this.refreshing = null;
+    this.requestController = null;
+    this.disposed = false;
   }
 
   snapshot() {
@@ -84,6 +89,7 @@ export class DesktopPolicy {
   }
 
   async refresh() {
+    if (this.disposed) return this.snapshot();
     if (this.refreshing) return this.refreshing;
     this.refreshing = this.load().finally(() => {
       this.refreshing = null;
@@ -92,34 +98,57 @@ export class DesktopPolicy {
   }
 
   async load() {
-    if (!this.url || typeof this.fetchImpl !== "function") return this.snapshot();
+    if (this.disposed || !this.url || typeof this.fetchImpl !== "function") return this.snapshot();
+    const controller = new AbortController();
+    this.requestController = controller;
+    let cancel;
+    const aborted = new Promise((_, reject) => {
+      cancel = () => reject(controller.signal.reason);
+      controller.signal.addEventListener("abort", cancel, { once: true });
+    });
+    const deadline = setTimeout(() => controller.abort(new Error("Desktop policy request timed out.")), this.requestTimeoutMs);
     try {
-      const response = await this.fetchImpl(this.url, {
-        method: "GET",
-        headers: { Accept: "application/json", "Cache-Control": "no-cache" },
-      });
-      if (!response?.ok) throw new Error(`Desktop policy returned ${response?.status || "an error"}.`);
-      const next = sanitizeDesktopPolicy(await response.json());
-      if (!next) throw new Error("Desktop policy payload is invalid.");
+      // Bound headers AND JSON body. Racing cancellation also releases startup
+      // if a fetch implementation does not honor AbortSignal; late work cannot
+      // mutate policy because only the winning result is applied here.
+      const next = await Promise.race([aborted, (async () => {
+        const response = await this.fetchImpl(this.url, {
+          method: "GET",
+          headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+          signal: controller.signal,
+        });
+        if (!response?.ok) throw new Error(`Desktop policy returned ${response?.status || "an error"}.`);
+        const parsed = sanitizeDesktopPolicy(await response.json());
+        if (!parsed) throw new Error("Desktop policy payload is invalid.");
+        return parsed;
+      })()]);
+      if (this.disposed || controller.signal.aborted) return this.snapshot();
       this.value = next;
       this.updatedAt = Date.now();
       this.onChange(this.snapshot());
     } catch {
       // A transient policy outage never grants capabilities that a previously
       // loaded policy disabled. Keep the last valid snapshot until refresh.
+    } finally {
+      clearTimeout(deadline);
+      controller.signal.removeEventListener("abort", cancel);
+      controller.abort(); // Also stop unread bodies from unsuccessful responses.
+      if (this.requestController === controller) this.requestController = null;
     }
     return this.snapshot();
   }
 
   start() {
-    if (this.timer) return;
+    if (this.disposed || this.timer) return;
     this.timer = setInterval(() => void this.refresh(), POLICY_REFRESH_MS);
   }
 
   dispose() {
+    this.disposed = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    this.requestController?.abort();
   }
 }
 
-export { DEFAULT_POLICY, POLICY_REFRESH_MS };
+export { DEFAULT_POLICY, POLICY_REFRESH_MS, POLICY_REQUEST_TIMEOUT_MS };

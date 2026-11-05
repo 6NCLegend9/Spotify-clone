@@ -1,3 +1,5 @@
+import { isSafeMemberMapKey, memberMapValue } from "./documentMutation.mjs";
+
 export function knownDuration(value) {
   if (typeof value !== "number") return 0;
   const seconds = Number(value);
@@ -5,16 +7,15 @@ export function knownDuration(value) {
 }
 
 export function durationMapForMembers(members, previous, id, duration) {
-  const read = (key) => previous instanceof Map ? previous.get(key) : previous?.[key];
-  return Object.fromEntries(members.flatMap((key) => {
-    const seconds = knownDuration(key === id ? duration : 0) || knownDuration(read(key));
+  return Object.fromEntries(members.filter(isSafeMemberMapKey).flatMap((key) => {
+    const seconds = knownDuration(key === id ? duration : 0) || knownDuration(memberMapValue(previous, key));
     return seconds ? [[key, seconds]] : [];
   }));
 }
 
 export function withSavedDurations(tracks, durations) {
   return tracks.map((track) => {
-    const saved = durations instanceof Map ? durations.get(track.id) : durations?.[track.id];
+    const saved = memberMapValue(durations, track.id);
     return { ...track, duration: knownDuration(track.duration) || knownDuration(saved) };
   });
 }

@@ -1,4 +1,5 @@
 import { displayName } from "@/utils/inputText.mjs";
+import { randomUUID } from "node:crypto";
 import { validatedCover } from "@/utils/coverValidation";
 import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import { NextResponse } from "next/server";
@@ -24,6 +25,8 @@ import { getAuthenticatedAccount } from "@/utils/userAccount";
 import { youtubeFetch } from "@/utils/youtubeApi";
 import { canViewPlaylist, libraryPlaylistFilter } from "@/utils/playlistAccess.mjs";
 import { filterMusicPlaybackResults } from "@/utils/officialMusicSearch.mjs";
+import { mutateDocument } from "@/utils/documentMutation.mjs";
+import { getPlaylistItems, playlistItemChanges } from "@/utils/playlistItems.mjs";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -47,16 +50,10 @@ function shuffle(items) {
     return arr;
 }
 
-// Prefer the playlist name, then an explicit client choice, then the listener's
-// saved taste, before finally defaulting to Pop.
+// An explicit choice is authoritative; infer a theme only when it was omitted.
 function resolvePlaylistCategory(name, requested, genres) {
-    const byName = matchPlaylistCategory(name);
-    if (byName) return byName;
-    const requestedNorm = typeof requested === "string" && requested.trim()
-        ? normalizePlaylistCategory(requested)
-        : null;
-    if (requestedNorm && requestedNorm !== "Pop") return requestedNorm;
-    return categoryFromGenres(genres) || requestedNorm || "Pop";
+    if (typeof requested === "string" && requested.trim()) return normalizePlaylistCategory(requested);
+    return matchPlaylistCategory(name) || categoryFromGenres(genres) || "Pop";
 }
 
 // Pull a shuffled set of on-genre YouTube track ids to seed a new playlist.
@@ -142,12 +139,12 @@ export async function POST(req){
         }
         const coverImage = await validatedCover(body.coverImage);
         let songs = [...new Set(body.songs || [])];
-        const songAddedAt = {};
         if (autoFill && !songs.length) {
             songs = await fetchGenreSongIds(category, AUTO_FILL_SONG_COUNT).catch(() => []);
         }
         const now = new Date();
-        songs.forEach((id) => { songAddedAt[id] = now; });
+        const initialItems = songs.map((id) => ({ entryId: randomUUID(), id, addedAt: now.toISOString() }));
+        const itemFields = playlistItemChanges({}, initialItems);
 
         let playlist;
         await User.db.transaction(async (session) => {
@@ -156,10 +153,11 @@ export async function POST(req){
             if ((profile.playlists || []).length >= MAX_USER_PLAYLISTS) {
                 throw new ApiRouteError("VALIDATION_ERROR", { message: `You can create up to ${MAX_USER_PLAYLISTS} playlists` });
             }
-            [playlist] = await Playlist.create([{ name, description, user: user._id, category, subgenre, coverImage, songs, songAddedAt }], { session });
+            [playlist] = await Playlist.create([{ name, description, user: user._id, category, subgenre, coverImage, ...itemFields }], { session });
             await UserData.updateOne({ _id: profile._id }, {
                 $set: { playlists: [...(profile.playlists || []), playlist._id] }, $inc: { __v: 1 },
             }, { session });
+            await playlist.populate({ path: "user", select: "userName imageUrl", options: { session } });
         });
         return NextResponse.json(
             {
@@ -242,51 +240,52 @@ export async function PATCH(req){
         const body = await readRequestJson(req, { maxBytes: 384 * 1024 });
         const playlistId = requirePlaylistId(body.playlistId);
         const { action, value, email } = body;
-        const playlist = await Playlist.findById(playlistId);
-        if (!playlist) {
+        const existing = await Playlist.findById(playlistId);
+        if (!existing) {
             return apiError("NOT_FOUND", { message: "Playlist not found" });
         }
-        if (playlist.user.toString() !== user._id.toString()) {
+        if (existing.user.toString() !== user._id.toString()) {
             return apiError("FORBIDDEN", {
                 message: "Only the playlist owner can make this change",
             });
         }
 
+        const changes = {};
+        let collaborator;
         if (action === "details") {
             if (!value || typeof value !== "object" || Array.isArray(value)
                 || !displayName(value.name, 80)
                 || typeof value.description !== "string" || value.description.length > 300) {
                 return apiError("VALIDATION_ERROR", { message: "Use a name between 1 and 80 characters and a description of up to 300 characters." });
             }
-            const coverImage = value.coverImage === undefined ? playlist.coverImage : await validatedCover(value.coverImage);
-            playlist.name = displayName(value.name, 80);
-            playlist.description = value.description.trim();
-            playlist.coverImage = coverImage;
+            changes.name = displayName(value.name, 80);
+            changes.description = value.description.trim();
+            if (value.coverImage !== undefined) changes.coverImage = await validatedCover(value.coverImage);
         } else if (action === "name") {
             if (!displayName(value, 80)) {
                 return apiError("VALIDATION_ERROR", { message: "A playlist name between 1 and 80 characters is required" });
             }
-            playlist.name = displayName(value, 80);
+            changes.name = displayName(value, 80);
         } else if (action === "pinned") {
             if (typeof value !== "boolean") {
                 return apiError("VALIDATION_ERROR", { message: "Pinned must be true or false" });
             }
-            playlist.pinned = value;
+            changes.pinned = value;
         } else if (action === "smartShuffle") {
             if (typeof value !== "boolean") {
                 return apiError("VALIDATION_ERROR", {
                     message: "Smart shuffle must be true or false",
                 });
             }
-            playlist.smartShuffle = value;
+            changes.smartShuffle = value;
         } else if (action === "visibility" && ["public", "private"].includes(value)) {
-            playlist.visibility = value;
+            changes.visibility = value;
         } else if (action === "category") {
-            playlist.category = normalizePlaylistCategory(value);
+            changes.category = normalizePlaylistCategory(value);
         } else if (action === "subgenre") {
-            playlist.subgenre = typeof value === "string" ? value.trim().slice(0, 48) : "";
+            changes.subgenre = typeof value === "string" ? value.trim().slice(0, 48) : "";
         } else if (action === "cover") {
-            playlist.coverImage = await validatedCover(value == null ? "" : value);
+            changes.coverImage = await validatedCover(value == null ? "" : value);
         } else if (action === "addCollaborator") {
             const collaboratorEmail = typeof email === "string"
                 ? email.trim().toLowerCase().slice(0, 254)
@@ -296,23 +295,11 @@ export async function PATCH(req){
                     message: "A collaborator email is required",
                 });
             }
-            const collaborator = await User.findOne({ email: collaboratorEmail });
+            collaborator = await User.findOne({ email: collaboratorEmail });
             if (collaborator && collaborator._id.toString() === user._id.toString()) {
                 return apiError("VALIDATION_ERROR", {
                     message: "You already own this playlist",
                 });
-            }
-            const alreadyCollaborating = Boolean(
-                collaborator
-                && playlist.collaborators.some((id) => id.toString() === collaborator._id.toString()),
-            );
-            if (!alreadyCollaborating && playlist.collaborators.length >= MAX_COLLABORATORS) {
-                return apiError("VALIDATION_ERROR", {
-                    message: `A playlist can have up to ${MAX_COLLABORATORS} collaborators`,
-                });
-            }
-            if (collaborator && !alreadyCollaborating) {
-                playlist.collaborators.push(collaborator._id);
             }
         } else {
             return apiError("VALIDATION_ERROR", {
@@ -320,9 +307,24 @@ export async function PATCH(req){
             });
         }
 
-        await playlist.save();
-        await playlist.populate("user", "userName imageUrl");
-        await playlist.populate("collaborators", "userName imageUrl");
+        const playlist = await mutateDocument(Playlist, playlistId, (current) => {
+            if (String(current.user) !== String(user._id)) throw new ApiRouteError("FORBIDDEN");
+            let fields = changes;
+            if (action === "addCollaborator") {
+                const collaborators = current.collaborators || [];
+                if (!collaborator || collaborators.some((id) => String(id) === String(collaborator._id))) return null;
+                if (collaborators.length >= MAX_COLLABORATORS) {
+                    throw new ApiRouteError("VALIDATION_ERROR", { message: `A playlist can have up to ${MAX_COLLABORATORS} collaborators` });
+                }
+                fields = { collaborators: [...collaborators, collaborator._id] };
+            }
+            if (Object.entries(fields).every(([key, entry]) => current[key] === entry)) return null;
+            return { ...fields, ...playlistItemChanges(current, getPlaylistItems(current)) };
+        }, { user: user._id });
+        await Playlist.populate(playlist, [
+            { path: "user", select: "userName imageUrl" },
+            { path: "collaborators", select: "userName imageUrl" },
+        ]);
         return NextResponse.json({
             success: true,
             message: action === "addCollaborator"

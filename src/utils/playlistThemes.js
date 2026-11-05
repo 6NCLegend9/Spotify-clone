@@ -1,4 +1,5 @@
 import { displayName } from "./inputText.mjs";
+import { getPlaylistItems, playlistRevision } from "./playlistItems.mjs";
 export const PLAYLIST_CATEGORIES = [
   "Sports",
   "Workout",
@@ -174,6 +175,8 @@ export function serializePlaylist(playlist, userId) {
     name: displayName(obj.name, 80) || "Untitled playlist",
     description: typeof obj.description === "string" ? obj.description : "",
     songs: Array.isArray(obj.songs) ? obj.songs : [],
+    items: getPlaylistItems(obj),
+    revision: playlistRevision(obj),
     songAddedAt: obj.songAddedAt || {},
     songDurations: obj.songDurations || {},
     user: publicUser(obj.user),

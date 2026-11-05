@@ -18,14 +18,25 @@ let authenticated = true, modelMode = 'empty', playlist = null;
 function chain(value) {
  const q = { then: (ok, fail) => Promise.resolve(value).then(ok, fail) };
  for (const m of ['select', 'lean', 'session', 'sort', 'populate', 'limit']) q[m] = () => q;
+ q.lean = async () => { const doc = await value; return typeof doc?.toObject === 'function' ? doc.toObject({flattenMaps:true}) : doc; };
  return q;
 }
 const mockModel = new Proxy({}, {get: (_, key) => {
  if (key === 'db') return {transaction: async (cb) => cb({})};
+ if (key === 'populate') return async doc => doc;
  if (key === 'findById') return () => chain(modelMode === 'playlist' ? playlist : syntheticData);
  if (key === 'findOne') return () => chain(null);
  if (key === 'find') return () => chain([]);
- if (key === 'create') return async (v) => Array.isArray(v) ? v.map(x => ({...x, _id:'507f1f77bcf86cd799439013'})) : {...v,_id:'507f1f77bcf86cd799439013'};
+ if (key === 'create') return async (v) => {
+  const document = value => { const doc={...value,_id:'507f1f77bcf86cd799439013'}; doc.populate=async()=>doc; return doc; };
+  return Array.isArray(v) ? v.map(document) : document(v);
+ };
+ if (key === 'findOneAndUpdate') return (_, changes) => chain((async () => {
+  if(modelMode !== 'playlist' || !playlist) return null;
+  playlist.set(changes.$set || {});
+  for(const [field, amount] of Object.entries(changes.$inc || {})) playlist.set(field,(playlist[field] || 0)+amount);
+  await playlist.validate(); return playlist;
+ })());
  if (key === 'findByIdAndUpdate') return (_, changes) => chain({ ...syntheticData, settings: Object.fromEntries(Object.entries(changes.$set || {}).filter(([k])=>k.startsWith('settings.')).map(([k,v])=>[k.slice(9),v])) });
  if (key === 'updateOne' || key === 'deleteOne' || key === 'updateMany') return async () => ({modifiedCount:1});
  return undefined;
@@ -228,8 +239,8 @@ async function routeCall(file,method,body,url='/api/audit',origin) {
   assert.equal(networkAttempts,0);
  }
  const output=process.argv[2]||path.join(os.tmpdir(),'haykasa-security-audit.json');
- const summary={routeInventory:routeFiles.length,cases:results.length,networkAttempts,exceptions:results.filter(x=>x.error).length,http500:results.filter(x=>x.observation?.status>=500).length,results,logs};
+ const summary={routeInventory:routeFiles.length,cases:results.length,networkAttempts,exceptions:results.filter(x=>x.error).length,http500:results.filter(x=>x.observation?.status===500).length,http5xx:results.filter(x=>x.observation?.status>=500).length,serviceUnavailable:results.filter(x=>x.observation?.status===503).length,results,logs};
  fs.writeFileSync(output,JSON.stringify(summary,null,2)+'\n');
  fs.rmSync(folders,{recursive:true,force:true});
- console.log(JSON.stringify({output,routeInventory:routeFiles.length,cases:results.length,networkAttempts,exceptions:summary.exceptions,http500:summary.http500}));
+ console.log(JSON.stringify({output,routeInventory:routeFiles.length,cases:results.length,networkAttempts,exceptions:summary.exceptions,http500:summary.http500,http5xx:summary.http5xx,serviceUnavailable:summary.serviceUnavailable}));
 })().catch(e=>{console.error(e);process.exitCode=1});

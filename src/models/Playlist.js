@@ -1,4 +1,11 @@
 import mongoose from "mongoose";
+import { MAX_PLAYLIST_ITEMS, PLAYLIST_ENTRY_ID, PLAYLIST_TRACK_ID } from "../utils/playlistItems.mjs";
+
+const itemSchema = new mongoose.Schema({
+  entryId: { type: String, required: true, maxlength: 128, match: PLAYLIST_ENTRY_ID },
+  id: { type: String, required: true, match: PLAYLIST_TRACK_ID },
+  addedAt: { type: Date, default: null },
+}, { _id: false });
 
 const fileSchema = new mongoose.Schema(
   {
@@ -12,6 +19,12 @@ const fileSchema = new mongoose.Schema(
       type: [String],
       default: [],
       validate: (values) => values.length <= 500 && values.every((id) => /^[A-Za-z0-9_-]{11}$/.test(id)),
+    },
+    items: {
+      type: [itemSchema],
+      default: undefined,
+      validate: (items) => !items || (items.length <= MAX_PLAYLIST_ITEMS
+        && new Set(items.map((item) => item.entryId)).size === items.length),
     },
     songAddedAt: {
         type: Map,
