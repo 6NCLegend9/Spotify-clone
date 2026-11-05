@@ -212,6 +212,7 @@ async function scenario(name, kind, run, viewport = { width: 1440, height: 900 }
         const retry = page.getByRole('button', { name: 'Try again', exact: true });
         await page.evaluate(() => { qaFailRead = false; qaEmpty = true; }); await retry.focus(); await page.keyboard.press('Enter');
         await page.getByText(kind === 'feedback' ? 'No tracks.' : 'No observations in this period.', { exact: true }).waitFor();
+        await page.getByRole('alert').waitFor({ state: 'detached' });
         assert.equal(await page.getByRole('alert').count(), 0);
       });
       for (const [label, viewport] of [['narrow', { width: 320, height: 720 }], ['landscape', { width: 844, height: 390 }], ['desktop', { width: 1440, height: 900 }]]) await scenario(kind + '-layout-' + label, kind, async page => {
