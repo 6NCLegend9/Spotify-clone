@@ -31,7 +31,7 @@ function include(file) {
   }
   return key;
 }
-const entries = Object.fromEntries(Object.entries({ detail: 'components/Library/PlaylistDetail.jsx', mix: 'components/Homepage/MixCard.jsx', recommendation: 'components/RecommendationPlaylistCard.jsx', search: 'components/YouTubeMusicResults.jsx', artist: 'components/ArtistProfile.jsx', player: 'redux/features/playerSlice.js', boundary: 'components/AccountPrivacyBoundary.jsx', storage: 'utils/accountStorage.mjs', events: 'utils/playlistEvents.mjs', items: 'utils/playlistItems.mjs' }).map(([key, file]) => [key, include(path.join(root, 'src', file))]));
+const entries = Object.fromEntries(Object.entries({ detail: 'components/Library/PlaylistDetail.jsx', mix: 'components/Homepage/MixCard.jsx', recommendation: 'components/RecommendationPlaylistCard.jsx', search: 'components/YouTubeMusicResults.jsx', artist: 'components/ArtistProfile.jsx', player: 'redux/features/playerSlice.js', boundary: 'components/AccountPrivacyBoundary.jsx', storage: 'utils/accountStorage.mjs', events: 'utils/playlistEvents.mjs', items: 'utils/playlistItems.mjs', access: 'utils/playlistAccess.mjs' }).map(([key, file]) => [key, include(path.join(root, 'src', file))]));
 const manifest = JSON.parse(fs.readFileSync(path.join(root, '.next/app-build-manifest.json'), 'utf8'));
 const css = (manifest.pages['/layout'] || []).filter(name => name.endsWith('.css')).map(name => fs.readFileSync(path.join(root, '.next', name), 'utf8')).join('\n') + styles.join('\n');
 const results = [];
@@ -50,6 +50,13 @@ async function setup(page, options = {}) {
     window.qaModes = { metadata: options.metadata || 'normal', read: options.read || 'normal', discovery: options.discovery || 'normal', mixA: 'hold', mixB: options.holdMixB ? 'hold' : 'normal' };
     const ids = ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'aaaaaaaaaaa', 'ccccccccccc'];
     window.qaPlaylist = { _id: '507f1f77bcf86cd799439012', name: 'QA playlist', description: 'Songs for the day', visibility: options.guest ? 'public' : 'private', user: { _id: options.guest ? 'other' : 'A', userName: 'Playlist QA' }, collaborators: options.collaborator ? [{ _id: 'B' }] : [], songs: options.empty ? [] : ids, items: options.empty ? [] : ids.map((id, index) => ({ id, entryId: 'entry-' + index, addedAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString() })), revision: 0, songDurations: { aaaaaaaaaaa: 180, bbbbbbbbbbb: 240, ccccccccccc: 120 }, liked: false, smartShuffle: Boolean(options.smart) };
+    window.qaFavouriteIds = ['aaaaaaaaaaa', 'bbbbbbbbbbb'];
+    window.qaDestinations = options.destinations ? [
+      { _id: '507f1f77bcf86cd799439021', name: 'Owned mix one', user: { _id: 'A', userName: 'Playlist QA' }, collaborators: [], visibility: 'private', songs: [] },
+      { _id: '507f1f77bcf86cd799439022', name: 'Owned mix two', user: 'A', collaborators: [], visibility: 'public', songs: [] },
+      { _id: '507f1f77bcf86cd799439023', name: 'Collaborative mix', user: { _id: 'B', userName: 'Other owner' }, collaborators: [{ _id: 'A', userName: 'Playlist QA' }], visibility: 'private', songs: [] },
+      { _id: '507f1f77bcf86cd799439024', name: 'Saved public read-only mix', user: { _id: 'B', userName: 'Other owner' }, collaborators: [], visibility: 'public', liked: true, songs: [] },
+    ] : [qaPlaylist];
     window.qaMetadata = { aaaaaaaaaaa: { id: 'aaaaaaaaaaa', title: 'Alpha song', channel: 'Zulu artist', duration: 180 }, bbbbbbbbbbb: { id: 'bbbbbbbbbbb', title: 'Bravo song', channel: 'Echo artist', duration: 240 }, ccccccccccc: { id: 'ccccccccccc', title: 'Charlie song', channel: 'Delta artist', duration: 120 } };
     const deliver = (kind, response) => {
       const request = { kind, owner: qaSession.data?.user?.id || 'guest', response: copy(response) };
@@ -67,9 +74,15 @@ async function setup(page, options = {}) {
       if (parsed.pathname === '/api/artist-sections') return Promise.resolve({ artist: { id: parsed.searchParams.get('id') }, playlists: [{ id: 'mixA', title: 'Mix A' }, { id: 'mixB', title: 'Mix B' }] });
       if (parsed.pathname === '/api/channel-rabbit-hole') return Promise.resolve({ tracks: [] });
       if (parsed.pathname === '/api/followedArtists') return Promise.resolve({ success: true, data: [], artists: [] });
-      if (parsed.pathname === '/api/favourite') return deliver('read', { data: { favourites: ['aaaaaaaaaaa', 'bbbbbbbbbbb'], favouriteDurations: qaPlaylist.songDurations } });
+      if (parsed.pathname === '/api/favourite') return deliver('read', { data: { favourites: copy(qaFavouriteIds), favouriteDurations: qaPlaylist.songDurations } });
       if (parsed.pathname === '/api/userPlaylists/songs') {
         if (!config.method || config.method === 'GET') return deliver('read', { success: true, data: copy(qaPlaylist) });
+        if (config.method === 'POST') {
+          const playlist = qaDestinations.find(item => item._id === body.playlistID);
+          if (!require(entries.access).canEditPlaylist(playlist, qaSession.data?.user?.id)) return Promise.reject({ code: 'FORBIDDEN', status: 403 });
+          playlist.songs.push(body.song);
+          return Promise.resolve({ success: true, added: true, data: { playlist: copy(playlist) } });
+        }
         if (body.expectedRevision !== qaPlaylist.revision || qaModes.mutation === 'conflict') return Promise.reject({ code: 'CONFLICT', status: 409 });
         if (config.method === 'DELETE') {
           qaPlaylist.items = qaPlaylist.items.filter(item => item.entryId !== body.entryId);
@@ -82,7 +95,7 @@ async function setup(page, options = {}) {
         qaPlaylist.songs = qaPlaylist.items.map(item => item.id); qaPlaylist.revision++;
         return deliver('mutation', { success: true, data: config.method === 'DELETE' ? copy(qaPlaylist.songs) : { playlist: copy(qaPlaylist) }, playlist: copy(qaPlaylist) });
       }
-      if (parsed.pathname === '/api/userPlaylists') return Promise.resolve({ success: true, data: { playlists: [copy(qaPlaylist)] } });
+      if (parsed.pathname === '/api/userPlaylists') return Promise.resolve({ success: true, data: { playlists: copy(options.destinations ? qaDestinations : [qaPlaylist]) } });
       throw new Error('Unexpected HTTP fixture ' + url);
     };
     const toast = message => qaToasts.push(String(message)); toast.success = toast; toast.error = toast;
@@ -102,12 +115,16 @@ async function setup(page, options = {}) {
       if (name === 'lucide-react') return new Proxy({}, { get: () => props => React.createElement('svg', { ...props, width: '1em', height: '1em' }) });
       if (name === 'react-hot-toast') return { __esModule: true, default: toast, toast };
       if (name === '@/services/http') return { requestJson };
-      if (name === '@/services/dataAPI') return { getFavourite: async () => ['aaaaaaaaaaa', 'bbbbbbbbbbb'], addFavourite: async () => ({ success: true, data: { favourites: ['bbbbbbbbbbb'] } }) };
+      if (name === '@/services/dataAPI') return { getFavourite: async () => copy(qaFavouriteIds), addFavourite: async body => {
+        qaCalls.push({ url: '/api/favourite', method: 'POST', body: copy(body), owner: qaSession.data?.user?.id || 'guest' });
+        qaFavouriteIds = qaFavouriteIds.filter(id => id !== body?.id);
+        return { success: true, data: { favourites: copy(qaFavouriteIds) } };
+      } };
       if (cache[name]) return cache[name].exports;
       const source = sources[name]; if (!source) throw new Error('Missing fixture module ' + name);
-      const module = { exports: {} }; cache[name] = module;
-      new Function('require', 'module', 'exports', source.code)(spec => require(source.dependencies[spec]), module, module.exports);
-      return module.exports;
+      const loaded = { exports: {} }; cache[name] = loaded;
+      new Function('require', 'module', 'exports', source.code)(spec => require(source.dependencies[spec]), loaded, loaded.exports);
+      return loaded.exports;
     }
     const player = require(entries.player); window.qaActions = player;
     store = RTK.configureStore({ reducer: (state, action) => {
@@ -148,6 +165,53 @@ async function scenario(name, run, options = {}, viewport = { width: 390, height
 (async () => {
   browser = await chromium.launch({ headless: true, ...(process.env.HAYKASA_BROWSER_EXECUTABLE ? { executablePath: process.env.HAYKASA_BROWSER_EXECUTABLE } : {}) });
   try {
+    const openFavouriteDestinations = async page => {
+      await row(page, 'aaaaaaaaaaa').getByRole('button', { name: 'Queue options', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Add to playlist', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Owned mix one', exact: true }).waitFor();
+    };
+    const assertFavouritesRetained = async page => {
+      assert.deepEqual(await page.evaluate(() => qaFavouriteIds), ['aaaaaaaaaaa', 'bbbbbbbbbbb']);
+      assert.equal(await rows(page).count(), 2);
+      assert.equal(await page.evaluate(() => qaCalls.filter(call => call.url === '/api/favourite' && call.method !== 'GET').length), 0, 'Adding a favourite to a playlist must not issue a favourite mutation');
+    };
+    await scenario('favourites-add-song-to-two-owned-playlists', async page => {
+      await ready(page);
+      for (const name of ['Owned mix one', 'Owned mix two']) {
+        await openFavouriteDestinations(page);
+        await page.getByRole('menuitem', { name, exact: true }).click();
+        await page.getByRole('menu').waitFor({ state: 'detached' });
+      }
+      assert.deepEqual(await page.evaluate(() => qaDestinations.slice(0, 2).map(item => item.songs)), [['aaaaaaaaaaa'], ['aaaaaaaaaaa']]);
+      assert.deepEqual(await page.evaluate(() => qaCalls.filter(call => call.method === 'POST').map(call => ({ id: call.body.playlistID, song: call.body.song }))), [
+        { id: '507f1f77bcf86cd799439021', song: 'aaaaaaaaaaa' }, { id: '507f1f77bcf86cd799439022', song: 'aaaaaaaaaaa' },
+      ]);
+      await assertFavouritesRetained(page);
+    }, { liked: true, destinations: true });
+    await scenario('favourites-add-song-to-collaborative-playlist', async page => {
+      await ready(page); await openFavouriteDestinations(page);
+      await page.getByRole('menuitem', { name: 'Collaborative mix', exact: true }).click();
+      await page.getByRole('menu').waitFor({ state: 'detached' });
+      assert.deepEqual(await page.evaluate(() => qaDestinations[2].songs), ['aaaaaaaaaaa']);
+      await assertFavouritesRetained(page);
+    }, { liked: true, destinations: true });
+    await scenario('favourites-hide-saved-public-read-only-destination', async page => {
+      await ready(page); await openFavouriteDestinations(page);
+      assert.equal(await page.getByRole('menuitem', { name: 'Saved public read-only mix', exact: true }).count(), 0, 'Saved public playlists without edit access are not add destinations');
+      assert.equal(await page.getByRole('menuitem', { name: 'Collaborative mix', exact: true }).isEnabled(), true);
+      assert.equal(await page.getByRole('menuitem', { name: 'Create playlist', exact: true }).isEnabled(), true);
+      assert.equal(await page.evaluate(() => qaCalls.filter(call => call.method === 'POST').length), 0);
+      await assertFavouritesRetained(page);
+    }, { liked: true, destinations: true });
+    await scenario('favourites-add-denied-after-collaborator-access-is-revoked', async page => {
+      await ready(page); await openFavouriteDestinations(page);
+      await page.evaluate(() => { qaDestinations[2].collaborators = []; });
+      await page.getByRole('menuitem', { name: 'Collaborative mix', exact: true }).click();
+      await page.waitForFunction(() => qaToasts.length > 0);
+      assert.deepEqual(await page.evaluate(() => qaDestinations[2].songs), []);
+      assert.equal(await page.getByRole('menu').count(), 1, 'The failed add remains available for recovery');
+      await assertFavouritesRetained(page);
+    }, { liked: true, destinations: true });
     await scenario('home-mix-slow-request-yields-to-newer-play', async page => {
       await page.getByRole('button', { name: 'Play Mix A' }).click();
       await page.getByRole('button', { name: 'Play Mix B' }).click();

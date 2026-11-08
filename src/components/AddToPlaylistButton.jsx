@@ -12,6 +12,7 @@ import UserMessage from "@/components/UserMessage";
 import { toUserError } from "@/utils/userError";
 import { loginPath } from "@/utils/appOrigin.mjs";
 import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
+import { canEditPlaylist } from "@/utils/playlistAccess.mjs";
 import { getFocusableElements } from "@/hooks/useFocusTrap";
 import useAccountScope from "@/hooks/useAccountScope";
 import usePlaylistAddition from "@/hooks/usePlaylistAddition";
@@ -108,10 +109,12 @@ function AccountAddToPlaylistButton({ track, className = "", scope }) {
     const res = await getUserPlaylists();
     if (!scope.isCurrent()) return;
     if (res?.success) {
+      const userId = scope.owner.slice("account:".length);
       setPlaylists(
         Array.isArray(res.data?.playlists)
           ? res.data.playlists.filter(
-            (playlist) => playlist && typeof playlist === "object" && playlist._id,
+            (playlist) => playlist && typeof playlist === "object" && playlist._id
+              && canEditPlaylist(playlist, userId),
           )
           : [],
       );
@@ -202,7 +205,7 @@ function AccountAddToPlaylistButton({ track, className = "", scope }) {
               )}
               {!loading && !loadError && playlists?.length === 0 && <div role="status">
                 <EmptyState
-                  title="No playlists yet"
+                  title="No editable playlists"
                   message="Create a playlist to keep this song."
                 />
               </div>}

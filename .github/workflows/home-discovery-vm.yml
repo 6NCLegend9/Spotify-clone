@@ -25,6 +25,7 @@ on:
       - 'src/components/ArtistProfile.jsx'
       - 'src/components/ArtistCatalogRails.jsx'
       - 'src/utils/accountStorage.mjs'
+      - 'src/utils/playlistAccess.mjs'
       - 'scripts/check-playlist-menu-browser.cjs'
       - 'src/components/FeedbackPreferences.jsx'
       - 'src/components/ListeningInsights.jsx'

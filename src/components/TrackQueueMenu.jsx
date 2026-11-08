@@ -25,6 +25,7 @@ import { getUserPlaylists } from "@/services/playlistApi";
 import { loginPath } from "@/utils/appOrigin.mjs";
 import { toUserError } from "@/utils/userError";
 import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
+import { canEditPlaylist } from "@/utils/playlistAccess.mjs";
 import useAccountScope from "@/hooks/useAccountScope";
 import usePlaylistAddition from "@/hooks/usePlaylistAddition";
 import PlaylistDuplicateDialog from "@/components/PlaylistDuplicateDialog";
@@ -166,8 +167,10 @@ function AccountTrackQueueMenu({ track, className = "", buttonLabel = "Track opt
     const response = await getUserPlaylists();
     if (!scope.isCurrent()) return;
     if (response?.success) {
+      const userId = scope.owner.slice("account:".length);
       const list = Array.isArray(response.data?.playlists)
-        ? response.data.playlists.filter((playlist) => playlist && typeof playlist === "object" && playlist._id)
+        ? response.data.playlists.filter((playlist) => playlist && typeof playlist === "object" && playlist._id
+          && canEditPlaylist(playlist, userId))
         : [];
       setPlaylists(list);
     } else {
@@ -254,7 +257,7 @@ function AccountTrackQueueMenu({ track, className = "", buttonLabel = "Track opt
             <p className="text-xs text-[var(--muted)]">{playlistError}</p>
             <button type="button" onClick={() => void loadPlaylists()} className="mt-2 text-xs font-semibold text-[var(--accent)]">Try again</button>
           </div>}
-          {!loadingPlaylists && !playlistError && playlists?.length === 0 && <p className="px-3 py-3 text-xs text-[var(--muted)]">No playlists yet.</p>}
+          {!loadingPlaylists && !playlistError && playlists?.length === 0 && <p className="px-3 py-3 text-xs text-[var(--muted)]">No editable playlists.</p>}
           {!loadingPlaylists && !playlistError && <button type="button" role="menuitem" disabled={Boolean(addingPlaylistId)} className={actionClass}
             onClick={() => { closeMenu(); setCreating(true); }}><FiPlus size="1em" aria-hidden="true" /><span>Create playlist</span></button>}
           {!loadingPlaylists && !playlistError && playlists?.length > 0 && <div className="max-h-56 overflow-y-auto overscroll-contain py-1">

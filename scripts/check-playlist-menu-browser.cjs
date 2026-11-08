@@ -25,7 +25,7 @@ function include(file) {
   }
   return key;
 }
-const entries = { add: include(path.join(root, 'src/components/AddToPlaylistButton.jsx')), track: include(path.join(root, 'src/components/TrackQueueMenu.jsx')), boundary: include(path.join(root, 'src/components/AccountPrivacyBoundary.jsx')), storage: include(path.join(root, 'src/utils/accountStorage.mjs')) };
+const entries = { add: include(path.join(root, 'src/components/AddToPlaylistButton.jsx')), track: include(path.join(root, 'src/components/TrackQueueMenu.jsx')), boundary: include(path.join(root, 'src/components/AccountPrivacyBoundary.jsx')), storage: include(path.join(root, 'src/utils/accountStorage.mjs')), access: include(path.join(root, 'src/utils/playlistAccess.mjs')) };
 const manifest = JSON.parse(fs.readFileSync(path.join(root, '.next/app-build-manifest.json'), 'utf8'));
 const css = (manifest.pages['/layout'] || []).filter(name => name.endsWith('.css')).map(name => fs.readFileSync(path.join(root, '.next', name), 'utf8')).join('\n');
 const results = [];
@@ -41,8 +41,8 @@ async function setup(page, kind, mode = 'normal') {
     window.qaSession = { data: { user: { id: 'A' } }, status: 'authenticated' };
     window.qaFetchCalls = []; window.qaAddCalls = []; window.qaAddRequests = []; window.qaToasts = []; window.qaEvents = []; window.qaPendingLists = []; window.qaPendingAdds = []; window.qaAddMode = "normal"; window.qaCreated = []; window.qaMoves = []; window.qaTrack = { id: "abcdefghijk", title: "QA track", duration: 180 }; window.qaMenuProps = {};
     window.addEventListener("heykasa:playlists-changed", event => qaEvents.push(event.detail));
-    window.qaHoldLists = mode === 'loading'; window.qaHoldAdds = false; window.qaListMode = mode;
-    const list = owner => [...[1, 2, 3].map(index => ({ _id: `${owner}-${index}`, name: `${owner} private playlist ${index}` })), ...qaCreated.filter(item => item.owner === owner)];
+    window.qaHoldLists = mode === 'loading'; window.qaHoldAdds = false; window.qaListMode = mode; window.qaDestinationLists = {};
+    const list = owner => [...(qaDestinationLists[owner] || [1, 2, 3].map(index => ({ _id: `${owner}-${index}`, name: `${owner} private playlist ${index}`, user: { _id: owner, userName: owner }, collaborators: [], visibility: 'private' }))), ...qaCreated.filter(item => item.owner === owner)];
     const response = owner => ['error', 'unauthorized'].includes(qaListMode) ? { success: false, code: qaListMode === 'unauthorized' ? 'UNAUTHORIZED' : 'UNKNOWN' } : { success: true, data: { playlists: qaListMode === 'empty' ? [] : list(owner) } };
     const toast = message => qaToasts.push(String(message)); toast.error = toast; toast.success = toast;
     const cache = {};
@@ -67,7 +67,9 @@ async function setup(page, kind, mode = 'normal') {
           const owner = qaSession.data?.user?.id || 'guest'; qaAddCalls.push({ owner, id });
           qaAddRequests.push({ owner, id, song, duration, options });
           const playlist = [...list(owner), ...qaCreated].find(item => item._id === id);
-          const result = qaAddMode === 'duplicate' && !options.allowDuplicate
+          const result = !require(entries.access).canEditPlaylist(playlist, owner)
+            ? { success: false, code: 'FORBIDDEN' }
+            : qaAddMode === 'duplicate' && !options.allowDuplicate
             ? { success: true, duplicate: true, added: false, data: { playlist } }
             : qaAddMode === 'error' ? { success: false, code: 'NETWORK_ERROR' }
               : { success: true, added: true, data: { playlist: { ...playlist, songs: [song] } } };
@@ -75,7 +77,7 @@ async function setup(page, kind, mode = 'normal') {
         },
         createPlaylist: name => {
           const owner = qaSession.data?.user?.id || 'guest';
-          const playlist = { owner, _id: `created-${qaCreated.length}`, name, songs: [] };
+          const playlist = { owner, user: { _id: owner }, collaborators: [], _id: `created-${qaCreated.length}`, name, songs: [] };
           qaCreated.push(playlist); return Promise.resolve({ success: true, data: { playlist } });
         },
       };
@@ -128,9 +130,60 @@ async function scenario(name, kind, mode, run, viewport = { width: 1440, height:
   browser = await chromium.launch({ headless: true, ...(process.env.HAYKASA_BROWSER_EXECUTABLE ? { executablePath: process.env.HAYKASA_BROWSER_EXECUTABLE } : {}) });
   try {
     for (const kind of ['add', 'track']) {
+      await scenario(kind + '-destinations-require-ownership-or-collaboration', kind, 'normal', async page => {
+        await page.evaluate(() => { qaDestinationLists.A = [
+          { _id: 'own-string', name: 'Owned string', user: 'A' },
+          { _id: 'own-object', name: 'Owned populated', user: { _id: 'A', userName: 'Account A' } },
+          { _id: 'collab-string', name: 'Collaboration string', user: 'other', collaborators: ['A'] },
+          { _id: 'collab-object', name: 'Collaboration populated', user: { _id: 'other' }, collaborators: [{ _id: 'A' }] },
+          { _id: 'read-only', name: 'Saved public read-only', user: { _id: 'other' }, collaborators: [], visibility: 'public', liked: true },
+          { _id: 'unidentified', name: 'Missing access metadata' }, null, {},
+        ]; });
+        await open(page, kind);
+        await page.getByRole('menuitem', { name: 'Owned populated', exact: true }).waitFor();
+        for (const name of ['Owned string', 'Owned populated', 'Collaboration string', 'Collaboration populated']) {
+          assert.equal(await page.getByRole('menuitem', { name, exact: true }).isEnabled(), true, name);
+        }
+        assert.equal(await page.getByRole('menuitem', { name: 'Saved public read-only', exact: true }).count(), 0);
+        assert.equal(await page.getByRole('menuitem', { name: 'Missing access metadata', exact: true }).count(), 0);
+        await page.getByRole('menuitem', { name: 'Collaboration populated', exact: true }).click();
+        await page.getByRole('menu').waitFor({ state: 'detached' });
+        assert.equal(await page.evaluate(() => qaAddRequests[0].id), 'collab-object');
+        assert.equal(await page.evaluate(() => qaEvents.length), 1);
+      });
+      await scenario(kind + '-read-only-library-keeps-create-and-add', kind, 'normal', async page => {
+        await page.evaluate(() => { qaDestinationLists.A = [
+          { _id: 'read-only', name: 'Saved public read-only', user: 'other', collaborators: [], visibility: 'public' },
+        ]; });
+        await open(page, kind);
+        await page.waitForFunction(() => !document.querySelector('[role=menu]')?.textContent.includes('Loading playlists'));
+        assert.match(await page.getByRole('menu').innerText(), /No editable playlists/);
+        assert.equal(await page.getByRole('menuitem', { name: 'Saved public read-only', exact: true }).count(), 0);
+        await page.getByRole('menuitem', { name: 'Create playlist', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Create playlist', exact: true }).waitFor();
+        await page.getByLabel('Name', { exact: true }).fill('Writable mix');
+        await page.getByRole('button', { name: 'Create', exact: true }).click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        await page.waitForFunction(() => qaAddRequests.length === 1);
+        assert.equal(await page.evaluate(() => qaAddRequests[0].id), 'created-0');
+        assert.equal(await page.evaluate(() => qaEvents.length), 2);
+      });
+      await scenario(kind + '-permission-revoked-after-open-is-still-denied', kind, 'normal', async page => {
+        await page.evaluate(() => { qaDestinationLists.A = [{ _id: 'editable', name: 'Editable at open', user: 'A' }]; });
+        await open(page, kind);
+        await page.getByRole('menuitem', { name: 'Editable at open', exact: true }).waitFor();
+        await page.evaluate(() => { qaDestinationLists.A[0].user = 'other'; });
+        await page.getByRole('menuitem', { name: 'Editable at open', exact: true }).click();
+        await page.waitForFunction(() => qaAddRequests.length === 1 && qaToasts.length === 1);
+        assert.equal(await page.evaluate(() => qaEvents.length), 0, 'Rejected writes never publish a successful playlist update');
+        assert.equal(await page.getByRole('menuitem', { name: 'Editable at open', exact: true }).isEnabled(), true);
+        assert.equal(await page.evaluate(() => qaToasts.some(message => message.startsWith('Added to'))), false);
+      });
+    }
+    for (const kind of ['add', 'track']) {
       await scenario(kind + '-same-owner-created-playlist', kind, 'empty', async page => {
         await open(page, kind);
-        await page.waitForFunction(() => document.querySelector('[role=menu]')?.textContent.includes('No playlists yet'));
+        await page.waitForFunction(() => document.querySelector('[role=menu]')?.textContent.includes('No editable playlists'));
         await close(page, kind);
         await page.evaluate(() => { qaListMode = 'normal'; });
         await open(page, kind);
