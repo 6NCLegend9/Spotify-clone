@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { resolveReleaseMetadata } from "./resolve-release-metadata.mjs";
-import { installationEligibleForRollout } from "../src/policy.mjs";
+import { DesktopPolicy, installationEligibleForRollout } from "../src/policy.mjs";
 import { compareReleaseVersions, versionOlderThan } from "../src/version.mjs";
 
 // Exercise the actual CLI: every blocked signed release must fail CI rather
@@ -120,26 +120,43 @@ const sandbox = {
   fetch: async () => ({ ok: true, json: async () => manifest }),
 };
 vm.runInNewContext(updaterCode, sandbox);
-const notices = [], rendererMessages = [];
+const notices = [], notifications = [], rendererMessages = [];
 class Notification {
   static isSupported() { return true; }
-  constructor(options) { this.options = options; }
-  on() {}
-  show() { notices.push(this.options); }
+  constructor(options) { this.options = options; this.handlers = new Map(); }
+  on(name, callback) { this.handlers.set(name, callback); }
+  show() { notices.push(this.options); notifications.push(this); }
 }
 const mainSource = fs.readFileSync(new URL("../src/main.mjs", import.meta.url), "utf8");
-const notificationCode = mainSource.slice(mainSource.indexOf("function showNativeUpdateNotification("), mainSource.indexOf("async function applyPolicy("));
+const notificationStart = mainSource.includes("function currentUpdateStatus(")
+  ? "function currentUpdateStatus(" : "function showNativeUpdateNotification(";
+const notificationCode = mainSource.slice(mainSource.indexOf(notificationStart), mainSource.indexOf("function secureHandle("));
 assert(notificationCode.includes("function sendUpdateStatus("));
+let nativePolicyValue = { formatVersion: 1, features: {} };
+const nativePolicy = new DesktopPolicy({ url: "https://example.invalid/policy", fetchImpl: async () => ({
+  ok: true, json: async () => nativePolicyValue,
+}) });
+await nativePolicy.refresh();
+let mainWindowShows = 0;
+const updateHandlers = new Map();
 const native = vm.createContext({
-  Notification, process: { platform: "win32" }, logger: null,
-  resourceIconPath: () => "/isolated/icon.png", showMainWindow() {}, canMessageRenderer: () => true,
+  Notification, process: { platform: "win32" }, logger: null, policy: nativePolicy, safeMode: false, quitting: false,
+  authStatus: { state: "idle" }, authAttempt: null, setAuthStatus() {}, updateTrayMenu() {},
+  discord: { clearActivity: async () => {}, disconnect() {} },
+  secureHandle: (channel, handler) => updateHandlers.set(channel, handler),
+  resourceIconPath: () => "/isolated/icon.png", showMainWindow: () => { mainWindowShows++; }, canMessageRenderer: () => true,
   mainWindow: { webContents: { send: (...message) => rendererMessages.push(message) } },
 });
-vm.runInContext(`let lastNativeUpdateNotificationVersion = ""; ${notificationCode}`, native);
+const runtimePolicyCode = mainSource.slice(mainSource.indexOf("function policyFeature("), mainSource.indexOf("function effectiveCapabilities("))
+  + mainSource.slice(mainSource.indexOf("function featureDisabledMessage("), mainSource.indexOf("function hideMiniPlayer("));
+vm.runInContext(`let lastNativeUpdateNotificationVersion = ""; ${runtimePolicyCode}\n${notificationCode}`, native);
+vm.runInContext(mainSource.slice(mainSource.indexOf('  secureHandle("heykasa:updates:status"'),
+  mainSource.indexOf('  secureHandle("heykasa:startup:get"')), native);
 const updater = new sandbox.DesktopUpdater({
   app: { isPackaged: true, getVersion: () => "1.2.8" },
   store: { get: () => undefined }, onStatus: state => { statuses.push(state.state); native.sendUpdateStatus(state); }, rolloutPercent: () => 100,
 });
+native.updater = updater;
 await updater.checkNow();
 assert.equal(checkCount, 1);
 assert.equal(feed.url, "https://haykasa.vercel.app/api/desktop/update/stable");
@@ -154,8 +171,91 @@ assert.match(notices[0].body, /restart/i);
 assert.equal(rendererMessages.at(-1)[1].state, "ready", "The app receives restart-button state");
 native.sendUpdateStatus(updater.getStatus());
 assert.equal(notices.length, 1, "Repeated state messages do not duplicate Windows notifications");
-await updater.installReadyUpdate(); assert.equal(installs, 1);
+await updateHandlers.get("heykasa:updates:install")(); assert.equal(installs, 1);
+
+// Exercise the native producer, not just a renderer receiving an invented event.
+// Keep Discord pending to prove update policy publication does not wait for it.
+const oldNotice = notifications[0];
+nativePolicyValue = { formatVersion: 1, features: { updater: false, discord: false } };
+await nativePolicy.refresh();
+let releaseDiscord;
+native.discord.clearActivity = () => new Promise(resolve => { releaseDiscord = resolve; });
+const applyingDisabledPolicy = native.applyPolicy(nativePolicy.snapshot());
+try {
+  assert.equal(rendererMessages.at(-1)[1].state, "disabled", "Policy revocation immediately retires mounted Restart actions");
+} finally {
+  releaseDiscord();
+  await applyingDisabledPolicy;
+  native.discord.clearActivity = async () => {};
+}
+assert.equal(updateHandlers.get("heykasa:updates:status")().state, "disabled");
+await assert.rejects(updateHandlers.get("heykasa:updates:install")(), /disabled/);
+assert.equal(installs, 1, "Policy revocation never reaches the installation command");
+const noticeCountWhileDisabled = notices.length;
+native.sendUpdateStatus({ state: "ready", version: automatic.version });
+assert.equal(rendererMessages.at(-1)[1].state, "disabled", "Late status delivery must respect current runtime policy");
+oldNotice.handlers.get("click")();
+assert.equal(mainWindowShows, 1, "A notification click still opens the app");
+assert.equal(rendererMessages.at(-1)[1].state, "disabled", "An old OS notification cannot restore disabled Restart actions");
+assert.equal(notices.length, noticeCountWhileDisabled, "Disabled updates never create a new OS notification");
+
+nativePolicyValue = { formatVersion: 1, features: {} };
+await nativePolicy.refresh();
+await native.applyPolicy(nativePolicy.snapshot());
+assert.equal(rendererMessages.at(-1)[1].state, "ready", "Re-enabling updates republishes the actual downloaded state");
+const immediateEngineCheck = engine.checkForUpdates;
+let finishCheck;
+engine.checkForUpdates = () => new Promise(resolve => {
+  finishCheck = () => { listeners.get("update-downloaded")({ version: automatic.version }); resolve(); };
+});
+updater.emit({ state: "idle" });
+const pendingNativeCheck = updateHandlers.get("heykasa:updates:check")();
+await new Promise(setImmediate);
+assert.equal(typeof finishCheck, "function", "The real updater reaches the pending download boundary");
+nativePolicyValue = { formatVersion: 1, features: { updater: false } };
+await nativePolicy.refresh();
+await native.applyPolicy(nativePolicy.snapshot());
+finishCheck();
+assert.equal((await pendingNativeCheck).state, "disabled", "A delayed check reply respects current policy for older renderers too");
+assert.equal(rendererMessages.at(-1)[1].state, "disabled", "The delayed download event cannot publish ready while disabled");
+engine.checkForUpdates = immediateEngineCheck;
+nativePolicyValue = { formatVersion: 1, features: {} };
+await nativePolicy.refresh();
+await native.applyPolicy(nativePolicy.snapshot());
+updater.emit({ state: "ready", version: "9.0.0" });
+const currentNoticeCount = notices.length;
+oldNotice.handlers.get("click")();
+assert.equal(rendererMessages.at(-1)[1].version, "9.0.0", "Old notification clicks read the current version, not captured data");
+assert.equal(notices.length, currentNoticeCount, "Opening an old notice does not duplicate the current OS notification");
+native.sendUpdateStatus({ state: "ready", version: automatic.version });
+assert.equal(rendererMessages.at(-1)[1].version, "9.0.0", "Delayed status arguments cannot replace the authoritative native snapshot");
+
+nativePolicyValue = { formatVersion: 1, maintenance: true, maintenanceMessage: "Scheduled maintenance", features: {} };
+await nativePolicy.refresh();
+await native.applyPolicy(nativePolicy.snapshot());
+assert.equal(rendererMessages.at(-1)[1].state, "disabled");
+assert.equal(rendererMessages.at(-1)[1].detail, "Scheduled maintenance", "Maintenance still controls effective status");
+nativePolicyValue = { formatVersion: 1, features: {} };
+await nativePolicy.refresh();
+native.safeMode = true;
+await native.applyPolicy(nativePolicy.snapshot());
+assert.equal(rendererMessages.at(-1)[1].state, "disabled");
+assert.match(rendererMessages.at(-1)[1].detail, /safe mode/);
+native.safeMode = false;
+await native.applyPolicy(nativePolicy.snapshot());
+assert.equal(rendererMessages.at(-1)[1].version, "9.0.0");
+native.canMessageRenderer = () => false;
+const messagesBeforeMissingRenderer = rendererMessages.length;
+oldNotice.handlers.get("click")();
+assert.equal(rendererMessages.length, messagesBeforeMissingRenderer, "A closed renderer receives no update message");
+native.canMessageRenderer = () => true;
+native.quitting = true;
+native.sendUpdateStatus();
+oldNotice.handlers.get("click")();
+assert.equal(rendererMessages.length, messagesBeforeMissingRenderer, "Retired callbacks cannot message during shutdown");
+nativePolicy.dispose();
 updater.dispose();
+console.log("PASS: native update policy publication, current notification snapshots, late callbacks, re-enable, maintenance, safe mode and renderer lifetime");
 
 // A missing installation ID is outside a 25% rollout (bucket 99).
 for (const test of [
