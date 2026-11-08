@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleCheck as FiCheckCircle, Download as FiDownload, Monitor as FiMonitor, RefreshCw as FiRefreshCw } from "lucide-react";
 import { requestJson } from "@/services/http";
 import useInstalledApp from "@/hooks/useInstalledApp";
@@ -57,6 +57,7 @@ export default function DesktopAppCard() {
   const [desktopInfo, setDesktopInfo] = useState(null);
   const [desktopInfoState, setDesktopInfoState] = useState("loading");
   const [updateStatus, setUpdateStatus] = useState(null);
+  const updateRevision = useRef(0);
   const [startupEnabled, setStartupEnabled] = useState(null);
   const [preferences, setPreferences] = useState(null);
   const [busy, setBusy] = useState("");
@@ -92,7 +93,19 @@ export default function DesktopAppCard() {
 
   useEffect(() => {
     let active = true;
-    let unsubscribe = null;
+    const api = getHeyKasaDesktopApi();
+    // Subscribe before any IPC read: startup/preferences may be slow or fail,
+    // and an initial snapshot must never replace a newer native status event.
+    const unsubscribe = typeof api?.updates?.onStatus === "function"
+      ? api.updates.onStatus((value) => {
+        if (!active) return;
+        updateRevision.current += 1;
+        setUpdateStatus(value || null);
+      })
+      : null;
+    const reportError = (loadError) => {
+      if (active) setError(loadError instanceof Error ? loadError.message : "Desktop status could not be read.");
+    };
 
     const load = async () => {
       const nextInfo = await getHeyKasaDesktopInfo();
@@ -100,26 +113,19 @@ export default function DesktopAppCard() {
       setDesktopInfo(nextInfo);
       setDesktopInfoState(nextInfo ? "loaded" : "error");
 
-      const api = getHeyKasaDesktopApi();
       if (!api || !nextInfo) return;
-      try {
-        const [nextUpdate, nextStartup, nextPreferences] = await Promise.all([
-          api.updates?.getStatus?.(),
-          api.startup?.get?.(),
-          api.preferences?.get?.(),
-        ]);
-        if (!active) return;
-        setUpdateStatus(nextUpdate || null);
-        setStartupEnabled(nextStartup?.enabled === true);
-        setPreferences(nextPreferences || null);
-        if (typeof api.updates?.onStatus === "function") {
-          unsubscribe = api.updates.onStatus((value) => {
-            if (active) setUpdateStatus(value || null);
-          });
-        }
-      } catch (loadError) {
-        if (active) setError(loadError instanceof Error ? loadError.message : "Desktop status could not be read.");
-      }
+      const revision = updateRevision.current;
+      void Promise.resolve().then(() => api.updates?.getStatus?.()).then((next) => {
+        if (active && revision === updateRevision.current) setUpdateStatus(next || null);
+      }).catch((loadError) => {
+        if (revision === updateRevision.current) reportError(loadError);
+      });
+      void Promise.resolve().then(() => api.startup?.get?.()).then((next) => {
+        if (active) setStartupEnabled(next?.enabled === true);
+      }).catch(reportError);
+      void Promise.resolve().then(() => api.preferences?.get?.()).then((next) => {
+        if (active) setPreferences(next || null);
+      }).catch(reportError);
     };
 
     void load();
@@ -143,13 +149,14 @@ export default function DesktopAppCard() {
 
   const checkUpdates = async () => {
     if (!desktopApi?.updates?.check || busy) return;
+    const revision = ++updateRevision.current;
     setBusy("check");
     setError("");
     try {
       const next = await desktopApi.updates.check();
-      setUpdateStatus(next || null);
+      if (revision === updateRevision.current) setUpdateStatus(next || null);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Could not check for updates.");
+      if (revision === updateRevision.current) setError(actionError instanceof Error ? actionError.message : "Could not check for updates.");
     } finally {
       setManifestRefresh((value) => value + 1);
       setBusy("");
