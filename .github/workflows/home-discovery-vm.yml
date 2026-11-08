@@ -7,6 +7,11 @@ on:
       - 'src/components/Searchbar.jsx'
       - 'src/components/Navbar.jsx'
       - 'src/components/DesktopAppCard.jsx'
+      - 'src/components/DesktopUpdateNotifier.jsx'
+      - 'src/utils/desktopEnvironment.js'
+      - 'scripts/check-desktop-update-ui.cjs'
+      - 'package.json'
+      - 'package-lock.json'
       - 'src/components/AndroidAppCard.jsx'
       - 'src/app/AuthProvider.js'
       - 'src/utils/youtubeIframeApi.mjs'
@@ -101,6 +106,8 @@ jobs:
         run: node scripts/check-notification-privacy-browser.cjs
       - name: Verify cover fallback and cancelled pull gestures
         run: node scripts/check-playlist-adjacent-browser.cjs
+      - name: Verify desktop updater status ordering and Restart recovery
+        run: node scripts/check-desktop-update-ui.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -119,4 +126,5 @@ jobs:
             artifacts/settings-scope/
             artifacts/notification-privacy/
             artifacts/playlist-adjacent/
+            artifacts/desktop-update-ui/
           retention-days: 7
