@@ -29,6 +29,13 @@ const entries = { add: include(path.join(root, 'src/components/AddToPlaylistButt
 const manifest = JSON.parse(fs.readFileSync(path.join(root, '.next/app-build-manifest.json'), 'utf8'));
 const css = (manifest.pages['/layout'] || []).filter(name => name.endsWith('.css')).map(name => fs.readFileSync(path.join(root, '.next', name), 'utf8')).join('\n');
 const results = [];
+const contrastResults = [];
+function luminance(rgb) {
+  return rgb.map(channel => {
+    const value = channel / 255;
+    return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+  }).reduce((total, value, index) => total + value * [.2126, .7152, .0722][index], 0);
+}
 let browser;
 async function setup(page, kind, mode = 'normal') {
   await page.route('**/*', route => route.request().url() === 'http://127.0.0.1:3000/__playlist-menu-qa'
@@ -312,6 +319,33 @@ async function scenario(name, kind, mode, run, viewport = { width: 1440, height:
         assert.equal(requests[0].options.requestId, requests[1].options.requestId);
         assert.equal(await page.evaluate(() => qaEvents.length), 2);
       });
+      for (const theme of [
+        { name: 'default', background: [9, 97, 146] },
+        { name: 'dark-custom', accent: '#652e8f', ink: '#ffffff', background: [101, 46, 143] },
+        { name: 'light-custom', accent: '#8be9fd', ink: '#030814', background: [139, 233, 253] },
+        { name: 'high-contrast', accent: '#096192', ink: '#ffffff', high: true, background: [191, 219, 254] },
+      ]) await scenario(kind + '-duplicate-contrast-' + theme.name, kind, 'normal', async page => {
+        await page.evaluate(theme => {
+          const root = document.documentElement;
+          if (theme.accent) root.style.setProperty('--appearance-accent', theme.accent);
+          if (theme.ink) root.style.setProperty('--appearance-play-ink', theme.ink);
+          if (theme.high) root.dataset.a11yContrast = 'high';
+          qaAddMode = 'duplicate';
+        }, theme);
+        await open(page, kind); await page.getByRole('menuitem', { name: 'A private playlist 1', exact: true }).click();
+        const button = page.getByRole('button', { name: 'Add another copy', exact: true });
+        await button.waitFor();
+        const colors = await button.evaluate(node => {
+          const style = getComputedStyle(node);
+          return { foreground: style.color.match(/[\d.]+/g).map(Number).slice(0, 3), background: style.backgroundColor.match(/[\d.]+/g).map(Number).slice(0, 3) };
+        });
+        const foreground = luminance(colors.foreground), background = luminance(colors.background);
+        const ratio = (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+        contrastResults.push({ kind, theme: theme.name, ...colors, ratio });
+        assert.deepEqual(colors.background, theme.background, 'Portaled confirmation follows the selected appearance or high-contrast override');
+        assert(ratio >= 4.5, `Confirmation text contrast ${ratio.toFixed(3)}:1 must meet 4.5:1`);
+        await page.screenshot({ path: path.join(output, kind + '-duplicate-contrast-' + theme.name + '.png') });
+      }, { width: 390, height: 844 });
       for (const [name, viewport, largeText] of [['narrow', { width: 320, height: 640 }, false], ['landscape', { width: 844, height: 390 }, false], ['large-text', { width: 320, height: 640 }, true]]) {
         await scenario(kind + '-duplicate-layout-' + name, kind, 'normal', async page => {
           await page.evaluate(() => { qaAddMode = 'duplicate'; qaTrack = { ...qaTrack, title: '非常に長い曲のタイトル مرحبا 🎧 '.repeat(12) }; qaRerender(); });
@@ -410,7 +444,7 @@ async function scenario(name, kind, mode, run, viewport = { width: 1440, height:
       await page.screenshot({ path: path.join(output, 'add-open-menu-rotation.png') });
     }, { width: 390, height: 844 });
   } finally { await browser.close(); }
-  const report = { scope: 'Isolated actual React components and AccountPrivacyBoundary; controlled session/API, no real account or network writes. Chromium only.', baseline: Boolean(process.env.HAYKASA_PLAYLIST_MENU_BASELINE), results };
+  const report = { scope: 'Isolated actual React components and AccountPrivacyBoundary; controlled session/API, no real account or network writes. Chromium only.', baseline: Boolean(process.env.HAYKASA_PLAYLIST_MENU_BASELINE), results, contrastResults };
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(report, null, 2));
   for (const result of results) console.log((result.pass ? 'PASS ' : 'FAIL ') + result.name + (result.error ? ': ' + result.error.split('\n')[0] : ''));
   if (results.some(result => !result.pass)) process.exitCode = 1;

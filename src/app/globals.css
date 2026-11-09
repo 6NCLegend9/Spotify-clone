@@ -32,7 +32,7 @@
 :root {
   --font-poppins: Arial, Helvetica, system-ui, sans-serif;
   --font-righteous: Arial, Helvetica, system-ui, sans-serif;
-  --accent: #096192;
+  --accent: var(--appearance-accent, #096192);
   --teal: #1171ba;
   --teal-mid: #1399c6;
   --brand-deep: #24aae2;
@@ -195,6 +195,7 @@ html[data-a11y-text-size="large"] {
 
 html[data-a11y-contrast="high"] {
   --accent: #bfdbfe;
+  --play-ink: #000;
   --teal: #dbeafe;
   --teal-mid: #bfdbfe;
   --navy: #000;

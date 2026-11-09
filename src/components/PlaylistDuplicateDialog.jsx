@@ -24,7 +24,7 @@ export default function PlaylistDuplicateDialog({ addition }) {
       <button type="button" disabled={pending} onClick={addition.cancelDuplicate}
         className="min-h-11 rounded-full px-4 py-2 font-semibold hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:opacity-50">Cancel</button>
       <button type="button" disabled={pending} onClick={() => void addition.confirmDuplicate()}
-        className="min-h-11 rounded-full bg-[var(--accent)] px-4 py-2 font-semibold text-[var(--navy-deep)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:opacity-50">
+        className="min-h-11 rounded-full bg-[var(--accent)] px-4 py-2 font-semibold text-[var(--play-ink)] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:opacity-50">
         {pending ? "Adding…" : "Add another copy"}
       </button>
     </div>
