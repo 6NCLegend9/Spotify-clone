@@ -185,8 +185,8 @@ jobs:
           mkdir -p artifacts/android-emulator
           {
             date -u
-            free -m
-            cat /proc/pressure/cpu /proc/pressure/memory
+            free -m || echo 'Host memory summary unavailable.'
+            cat /proc/pressure/cpu /proc/pressure/memory || echo 'CPU/memory pressure metrics unavailable on this runner.'
             # Capture kernel victim/resource facts, never process arguments or environment values.
             timeout 10s sudo -n dmesg --color=never | grep -Ei 'oom-kill:|out of memory: killed process' | tail -40 || \
               echo 'No matching kernel OOM events captured, or kernel log access unavailable.'
