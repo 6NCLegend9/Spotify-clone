@@ -232,6 +232,7 @@ export default function useJamSession() {
     const supabase = supabaseRef.current;
     const channel = channelRef.current;
     channelRef.current = null;
+    channel?.close?.();
     if (channel && supabase) void supabase.removeChannel(channel.__raw || channel);
   }, []);
 
@@ -438,7 +439,7 @@ export default function useJamSession() {
         if (attempt === connectAttemptRef.current) { resetLocal(); setStatus("error"); }
         return;
       }
-      if (attempt !== connectAttemptRef.current) { void supabase.removeChannel(rawChannel); return; }
+      if (attempt !== connectAttemptRef.current) { channel.close(); void supabase.removeChannel(rawChannel); return; }
       channelRef.current = channel;
       const isCurrent = () => (
         attempt === connectAttemptRef.current
@@ -621,6 +622,12 @@ export default function useJamSession() {
         })
         .subscribe(async (state) => {
           if (!isCurrent()) return;
+          if (state === "ACCESS_DENIED") {
+            resetLocal();
+            setStatus("error");
+            toast.error("Your access to this Jam has ended. Join again to continue.");
+            return;
+          }
           if (state === "SUBSCRIBED") {
             const trackResult = await channel.track({
               name: displayName,
