@@ -59,7 +59,8 @@ public class AndroidPlaybackTest {
     }
     private void waitJs(WebView web, String code) throws Exception {
         for (int i = 0; i < 100; i++) { if ("true".equals(js(web, code))) return; Thread.sleep(200); }
-        fail("Condition did not become true: " + code + "; state=" + js(web, "JSON.stringify(window.qaSample?.())"));
+        fail("Condition did not become true: " + code + "; state=" + js(web, "JSON.stringify(window.qaSample?.())")
+            + "; nativeFrames=" + js(web, "JSON.stringify(window.qaNativeFrames || [])"));
     }
     private static void shell(String command) throws Exception {
         try (java.io.InputStream in = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command))) {
