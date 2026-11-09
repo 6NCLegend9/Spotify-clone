@@ -71,19 +71,41 @@ public class PlayAppUpdaterTest {
         fail(message);
     }
     private void awaitDialog() throws Exception {
-        await("Downloaded update must offer Restart", () -> dialog() != null && dialog().isShowing());
+        await("Downloaded update must offer a focused Restart dialog", () -> dialog() != null && dialog().isShowing()
+            && dialog().getWindow().getDecorView().hasWindowFocus());
     }
     private void awaitRetry() throws Exception {
         await("Failed Restart must retain a visible, enabled Retry", () -> {
             AlertDialog dialog = dialog();
             TextView message = dialog == null ? null : dialog.findViewById(android.R.id.message);
-            return dialog != null && dialog.isShowing() && message != null
+            return dialog != null && dialog.isShowing() && dialog.getWindow().getDecorView().hasWindowFocus() && message != null
                 && activity.getString(R.string.update_restart_failed).contentEquals(message.getText())
                 && dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled()
                 && activity.getString(R.string.try_again).contentEquals(dialog.getButton(AlertDialog.BUTTON_POSITIVE).getText());
         });
     }
-    private void clickRestart() { main(() -> dialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick()); }
+    private void clickButton(int button) throws Exception {
+        AtomicReference<int[]> point = new AtomicReference<>();
+        main(() -> {
+            android.view.View view = dialog().getButton(button);
+            assertTrue("Updater actions require the actual foreground dialog", view.hasWindowFocus());
+            assertTrue(view.isShown()); assertTrue(view.isEnabled());
+            int[] location = new int[2]; view.getLocationOnScreen(location);
+            point.set(new int[]{location[0] + view.getWidth() / 2, location[1] + view.getHeight() / 2});
+        });
+        try (java.io.InputStream output = new android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "input tap " + point.get()[0] + " " + point.get()[1]))) {
+            while (output.read() != -1) { /* Wait for native input dispatch. */ }
+        }
+        settle();
+    }
+    private void clickRestart() throws Exception {
+        AtomicInteger previous = new AtomicInteger();
+        main(() -> previous.set(store.attempts));
+        clickButton(AlertDialog.BUTTON_POSITIVE);
+        await("Real native Restart tap must reach the updater exactly once", () -> store.attempts == previous.get() + 1);
+    }
     private void failAttempt(int index) {
         main(() -> store.completions.get(index).setException(new IllegalStateException("Isolated Play failure")));
     }
@@ -188,7 +210,7 @@ public class PlayAppUpdaterTest {
 
     @Test public void explicitLaterRemainsAuthoritativeAfterAFailure() throws Exception {
         clickRestart(); failAttempt(0); awaitRetry();
-        main(() -> dialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()); settle();
+        clickButton(AlertDialog.BUTTON_NEGATIVE);
         main(updater::checkForUpdates); settle();
         main(() -> { assertNull(dialog()); assertEquals(1, store.attempts); });
     }
@@ -201,7 +223,7 @@ public class PlayAppUpdaterTest {
 
     @Test public void hidingAPendingRestartDoesNotReopenItAfterFailure() throws Exception {
         clickRestart();
-        main(() -> dialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()); settle();
+        clickButton(AlertDialog.BUTTON_NEGATIVE);
         failAttempt(0); settle();
         main(updater::checkForUpdates); settle();
         main(() -> { assertNull(dialog()); assertEquals(1, store.attempts); });

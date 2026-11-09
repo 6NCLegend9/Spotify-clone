@@ -71,5 +71,5 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     // Play's pinned fake exposes Activity Result overloads not used by this app.
     // Supply their types to the instrumentation APK only, never the release APK.
-    androidTestImplementation 'androidx.activity:activity:1.11.0'
+    androidTestImplementation('androidx.activity:activity:1.11.0') { transitive = false }
 }
