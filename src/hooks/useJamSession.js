@@ -449,10 +449,12 @@ export default function useJamSession() {
       let hostAcknowledged = false;
 
       const waitForHost = async () => {
+        if (!isCurrent()) return false;
         if (hostAcknowledged || hasHostPresence(channel)) return true;
         const deadline = Date.now() + HOST_RECONNECT_GRACE_MS;
         while (isCurrent() && Date.now() < deadline) {
           await new Promise((resolve) => window.setTimeout(resolve, 250));
+          if (!isCurrent()) return false;
           if (hostAcknowledged || hasHostPresence(channel)) return true;
         }
         return false;
@@ -663,6 +665,9 @@ export default function useJamSession() {
                 return;
               }
             }
+            // Leave, revocation or another join may retire this subscription
+            // while its send/host acknowledgement is still pending.
+            if (!isCurrent()) return;
             rememberMember({
               participantId: participantKeyRef.current,
               role: asRole,

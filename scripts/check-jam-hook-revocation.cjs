@@ -40,16 +40,31 @@ async function main() {
     await page.evaluate(async ({ sources, entry }) => {
       const keys = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
       const publicKey = await crypto.subtle.exportKey('jwk', keys.publicKey);
-      window.qa = { status: 200, removed: [], channels: [], notices: [], actions: [] };
+      window.qa = { status: 200, removed: [], channels: [], notices: [], actions: [], grantRole: 'host', pendingJoins: [] };
+      qa.sign = async (event, payload, senderId = 'account-a') => {
+        const message = JSON.stringify({ roomId: 'room-a', event, senderId, id: crypto.randomUUID(), at: Date.now(), payload });
+        const bytes = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, keys.privateKey, new TextEncoder().encode(message));
+        return { message, signature: btoa(String.fromCharCode(...new Uint8Array(bytes))) };
+      };
       const session = { data: { user: { id: 'account-a', name: 'Listener' } }, status: 'authenticated' };
       const player = { youtubeVideo: null, youtubeQueue: [], isPlaying: false };
       const dispatch = action => qa.actions.push(action);
       const supabase = {
         channel() {
+          const handlers = new Map();
           const raw = {
-            on() { return raw; },
+            on(type, filter, handler) { handlers.set(filter.event, handler); return raw; },
             subscribe(callback) { raw.callback = callback; queueMicrotask(() => callback('SUBSCRIBED')); return raw; },
-            async send() { return 'ok'; },
+            async send(value) {
+              if (value.event === 'join-request') {
+                return new Promise(resolve => qa.pendingJoins.push({ raw, resolve, requestId: JSON.parse(value.payload.message).payload.requestId }));
+              }
+              return 'ok';
+            },
+            async accept(requestId) {
+              const payload = await qa.sign('join-accept', { requestId, participantId: 'host-a', role: 'host', name: 'Host' }, 'host-a');
+              await handlers.get('join-accept')({ payload });
+            },
           };
           qa.channels.push(raw); return raw;
         },
@@ -57,11 +72,9 @@ async function main() {
       };
       window.fetch = async (url, options) => {
         const body = JSON.parse(options?.body || '{}');
-        if (url === '/api/jam') return Response.json({ data: { publicKey, roomId: 'room-a', code: 'ABCDEF', role: 'host', startedAt: Date.now() } });
+        if (url === '/api/jam') return Response.json({ data: { publicKey, roomId: 'room-a', code: body.code, role: qa.grantRole, startedAt: Date.now() } });
         if (body.event === 'heartbeat' && qa.status !== 200) return new Response('Denied', { status: qa.status });
-        const message = JSON.stringify({ roomId: 'room-a', event: body.event, senderId: 'account-a', id: crypto.randomUUID(), at: Date.now(), payload: body.payload });
-        const bytes = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, keys.privateKey, new TextEncoder().encode(message));
-        return Response.json({ data: { message, signature: btoa(String.fromCharCode(...new Uint8Array(bytes))) } });
+        return Response.json({ data: await qa.sign(body.event, body.payload) });
       };
       const cache = {};
       function load(key) {
@@ -101,10 +114,48 @@ async function main() {
     await page.evaluate(() => qa.channels[0].callback('CLOSED'));
     assert.equal(await page.evaluate(() => qa.jam.status), 'connected');
     assert.equal(await page.evaluate(() => qa.notices.length), 1);
+    await page.evaluate(() => qa.jam.leave());
+    await page.waitForFunction(() => qa.jam.status === 'idle');
+    for (const replacement of [false, true]) {
+      const oldIndex = await page.evaluate(() => qa.pendingJoins.length);
+      await page.evaluate(() => { qa.grantRole = 'guest'; return qa.jam.join('ABCDEF'); });
+      await page.waitForFunction(index => qa.pendingJoins.length > index, oldIndex);
+      await page.evaluate(async index => {
+        const pending = qa.pendingJoins[index];
+        await pending.raw.accept(pending.requestId);
+        await qa.jam.leave();
+      }, oldIndex);
+      await page.waitForFunction(() => qa.jam.status === 'idle');
+      assert.equal(await page.evaluate(() => sessionStorage.getItem('heykasa.jam')), null);
+      if (replacement) {
+        await page.evaluate(() => qa.jam.join('GHJKMN'));
+        await page.waitForFunction(index => qa.pendingJoins.length > index + 1, oldIndex);
+        await page.evaluate(async index => {
+          const pending = qa.pendingJoins[index + 1];
+          await pending.raw.accept(pending.requestId);
+          pending.resolve('ok');
+        }, oldIndex);
+        await page.waitForFunction(() => qa.jam.status === 'connected' && qa.jam.code === 'GHJKMN');
+      }
+      const expected = await page.evaluate(() => ({ status: qa.jam.status, role: qa.jam.role, code: qa.jam.code, saved: sessionStorage.getItem('heykasa.jam'), people: qa.jam.people, removed: qa.removed }));
+      await page.evaluate(async index => {
+        const pending = qa.pendingJoins[index];
+        pending.resolve('ok');
+      }, oldIndex);
+      // Let the released Promise chain and React's queued render drain without
+      // advancing fake timers or relying on an arbitrary sleep.
+      await page.evaluate(() => new Promise(resolve => {
+        const c = new MessageChannel();
+        c.port1.onmessage = () => { c.port1.close(); c.port2.close(); resolve(); };
+        c.port2.postMessage(null);
+      }));
+      assert.deepEqual(await page.evaluate(() => ({ status: qa.jam.status, role: qa.jam.role, code: qa.jam.code, saved: sessionStorage.getItem('heykasa.jam'), people: qa.jam.people, removed: qa.removed })), expected, `Old guest continuation must not overwrite ${replacement ? 'the new guest session' : 'Leave'}`);
+    }
+    const lastChannel = await page.evaluate(() => qa.channels.length - 1);
     await page.evaluate(() => qa.root.unmount());
-    assert.deepEqual(await page.evaluate(() => qa.removed), [0, 1]);
+    assert.equal(await page.evaluate(() => qa.removed.at(-1)), lastChannel);
     assert.deepEqual(errors, []);
-    console.log('Jam hook integration passed: transient failure, revocation, storage/UI reset, raw-channel removal, stale subscription, fresh join and unmount. Controlled transport; no deployed authorization claim.');
+    console.log('Jam hook integration passed: transient failure, revocation, storage/UI reset, raw-channel removal, stale subscription, guest Leave and replacement races, fresh join and unmount. Controlled transport; no deployed authorization claim.');
   } finally { await browser.close(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
