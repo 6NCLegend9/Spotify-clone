@@ -638,6 +638,22 @@ public class AndroidPlaybackTest {
             AtomicReference<String> notificationTitle = new AtomicReference<>();
             main(() -> notificationTitle.set(String.valueOf(service.getSessions().get(0).getPlayer().getMediaMetadata().title)));
             assertEquals("Reusing the native deck updates Android media-session metadata", "HayKasa next emulator tone", notificationTitle.get());
+            // Exercise more than one replacement after lifecycle/media controls.
+            // A later pass does not erase a previous failure; selected producer
+            // frames in waitJs identify the origin if an unexpected Pause recurs.
+            for (int replacement = 3; replacement <= 6; replacement++) {
+                shell("input keyevent KEYCODE_HOME");
+                waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.STOPPED, "Replacement cycle actually backgrounds the activity");
+                main(() -> {
+                    try { service.getSessions().get(0).getSessionActivity().send(); }
+                    catch (android.app.PendingIntent.CanceledException error) { throw new RuntimeException(error); }
+                });
+                waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.RESUMED, "Replacement cycle resumes the same activity");
+                String nextId = "synthetic0" + replacement;
+                js(web, "qaDeck.loadVideoById({videoId:'" + nextId + "',title:'Repeated emulator replacement',startSeconds:0})");
+                waitJs(web, "qaDeck.getVideoData().video_id === '" + nextId + "' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > 1 && qaDeck.getCurrentTime() < 30");
+                assertTrue("Source replacement must retain its actual native Play decision", transportSnapshot(service).intent().playWhenReady());
+            }
             js(web, "qaDeck.cueVideoById({videoId:'synthetic03',title:'Cued emulator tone'})");
             AtomicReference<Boolean> emptySession = new AtomicReference<>(false);
             for (int i = 0; i < 30; i++) {
