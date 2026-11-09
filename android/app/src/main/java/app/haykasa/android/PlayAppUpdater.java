@@ -22,7 +22,7 @@ final class PlayAppUpdater implements AutoCloseable {
     private final Activity activity;
     private AppUpdateManager manager;
     private AlertDialog restartDialog;
-    private boolean resumed, checking, refreshPending, closed;
+    private boolean resumed, checking, refreshPending, installing, closed;
     private final InstallStateUpdatedListener listener = state -> {
         if (state.installStatus() == InstallStatus.DOWNLOADED && resumed && !closed) checkForUpdates();
     };
@@ -82,6 +82,7 @@ final class PlayAppUpdater implements AutoCloseable {
     }
 
     private void inspect(AppUpdateInfo info) {
+        if (installing) return;
         int version = info.availableVersionCode();
         UpdatePromptPolicy.Action action = PROMPTS.decide(version,
             info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE,
@@ -101,26 +102,63 @@ final class PlayAppUpdater implements AutoCloseable {
     }
 
     private void offerRestart(int version) {
-        if (!canPrompt() || restartDialog != null) return;
+        if (!canPrompt() || restartDialog != null || installing) return;
         try {
             restartDialog = new AlertDialog.Builder(activity)
                 .setTitle(R.string.update_ready_title)
                 .setMessage(R.string.update_ready_message)
-                .setPositiveButton(R.string.update_restart, (dialog, which) -> {
-                    PROMPTS.record(UpdatePromptPolicy.Action.OFFER_RESTART, version);
-                    // Installation/restart only follows this explicit user action.
-                    try { if (!closed && manager != null) manager.completeUpdate().addOnFailureListener(unavailable -> {}); }
-                    catch (RuntimeException unavailable) { /* Leave the current app usable. */ }
-                })
+                // Install our listener after show() so Android does not dismiss
+                // this dialog before a failed installation can offer Retry.
+                .setPositiveButton(R.string.update_restart, null)
                 .setNegativeButton(R.string.update_later, (dialog, which) ->
                     PROMPTS.record(UpdatePromptPolicy.Action.OFFER_RESTART, version))
                 .setOnCancelListener(dialog -> PROMPTS.record(UpdatePromptPolicy.Action.OFFER_RESTART, version))
                 .create();
-            restartDialog.setOnDismissListener(dialog -> restartDialog = null);
+            restartDialog.setOnDismissListener(dialog -> { if (restartDialog == dialog) restartDialog = null; });
             restartDialog.show();
+            AlertDialog dialog = restartDialog;
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> restart(version, dialog));
         } catch (RuntimeException unavailable) {
             restartDialog = null;
         }
+    }
+
+    private void restart(int version, AlertDialog dialog) {
+        if (!canPrompt() || manager == null || installing || restartDialog != dialog) return;
+        installing = true;
+        dialog.setMessage(activity.getString(R.string.update_installing));
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+        // Play's request cannot be cancelled here, but a slow response must
+        // never trap the user in a modal or imply that hiding it cancels install.
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setText(R.string.update_hide);
+        // Installation/restart only follows this explicit user action. A
+        // failed request is not a successful install or the user's Later choice.
+        try {
+            manager.completeUpdate()
+                .addOnSuccessListener(ignored -> finishRestart(version, dialog, true))
+                .addOnFailureListener(unavailable -> finishRestart(version, dialog, false));
+        } catch (RuntimeException unavailable) {
+            finishRestart(version, dialog, false);
+        }
+    }
+
+    private void finishRestart(int version, AlertDialog dialog, boolean success) {
+        installing = false;
+        if (success) PROMPTS.record(UpdatePromptPolicy.Action.OFFER_RESTART, version);
+        if (!canPrompt()) return;
+        if (success) {
+            if (restartDialog == dialog) dialog.dismiss();
+            return;
+        }
+        // The activity may have paused and resumed while Play was completing
+        // this request. Do not update a dismissed window or lose its Retry.
+        if (restartDialog == null && PROMPTS.decide(version, false, false, true)
+            == UpdatePromptPolicy.Action.OFFER_RESTART) offerRestart(version);
+        if (restartDialog == null) return;
+        restartDialog.setMessage(activity.getString(R.string.update_restart_failed));
+        restartDialog.getButton(AlertDialog.BUTTON_POSITIVE).setText(R.string.try_again);
+        restartDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+        restartDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setText(R.string.update_later);
     }
 
     void onPause() {
