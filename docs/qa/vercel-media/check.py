@@ -1,5 +1,6 @@
 """Isolated stateless adapter checks; in-memory private storage, no upstream calls."""
 import asyncio
+import importlib
 import inspect
 import json
 import os
@@ -192,6 +193,91 @@ async def main():
     assert source.remaining == 0 and len(source.read_sizes) == 4
     print('PASS: actual SDK signatures and bounded multipart file reads; no whole-file allocation; successful/interrupted upload file closure; private uploads, completed request-scoped jobs, cross-instance poll/renew, account isolation, signed lease rejection before storage, HEAD/ranges, malformed bodies, cancellation, bounded TTL cleanup')
 asyncio.run(main())
+
+
+async def check_environment_isolation():
+    # The same credential/key deliberately backs this in-memory store. Verify
+    # the actual adapter confines operations by environment, not just account.
+    production_prefix = 'haykasa/mobile-media/v1/'
+    prefixes = {'preview': 'haykasa/mobile-media/preview/v1/',
+                'development': 'haykasa/mobile-media/development/v1/'}
+
+    def load_environment(environment):
+        with patch.dict(os.environ, VERCEL_ENV=environment):
+            importlib.reload(media)
+        media.AsyncBlobClient = Blob
+
+    objects.clear()
+    load_environment('production')
+    assert media.PREFIX == production_prefix, 'Production paths must retain existing manifest/lease compatibility'
+    with tempfile.TemporaryDirectory(prefix='haykasa-environment-fixture-') as temporary:
+        path = Path(temporary) / 'asset.mp4'
+        path.write_bytes(b'private-production-fixture')
+        asset = {'path': path, 'size': path.stat().st_size,
+                 'descriptor': {'mimeType': 'audio/mp4', 'duration': 2, 'codec': 'aac'}}
+        manifest = await media.persist(Blob(), asset, [], 'a' * 64, [])
+    job = manifest['jobId']
+    lease = urlsplit(media.result(manifest, 'https://production.example.test')['asset']['url'])
+    signed = lease.path + '?' + lease.query
+    original_production = {key: value for key, value in objects.items()}
+    stale = f'{int(time.time() - media.TTL - 60):08x}' + 'd' * 24
+    production_stale = production_prefix + stale + '/asset'
+    objects[production_stale] = b'expired-production-fixture'
+    for prefix in prefixes.values():
+        objects[prefix + stale + '/asset'] = b'expired-staging-fixture'
+    objects['unrelated/customer-file'] = b'keep'
+
+    for environment, expected_prefix in prefixes.items():
+        load_environment(environment)
+        await media.cleanup(Blob())
+        assert objects.get(production_stale) == b'expired-production-fixture', \
+            f'{environment} cleanup deleted a production object'
+        assert expected_prefix + stale + '/asset' not in objects, 'Own expired objects must still be cleaned'
+        assert media.PREFIX == expected_prefix
+        calls.clear()
+        headers = {'Authorization': 'Bearer ' + media.API_KEY, 'X-Media-Subscriber': 'a' * 64,
+                   'X-Media-Public-Origin': 'https://preview.example.test'}
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=media.app, raise_app_exceptions=False),
+                                     base_url='https://preview.example.test') as client:
+            assert (await client.get('/v1/jobs/' + job, headers=headers)).status_code == 404
+            assert (await client.post('/v1/jobs/' + job + '/renew', headers=headers)).status_code == 404
+            assert (await client.delete('/v1/jobs/' + job, headers=headers)).status_code == 404
+            assert (await client.head(signed)).status_code == 404, 'A valid production lease cannot read via staging'
+            assert calls and all(key.startswith(expected_prefix) for key in calls)
+            response = await client.post('/v1/jobs', headers=headers,
+                                         json={'videoId': 'abcdefghijk', 'mode': 'audio', 'profile': 'mp4-aac', 'maxHeight': 1080})
+            assert response.status_code == 200, response.text
+            own = response.json()['jobId']
+            assert media.paths(own)[0] in objects and media.paths(own)[0].startswith(expected_prefix)
+            assert (await client.get('/v1/jobs/' + own, headers=headers)).status_code == 200
+            assert (await client.post('/v1/jobs/' + own + '/renew', headers=headers)).status_code == 200
+            assert (await client.delete('/v1/jobs/' + own, headers=headers)).status_code == 200
+        assert all(objects.get(key) == value for key, value in original_production.items())
+        assert objects['unrelated/customer-file'] == b'keep'
+
+    load_environment('production')
+    headers = {'Authorization': 'Bearer ' + media.API_KEY, 'X-Media-Subscriber': 'a' * 64,
+               'X-Media-Public-Origin': 'https://production.example.test'}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=media.app, raise_app_exceptions=False),
+                                 base_url='https://production.example.test') as client:
+        assert (await client.get('/v1/jobs/' + job, headers=headers)).status_code == 200
+        assert (await client.post('/v1/jobs/' + job + '/renew', headers=headers)).status_code == 200
+        assert (await client.head(signed)).status_code == 200, 'Existing production lease paths still work'
+    with patch.dict(os.environ):
+        os.environ.pop('VERCEL_ENV', None)
+        importlib.reload(media)
+        assert media.PREFIX == prefixes['development'], 'Missing environment cannot select production storage'
+    with patch.dict(os.environ, VERCEL_ENV='unsupported-environment'):
+        try:
+            importlib.reload(media)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Unknown environment must fail before storage access')
+    print('PASS: actual adapter Preview/Development read, renew, delete, lease and cleanup isolation with shared fixture credentials; own operations; unchanged Production paths; safe missing/invalid environment handling')
+
+
+asyncio.run(check_environment_isolation())
 
 from app.processes import failure_reason
 assert failure_reason(b"ERROR: Sign in to confirm you're not a bot; https://signed.example/?credential=private") == 'source_access_restricted'
