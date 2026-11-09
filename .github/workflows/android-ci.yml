@@ -83,6 +83,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check web audio bridge
         run: |
+          node docs/qa/android/cleanup-check.mjs
           node docs/qa/android/check.mjs
           node docs/qa/android/ordered-check.mjs
           node docs/qa/android/ordered-check.mjs --v2

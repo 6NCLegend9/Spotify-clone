@@ -5,24 +5,38 @@ cd "$qa_root"
 # Both paths contain only disposable evidence from this isolated emulator run.
 # Remove previous runs so a missing screenshot/JSON cannot pass as fresh output.
 rm -rf "$qa_root/artifacts/android-emulator"
-adb shell rm -rf /sdcard/Download/haykasa-emulator-qa
 qa_server_pid=""
+qa_adb() {
+  # A lost emulator must not hang the EXIT trap and hide the instrumentation
+  # failure. Node is already required by this runner; no timeout binary needed.
+  node --input-type=commonjs -e '
+    const { spawnSync } = require("node:child_process");
+    const result = spawnSync("adb", process.argv.slice(1), {
+      stdio: "inherit", timeout: 10_000, killSignal: "SIGKILL",
+    });
+    if (result.error) console.error("Android QA device command failed:", result.error.code);
+    process.exit(result.status ?? (result.error?.code === "ETIMEDOUT" ? 124 : 1));
+  ' -- "$@"
+}
 collect_device_evidence() {
   local test_status=$?
+  trap - EXIT
   mkdir -p "$qa_root/artifacts/android-emulator"
-  adb logcat -d HayKasaWebQA:D HayKasaMediaQA:D '*:S' > "$qa_root/artifacts/android-emulator/playback-diagnostics.log" 2>&1 || true
-  adb logcat -d AndroidRuntime:E '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
-  adb shell dumpsys activity services app.haykasa.android.debug > "$qa_root/artifacts/android-emulator/services.txt" 2>&1 || true
-  adb pull /sdcard/Download/haykasa-emulator-qa "$qa_root/artifacts/android-emulator/screenshots" || true
+  qa_adb logcat -d HayKasaWebQA:D HayKasaMediaQA:D '*:S' > "$qa_root/artifacts/android-emulator/playback-diagnostics.log" 2>&1 || true
+  qa_adb logcat -d AndroidRuntime:E '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
+  qa_adb shell dumpsys activity services app.haykasa.android.debug > "$qa_root/artifacts/android-emulator/services.txt" 2>&1 || true
+  qa_adb pull /sdcard/Download/haykasa-emulator-qa "$qa_root/artifacts/android-emulator/screenshots" || true
   if [[ -n "$qa_server_pid" ]]; then kill "$qa_server_pid" 2>/dev/null || true; fi
-  adb reverse --remove tcp:3011 >/dev/null 2>&1 || true
+  qa_adb reverse --remove tcp:3011 >/dev/null 2>&1 || true
   if [[ "$test_status" -eq 0 ]] && { [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/live-playback.json" ]] || [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/ui-tour.jsonl" ]]; }; then
     echo "Android tests did not produce the required playback/tour evidence." >&2
     exit 1
   fi
+  exit "$test_status"
 }
 trap collect_device_evidence EXIT
-adb logcat -c
+qa_adb shell rm -rf /sdcard/Download/haykasa-emulator-qa
+qa_adb logcat -c
 mkdir -p "$qa_root/artifacts/android-emulator"
 if [[ ! -f "$qa_root/.next/BUILD_ID" ]]; then
   echo "Build the current web source before running emulator QA (DISABLE_PWA=1 npm run build)." >&2
@@ -42,7 +56,7 @@ for ((qa_attempt=0; qa_attempt<60; qa_attempt++)); do
   sleep 1
 done
 if [[ "$qa_server_ready" -ne 1 ]]; then echo "Current-source QA server did not start." >&2; exit 1; fi
-adb reverse tcp:3011 tcp:3011
+qa_adb reverse tcp:3011 tcp:3011
 qa_commit="${GITHUB_SHA:-$(git -C "$qa_root" rev-parse HEAD)}"
 if [[ ! "$qa_commit" =~ ^[a-f0-9]{40}$ ]]; then echo "Invalid QA source commit." >&2; exit 1; fi
 "$qa_root/android/gradlew" -p "$qa_root/android" --no-daemon \
