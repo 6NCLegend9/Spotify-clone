@@ -178,6 +178,19 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash docs/qa/android/run-emulator.sh
+      - name: Capture emulator host resource evidence
+        if: always()
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/android-emulator
+          {
+            date -u
+            free -m
+            cat /proc/pressure/cpu /proc/pressure/memory
+            # Capture kernel victim/resource facts, never process arguments or environment values.
+            timeout 10s sudo -n dmesg --color=never | grep -Ei 'oom-kill:|out of memory: killed process' | tail -40 || \
+              echo 'No matching kernel OOM events captured, or kernel log access unavailable.'
+          } > artifacts/android-emulator/host-resource-diagnostics.txt 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
