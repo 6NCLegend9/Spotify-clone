@@ -267,6 +267,43 @@ public class PlayAppUpdaterTest {
         }
     }
 
+    private void failureQueuedBeforePendingDismissal(boolean cancel) throws Exception {
+        clickRestart();
+        main(() -> {
+            assertEquals(Boolean.TRUE, read(updater, "installing"));
+            assertEquals(activity.getString(R.string.update_hide),
+                dialog().getButton(AlertDialog.BUTTON_NEGATIVE).getText().toString());
+            // Task listeners enqueue on main. The user acts while Hide is still
+            // visible, before that failure is delivered. Framework builder and
+            // OnCancel listeners would queue behind the failure and misclassify it.
+            store.completions.get(0).setException(new IllegalStateException("Isolated Play failure"));
+            if (cancel) dialog().cancel();
+            else dialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        });
+        settle();
+        main(() -> {
+            assertNull("Pending dismissal must not reopen on failure", dialog());
+            assertEquals("Dismissal never retries installation automatically", 1, store.attempts);
+        });
+        main(updater::checkForUpdates); awaitDialog();
+        main(() -> assertEquals("A fresh check offers but does not install", 1, store.attempts));
+    }
+
+    @Test public void failureQueuedBeforeHidePreservesFuturePrompt() throws Exception {
+        failureQueuedBeforePendingDismissal(false);
+    }
+
+    @Test public void failureQueuedBeforeCancelPreservesFuturePrompt() throws Exception {
+        failureQueuedBeforePendingDismissal(true);
+    }
+
+    @Test public void cancelAfterVisibleFailureRemainsDeferral() throws Exception {
+        clickRestart(); failAttempt(0); awaitRetry();
+        main(() -> dialog().cancel()); settle();
+        main(updater::checkForUpdates); settle();
+        main(() -> { assertNull(dialog()); assertEquals(1, store.attempts); });
+    }
+
     @Test public void closedUpdaterIgnoresLateFailure() throws Exception {
         clickRestart(); main(updater::close);
         failAttempt(0); settle();

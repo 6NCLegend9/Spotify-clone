@@ -104,19 +104,30 @@ final class PlayAppUpdater implements AutoCloseable {
     private void offerRestart(int version) {
         if (!canPrompt() || restartDialog != null || installing) return;
         try {
-            restartDialog = new AlertDialog.Builder(activity)
-                .setTitle(R.string.update_ready_title)
-                .setMessage(R.string.update_ready_message)
-                // Install our listener after show() so Android does not dismiss
-                // this dialog before a failed installation can offer Retry.
-                .setPositiveButton(R.string.update_restart, null)
-                .setNegativeButton(R.string.update_later, (dialog, which) -> dismissRestart(version))
-                .setOnCancelListener(dialog -> dismissRestart(version))
-                .create();
+            // Dialog.cancel() and a View click run at the action boundary;
+            // builder listeners are queued and can run after an install failure.
+            restartDialog = new AlertDialog(activity) {
+                @Override public void cancel() {
+                    if (restartDialog == this && isShowing()) dismissRestart(version);
+                    super.cancel();
+                }
+            };
+            restartDialog.setCanceledOnTouchOutside(true);
+            restartDialog.setTitle(R.string.update_ready_title);
+            restartDialog.setMessage(activity.getString(R.string.update_ready_message));
+            restartDialog.setButton(AlertDialog.BUTTON_POSITIVE, activity.getString(R.string.update_restart),
+                (android.content.DialogInterface.OnClickListener)null);
+            restartDialog.setButton(AlertDialog.BUTTON_NEGATIVE, activity.getString(R.string.update_later),
+                (android.content.DialogInterface.OnClickListener)null);
             restartDialog.setOnDismissListener(dialog -> { if (restartDialog == dialog) restartDialog = null; });
             restartDialog.show();
             AlertDialog dialog = restartDialog;
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> restart(version, dialog));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(view -> {
+                if (restartDialog != dialog || !dialog.isShowing()) return;
+                dismissRestart(version);
+                dialog.dismiss();
+            });
         } catch (RuntimeException unavailable) {
             restartDialog = null;
         }
