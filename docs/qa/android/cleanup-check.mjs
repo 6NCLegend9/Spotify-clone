@@ -21,11 +21,21 @@ if [[ "$QA_ADB_MODE" == hang && "$1" == logcat && "\${3:-}" == HayKasaWebQA:D ]]
   exec sleep 60
 fi
 if [[ "$QA_ADB_MODE" == offline ]]; then exit 1; fi
-if [[ "$QA_ADB_MODE" == evidence && "$1" == pull ]]; then
+if [[ "$1" == pull && ( "$QA_ADB_MODE" == evidence || "$QA_ADB_MODE" == partial || "$QA_ADB_MODE" == invalid ) ]]; then
   mkdir -p "$3"
-  printf '{}' > "$3/live-playback.json"
-  printf '{}' > "$3/ui-tour.jsonl"
+  if [[ "$QA_ADB_MODE" != invalid ]]; then
+    printf '{}' > "$3/live-playback.json"
+    printf '{}' > "$3/ui-tour.jsonl"
+  else
+    printf '{' > "$3/live-playback.json"
+    printf '{' > "$3/ui-tour.jsonl"
+  fi
+  if [[ "$QA_ADB_MODE" == partial ]]; then exit 124; fi
 fi
+`, { mode: 0o755 });
+await writeFile(join(bin, "mkdir"), `#!/usr/bin/env bash
+if [[ "$QA_ADB_MODE" == directory ]]; then exit 23; fi
+exec /bin/mkdir "$@"
 `, { mode: 0o755 });
 
 const results = [];
@@ -34,9 +44,13 @@ try {
     { name: "successful tests retain fresh evidence", mode: "evidence", status: 0, expected: 0 },
     { name: "missing evidence cannot pass", mode: "missing", status: 0, expected: 1 },
     { name: "device errors preserve the test failure", mode: "offline", status: 7, expected: 7 },
+    { name: "a partial failed pull cannot pass", mode: "partial", status: 0, expected: 1 },
+    { name: "truncated evidence cannot pass", mode: "invalid", status: 0, expected: 1 },
+    { name: "directory errors preserve the test failure", mode: "directory", status: 7, expected: 7 },
+    { name: "directory errors cannot pass", mode: "directory", status: 0, expected: 1 },
     { name: "hung device collection is bounded and preserves failure", mode: "hang", status: 9, expected: 9 },
   ]) {
-    const caseRoot = join(root, test.mode);
+    const caseRoot = join(root, `${test.mode}-${test.status}`);
     await mkdir(caseRoot);
     const pidFile = join(caseRoot, "adb.pid");
     const started = Date.now();

@@ -20,17 +20,33 @@ qa_adb() {
 }
 collect_device_evidence() {
   local test_status=$?
+  local evidence_status=0
   trap - EXIT
-  mkdir -p "$qa_root/artifacts/android-emulator"
-  qa_adb logcat -d HayKasaWebQA:D HayKasaMediaQA:D '*:S' > "$qa_root/artifacts/android-emulator/playback-diagnostics.log" 2>&1 || true
-  qa_adb logcat -d AndroidRuntime:E '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
-  qa_adb shell dumpsys activity services app.haykasa.android.debug > "$qa_root/artifacts/android-emulator/services.txt" 2>&1 || true
-  qa_adb pull /sdcard/Download/haykasa-emulator-qa "$qa_root/artifacts/android-emulator/screenshots" || true
+  if mkdir -p "$qa_root/artifacts/android-emulator"; then
+    qa_adb logcat -d HayKasaWebQA:D HayKasaMediaQA:D '*:S' > "$qa_root/artifacts/android-emulator/playback-diagnostics.log" 2>&1 || true
+    qa_adb logcat -d AndroidRuntime:E '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
+    qa_adb shell dumpsys activity services app.haykasa.android.debug > "$qa_root/artifacts/android-emulator/services.txt" 2>&1 || true
+    qa_adb pull /sdcard/Download/haykasa-emulator-qa "$qa_root/artifacts/android-emulator/screenshots" || evidence_status=$?
+  else
+    evidence_status=1
+  fi
   if [[ -n "$qa_server_pid" ]]; then kill "$qa_server_pid" 2>/dev/null || true; fi
   qa_adb reverse --remove tcp:3011 >/dev/null 2>&1 || true
-  if [[ "$test_status" -eq 0 ]] && { [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/live-playback.json" ]] || [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/ui-tour.jsonl" ]]; }; then
+  if [[ "$test_status" -eq 0 ]] && { [[ "$evidence_status" -ne 0 ]] || [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/live-playback.json" ]] || [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/ui-tour.jsonl" ]]; }; then
     echo "Android tests did not produce the required playback/tour evidence." >&2
     exit 1
+  fi
+  if [[ "$test_status" -eq 0 ]]; then
+    node --input-type=commonjs -e '
+      const fs = require("node:fs");
+      try {
+        JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        for (const line of fs.readFileSync(process.argv[2], "utf8").trim().split(/\r?\n/)) JSON.parse(line);
+      } catch {
+        console.error("Required Android playback/tour evidence is not valid JSON.");
+        process.exit(1);
+      }
+    ' -- "$qa_root/artifacts/android-emulator/screenshots/live-playback.json" "$qa_root/artifacts/android-emulator/screenshots/ui-tour.jsonl"
   fi
   exit "$test_status"
 }
