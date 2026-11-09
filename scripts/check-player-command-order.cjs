@@ -1,5 +1,5 @@
-// Execute the production player callbacks and reducer with deferred local
-// responses. These checks establish command ordering, not audible playback.
+// Execute production player callbacks/reducer with controlled timer/provider
+// observations and deferred local responses. This does not verify audible playback.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -13,16 +13,18 @@ const playerFile = path.join(root, 'src/redux/features/playerSlice.js');
 const componentFile = path.join(root, 'src/components/MusicPlayer/YouTubePlayer.jsx');
 const component = fs.readFileSync(componentFile, 'utf8');
 const parsed = ts.createSourceFile(componentFile, component, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
-const names = ['capturePlaybackScope', 'getNextVideo', 'extendQueue', 'playNextOrContinue', 'handlePlaybackFailure'];
+const names = ['capturePlaybackScope', 'getNextVideo', 'extendQueue', 'playNextOrContinue', 'handlePlaybackFailure',
+  'emptyRecovery', 'clearActiveBufferTimers', 'scheduleActiveBufferRecovery', 'watchActiveProgress'];
+const timings = ['STARTUP_GRACE_MS', 'ACTIVE_BUFFER_RECOVERY_MS', 'HEALTHY_PLAYBACK_RESET_MS', 'STALL_NUDGE_MS', 'STALL_RELOAD_MS'];
 const bodies = new Map();
 function visit(node) {
-  if (ts.isVariableDeclaration(node) && names.includes(node.name.getText(parsed))) {
+  if (ts.isVariableDeclaration(node) && [...names, ...timings].includes(node.name.getText(parsed))) {
     bodies.set(node.name.getText(parsed), node.initializer.getText(parsed));
   }
   ts.forEachChild(node, visit);
 }
 visit(parsed);
-for (const name of names.slice(1)) assert(bodies.has(name), `Missing actual player callback: ${name}`);
+for (const name of [...names.slice(1), ...timings]) assert(bodies.has(name), `Missing actual player callback/timing: ${name}`);
 // The old implementation has no scope helper. Do not invent a guard for it:
 // the exact old callbacks must still demonstrate the original failures.
 const callbacks = [...bodies].map(([name, source]) => `const ${name} = ${source};`).join('\n');
@@ -49,10 +51,20 @@ function fixture(track = songs[0]) {
   let state = reducer(undefined, actions.restorePlayback({ owner: 'account:A', snapshot: null }));
   state = reducer(state, actions.startYoutubePlayback({ track, queue: [track], queueMode: 'radio' }));
   let generation = 0;
-  const calls = { actions: [], errors: [], toasts: [], pauses: 0, marks: 0, requests: [] };
-  const media = { provider: 'youtube', pauseVideo() { calls.pauses++; }, getCurrentTime: () => 0 };
+  const calls = { actions: [], errors: [], toasts: [], pauses: 0, marks: 0, requests: [], plays: 0, reloads: 0 };
+  const clock = { now: 1000, nextId: 0, timers: new Map() };
+  const media = { provider: 'youtube', time: 0, duration: 180, state: 3, videoId: track.id,
+    pauseVideo() { calls.pauses++; }, getCurrentTime() { return this.time; },
+    getDuration() { return this.duration; }, getPlayerState() { return this.state; },
+    playVideo() { calls.plays++; }, loadVideoById() { calls.reloads++; }, unMute() {},
+  };
   const context = {
     ...helpers, ...actions, console, AbortController, URLSearchParams, Set, Date,
+    performance: { now: () => clock.now },
+    window: {
+      setTimeout(callback, delay) { const id = ++clock.nextId; clock.timers.set(id, { at: clock.now + delay, callback }); return id; },
+      clearTimeout: id => clock.timers.delete(id),
+    },
     store: { getState: () => ({ player: state, settings: { explicitContent: true, privateSession: false } }) },
     dispatch(action) { calls.actions.push(action); state = reducer(state, action); },
     videoRef: { current: state.youtubeVideo }, queueRef: { current: state.youtubeQueue },
@@ -69,6 +81,13 @@ function fixture(track = songs[0]) {
     alternateAttemptRef: { current: { identity: null } },
     sourceSwitchRef: { current: null }, fallbackOccurrenceRef: { current: null },
     activeDeckRef: { current: 'A' }, apiReady: false,
+    isPlayingRef: { current: state.isPlaying }, crossfadeInProgressRef: { current: false },
+    deckGenerationRef: { current: { A: 1 } }, deckPlayerRefs: { A: { current: media } },
+    activeBufferTimerRef: { current: null }, healthyPlaybackTimerRef: { current: null },
+    activeRecoveryRef: { current: { videoId: track.id, attempts: 0, lastAttemptAt: 0, lastTime: 0, lastAdvancedAt: clock.now, healthySince: 0 } },
+    activeTrackStartedRef: { current: { identity: helpers.queueEntryIdentity(state.youtubeVideo), videoId: track.id, startedAt: 0 } },
+    playerVideoId: player => player.videoId, isPageHidden: () => false, markBackgroundPlayback() {},
+    isSeekGuarded: () => false, cancelIdlePreload() {},
     getActivePlayer: () => media,
     cancelFade() {}, abortCrossfade() {}, clearActiveBufferTimers() {},
     markExpectPlaying() { calls.marks++; }, recordPlayEvent() {}, replayCurrent() {},
@@ -80,9 +99,20 @@ function fixture(track = songs[0]) {
     resolveAlternateUpload: () => { throw Error('Every alternate lookup requires an explicit local fixture'); },
     extendQueueRef: { current: () => { throw Error('Every Next extension requires a local fixture'); } },
   };
-  vm.runInNewContext(callbacks + '\nglobalThis.production = { getNextVideo, extendQueue, playNextOrContinue, handlePlaybackFailure };', context, { filename: componentFile });
+  vm.runInNewContext(callbacks + `\nglobalThis.production = { ${[...names.slice(1), ...timings].join(', ')} };`, context, { filename: componentFile });
+  context.activeRecoveryRef.current = context.production.emptyRecovery(track.id);
+  context.handlePlaybackFailureRef = { current: context.production.handlePlaybackFailure };
   return {
-    context, calls, state: () => state,
+    context, calls, clock, media, state: () => state,
+    async advance(ms) {
+      const until = clock.now + ms;
+      while (true) {
+        const due = [...clock.timers].filter(([, timer]) => timer.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
+        if (!due) break;
+        clock.now = due[1].at; clock.timers.delete(due[0]); due[1].callback(); await tick();
+      }
+      clock.now = until; await tick();
+    },
     dispatch: action => context.dispatch(action),
     render() {
       context.videoRef.current = state.youtubeVideo;
@@ -93,6 +123,7 @@ function fixture(track = songs[0]) {
       context.queueManualEnd = state.queueManualEnd;
       context.playbackContext = state.playbackContext;
       context.playbackHistory = state.history;
+      context.isPlayingRef.current = state.isPlaying;
     },
     invalidatePrivacy() { generation++; },
     nextFixture({ append = false } = {}) {
@@ -130,6 +161,14 @@ async function check(name, run) {
   try { await run(); results.push({ name, pass: true }); }
   catch (error) { results.push({ name, pass: false, error: error.stack || String(error) }); }
 }
+async function watchFor(f, milliseconds, { progressing = false } = {}) {
+  const until = f.clock.now + milliseconds;
+  while (f.clock.now < until) {
+    if (progressing) f.media.time += .25;
+    await f.advance(Math.min(250, until - f.clock.now));
+    f.context.production.watchActiveProgress('A', f.media, 1);
+  }
+}
 (async () => {
   const local = file => pathToFileURL(path.join(root, file)).href;
   helpers = {
@@ -138,7 +177,76 @@ async function check(name, run) {
     ...await import(local('src/utils/youtubePlaybackError.mjs')),
     ...await import(local('src/utils/explicitContent.mjs')),
     ...await import(local('src/utils/youtubeSearchUrl.mjs')),
+    ...await import(local('src/components/MusicPlayer/media/mediaPlayerStates.mjs')),
   };
+  await check('Zero-time startup expires after grace with one retryable paused error', async () => {
+    const f = fixture(), selected = f.state().youtubeVideo.queueEntryId;
+    const initialRevision = f.state().playbackIntentRevision;
+    f.context.production.scheduleActiveBufferRecovery('A', f.media, 1);
+    await watchFor(f, f.context.production.STARTUP_GRACE_MS - 250);
+    assert.equal(f.calls.errors.length, 0, 'A still-valid startup grace must not fail prematurely');
+    while (!f.calls.errors.length && f.clock.now - 1000 < 20_000) await watchFor(f, 250);
+    assert.equal(f.calls.errors.length, 1, 'A zero-time provider cannot remain in startup forever');
+    assert(f.clock.now - 1000 < 20_000, 'Startup must settle inside the existing live-probe deadline');
+    assert.equal(f.calls.errors[0].code, 'startup_timeout');
+    assert.equal(f.calls.errors[0].canRetry, true);
+    assert.equal(f.state().isPlaying, false);
+    assert.equal(f.state().youtubeVideo.queueEntryId, selected, 'A failed startup preserves the selected occurrence');
+    assert.equal(f.state().playbackIntentRevision, initialRevision, 'Observed failure is not a new user command');
+    assert.equal(f.calls.reloads, 0, 'Expired startup cannot extend its budget through automatic reloads');
+    assert.equal(f.context.alternateAttemptRef.current.attempts, 0, 'Expired startup cannot start an alternate-upload search');
+    f.render(); await watchFor(f, 5000);
+    assert.equal(f.calls.errors.length, 1, 'A stopped attempt publishes its error once');
+  });
+  for (const change of ['Pause', 'owner-before-render', 'repeated-occurrence', 'new-pending-Play', 'privacy-clear', 'unmount']) {
+    await check(`A delayed startup nudge yields to ${change}`, async () => {
+      const f = fixture(); f.context.production.scheduleActiveBufferRecovery('A', f.media, 1);
+      if (change === 'Pause') f.dispatch(actions.playPause(false));
+      if (change === 'owner-before-render') {
+        f.dispatch(actions.restorePlayback({ owner: 'account:B', snapshot: null }));
+        f.dispatch(actions.startYoutubePlayback({ track: songs[0], queue: [songs[0]], queueMode: 'radio' }));
+      }
+      if (change === 'repeated-occurrence') f.dispatch(actions.startYoutubePlayback({ track: songs[0], queue: [songs[0]], queueMode: 'radio' }));
+      if (change === 'new-pending-Play') f.dispatch(actions.beginPlaybackRequest());
+      if (change === 'privacy-clear') f.invalidatePrivacy();
+      if (change === 'unmount') f.context.asyncPlaybackLifetimeRef.current = {};
+      const before = f.state(); await f.advance(f.context.production.ACTIVE_BUFFER_RECOVERY_MS + 500);
+      assertUnchanged(f, before);
+      assert.equal(f.calls.plays, 0, 'A stale recovery timer must not send Play to the old provider');
+      assert.equal(f.calls.reloads, 0);
+    });
+  }
+  await check('An explicit new Play receives a fresh bounded startup budget', async () => {
+    const f = fixture(); f.context.production.scheduleActiveBufferRecovery('A', f.media, 1);
+    await watchFor(f, 10_000); assert.equal(f.calls.errors.length, 0);
+    const beforeRevision = f.state().playbackIntentRevision;
+    f.dispatch(actions.playPause(true)); f.render();
+    assert(f.state().playbackIntentRevision > beforeRevision, 'The fixture exercises an explicit command, not telemetry');
+    // Retire the captured pre-command timer, then observe a fresh current one.
+    await f.advance(f.context.production.ACTIVE_BUFFER_RECOVERY_MS + 500);
+    f.context.production.scheduleActiveBufferRecovery('A', f.media, 1);
+    const restartedAt = f.clock.now;
+    await watchFor(f, f.context.production.STARTUP_GRACE_MS - 250);
+    assert.equal(f.calls.errors.length, 0, 'The new command cannot inherit the old startup deadline');
+    while (!f.calls.errors.length && f.clock.now - restartedAt < 20_000) await watchFor(f, 250);
+    assert.equal(f.calls.errors.length, 1, 'The fresh attempt is still bounded');
+    assert.equal(f.calls.errors[0].code, 'startup_timeout');
+    assert.equal(f.state().isPlaying, false);
+  });
+  await check('Healthy startup progress is not failed by the startup deadline', async () => {
+    const f = fixture(); f.media.state = helpers.MEDIA_PLAYER_STATES.PLAYING;
+    f.context.production.scheduleActiveBufferRecovery('A', f.media, 1);
+    await watchFor(f, 20_000, { progressing: true });
+    assert.equal(f.calls.errors.length, 0); assert.equal(f.calls.reloads, 0);
+    assert.equal(f.state().isPlaying, true);
+  });
+  await check('Ordered native recovery remains owned by the native transport', async () => {
+    const f = fixture(); f.media.provider = 'native'; f.media.orderedTransport = true;
+    f.context.production.scheduleActiveBufferRecovery('A', f.media, 1);
+    await watchFor(f, 20_000);
+    assert.equal(f.clock.timers.size, 0); assert.equal(f.calls.errors.length, 0);
+    assert.equal(f.calls.plays, 0); assert.equal(f.calls.reloads, 0);
+  });
   await check('Next selects an accepted appended occurrence before React updates refs', async () => {
     const f = fixture(), response = f.nextFixture({ append: true });
     const next = f.context.production.playNextOrContinue();
@@ -321,7 +429,7 @@ async function check(name, run) {
     assert.equal(f.context.failureResolveRef.current, null);
   });
   const report = {
-    scope: 'Exact production callbacks and actual reducer/queue/radio helpers; deferred local responses only. No network, decoder, browser, native service or audible-device verification.',
+    scope: 'Exact production callbacks and actual reducer/queue/radio helpers; controlled clock/provider observations and deferred local responses only. No network, decoder, browser, native service or audible-device verification.',
     componentSha256: crypto.createHash('sha256').update(component).digest('hex'),
     scopeHelperPresent: bodies.has('capturePlaybackScope'),
     passed: results.filter(result => result.pass).length, total: results.length, results,

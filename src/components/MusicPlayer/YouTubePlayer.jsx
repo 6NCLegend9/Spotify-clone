@@ -557,6 +557,8 @@ function YouTubePlayer() {
   const emptyRecovery = (videoId = null) => ({
     videoId,
     attempts: 0,
+    startupAt: videoId ? performance.now() : 0,
+    startupRevision: store.getState().player.playbackIntentRevision,
     lastAttemptAt: 0,
     lastTime: 0,
     lastAdvancedAt: videoId ? performance.now() : 0,
@@ -763,6 +765,8 @@ function YouTubePlayer() {
 
     const videoId = playerVideoId(player);
     if (!videoId || (videoRef.current?.id && videoRef.current.id !== videoId)) return;
+    const isCurrent = capturePlaybackScope();
+    if (!isCurrent()) return;
     cancelIdlePreload(3000);
     if (healthyPlaybackTimerRef.current) {
       window.clearTimeout(healthyPlaybackTimerRef.current);
@@ -774,13 +778,12 @@ function YouTubePlayer() {
     if (activeBufferTimerRef.current) return;
 
     const now = performance.now();
-    const activeTrack = activeTrackStartedRef.current;
-    const currentIdentity = queueEntryIdentity(videoRef.current);
-    const recentlyStarted =
-      activeTrack.identity === currentIdentity &&
-      activeTrack.videoId === videoId &&
-      activeTrack.startedAt &&
-      now - activeTrack.startedAt < STARTUP_GRACE_MS;
+    const revision = store.getState().player.playbackIntentRevision;
+    if (activeRecoveryRef.current.startupRevision !== revision) {
+      activeRecoveryRef.current.startupRevision = revision;
+      activeRecoveryRef.current.startupAt = now;
+    }
+    const recentlyStarted = now - activeRecoveryRef.current.startupAt < STARTUP_GRACE_MS;
     const retryGraceMs = Math.max(
       0,
       1500 - (now - activeRecoveryRef.current.lastAttemptAt),
@@ -792,6 +795,8 @@ function YouTubePlayer() {
     activeBufferTimerRef.current = window.setTimeout(() => {
       activeBufferTimerRef.current = null;
       if (
+        !isCurrent() ||
+        isPageHidden() ||
         crossfadeInProgressRef.current ||
         isSeekGuarded() ||
         !isPlayingRef.current ||
@@ -827,16 +832,17 @@ function YouTubePlayer() {
         );
       if (!recoverable) return;
 
-      const stillStarting =
-        (activeTrackStartedRef.current.identity === queueEntryIdentity(videoRef.current) &&
-          activeTrackStartedRef.current.videoId === videoId &&
-          activeTrackStartedRef.current.startedAt &&
-          performance.now() - activeTrackStartedRef.current.startedAt < STARTUP_GRACE_MS) ||
-        time < 1.5;
+      const stillStarting = performance.now() - recovery.startupAt < STARTUP_GRACE_MS;
       if (stillStarting) {
         player.unMute?.();
         applyPlaybackVolume(player);
         player.playVideo?.();
+        return;
+      }
+      if (time < 1.5) {
+        // Zero output cannot keep renewing startup or enter another automatic
+        // upload search. A new explicit Play/Retry receives a fresh grace period.
+        void handlePlaybackFailureRef.current?.({ code: "startup_timeout", kind: "playback" });
         return;
       }
 

@@ -15,6 +15,7 @@ on:
       - 'src/components/AndroidAppCard.jsx'
       - 'src/app/AuthProvider.js'
       - 'src/utils/youtubeIframeApi.mjs'
+      - 'src/utils/youtubePlaybackError.mjs'
       - 'src/components/SupportDiagnostics.jsx'
       - 'src/components/AddToPlaylistButton.jsx'
       - 'src/components/TrackQueueMenu.jsx'

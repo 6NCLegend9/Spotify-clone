@@ -6,7 +6,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 const root = path.resolve(__dirname, "../../..");
-const output = path.join(root, "artifacts/android-player-browser");
+const output = path.resolve(process.env.HAYKASA_PLAYER_BROWSER_EVIDENCE || path.join(root, "artifacts/android-player-browser"));
 const origin = "http://127.0.0.1:3019";
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 fs.mkdirSync(output, { recursive: true });
@@ -35,7 +35,7 @@ let browser, page;
     delete Object.getPrototypeOf(navigator).serviceWorker;
     localStorage.setItem("toturialComplete", "true");
     localStorage.setItem("heykasa.media.presentation", "audio");
-    const players = [], calls = [], skips = [];
+    const players = [], calls = [], skips = [], bufferingIds = new Set();
     class SyntheticPlayer {
       constructor(elementId, options) {
         this.options = options; this.id = options.videoId; this.state = -1;
@@ -48,6 +48,7 @@ let browser, page;
       }
       notify(state) { this.state = state; this.options.events.onStateChange?.({ target: this, data: state }); }
       playVideo() {
+        if (!this.destroyed && bufferingIds.has(this.id)) { this.notify(3); return; }
         if (this.destroyed || this.state === 1 || this.timer) return;
         this.notify(3);
         this.timer = setTimeout(() => { this.timer = null; if (!this.destroyed) { this.started = performance.now(); this.notify(1); } }, 500);
@@ -72,7 +73,14 @@ let browser, page;
       fail(code) { this.options.events.onError?.({ target: this, data: code }); }
     }
     window.YT = { Player: SyntheticPlayer, PlayerState: { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 } };
-    window.qaYouTube = { players, calls, skips, active: () => players.filter(player => !player.destroyed).at(-1) };
+    window.qaYouTube = { players, calls, skips, active: () => players.filter(player => !player.destroyed).at(-1),
+      holdAtStart: id => {
+        bufferingIds.add(id);
+        for (const player of players.filter(value => value.id === id)) {
+          clearTimeout(player.timer); player.timer = null; player.position = 0; player.state = 3;
+        }
+      }, releaseStart: id => bufferingIds.delete(id),
+    };
     document.addEventListener("click", event => {
       if (event.target.closest("[data-testid='player-dock'] button[aria-label='Next song']")) {
         const player = window.qaYouTube.active();
@@ -161,6 +169,30 @@ let browser, page;
     await waitTrack(tracks[3 + offset].title);
     await page.waitForFunction(() => window.qaYouTube.active()?.getPlayerState() === 1);
   }
+  // Select a real next occurrence whose controlled provider never advances.
+  // Actual production timers/UI must settle it, rather than a fixture error.
+  await page.evaluate(id => window.qaYouTube.holdAtStart(id), tracks[7].id);
+  const startupRequestedAt = Date.now();
+  await next().tap();
+  await waitTrack(tracks[7].title);
+  const stalledEntry = await dock.getAttribute("data-playback-entry-id");
+  const stalledCalls = await page.evaluate(() => window.qaYouTube.calls.length), stalledSearches = searches.length;
+  const startupFeedback = page.locator("[data-testid='playback-feedback']");
+  await startupFeedback.getByText("This track did not start playing.", { exact: true }).waitFor({ timeout: 20000 });
+  await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
+  const startupElapsedMs = Date.now() - startupRequestedAt;
+  assert(startupElapsedMs >= 12000 && startupElapsedMs < 20000, `No-output startup settles after its grace and before 20 seconds: ${startupElapsedMs}ms`);
+  assert.equal(await dock.getAttribute("data-playback-entry-id"), stalledEntry, "Startup failure preserves the selected occurrence");
+  assert.equal(await page.evaluate(() => window.qaYouTube.calls.length), stalledCalls, "Startup timeout does not reload or replace the selected upload");
+  assert.equal(searches.length, stalledSearches, "Startup timeout does not search alternative uploads");
+  const startupBounds = await startupFeedback.boundingBox();
+  assert(startupBounds && startupBounds.y >= 0 && startupBounds.y + startupBounds.height <= 844, "Startup error and Retry remain inside the phone viewport");
+  await page.screenshot({ path: path.join(output, "mobile-startup-timeout.png") });
+  await page.evaluate(id => window.qaYouTube.releaseStart(id), tracks[7].id);
+  await startupFeedback.getByRole("button", { name: "Retry", exact: true }).tap();
+  await page.waitForFunction(() => window.qaYouTube.active()?.getPlayerState() === 1 && window.qaYouTube.active().getCurrentTime() > .5);
+  await startupFeedback.waitFor({ state: "detached" });
+  const startupRecovery = { passed: true, elapsedMs: startupElapsedMs, preservedOccurrence: true, retryVerified: true };
   assert.equal(await page.getByText("Some account preferences couldn't sync.", { exact: false }).count(), 0, "Synthetic account preferences sync without an unrelated warning");
   assert.deepEqual(errors, [], "Production player has no unhandled UI exceptions");
   const layoutResults = [];
@@ -217,7 +249,7 @@ let browser, page;
     await layout.close();
   }
   assert.deepEqual(errors, [], "All phone and desktop/tablet layouts have no unhandled UI errors");
-  const result = { passed: true, scope: "Production mobile UI with synthetic provider and APIs", searchTransitions, layoutResults, coverage: ["consecutive Search skips", "startup fade overlapping manual Skip", "consecutive Liked Songs skips", "terminal 100/101/150/153 preserve selection and queue", "visible recovery panel", "no automatic reload or alternate search", "manual Skip after each error", "no unhandled UI exceptions"] };
+  const result = { passed: true, scope: "Production mobile UI with synthetic provider and APIs", searchTransitions, layoutResults, startupRecovery, coverage: ["consecutive Search skips", "startup fade overlapping manual Skip", "consecutive Liked Songs skips", "terminal 100/101/150/153 preserve selection and queue", "visible recovery panel", "no automatic reload or alternate search", "manual Skip after each error", "bounded zero-clock startup and manual Retry", "no unhandled UI exceptions"] };
   fs.writeFileSync(path.join(output, "results.json"), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 })().catch(async error => { await page?.screenshot({ path: path.join(output, "failure.png") }).catch(() => {}); console.error(error); process.exitCode = 1; }).finally(async () => { await browser?.close(); server.kill("SIGTERM"); log.end(); });
