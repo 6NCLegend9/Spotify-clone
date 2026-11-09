@@ -85,6 +85,9 @@ public class PlayAppUpdaterTest {
         });
     }
     private void clickButton(int button) throws Exception {
+        // Resource orientation changes precede the committed window geometry.
+        // Use the same accessibility-idle boundary as native UI automation.
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().waitForIdle(250, 5000);
         AtomicReference<int[]> point = new AtomicReference<>();
         main(() -> {
             android.view.View view = dialog().getButton(button);
@@ -111,6 +114,33 @@ public class PlayAppUpdaterTest {
     }
     private void settle() { InstrumentationRegistry.getInstrumentation().waitForIdleSync(); }
 
+    private static double luminance(int color) {
+        double value = 0;
+        double[] weights = {.2126, .7152, .0722};
+        int[] channels = {android.graphics.Color.red(color), android.graphics.Color.green(color), android.graphics.Color.blue(color)};
+        for (int channel = 0; channel < 3; channel++) {
+            double component = channels[channel] / 255.0;
+            value += weights[channel] * (component <= .04045 ? component / 12.92 : Math.pow((component + .055) / 1.055, 2.4));
+        }
+        return value;
+    }
+    private void verifyRetryContrast() {
+        main(() -> {
+            android.util.TypedValue background = new android.util.TypedValue();
+            assertTrue(dialog().getContext().getTheme().resolveAttribute(android.R.attr.colorBackground, background, true));
+            assertEquals("Native dialog surface must be opaque", 255, android.graphics.Color.alpha(background.data));
+            double surface = luminance(background.data);
+            for (int button : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE}) {
+                int color = dialog().getButton(button).getCurrentTextColor();
+                assertEquals("Enabled actions must be opaque", 255, android.graphics.Color.alpha(color));
+                double foreground = luminance(color);
+                double contrast = (Math.max(surface, foreground) + .05) / (Math.min(surface, foreground) + .05);
+                System.out.println("ANDROID_QA_UPDATE_CONTRAST button=" + button + " ratio=" + contrast);
+                assertTrue("Enabled native update actions need 4.5:1 contrast; got " + contrast, contrast >= 4.5);
+            }
+        });
+    }
+
     private void verifyLandscapeRetry() throws Exception {
         AtomicInteger orientation = new AtomicInteger(), requested = new AtomicInteger();
         main(() -> { orientation.set(activity.getResources().getConfiguration().orientation); requested.set(activity.getRequestedOrientation()); });
@@ -118,6 +148,7 @@ public class PlayAppUpdaterTest {
             main(() -> activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
             await("Retry layout must reach landscape", () -> activity.getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE);
             awaitRetry();
+            verifyRetryContrast();
             main(() -> {
                 for (int button : new int[]{AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE}) {
                     android.view.View view = dialog().getButton(button);
@@ -128,6 +159,7 @@ public class PlayAppUpdaterTest {
                 }
             });
             AndroidPlaybackTest.screenshot("android-update-retry-landscape");
+            clickRestart(); // Exercise the real Retry control while in landscape.
         } finally {
             main(() -> activity.setRequestedOrientation(requested.get()));
             await("Updater test must restore its original orientation", () -> activity.getResources().getConfiguration().orientation == orientation.get());
@@ -172,9 +204,10 @@ public class PlayAppUpdaterTest {
         });
         settle(); main(() -> assertEquals(1, store.attempts));
         failAttempt(0); awaitRetry();
+        verifyRetryContrast();
         AndroidPlaybackTest.screenshot("android-update-retry");
         verifyLandscapeRetry();
-        clickRestart(); main(() -> assertEquals(2, store.attempts));
+        main(() -> assertEquals(2, store.attempts));
         main(() -> store.completions.get(1).setResult(null));
         await("Accepted restart must dismiss its window", () -> dialog() == null);
         main(updater::checkForUpdates); settle();
@@ -221,12 +254,17 @@ public class PlayAppUpdaterTest {
         main(() -> { assertNull(dialog()); assertEquals(0, store.attempts); });
     }
 
-    @Test public void hidingAPendingRestartDoesNotReopenItAfterFailure() throws Exception {
-        clickRestart();
-        clickButton(AlertDialog.BUTTON_NEGATIVE);
-        failAttempt(0); settle();
-        main(updater::checkForUpdates); settle();
-        main(() -> { assertNull(dialog()); assertEquals(1, store.attempts); });
+    @Test public void hidingPendingRestartDoesNotReopenImmediatelyOrSuppressNextCheck() throws Exception {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            clickRestart();
+            if (attempt == 0) clickButton(AlertDialog.BUTTON_NEGATIVE);
+            else { main(() -> dialog().cancel()); settle(); }
+            failAttempt(attempt); settle();
+            main(() -> assertNull("Hidden failure must not reopen a window immediately", dialog()));
+            main(updater::checkForUpdates); awaitDialog();
+            int expected = attempt + 1;
+            main(() -> assertEquals("A fresh check offers Retry without an automatic install", expected, store.attempts));
+        }
     }
 
     @Test public void closedUpdaterIgnoresLateFailure() throws Exception {

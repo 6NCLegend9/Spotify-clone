@@ -22,7 +22,7 @@ final class PlayAppUpdater implements AutoCloseable {
     private final Activity activity;
     private AppUpdateManager manager;
     private AlertDialog restartDialog;
-    private boolean resumed, checking, refreshPending, installing, closed;
+    private boolean resumed, checking, refreshPending, installing, restartHidden, closed;
     private final InstallStateUpdatedListener listener = state -> {
         if (state.installStatus() == InstallStatus.DOWNLOADED && resumed && !closed) checkForUpdates();
     };
@@ -110,9 +110,8 @@ final class PlayAppUpdater implements AutoCloseable {
                 // Install our listener after show() so Android does not dismiss
                 // this dialog before a failed installation can offer Retry.
                 .setPositiveButton(R.string.update_restart, null)
-                .setNegativeButton(R.string.update_later, (dialog, which) ->
-                    PROMPTS.record(UpdatePromptPolicy.Action.OFFER_RESTART, version))
-                .setOnCancelListener(dialog -> PROMPTS.record(UpdatePromptPolicy.Action.OFFER_RESTART, version))
+                .setNegativeButton(R.string.update_later, (dialog, which) -> dismissRestart(version))
+                .setOnCancelListener(dialog -> dismissRestart(version))
                 .create();
             restartDialog.setOnDismissListener(dialog -> { if (restartDialog == dialog) restartDialog = null; });
             restartDialog.show();
@@ -123,9 +122,15 @@ final class PlayAppUpdater implements AutoCloseable {
         }
     }
 
+    private void dismissRestart(int version) {
+        if (installing) restartHidden = true;
+        else PROMPTS.record(UpdatePromptPolicy.Action.OFFER_RESTART, version);
+    }
+
     private void restart(int version, AlertDialog dialog) {
         if (!canPrompt() || manager == null || installing || restartDialog != dialog) return;
         installing = true;
+        restartHidden = false;
         dialog.setMessage(activity.getString(R.string.update_installing));
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
         // Play's request cannot be cancelled here, but a slow response must
@@ -143,9 +148,11 @@ final class PlayAppUpdater implements AutoCloseable {
     }
 
     private void finishRestart(int version, AlertDialog dialog, boolean success) {
+        boolean hidden = restartHidden;
+        restartHidden = false;
         installing = false;
         if (success) PROMPTS.record(UpdatePromptPolicy.Action.OFFER_RESTART, version);
-        if (!canPrompt()) return;
+        if (!canPrompt() || hidden) return;
         if (success) {
             if (restartDialog == dialog) dialog.dismiss();
             return;
