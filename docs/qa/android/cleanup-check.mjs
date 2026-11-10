@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 
@@ -11,6 +12,8 @@ const trapEnd = source.indexOf("trap collect_device_evidence EXIT");
 const helperStart = source.indexOf("qa_adb() {");
 assert(helperStart >= 0 && trapEnd > helperStart, "Android QA must bound its device commands");
 const functions = source.slice(helperStart, trapEnd);
+const initialization = source.slice(source.indexOf('qa_server_pid=""'), helperStart);
+assert(initialization.includes('qa_sampler_pid=""'), "Cleanup fixture uses the runner's sampler initialization");
 const root = await mkdtemp(join(tmpdir(), "haykasa-android-cleanup-"));
 const bin = join(root, "bin");
 await mkdir(bin);
@@ -42,6 +45,8 @@ const results = [];
 try {
   for (const test of [
     { name: "successful tests retain fresh evidence", mode: "evidence", status: 0, expected: 0 },
+    { name: "sampler shutdown preserves success", mode: "evidence", status: 0, expected: 0, sampler: true },
+    { name: "sampler shutdown preserves failure", mode: "evidence", status: 7, expected: 7, sampler: true },
     { name: "missing evidence cannot pass", mode: "missing", status: 0, expected: 1 },
     { name: "device errors preserve the test failure", mode: "offline", status: 7, expected: 7 },
     { name: "a partial failed pull cannot pass", mode: "partial", status: 0, expected: 1 },
@@ -50,18 +55,26 @@ try {
     { name: "directory errors cannot pass", mode: "directory", status: 0, expected: 1 },
     { name: "hung device collection is bounded and preserves failure", mode: "hang", status: 9, expected: 9 },
   ]) {
-    const caseRoot = join(root, `${test.mode}-${test.status}`);
+    const caseRoot = join(root, `${test.mode}-${test.status}-${Boolean(test.sampler)}`);
     await mkdir(caseRoot);
     const pidFile = join(caseRoot, "adb.pid");
     const started = Date.now();
     const result = spawnSync("bash", ["-c", `
 set -euo pipefail
 qa_root="$1"
-qa_server_pid=""
+${initialization}
 ${functions}
 trap collect_device_evidence EXIT
+${test.sampler ? `node "$3" > "$qa_root/sampler.jsonl" &
+qa_sampler_pid=$!
+printf '%s' "$qa_sampler_pid" > "$qa_root/sampler.pid"
+for ((attempt=0; attempt<50; attempt++)); do
+  if [[ -s "$qa_root/sampler.jsonl" ]]; then break; fi
+  sleep .1
+done
+[[ -s "$qa_root/sampler.jsonl" ]] || exit 88` : ""}
 exit "$2"
-`, "android-cleanup-check", caseRoot, String(test.status)], {
+`, "android-cleanup-check", caseRoot, String(test.status), fileURLToPath(new URL("./host-sampler.mjs", import.meta.url))], {
       env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH || ""}`, QA_ADB_MODE: test.mode, QA_ADB_PID_FILE: pidFile },
       encoding: "utf8",
       timeout: 20_000,
@@ -77,6 +90,12 @@ exit "$2"
     }
     assert.ifError(result.error);
     assert.equal(result.status, test.expected, `${test.name}: ${result.stderr}`);
+    if (test.sampler) {
+      const rows = (await readFile(join(caseRoot, "sampler.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+      assert(rows.length >= 2, "Actual sampler emits initial and final shutdown records");
+      const pid = Number(await readFile(join(caseRoot, "sampler.pid"), "utf8"));
+      assert.throws(() => process.kill(pid, 0), { code: "ESRCH" }, "Cleanup must wait for sampler exit");
+    }
     if (test.mode === "hang") {
       assert(elapsedMs < 15_000, "Lost-device evidence collection must finish within its bounded probe window");
       const diagnostic = await readFile(join(caseRoot, "artifacts/android-emulator/playback-diagnostics.log"), "utf8");
