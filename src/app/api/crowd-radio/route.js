@@ -25,12 +25,11 @@ const RESULTS_PER_SEED = 8;
 
 const poolCache = new Map();
 
-function cacheKey(code, seeds) {
-  const signature = seeds
-    .map((seed) => `${seed.kind}:${seed.term.toLowerCase()}`)
-    .sort()
-    .join("|");
-  return `${code}::${signature}`;
+function cacheKey(roomId, seeds) {
+  // Cached tracks include listener attribution and preserve seed priority.
+  // A room code may be reused, and matching search terms do not imply that
+  // the listener IDs, display names or their order are still the same.
+  return JSON.stringify([String(roomId), seeds]);
 }
 
 function readCache(key) {
@@ -160,7 +159,7 @@ export async function POST(request) {
       throw new ApiRouteError("NOT_FOUND", { message: "This Jam is no longer available." });
     }
 
-    const key = cacheKey(code, seeds);
+    const key = cacheKey(room._id, seeds);
     const cached = readCache(key);
     if (cached) {
       return NextResponse.json({ ...cached, cached: true });
