@@ -6,6 +6,7 @@ cd "$qa_root"
 # Remove previous runs so a missing screenshot/JSON cannot pass as fresh output.
 rm -rf "$qa_root/artifacts/android-emulator"
 qa_server_pid=""
+qa_sampler_pid=""
 qa_adb() {
   # A lost emulator must not hang the EXIT trap and hide the instrumentation
   # failure. Node is already required by this runner; no timeout binary needed.
@@ -22,6 +23,10 @@ collect_device_evidence() {
   local test_status=$?
   local evidence_status=0
   trap - EXIT
+  if [[ -n "$qa_sampler_pid" ]]; then
+    kill "$qa_sampler_pid" 2>/dev/null || true
+    wait "$qa_sampler_pid" 2>/dev/null || true
+  fi
   if mkdir -p "$qa_root/artifacts/android-emulator"; then
     qa_adb logcat -d HayKasaWebQA:D HayKasaMediaQA:D '*:S' > "$qa_root/artifacts/android-emulator/playback-diagnostics.log" 2>&1 || true
     qa_adb logcat -d AndroidRuntime:E '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
@@ -54,6 +59,8 @@ trap collect_device_evidence EXIT
 qa_adb shell rm -rf /sdcard/Download/haykasa-emulator-qa
 qa_adb logcat -c
 mkdir -p "$qa_root/artifacts/android-emulator"
+node "$qa_root/docs/qa/android/host-sampler.mjs" > "$qa_root/artifacts/android-emulator/host-samples.jsonl" 2>&1 &
+qa_sampler_pid=$!
 if [[ ! -f "$qa_root/.next/BUILD_ID" ]]; then
   echo "Build the current web source before running emulator QA (DISABLE_PWA=1 npm run build)." >&2
   exit 1
