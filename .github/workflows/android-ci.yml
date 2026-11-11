@@ -92,6 +92,7 @@ jobs:
           node docs/qa/android/release-check.mjs
           node docs/qa/android/iframe-api-check.mjs
           node docs/qa/android/live-probe-check.mjs
+          node docs/qa/android/live-qualification-check.mjs
           node docs/qa/android/native-layout-check.mjs
       - name: Build and check Android app
         working-directory: android
@@ -201,3 +202,27 @@ jobs:
             android/app/build/outputs/androidTest-results/
           if-no-files-found: warn
           retention-days: 14
+
+  live-playback:
+    name: Live Android playback qualification
+    needs: [emulator]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22.x
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: android-emulator-api-33-${{ github.sha }}
+          path: qualification/api33
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: android-emulator-api-36-${{ github.sha }}
+          path: qualification/api36
+      - name: Require real playback, Pause and Next on both Android APIs
+        run: |
+          node docs/qa/android/qualify-live-playback.mjs qualification/api33/artifacts/android-emulator/screenshots/live-playback.json 33 "$GITHUB_SHA"
+          node docs/qa/android/qualify-live-playback.mjs qualification/api36/artifacts/android-emulator/screenshots/live-playback.json 36 "$GITHUB_SHA"
