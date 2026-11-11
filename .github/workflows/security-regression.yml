@@ -26,7 +26,9 @@ jobs:
       - name: Jam channel revocation and stale-delivery regressions
         run: node scripts/check-jam-revocation.mjs
       - name: Crowd station cache isolation regressions
-        run: node scripts/check-crowd-cache.mjs
+        run: |
+          node scripts/check-crowd-cache.mjs
+          node scripts/check-crowd-identity.mjs
       - name: Web and native security regression cases
         run: node docs/qa/security-audit/run.cjs /tmp/heykasa-web-regressions.json --verify-fixes
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6

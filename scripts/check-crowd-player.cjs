@@ -51,13 +51,21 @@ async function check(name, run) {
   catch (error) { results.push({ name, pass: false, error: error.stack || String(error) }); }
 }
 async function setup(page, empty = false) {
+  await page.clock.install();
   await page.route('**/*', route => route.request().url() === 'http://127.0.0.1:3000/__crowd-qa'
     ? route.fulfill({ contentType: 'text/html', body: '<!doctype html><div id="root"></div>' }) : route.abort());
   await page.goto('http://127.0.0.1:3000/__crowd-qa');
   for (const file of ['react/umd/react.development.js', 'react-dom/umd/react-dom.development.js', '@reduxjs/toolkit/dist/redux-toolkit.umd.js']) {
     await page.addScriptTag({ path: path.join(root, 'node_modules', file) });
   }
-  await page.evaluate(({ sources, entries, songs, empty }) => {
+  await page.evaluate(async ({ sources, entries, songs, empty }) => {
+    const signing = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+    const publicKey = await crypto.subtle.exportKey("jwk", signing.publicKey);
+    window.qaSign = async (overrides = {}) => {
+      const message = JSON.stringify({ event: "crowd-profile", roomId: qaRoom.code, senderId: qaSession.data.user.id, at: Date.now(), payload: { name: qaSession.data.user.name, genres: ["Soul"], artists: ["QA artist"] }, ...overrides });
+      const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, signing.privateKey, new TextEncoder().encode(message));
+      return { message, signature: btoa(String.fromCharCode(...new Uint8Array(signature))).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "") };
+    };
     window.qaSession = { data: { user: { id: 'A', name: 'A' } }, status: 'authenticated' };
     window.qaRoom = { code: 'ABCDEF', role: 'host', status: 'connected' };
     window.qaPending = []; window.qaRequests = []; window.qaCommands = []; window.qaHoldNotifications = false;
@@ -72,19 +80,21 @@ async function setup(page, empty = false) {
         useSelector: select => React.useSyncExternalStore(callback => store.subscribe(() => { if (!qaHoldNotifications) callback(); }), () => select(store.getState())),
       };
       if (name === '@/utils/userError') return { userErrorDetails: error => ({ message: error.message }) };
-      if (name === '@/services/http') return { requestJson: (url, options) => {
+      if (name === '@/services/http') return { requestJson: async (url, options) => {
+        if (url === '/api/crowd-profile') { qaTasteRequests.push(url); if (window.qaRejectProfile) throw Error("profile denied"); const result = { roomId: qaRoom.code, publicKey, envelope: await qaSign() }; if (window.qaHoldProfile) await new Promise(resolve => { window.qaReleaseProfile = resolve; }); return result; }
         if (url === '/api/settings') { qaTasteRequests.push(url); return Promise.resolve({ genres: ['Soul'] }); }
         if (url === '/api/followedArtists') { qaTasteRequests.push(url); return Promise.resolve({ data: ['QA artist'] }); }
         qaRequests.push(options.body);
         return new Promise((resolve, reject) => qaPending.push({ resolve, reject }));
       } };
       if (name === '@/utils/supabaseClient') return { isSupabaseConfigured: () => true, getSupabase: async () => ({
-        channel() { let sync; return {
+        channel() { let sync; const channel = {
           on(_type, _event, callback) { sync = callback; return this; },
-          subscribe(callback) { callback('SUBSCRIBED'); return this; },
+          subscribe(callback) { this.notify = callback; callback('SUBSCRIBED'); return this; },
           track(profile) { qaPresenceTracks.push(profile); this.profile = profile; sync(); return Promise.resolve(); },
-          presenceState() { return { self: [this.profile] }; },
-        }; }, removeChannel() {},
+          sync() { sync(); },
+          presenceState() { return window.qaRoster || { self: [this.profile] }; },
+        }; window.qaChannel = channel; return channel; }, removeChannel() {},
       }) };
       if (cache[name]) return cache[name].exports;
       const source = sources[name]; if (!source) throw Error(`Unknown module ${name}`);
@@ -398,6 +408,58 @@ async function browserCheck(name, run, empty = false) {
       await page.getByRole('button', { name: 'Build' }).click(); await page.waitForFunction(() => qaPending.length === 2);
       await page.evaluate(async () => { qaResolve(1); await qaSettled(); window.qaResult = qaStore.getState().player; qaPending[0].reject(Error('old room failure')); await qaSettled(); });
       assert.deepEqual(await page.evaluate(() => [qaStore.getState().player === qaResult, qaCrowd.station.length, qaCrowd.error, qaCrowd.busy]), [true, 2, null, false]);
+    });
+    await browserCheck('Crowd rejects forged presence and deduplicates signed accounts', async page => {
+      await page.evaluate(async () => {
+        const valid = await qaSign();
+        const forged = { ...valid, message: valid.message.replace('Soul', 'Fake') };
+        qaRoster = { peers: [{ envelope: valid }, { envelope: valid }, { envelope: forged }, { id: 'forged', name: 'Mallory' }] };
+        qaChannel.sync();
+      });
+      await page.waitForFunction(() => qaCrowd.members.length === 1 && qaCrowd.members[0].id === 'A');
+      assert.deepEqual(await page.evaluate(() => qaCrowd.members[0].genres), ['Soul']);
+      await page.getByRole('button', { name: 'Build' }).click();
+      await page.waitForFunction(() => qaRequests.length === 1);
+      assert.equal(await page.evaluate(() => 'seeds' in qaRequests[0]), false);
+      assert.equal(await page.evaluate(() => qaRequests[0].profiles.length), 1);
+    });
+    await browserCheck('old subscription callback cannot republish after Leave', async page => {
+      const count = await page.evaluate(() => qaPresenceTracks.length);
+      await page.evaluate(async () => {
+        const old = qaChannel;
+        qaRoom = { ...qaRoom, status: 'disconnected' }; qaRender();
+        old.notify('SUBSCRIBED'); old.sync(); await qaSettled();
+      });
+      assert.equal(await page.evaluate(() => qaPresenceTracks.length), count);
+      assert.equal(await page.evaluate(() => qaCrowd.members.length), 0);
+    });
+    await browserCheck('delayed renewed profile cannot publish after Leave', async page => {
+      await page.evaluate(() => { qaHoldProfile = true; });
+      await page.clock.runFor(10_100);
+      await page.waitForFunction(() => typeof qaReleaseProfile === 'function');
+      const count = await page.evaluate(() => qaPresenceTracks.length);
+      await page.evaluate(() => { qaRoom = { ...qaRoom, status: 'disconnected' }; qaRender(); qaReleaseProfile(); });
+      await page.clock.runFor(100);
+      assert.equal(await page.evaluate(() => qaPresenceTracks.length), count);
+      assert.equal(await page.evaluate(() => qaCrowd.members.length), 0);
+    });
+    await browserCheck('profile denial invalidates a station build already in flight', async page => {
+      await page.getByRole('button', { name: 'Build' }).click();
+      await page.waitForFunction(() => qaPending.length === 1);
+      await page.evaluate(() => { window.qaUnchanged = qaStore.getState().player; qaRejectProfile = true; });
+      await page.clock.runFor(10_100);
+      await page.waitForFunction(() => qaCrowd.members.length === 0);
+      await page.evaluate(() => qaResolve());
+      await page.clock.runFor(100);
+      assert.equal(await page.evaluate(() => qaStore.getState().player === qaUnchanged), true);
+    });
+    await browserCheck('failed profile renewal retires roster and old callbacks', async page => {
+      await page.evaluate(() => { window.qaOldChannel = qaChannel; qaRejectProfile = true; });
+      await page.clock.runFor(10_100);
+      await page.waitForFunction(() => qaCrowd.members.length === 0);
+      const count = await page.evaluate(() => qaPresenceTracks.length);
+      await page.evaluate(() => qaOldChannel.notify('SUBSCRIBED'));
+      assert.equal(await page.evaluate(() => qaPresenceTracks.length), count);
     });
     await browserCheck('station request failure remains recoverable', async page => {
       await page.getByRole('button', { name: 'Build' }).click(); await page.waitForFunction(() => qaPending.length === 1);

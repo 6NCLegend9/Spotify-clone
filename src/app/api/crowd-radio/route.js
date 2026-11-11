@@ -11,6 +11,10 @@ import {
   readRequestJson,
 } from "@/utils/apiResponse";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import { verifyCrowdProfiles } from "@/utils/crowdProfiles.mjs";
+import { jamPublicKey } from "@/utils/jamSigning";
+import { blendProfiles } from "@/utils/radioEngine.mjs";
+import { isTrustedRequestOrigin } from "@/utils/trustedOrigin";
 import JamRoom from "@/models/JamRoom";
 
 export const runtime = "nodejs";
@@ -20,16 +24,16 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 30;
 // A YouTube search costs 100 quota units, so the room shares one pool per seed set.
 const MAX_SEEDS_PER_REQUEST = 4;
-const MAX_OWNERS_PER_SEED = 12;
+const MAX_OWNERS_PER_SEED = 50;
 const RESULTS_PER_SEED = 8;
 
 const poolCache = new Map();
 
-function cacheKey(roomId, seeds) {
+function cacheKey(roomId, seeds, owners) {
   // Cached tracks include listener attribution and preserve seed priority.
   // A room code may be reused, and matching search terms do not imply that
   // the listener IDs, display names or their order are still the same.
-  return JSON.stringify([String(roomId), seeds]);
+  return JSON.stringify([String(roomId), seeds, owners]);
 }
 
 function readCache(key) {
@@ -131,6 +135,7 @@ async function searchSeed(seed) {
 
 export async function POST(request) {
   try {
+    if (!isTrustedRequestOrigin(request)) return apiError("FORBIDDEN");
     const { user, email } = await getAuthenticatedAccount(request);
     const rateLimit = await isRateLimited(`crowd-radio:${email}`, {
       windowMs: 5 * 60_000,
@@ -148,21 +153,24 @@ export async function POST(request) {
     if (!isJamCode(code)) {
       throw new ApiRouteError("VALIDATION_ERROR", { message: "A valid room code is required." });
     }
-    const seeds = validatedSeeds(body?.seeds);
+    if (!Array.isArray(body?.profiles) || body.profiles.length > 100) return apiError("VALIDATION_ERROR");
     const room = await JamRoom.findOne({
       code,
       closed: false,
       expiresAt: { $gt: new Date() },
       members: String(user._id),
-    }).select("_id").lean();
+    }).select("_id members").lean();
     if (!room) {
       throw new ApiRouteError("NOT_FOUND", { message: "This Jam is no longer available." });
     }
 
-    const key = cacheKey(room._id, seeds);
+    const profiles = await verifyCrowdProfiles(body.profiles, jamPublicKey(), String(room._id), { memberIds: room.members });
+    const blended = blendProfiles(profiles, { maxSeeds: MAX_SEEDS_PER_REQUEST });
+    const seeds = validatedSeeds(blended.seeds);
+    const key = cacheKey(room._id, seeds, blended.owners);
     const cached = readCache(key);
     if (cached) {
-      return NextResponse.json({ ...cached, cached: true });
+      return NextResponse.json({ ...cached, cached: true }, { headers: { "Cache-Control": "private, no-store" } });
     }
 
     // One failing seed (quota, network) must not empty the room's station.
@@ -177,6 +185,7 @@ export async function POST(request) {
 
     const value = {
       tracks,
+      owners: blended.owners,
       seeds: seeds.map(({ term, kind, owners, ownerNames }) => ({
         term,
         kind,
@@ -186,7 +195,7 @@ export async function POST(request) {
       })),
     };
     writeCache(key, value);
-    return NextResponse.json({ ...value, cached: false });
+    return NextResponse.json({ ...value, cached: false }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return handleApiError(error, "HayKasa Crowd radio");
   }
