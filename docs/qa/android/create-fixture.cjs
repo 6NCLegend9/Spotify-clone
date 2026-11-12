@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const ts = require('typescript');
 const root = path.resolve(__dirname, '../../..');
 const modules = {};
@@ -35,8 +35,20 @@ HayKasaAndroidMedia.onmessage=message=>{
 `;
 const dir = path.join(root, 'android/app/build/generated/qaAssets');
 fs.mkdirSync(dir, { recursive: true });
-for (const [filename, codec] of [['quality-opus.webm', 'libopus'], ['quality-aac.m4a', 'aac']]) {
-  execFileSync('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=997:duration=6:sample_rate=48000', '-ac', '2', '-c:a', codec, '-b:a', '160k', path.join(dir, filename)], {stdio: 'inherit'});
+// Fixed synthetic 997Hz, six-second, stereo48kHz fixtures. These qualify
+// decoder behavior, never live songs. Generate explicitly with FFmpeg:
+// ffmpeg -f lavfi -i sine=frequency=997:duration=6:sample_rate=48000 -ac 2
+//   -c:a aac (or libopus) -b:a 160k <filename>; update hashes after review.
+// CI needs no encoder download and rejects missing/corrupted test media.
+for (const [filename, sha256] of [
+  ['quality-aac.m4a', 'da8be58b8317bd75f7c2ec9ff28fbc65ffacdfa95cbfe76623fe53f7c0868983'],
+  ['quality-opus.webm', '476983f1f8af391944cb43c8393775d890a1bf831ce8742baa74f21b3d00bb77'],
+]) {
+  const bytes = fs.readFileSync(path.join(__dirname, 'audio', filename));
+  if (createHash('sha256').update(bytes).digest('hex') !== sha256) {
+    throw new Error(`Android synthetic audio fixture hash mismatch: ${filename}`);
+  }
+  fs.writeFileSync(path.join(dir, filename), bytes);
 }
 fs.writeFileSync(path.join(dir, 'native-qa.html'), `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="background:#060d1b;color:white;padding:20px;font:16px sans-serif"><h1>HayKasa Android QA</h1><p>Synthetic audio fixture in the real Android app.</p><div id="media"></div><button id="play">Play</button><button id="pause">Pause</button><pre id="state" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><script>${code}\n${nativeDiagnostics}</script>`);
 console.log('Generated Android instrumentation fixture from production bridge/deck modules.');
