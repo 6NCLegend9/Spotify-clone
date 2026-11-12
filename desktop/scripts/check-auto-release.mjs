@@ -285,6 +285,39 @@ for (const test of [
   if (test.checks) assert.equal(state.version, manifest.latest, `${test.name}: exact newer release version`);
   candidate.dispose();
 }
+// A user check arriving during an automatic preflight must retain manual intent.
+for (const percent of [25, 0]) {
+  manifest = { ...publishedManifest };
+  let releaseManifest;
+  const previousFetch = sandbox.fetch;
+  sandbox.fetch = () => new Promise(resolve => { releaseManifest = () => resolve({ ok: true, json: async () => manifest }); });
+  const candidate = new sandbox.DesktopUpdater({
+    app: { isPackaged: true, getVersion: () => "1.2.8" },
+    store: { get: () => undefined }, rolloutPercent: () => percent,
+  });
+  const before = checkCount;
+  const background = candidate.checkNow();
+  await Promise.resolve();
+  const manual = candidate.checkNow({ manual: true });
+  assert.equal(background, manual, "Concurrent checks share one preflight");
+  releaseManifest();
+  const result = await manual;
+  assert.equal(result.state, percent > 0 ? "ready" : "deferred", "A pending background check preserves the explicit user request without bypassing a paused rollout");
+  assert.equal(checkCount - before, percent > 0 ? 1 : 0);
+  candidate.dispose(); sandbox.fetch = previousFetch;
+}
+{
+  manifest = { ...publishedManifest };
+  const candidate = new sandbox.DesktopUpdater({
+    app: { isPackaged: true, getVersion: () => "1.2.8" },
+    store: { get: key => key === "autoUpdate" ? false : undefined }, rolloutPercent: () => 25,
+  });
+  const background = candidate.checkNow();
+  const manual = candidate.checkNow({ manual: true });
+  assert.equal(background, manual);
+  assert.equal((await manual).state, "ready", "Immediate manual request is honored even when scheduled checks are disabled");
+  candidate.dispose();
+}
 console.log("PASS: signing readiness, blocked signed releases fail CI, secret redaction, automatic stable versioning, preserved internal/manual channels, updater discovery/download/restart states and Windows notification");
 console.log("PASS: manual and automatic rollout, paused releases, current/newer/prerelease versions and preserved signature/integrity gates");
 
