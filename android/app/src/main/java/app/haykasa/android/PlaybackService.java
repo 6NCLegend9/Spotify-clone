@@ -16,6 +16,7 @@ import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.session.MediaSession;
+import androidx.media3.session.DefaultMediaNotificationProvider;
 import androidx.media3.session.MediaSessionService;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,6 +39,8 @@ public final class PlaybackService extends MediaSessionService {
     private String activeId;
     private DefaultMediaSourceFactory sourceFactory;
     private MediaSession session;
+    private boolean destroying;
+    private static final java.util.concurrent.atomic.AtomicInteger sessionIds = new java.util.concurrent.atomic.AtomicInteger(1000);
     private final Runnable ticker = new Runnable() {
         @Override public void run() {
             for (String id : players.keySet()) emit(id, "progress");
@@ -50,12 +53,18 @@ public final class PlaybackService extends MediaSessionService {
         sourceFactory = new DefaultMediaSourceFactory(this);
         idle = new ExoPlayer.Builder(this).build();
         idleWrapper = new SessionTransportPlayer(idle, true, (playing, mutation) -> {}, this::diagnostic);
+        setMediaNotificationProvider(new DefaultMediaNotificationProvider.Builder(this)
+            .setNotificationIdProvider(value -> Integer.parseInt(value.getId())).build());
+        createSession();
+        handler.post(ticker);
+    }
+    private void createSession() {
         PendingIntent activity = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        session = new MediaSession.Builder(this, idleWrapper).setSessionActivity(activity).build();
+        session = new MediaSession.Builder(this, idleWrapper)
+            .setId(Integer.toString(sessionIds.incrementAndGet())).setSessionActivity(activity).build();
         // This app binds through LocalBinder, so no MediaController connection
         // invokes onGetSession to register the session on our behalf.
         addSession(session);
-        handler.post(ticker);
     }
     @Nullable @Override public IBinder onBind(Intent intent) {
         return "app.haykasa.android.BIND".equals(intent.getAction()) ? binder : super.onBind(intent);
@@ -209,7 +218,14 @@ public final class PlaybackService extends MediaSessionService {
         sinks.remove(id); ExoPlayer p = players.remove(id);
         policyReasons.remove(id);
         SessionTransportPlayer wrapper = wrappers.remove(id);
-        if (id.equals(activeId)) { activeId = null; session.setPlayer(idleWrapper); }
+        if (id.equals(activeId)) {
+            activeId = null;
+            // Release ends this source's OS-control lifetime as well as its bridge binding.
+            // SystemUI can send delayed Stop after removing the old notification. Reusing
+            // its session token or notification key would let that Stop target the next source.
+            session.release();
+            if (!destroying) createSession();
+        }
         if (wrapper != null) wrapper.release(); else if (p != null) p.release();
     }
     public void detachSinks() { sinks.clear(); }
@@ -224,6 +240,7 @@ public final class PlaybackService extends MediaSessionService {
     }
     @Override public void onDestroy() {
         diagnostic("service-destroy");
+        destroying = true;
         handler.removeCallbacksAndMessages(null); releaseAll(); session.release(); idleWrapper.release(); super.onDestroy();
     }
 }

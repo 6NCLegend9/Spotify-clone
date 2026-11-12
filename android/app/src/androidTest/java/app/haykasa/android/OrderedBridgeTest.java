@@ -300,6 +300,47 @@ public class OrderedBridgeTest {
         }
     }
 
+    @Test public void releasedPlatformControlsCannotStopReplacementButCurrentControlsWork() throws Exception {
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            bootstrap(); load(); transport("play", 1);
+            waitFor(() -> hasResult(1, "completed"));
+            AtomicReference<androidx.media3.session.MediaSession> oldSession = new AtomicReference<>();
+            AtomicReference<android.media.session.MediaController> oldController = new AtomicReference<>();
+            main(() -> {
+                oldSession.set(service.getSessions().get(0));
+                oldController.set(new android.media.session.MediaController(context, oldSession.get().getPlatformToken()));
+            });
+            send(request("release"));
+            bootstrap(); load(); transport("play", 1);
+            waitFor(() -> hasResult(1, "completed"));
+            ExoPlayer current = raw();
+            AtomicReference<android.media.session.MediaController> currentController = new AtomicReference<>();
+            main(() -> {
+                androidx.media3.session.MediaSession replacement = service.getSessions().get(0);
+                assertNotEquals("Notification identity must not be reused after Release", oldSession.get().getId(), replacement.getId());
+                assertNotEquals("A released source must not retain the replacement's OS token", oldSession.get().getPlatformToken(), replacement.getPlatformToken());
+                currentController.set(new android.media.session.MediaController(context, replacement.getPlatformToken()));
+                // Same platform transport API used by SystemUI's asynchronous dismissal.
+                oldController.get().getTransportControls().stop();
+            });
+            Thread.sleep(500);
+            AtomicReference<Boolean> observed = new AtomicReference<>();
+            waitFor(() -> {
+                main(() -> observed.set(current.isPlaying() && current.getCurrentPosition() > 1000));
+                return observed.get();
+            });
+            currentController.get().getTransportControls().pause();
+            waitFor(() -> { main(() -> observed.set(!current.getPlayWhenReady())); return observed.get(); });
+            currentController.get().getTransportControls().play();
+            waitFor(() -> { main(() -> observed.set(current.isPlaying())); return observed.get(); });
+            currentController.get().getTransportControls().stop();
+            waitFor(() -> {
+                main(() -> observed.set(!current.getPlayWhenReady() && current.getPlaybackState() == androidx.media3.common.Player.STATE_IDLE));
+                return observed.get();
+            });
+        }
+    }
+
     @Test public void exhaustedBindingKeepsItsAnchorAndRebindsWithoutReloading() throws Exception {
         bootstrap(); load(); ExoPlayer original = raw();
         Field bridgeField = PlaybackService.class.getDeclaredField("ordered"); bridgeField.setAccessible(true);
