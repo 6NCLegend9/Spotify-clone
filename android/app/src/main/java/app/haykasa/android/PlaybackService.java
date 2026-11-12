@@ -49,7 +49,7 @@ public final class PlaybackService extends MediaSessionService {
         androidx.media3.common.util.Log.setLogLevel(androidx.media3.common.util.Log.LOG_LEVEL_OFF);
         sourceFactory = new DefaultMediaSourceFactory(this);
         idle = new ExoPlayer.Builder(this).build();
-        idleWrapper = new SessionTransportPlayer(idle, true, (playing, mutation) -> {});
+        idleWrapper = new SessionTransportPlayer(idle, true, (playing, mutation) -> {}, this::diagnostic);
         PendingIntent activity = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         session = new MediaSession.Builder(this, idleWrapper).setSessionActivity(activity).build();
         // This app binds through LocalBinder, so no MediaController connection
@@ -109,12 +109,14 @@ public final class PlaybackService extends MediaSessionService {
                 }
                 @Override public void onPlayWhenReadyChanged(boolean value, int reason) {
                     if (players.get(key) != observedPlayer) return;
+                    diagnostic("play-when-ready value=" + value + " reason=" + reason + " active=" + key.equals(activeId));
                     policyReasons.put(key, reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS ? "focus"
                         : reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY ? "noisy" : "none");
                     if (ordered.contains(key)) emit(key, "transportState");
                 }
                 @Override public void onPlaybackSuppressionReasonChanged(int reason) {
                     if (players.get(key) != observedPlayer) return;
+                    diagnostic("suppression reason=" + reason + " active=" + key.equals(activeId));
                     policyReasons.put(key, reason == Player.PLAYBACK_SUPPRESSION_REASON_NONE ? "none" : "focus");
                     if (ordered.contains(key)) emit(key, "transportState");
                 }
@@ -133,15 +135,26 @@ public final class PlaybackService extends MediaSessionService {
             players.put(id, player);
             ExoPlayer raw = player;
             wrappers.put(id, new SessionTransportPlayer(raw, false, (playing, mutation) -> {
-                if (!id.equals(activeId) || players.get(id) != raw) return;
+                if (!id.equals(activeId) || players.get(id) != raw) {
+                    diagnostic("session-command rejected-detached");
+                    return;
+                }
+                diagnostic("session-command accepted");
                 OrderedTransport owner = ordered.owner(id);
                 if (owner == null) mutation.run(); else owner.system(playing, mutation);
-            }));
+            }, this::diagnostic));
         }
         sinks.put(id, sink);
         if (title.length() > 300) title = title.substring(0, 300);
         player.setMediaItem(new MediaItem.Builder().setUri(url).setMediaMetadata(new MediaMetadata.Builder().setTitle(title).build()).build());
         player.prepare();
+    }
+
+    // Only fixed labels, booleans and platform reason codes; never media IDs, URLs or titles.
+    private void diagnostic(String message) {
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            android.util.Log.d("HayKasaMediaQA", message);
+        }
     }
 
     void setTransportPlaying(String id, boolean playing) {
@@ -161,6 +174,7 @@ public final class PlaybackService extends MediaSessionService {
             activeId = id;
             session.setPlayer(wrappers.get(id));
         }
+        diagnostic("bridge-or-policy play=" + playing);
         player.setPlayWhenReady(playing);
     }
     void seekPlayer(String id, double seconds) { players.get(id).seekTo((long)(Math.max(0, Math.min(1801, seconds)) * 1000)); }
@@ -205,9 +219,11 @@ public final class PlaybackService extends MediaSessionService {
         for (String id : players.keySet().toArray(new String[0])) releasePlayer(id);
     }
     @Override public void onTaskRemoved(Intent rootIntent) {
+        diagnostic("task-removed play=" + session.getPlayer().getPlayWhenReady());
         if (!session.getPlayer().getPlayWhenReady()) { releaseAll(); stopSelf(); }
     }
     @Override public void onDestroy() {
+        diagnostic("service-destroy");
         handler.removeCallbacksAndMessages(null); releaseAll(); session.release(); idleWrapper.release(); super.onDestroy();
     }
 }
