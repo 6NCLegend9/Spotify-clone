@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { runInNewContext } from "node:vm";
 import { createAndroidAudioElement, hasAndroidAudioBridge } from "../../../src/components/MusicPlayer/media/androidAudioElement.mjs";
 const sent = [];
 const bridge = { postMessage: value => sent.push(JSON.parse(value)) };
@@ -15,6 +16,8 @@ const events = [];
 for (const name of ["loadedmetadata", "playing", "pause", "timeupdate", "ended", "error"]) media.addEventListener(name, () => events.push(name));
 media.src = "https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=synthetic";
 media.load();
+// A silent old APK is negotiated once per attachment; legacy remains unqualified.
+await new Promise(resolve => setTimeout(resolve, 1010));
 const load = sent.at(-1);
 assert.equal(load.action, "load"); assert.equal(load.title, "Test song");
 assert.equal(media.currentSrc, media.src);
@@ -160,3 +163,40 @@ assert.equal(deck.getVideoData().video_id, "synthetic04");
 deck.destroy();
 assert.equal(sent.at(-1).action, "release");
 console.log("Production native deck checks passed: source handoff, pending-source release, stale native event isolation, adapter reuse, readiness, native play/pause intent, per-track notification titles and cleanup.");
+
+// Check the actual instrumentation observer without running an emulator. Its
+// diagnostics must never modify replies, swallow consumer errors or retain URLs.
+const fixtureSource = await readFile(new URL("./create-fixture.cjs", import.meta.url), "utf8");
+const diagnosticSource = fixtureSource.match(/const nativeDiagnostics = `([\s\S]*?)`;/)?.[1];
+assert(diagnosticSource, "Native fixture must expose bounded, selected-field diagnostics");
+const receivedFrames = [];
+const diagnosticContext = { performance: { now: () => 42 }, HayKasaAndroidMedia: { onmessage(message) {
+  receivedFrames.push(message);
+  if (message.throwConsumer) throw new Error("Actual consumer failure");
+} } };
+diagnosticContext.window = diagnosticContext;
+runInNewContext(diagnosticSource, diagnosticContext);
+const secretMarker = "NEVER_CAPTURE_SYNTHETIC_CREDENTIAL";
+for (let sequence = 0; sequence < 70; sequence++) {
+  const message = { data: JSON.stringify({ id: "synthetic-adapter", event: "transportState", position: .362,
+    url: secretMarker, receipt: secretMarker,
+    transport: { bindingId: "synthetic-binding", eventSeq: sequence,
+      snapshot: { processedWebRevision: 1, appliedWebRevision: 1,
+        intent: { revision: 2, playWhenReady: false, origin: "system", webRevision: null, secret: secretMarker },
+        observed: { state: "idle", isPlaying: false, playWhenReady: false, suppressionReason: 0, policyReason: "none", secret: secretMarker } },
+      result: { action: "play", phase: "completed", webRevision: 1, decisionIntentRevision: 1, reason: null, secret: secretMarker } } }) };
+  diagnosticContext.HayKasaAndroidMedia.onmessage(message);
+  assert.equal(receivedFrames.at(-1), message, "Diagnostics forward the original reply exactly once, in order");
+}
+assert.equal(receivedFrames.length, 70);
+assert.equal(diagnosticContext.qaNativeFrames.length, 64);
+assert.equal(diagnosticContext.qaNativeFrames[0].eventSeq, 6);
+assert.equal(diagnosticContext.qaNativeFrames.at(-1).intent.origin, "system");
+assert.equal(diagnosticContext.qaNativeFrames.at(-1).observed.state, "idle");
+assert.equal(JSON.stringify(diagnosticContext.qaNativeFrames).includes(secretMarker), false);
+const malformedFrame = { data: "{" };
+diagnosticContext.HayKasaAndroidMedia.onmessage(malformedFrame);
+assert.equal(receivedFrames.at(-1), malformedFrame);
+assert.equal(diagnosticContext.qaNativeFrames.length, 64);
+assert.throws(() => diagnosticContext.HayKasaAndroidMedia.onmessage({ data: "{}", throwConsumer: true }), /Actual consumer failure/);
+console.log("Native fixture diagnostic checks passed: original delivery/errors, bounded frames, selected intent/state and no credential capture; no device or source claim.");

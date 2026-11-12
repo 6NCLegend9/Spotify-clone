@@ -2,6 +2,7 @@ import { accountStorageGeneration } from "@/utils/accountStorage.mjs";
 import { requestJson } from "@/services/http";
 import { knownDuration, withSavedDurations } from "@/utils/playlistDuration.mjs";
 import { toUserError } from "@/utils/userError";
+import { getPlaylistItems } from "@/utils/playlistItems.mjs";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
@@ -150,5 +151,31 @@ export async function getPublicLibrary() {
 export function valueFromDateMap(dateMap, id) {
   if (!dateMap) return null;
   if (dateMap instanceof Map) return dateMap.get(id) || null;
-  return dateMap[id] || null;
+  return Object.hasOwn(dateMap, id) ? dateMap[id] || null : null;
+}
+
+// Fetch each recording once, then reconstruct the ordered saved occurrences.
+// Metadata batching and Liked Songs keep their existing unique-id semantics.
+export async function hydratePlaylistTracks(playlist) {
+  const items = getPlaylistItems(playlist);
+  const metadata = await hydrateYouTubeTracks(items.map(item => item.id), {
+    retainUnavailable: true, durations: playlist.songDurations,
+  });
+  return playlistTracksWithMetadata(playlist, metadata);
+}
+
+// Canonical order is immediately usable after a mutation, without waiting for
+// catalog metadata. A temporary metadata failure must not hide saved songs or
+// claim that the source was deleted. Existing recordings are reused by content ID.
+export function playlistTracksWithMetadata(playlist, metadata = []) {
+  const byId = new Map(metadata.filter(track => !track.metadataPending).map(track => [track.id, track]));
+  return withSavedDurations(getPlaylistItems(playlist).map(item => ({
+    ...(byId.get(item.id) || {
+      title: "Song details unavailable", channel: "", thumbnail: "",
+      unavailable: true, metadataPending: true,
+      unavailableReason: "Retry loading song details",
+    }),
+    id: item.id, playlistEntryId: item.entryId,
+    addedAt: item.addedAt || valueFromDateMap(playlist.songAddedAt, item.id),
+  })), playlist.songDurations);
 }

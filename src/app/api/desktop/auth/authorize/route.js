@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import DesktopAuthGrant from "@/models/DesktopAuthGrant";
 import { isRateLimited } from "@/utils/rateLimit";
 import { getAuthenticatedAccount } from "@/utils/userAccount";
+import { handleApiError } from "@/utils/apiResponse";
 import {
   hashDesktopAuthValue,
   normalizeDesktopAuthState,
@@ -29,7 +30,7 @@ function loginRedirect(request, state, challenge) {
   return Response.redirect(login, 302);
 }
 
-export async function GET(request) {
+async function authorize(request) {
   const requestUrl = new URL(request.url);
   const state = normalizeDesktopAuthState(requestUrl.searchParams.get("state"));
   const challenge = normalizeDesktopPkceChallenge(requestUrl.searchParams.get("challenge"));
@@ -63,6 +64,7 @@ export async function GET(request) {
     stateHash: hashDesktopAuthValue(state),
     pkceChallenge: challenge,
     userId: account.user._id,
+    sessionVersion: account.user.sessionVersion ?? 0,
     expiresAt: new Date(Date.now() + AUTH_TTL_MS),
   });
 
@@ -76,4 +78,14 @@ export async function GET(request) {
       Location: deepLink.href,
     },
   });
+}
+
+export async function GET(request) {
+  try {
+    return await authorize(request);
+  } catch (error) {
+    const response = handleApiError(error, "Desktop authorization");
+    for (const [key, value] of Object.entries(noStoreHeaders())) response.headers.set(key, value);
+    return response;
+  }
 }

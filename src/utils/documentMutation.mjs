@@ -29,6 +29,19 @@ export function boundedMembership(values, id, enabled, limit) {
 }
 
 export function dateMapForMembers(values, previous = {}, addedId, now = new Date()) {
-  const dates = previous instanceof Map ? Object.fromEntries(previous) : previous;
-  return Object.fromEntries(values.map((id) => [String(id), dates?.[String(id)] || (String(id) === String(addedId) ? now : null)]));
+  return Object.fromEntries(values.map(String).filter(isSafeMemberMapKey).map((id) => [
+    id, memberMapValue(previous, id) || (id === String(addedId) ? now : null),
+  ]));
+}
+
+// Mongoose maps reject these keys. Track IDs remain valid collection members;
+// occurrence metadata stores their dates without putting them in legacy maps.
+export function isSafeMemberMapKey(key) {
+  return !["constructor", "prototype", "__proto__"].includes(key)
+    && !key.startsWith("$") && !key.includes(".");
+}
+
+export function memberMapValue(values, key) {
+  if (values instanceof Map) return values.get(key);
+  return values && Object.hasOwn(values, key) ? values[key] : undefined;
 }

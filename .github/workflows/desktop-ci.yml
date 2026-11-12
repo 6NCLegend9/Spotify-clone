@@ -46,8 +46,13 @@ jobs:
         run: node desktop/scripts/check-mini-player.mjs
       - name: Verify automatic releases and updater notifications
         run: node desktop/scripts/check-auto-release.mjs
-      - name: Audit runtime dependencies
-        run: npm --prefix desktop audit --omit=dev --audit-level=high
+      - name: Verify shipped Electron SBOM coverage
+        run: |
+          npm --prefix desktop sbom --omit=dev --sbom-format=cyclonedx > /tmp/haykasa-runtime-sbom.json
+          node desktop/scripts/include-electron-in-sbom.mjs /tmp/haykasa-runtime-sbom.json
+          node --test desktop/scripts/check-runtime-sbom.mjs
+      - name: Audit shipped runtime and build dependencies
+        run: npm --prefix desktop audit --include=dev --audit-level=high
 
   windows-thumbar:
     runs-on: windows-latest

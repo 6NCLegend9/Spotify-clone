@@ -39,6 +39,8 @@ jobs:
       - name: Check web audio bridge
         run: |
           node docs/qa/android/check.mjs
+          node docs/qa/android/ordered-check.mjs
+          node docs/qa/android/ordered-player-check.cjs
           node docs/qa/android/resolve-check.cjs
           node docs/qa/android/release-check.mjs
       - name: Prepare private upload keystore

@@ -20,6 +20,7 @@ import AuthMessage from "@/components/AuthMessage";
 import { normalizeGenreName } from "@/utils/genreTaxonomy";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
+import useAccountScope from "@/hooks/useAccountScope";
 
 const MAX_SELECTED_GENRES = 12;
 const MAX_PERSONAL_GENRES = 40;
@@ -344,16 +345,22 @@ function CustomGenreDialog({
   );
 }
 
-let genrePrefsCache = null;
+export default function GenrePreferences() {
+  const scope = useAccountScope();
+  return <AccountGenrePreferences key={scope.key} scope={scope} />;
+}
 
-export default function GenrePreferences({ status }) {
-  const [selectedGenres, setSelectedGenres] = useState(() => genrePrefsCache?.selected ?? []);
-  const [catalog, setCatalog] = useState(() => genrePrefsCache?.catalog ?? []);
-  const [genreTree, setGenreTree] = useState(() => genrePrefsCache?.tree ?? []);
-  const [personalGenres, setPersonalGenres] = useState(() => genrePrefsCache?.personal ?? []);
+function AccountGenrePreferences({ scope }) {
+  const { status } = scope;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [genreTree, setGenreTree] = useState([]);
+  const [personalGenres, setPersonalGenres] = useState([]);
   const [query, setQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState(null);
-  const [initialLoading, setInitialLoading] = useState(status === "authenticated" && !genrePrefsCache);
+  const [initialLoading, setInitialLoading] = useState(status === "authenticated");
   const [loadError, setLoadError] = useState("");
   const [interactionError, setInteractionError] = useState("");
   const [saveState, setSaveState] = useState("idle");
@@ -368,12 +375,15 @@ export default function GenrePreferences({ status }) {
   const [deletingId, setDeletingId] = useState(null);
 
   const mountedRef = useRef(true);
+  const mutationControllerRef = useRef(null);
+  if (!mutationControllerRef.current) mutationControllerRef.current = new AbortController();
   const selectedRef = useRef([]);
   const persistedRef = useRef([]);
   const failedSelectionRef = useRef(null);
   const saveLoopRef = useRef(false);
   const savedTimerRef = useRef(null);
   const customOpenerRef = useRef(null);
+  const isCurrent = useCallback(() => mountedRef.current && scopeRef.current.isCurrent(), []);
 
   const roots = useMemo(() => {
     if (genreTree.length > 0) return genreTree;
@@ -428,31 +438,34 @@ export default function GenrePreferences({ status }) {
   );
 
   const announceSaved = useCallback(() => {
-    if (!mountedRef.current) return;
+    if (!isCurrent()) return;
     if (savedTimerRef.current) window.clearTimeout(savedTimerRef.current);
     setSaveState("saved");
     savedTimerRef.current = window.setTimeout(() => {
-      if (mountedRef.current) setSaveState("idle");
+      if (isCurrent()) setSaveState("idle");
     }, SAVED_STATUS_DURATION);
-  }, []);
+  }, [isCurrent]);
 
   useEffect(() => {
     mountedRef.current = true;
+    if (mutationControllerRef.current.signal.aborted) mutationControllerRef.current = new AbortController();
     return () => {
       mountedRef.current = false;
+      mutationControllerRef.current.abort();
       if (savedTimerRef.current) window.clearTimeout(savedTimerRef.current);
     };
   }, []);
 
   useEffect(() => {
     if (status !== "authenticated") {
-      genrePrefsCache = null;
       setInitialLoading(false);
       return undefined;
     }
 
     let cancelled = false;
-    if (!genrePrefsCache) setInitialLoading(true);
+    if (!isCurrent()) return undefined;
+    setInitialLoading(true);
+    const controller = new AbortController();
     setLoadError("");
     setInteractionError("");
 
@@ -460,16 +473,19 @@ export default function GenrePreferences({ status }) {
       try {
         const [settingsData, catalogData] = await Promise.all([
           requestJson("/api/settings", {
+            signal: controller.signal,
             fallbackMessage: "Your saved music taste could not be loaded.",
           }),
           requestJson("/api/genres", {
+            signal: controller.signal,
+            useCache: false,
             fallbackMessage: "Genre options are unavailable right now.",
           }),
         ]);
         if (!Array.isArray(settingsData?.genres) || !Array.isArray(catalogData?.genres)) {
           throw new Error("Genre preferences did not return usable data.");
         }
-        if (cancelled) return;
+        if (cancelled || !isCurrent()) return;
 
         const loadedSelection = Array.isArray(settingsData?.genres) ? settingsData.genres : [];
         const loadedCatalog = Array.isArray(catalogData?.genres) ? catalogData.genres : [];
@@ -481,41 +497,37 @@ export default function GenrePreferences({ status }) {
         setGenreTree(Array.isArray(catalogData?.tree) ? catalogData.tree : []);
         setPersonalGenres(Array.isArray(catalogData?.personalGenres) ? catalogData.personalGenres : []);
         setSaveState("idle");
-        genrePrefsCache = {
-          selected: loadedSelection,
-          catalog: loadedCatalog,
-          tree: Array.isArray(catalogData?.tree) ? catalogData.tree : [],
-          personal: Array.isArray(catalogData?.personalGenres) ? catalogData.personalGenres : [],
-        };
       } catch (error) {
-        if (!cancelled) {
+        if (!cancelled && isCurrent()) {
           setLoadError(safeErrorMessage(error, "Genre options are unavailable right now."));
         }
       } finally {
-        if (!cancelled) setInitialLoading(false);
+        if (!cancelled && isCurrent()) setInitialLoading(false);
       }
     };
 
     loadGenres();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [loadAttempt, status]);
+  }, [loadAttempt, status, isCurrent]);
 
   const persistLatestSelection = useCallback(async () => {
-    if (saveLoopRef.current || status !== "authenticated") return;
+    if (saveLoopRef.current || !isCurrent()) return;
     saveLoopRef.current = true;
     let failed = false;
 
-    if (mountedRef.current) setSaveState("saving");
+    if (isCurrent()) setSaveState("saving");
 
     while (
-      mountedRef.current
+      isCurrent()
       && !sameGenreList(persistedRef.current, selectedRef.current)
     ) {
       const snapshot = [...selectedRef.current];
       try {
         const data = await requestJson("/api/recommendations", {
+          signal: mutationControllerRef.current.signal,
           method: "POST",
           body: { genres: snapshot },
           fallbackMessage: "Your music taste could not be saved.",
@@ -523,20 +535,22 @@ export default function GenrePreferences({ status }) {
         if (!Array.isArray(data?.profile?.genres)) {
           throw new Error("Genre preferences did not return usable data.");
         }
+        if (!isCurrent()) return;
         const canonicalSelection = data.profile.genres;
 
         persistedRef.current = canonicalSelection;
         failedSelectionRef.current = null;
         if (sameGenreList(selectedRef.current, snapshot)) {
           selectedRef.current = canonicalSelection;
-          if (mountedRef.current) setSelectedGenres(canonicalSelection);
+          if (isCurrent()) setSelectedGenres(canonicalSelection);
         }
-        if (mountedRef.current) setInteractionError("");
+        if (isCurrent()) setInteractionError("");
       } catch (error) {
+        if (!isCurrent()) return;
         failedSelectionRef.current = snapshot;
         const rollback = [...persistedRef.current];
         selectedRef.current = rollback;
-        if (mountedRef.current) {
+        if (isCurrent()) {
           setSelectedGenres(rollback);
           setInteractionError(safeErrorMessage(error, "Your music taste could not be saved."));
           setSaveState("error");
@@ -547,17 +561,18 @@ export default function GenrePreferences({ status }) {
     }
 
     saveLoopRef.current = false;
-    if (!failed && mountedRef.current) announceSaved();
-  }, [announceSaved, status]);
+    if (!failed && isCurrent()) announceSaved();
+  }, [announceSaved, isCurrent]);
 
   const updateSelection = useCallback((nextSelection) => {
+    if (!isCurrent()) return;
     selectedRef.current = nextSelection;
     failedSelectionRef.current = null;
     setSelectedGenres(nextSelection);
     setInteractionError("");
     setSaveState("saving");
     void persistLatestSelection();
-  }, [persistLatestSelection]);
+  }, [persistLatestSelection, isCurrent]);
 
   const toggleGenre = useCallback((item) => {
     const current = selectedRef.current;
@@ -581,6 +596,7 @@ export default function GenrePreferences({ status }) {
   }, [toggleGenre]);
 
   const retrySave = useCallback(() => {
+    if (!isCurrent()) return;
     const failedSelection = failedSelectionRef.current;
     if (!failedSelection) return;
     selectedRef.current = failedSelection;
@@ -588,11 +604,11 @@ export default function GenrePreferences({ status }) {
     setInteractionError("");
     setSaveState("saving");
     void persistLatestSelection();
-  }, [persistLatestSelection]);
+  }, [persistLatestSelection, isCurrent]);
 
   const restoreCustomOpener = useCallback(() => {
-    window.requestAnimationFrame(() => customOpenerRef.current?.focus?.());
-  }, []);
+    window.requestAnimationFrame(() => { if (isCurrent()) customOpenerRef.current?.focus?.(); });
+  }, [isCurrent]);
 
   const openCustomDialog = useCallback((prefill = "") => {
     customOpenerRef.current = document.activeElement;
@@ -611,6 +627,7 @@ export default function GenrePreferences({ status }) {
 
   const handleCreateCustomGenre = async (event) => {
     event.preventDefault();
+    if (!isCurrent()) return;
     const name = customName.trim().replace(/\s+/g, " ");
     if (name.length < 2 || name.length > 80) {
       setCustomError("Use a name between 2 and 80 characters.");
@@ -621,6 +638,7 @@ export default function GenrePreferences({ status }) {
     setCustomError("");
     try {
       const data = await requestJson("/api/genres", {
+        signal: mutationControllerRef.current.signal,
         method: "POST",
         body: {
           name,
@@ -630,6 +648,7 @@ export default function GenrePreferences({ status }) {
       });
       if (!data?.genre) throw new Error("That genre could not be created.");
 
+      if (!isCurrent()) return;
       const genre = data.genre;
       setCatalog((current) => (
         current.some((item) => item.id === genre.id) ? current : [...current, genre]
@@ -656,13 +675,15 @@ export default function GenrePreferences({ status }) {
         toast.success(data.created ? "Custom genre created and selected." : "Genre added to your picks.");
       }
     } catch (error) {
+      if (!isCurrent()) return;
       setCustomError(safeErrorMessage(error, "That genre could not be created."));
     } finally {
-      setCustomLoading(false);
+      if (isCurrent()) setCustomLoading(false);
     }
   };
 
   const handleDeletePersonalGenre = async (genre) => {
+    if (!isCurrent()) return;
     if (saveState === "saving") {
       setInteractionError("Wait for your current changes to finish saving before deleting a custom genre.");
       return;
@@ -672,11 +693,13 @@ export default function GenrePreferences({ status }) {
     setInteractionError("");
     try {
       const data = await requestJson(`/api/genres?id=${encodeURIComponent(genre.id)}`, {
+        signal: mutationControllerRef.current.signal,
         method: "DELETE",
         fallbackMessage: "That custom genre could not be deleted.",
       });
       if (data?.success !== true) throw new Error("Genre deletion did not complete.");
 
+      if (!isCurrent()) return;
       const removedIds = new Set([genre.id]);
       let foundDescendant = true;
       while (foundDescendant) {
@@ -702,9 +725,10 @@ export default function GenrePreferences({ status }) {
       announceSaved();
       toast.success("Custom genre deleted.");
     } catch (error) {
+      if (!isCurrent()) return;
       setInteractionError(safeErrorMessage(error, "That custom genre could not be deleted."));
     } finally {
-      setDeletingId(null);
+      if (isCurrent()) setDeletingId(null);
     }
   };
 

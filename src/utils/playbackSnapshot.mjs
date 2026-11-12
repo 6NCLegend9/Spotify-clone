@@ -39,6 +39,7 @@ function normalizeTrack(track, fallbackEntryId) {
   ]);
   const radioSeedArtist = optionalText(track.radioSeedArtist, 200);
   const queueEntryId = optionalText(track.queueEntryId, 220) || fallbackEntryId;
+  const playlistEntryId = optionalText(track.playlistEntryId, 160);
   if (seedQuery) normalized.seedQuery = seedQuery;
   if (genre) normalized.genre = genre;
   if (channelId) normalized.channelId = channelId;
@@ -46,6 +47,7 @@ function normalizeTrack(track, fallbackEntryId) {
   if (radioSeedArtist) normalized.radioSeedArtist = radioSeedArtist;
   if (track.source === "youtube") normalized.source = "youtube";
   if (queueEntryId) normalized.queueEntryId = queueEntryId;
+  if (playlistEntryId) normalized.playlistEntryId = playlistEntryId;
   if (track.queueSource === "user") normalized.queueSource = "user";
   else if (track.queueSource === "context") normalized.queueSource = "context";
   return normalized;
@@ -97,6 +99,13 @@ export function normalizePlaybackSnapshot(value) {
   const queueSequence = Number.isFinite(value?.queueSequence)
     ? Math.max(0, Math.floor(value.queueSequence))
     : youtubeQueue.length + history.length + userQueue.length;
+  const queueIdentities = youtubeQueue.map((track) => track.queueEntryId);
+  const existingIdentities = new Set(queueIdentities);
+  const unshuffledQueueEntryIds = [...new Set([
+    ...(Array.isArray(value?.unshuffledQueueEntryIds) ? value.unshuffledQueueEntryIds : [])
+      .filter((identity) => typeof identity === "string" && existingIdentities.has(identity)),
+    ...queueIdentities,
+  ])];
   return {
     youtubeVideo,
     youtubeQueue,
@@ -107,6 +116,8 @@ export function normalizePlaybackSnapshot(value) {
     userQueue,
     history,
     queueSequence,
+    shuffleEnabled: value?.shuffleEnabled === true,
+    unshuffledQueueEntryIds,
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ContextMenuTarget from "@/components/ContextMenuTarget";
 import PlaylistItemMenu from "@/components/PlaylistItemMenu";
 import Link from "next/link";
@@ -36,9 +36,10 @@ import {
 import { PLAYLIST_CATEGORIES } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
 import { readNavCache, writeNavCache } from "@/utils/navCache";
-import { accountOwner } from "@/utils/accountCache.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
 import useLibraryPresentation from "@/hooks/useLibraryPresentation";
 import { LIBRARY_SORTS, sortLibraryItems } from "@/utils/libraryPresentation.mjs";
+import { PLAYLISTS_CHANGED_EVENT, applyPlaylistChange, isCurrentPlaylistEvent } from "@/utils/playlistEvents.mjs";
 
 const SORT_OPTIONS = LIBRARY_SORTS;
 
@@ -180,14 +181,15 @@ function GuestLibrary({ playlists, loading, error, onRetry }) {
 }
 
 export default function LibraryView() {
-  const { data: session, status } = useSession();
-  const owner = accountOwner(session, status);
-  return <AccountLibraryView key={owner || status} session={session} status={status} owner={owner} />;
+  const { data: session } = useSession();
+  const scope = useAccountScope();
+  return <AccountLibraryView key={scope.key} session={session} scope={scope} />;
 }
 
-function AccountLibraryView({ session, status, owner }) {
-  const cacheKey = `${LIBRARY_CACHE_KEY}:${owner}`;
-  const cached = owner ? readNavCache(cacheKey) : null;
+function AccountLibraryView({ session, scope }) {
+  const { status, owner } = scope;
+  const cacheKey = `${LIBRARY_CACHE_KEY}:${scope.key}`;
+  const cached = owner && scope.isCurrentView() && (status !== "authenticated" || scope.isCurrent()) ? readNavCache(cacheKey) : null;
   const [filter, setFilter] = useState("all");
   const { view, sort, setView, setSort } = useLibraryPresentation(owner);
   const [query, setQuery] = useState("");
@@ -199,21 +201,38 @@ function AccountLibraryView({ session, status, owner }) {
   const [error, setError] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const requestGeneration = useRef(0);
 
   useEffect(() => {
     const onPlaylistsChanged = (event) => {
-      if (event.detail?.owner && event.detail.owner !== owner) return;
-      const created = event.detail?.playlist;
-      if (created?._id) setPlaylists((current) => [created, ...current.filter((item) => item._id !== created._id)]);
+      if (!isCurrentPlaylistEvent(event, scope)) return;
+      requestGeneration.current += 1;
+      if (event.detail?.playlist?._id || event.detail?.deletedId) {
+        setPlaylists((current) => {
+          if (!scope.isCurrent()) return current;
+          const next = applyPlaylistChange(current, event.detail, owner);
+          if (favourites) writeNavCache(cacheKey, { favourites, playlists: next, publicPlaylists: [], covers });
+          return next;
+        });
+        setError(null);
+      }
       setRefreshKey((value) => value + 1);
     };
-    window.addEventListener("heykasa:playlists-changed", onPlaylistsChanged);
-    return () => window.removeEventListener("heykasa:playlists-changed", onPlaylistsChanged);
-  }, [owner]);
+    window.addEventListener(PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged);
+    return () => window.removeEventListener(PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged);
+  }, [scope, owner, cacheKey, favourites, covers]);
 
   useEffect(() => {
-    if (!owner) return;
+    if (!owner || status === "loading" || !scope.isCurrentView()) return;
+    if (status === "authenticated" && !scope.isCurrent()) {
+      setError(toUserError({ code: "UNAUTHORIZED" }));
+      setLoading(false);
+      return;
+    }
     let active = true;
+    const request = ++requestGeneration.current;
+    const current = () => active && request === requestGeneration.current
+      && (status === "authenticated" ? scope.isCurrent() : scope.isCurrentView());
 
     const loadLibrary = async () => {
       if (!readNavCache(cacheKey)) setLoading(true);
@@ -221,7 +240,7 @@ function AccountLibraryView({ session, status, owner }) {
       try {
         if (status === "unauthenticated") {
           const publicData = await getPublicLibrary();
-          if (active) {
+          if (current()) {
             const nextPublic = Array.isArray(publicData?.sections?.featuredPlaylists)
               ? publicData.sections.featuredPlaylists.filter(
                 (playlist) => playlist && typeof playlist === "object" && playlist.id,
@@ -242,6 +261,7 @@ function AccountLibraryView({ session, status, owner }) {
           getFavouriteLibrary(),
           getUserPlaylists(),
         ]);
+        if (!current()) return;
         if (!playlistData?.success) throw playlistData;
         const nextPlaylists = Array.isArray(playlistData.data?.playlists)
           ? playlistData.data.playlists.filter(
@@ -255,7 +275,7 @@ function AccountLibraryView({ session, status, owner }) {
         } catch {
           // Covers are optional; keep the loaded collections usable.
         }
-        if (active) {
+        if (current()) {
           const nextCovers = Object.fromEntries(coverTracks.map((track) => [track.id, track.thumbnail]));
           setFavourites(favouriteData);
           setPlaylists(nextPlaylists);
@@ -268,7 +288,7 @@ function AccountLibraryView({ session, status, owner }) {
           });
         }
       } catch (loadError) {
-        if (active) {
+        if (current()) {
           const normalized = toUserError(loadError);
           setError(normalized.code === "UNAUTHORIZED"
             ? normalized
@@ -278,7 +298,7 @@ function AccountLibraryView({ session, status, owner }) {
             }));
         }
       } finally {
-        if (active) setLoading(false);
+        if (current()) setLoading(false);
       }
     };
 
@@ -286,7 +306,7 @@ function AccountLibraryView({ session, status, owner }) {
     return () => {
       active = false;
     };
-  }, [status, refreshKey, owner, cacheKey]);
+  }, [refreshKey, scope, status, owner, cacheKey]);
 
   const items = useMemo(() => {
     if (status !== "authenticated" || !favourites) return [];
@@ -309,6 +329,7 @@ function AccountLibraryView({ session, status, owner }) {
     const playlistItems = playlists.map((playlist) => {
       const { ownedByUser, creator } = ownerDetails(playlist, currentUserId);
       const songIds = validYouTubeIds(playlist.songs);
+      const songCount = Array.isArray(playlist.items) ? playlist.items.length : songIds.length;
       return {
         ...playlist,
         id: playlist._id,
@@ -318,7 +339,7 @@ function AccountLibraryView({ session, status, owner }) {
         creator,
         ownedByUser,
         collaborative: (playlist.collaborators?.length || 0) > 0,
-        meta: `${ownedByUser ? "By You" : `By ${creator}`} • ${songIds.length.toLocaleString()} ${songIds.length === 1 ? "song" : "songs"}`,
+        meta: `${ownedByUser ? "By You" : `By ${creator}`} • ${songCount.toLocaleString()} ${songCount === 1 ? "song" : "songs"}`,
         updatedLabel: relativeDate(playlist.updatedAt),
         cover: playlist.coverImage || covers[songIds[0]],
       };

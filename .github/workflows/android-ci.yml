@@ -7,10 +7,12 @@ on:
     paths:
       - "android/**"
       - "src/components/MusicPlayer/media/androidAudioElement.mjs"
+      - "src/components/MusicPlayer/media/orderedAndroidTransport.mjs"
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mediaService.mjs"
       - "src/utils/youtubeIframeApi.mjs"
+      - "src/utils/youtubePlaybackError.mjs"
       - "src/components/MusicPlayer/YouTubePlayer.jsx"
       - "src/components/Layout/AppShell.jsx"
       - "src/utils/androidNavigation.mjs"
@@ -21,10 +23,12 @@ on:
     paths:
       - "android/**"
       - "src/components/MusicPlayer/media/androidAudioElement.mjs"
+      - "src/components/MusicPlayer/media/orderedAndroidTransport.mjs"
       - "src/components/MusicPlayer/media/nativeMediaDeck.mjs"
       - "src/components/MusicPlayer/media/resolveMediaAsset.mjs"
       - "src/utils/mediaService.mjs"
       - "src/utils/youtubeIframeApi.mjs"
+      - "src/utils/youtubePlaybackError.mjs"
       - "src/components/MusicPlayer/YouTubePlayer.jsx"
       - "src/components/Layout/AppShell.jsx"
       - "src/utils/androidNavigation.mjs"
@@ -40,6 +44,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  windows-bridge:
+    name: Windows Android bridge checks (CRLF)
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.x
+      - name: Materialize a Windows CRLF checkout
+        run: git -c core.autocrlf=true checkout-index --force --all
+      - name: Verify CRLF input and the full Android check command
+        run: |
+          node -e "if (!require('node:fs').readFileSync('src/components/MusicPlayer/YouTubePlayer.jsx', 'utf8').includes('\r\n')) throw new Error('Expected a CRLF checkout')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run android:check
+
   apk:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -62,11 +83,16 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check web audio bridge
         run: |
+          node docs/qa/android/cleanup-check.mjs
           node docs/qa/android/check.mjs
+          node docs/qa/android/ordered-check.mjs
+          node docs/qa/android/ordered-check.mjs --v2
+          node docs/qa/android/ordered-player-check.cjs
           node docs/qa/android/resolve-check.cjs
           node docs/qa/android/release-check.mjs
           node docs/qa/android/iframe-api-check.mjs
           node docs/qa/android/live-probe-check.mjs
+          node docs/qa/android/live-qualification-check.mjs
           node docs/qa/android/native-layout-check.mjs
       - name: Build and check Android app
         working-directory: android
@@ -116,19 +142,6 @@ jobs:
           node-version: 22.x
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Install fixture audio encoder when missing
-        timeout-minutes: 5
-        run: |
-          if ! command -v ffmpeg >/dev/null 2>&1; then
-            # Avoid the slow Azure mirror; use the hosted image's Ubuntu archive fallbacks.
-            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
-              printf 'https://archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://security.ubuntu.com/ubuntu/\tpriority:2\n' | sudo tee /etc/apt/apt-mirrors.txt
-            fi
-            printf 'Acquire::Retries "1";\nAcquire::http::Timeout "15";\nAcquire::https::Timeout "15";\n' | sudo tee /etc/apt/apt.conf.d/99-ci-network
-            sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends ffmpeg
-          fi
-          ffmpeg -version
       - name: Generate native bridge fixture from production code
         run: node docs/qa/android/create-fixture.cjs
       - name: Build current web UI for isolated emulator verification
@@ -153,6 +166,19 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash docs/qa/android/run-emulator.sh
+      - name: Capture emulator host resource evidence
+        if: always()
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/android-emulator
+          {
+            date -u
+            free -m || echo 'Host memory summary unavailable.'
+            cat /proc/pressure/cpu /proc/pressure/memory || echo 'CPU/memory pressure metrics unavailable on this runner.'
+            # Capture kernel victim/resource facts, never process arguments or environment values.
+            timeout 10s sudo -n dmesg --color=never | grep -Ei 'oom-kill:|out of memory: killed process' | tail -40 || \
+              echo 'No matching kernel OOM events captured, or kernel log access unavailable.'
+          } > artifacts/android-emulator/host-resource-diagnostics.txt 2>&1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -163,3 +189,27 @@ jobs:
             android/app/build/outputs/androidTest-results/
           if-no-files-found: warn
           retention-days: 14
+
+  live-playback:
+    name: Live Android playback qualification
+    needs: [emulator]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22.x
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: android-emulator-api-33-${{ github.sha }}
+          path: qualification/api33
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: android-emulator-api-36-${{ github.sha }}
+          path: qualification/api36
+      - name: Require real playback, Pause and Next on both Android APIs
+        run: |
+          node docs/qa/android/qualify-live-playback.mjs qualification/api33/artifacts/android-emulator/screenshots/live-playback.json 33 "$GITHUB_SHA"
+          node docs/qa/android/qualify-live-playback.mjs qualification/api36/artifacts/android-emulator/screenshots/live-playback.json 36 "$GITHUB_SHA"

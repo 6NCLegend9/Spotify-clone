@@ -38,6 +38,7 @@ export class DesktopUpdater {
     this.initialTimer = null;
     this.intervalTimer = null;
     this.checkingPromise = null;
+    this.activeCheck = null;
 
     this.feedBaseUrl = String(
       app.isPackaged
@@ -165,13 +166,13 @@ export class DesktopUpdater {
     );
   }
 
-  async runCheck({ manual = false } = {}) {
+  async runCheck(options = {}) {
     if (!this.app.isPackaged) {
       this.emit({ state: "disabled", detail: "Updates are disabled in development builds." });
       return this.getStatus();
     }
     if (this.status.state === "ready") return this.getStatus();
-    if (this.store.get("autoUpdate") === false && !manual) {
+    if (this.store.get("autoUpdate") === false && options.manual !== true) {
       this.emit({ state: "disabled", detail: "Automatic updates are turned off." });
       return this.getStatus();
     }
@@ -216,7 +217,7 @@ export class DesktopUpdater {
         this.emit({ state: "up-to-date", version: this.app.getVersion(), progress: 0, detail: "HayKasa Desktop is up to date." });
         return this.getStatus();
       }
-      if (!this.manifestRolloutAllows(manifest, { manual })) {
+      if (!this.manifestRolloutAllows(manifest, { manual: options.manual === true })) {
         this.emit({
           state: "deferred",
           version: manifest.latest || this.app.getVersion(),
@@ -236,9 +237,19 @@ export class DesktopUpdater {
   }
 
   checkNow(options = {}) {
-    if (this.checkingPromise) return this.checkingPromise;
-    this.checkingPromise = this.runCheck(options).finally(() => {
+    if (this.checkingPromise) {
+      // Preserve an explicit user request arriving during the network preflight.
+      // It shares the same check and never relaxes integrity or signing gates.
+      if (options.manual === true && this.activeCheck) this.activeCheck.manual = true;
+      return this.checkingPromise;
+    }
+    const check = { manual: options.manual === true };
+    this.activeCheck = check;
+    // Defer synchronous eligibility decisions so a manual check in this turn
+    // can supersede a scheduled check even when automatic updates are disabled.
+    this.checkingPromise = Promise.resolve().then(() => this.runCheck(check)).finally(() => {
       this.checkingPromise = null;
+      this.activeCheck = null;
     });
     return this.checkingPromise;
   }

@@ -15,6 +15,13 @@ import {
 
 const scrollMemory = new Map();
 
+// Keep the virtual offsets aligned with the CSS row height when a user enlarges
+// the base text size. Normal density remains 66px.
+function currentRowHeight() {
+  return typeof document === "undefined" ? PLAYLIST_ROW_HEIGHT
+    : Math.max(PLAYLIST_ROW_HEIGHT, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) * 4.125);
+}
+
 function sameRange(left, right) {
   return left.start === right.start
     && left.end === right.end
@@ -54,31 +61,44 @@ function scrollHostTo(host, top) {
 export default function VirtualizedPlaylistTrackList({
   tracks,
   activeYoutubeId,
+  activeEntryId,
+  isPlaying,
   removable,
   liked,
   onPlay,
   onRemove,
+  reorderable,
+  onMove,
   scrollKey = "",
 }) {
   const items = useMemo(() => (Array.isArray(tracks) ? tracks : []), [tracks]);
   const virtualized = shouldVirtualizePlaylist(items.length);
+  const [rowHeight, setRowHeight] = useState(currentRowHeight);
   const containerRef = useRef(null);
   const restoredKeyRef = useRef("");
   const pendingRestoreRef = useRef(null);
   const lastRevealedActiveRef = useRef("");
   const [range, setRange] = useState(() => virtualPlaylistRange({
     count: items.length,
-    rowHeight: PLAYLIST_ROW_HEIGHT,
+    rowHeight,
     containerTop: 0,
     viewportHeight: typeof window !== "undefined" ? window.innerHeight : 844,
     overscan: PLAYLIST_OVERSCAN,
   }));
 
+  useEffect(() => {
+    const update = () => setRowHeight(currentRowHeight());
+    const observer = new ResizeObserver(update);
+    observer.observe(document.documentElement);
+    window.addEventListener("resize", update);
+    return () => { observer.disconnect(); window.removeEventListener("resize", update); };
+  }, []);
+
   useLayoutEffect(() => {
     if (!virtualized || typeof window === "undefined" || !activeYoutubeId) return;
-    const index = items.findIndex((track) => track?.id === activeYoutubeId);
+    const index = items.findIndex((track) => activeEntryId ? track?.playlistEntryId === activeEntryId : track?.id === activeYoutubeId);
     if (index < 0) return;
-    const revealKey = `${scrollKey}:${activeYoutubeId}:${index}`;
+    const revealKey = `${scrollKey}:${activeEntryId || activeYoutubeId}:${index}`;
     if (lastRevealedActiveRef.current === revealKey) return;
 
     const node = containerRef.current;
@@ -88,7 +108,7 @@ export default function VirtualizedPlaylistTrackList({
     const alreadyVisible = playlistIndexIsVisible({
       index,
       count: items.length,
-      rowHeight: PLAYLIST_ROW_HEIGHT,
+      rowHeight,
       containerTop: metrics.containerTop,
       viewportHeight: metrics.viewportHeight,
     });
@@ -98,11 +118,11 @@ export default function VirtualizedPlaylistTrackList({
     const relativeOffset = playlistScrollOffsetForIndex({
       index,
       count: items.length,
-      rowHeight: PLAYLIST_ROW_HEIGHT,
+      rowHeight,
       viewportHeight: metrics.viewportHeight,
     });
     scrollHostTo(host, metrics.listTop + relativeOffset);
-  }, [activeYoutubeId, items, range.end, range.start, scrollKey, virtualized]);
+  }, [activeEntryId, activeYoutubeId, items, range.end, range.start, rowHeight, scrollKey, virtualized]);
 
   useLayoutEffect(() => {
     if (!virtualized || typeof window === "undefined") return undefined;
@@ -123,7 +143,7 @@ export default function VirtualizedPlaylistTrackList({
       const metrics = scrollMetrics(node, host);
       const next = virtualPlaylistRange({
         count: items.length,
-        rowHeight: PLAYLIST_ROW_HEIGHT,
+        rowHeight,
         containerTop: metrics.containerTop,
         viewportHeight: metrics.viewportHeight,
         overscan: PLAYLIST_OVERSCAN,
@@ -151,7 +171,7 @@ export default function VirtualizedPlaylistTrackList({
       window.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("resize", update);
     };
-  }, [items.length, scrollKey, virtualized]);
+  }, [items.length, rowHeight, scrollKey, virtualized]);
 
   useEffect(() => {
     if (!virtualized || typeof window === "undefined") return undefined;
@@ -178,19 +198,29 @@ export default function VirtualizedPlaylistTrackList({
     };
   }, [scrollKey, virtualized]);
 
-  if (!virtualized) {
-    return items.map((track, index) => (
+  const activeIndex = items.findIndex(track => activeEntryId ? track.playlistEntryId === activeEntryId : track.id === activeYoutubeId);
+  const renderRow = (track, index) => (
       <PlaylistTrackRow
-        key={track.id}
+        key={track.playlistEntryId || track.id}
         track={track}
         index={index}
-        active={activeYoutubeId === track.id}
+        active={activeIndex === index}
+        isPlaying={isPlaying}
         removable={removable}
         liked={liked}
         onPlay={onPlay}
         onRemove={onRemove}
+        reorderable={reorderable}
+        nextEntryId={items[index + 1]?.playlistEntryId || null}
+        onMove={(entryId, beforeEntryId) => {
+          if (items.some(item => item.playlistEntryId === entryId)) onMove?.(entryId, beforeEntryId);
+        }}
+        onMoveUp={reorderable && index > 0 ? () => onMove?.(track.playlistEntryId, items[index - 1].playlistEntryId) : undefined}
+        onMoveDown={reorderable && index < items.length - 1 ? () => onMove?.(track.playlistEntryId, items[index + 2]?.playlistEntryId || null) : undefined}
       />
-    ));
+  );
+  if (!virtualized) {
+    return items.map(renderRow);
   }
 
   const visible = items.slice(range.start, range.end);
@@ -207,21 +237,7 @@ export default function VirtualizedPlaylistTrackList({
         className="absolute left-0 top-0 w-full"
         style={{ transform: `translateY(${range.offsetTop}px)` }}
       >
-        {visible.map((track, localIndex) => {
-          const index = range.start + localIndex;
-          return (
-            <PlaylistTrackRow
-              key={track.id}
-              track={track}
-              index={index}
-              active={activeYoutubeId === track.id}
-              removable={removable}
-              liked={liked}
-              onPlay={onPlay}
-              onRemove={onRemove}
-            />
-          );
-        })}
+        {visible.map((track, localIndex) => renderRow(track, range.start + localIndex))}
       </div>
     </div>
   );

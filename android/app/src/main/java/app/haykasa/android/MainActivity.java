@@ -30,6 +30,7 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
@@ -42,10 +43,12 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
     private FrameLayout content;
     private WebView web;
+    private Object mediaAttachment = new Object();
     private PlayAppUpdater updater;
     private PlaybackService playback;
     private boolean bound;
     private boolean returningHome;
+    private boolean playerUpdateRequired;
     private ValueCallback<Uri[]> fileResult;
     private final List<Runnable> waiting = new ArrayList<>();
     private final ServiceConnection connection = new ServiceConnection() {
@@ -166,6 +169,9 @@ public final class MainActivity extends Activity {
             }
         });
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                if (view == web) retireMediaAttachment();
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 if (view != web) return true;
                 if (!request.isForMainFrame()) return false;
@@ -209,16 +215,18 @@ public final class MainActivity extends Activity {
                     if (view != web || !isMainFrame || !MediaPolicy.ORIGIN.equals(origin.toString()) || message.getData() == null || message.getData().length() > 12288) return;
                     try {
                         JSONObject command = new JSONObject(message.getData());
+                        Object attachment = mediaAttachment;
                         Runnable run = () -> {
-                            if (playback == null || view != web) return;
+                            if (playback == null || view != web || attachment != mediaAttachment || playerUpdateRequired) return;
                             try {
-                                // Stop bound-only playback from disappearing when the activity closes.
-                                // MediaSessionService owns the foreground notification when playing.
-                                if ("play".equals(command.optString("action"))) {
-                                    try { startService(new Intent(this, PlaybackService.class)); } catch (IllegalStateException ignored) {}
+                                boolean needsUpdate = playback.command(command, json -> runOnUiThread(() -> { if (view != web || attachment != mediaAttachment) return; try { reply.postMessage(json); } catch (Exception ignored) {} }), attachment);
+                                if (needsUpdate && view == web && attachment == mediaAttachment) {
+                                    // Keep native output/OS controls intact; old JS cannot supply this UI.
+                                    playerUpdateRequired = true;
+                                    showError(R.string.error_player_update, R.string.reload_player);
                                 }
-                                playback.command(command, json -> runOnUiThread(() -> { if (view != web) return; try { reply.postMessage(json); } catch (Exception ignored) {} }));
                             } catch (Exception ignored) {
+                                if (command.has("transport") || command.optString("action").startsWith("transport")) return;
                                 try { reply.postMessage(new JSONObject().put("id", command.optString("id")).put("event", "error").toString()); }
                                 catch (Exception closed) { /* A closed WebView has no recipient. */ }
                             }
@@ -229,11 +237,18 @@ public final class MainActivity extends Activity {
         }
     }
     private void discardWebView() {
+        retireMediaAttachment();
         WebView previous = web;
         web = null;
         if (previous == null) return;
         if (previous.getParent() instanceof ViewGroup) ((ViewGroup)previous.getParent()).removeView(previous);
         previous.destroy();
+    }
+    private void retireMediaAttachment() {
+        if (playback != null) playback.detachAttachment(mediaAttachment);
+        mediaAttachment = new Object();
+        playerUpdateRequired = false;
+        waiting.clear();
     }
     private void showWebsite() {
         if (web == null) createWebView();
@@ -243,10 +258,15 @@ public final class MainActivity extends Activity {
         web.loadUrl(MediaPolicy.ORIGIN + "/?utm_source=android");
     }
     private void showError(int message) {
+        showError(message, R.string.try_again);
+    }
+    private void showError(int message, int action) {
         LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(32, 48, 32, 32); box.setBackgroundColor(0xff060d1b);
         TextView text = new TextView(this); text.setText(message); text.setTextColor(0xfff1f5ff); text.setTextSize(18); box.addView(text);
-        Button retry = new Button(this); retry.setId(android.R.id.button1); retry.setText(R.string.try_again); retry.setOnClickListener(v -> showWebsite()); box.addView(retry);
-        showContent(box);
+        Button retry = new Button(this); retry.setId(android.R.id.button1); retry.setText(action); retry.setOnClickListener(v -> showWebsite()); box.addView(retry);
+        retry.setMinHeight((int)Math.ceil(48 * getResources().getDisplayMetrics().density));
+        ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.addView(box);
+        showContent(scroll);
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
@@ -259,6 +279,7 @@ public final class MainActivity extends Activity {
         }
     }
     private void goBackOrFinish() {
+        if (playerUpdateRequired) { moveTaskToBack(true); return; }
         if (web == null) { finish(); return; }
         if (Build.VERSION.SDK_INT >= 30) {
             WindowInsets insets = web.getRootWindowInsets();

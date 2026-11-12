@@ -58,7 +58,7 @@ export default function PlayerDock(props: PlayerDockProps) {
     : 0;
 
   return <>
-    <div className={`${styles.dock} ${sanitizerStyles.scope}`} data-testid="player-dock">
+    <div className={`${styles.dock} ${sanitizerStyles.scope}`} data-testid="player-dock" data-playback-entry-id={props.track.queueEntryId || props.track.id}>
       <div className={styles.mobileProgress} aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
       <div className={styles.track}>
         <button type="button" aria-label={`Expand player: ${props.track.title}`} onClick={openPresentation} className={styles.trackButton}>

@@ -28,8 +28,13 @@ export function persistentRoomExpiry(now = Date.now()) {
 export function sanitizeSavedTrack(track) {
   const id = String(track?.id || "").trim();
   if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+  const queueEntryId = typeof track.queueEntryId === "string"
+    ? track.queueEntryId.trim().slice(0, 220)
+    : "";
   return {
     id,
+    ...(queueEntryId ? { queueEntryId } : {}),
+    ...(["user", "context"].includes(track.queueSource) ? { queueSource: track.queueSource } : {}),
     title: String(track?.title || "").replace(/\s+/g, " ").trim().slice(0, 120),
     channel: String(track?.channel || "").replace(/\s+/g, " ").trim().slice(0, 80),
     thumbnail: /^https:\/\//i.test(String(track?.thumbnail || ""))
@@ -45,8 +50,11 @@ export function sanitizeSavedQueue(queue) {
   const tracks = [];
   for (const item of queue) {
     const track = sanitizeSavedTrack(item);
-    if (!track || seen.has(track.id)) continue;
-    seen.add(track.id);
+    if (!track) continue;
+    // A song may occur twice; legacy clients without occurrence IDs keep their old deduplication.
+    const identity = track.queueEntryId ? `entry:${track.queueEntryId}` : `legacy:${track.id}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
     tracks.push(track);
     if (tracks.length >= JAM_SAVED_QUEUE_MAX) break;
   }

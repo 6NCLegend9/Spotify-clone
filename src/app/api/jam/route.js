@@ -33,6 +33,11 @@ function grant(room, userId, extra = {}) {
   };
 }
 
+function duplicateKeyOn(error, ...keys) {
+  return error.code === 11000 && Object.keys(error.keyPattern || {}).length === keys.length
+    && keys.every((key) => error.keyPattern[key] === 1);
+}
+
 async function createOneShot(userId) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -45,29 +50,32 @@ async function createOneShot(userId) {
         hostSeenAt: new Date(),
       });
     } catch (error) {
-      if (error.code !== 11000 || attempt === 2) throw error;
+      if (!duplicateKeyOn(error, "code") || attempt === 2) throw error;
     }
   }
   return null;
 }
 
+async function reopenNamedRoom(room, userId) {
+  const live = !room.closed && room.expiresAt > new Date();
+  room.closed = false;
+  room.members = [...new Set([userId, ...(room.members || [])])].slice(0, 50);
+  room.startedAt = Date.now();
+  room.expiresAt = persistentRoomExpiry();
+  room.hostSeenAt = new Date();
+  await room.save();
+  return {
+    room,
+    restored: !live && Boolean(room.savedTrack?.id || room.savedQueue?.length),
+  };
+}
+
 async function openNamedRoom(userId, name) {
   const roomName = normalizeJamRoomName(name);
   const nameKey = jamRoomNameKey(roomName);
-  const existing = await JamRoom.findOne({ hostId: userId, nameKey, persistent: true });
-  if (existing) {
-    const live = !existing.closed && existing.expiresAt > new Date();
-    existing.closed = false;
-    existing.members = [...new Set([userId, ...(existing.members || [])])].slice(0, 50);
-    existing.startedAt = Date.now();
-    existing.expiresAt = persistentRoomExpiry();
-    existing.hostSeenAt = new Date();
-    await existing.save();
-    return {
-      room: existing,
-      restored: !live && Boolean(existing.savedTrack?.id || existing.savedQueue?.length),
-    };
-  }
+  const query = { hostId: userId, nameKey, persistent: true };
+  const existing = await JamRoom.findOne(query);
+  if (existing) return reopenNamedRoom(existing, userId);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const room = await JamRoom.create({
@@ -85,7 +93,12 @@ async function openNamedRoom(userId, name) {
       });
       return { room, restored: false };
     } catch (error) {
-      if (error.code !== 11000 || attempt === 2) throw error;
+      if (duplicateKeyOn(error, "hostId", "nameKey")) {
+        const winner = await JamRoom.findOne(query);
+        if (winner) return reopenNamedRoom(winner, userId);
+        throw error;
+      }
+      if (!duplicateKeyOn(error, "code") || attempt === 2) throw error;
     }
   }
   return { room: null, restored: false };

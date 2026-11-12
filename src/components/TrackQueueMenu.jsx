@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import {
   ChevronLeft as FiChevronLeft,
   ChevronRight as FiChevronRight,
+  ArrowUp,
+  ArrowDown,
   Ellipsis as FiMoreHorizontal,
   CirclePlay as FiPlayCircle,
   Plus as FiPlus,
@@ -20,19 +21,29 @@ import {
   playNextToQueue,
   startYoutubePlayback,
 } from "@/redux/features/playerSlice";
-import { addSongToPlaylist, getUserPlaylists } from "@/services/playlistApi";
+import { getUserPlaylists } from "@/services/playlistApi";
 import { loginPath } from "@/utils/appOrigin.mjs";
 import { toUserError } from "@/utils/userError";
 import { placeAnchoredMenu } from "@/utils/anchoredMenu.mjs";
+import { canEditPlaylist } from "@/utils/playlistAccess.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
+import usePlaylistAddition from "@/hooks/usePlaylistAddition";
+import PlaylistDuplicateDialog from "@/components/PlaylistDuplicateDialog";
+import PlaylistModal from "@/components/Sidebar/PlaylistModal";
 
 const MENU_WIDTH = 224;
 const ACTIONS_HEIGHT = 156;
 const PLAYLISTS_HEIGHT = 320;
 
-export default function TrackQueueMenu({ track, className = "", buttonLabel = "Track options", onRemove, removeLabel = "Remove" }) {
+export default function TrackQueueMenu(props) {
+  const scope = useAccountScope();
+  return <AccountTrackQueueMenu key={scope.key} {...props} scope={scope} />;
+}
+
+function AccountTrackQueueMenu({ track, className = "", buttonLabel = "Track options", onRemove, removeLabel = "Remove", onMoveUp, onMoveDown, scope }) {
   const dispatch = useDispatch();
   const router = useRouter();
-  const { status } = useSession();
+  const { status } = scope;
   const youtubeVideo = useSelector((state) => state.player.youtubeVideo);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState("actions");
@@ -40,18 +51,23 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
   const [playlists, setPlaylists] = useState(null);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const [playlistError, setPlaylistError] = useState("");
-  const [addingPlaylistId, setAddingPlaylistId] = useState(null);
+  const [creating, setCreating] = useState(false);
   const rootRef = useRef(null);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
 
   const closeMenu = () => {
+    if (menuRef.current && (menuRef.current.contains(document.activeElement)
+      || document.activeElement === document.body)) buttonRef.current?.focus();
     setOpen(false);
     setView("actions");
     setPlaylistError("");
   };
+  const addition = usePlaylistAddition(scope, closeMenu);
+  const addingPlaylistId = addition.addingId;
+  const unavailable = track?.unavailable === true || track?.playable === false;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return undefined;
     const place = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
@@ -101,7 +117,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, view]);
+  }, [open, view, loadingPlaylists, playlistError, playlists]);
 
   if (!track?.id) return null;
 
@@ -125,6 +141,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
   const playNext = (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (unavailable || !scope.isCurrentView()) return;
     if (startIfIdle()) return;
     dispatch(playNextToQueue(track));
     toast.success("Playing next");
@@ -134,6 +151,7 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
   const add = (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (unavailable || !scope.isCurrentView()) return;
     if (startIfIdle()) return;
     // Deliberate queue additions are occurrences, not unique songs. Spotify-like
     // queues allow the same recording to be added twice on purpose.
@@ -143,13 +161,16 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
   };
 
   const loadPlaylists = async () => {
-    if (loadingPlaylists) return;
+    if (loadingPlaylists || !scope.isCurrent()) return;
     setLoadingPlaylists(true);
     setPlaylistError("");
     const response = await getUserPlaylists();
+    if (!scope.isCurrent()) return;
     if (response?.success) {
+      const userId = scope.owner.slice("account:".length);
       const list = Array.isArray(response.data?.playlists)
-        ? response.data.playlists.filter((playlist) => playlist && typeof playlist === "object" && playlist._id)
+        ? response.data.playlists.filter((playlist) => playlist && typeof playlist === "object" && playlist._id
+          && canEditPlaylist(playlist, userId))
         : [];
       setPlaylists(list);
     } else {
@@ -176,25 +197,22 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       router.push(loginPath(window.location.href, window.location.origin));
       return;
     }
+    if (!scope.isCurrent()) return;
     setView("playlists");
-    if (playlists === null) void loadPlaylists();
+    void loadPlaylists();
   };
 
-  const addToPlaylist = async (playlist) => {
-    if (!playlist?._id || addingPlaylistId) return;
-    setAddingPlaylistId(playlist._id);
-    const response = await addSongToPlaylist(playlist._id, track.id, track.duration);
-    setAddingPlaylistId(null);
-    if (response?.success) {
-      toast.success(`Added to ${playlist.name || "playlist"}`);
-      closeMenu();
-      return;
+  const addToPlaylist = playlist => addition.add(playlist, track);
+
+  const runItemAction = async (event, action) => {
+    event.preventDefault(); event.stopPropagation();
+    if (!scope.isCurrent()) return;
+    try {
+      await action();
+      if (scope.isCurrent()) closeMenu();
+    } catch (error) {
+      if (scope.isCurrent()) toast.error(error?.message || "Could not update this item.");
     }
-    const error = toUserError(response, {
-      title: "Song not added",
-      message: "We couldn’t add that song. Please try again.",
-    });
-    toast.error(error.message);
   };
 
   const actionClass = "flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-[var(--navy-panel)] focus:bg-[var(--navy-panel)] focus:outline-none";
@@ -210,14 +228,16 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <p className="break-words px-3 py-2 text-xs font-semibold text-gray-400">{track.title || track.name || "Track"}</p>
+      <p title={track.title || track.name || "Track"} className="line-clamp-2 break-words px-3 py-2 text-xs font-semibold text-gray-400">{track.title || track.name || "Track"}</p>
       {view === "actions" ? <>
-        {onRemove && <button type="button" role="menuitem" className={`${actionClass} text-red-300`} onClick={async (event) => { event.preventDefault(); event.stopPropagation(); try { await onRemove(); closeMenu(); } catch (error) { toast.error(error?.message || "Could not remove this item."); } }}>{removeLabel}</button>}
-        <button type="button" role="menuitem" onClick={playNext} className={actionClass}>
+        {onRemove && <button type="button" role="menuitem" className={`${actionClass} text-red-300`} onClick={event => void runItemAction(event, onRemove)}>{removeLabel}</button>}
+        {onMoveUp && <button type="button" role="menuitem" className={actionClass} onClick={event => void runItemAction(event, onMoveUp)}><ArrowUp size="1em" aria-hidden="true" /><span>Move up</span></button>}
+        {onMoveDown && <button type="button" role="menuitem" className={actionClass} onClick={event => void runItemAction(event, onMoveDown)}><ArrowDown size="1em" aria-hidden="true" /><span>Move down</span></button>}
+        <button type="button" role="menuitem" disabled={unavailable} title={unavailable ? "This song is unavailable" : undefined} onClick={playNext} className={`${actionClass} disabled:cursor-not-allowed disabled:opacity-40`}>
           <FiPlayCircle size="1em" aria-hidden="true" className="text-[var(--accent)]" />
           <span className="flex-1">Play next</span>
         </button>
-        <button type="button" role="menuitem" onClick={add} className={actionClass}>
+        <button type="button" role="menuitem" disabled={unavailable} title={unavailable ? "This song is unavailable" : undefined} onClick={add} className={`${actionClass} disabled:cursor-not-allowed disabled:opacity-40`}>
           <BiAddToQueue size="1em" aria-hidden="true" className="text-[var(--accent)]" />
           <span className="flex-1">Add to queue</span>
         </button>
@@ -237,7 +257,9 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
             <p className="text-xs text-[var(--muted)]">{playlistError}</p>
             <button type="button" onClick={() => void loadPlaylists()} className="mt-2 text-xs font-semibold text-[var(--accent)]">Try again</button>
           </div>}
-          {!loadingPlaylists && !playlistError && playlists?.length === 0 && <p className="px-3 py-3 text-xs text-[var(--muted)]">No playlists yet.</p>}
+          {!loadingPlaylists && !playlistError && playlists?.length === 0 && <p className="px-3 py-3 text-xs text-[var(--muted)]">No editable playlists.</p>}
+          {!loadingPlaylists && !playlistError && <button type="button" role="menuitem" disabled={Boolean(addingPlaylistId)} className={actionClass}
+            onClick={() => { closeMenu(); setCreating(true); }}><FiPlus size="1em" aria-hidden="true" /><span>Create playlist</span></button>}
           {!loadingPlaylists && !playlistError && playlists?.length > 0 && <div className="max-h-56 overflow-y-auto overscroll-contain py-1">
             {playlists.map((playlist) => <button
               key={playlist._id}
@@ -286,6 +308,13 @@ export default function TrackQueueMenu({ track, className = "", buttonLabel = "T
         <FiMoreHorizontal size="1em" aria-hidden="true" />
       </button>
       {menu}
+      <PlaylistDuplicateDialog addition={addition} />
+      <PlaylistModal show={creating} setShow={setCreating} navigateOnCreate={false}
+        onCreated={playlist => {
+          if (!scope.isCurrent()) return;
+          setPlaylists(current => [playlist, ...(current || [])]);
+          void addToPlaylist(playlist);
+        }} />
     </span>
   );
 }

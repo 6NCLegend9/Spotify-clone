@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { X as IoClose } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { createPlaylist } from "@/services/playlistApi";
@@ -11,26 +11,25 @@ import UserMessage from "@/components/UserMessage";
 import AccessibleDialog from "@/components/AccessibleDialog";
 import { PLAYLIST_CATEGORIES, matchPlaylistCategory } from "@/utils/playlistThemes";
 import { toUserError } from "@/utils/userError";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useNav } from "../Layout/AppShell";
-import { accountOwner } from "@/utils/accountCache.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
+import { notifyPlaylistChanged } from "@/utils/playlistEvents.mjs";
 
-const PlaylistModal = ({ show, setShow, onCreated }) => {
+const PlaylistModal = (props) => {
+  const scope = useAccountScope();
+  return props.show ? <AccountPlaylistModal key={scope.key} {...props} /> : null;
+};
+
+function AccountPlaylistModal({ show, setShow, onCreated, navigateOnCreate = true }) {
   const dispatch = useDispatch();
-  const { data: session, status } = useSession();
+  const scope = useAccountScope();
+  const { owner, status } = scope;
   const router = useRouter();
   const { setShowNav } = useNav();
-  const owner = accountOwner(session, status);
-  const currentOwner = useRef(owner);
-  currentOwner.current = owner;
-  const live = useRef(true);
   const pending = useRef(false);
-  useEffect(() => {
-    live.current = true;
-    return () => { live.current = false; };
-  }, []);
-  const [name, setName] = useState("");
+  const categoryChosen = useRef(false);
+  const [name, setName] = useState("My Playlist");
   const [category, setCategory] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [autoFill, setAutoFill] = useState(false);
@@ -43,6 +42,7 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
       setFormError(toUserError({ code: "UNAUTHORIZED" }));
       return;
     }
+    if (!scope.isCurrent()) return;
     if (!name.trim()) {
       setFormError({ title: "Name required", message: "Give your playlist a name." });
       return;
@@ -50,29 +50,25 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
     pending.current = true;
     setLoading(true);
     setFormError(null);
-    const requestOwner = owner;
-    const res = await createPlaylist(name.trim(), { category, coverImage, autoFill });
-    pending.current = false;
-    if (!live.current) return;
-    if (currentOwner.current !== requestOwner) {
-      setLoading(false);
-      return;
+    let res;
+    try {
+      res = await createPlaylist(name.trim(), { category, coverImage, autoFill });
+    } catch (error) {
+      res = error;
     }
-    if (res?.success === true) {
+    if (!scope.isCurrent()) return;
+    pending.current = false;
+    if (res?.success === true && res.data?.playlist?._id) {
       const songCount = res.data?.playlist?.songs?.length || 0;
       toast.success(autoFill && songCount ? `Playlist created with ${songCount} songs` : "Playlist created");
-      setName("");
-      setCategory("");
-      setAutoFill(false);
-      setCoverImage("");
-      setShow(false);
       const playlist = res.data?.playlist;
-      window.dispatchEvent(new CustomEvent("heykasa:playlists-changed", { detail: { owner: requestOwner, playlist } }));
+      notifyPlaylistChanged({ owner, playlist });
       onCreated?.(playlist);
-      if (playlist?._id) {
+      if (navigateOnCreate) {
         setShowNav(false);
         router.push(`/library/playlist/${encodeURIComponent(playlist._id)}`);
       }
+      setShow(false);
     } else {
       const normalized = toUserError(res);
       setFormError(normalized.code === "UNAUTHORIZED"
@@ -84,8 +80,6 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
     }
     setLoading(false);
   };
-
-  if (!show) return null;
 
   return (
     <AccessibleDialog
@@ -122,12 +116,15 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
         </label>
         <input
           id="playlist-name"
-          onFocus={() => dispatch(setIsTyping(true))}
+          onFocus={(event) => {
+            dispatch(setIsTyping(true));
+            if (name === "My Playlist") event.target.select();
+          }}
           onBlur={() => dispatch(setIsTyping(false))}
           onChange={(e) => {
             const next = e.target.value;
             setName(next);
-            setCategory((current) => matchPlaylistCategory(next) || current);
+            if (!categoryChosen.current) setCategory(matchPlaylistCategory(next) || "");
           }}
           maxLength={80}
           disabled={loading}
@@ -151,7 +148,10 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
               type="button"
               aria-pressed={category === item}
               disabled={loading}
-              onClick={() => setCategory(category === item ? "" : item)}
+              onClick={() => {
+                categoryChosen.current = true;
+                setCategory(category === item ? "" : item);
+              }}
               className={`inline-flex min-h-[44px] items-center rounded-full border px-3 py-1.5 text-xs transition duration-200 ease-out active:scale-[0.98] ${
                 category === item
                   ? "border-[var(--accent)] bg-white/10 text-[var(--accent)]"
@@ -197,6 +197,6 @@ const PlaylistModal = ({ show, setShow, onCreated }) => {
         ) : null}
     </AccessibleDialog>
   );
-};
+}
 
 export default PlaylistModal;

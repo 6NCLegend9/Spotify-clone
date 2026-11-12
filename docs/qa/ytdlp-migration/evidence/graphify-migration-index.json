@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "reviewCommit": "1ec8cacc3358b6a22912d8f84c018a144a228e12",
+  "tool": {
+    "name": "Graphify",
+    "version": "0.9.95",
+    "sourceCommit": "92741d162b2094ffc2fed58cfbd8ee823e9da62c",
+    "modelApiCalls": 0,
+    "mode": "Code-only AST; no entity deduplication; heuristic INFERRED edges retained and counted."
+  },
+  "supportedCodeFiles": 487,
+  "scopes": [
+    {
+      "scope": "src",
+      "sourceCommit": "fbf3cfc07889b6bcf299487e9b1a2a477fbf0961",
+      "supportedCodeFiles": 450,
+      "nodes": 2206,
+      "edges": 7697,
+      "edgeConfidenceTags": {
+        "EXTRACTED": 7672,
+        "INFERRED": 25
+      },
+      "graphSha256": "8588224c761676adaf6f15a78e92388124b5e8c8a48ba78f6bfc163237543f71",
+      "postBuildHealth": {
+        "node_count": 2206,
+        "unverified_node_count": 0,
+        "raw_edge_count": 7697,
+        "non_object_edges": 0,
+        "missing_endpoint_edges": 0,
+        "dangling_endpoint_edges": 0,
+        "external_reference_edges": 0,
+        "self_loop_edges": 3,
+        "valid_candidate_edges": 7697,
+        "exact_duplicate_edges": 0,
+        "directed_unique_endpoint_pairs": 7697,
+        "directed_same_endpoint_collapsed_edges": 0,
+        "undirected_unique_endpoint_pairs": 7697,
+        "undirected_same_endpoint_collapsed_edges": 0,
+        "same_endpoint_group_count": 0,
+        "relation_variant_groups": 0,
+        "source_file_variant_groups": 0,
+        "source_location_variant_groups": 0,
+        "context_variant_groups": 0,
+        "post_build_graph_type": "Graph",
+        "post_build_node_count": 2206,
+        "post_build_edge_count": 7697,
+        "post_build_error": "",
+        "effective_directed": false
+      },
+      "queryTerms": [
+        "youtube",
+        "api",
+        "resolve"
+      ],
+      "queryTruncated": false,
+      "querySha256": "ef960c221e95127b4ef3428da1dc591fc27ae5b7c519d987095b81e4b4cb2e9e"
+    },
+    {
+      "scope": "desktop/src",
+      "sourceCommit": "fbf3cfc07889b6bcf299487e9b1a2a477fbf0961",
+      "supportedCodeFiles": 19,
+      "nodes": 275,
+      "edges": 649,
+      "edgeConfidenceTags": {
+        "EXTRACTED": 637,
+        "INFERRED": 12
+      },
+      "graphSha256": "5d9661096e9c440d36d46607a3a772aeede3823c1ce52b98ba9518c7c550c11c",
+      "postBuildHealth": {
+        "node_count": 275,
+        "unverified_node_count": 0,
+        "raw_edge_count": 649,
+        "non_object_edges": 0,
+        "missing_endpoint_edges": 0,
+        "dangling_endpoint_edges": 0,
+        "external_reference_edges": 0,
+        "self_loop_edges": 0,
+        "valid_candidate_edges": 649,
+        "exact_duplicate_edges": 0,
+        "directed_unique_endpoint_pairs": 649,
+        "directed_same_endpoint_collapsed_edges": 0,
+        "undirected_unique_endpoint_pairs": 649,
+        "undirected_same_endpoint_collapsed_edges": 0,
+        "same_endpoint_group_count": 0,
+        "relation_variant_groups": 0,
+        "source_file_variant_groups": 0,
+        "source_location_variant_groups": 0,
+        "context_variant_groups": 0,
+        "post_build_graph_type": "Graph",
+        "post_build_node_count": 275,
+        "post_build_edge_count": 649,
+        "post_build_error": "",
+        "effective_directed": false
+      },
+      "queryTerms": [
+        "playback",
+        "command"
+      ],
+      "queryTruncated": false,
+      "querySha256": "db18d938eb3c8803db9eef74b5ec22b3a112d760e3679448dd31938551adcc22"
+    },
+    {
+      "scope": "media-service/app",
+      "sourceCommit": "fbf3cfc07889b6bcf299487e9b1a2a477fbf0961",
+      "supportedCodeFiles": 9,
+      "nodes": 125,
+      "edges": 280,
+      "edgeConfidenceTags": {
+        "EXTRACTED": 273,
+        "INFERRED": 7
+      },
+      "graphSha256": "5b3e34261708b4094f436c254c08810c7d269078424c6eed63e2035093c2a30a",
+      "postBuildHealth": {
+        "node_count": 125,
+        "unverified_node_count": 0,
+        "raw_edge_count": 280,
+        "non_object_edges": 0,
+        "missing_endpoint_edges": 0,
+        "dangling_endpoint_edges": 0,
+        "external_reference_edges": 0,
+        "self_loop_edges": 1,
+        "valid_candidate_edges": 280,
+        "exact_duplicate_edges": 0,
+        "directed_unique_endpoint_pairs": 280,
+        "directed_same_endpoint_collapsed_edges": 0,
+        "undirected_unique_endpoint_pairs": 280,
+        "undirected_same_endpoint_collapsed_edges": 0,
+        "same_endpoint_group_count": 0,
+        "relation_variant_groups": 0,
+        "source_file_variant_groups": 0,
+        "source_location_variant_groups": 0,
+        "context_variant_groups": 0,
+        "post_build_graph_type": "Graph",
+        "post_build_node_count": 125,
+        "post_build_edge_count": 280,
+        "post_build_error": "",
+        "effective_directed": false
+      },
+      "queryTerms": [
+        "prepare",
+        "formats",
+        "source"
+      ],
+      "queryTruncated": false,
+      "querySha256": "2820623209a36cb789fd30e8304b2fd519eae56fbbb388ad5da16c1049f2bd75"
+    },
+    {
+      "scope": "android/app/src/main/java/app/haykasa/android",
+      "sourceCommit": "264de976b150ee8dfe0baf38c3bb61407d5a857c",
+      "supportedCodeFiles": 9,
+      "nodes": 251,
+      "edges": 573,
+      "graphSha256": "218f80a9cfc8a5ca00ea100401df46b764b9b5a1d09b9fa125880bcf8f47b423",
+      "focusedEvidence": "graphify-d06-review.json"
+    }
+  ],
+  "sourceCodeUnchangedAtReviewHead": true,
+  "inventory": "../inventory-current.json",
+  "limits": [
+    "All498 runtime/tooling code paths are indexed statically;487 are covered by these Graphify scopes. Script/configuration/HTML/policy paths are separately indexed.",
+    "Web detection includes5images and14unclassified files that are excluded from code-only extraction; no semantic image/layout extraction.",
+    "Raw edge confidence includes INFERRED edges; a report headline of100% EXTRACTED must not be applied to every edge.",
+    "Post-build diagnostics cannot recover prior extraction/normalization losses; imports/queries are not complete dynamic execution or unused-code proof.",
+    "Java/native IPC, private service binding, HTTP, storage/leases and MediaSession entry points are explicitly enumerated in the index."
+  ],
+  "selfLoops": [
+    {
+      "scope": "web",
+      "file": "src/components/MusicPlayer/media/nativeMediaDeck.mjs",
+      "line": 85,
+      "interpretation": "Scheduled renewal callback invokes resolve(true), not immediate unbounded recursion."
+    },
+    {
+      "scope": "web",
+      "file": "src/utils/discordPresence.mjs",
+      "line": 22,
+      "interpretation": "Recursive array/object artwork traversal; topology alone is not a demonstrated failure."
+    },
+    {
+      "scope": "web",
+      "file": "src/utils/youtubeApi.js",
+      "line": 489,
+      "interpretation": "Recursive provider response-tree traversal; an integration removal target, not proof of an infinite loop."
+    },
+    {
+      "scope": "worker",
+      "file": "media-service/app/selection.py",
+      "line": 33,
+      "interpretation": "Auto profile delegates once to an explicit codec profile."
+    }
+  ]
+}
