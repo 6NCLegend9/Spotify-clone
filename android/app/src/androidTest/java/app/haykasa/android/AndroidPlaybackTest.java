@@ -641,7 +641,17 @@ public class AndroidPlaybackTest {
             // Exercise more than one replacement after lifecycle/media controls.
             // A later pass does not erase a previous failure; selected producer
             // frames in waitJs identify the origin if an unexpected Pause recurs.
-            for (int replacement = 3; replacement <= 6; replacement++) {
+            org.json.JSONArray replacementCycles = new org.json.JSONArray();
+            org.json.JSONObject replacementReport = new org.json.JSONObject()
+                .put("androidApi", android.os.Build.VERSION.SDK_INT)
+                .put("synthetic", true).put("expectedCycles", 20)
+                .put("cycles", replacementCycles);
+            for (int replacement = 3; replacement <= 22; replacement++) {
+                org.json.JSONObject cycle = new org.json.JSONObject()
+                    .put("index", replacement - 2).put("startedAt", System.currentTimeMillis())
+                    .put("rapidSelection", replacement % 2 == 0).put("completed", false);
+                replacementCycles.put(cycle);
+                evidence("native-replacement-cycles", replacementReport);
                 shell("input keyevent KEYCODE_HOME");
                 waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.STOPPED, "Replacement cycle actually backgrounds the activity");
                 main(() -> {
@@ -649,10 +659,22 @@ public class AndroidPlaybackTest {
                     catch (android.app.PendingIntent.CanceledException error) { throw new RuntimeException(error); }
                 });
                 waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.RESUMED, "Replacement cycle resumes the same activity");
-                String nextId = "synthetic0" + replacement;
-                js(web, "qaDeck.loadVideoById({videoId:'" + nextId + "',title:'Repeated emulator replacement',startSeconds:0})");
+                String nextId = "synthetic" + (replacement < 10 ? "0" : "") + replacement;
+                // A rapid abandoned selection must not stop the winning source.
+                // This is one attempt per cycle, never a retry of a failed assertion.
+                String rapid = replacement % 2 == 0
+                    ? "qaDeck.loadVideoById({videoId:'synthetic99',title:'Superseded emulator selection',startSeconds:0});" : "";
+                js(web, rapid + "qaDeck.loadVideoById({videoId:'" + nextId + "',title:'Repeated emulator replacement',startSeconds:0})");
                 waitJs(web, "qaDeck.getVideoData().video_id === '" + nextId + "' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > 1 && qaDeck.getCurrentTime() < 30");
                 assertTrue("Source replacement must retain its actual native Play decision", transportSnapshot(service).intent().playWhenReady());
+                waitJs(web, "qaDeck.getVideoData().video_id === '" + nextId + "' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > 4 && qaDeck.getCurrentTime() < 30");
+                OrderedTransport.Snapshot actual = transportSnapshot(service);
+                assertTrue("Native decoder keeps playing after the replacement settles", actual.observed().isPlaying());
+                assertTrue("A settled replacement keeps its native Play intent", actual.intent().playWhenReady());
+                cycle.put("completed", true).put("finishedAt", System.currentTimeMillis())
+                    .put("position", actual.observed().position()).put("intentOrigin", actual.intent().origin())
+                    .put("intentRevision", actual.intent().revision()).put("playing", actual.observed().isPlaying());
+                evidence("native-replacement-cycles", replacementReport);
             }
             js(web, "qaDeck.cueVideoById({videoId:'synthetic03',title:'Cued emulator tone'})");
             AtomicReference<Boolean> emptySession = new AtomicReference<>(false);
