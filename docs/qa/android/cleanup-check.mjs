@@ -41,6 +41,24 @@ if [[ "$QA_ADB_MODE" == directory ]]; then exit 23; fi
 exec /bin/mkdir "$@"
 `, { mode: 0o755 });
 
+for (const readyAfter of [1, 3, 4]) {
+  const probe = spawnSync("bash", ["-c", `
+set -euo pipefail
+${functions}
+attempts=0
+qa_adb() { attempts=$((attempts+1)); [[ "$attempts" -ge ${readyAfter} ]]; }
+sleep() { :; }
+if wait_for_device_storage; then
+  [[ "$attempts" -eq ${readyAfter} ]] || exit 99
+else
+  [[ "$attempts" -eq 3 ]] || exit 99
+  exit 1
+fi
+`, "android-readiness-check"], { encoding: "utf8", timeout: 2000 });
+  assert.ifError(probe.error);
+  assert.equal(probe.status, readyAfter <= 3 ? 0 : 1, probe.stderr);
+}
+
 const results = [];
 try {
   for (const test of [

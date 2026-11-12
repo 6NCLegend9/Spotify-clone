@@ -19,6 +19,19 @@ qa_adb() {
     process.exit(result.status ?? (result.error?.code === "ETIMEDOUT" ? 124 : 1));
   ' -- "$@"
 }
+wait_for_device_storage() {
+  # sys.boot_completed can precede a responsive shell and mounted user storage.
+  # Retry only this pre-test readiness probe, never instrumentation or playback.
+  for ((qa_ready_attempt=1; qa_ready_attempt<=3; qa_ready_attempt++)); do
+    if qa_adb shell 'test "$(getprop sys.boot_completed)" = 1 && test -d /sdcard && test -w /sdcard'; then
+      return 0
+    fi
+    echo "Android QA storage not ready (attempt $qa_ready_attempt/3)." >&2
+    sleep 1
+  done
+  echo "Android QA startup failed before instrumentation: storage unavailable." >&2
+  return 1
+}
 collect_device_evidence() {
   local test_status=$?
   local evidence_status=0
@@ -56,11 +69,12 @@ collect_device_evidence() {
   exit "$test_status"
 }
 trap collect_device_evidence EXIT
-qa_adb shell rm -rf /sdcard/Download/haykasa-emulator-qa
-qa_adb logcat -c
 mkdir -p "$qa_root/artifacts/android-emulator"
 node "$qa_root/docs/qa/android/host-sampler.mjs" > "$qa_root/artifacts/android-emulator/host-samples.jsonl" 2>&1 &
 qa_sampler_pid=$!
+wait_for_device_storage
+qa_adb shell rm -rf /sdcard/Download/haykasa-emulator-qa
+qa_adb logcat -c
 if [[ ! -f "$qa_root/.next/BUILD_ID" ]]; then
   echo "Build the current web source before running emulator QA (DISABLE_PWA=1 npm run build)." >&2
   exit 1
