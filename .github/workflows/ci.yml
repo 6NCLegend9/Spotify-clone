@@ -25,6 +25,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run audit:production
+      - name: Verify service-worker precache traversal and revisions
+        run: node --test scripts/check-precache-build.mjs
       - name: Verify ODM security and application schema validation
         run: node --test scripts/check-mongoose-security.mjs
       - name: Verify authentication email serialization with the installed SDK

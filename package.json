@@ -20,7 +20,7 @@
     "desktop:build": "npm --prefix desktop run dist",
     "desktop:pack": "npm --prefix desktop run pack",
     "check:deployment": "node scripts/check-deployment.mjs",
-    "audit:production": "npm audit --omit=dev --audit-level=high",
+    "audit:production": "npm audit --omit=dev --audit-level=moderate",
     "typecheck": "next typegen && node node_modules/typescript/bin/tsc --noEmit --incremental false",
     "lint": "eslint src scripts --ext .js,.jsx,.mjs,.ts,.tsx --no-cache --max-warnings=0",
     "check": "npm run lint && npm run typecheck && npm run build",
@@ -84,6 +84,11 @@
     },
     "@serwist/next": {
       "browserslist": "4.28.7",
+      "zod": "4.6.6",
+      "glob": "14.0.2"
+    },
+    "@serwist/build": {
+      "glob": "14.0.2",
       "zod": "4.6.6"
     },
     "source-map-js": "1.2.2"
