@@ -341,6 +341,65 @@ public class OrderedBridgeTest {
         }
     }
 
+    @Test public void transientAudioFocusLossResumesNativePlayback() throws Exception {
+        verifyTransientAudioFocus(false);
+    }
+
+    @Test public void pauseDuringAudioFocusLossPreventsAutomaticResume() throws Exception {
+        verifyTransientAudioFocus(true);
+    }
+
+    private void verifyTransientAudioFocus(boolean pauseDuringInterruption) throws Exception {
+        android.media.AudioManager audio = (android.media.AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+        AtomicReference<android.media.AudioFocusRequest> interruption = new AtomicReference<>();
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            bootstrap(); load(); transport("play", 1);
+            waitFor(() -> hasResult(1, "completed"));
+            ExoPlayer player = raw();
+            AtomicReference<Boolean> observed = new AtomicReference<>();
+            waitFor(() -> { main(() -> observed.set(player.isPlaying())); return observed.get(); });
+            main(() -> {
+                interruption.set(new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(new android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                    .setOnAudioFocusChangeListener(change -> {}).build());
+                assertEquals("The OS must actually grant the competing focus request",
+                    android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED, audio.requestAudioFocus(interruption.get()));
+            });
+            waitFor(() -> {
+                main(() -> observed.set(!player.isPlaying() && player.getPlaybackSuppressionReason() != androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_NONE));
+                return observed.get();
+            });
+            // Losing focus is a temporary policy observation, not an explicit user Pause.
+            send(request("transportReadState"));
+            assertTrue(snapshot().getJSONObject("intent").getBoolean("playWhenReady"));
+            if (pauseDuringInterruption) {
+                transport("pause", 2);
+                waitFor(() -> hasResult(2, "completed"));
+            }
+            main(() -> audio.abandonAudioFocusRequest(interruption.get()));
+            if (pauseDuringInterruption) {
+                Thread.sleep(750);
+                main(() -> {
+                    assertFalse("Focus gain must not undo explicit Pause", player.getPlayWhenReady());
+                    assertFalse(player.isPlaying());
+                });
+                send(request("transportReadState"));
+                assertFalse(snapshot().getJSONObject("intent").getBoolean("playWhenReady"));
+            } else {
+                AtomicReference<Long> position = new AtomicReference<>();
+                main(() -> position.set(player.getCurrentPosition()));
+                waitFor(() -> {
+                    main(() -> observed.set(player.isPlaying() && player.getCurrentPosition() > position.get() + 250));
+                    return observed.get();
+                });
+            }
+        } finally {
+            if (interruption.get() != null) main(() -> audio.abandonAudioFocusRequest(interruption.get()));
+        }
+    }
+
     @Test public void exhaustedBindingKeepsItsAnchorAndRebindsWithoutReloading() throws Exception {
         bootstrap(); load(); ExoPlayer original = raw();
         Field bridgeField = PlaybackService.class.getDeclaredField("ordered"); bridgeField.setAccessible(true);
