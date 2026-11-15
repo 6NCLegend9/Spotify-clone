@@ -285,6 +285,8 @@ assert failure_reason(b'certificate verify failed') == 'source_tls_failed'
 assert failure_reason(b'ERROR: Private video') == 'source_unavailable'
 assert failure_reason(b'ERROR: [youtube] BaW_jenozKc: This video is unavailable') == 'source_unavailable'
 assert failure_reason(b'challenge solving failed') == 'source_challenge_failed'
+assert failure_reason(b'Unable to connect to proxy: Tunnel connection failed: 403 Forbidden') == 'source_network_restricted'
+assert failure_reason(b'Unable to connect to proxy: connection refused') == 'upstream_tool_failed'
 assert failure_reason(b'HTTP Error 403: Forbidden') == 'source_http_forbidden'
 assert failure_reason(b'signed URL or unknown private details') == 'upstream_tool_failed'
 print('PASS: safe upstream failure classification without returning stderr or secrets')

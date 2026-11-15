@@ -30,7 +30,7 @@ assert.equal(invalidMetadata.audioBitrateKbps,null);assert.equal(invalidMetadata
 assert.equal(invalidMetadata.audioBitrateEstimated,true);
 const diagnostics=load('src/utils/diagnostics.mjs');
 const playbackErrors=load('src/utils/youtubePlaybackError.mjs',{'./playerQueue.mjs':{queueEntryIdentity:track=>track?.id}});
-for(const reason of ['source_access_restricted','source_tls_failed','source_challenge_failed','source_http_forbidden']) {
+for(const reason of ['source_access_restricted','source_tls_failed','source_challenge_failed','source_http_forbidden','source_network_restricted']) {
   const failed=media.normalizeMediaResult({jobId:'a'.repeat(32),state:'failed',reason},config);
   assert.equal(failed.reason,reason,'The client must receive the safe upstream failure category');
   const diagnostic=diagnostics.diagnosticRecord('provider',{code:'native_fallback',reason:failed.reason});
@@ -114,3 +114,5 @@ const route=load('src/app/api/media/preflight/route.js',{
   assert.equal(new Set(limits.map(value=>value.key)).size,3);
   console.log('PASS: classified worker failures reach the player, support diagnostics retain safe provider codes without raw details; internal bindings, credential separation, asset origin validation, codec metadata, legacy service compatibility, production preflight exclusion and fixed bounded samples');
 })().catch(error=>{console.error(error);process.exitCode=1});
+
+assert.equal(playbackErrors.sourceAudioFallbackMessage('source_network_restricted'), 'The music source could not be reached. Try again later.');

@@ -20,6 +20,8 @@ def redacted_preview_error(stderr):
 def failure_reason(stderr):
     """Classify upstream failures without exposing stderr, URLs, or cookies."""
     text = stderr.decode("utf-8", errors="replace").lower()
+    if "tunnel connection failed: 403" in text:
+        return "source_network_restricted"
     if "confirm you're not a bot" in text or "confirm you’re not a bot" in text:
         return "source_access_restricted"
     if "certificate verify failed" in text or "certificate_verify_failed" in text:

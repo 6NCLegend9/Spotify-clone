@@ -39,7 +39,7 @@ export function normalizeMediaResult(value, config) {
   const result = { jobId: value.jobId, state: value.state };
   if (value.state === "failed") {
     // Only classified failures may cross the boundary; stderr can contain credentials.
-    result.reason = ["source_access_restricted", "source_tls_failed", "source_challenge_failed", "source_http_forbidden"].includes(value.reason) ? value.reason : "source_unavailable";
+    result.reason = ["source_access_restricted", "source_tls_failed", "source_challenge_failed", "source_http_forbidden", "source_network_restricted"].includes(value.reason) ? value.reason : "source_unavailable";
   }
   if (value.state === "ready") {
     const asset = value.asset;

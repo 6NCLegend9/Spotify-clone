@@ -32,6 +32,8 @@ export function sourceAudioFallbackMessage(reason) {
       return "Source audio requires a signed-in account when available. YouTube playback has its own restrictions.";
     case "service_disabled":
       return "Source audio is currently disabled, so this track depends on YouTube playback.";
+    case "source_network_restricted":
+      return "The music source could not be reached. Try again later.";
     case "source_access_restricted":
     case "source_http_forbidden":
       return "The audio provider blocked this request. Open the track on YouTube. Signing in to HayKasa does not remove the provider's restriction.";
