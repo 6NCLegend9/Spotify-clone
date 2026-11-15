@@ -184,6 +184,8 @@ public final class PlaybackService extends MediaSessionService {
             session.setPlayer(wrappers.get(id));
         }
         diagnostic("bridge-or-policy play=" + playing);
+        // Stop retains the source in STATE_IDLE; only a new validated Play prepares it again.
+        if (playing && player.getPlaybackState() == Player.STATE_IDLE) player.prepare();
         player.setPlayWhenReady(playing);
     }
     void seekPlayer(String id, double seconds) { players.get(id).seekTo((long)(Math.max(0, Math.min(1801, seconds)) * 1000)); }

@@ -338,6 +338,33 @@ public class OrderedBridgeTest {
                 main(() -> observed.set(!current.getPlayWhenReady() && current.getPlaybackState() == androidx.media3.common.Player.STATE_IDLE));
                 return observed.get();
             });
+            AtomicReference<Long> stoppedPosition = new AtomicReference<>();
+            AtomicReference<androidx.media3.common.MediaItem> retainedItem = new AtomicReference<>();
+            main(() -> {
+                stoppedPosition.set(current.getCurrentPosition());
+                retainedItem.set(current.getCurrentMediaItem());
+                assertNotNull(retainedItem.get());
+            });
+            // App Play goes through the ordered bridge, not MediaController's prepare handling.
+            transport("play", 2);
+            waitFor(() -> hasResult(2, "completed"));
+            assertSame("Play after Stop must retain the same native source", current, raw());
+            assertEquals(bindingId, last("transportState").getJSONObject("transport").getString("bindingId"));
+            assertEquals(2, snapshot().getLong("appliedWebRevision"));
+            assertEquals(2, snapshot().getJSONObject("intent").getLong("webRevision"));
+            waitFor(() -> {
+                main(() -> {
+                    assertEquals(retainedItem.get(), current.getCurrentMediaItem());
+                    observed.set(current.isPlaying() && current.getCurrentPosition() > stoppedPosition.get() + 200);
+                });
+                return observed.get();
+            });
+            transport("pause", 3);
+            assertTrue(hasResult(3, "completed"));
+            transport("play", 2); // A completed old Play cannot prepare or restart after newer Pause.
+            main(() -> assertFalse(current.getPlayWhenReady()));
+            assertEquals(3, snapshot().getLong("appliedWebRevision"));
+            assertFalse(snapshot().getJSONObject("intent").getBoolean("playWhenReady"));
         }
     }
 
