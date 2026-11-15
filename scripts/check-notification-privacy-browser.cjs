@@ -30,12 +30,14 @@ function include(file) {
 const entries = Object.fromEntries(Object.entries({ bell: 'components/UpdatesBell.jsx', settings: 'app/settings/page.jsx', boundary: 'components/AccountPrivacyBoundary.jsx', reducer: 'redux/features/settingsSlice.js', storage: 'utils/accountStorage.mjs' }).map(([key, file]) => [key, include(path.join(root, 'src', file))]));
 const results = [];
 let browser;
-async function setup(page, kind) {
-  await page.route('**/*', route => route.request().url() === 'http://127.0.0.1:3000/__notification-privacy-qa'
+async function setup(page, kind, android = false) {
+  const fixtureUrl = (android ? "https://haykasa.vercel.app" : "http://127.0.0.1:3000") + "/__notification-privacy-qa";
+  await page.route('**/*', route => route.request().url() === fixtureUrl
     ? route.fulfill({ contentType: 'text/html', body: '<!doctype html><div id="root"></div>' }) : route.abort());
-  await page.goto('http://127.0.0.1:3000/__notification-privacy-qa');
+  await page.goto(fixtureUrl);
   for (const file of ['react/umd/react.development.js', 'react-dom/umd/react-dom.development.js', '@reduxjs/toolkit/dist/redux-toolkit.umd.js']) await page.addScriptTag({ path: path.join(root, 'node_modules', file) });
-  await page.evaluate(({ sources, entries, kind }) => {
+  await page.evaluate(({ sources, entries, kind, android }) => {
+    if (android) window.HayKasaAndroidMedia = { postMessage() { throw Error("Settings must not send playback commands"); } };
     window.qaSession = { data: { user: { id: 'A' } }, status: 'authenticated' };
     window.qaCalls = []; window.qaToasts = []; window.qaAlerts = []; window.qaPending = [];
     window.qaRevision = 0; window.qaHold = false; window.qaHoldRender = false; window.qaMounted = true;
@@ -69,7 +71,7 @@ async function setup(page, kind) {
       if (name === 'next/link') return { __esModule: true, default: ({ href, ...props }) => React.createElement('a', { ...props, href }) };
       if (name === 'next/dynamic') return { __esModule: true, default: () => () => null };
       if (name === 'react-hot-toast') return { __esModule: true, default: toast, toast };
-      if (name === 'lucide-react' || name === 'react-icons/fa') return new Proxy({}, { get: () => props => React.createElement('svg', props) });
+      if (name === 'lucide-react' || name === 'react-icons/fa') return new Proxy({}, { get: () => props => React.createElement('svg', { ...props, width: props.size || 24, height: props.size || 24 }) });
       if (name === '@/services/http') return { requestJson };
       if (name === '@/redux/features/playerSlice') return { startYoutubePlayback: payload => ({ type: 'qa/play', payload }) };
       if (name === '@/utils/signOut') return { signOutWithPrivacy: async () => {} };
@@ -78,9 +80,9 @@ async function setup(page, kind) {
       if (name.startsWith('@/components/')) return { __esModule: true, default: () => null };
       if (cache[name]) return cache[name].exports;
       const source = sources[name]; if (!source) throw Error('Unknown fixture ' + name);
-      const module = { exports: {} }; cache[name] = module;
-      new Function('require', 'module', 'exports', source.code)(spec => require(source.dependencies[spec]), module, module.exports);
-      return module.exports;
+      const loadedModule = { exports: {} }; cache[name] = loadedModule;
+      new Function('require', 'module', 'exports', source.code)(spec => require(source.dependencies[spec]), loadedModule, loadedModule.exports);
+      return loadedModule.exports;
     }
     window.qaActions = require(entries.reducer);
     store = RTK.configureStore({ reducer: { settings: qaActions.default } }); window.qaStore = store;
@@ -98,14 +100,14 @@ async function setup(page, kind) {
     window.qaResolve = index => qaPending.splice(index, 1)[0].resolve();
     window.qaUnmount = () => { qaMounted = false; render(); };
     render();
-  }, { sources, entries, kind });
+  }, { sources, entries, kind, android });
   await page.waitForFunction(() => qaStorage.getActiveAccountOwner() === 'account:A');
 }
 async function settle(page) { await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); }); }
-async function scenario(name, kind, run) {
+async function scenario(name, kind, run, android = false) {
   const page = await browser.newPage(); page.setDefaultTimeout(5000);
   const errors = []; page.on('pageerror', error => errors.push(error.message)); page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
-  try { await setup(page, kind); await run(page); await settle(page); assert.deepEqual(errors, []); results.push({ name, pass: true }); }
+  try { await setup(page, kind, android); await run(page); await settle(page); assert.deepEqual(errors, []); results.push({ name, pass: true }); }
   catch (error) { results.push({ name, pass: false, error: String(error.stack || error), pageErrors: errors }); }
   finally { await page.close(); }
 }
@@ -165,6 +167,33 @@ async function requestPermission(page) {
       await settle(page); assert.equal(await page.evaluate(() => qaStore.getState().settings.browserNotifications), outcome === 'granted');
       if (outcome !== 'granted') await page.getByText(outcome === 'denied' ? 'Notifications are off' : 'Notifications unavailable', { exact: true }).waitFor();
     });
+    for (const android of [false, true]) await scenario('audio-processing-capability-' + (android ? 'android' : 'browser'), 'settings', async page => {
+      await settle(page);
+      await page.setViewportSize({ width: android ? 390 : 1280, height: 844 });
+      const manifest = JSON.parse(fs.readFileSync(path.join(root, '.next/app-build-manifest.json'), 'utf8'));
+      const css = (manifest.pages['/layout'] || []).filter(name => name.endsWith('.css')).map(name => fs.readFileSync(path.join(root, '.next', name), 'utf8')).join('\n');
+      await page.addStyleTag({ content: css });
+      const mono = page.getByRole('checkbox', { name: /^Mono audio/ });
+      const preset = page.getByRole('combobox', { name: 'Preset', exact: true });
+      assert.equal(await mono.isDisabled(), android);
+      assert.equal(await preset.isDisabled(), android);
+      assert.equal(await page.getByRole('button', { name: 'Reset to flat' }).isDisabled(), android);
+      const faders = page.locator('input.eq-fader');
+      assert.equal(await faders.count(), 6);
+      for (const fader of await faders.all()) assert.equal(await fader.isDisabled(), android);
+      assert.equal(await page.getByRole('combobox', { name: 'Playback level', exact: true }).isDisabled(), false);
+      await page.getByRole('heading', { name: 'Playback sound', exact: true }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(output, android ? 'android-audio-settings.png' : 'browser-audio-settings.png') });
+      await page.locator('section').filter({ has: page.getByRole('heading', { name: 'Equalizer', exact: true }) }).screenshot({ path: path.join(output, android ? 'android-eq-settings.png' : 'browser-eq-settings.png') });
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Settings must not overflow the viewport');
+      if (android) {
+        await page.getByText('Equalizer processing is not available in the Android player yet.', { exact: false }).waitFor();
+        await page.evaluate(() => qaSetPreference('monoAudio', true));
+        await settle(page);
+        assert.equal(await mono.isChecked(), true, 'Stored preference remains available to other supported players');
+        assert.equal(await mono.isDisabled(), true);
+      }
+    }, android);
   } finally { await browser.close(); }
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ scope: 'Actual components/settings reducer/AccountPrivacyBoundary; fixture HTTP/session/OS notification API. No real alert or external write.', results }, null, 2));
   for (const result of results) console.log((result.pass ? 'PASS ' : 'FAIL ') + result.name + (result.error ? ': ' + result.error.split('\n')[0] : ''));
