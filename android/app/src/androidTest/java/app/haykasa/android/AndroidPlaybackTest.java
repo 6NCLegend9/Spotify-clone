@@ -322,6 +322,111 @@ public class AndroidPlaybackTest {
             shell("input keyevent KEYCODE_BACK"); waitJs(web, "location.pathname === '/'");
         }
     }
+    private static android.webkit.WebResourceRequest navigationRequest(String url, boolean mainFrame) {
+        return new android.webkit.WebResourceRequest() {
+            @Override public android.net.Uri getUrl() { return android.net.Uri.parse(url); }
+            @Override public boolean isForMainFrame() { return mainFrame; }
+            @Override public boolean isRedirect() { return false; }
+            @Override public boolean hasGesture() { return true; }
+            @Override public String getMethod() { return "GET"; }
+            @Override public java.util.Map<String, String> getRequestHeaders() { return java.util.Collections.emptyMap(); }
+        };
+    }
+    @SuppressWarnings("deprecation")
+    @Test public void bothNavigationCallbacksEnforceTheTrustedWebsiteBoundary() throws Exception {
+        AtomicReference<Intent> external = new AtomicReference<>();
+        android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        android.app.Instrumentation.ActivityMonitor monitor = new android.app.Instrumentation.ActivityMonitor() {
+            @Override public android.app.Instrumentation.ActivityResult onStartActivity(Intent intent) {
+                if (!Intent.ACTION_VIEW.equals(intent.getAction())) return null;
+                external.set(new Intent(intent));
+                return new android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED, null);
+            }
+        };
+        instrumentation.addMonitor(monitor);
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(activity); web.stopLoading();
+                    android.webkit.WebViewClient client = web.getWebViewClient();
+                    // API 23 invokes the String overload, even on a current WebView.
+                    assertFalse(client.shouldOverrideUrlLoading(web, MediaPolicy.ORIGIN + "/search"));
+                    assertTrue(client.shouldOverrideUrlLoading(web, "https://example.invalid/android-navigation"));
+                    assertEquals("https://example.invalid/android-navigation", external.get().getDataString());
+                    assertTrue(external.get().hasCategory(Intent.CATEGORY_BROWSABLE));
+                    external.set(null);
+                    for (String url : new String[]{"intent://blocked", "content://blocked/file", "file:///blocked", "javascript:alert(1)"}) {
+                        assertTrue("API 23 must reject unsupported navigation: " + url, client.shouldOverrideUrlLoading(web, url));
+                    }
+                    assertNull("Unsupported schemes must not launch another app", external.get());
+                    assertFalse(client.shouldOverrideUrlLoading(web, navigationRequest(MediaPolicy.ORIGIN + "/search", true)));
+                    assertFalse("Modern subframes stay within WebView handling", client.shouldOverrideUrlLoading(web,
+                        navigationRequest("https://example.invalid/subframe", false)));
+                    assertNull(external.get());
+                    assertTrue(client.shouldOverrideUrlLoading(web, navigationRequest("http://example.invalid/android-navigation", true)));
+                    assertEquals("http://example.invalid/android-navigation", external.get().getDataString());
+                    external.set(null);
+                    assertTrue(client.shouldOverrideUrlLoading(web, navigationRequest("content://blocked/file", true)));
+                    WebView retired = new WebView(activity);
+                    try {
+                        assertTrue(client.shouldOverrideUrlLoading(retired, MediaPolicy.ORIGIN + "/search"));
+                        assertTrue(client.shouldOverrideUrlLoading(retired, navigationRequest(MediaPolicy.ORIGIN, false)));
+                        assertTrue(client.shouldOverrideUrlLoading(retired, "https://example.invalid/retired"));
+                    } finally { retired.destroy(); }
+                    assertNull("A retired WebView cannot launch external navigation", external.get());
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+            });
+        } finally { instrumentation.removeMonitor(monitor); }
+    }
+    @Test public void backFromNativeConnectionErrorShowsThePreviousWebsitePage() throws Exception {
+        AtomicReference<WebView> ref = new AtomicReference<>();
+        String first = MediaPolicy.ORIGIN + "/native-navigation-qa/first";
+        String second = MediaPolicy.ORIGIN + "/native-navigation-qa/second";
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(activity); ref.set(web); web.stopLoading();
+                    android.webkit.WebViewClient client = web.getWebViewClient();
+                    web.setWebViewClient(new android.webkit.WebViewClient() {
+                        @Override public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, android.webkit.WebResourceRequest request) {
+                            String page = "<!doctype html><title>Native navigation fixture</title><p>" + request.getUrl().getPath() + "</p>";
+                            return new android.webkit.WebResourceResponse("text/html", "UTF-8",
+                                new java.io.ByteArrayInputStream(page.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                        }
+                        @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) { client.onPageStarted(view, url, icon); }
+                        @Override public void onPageFinished(WebView view, String url) { client.onPageFinished(view, url); }
+                    });
+                    web.loadUrl(first);
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+            });
+            WebView web = ref.get();
+            waitJs(web, "location.pathname === '/native-navigation-qa/first' && document.readyState === 'complete'");
+            main(() -> web.loadUrl(second));
+            waitJs(web, "location.pathname === '/native-navigation-qa/second' && document.readyState === 'complete'");
+            scenario.onActivity(activity -> {
+                assertTrue("The retained page has actual WebView history", web.canGoBack());
+                // Show the actual connection-error UI without a network request.
+                // WebResourceError has no public constructor for a callback fixture.
+                try {
+                    java.lang.reflect.Method showError = MainActivity.class.getDeclaredMethod("showError", int.class);
+                    showError.setAccessible(true);
+                    showError.invoke(activity, R.string.error_connection);
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+                assertTrue(activity.findViewById(android.R.id.button1).isShown());
+                assertNull("Native error hides the retained WebView", web.getParent());
+                activity.onBackPressed();
+            });
+            waitJs(web, "location.pathname === '/native-navigation-qa/first' && document.readyState === 'complete'");
+            scenario.onActivity(activity -> {
+                assertNotNull("Back reattaches the previous page instead of navigating invisibly", web.getParent());
+                assertTrue("The previous page is visible after Back", web.isShown());
+                assertNull("Back removes the obsolete native error action", activity.findViewById(android.R.id.button1));
+            });
+            screenshot("android-native-error-back-recovered");
+        }
+    }
     @Test public void serviceRegistersItsSession() throws Exception {
         PlaybackService service = bind(); AtomicReference<Integer> count = new AtomicReference<>();
         main(() -> count.set(service.getSessions().size()));

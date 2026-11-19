@@ -175,14 +175,11 @@ public final class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 if (view != web) return true;
                 if (!request.isForMainFrame()) return false;
-                String url = request.getUrl().toString();
-                if (MediaPolicy.isWebsite(url)) return false;
-                String scheme = request.getUrl().getScheme();
-                if ("https".equals(scheme) || "http".equals(scheme)) {
-                    try { startActivity(new Intent(Intent.ACTION_VIEW, request.getUrl()).addCategory(Intent.CATEGORY_BROWSABLE)); }
-                    catch (Exception ignored) { showError(R.string.error_no_browser); }
-                }
-                return true;
+                return handleNavigation(view, request.getUrl().toString());
+            }
+            @SuppressWarnings("deprecation")
+            @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleNavigation(view, url);
             }
             @Override public void onPageFinished(WebView view, String url) {
                 if (view == web && returningHome && MediaPolicy.isWebsite(url) && "/".equals(Uri.parse(url).getPath())) {
@@ -236,6 +233,16 @@ public final class MainActivity extends Activity {
                 });
         }
     }
+    private boolean handleNavigation(WebView view, String url) {
+        if (view != web) return true;
+        if (MediaPolicy.isWebsite(url)) return false;
+        Uri target = Uri.parse(url);
+        if ("https".equals(target.getScheme()) || "http".equals(target.getScheme())) {
+            try { startActivity(new Intent(Intent.ACTION_VIEW, target).addCategory(Intent.CATEGORY_BROWSABLE)); }
+            catch (Exception ignored) { showError(R.string.error_no_browser); }
+        }
+        return true;
+    }
     private void discardWebView() {
         retireMediaAttachment();
         WebView previous = web;
@@ -281,6 +288,9 @@ public final class MainActivity extends Activity {
     private void goBackOrFinish() {
         if (playerUpdateRequired) { moveTaskToBack(true); return; }
         if (web == null) { finish(); return; }
+        // A recoverable native error hides this live WebView. Back must make
+        // the retained page visible before navigating or backgrounding it.
+        if (web.getParent() == null) showContent(web);
         if (Build.VERSION.SDK_INT >= 30) {
             WindowInsets insets = web.getRootWindowInsets();
             if (insets != null && insets.isVisible(WindowInsets.Type.ime())) {

@@ -368,6 +368,41 @@ public class OrderedBridgeTest {
         }
     }
 
+    @Test public void taskRemovalReleasesEndedSourceWithRetainedPlayIntent() throws Exception {
+        verifyTerminalTaskRemoval(true);
+    }
+
+    @Test public void taskRemovalReleasesIdleSourceWithRetainedPlayIntent() throws Exception {
+        verifyTerminalTaskRemoval(false);
+    }
+
+    private void verifyTerminalTaskRemoval(boolean ended) throws Exception {
+        try (ActivityScenario<MainActivity> activity = ActivityScenario.launch(MainActivity.class)) {
+            bootstrap(); load(); transport("play", 1);
+            waitFor(() -> hasResult(1, "completed"));
+            ExoPlayer player = raw();
+            main(() -> {
+                if (ended) {
+                    assertTrue("Local tone must expose its real duration", player.getDuration() > 0);
+                    player.seekTo(player.getDuration());
+                } else player.stop();
+            });
+            AtomicReference<Boolean> terminal = new AtomicReference<>();
+            waitFor(() -> {
+                main(() -> terminal.set(player.getPlaybackState() == (ended
+                    ? androidx.media3.common.Player.STATE_ENDED : androidx.media3.common.Player.STATE_IDLE)));
+                return terminal.get();
+            });
+            main(() -> {
+                assertTrue("Terminal output does not clear retained Play intent", player.getPlayWhenReady());
+                service.onTaskRemoved(new Intent());
+                assertFalse("Task removal must release a terminal source", service.hasPlayer(id));
+            });
+            assertNull(raw());
+            assertFalse("Task removal must also retire the terminal binding", bridge().contains(id));
+        }
+    }
+
     @Test public void transientAudioFocusLossResumesNativePlayback() throws Exception {
         verifyTransientAudioFocus(false);
     }
@@ -401,6 +436,10 @@ public class OrderedBridgeTest {
             // Losing focus is a temporary policy observation, not an explicit user Pause.
             send(request("transportReadState"));
             assertTrue(snapshot().getJSONObject("intent").getBoolean("playWhenReady"));
+            if (!pauseDuringInterruption) {
+                main(() -> service.onTaskRemoved(new Intent()));
+                assertSame("Task removal must retain temporary focus-suppressed playback", player, raw());
+            }
             if (pauseDuringInterruption) {
                 transport("pause", 2);
                 waitFor(() -> hasResult(2, "completed"));

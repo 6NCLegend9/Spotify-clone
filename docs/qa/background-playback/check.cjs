@@ -237,6 +237,29 @@ function recoveryCase() {
     const {supportedMediaProfile} = load('src/components/MusicPlayer/media/mediaCapabilities.mjs',{}, {document:{createElement:()=>({canPlayType:type=>types.some(prefix=>type.startsWith(prefix))?'probably':''})}});
     assert.equal(supportedMediaProfile('audio'),expected);
   }
+  // Android reports unknown decoder duration as zero. The resolver's known
+  // duration must still bound initial resume and later seeks.
+  for (const [nativeDuration, assetDuration, expected] of [[0,180,180],[NaN,180,180],[90,180,90],[0,0,0],[0,Infinity,0]]) {
+    const durationCase=await deckCase({metadata:false,resolveAsset:async request=>({receipt:'duration',asset:{url:`https://example.invalid/${request.videoId}`,duration:assetDuration,expiresAt:Date.now()+300000}})});
+    durationCase.media.duration=nativeDuration;
+    durationCase.deck.seekTo(12);
+    durationCase.listeners.get('loadedmetadata')();
+    assert.equal(durationCase.deck.getDuration(),expected,'A positive decoder duration wins; otherwise use a finite positive resolver duration');
+    assert.equal(durationCase.media.currentTime,Math.min(12,Math.max(0,expected-.1)),'Unknown decoder duration must not erase a valid resume position');
+    durationCase.deck.seekTo(200);
+    assert.equal(durationCase.media.currentTime,Math.max(0,expected-.1),'Seeking remains bounded by known duration, or zero when all duration is unknown');
+    durationCase.deck.destroy();
+  }
+  const durationReload=await deckCase({metadata:false});
+  durationReload.media.duration=0;
+  durationReload.listeners.get('loadedmetadata')();
+  durationReload.deck.loadVideoById({videoId:'lmnopqrstuv',startSeconds:24});
+  await tick();
+  durationReload.listeners.get('loadedmetadata')();
+  assert.equal(durationReload.deck.getDuration(),180);
+  assert.equal(durationReload.media.currentTime,24,'Source reload preserves its requested resume when native duration remains unknown');
+  assert.equal(durationReload.media.paused,false);
+  durationReload.deck.destroy();
   const success=await deckCase();success.deck.playVideo();await tick();assert.equal(success.media.paused,false);success.deck.pauseVideo();assert.equal(success.media.paused,true);success.deck.destroy();
   const denied=Object.assign(new Error('gesture required'),{name:'NotAllowedError'});
   for(const options of [{play:()=>{throw denied}}, {play:()=>Promise.reject(denied)}, {graph:true,resumeContext:()=>{throw denied}}, {graph:true,resumeContext:()=>Promise.reject(denied),play:()=>{throw denied}}]) {

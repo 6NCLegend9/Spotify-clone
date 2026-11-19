@@ -237,8 +237,13 @@ public final class PlaybackService extends MediaSessionService {
         for (String id : players.keySet().toArray(new String[0])) releasePlayer(id);
     }
     @Override public void onTaskRemoved(Intent rootIntent) {
-        diagnostic("task-removed play=" + session.getPlayer().getPlayWhenReady());
-        if (!session.getPlayer().getPlayWhenReady()) { releaseAll(); stopSelf(); }
+        Player current = session.getPlayer();
+        diagnostic("task-removed play=" + current.getPlayWhenReady());
+        int state = current.getPlaybackState();
+        // A terminal source can retain Play intent; buffering and temporary focus loss can recover.
+        if (!current.getPlayWhenReady() || state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
+            releaseAll(); stopSelf();
+        }
     }
     @Override public void onDestroy() {
         diagnostic("service-destroy");

@@ -105,7 +105,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     ready = true;
     const restored = media.nativeTransportRestored;
     if (restored) intent = media.nativePlayIntent;
-    const duration = Number.isFinite(media.duration) ? media.duration : asset?.duration || 0;
+    const duration = deck.getDuration();
     if (!restored) media.currentTime = Math.max(0, Math.min(position, Math.max(0, duration - .1)));
     if (!announcedReady) { announcedReady = true; emit("onReady"); }
     if (restored) setState(media.nativeObservedPlaying ? STATES.PLAYING : intent ? STATES.BUFFERING : STATES.PAUSED);
@@ -164,7 +164,10 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     mute() { media.muted = true; },
     unMute() { media.muted = false; },
     getCurrentTime: () => ready ? media.currentTime : position,
-    getDuration: () => ready && Number.isFinite(media.duration) ? media.duration : asset?.duration || 0,
+    getDuration() {
+      if (ready && Number.isFinite(media.duration) && media.duration > 0) return media.duration;
+      return Number.isFinite(asset?.duration) && asset.duration > 0 ? asset.duration : 0;
+    },
     getPlayerState: () => state,
     getVideoData: () => ({ video_id: id, title }),
     getIframe: () => media,
