@@ -73,3 +73,18 @@ dependencies {
     // Supply their types to the instrumentation APK only, never the release APK.
     androidTestImplementation('androidx.activity:activity:1.11.0') { transitive = false }
 }
+
+tasks.register('prepareEmulatorDependencies') {
+    dependsOn 'assembleDebugAndroidTest'
+    doLast {
+        // AGP 8.13.2 resolves these host-only runner jars separately from APK builds.
+        def runners = configurations.findAll {
+            it.canBeResolved && it.name.startsWith('_internal-unified-test-platform-')
+        }
+        if (runners.isEmpty()) throw new GradleException('Android test-runner configurations are missing; review the AGP cache preparation task.')
+        runners.each { configuration ->
+            if (configuration.files.isEmpty()) throw new GradleException("Android test-runner configuration has no artifacts: ${configuration.name}")
+        }
+        logger.lifecycle("Prepared ${runners.size()} Android test-runner dependency configurations.")
+    }
+}
