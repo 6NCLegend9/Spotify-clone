@@ -91,6 +91,7 @@ jobs:
       - name: Check web audio bridge
         run: |
           node docs/qa/android/emulator-crash-metadata-check.mjs
+          node docs/qa/android/emulator-exit-observer-check.mjs
           node docs/qa/android/cleanup-check.mjs
           node docs/qa/android/check.mjs
           node docs/qa/android/ordered-check.mjs
@@ -179,6 +180,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          pre-emulator-launch-script: node "$GITHUB_WORKSPACE/docs/qa/android/emulator-exit-observer.mjs" install
           script: bash docs/qa/android/run-emulator.sh
       - name: Capture emulator host resource evidence
         if: always()
@@ -194,6 +196,7 @@ jobs:
               echo 'No matching kernel OOM events captured, or kernel log access unavailable.'
           } > artifacts/android-emulator/host-resource-diagnostics.txt 2>&1
           node docs/qa/android/emulator-crash-metadata.mjs > artifacts/android-emulator/emulator-crash-metadata.json
+          node docs/qa/android/emulator-exit-observer.mjs export > artifacts/android-emulator/emulator-exit.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
