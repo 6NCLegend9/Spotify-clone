@@ -146,6 +146,76 @@ public class OrderedBridgeTest {
         return ((Map<String, ExoPlayer>)players.get(service)).get(id);
     }
 
+    @SuppressWarnings("unchecked") private NativeAudioProcessor processor() throws Exception {
+        Field field = PlaybackService.class.getDeclaredField("processors"); field.setAccessible(true);
+        return ((Map<String, NativeAudioProcessor>)field.get(service)).get(id);
+    }
+    private JSONObject processing(boolean bypass) throws Exception {
+        return request("configureAudio").put("bypass", bypass).put("mono", true)
+            .put("bands", new JSONArray().put(0).put(0).put(6).put(0).put(0).put(0));
+    }
+    private void processingError(JSONObject command, String reason, Object sender) throws Exception {
+        send(command, sender);
+        JSONObject error = last("transportControlError");
+        assertEquals(reason, error.getString("reason"));
+        JSONObject correlation = error.getJSONObject("correlation");
+        assertEquals("configureAudio", correlation.getString("action"));
+        assertEquals(command.getString("requestId"), correlation.getString("requestId"));
+        assertEquals(command.getJSONObject("transport").getString("bindingId"),
+            correlation.getJSONObject("attemptedScope").getString("bindingId"));
+    }
+    @Test public void scopedAudioProcessingConsumesDecodedPcmAndRejectsRetiredAuthority() throws Exception {
+        bootstrap();
+        assertEquals("pcm-eq-v1", last("transportCapabilities").getString("audioProcessing"));
+        processingError(processing(false), "UNAVAILABLE", attachment);
+        load();
+        for (Object value : new Object[]{"6", 12.1, JSONObject.NULL}) {
+            processingError(processing(false).put("bands", new JSONArray().put(0).put(0).put(value).put(0).put(0).put(0)),
+                "INVALID_VALUE", attachment);
+        }
+        processingError(processing(false).put("mono", "true"), "INVALID_VALUE", attachment);
+        send(processing(false));
+        assertEquals("configureAudio", last("transportControlAck").getString("action"));
+        assertEquals("completed", last("transportControlAck").getString("phase"));
+        NativeAudioProcessor dsp = processor();
+        transport("play", 1);
+        waitFor(() -> dsp.stats().frames() > 4800 && dsp.stats().processingActive());
+        NativeAudioProcessor.Stats measured = dsp.stats();
+        assertEquals(48000, measured.sampleRate()); assertEquals(2, measured.channelCount());
+        assertFalse(measured.original());
+        assertTrue(measured.inputSamplePeak() > 0); assertTrue(measured.outputSamplePeak() > 0);
+        assertTrue(measured.headroomGain() < 1);
+        ExoPlayer current = raw();
+        AtomicReference<android.media.session.MediaController> platform = new AtomicReference<>();
+        main(() -> platform.set(new android.media.session.MediaController(context,
+            service.getSessions().get(0).getPlatformToken())));
+        platform.get().getTransportControls().stop();
+        AtomicReference<Boolean> stopped = new AtomicReference<>(false);
+        waitFor(() -> {
+            main(() -> stopped.set(current.getPlaybackState() == androidx.media3.common.Player.STATE_IDLE
+                && !current.getPlayWhenReady()));
+            return stopped.get();
+        });
+        transport("play", 2);
+        waitFor(() -> hasResult(2, "completed") && dsp.stats().frames() > 4800 && dsp.stats().processingActive());
+        assertSame(current, raw()); assertSame(dsp, processor());
+        assertFalse(dsp.stats().original()); assertTrue(dsp.stats().headroomGain() < 1);
+        JSONObject retired = processing(true);
+        String oldBinding = bindingId;
+        send(hello());
+        JSONObject caps = last("transportCapabilities"); bindingId = caps.getString("issuedBindingId");
+        send(proposedBind(caps, bindingId, oldBinding));
+        processingError(retired, "INVALID_SCOPE", attachment);
+        processingError(processing(true), "INVALID_SCOPE", new Object());
+        long before = dsp.stats().frames();
+        waitFor(() -> dsp.stats().frames() > before);
+        assertTrue(dsp.stats().processingActive()); assertFalse(dsp.stats().original());
+        send(processing(true));
+        waitFor(() -> dsp.stats().original() && !dsp.stats().processingActive());
+        send(request("release"));
+        assertNull(processor());
+    }
+
     @Test public void noOpPauseAndHistoricalLookupHaveExplicitNativeResults() throws Exception {
         bootstrap(); load(); transport("pause", 1);
         assertTrue(hasResult(1, "accepted")); assertTrue(hasResult(1, "completed"));

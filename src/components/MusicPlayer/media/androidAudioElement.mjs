@@ -1,15 +1,28 @@
 // Android keeps decoded source audio in Media3, outside the WebView lifecycle.
 // The existing authenticated resolver still supplies the signed source URL.
 import { createOrderedAndroidTransport, nativeTransportError } from "./orderedAndroidTransport.mjs";
+import { ACCOUNT_DATA_CLEARED } from "../../../utils/accountStorage.mjs";
 const listeners = new Map();
 let installedBridge;
+const processingSupport = new Map(), processingSubscribers = new Set();
+export const getAndroidAudioProcessingSupport = () => [...processingSupport.values()].some(Boolean);
+export function subscribeAndroidAudioProcessingSupport(callback) {
+  processingSubscribers.add(callback);
+  return () => processingSubscribers.delete(callback);
+}
+function setProcessingSupport(id, supported) {
+  const previous = getAndroidAudioProcessingSupport();
+  if (supported) processingSupport.set(id, true); else processingSupport.delete(id);
+  if (previous !== getAndroidAudioProcessingSupport()) for (const callback of processingSubscribers) callback();
+}
 export function hasAndroidAudioBridge() {
   return globalThis.location?.origin === "https://haykasa.vercel.app"
     && typeof globalThis.window?.HayKasaAndroidMedia?.postMessage === "function";
 }
 export function createAndroidAudioElement(title = "") {
   if (!hasAndroidAudioBridge()) return null;
-  const bridge = window.HayKasaAndroidMedia;
+  const attachmentWindow = window;
+  const bridge = attachmentWindow.HayKasaAndroidMedia;
   if (installedBridge !== bridge) {
     bridge.onmessage = (message) => {
       if (typeof message.data !== "string" || message.data.length > 12288) return;
@@ -27,7 +40,7 @@ export function createAndroidAudioElement(title = "") {
   let source = "", current = 0, duration = 0, muted = true, volume = 1, paused = true, ended = false, loaded = false, disposed = false;
   let pendingPlay;
   let legacyLoaded = false;
-  let transportVersion = null;
+  let transportVersion = null, audioProcessing = null, audioSettings;
   let ordered, transportError, observedPlaying = false, announcedPlaying = false, announcedPause = true, decoderError = false, lastIntent, lastWaiting = false;
   const post = (action, extra = {}) => {
     if (disposed) return;
@@ -47,6 +60,8 @@ export function createAndroidAudioElement(title = "") {
     finishPlay(new DOMException("Playback source changed", "AbortError"));
     if (ordered) { ordered.dispose(); ordered = null; } else if (legacyLoaded) post("release");
     listeners.delete(id);
+    setProcessingSupport(id, false);
+    audioProcessing = null;
     id = `audio_${crypto.randomUUID()}`;
     listeners.set(id, receive);
     loaded = false; ended = false; paused = true; current = 0; duration = 0;
@@ -85,9 +100,11 @@ export function createAndroidAudioElement(title = "") {
         post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) });
         return { play: () => media.play(), pause: () => media.pause() };
       },
-      onCapability: ({ version }) => {
+      onCapability: ({ version, audioProcessing: capability }) => {
         if (disposed || ordered !== own) return;
         transportVersion = version;
+        audioProcessing = capability || null;
+        setProcessingSupport(id, audioProcessing === "pcm-eq-v1");
         emit("transportcapability");
       },
       onFailure: error => {
@@ -135,7 +152,10 @@ export function createAndroidAudioElement(title = "") {
       },
     });
     ordered = own;
-    if (own) own.start(source, String(media.title || "HayKasa").slice(0, 300));
+    if (own) {
+      if (audioSettings) own.configureAudio(audioSettings);
+      own.start(source, String(media.title || "HayKasa").slice(0, 300));
+    }
     else {
       transportVersion = 0;
       emit("transportcapability");
@@ -146,12 +166,13 @@ export function createAndroidAudioElement(title = "") {
     isAndroidNativeMedia: { value: true },
     orderedTransport: { get: () => Boolean(ordered?.supported) },
     nativeTransportVersion: { get: () => transportVersion },
+    nativeAudioProcessing: { get: () => audioProcessing },
     nativePlayIntent: { get: () => ordered ? ordered.desired : !paused },
     nativeIntentOrigin: { get: () => ordered?.view().origin || "baseline" },
     nativeObservedPlaying: { get: () => observedPlaying },
     nativeTransportRestored: { get: () => Boolean(ordered?.restored) },
     nativeTransportError: { get: () => transportError },
-    src: { get: () => source, set: value => { const next = String(value || ""); if (!next) clearSource(); else { source = next; loaded = false; ended = false; } } },
+    src: { get: () => source, set: value => { if (disposed) return; const next = String(value || ""); if (!next) clearSource(); else { source = next; loaded = false; ended = false; } } },
     currentSrc: { get: () => source },
     duration: { get: () => duration },
     currentTime: { get: () => current, set: value => {
@@ -193,10 +214,31 @@ export function createAndroidAudioElement(title = "") {
     finishPlay(new DOMException("Playback paused", "AbortError")); paused = true;
     if (ordered) { lastIntent = false; announcedPlaying = false; ordered.pause(); } else if (legacyLoaded) post("pause");
   };
+  media.configureNativeAudio = settings => {
+    if (disposed) return false;
+    audioSettings = settings;
+    return ordered?.configureAudio(settings) ?? false;
+  };
   media.reconnectTransport = () => ordered ? ordered.recover() : Promise.reject(nativeTransportError("UNSUPPORTED"));
   const removeAttribute = media.removeAttribute.bind(media);
   media.removeAttribute = name => { if (String(name).toLowerCase() === "src") clearSource(); removeAttribute(name); };
   const remove = media.remove.bind(media);
-  media.remove = () => { finishPlay(new DOMException("Playback disposed", "AbortError")); if (ordered) ordered.dispose(); else if (legacyLoaded) post("release"); ordered = null; disposed = true; listeners.delete(id); remove(); };
+  const retire = () => {
+    if (disposed) return;
+    finishPlay(new DOMException("Playback disposed", "AbortError"));
+    try { if (ordered) ordered.dispose(); else if (legacyLoaded) post("release"); }
+    catch { /* A detached bridge must still retire local account ownership. */ }
+    ordered = null; disposed = true; legacyLoaded = false;
+    source = ""; current = duration = 0; paused = true; ended = loaded = observedPlaying = false;
+    audioSettings = undefined; audioProcessing = transportVersion = null;
+    listeners.delete(id); setProcessingSupport(id, false);
+    attachmentWindow.removeEventListener?.(ACCOUNT_DATA_CLEARED, retire);
+    emit("transportintent");
+    emit("pause");
+  };
+  // Clear native ownership synchronously with logout/account switching; React
+  // cleanup may run later, and a stale deck must never restart the old source.
+  attachmentWindow.addEventListener?.(ACCOUNT_DATA_CLEARED, retire);
+  media.remove = () => { retire(); remove(); };
   return media;
 }

@@ -92,6 +92,7 @@ class OrderedAndroidTransport {
     this.sequence = 0;
     this.volumeValue = 0;
     this.loaded = false;
+    this.audioProcessing = null;
   }
   get supported() { return this.cache.mode === "capable"; }
   get desired() {
@@ -159,7 +160,8 @@ class OrderedAndroidTransport {
     this.cache.mode = "legacy";
     this._clearControls();
     this.phase = "legacy";
-    this.onCapability?.({ version: 0, nativeBuildCode: null });
+    this.audioProcessing = null;
+    this.onCapability?.({ version: 0, nativeBuildCode: null, audioProcessing: null });
     const queued = this.queued;
     const api = this.onLegacy();
     if (queued?.playing) Promise.resolve(api.play()).then(queued.resolve, queued.reject);
@@ -182,7 +184,8 @@ class OrderedAndroidTransport {
         this._fail("PROTOCOL_ERROR", false, true); return;
       }
       this.version = this.cache.version = data.version;
-      this.onCapability?.({ version: data.version, nativeBuildCode: data.nativeBuildCode });
+      this.audioProcessing = data.version === 2 && data.audioProcessing === "pcm-eq-v1" ? "pcm-eq-v1" : null;
+      this.onCapability?.({ version: data.version, nativeBuildCode: data.nativeBuildCode, audioProcessing: this.audioProcessing });
       if (this.recovering) {
         const known = this.scope || (this.bindRequest && { engineId: this.bindRequest.engineId, bindingId: this.bindRequest.bindingId });
         if (!known || data.engineId !== known.engineId) { this._fail("ENGINE_MISMATCH", true); return; }
@@ -297,13 +300,14 @@ class OrderedAndroidTransport {
   }
   _ack(data) {
     const own = this.controls.get(data.requestId);
-    if (!own || !["load", "seek", "volume", "release"].includes(own.message.action)) return;
+    if (!own || !["load", "seek", "volume", "configureAudio", "release"].includes(own.message.action)) return;
     if (data.version !== this.version || data.action !== own.message.action || !sameScope(data.scope, own.message.transport)
       || data.phase !== (["load", "seek"].includes(data.action) ? "accepted" : "completed")) {
       this._fail("PROTOCOL_ERROR", false, true); return;
     }
     this._take(data.requestId);
     if (data.action === "load") { this.loaded = true; this._flush(); }
+    if (data.action === "configureAudio") this._flushAudio();
   }
   _controlError(data) {
     const c = data.correlation;
@@ -387,6 +391,7 @@ class OrderedAndroidTransport {
       this.volume(this.volumeValue);
       if (this.seekValue != null) { const value = this.seekValue; this.seekValue = null; this.seek(value); }
     }
+    this._flushAudio();
     if (this.queued) {
       const own = this.queued; this.queued = null;
       this._transport(own);
@@ -439,6 +444,22 @@ class OrderedAndroidTransport {
     this.volumeValue = value;
     if (this.phase === "active" && this.loadSent) this._request("volume", { value, transport: { version: this.version, ...this.scope } });
   }
+  configureAudio(settings) {
+    if (!object(settings) || !Array.isArray(settings.bands) || settings.bands.length !== 6
+      || settings.bands.some(value => !Number.isFinite(value) || Math.abs(value) > 12)
+      || typeof settings.mono !== "boolean" || typeof settings.bypass !== "boolean") return false;
+    this.audioSettings = { bands: [...settings.bands], mono: settings.mono, bypass: settings.bypass };
+    this._flushAudio();
+    return true;
+  }
+  _flushAudio() {
+    if (this.phase !== "active" || !this.loadSent || this.audioProcessing !== "pcm-eq-v1" || !this.audioSettings) return;
+    if ([...this.controls.values()].some(record => record.message.action === "configureAudio")) return;
+    const key = JSON.stringify(this.audioSettings);
+    if (this.sentAudioSettings === key) return;
+    this.sentAudioSettings = key; // Before post: native/test replies can be synchronous.
+    this._request("configureAudio", { ...this.audioSettings, transport: { version: this.version, ...this.scope } });
+  }
   seek(value) {
     if (!Number.isFinite(value) || value < 0) return;
     if (this.phase === "active" && this.loadSent) this._request("seek", { value, transport: { version: this.version, ...this.scope } });
@@ -454,6 +475,7 @@ class OrderedAndroidTransport {
     this.queued = fresh;
     this.recovery = deferred();
     const promise = this.recovery.promise;
+    this.sentAudioSettings = null;
     this.phase = "probing";
     this._hello(true);
     return promise;

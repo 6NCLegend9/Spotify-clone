@@ -2,7 +2,9 @@
 // Android instrumentation separately exercises the production producer and MediaController.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createAndroidAudioElement } from "../../../src/components/MusicPlayer/media/androidAudioElement.mjs";
+import { createAndroidAudioElement, getAndroidAudioProcessingSupport, subscribeAndroidAudioProcessingSupport } from "../../../src/components/MusicPlayer/media/androidAudioElement.mjs";
+
+import { clearLocalAccountCaches } from "../../../src/utils/accountStorage.mjs";
 
 const copy = value => JSON.parse(JSON.stringify(value));
 const E = "00000000-0000-4000-8000-000000000001";
@@ -31,7 +33,8 @@ const track = promise => {
 };
 
 class Native {
-  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false } = {}) {
+  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false, audioProcessing = null, audioSettings } = {}) {
+    this.audioProcessing = audioProcessing;
     this.version = version; this.malformedIssued = malformedIssued;
     this.legacy = legacy; this.sent = []; this.history = new Map(); this.seq = 0;
     this.malformedCapabilities = malformedCapabilities;
@@ -40,7 +43,7 @@ class Native {
     this.observed = { isPlaying: false, playWhenReady: false, state: "idle", suppressionReason: 0, policyReason: "none" };
     this.position = 0;
     this.bridge = { postMessage: raw => this.post(JSON.parse(raw)) };
-    globalThis.window = { HayKasaAndroidMedia: this.bridge };
+    globalThis.window = Object.assign(new EventTarget(), { HayKasaAndroidMedia: this.bridge });
     globalThis.location = { origin: "https://haykasa.vercel.app" };
     globalThis.document = { createElement: () => Object.assign(new EventTarget(), {
       style: {}, setAttribute() {}, removeAttribute() {}, remove() {},
@@ -49,6 +52,7 @@ class Native {
     this.events = [];
     for (const name of ["loadedmetadata", "playing", "pause", "waiting", "ended", "transportintent", "transporterror", "transportrecovered", "error"])
       this.audio.addEventListener(name, () => this.events.push(name));
+    if (audioSettings) this.audio.configureNativeAudio(audioSettings);
     this.audio.src = assetUrl; this.audio.load();
   }
   deliver(value) { this.bridge.onmessage({ data: JSON.stringify(value) }); }
@@ -63,7 +67,7 @@ class Native {
       this.issued = crypto.randomUUID();
       this.id = command.id;
       this.deliver({ id: this.id, event: "transportCapabilities", requestId: command.requestId,
-        version: this.version, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
+        version: this.version, audioProcessing: this.audioProcessing, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
         currentBindingId: existing ? this.binding || null : null, bindGrant: G, grantLifetimeMs: 5000,
         ...(this.version === 2 ? { issuedBindingId: this.malformedIssued ? null : this.issued } : {}) });
     } else if (command.action === "transportBind") {
@@ -76,7 +80,7 @@ class Native {
       this.observed = { isPlaying: false, playWhenReady: false, state: "ready", suppressionReason: 0, policyReason: "none" };
       if (command.transport) { this.ack(command); this.frame({ event: "ready" }); }
       else this.deliver({ id: this.id, event: "ready", duration: 200, position: 0 });
-    } else if (["volume", "seek"].includes(command.action) && command.transport) {
+    } else if (["volume", "seek", "configureAudio"].includes(command.action) && command.transport) {
       if (this.holdAck !== command.action) this.ack(command);
     } else if (command.action === "transportReadState") {
       if (!this.holdRead) this.readState(command);
@@ -141,6 +145,80 @@ async function check(name, run, options) {
 }
 
 try {
+  for (const options of [{ version: 2, audioProcessing: "pcm-eq-v1" }, { legacy: true }]) {
+    await check(`account clear retires ${options.legacy ? "legacy" : "ordered v2"} native ownership synchronously`, async n => {
+      if (options.legacy) tick(1000);
+      const old = n.last("load"), binding = n.scope();
+      const pending = track(n.audio.play());
+      clearLocalAccountCaches();
+      const release = n.last("release");
+      assert.equal(release.id, old.id);
+      if (!options.legacy) assert.deepEqual(release.transport, { version: 2, ...binding });
+      assert.equal(n.audio.currentSrc, ""); assert.equal(n.audio.paused, true);
+      assert.equal(n.audio.nativeObservedPlaying, false); assert.equal(getAndroidAudioProcessingSupport(), false);
+      await flush(); assert.equal(pending.state, "rejected"); assert.equal(pending.error.name, "AbortError");
+      const before = n.sent.length;
+      n.deliver({ id: old.id, event: "playing", position: 30, duration: 200, playing: true });
+      n.audio.src = assetUrl; n.audio.load(); await n.audio.play(); n.audio.pause();
+      n.audio.configureNativeAudio({ bands: [0,0,0,0,0,0], mono: false, bypass: false });
+      clearLocalAccountCaches(); n.audio.remove();
+      assert.equal(n.sent.length, before, "Stale React work and repeated clear/remove cannot restart or release again");
+      assert.equal(n.audio.currentSrc, ""); assert.equal(n.audio.currentTime, 0);
+    }, options);
+  }
+  await check("account clear releases actively observed native playback before React cleanup", async n => {
+    const playing = track(n.audio.play()); n.decide(n.last("play")); await flush();
+    assert.equal(playing.state, "resolved"); assert.equal(n.audio.nativeObservedPlaying, true);
+    const binding = n.scope();
+    clearLocalAccountCaches();
+    assert.deepEqual(n.last("release").transport, { version: 2, ...binding });
+    assert.equal(n.audio.nativeObservedPlaying, false); assert.equal(n.audio.currentSrc, "");
+  }, { version: 2 });
+  const processingSettings = { bands: [6, 2, 0, -1, 0, 3], mono: true, bypass: false };
+  await check("native processing config is scoped and sent before initial Play", async n => {
+    assert.equal(n.audio.nativeAudioProcessing, "pcm-eq-v1");
+    assert.equal(getAndroidAudioProcessingSupport(), true);
+    assert.deepEqual(n.last("configureAudio").bands, processingSettings.bands);
+    const play = track(n.audio.play());
+    assert(n.sent.indexOf(n.last("configureAudio")) < n.sent.indexOf(n.last("play")));
+    assert.deepEqual(n.last("configureAudio").transport, { version: 2, ...n.scope() });
+    n.decide(n.last("play")); await flush(); assert.equal(play.state, "resolved");
+  }, { version: 2, audioProcessing: "pcm-eq-v1", audioSettings: processingSettings });
+  assert.equal(getAndroidAudioProcessingSupport(), false, "Disposed sources retire processing support");
+  await check("old native processing remains unsupported with no configure command", async n => {
+    n.audio.configureNativeAudio(processingSettings);
+    assert.equal(n.audio.nativeAudioProcessing, null);
+    assert.equal(getAndroidAudioProcessingSupport(), false);
+    assert.equal(n.last("configureAudio"), undefined);
+  }, { version: 2 });
+  await check("processing changes coalesce and recover the latest configuration", async n => {
+    n.holdAck = "configureAudio";
+    n.audio.configureNativeAudio(processingSettings);
+    const first = n.last("configureAudio");
+    for (let i = 0; i < 100; i++) n.audio.configureNativeAudio({ ...processingSettings, bands: [i % 12, 0, 0, 0, 0, 0] });
+    assert.equal(n.sent.filter(x => x.action === "configureAudio").length, 1);
+    n.ack(first);
+    assert.equal(n.sent.filter(x => x.action === "configureAudio").length, 2);
+    assert.deepEqual(n.last("configureAudio").bands, [3, 0, 0, 0, 0, 0]);
+    n.holdAck = null; n.ack(n.last("configureAudio"));
+    const old = n.last("configureAudio");
+    await n.audio.reconnectTransport();
+    assert.notEqual(n.last("configureAudio").transport.bindingId, old.transport.bindingId);
+    assert.deepEqual(n.last("configureAudio").bands, [3, 0, 0, 0, 0, 0]);
+  }, { version: 2, audioProcessing: "pcm-eq-v1" });
+  await check("processing timeout cannot be mistaken for applied settings", async n => {
+    n.holdAck = "configureAudio";
+    n.audio.configureNativeAudio(processingSettings);
+    tick(2000);
+    assert.equal(n.audio.nativeTransportError.code, "TIMEOUT");
+  }, { version: 2, audioProcessing: "pcm-eq-v1" });
+  await check("invalid processing settings never cross the native boundary", async n => {
+    for (const bands of [[0], [NaN,0,0,0,0,0], [13,0,0,0,0,0]]) n.audio.configureNativeAudio({ ...processingSettings, bands });
+    assert.equal(n.last("configureAudio"), undefined);
+    let notifications = 0;
+    const unsubscribe = subscribeAndroidAudioProcessingSupport(() => notifications++);
+    n.audio.remove(); assert.equal(notifications, 1); unsubscribe();
+  }, { version: 2, audioProcessing: "pcm-eq-v1" });
   await check("v2 adopts the native-issued ID and tags every scoped command", async n => {
     assert.equal(n.audio.nativeTransportVersion, 2);
     assert.equal(n.last("transportBind").bindingId, n.issued);
@@ -398,6 +476,39 @@ try {
   deckSource = deckSource.replace('"./resolveMediaAsset.mjs"', JSON.stringify("data:text/javascript;base64," + Buffer.from(resolver).toString("base64")));
   deckSource = deckSource.replace('"./nativeAudioGraph.mjs"', '"data:text/javascript,export const createNativeAudioGraph=()=>null"');
   const { createNativeMediaDeck } = await import("data:text/javascript;base64," + Buffer.from(deckSource).toString("base64"));
+  await check("actual native deck applies EQ and mono while Original playback level stays unity", async n => {
+    n.audio.remove();
+    const capabilities = [];
+    const deck = createNativeMediaDeck({ host: { replaceChildren() {} }, videoId: "synthetic01", mode: "audio", autoplay: false,
+      audioSettings: { bands: processingSettings.bands, monoAudio: true, normalization: "normal" },
+      events: { onTransportCapability: e => capabilities.push(e.data) } });
+    await flush(); n.audio = deck.getIframe();
+    assert.equal(deck.nativeAudioProcessing, "pcm-eq-v1");
+    assert.equal(capabilities.at(-1).audioProcessing, "pcm-eq-v1");
+    assert.deepEqual(n.last("configureAudio").bands, processingSettings.bands);
+    assert.equal(n.last("configureAudio").mono, true);
+    assert.equal(n.last("configureAudio").bypass, false, "Original level must not bypass requested EQ");
+    deck.configureAudio({ bands: [0,0,0,0,0,0], monoAudio: false, normalization: "quiet" });
+    assert.deepEqual(n.last("configureAudio").bands, [0,0,0,0,0,0]);
+    assert.equal(n.last("configureAudio").mono, false);
+    deck.destroy(); assert.equal(getAndroidAudioProcessingSupport(), false);
+  }, { version: 2, audioProcessing: "pcm-eq-v1" });
+  await check("account clear immediately pauses the actual playing deck without React cleanup", async n => {
+    n.audio.remove();
+    const states = [], intents = [];
+    const deck = createNativeMediaDeck({ host: { replaceChildren() {} }, videoId: "synthetic01", mode: "audio", autoplay: false,
+      events: { onStateChange: e => states.push(e.data), onTransportIntent: e => intents.push(e.data.playing) } });
+    await flush(); n.audio = deck.getIframe();
+    deck.playVideo(); const old = n.decide(n.last("play")); await flush();
+    assert.equal(deck.getPlayerState(), 1); assert.equal(deck.nativeObservedPlaying, true);
+    clearLocalAccountCaches();
+    assert.equal(deck.getPlayerState(), 2); assert.equal(states.at(-1), 2);
+    assert.equal(deck.nativePlayIntent, false); assert.equal(deck.nativeObservedPlaying, false); assert.equal(intents.at(-1), false);
+    const before = n.sent.length;
+    n.deliver(old); deck.playVideo(); await flush();
+    assert.equal(deck.getPlayerState(), 2); assert.equal(n.sent.length, before);
+    deck.destroy(); assert.equal(n.sent.length, before);
+  }, { version: 2, audioProcessing: "pcm-eq-v1" });
   await check("qualified deck ignores stale output and preserves notification Play", async n => {
     n.audio.remove();
     const intents = [], states = [], errors = [], fallbacks = [];

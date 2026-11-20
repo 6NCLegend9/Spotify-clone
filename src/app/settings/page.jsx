@@ -17,7 +17,7 @@ import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
 import AccessibleDialog from "@/components/AccessibleDialog";
-import { hasAndroidAudioBridge } from "@/components/MusicPlayer/media/androidAudioElement.mjs";
+import { hasAndroidAudioBridge, getAndroidAudioProcessingSupport, subscribeAndroidAudioProcessingSupport } from "@/components/MusicPlayer/media/androidAudioElement.mjs";
 import useAccountScope from "@/hooks/useAccountScope";
 import { browserNotificationPermission, browserNotificationsEnabled, requestBrowserNotificationPermission } from "@/utils/browserNotifications.mjs";
 
@@ -137,7 +137,13 @@ function AccountSettings({ scope }) {
   const store = useStore();
   const settings = useSelector((state) => state.settings);
   const [androidAudio, setAndroidAudio] = useState(false);
-  useEffect(() => { setAndroidAudio(hasAndroidAudioBridge()); }, []);
+  const [androidProcessing, setAndroidProcessing] = useState(false);
+  useEffect(() => {
+    setAndroidAudio(hasAndroidAudioBridge());
+    setAndroidProcessing(getAndroidAudioProcessingSupport());
+    return subscribeAndroidAudioProcessingSupport(() => setAndroidProcessing(getAndroidAudioProcessingSupport()));
+  }, []);
+  const audioProcessingUnavailable = androidAudio && !androidProcessing;
   const [saveState, setSaveState] = useState("idle");
   const [saveError, setSaveError] = useState(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -316,7 +322,7 @@ function AccountSettings({ scope }) {
         <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">
           <h2 className="mb-2 text-xl font-semibold">Playback sound</h2>
           <SelectControl label="Playback level" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
-          <Toggle label="Mono audio" disabled={androidAudio} description={androidAudio ? "Mono processing is not available in the Android player yet. Your saved preference is kept for supported players." : "Applies on supported HayKasa Web Audio paths. Android and YouTube embedded audio are unchanged."} checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
+          <Toggle label="Mono audio" disabled={audioProcessingUnavailable} description={audioProcessingUnavailable ? "Start native audio playback in an updated Android app to check mono support. Your saved preference is kept." : "Combines audio channels on supported HayKasa native and Web Audio players. YouTube embedded audio is unchanged."} checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
           <p className="mt-4 text-xs leading-5 text-[#9aa8b5]">
             YouTube chooses stream quality automatically from the uploaded source, connection, device, and player conditions. HayKasa&apos;s Audio-focused and Data Saver options only change HayKasa presentation and visual work; they do not select a different YouTube stream.
           </p>
@@ -330,14 +336,14 @@ function AccountSettings({ scope }) {
             <button
               type="button"
               onClick={() => set("eqPreset", "Flat / Neutral")}
-              disabled={androidAudio}
+              disabled={audioProcessingUnavailable}
               className="min-h-11 rounded-full border border-white/15 px-4 text-sm font-semibold text-gray-200 transition hover:border-[#096192] hover:text-[#096192] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Reset to flat
             </button>
           </div>
-          <p className="mb-4 text-xs text-gray-400">{androidAudio ? "Equalizer processing is not available in the Android player yet. Your saved preset is kept for supported players." : "Presets and faders apply on supported HayKasa Web Audio paths. Android and YouTube embedded audio are unchanged."}</p>
-          <SelectControl label="Preset" disabled={androidAudio} value={settings.eqPreset} options={eqPresetOptions} onChange={(value) => set("eqPreset", value)} />
+          <p className="mb-4 text-xs text-gray-400">{audioProcessingUnavailable ? "Start native audio playback in an updated Android app to check equalizer support. Your saved preset is kept." : "Presets and faders apply on supported HayKasa native and Web Audio players. Processing reserves headroom for boosts and limits sample peaks. YouTube embedded audio is unchanged."}</p>
+          <SelectControl label="Preset" disabled={audioProcessingUnavailable} value={settings.eqPreset} options={eqPresetOptions} onChange={(value) => set("eqPreset", value)} />
           <div className="mt-5 overflow-x-auto pb-2" aria-label="Six-band equalizer">
             <div className="min-w-[660px] rounded-lg border border-white/10 bg-black/15 px-4 py-5">
               <div className="grid grid-cols-6 gap-3">
@@ -352,7 +358,7 @@ function AccountSettings({ scope }) {
                   return (
                     <label key={frequency} className="eq-band">
                       <span className="eq-fader-slot">
-                        <input disabled={androidAudio} type="range" min={-EQ_GAIN_LIMIT} max={EQ_GAIN_LIMIT} step="1" value={gain}
+                        <input disabled={audioProcessingUnavailable} type="range" min={-EQ_GAIN_LIMIT} max={EQ_GAIN_LIMIT} step="1" value={gain}
                           aria-label={`${formatBandFrequency(frequency)} gain`} aria-orientation="vertical"
                           aria-valuetext={`${gain > 0 ? "plus " : ""}${gain} decibels`}
                           onChange={(event) => setBand(index, Number(event.target.value))}

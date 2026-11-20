@@ -10,10 +10,18 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.AudioOffloadSupport;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.DefaultMediaNotificationProvider;
@@ -28,6 +36,7 @@ public final class PlaybackService extends MediaSessionService {
     public final class LocalBinder extends Binder { PlaybackService service() { return PlaybackService.this; } }
     private final LocalBinder binder = new LocalBinder();
     private final Map<String, ExoPlayer> players = new HashMap<>();
+    private final Map<String, NativeAudioProcessor> processors = new HashMap<>();
     private final Map<String, Sink> sinks = new HashMap<>();
     private final Map<String, SessionTransportPlayer> wrappers = new HashMap<>();
     private final Map<String, String> policyReasons = new HashMap<>();
@@ -100,7 +109,31 @@ public final class PlaybackService extends MediaSessionService {
         ExoPlayer player = players.get(id);
         if (player == null) {
             if (!reserveOrderedSlot(id)) throw new IllegalStateException("Media capacity reached");
-            player = new ExoPlayer.Builder(this).setMediaSourceFactory(sourceFactory).build();
+            NativeAudioProcessor processor = new NativeAudioProcessor();
+            DefaultRenderersFactory renderers = new DefaultRenderersFactory(this) {
+                @Override protected AudioSink buildAudioSink(android.content.Context context, boolean floatOutput, boolean playbackParams) {
+                    AudioSink sink = new DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(false)
+                        .setAudioProcessors(new AudioProcessor[]{processor})
+                        .setAudioOffloadSupportProvider((format, attributes) -> AudioOffloadSupport.DEFAULT_UNSUPPORTED)
+                        .build();
+                    // Compressed passthrough and offload skip PCM processors; always decode first.
+                    return new ForwardingAudioSink(sink) {
+                        @Override public int getFormatSupport(Format format) {
+                            return MimeTypes.AUDIO_RAW.equals(format.sampleMimeType)
+                                ? super.getFormatSupport(format) : SINK_FORMAT_UNSUPPORTED;
+                        }
+                        @Override public boolean supportsFormat(Format format) {
+                            return getFormatSupport(format) != SINK_FORMAT_UNSUPPORTED;
+                        }
+                        @Override public AudioOffloadSupport getFormatOffloadSupport(Format format) {
+                            return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
+                        }
+                    };
+                }
+            };
+            player = new ExoPlayer.Builder(this, renderers).setMediaSourceFactory(sourceFactory).build();
+            processors.put(id, processor);
             player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true);
             player.setHandleAudioBecomingNoisy(true);
             player.setWakeMode(C.WAKE_MODE_LOCAL);
@@ -190,6 +223,11 @@ public final class PlaybackService extends MediaSessionService {
     }
     void seekPlayer(String id, double seconds) { players.get(id).seekTo((long)(Math.max(0, Math.min(1801, seconds)) * 1000)); }
     void volumePlayer(String id, double volume) { players.get(id).setVolume((float)Math.max(0, Math.min(1, volume))); }
+    void configureAudio(String id, boolean bypass, double[] bands, boolean mono) {
+        NativeAudioProcessor processor = processors.get(id);
+        if (processor == null) throw new IllegalStateException("Media load missing");
+        processor.setProcessing(bypass, bands, mono);
+    }
     OrderedTransport.Observation observePlayer(String id) {
         ExoPlayer player = players.get(id);
         if (player == null) return OrderedTransport.Observation.idle();
@@ -218,6 +256,7 @@ public final class PlaybackService extends MediaSessionService {
     void releasePlayer(String id) {
         ordered.forget(id);
         sinks.remove(id); ExoPlayer p = players.remove(id);
+        processors.remove(id);
         policyReasons.remove(id);
         SessionTransportPlayer wrapper = wrappers.remove(id);
         if (id.equals(activeId)) {

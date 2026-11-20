@@ -18,6 +18,12 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   let id = videoId, state = STATES.UNSTARTED, intent = autoplay, position = startSeconds;
   let playAttempt = 0;
   let generation = 0, controller, receipt, asset, ready = false, destroyed = false, refreshed = false, renewTimer, graph, announcedReady = false;
+  const configureAndroidAudio = settings => media.configureNativeAudio?.({
+    bands: Array.from({ length: 6 }, (_, i) => Math.min(12, Math.max(-12, Number(settings?.bands?.[i]) || 0))),
+    mono: settings?.monoAudio === true,
+    bypass: false,
+  });
+  configureAndroidAudio(audioSettings);
   const emit = (name, data) => { if (!destroyed) events[name]?.({ target: deck, data }); };
   const setState = (next) => { state = next; emit("onStateChange", next); };
   const releaseSource = () => {
@@ -120,7 +126,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   });
   listen("transporterror", () => emit("onTransportError", media.nativeTransportError));
   listen("transportrecovered", () => emit("onTransportRecovered"));
-  listen("transportcapability", () => emit("onTransportCapability", { version: media.nativeTransportVersion }));
+  listen("transportcapability", () => emit("onTransportCapability", { version: media.nativeTransportVersion, audioProcessing: media.nativeAudioProcessing }));
   listen("playing", () => {
     if (media.isAndroidNativeMedia && !media.orderedTransport) intent = true;
     if (intent) setState(STATES.PLAYING);
@@ -142,6 +148,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     androidNative: Boolean(media.isAndroidNativeMedia),
     get orderedTransport() { return Boolean(media.orderedTransport); },
     get nativeTransportVersion() { return media.nativeTransportVersion; },
+    get nativeAudioProcessing() { return media.nativeAudioProcessing; },
     get nativePlayIntent() { return media.nativePlayIntent; },
     get nativeTransportRestored() { return Boolean(media.nativeTransportRestored); },
     get nativeObservedPlaying() { return media.nativeObservedPlaying; },
@@ -171,7 +178,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     getPlayerState: () => state,
     getVideoData: () => ({ video_id: id, title }),
     getIframe: () => media,
-    configureAudio(settings) { audioSettings = settings; graph?.configure(settings); },
+    configureAudio(settings) { audioSettings = settings; graph?.configure(settings); configureAndroidAudio(settings); },
     loadVideoById(value) {
       const nextId = typeof value === "string" ? value : value?.videoId;
       if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }

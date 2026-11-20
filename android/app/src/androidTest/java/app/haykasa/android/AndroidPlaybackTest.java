@@ -793,6 +793,50 @@ public class AndroidPlaybackTest {
             assertEquals("System Play cannot resume the retired source", "false", js(web, "qaDeck.getPlayerState() === 1"));
             js(web, "qaDeck.playVideo()");
             waitJs(web, "qaDeck.getVideoData().video_id === 'synthetic03' && qaDeck.getPlayerState() === 1");
+            AtomicReference<android.media.session.MediaController> retiredController = new AtomicReference<>();
+            AtomicReference<String> retiredId = new AtomicReference<>();
+            Field activeField = PlaybackService.class.getDeclaredField("activeId"); activeField.setAccessible(true);
+            Field playersField = PlaybackService.class.getDeclaredField("players"); playersField.setAccessible(true);
+            Field orderedField = PlaybackService.class.getDeclaredField("ordered"); orderedField.setAccessible(true);
+            main(() -> {
+                try {
+                    retiredId.set((String)activeField.get(service));
+                    retiredController.set(new android.media.session.MediaController(context,
+                        service.getSessions().get(0).getPlatformToken()));
+                } catch (IllegalAccessException error) { throw new AssertionError(error); }
+            });
+            assertNotNull("Account clear starts with a real native source", retiredId.get());
+            // This invokes the production account-storage module, whose actual
+            // event must synchronously retire the production adapter's source.
+            js(web, "qaClearAccount()");
+            waitJs(web, "qaDeck.getPlayerState() !== 1 && qaDeck.nativePlayIntent === false && qaDeck.nativeObservedPlaying === false");
+            AtomicReference<Boolean> accountReleased = new AtomicReference<>(false);
+            for (int attempt = 0; attempt < 50; attempt++) {
+                main(() -> {
+                    try {
+                        accountReleased.set(((java.util.Map<?, ?>)playersField.get(service)).isEmpty()
+                            && !((OrderedMediaBridge)orderedField.get(service)).contains(retiredId.get())
+                            && service.getSessions().get(0).getPlayer().getCurrentMediaItem() == null);
+                    } catch (IllegalAccessException error) { throw new AssertionError(error); }
+                });
+                if (accountReleased.get()) break;
+                Thread.sleep(100);
+            }
+            assertTrue("Account clear releases both native source and scoped binding", accountReleased.get());
+            retiredController.get().getTransportControls().play();
+            shell("cmd media_session dispatch play");
+            js(web, "qaDeck.playVideo();qaDeck.seekTo(1);qaDeck.setVolume(50)");
+            Thread.sleep(1000);
+            assertEquals("A stale deck cannot restart account-owned playback", "true",
+                js(web, "qaDeck.getPlayerState() !== 1 && qaDeck.nativePlayIntent === false && qaDeck.nativeObservedPlaying === false"));
+            main(() -> {
+                try {
+                    assertTrue("Stale platform and web controls cannot recreate the released native source",
+                        ((java.util.Map<?, ?>)playersField.get(service)).isEmpty());
+                    assertNull(service.getSessions().get(0).getPlayer().getCurrentMediaItem());
+                    assertFalse(service.getSessions().get(0).getPlayer().getPlayWhenReady());
+                } catch (IllegalAccessException error) { throw new AssertionError(error); }
+            });
             js(web, "qaDeck.destroy()");
         } finally {
             main(() -> { service.releaseAll(); android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(null); });

@@ -27,7 +27,7 @@ function include(file) {
   }
   return key;
 }
-const entries = Object.fromEntries(Object.entries({ bell: 'components/UpdatesBell.jsx', settings: 'app/settings/page.jsx', boundary: 'components/AccountPrivacyBoundary.jsx', reducer: 'redux/features/settingsSlice.js', storage: 'utils/accountStorage.mjs' }).map(([key, file]) => [key, include(path.join(root, 'src', file))]));
+const entries = Object.fromEntries(Object.entries({ bell: 'components/UpdatesBell.jsx', settings: 'app/settings/page.jsx', boundary: 'components/AccountPrivacyBoundary.jsx', reducer: 'redux/features/settingsSlice.js', storage: 'utils/accountStorage.mjs', androidAudio: 'components/MusicPlayer/media/androidAudioElement.mjs' }).map(([key, file]) => [key, include(path.join(root, 'src', file))]));
 const results = [];
 let browser;
 async function setup(page, kind, android = false) {
@@ -85,6 +85,36 @@ async function setup(page, kind, android = false) {
       return loadedModule.exports;
     }
     window.qaActions = require(entries.reducer);
+    window.qaStartNativeAudio = ({ supported = true, version = 2, malformed = false } = {}) => {
+      const bridge = window.HayKasaAndroidMedia;
+      const engineId = crypto.randomUUID(), issuedBindingId = crypto.randomUUID();
+      let sequence = 0, bindingId, ready = false;
+      const deliver = packet => bridge.onmessage({ data: JSON.stringify(packet) });
+      const state = (id, replyTo) => deliver({ id, event: ready ? 'ready' : 'transportState',
+        position: 0, duration: ready ? 10 : 0, playing: false, playWhenReady: false,
+        transport: { version, engineId, bindingId, eventSeq: ++sequence, ...(replyTo ? { replyTo } : {}),
+          snapshot: { processedWebRevision: 0, appliedWebRevision: 0,
+            intent: { revision: 0, playWhenReady: false, origin: 'baseline', webRevision: null },
+            observed: { isPlaying: false, playWhenReady: false, state: ready ? 'ready' : 'idle', suppressionReason: 0, policyReason: 'none' } } } });
+      bridge.postMessage = raw => {
+        const command = JSON.parse(raw);
+        if (command.action === 'transportHello') deliver({ id: command.id, event: 'transportCapabilities',
+          requestId: command.requestId, version, capability: `ordered-transport-v${version}`,
+          nativeBuildCode: malformed ? null : 6, engineId, currentBindingId: null, issuedBindingId,
+          bindGrant: crypto.randomUUID(), grantLifetimeMs: 5000,
+          ...(supported ? { audioProcessing: 'pcm-eq-v1' } : {}) });
+        else if (command.action === 'transportBind') { bindingId = command.bindingId; state(command.id, command.requestId); }
+        else if (['load', 'volume', 'configureAudio', 'release'].includes(command.action)) {
+          deliver({ id: command.id, event: 'transportControlAck', version, action: command.action,
+            requestId: command.requestId, scope: { engineId, bindingId }, phase: command.action === 'load' ? 'accepted' : 'completed' });
+          if (command.action === 'load') { ready = true; state(command.id); }
+        }
+      };
+      const audio = require(entries.androidAudio).createAndroidAudioElement('Synthetic settings capability');
+      audio.src = 'https://haykasa.vercel.app/v1/assets/00000000000000000000000000000000';
+      audio.load();
+      window.qaNativeAudio = audio;
+    };
     store = RTK.configureStore({ reducer: { settings: qaActions.default } }); window.qaStore = store;
     store.dispatch(qaActions.setSettingsOwner('account:A'));
     if (kind === 'bell') store.dispatch(qaActions.updateSetting({ key: 'browserNotifications', value: true }));
@@ -187,13 +217,37 @@ async function requestPermission(page) {
       await page.locator('section').filter({ has: page.getByRole('heading', { name: 'Equalizer', exact: true }) }).screenshot({ path: path.join(output, android ? 'android-eq-settings.png' : 'browser-eq-settings.png') });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Settings must not overflow the viewport');
       if (android) {
-        await page.getByText('Equalizer processing is not available in the Android player yet.', { exact: false }).waitFor();
+        await page.getByText('Start native audio playback in an updated Android app to check equalizer support.', { exact: false }).waitFor();
         await page.evaluate(() => qaSetPreference('monoAudio', true));
         await settle(page);
         assert.equal(await mono.isChecked(), true, 'Stored preference remains available to other supported players');
         assert.equal(await mono.isDisabled(), true);
       }
     }, android);
+    for (const [name, options, supported] of [
+      ['negotiated-v2', {}, true],
+      ['old-native', { supported: false }, false],
+      ['v1-cannot-advertise-v2-processing', { version: 1 }, false],
+      ['malformed-hello-cannot-enable-processing', { malformed: true }, false],
+    ]) await scenario('android-audio-settings-' + name, 'settings', async page => {
+      const mono = page.getByRole('checkbox', { name: /^Mono audio/ });
+      const preset = page.getByRole('combobox', { name: 'Preset', exact: true });
+      assert.equal(await mono.isDisabled(), true);
+      await page.evaluate(options => qaStartNativeAudio(options), options);
+      await settle(page);
+      assert.equal(await mono.isDisabled(), !supported);
+      assert.equal(await preset.isDisabled(), !supported);
+      for (const fader of await page.locator('input.eq-fader').all()) assert.equal(await fader.isDisabled(), !supported);
+      if (supported) {
+        await mono.check();
+        assert.equal(await page.evaluate(() => qaStore.getState().settings.monoAudio), true);
+      }
+      await page.evaluate(() => qaNativeAudio.removeAttribute('src'));
+      await settle(page);
+      assert.equal(await mono.isDisabled(), true, 'Retired source must stop advertising processing support');
+      assert.equal(await preset.isDisabled(), true);
+      if (supported) assert.equal(await mono.isChecked(), true, 'Retiring support preserves saved settings');
+    }, true);
   } finally { await browser.close(); }
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ scope: 'Actual components/settings reducer/AccountPrivacyBoundary; fixture HTTP/session/OS notification API. No real alert or external write.', results }, null, 2));
   for (const result of results) console.log((result.pass ? 'PASS ' : 'FAIL ') + result.name + (result.error ? ': ' + result.error.split('\n')[0] : ''));

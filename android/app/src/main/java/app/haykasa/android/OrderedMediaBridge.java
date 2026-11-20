@@ -56,7 +56,7 @@ final class OrderedMediaBridge {
             }
             JSONObject attempted = "transportBind".equals(action) ? msg : msg.optJSONObject("transport");
             boolean playback = "load".equals(action) || "play".equals(action) || "pause".equals(action)
-                || "seek".equals(action) || "volume".equals(action) || "release".equals(action);
+                || "seek".equals(action) || "volume".equals(action) || "configureAudio".equals(action) || "release".equals(action);
             if (playback && attempted == null || attempted != null && Long.valueOf(1).equals(number(attempted, "version", true))) {
                 error(msg, sink, "UNAVAILABLE", 1); return true;
             }
@@ -111,6 +111,7 @@ final class OrderedMediaBridge {
         grants.put(grant, new Grant(attachment, id, expected, issued, now + GRANT_MS));
         send(sink, new JSONObject().put("id", id).put("event", "transportCapabilities")
             .put("requestId", request).put("version", 2).put("capability", "ordered-transport-v2")
+            .put("audioProcessing", "pcm-eq-v1")
             .put("nativeBuildCode", host.nativeBuildCode()).put("engineId", engineId)
             .put("currentBindingId", expected == null ? JSONObject.NULL : expected)
             .put("issuedBindingId", issued).put("bindGrant", grant).put("grantLifetimeMs", GRANT_MS));
@@ -203,6 +204,26 @@ final class OrderedMediaBridge {
                 if ("seek".equals(action)) host.seekPlayer(load.id, ((Number)value).doubleValue());
                 else host.volumePlayer(load.id, ((Number)value).doubleValue());
                 ack(msg, sink, load.owner.bindingId, "seek".equals(action) ? "accepted" : "completed");
+                break;
+            }
+            case "configureAudio": {
+                JSONArray values = msg.optJSONArray("bands");
+                if (!(msg.opt("bypass") instanceof Boolean) || !(msg.opt("mono") instanceof Boolean)
+                    || values == null || values.length() != 6) {
+                    error(msg, sink, "INVALID_VALUE"); return;
+                }
+                double[] bands = new double[6];
+                for (int index = 0; index < bands.length; index++) {
+                    Object value = values.opt(index);
+                    if (!(value instanceof Number) || !Double.isFinite(((Number)value).doubleValue())
+                        || ((Number)value).doubleValue() < -12 || ((Number)value).doubleValue() > 12) {
+                        error(msg, sink, "INVALID_VALUE"); return;
+                    }
+                    bands[index] = ((Number)value).doubleValue();
+                }
+                if (!host.hasPlayer(load.id)) { error(msg, sink, "UNAVAILABLE"); return; }
+                host.configureAudio(load.id, msg.getBoolean("bypass"), bands, msg.getBoolean("mono"));
+                ack(msg, sink, load.owner.bindingId, "completed");
                 break;
             }
             case "release": {
@@ -301,7 +322,7 @@ final class OrderedMediaBridge {
             } else {
                 if (!("transportHello".equals(action) || "transportBind".equals(action)
                     || "transportReadState".equals(action) || "load".equals(action)
-                    || "seek".equals(action) || "volume".equals(action) || "release".equals(action))) return;
+                    || "seek".equals(action) || "volume".equals(action) || "configureAudio".equals(action) || "release".equals(action))) return;
                 if (!uuid(text(msg, "requestId"))) return;
                 correlation.put("requestId", text(msg, "requestId"));
             }
