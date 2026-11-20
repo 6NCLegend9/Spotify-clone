@@ -1,4 +1,4 @@
 fastapi==0.143.0
 uvicorn==0.54.0
-yt-dlp[default]==2026.10.26
+yt-dlp[default]==2026.11.19.232656.dev0
 yt-dlp-ejs==0.8.0
