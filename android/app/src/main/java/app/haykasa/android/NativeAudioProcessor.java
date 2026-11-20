@@ -34,6 +34,9 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
         for (double gain : copy) {
             if (!Double.isFinite(gain) || gain < -12 || gain > 12) throw new IllegalArgumentException("EQ gain must be finite and within +/-12 dB");
         }
+        Settings current = requested;
+        // A renderer rebind may replay preferences without changing the audio configuration.
+        if (current.original() == original && current.mono() == mono && Arrays.equals(current.bands(), copy)) return;
         requested = new Settings(original, copy, mono);
     }
 

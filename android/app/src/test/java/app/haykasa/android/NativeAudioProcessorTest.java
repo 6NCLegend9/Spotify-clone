@@ -265,6 +265,25 @@ public class NativeAudioProcessorTest {
         assertTrue(value.stats().outputSamplePeak() <= NativeAudioProcessor.SAMPLE_PEAK_CEILING);
     }
 
+    @Test public void replayingIdenticalSettingsPreservesWaveformAndMeasurements() throws Exception {
+        double[] bands = {0, 0, 0, -6, 0, 0};
+        byte[] input = tone(48000, 2, 137, .999, 4096);
+        NativeAudioProcessor uninterrupted = processor(48000, 2, false, bands, true);
+        byte[] expected = process(uninterrupted, input);
+        assertTrue("The fixture must exercise limiter history", uninterrupted.stats().limitedFrames() > 0);
+
+        NativeAudioProcessor rebound = processor(48000, 2, false, bands, true);
+        int split = 1379 * 4;
+        byte[] first = process(rebound, Arrays.copyOfRange(input, 0, split));
+        rebound.setProcessing(false, bands.clone(), true);
+        byte[] second = process(rebound, Arrays.copyOfRange(input, split, input.length));
+        byte[] actual = new byte[input.length];
+        System.arraycopy(first, 0, actual, 0, first.length);
+        System.arraycopy(second, 0, actual, first.length, second.length);
+        assertArrayEquals("Rebinding unchanged settings must retain filter and limiter history", expected, actual);
+        assertEquals("Measurements must remain cumulative through an identical replay", uninterrupted.stats(), rebound.stats());
+    }
+
     @Test public void rendererResetRetainsRequestedSettingsAcrossPrepare() throws Exception {
         NativeAudioProcessor value = processor(48000, 1, false, new double[]{0,0,0,-6,0,0}, false);
         byte[] input = tone(48000, 1, 1000, .1, 4800);
