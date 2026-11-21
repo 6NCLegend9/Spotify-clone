@@ -34,7 +34,13 @@ final class NativePlaybackQueue {
         JSONObject request(String token, JSONObject body) throws Exception;
     }
     private record Entry(String occurrenceId, String videoId, String title) {}
-    private record Grant(String token, long expiresAt) {}
+    private static final class Grant {
+        final String token;
+        long expiresAt;
+        Grant(String token, long expiresAt) { this.token = token; this.expiresAt = expiresAt; }
+        String token() { return token; }
+        long expiresAt() { return expiresAt; }
+    }
     private static final class Asset {
         final Grant grant;
         final JSONObject descriptor;
@@ -71,6 +77,7 @@ final class NativePlaybackQueue {
     private String profile, currentOccurrenceId, pendingOccurrenceId, reason, configuration;
     private long revision;
     private long pendingPosition;
+    private long grantRefreshRetryAt;
     private volatile long generation;
     private volatile boolean released;
     private boolean preparing, updatingTimeline, failed;
@@ -128,7 +135,9 @@ final class NativePlaybackQueue {
             && previous.containsKey(entry.occurrenceId()) && !previous.get(entry.occurrenceId()).videoId().equals(entry.videoId())) {
             throw new IllegalArgumentException("Occurrence changed source");
         }
-        Grant grant = grants.getOrDefault(token, new Grant(token, grantExpiry));
+        Grant grant = grants.get(token);
+        if (grant == null) grant = new Grant(token, grantExpiry);
+        else grant.expiresAt = Math.max(grant.expiresAt, grantExpiry);
         Asset initial = null;
         if (revision == 0) {
             MediaItem item = player.getCurrentMediaItem();
@@ -142,6 +151,7 @@ final class NativePlaybackQueue {
         generation++; cancelOperation();
         for (String identity : new ArrayList<>(assets.keySet())) if (!identities.contains(identity)) retireAsset(assets.remove(identity));
         currentGrant = grant; grants.put(token, grant); profile = nextProfile;
+        grantRefreshRetryAt = 0;
         entries = nextEntries; revision = nextRevision; configuration = signature;
         currentOccurrenceId = selected; repeatAll = message.getBoolean("repeatAll");
         pendingOccurrenceId = null; preparing = false; failed = false; reason = null;
@@ -231,6 +241,10 @@ final class NativePlaybackQueue {
         Entry pending = find(pendingOccurrenceId);
         if (pending != null) { start(pending, assets.get(pending.occurrenceId()), false); return; }
         long now = System.currentTimeMillis();
+        if (currentGrant != null && currentGrant.expiresAt() - now <= 300_000
+            && SystemClock.elapsedRealtime() >= grantRefreshRetryAt) {
+            refreshGrant(currentGrant); return;
+        }
         Entry selected = current();
         Asset selectedAsset = selected == null ? null : assets.get(selected.occurrenceId());
         if (selectedAsset != null && selectedAsset.expiresAt - now <= 60_000) { start(selected, selectedAsset, false); return; }
@@ -244,7 +258,45 @@ final class NativePlaybackQueue {
         }
         long delay = 60_000;
         for (Asset asset : assets.values()) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now - 60_000));
+        if (currentGrant != null) delay = Math.min(delay,
+            Math.max(1000, Math.max(currentGrant.expiresAt() - now - 300_000,
+                grantRefreshRetryAt - SystemClock.elapsedRealtime())));
         schedule(delay);
+    }
+
+    private void refreshGrant(Grant grant) {
+        final long own = generation;
+        operationGrant = grant;
+        operation = network.submit(() -> {
+            long expiresAt = 0;
+            String failure = null;
+            try {
+                JSONObject reply = request(grant, new JSONObject().put("action", "refreshNativeGrant"), false);
+                long candidate = positive(reply, "expiresAt");
+                long now = System.currentTimeMillis();
+                if (candidate <= now || candidate > now + 3_660_000) throw new SourceFailure("source_unavailable");
+                expiresAt = candidate;
+            } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            catch (SourceFailure invalid) { failure = invalid.reason; }
+            catch (Exception invalid) { failure = "source_unavailable"; }
+            final long refreshedExpiry = expiresAt;
+            final String failedReason = failure;
+            handler.post(() -> {
+                if (released || generation != own) return;
+                operation = null; operationGrant = null;
+                if (refreshedExpiry > 0) {
+                    grant.expiresAt = refreshedExpiry;
+                    grantRefreshRetryAt = refreshedExpiry - System.currentTimeMillis() <= 300_000
+                        ? SystemClock.elapsedRealtime() + 30_000 : 0;
+                } else if ("authentication_required".equals(failedReason)) {
+                    fail(failedReason); return;
+                } else {
+                    // Keep a usable prepared song playing during transient refresh failures.
+                    grantRefreshRetryAt = SystemClock.elapsedRealtime() + 30_000;
+                }
+                wake();
+            });
+        });
     }
 
     private void start(Entry entry, Asset existing, boolean errorRecovery) {

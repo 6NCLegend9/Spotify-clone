@@ -158,7 +158,7 @@ public class OrderedBridgeTest {
         JSONObject second = new JSONObject().put("occurrenceId", "second").put("videoId", "synthetic01").put("title", "Second");
         JSONObject configuration = new JSONObject().put("revision", 1).put("expectedRevision", 0)
             .put("currentOccurrenceId", "first").put("nativeGrant", "npr1_" + "a".repeat(43))
-            .put("grantExpiresAt", now + 600_000).put("profile", "mp4-aac").put("repeatAll", false)
+            .put("grantExpiresAt", now + 240_000).put("profile", "mp4-aac").put("repeatAll", false)
             .put("receipt", "initial").put("assetExpiresAt", now + 30_000)
             .put("entries", new JSONArray().put(first).put(second));
         try {
@@ -170,6 +170,9 @@ public class OrderedBridgeTest {
                     }, failure::set, ignored -> {}, (token, request) -> {
                         String action = request.getString("action");
                         actions.add(action);
+                        if (action.equals("refreshNativeGrant")) {
+                            return new JSONObject().put("expiresAt", System.currentTimeMillis() + 600_000);
+                        }
                         if (action.equals("renew")) assertEquals("initial", request.getString("receipt"));
                         if (action.equals("create")) assertEquals("synthetic01", request.getString("videoId"));
                         return new JSONObject().put("state", "ready").put("receipt", action + "-receipt")
@@ -189,7 +192,7 @@ public class OrderedBridgeTest {
                 main(() -> prepared.set(player.getMediaItemCount() == 2 && player.getDuration() > 0));
                 return prepared.get();
             });
-            assertEquals(List.of("renew", "create"), actions);
+            assertEquals(List.of("refreshNativeGrant", "renew", "create"), actions);
             assertEquals("first", occurrence.get());
             main(() -> player.seekTo(player.getDuration() - 300));
             transport("play", 1);
