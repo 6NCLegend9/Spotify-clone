@@ -4,9 +4,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 
-const [mode, baselinePath] = process.argv.slice(2);
-if (!["capture", "verify"].includes(mode) || !baselinePath) {
-  throw new Error("Usage: node play-upgrade-check.mjs capture|verify BASELINE.json");
+const [mode, baselinePath, expectedVersion] = process.argv.slice(2);
+if (!["capture", "verify"].includes(mode) || !baselinePath ||
+    (expectedVersion !== undefined && (mode !== "verify" || !/^[1-9]\d*$/.test(expectedVersion) || !Number.isSafeInteger(Number(expectedVersion))))) {
+  throw new Error("Usage: node play-upgrade-check.mjs capture BASELINE.json | verify BASELINE.json [EXPECTED_VERSION_CODE]");
 }
 const adb = process.env.ADB || "adb";
 const run = (...args) => execFileSync(adb, args, { encoding: "utf8", timeout: 15000 }).trim();
@@ -35,6 +36,9 @@ if (mode === "capture") {
   assert.equal(current.device, previous.device, "Use the same physical device");
   assert.equal(current.firstInstallTime, previous.firstInstallTime, "An uninstall or reinstall invalidates the upgrade test");
   assert(current.versionCode > previous.versionCode, "Google Play must install the newer version");
+  if (expectedVersion !== undefined) {
+    assert.equal(current.versionCode, Number(expectedVersion), "Google Play must install the build selected for qualification");
+  }
   assert(current.lastUpdateTime > previous.lastUpdateTime, "Android must report a later update time");
   console.log(`Google Play in-place upgrade verified: ${previous.versionCode} → ${current.versionCode}`);
 }
