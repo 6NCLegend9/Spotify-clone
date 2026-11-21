@@ -176,6 +176,16 @@ async function check(name, test) {
     assert.equal(restored.userQueue.some(track => track.queueEntryId === restored.youtubeVideo.queueEntryId), false);
     assert.deepEqual(occurrences(restored), occurrences(state));
   });
+  await check('Previous restores the played occurrence when only another copy remains queued', () => {
+    const queue = [songs[0], songs[1], { ...songs[0], playlistEntryId: 'other-copy' }];
+    let state = collection(queue);
+    const played = state.youtubeVideo;
+    state = reducer(state, actions.setYoutubeVideo(state.youtubeQueue[1]));
+    state = reducer(state, actions.setYoutubeQueue(state.youtubeQueue.slice(1)));
+    state = reducer(state, actions.playPreviousFromHistory());
+    assert.equal(state.youtubeVideo.queueEntryId, played.queueEntryId);
+    assert.equal(state.youtubeVideo.playlistEntryId, played.playlistEntryId);
+  });
   await check('second saved occurrence stays selected across shuffle and snapshot restore', () => {
     const repeated = [songs[0], songs[1], { ...songs[0], playlistEntryId: 'saved-repeat' }, songs[2]];
     const state = shuffle(collection(repeated, 2), true);

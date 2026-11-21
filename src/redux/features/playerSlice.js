@@ -409,8 +409,7 @@ const playerSlice = createSlice({
       state.queueUndo = null;
       state.position = 0;
       state.restorePosition = null;
-      const queuedOccurrence = state.youtubeQueue.find((item) => sameOccurrence(item, previous))
-        || state.youtubeQueue.find((item) => item?.id === previous.id);
+      const queuedOccurrence = state.youtubeQueue[currentOccurrenceIndex(state.youtubeQueue, previous)];
       state.youtubeVideo = queuedOccurrence || previous;
       state.activeSong = {};
       state.currentSongs = [];
