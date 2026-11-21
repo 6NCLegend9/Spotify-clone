@@ -2880,7 +2880,11 @@ function YouTubePlayer() {
       if (!player?.androidNative) return;
       const resumeAt = Math.max(0, player.getCurrentTime?.() || playbackClock.read().position || 0);
       setPlayerError(null);
-      player.loadVideoById(mediaLoadOptions(player, current, resumeAt));
+      markExpectPlaying();
+      dispatch(playPause(true));
+      // Retry must resolve a fresh source even at 0 seconds; selecting the
+      // failed native occurrence would reuse its stale asset instead.
+      player.loadVideoById({ ...mediaLoadOptions(player, current, resumeAt), occurrenceId: null });
       return;
     }
     if (playerError?.kind === "transport") {

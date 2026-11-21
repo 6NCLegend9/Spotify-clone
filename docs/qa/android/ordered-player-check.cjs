@@ -99,6 +99,22 @@ function verify(rawSource) {
   assert.equal(retired, 2, 'Disabling native queue ownership retires both decks');
   assert.equal(rebuilds, 1, 'Current playback is remounted once under the new policy');
 
+  // Retry at track start must request a fresh source; a native occurrence
+  // selection would otherwise replay the failed asset from the old queue.
+  let retrySource;
+  context.playerError = { kind: 'queue' };
+  context.videoRef.current = { id: 'synthetic01', queueEntryId: 'first' };
+  context.getActivePlayer = () => ({ androidNative: true, provider: 'native', getCurrentTime: () => 0,
+    loadVideoById(options) { retrySource = options; } });
+  context.markExpectPlaying = () => {};
+  context.mediaLoadOptions = (_, track, startSeconds) => ({ videoId: track.id, startSeconds, occurrenceId: track.queueEntryId });
+  vm.runInNewContext(part('const handleRetryPlayback = async () => {', '  // Ramp the outgoing track')
+    + '\nglobalThis.retry = handleRetryPlayback;', context);
+  void context.retry();
+  assert.equal(retrySource.occurrenceId, null);
+  assert.equal(playing, true);
+  context.getActivePlayer = () => player;
+
   vm.runInNewContext(part('const resumePlayer = (player,', 'const markSeek =')
     + '\nglobalThis.resume = resumePlayer;', context);
   context.resume(player); assert.equal(plays, 0, 'Watchdogs/visibility may not manufacture ordered Play');
