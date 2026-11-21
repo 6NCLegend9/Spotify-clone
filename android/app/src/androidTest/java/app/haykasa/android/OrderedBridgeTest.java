@@ -150,6 +150,8 @@ public class OrderedBridgeTest {
         bootstrap(); load();
         ExoPlayer player = raw();
         var actions = new CopyOnWriteArrayList<String>();
+        var renewAttempts = new java.util.concurrent.atomic.AtomicInteger();
+        var createAttempts = new java.util.concurrent.atomic.AtomicInteger();
         var occurrence = new AtomicReference<String>();
         var failure = new AtomicReference<String>();
         var queueRef = new AtomicReference<NativePlaybackQueue>();
@@ -169,12 +171,17 @@ public class OrderedBridgeTest {
                         catch (Exception error) { throw new AssertionError(error); }
                     }, failure::set, ignored -> {}, (token, request) -> {
                         String action = request.getString("action");
-                        actions.add(action);
+                        if (!action.equals("cancel")) actions.add(action);
                         if (action.equals("refreshNativeGrant")) {
                             return new JSONObject().put("expiresAt", System.currentTimeMillis() + 600_000);
                         }
                         if (action.equals("renew")) assertEquals("initial", request.getString("receipt"));
                         if (action.equals("create")) assertEquals("synthetic01", request.getString("videoId"));
+                        if (action.equals("renew") && renewAttempts.incrementAndGet() == 1
+                            || action.equals("create") && createAttempts.incrementAndGet() == 1) {
+                            return new JSONObject().put("state", "failed").put("reason", "source_unavailable")
+                                .put("receipt", action + "-failed");
+                        }
                         return new JSONObject().put("state", "ready").put("receipt", action + "-receipt")
                             .put("asset", new JSONObject().put("expiresAt", System.currentTimeMillis() + 600_000)
                                 .put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001"));
@@ -192,7 +199,7 @@ public class OrderedBridgeTest {
                 main(() -> prepared.set(player.getMediaItemCount() == 2 && player.getDuration() > 0));
                 return prepared.get();
             });
-            assertEquals(List.of("refreshNativeGrant", "renew", "create"), actions);
+            assertEquals(List.of("refreshNativeGrant", "renew", "create", "renew", "create"), actions);
             assertEquals("first", occurrence.get());
             main(() -> player.seekTo(player.getDuration() - 300));
             transport("play", 1);

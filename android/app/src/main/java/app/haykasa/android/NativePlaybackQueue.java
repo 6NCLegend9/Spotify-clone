@@ -70,7 +70,8 @@ final class NativePlaybackQueue {
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private final ExecutorService cleanup = Executors.newSingleThreadExecutor();
     private final Map<String, Asset> assets = new HashMap<>();
-    private final Map<String, String> preparationFailures = new HashMap<>();
+    private record Retry(int attempts, long after, String reason) {}
+    private final Map<String, Retry> preparationFailures = new HashMap<>();
     private final Map<String, Grant> grants = new LinkedHashMap<>();
     private List<Entry> entries = List.of();
     private Grant currentGrant;
@@ -238,26 +239,43 @@ final class NativePlaybackQueue {
     private void work() {
         if (released || revision == 0 || failed) return;
         if (operation != null) { schedule(1000); return; }
-        Entry pending = find(pendingOccurrenceId);
-        if (pending != null) { start(pending, assets.get(pending.occurrenceId()), false); return; }
         long now = System.currentTimeMillis();
         if (currentGrant != null && currentGrant.expiresAt() - now <= 300_000
             && SystemClock.elapsedRealtime() >= grantRefreshRetryAt) {
             refreshGrant(currentGrant); return;
         }
+        Entry pending = find(pendingOccurrenceId);
+        if (pending != null) { start(pending, assets.get(pending.occurrenceId()), false); return; }
         Entry selected = current();
         Asset selectedAsset = selected == null ? null : assets.get(selected.occurrenceId());
-        if (selectedAsset != null && selectedAsset.expiresAt - now <= 60_000) { start(selected, selectedAsset, false); return; }
+        if (selectedAsset != null && !selectedAsset.usable() && exhausted(selected)) {
+            fail(preparationFailures.get(selected.occurrenceId()).reason()); return;
+        }
+        if (selectedAsset != null && selectedAsset.expiresAt - now <= 60_000 && retryReady(selected)) {
+            start(selected, selectedAsset, false); return;
+        }
         Entry next = neighbor(1);
-        if (next != null && !assets.containsKey(next.occurrenceId())
-            && !preparationFailures.containsKey(next.occurrenceId())) { start(next, null, false); return; }
+        if (next != null && !usable(next) && retryReady(next)) {
+            start(next, assets.get(next.occurrenceId()), false); return;
+        }
         for (Entry entry : entries) {
             Asset asset = assets.get(entry.occurrenceId());
             if (asset != null && asset.expiresAt - now <= 60_000
-                && !preparationFailures.containsKey(entry.occurrenceId())) { start(entry, asset, false); return; }
+                && retryReady(entry)) { start(entry, asset, false); return; }
         }
         long delay = 60_000;
-        for (Asset asset : assets.values()) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now - 60_000));
+        for (Entry entry : entries) {
+            Retry retry = preparationFailures.get(entry.occurrenceId());
+            if (retry != null && retry.after() != Long.MAX_VALUE) {
+                delay = Math.min(delay, Math.max(1000, retry.after() - SystemClock.elapsedRealtime()));
+            } else if (retry != null && entry.occurrenceId().equals(currentOccurrenceId)) {
+                Asset asset = assets.get(entry.occurrenceId());
+                if (asset != null) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now));
+            } else if (retry == null) {
+                Asset asset = assets.get(entry.occurrenceId());
+                if (asset != null) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now - 60_000));
+            }
+        }
         if (currentGrant != null) delay = Math.min(delay,
             Math.max(1000, Math.max(currentGrant.expiresAt() - now - 300_000,
                 grantRefreshRetryAt - SystemClock.elapsedRealtime())));
@@ -352,14 +370,21 @@ final class NativePlaybackQueue {
                 operation = null; operationEntry = null; operationGrant = null;
                 if (resolved == null) {
                     if (creating && resolvedReceipt != null) cancel(ownGrant, resolvedReceipt);
-                    if (entry.occurrenceId().equals(currentOccurrenceId)) fail(failedReason == null ? "source_unavailable" : failedReason);
+                    String reason = safeReason(failedReason);
+                    if (entry.occurrenceId().equals(currentOccurrenceId)
+                        && (pendingOccurrenceId != null || errorRecovery || existing == null
+                            || !existing.usable() || "authentication_required".equals(reason))) fail(reason);
                     else {
-                        // An unavailable upcoming song must not interrupt valid current audio.
-                        preparationFailures.put(entry.occurrenceId(), safeReason(failedReason));
+                        // A transient failed renewal must not interrupt still-usable audio.
+                        Retry previous = preparationFailures.get(entry.occurrenceId());
+                        int attempts = previous == null ? 1 : previous.attempts() + 1;
+                        preparationFailures.put(entry.occurrenceId(), new Retry(attempts,
+                            attempts >= 3 ? Long.MAX_VALUE : SystemClock.elapsedRealtime() + 5_000, reason));
                         wake();
                     }
                     return;
                 }
+                preparationFailures.remove(entry.occurrenceId());
                 Asset previous = assets.put(entry.occurrenceId(), resolved);
                 if (previous != null && previous.grant != resolved.grant) retireAsset(previous);
                 if (entry.occurrenceId().equals(currentOccurrenceId)) activate(entry, resolved, pendingOccurrenceId != null);
@@ -503,6 +528,14 @@ final class NativePlaybackQueue {
         return entries.get(next);
     }
     private boolean usable(Entry entry) { Asset asset = assets.get(entry.occurrenceId()); return asset != null && asset.usable(); }
+    private boolean retryReady(Entry entry) {
+        Retry retry = preparationFailures.get(entry.occurrenceId());
+        return retry == null || SystemClock.elapsedRealtime() >= retry.after();
+    }
+    private boolean exhausted(Entry entry) {
+        Retry retry = preparationFailures.get(entry.occurrenceId());
+        return retry != null && retry.after() == Long.MAX_VALUE;
+    }
     private int timelineIndex(String identity) {
         for (int index = 0; index < player.getMediaItemCount(); index++) if (identity.equals(player.getMediaItemAt(index).mediaId)) return index;
         return -1;
