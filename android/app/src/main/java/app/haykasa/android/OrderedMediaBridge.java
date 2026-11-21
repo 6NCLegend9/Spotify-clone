@@ -112,6 +112,7 @@ final class OrderedMediaBridge {
         send(sink, new JSONObject().put("id", id).put("event", "transportCapabilities")
             .put("requestId", request).put("version", 2).put("capability", "ordered-transport-v2")
             .put("audioProcessing", "pcm-eq-v1")
+            .put("nativeRepeat", "one-v1")
             .put("nativeBuildCode", host.nativeBuildCode()).put("engineId", engineId)
             .put("currentBindingId", expected == null ? JSONObject.NULL : expected)
             .put("issuedBindingId", issued).put("bindGrant", grant).put("grantLifetimeMs", GRANT_MS));
@@ -206,6 +207,13 @@ final class OrderedMediaBridge {
                 ack(msg, sink, load.owner.bindingId, "seek".equals(action) ? "accepted" : "completed");
                 break;
             }
+            case "repeatOne": {
+                if (!(msg.opt("enabled") instanceof Boolean)) { error(msg, sink, "INVALID_VALUE"); return; }
+                if (!host.hasPlayer(load.id)) { error(msg, sink, "UNAVAILABLE"); return; }
+                host.repeatOne(load.id, msg.getBoolean("enabled"));
+                ack(msg, sink, load.owner.bindingId, "completed");
+                break;
+            }
             case "configureAudio": {
                 JSONArray values = msg.optJSONArray("bands");
                 if (!(msg.opt("bypass") instanceof Boolean) || !(msg.opt("mono") instanceof Boolean)
@@ -289,9 +297,14 @@ final class OrderedMediaBridge {
                 .put("webRevision", update.lookupRevision()).put("status", update.lookupResult() == null ? "notFound"
                     : "accepted".equals(update.lookupResult().phase()) ? "pending" : "terminal")
                 .put("result", update.lookupResult() == null ? JSONObject.NULL : result(update.lookupResult())));
-            send(load.sink, new JSONObject().put("id", load.id).put("event", update.event()).put("transport", transport)
+            // Older v2 web clients reject unknown state event names. Carry loop
+            // observations as an additive field on their existing progress event.
+            JSONObject packet = new JSONObject().put("id", load.id)
+                .put("event", "repeat".equals(update.event()) ? "progress" : update.event()).put("transport", transport)
                 .put("position", observed.position()).put("duration", observed.duration())
-                .put("playing", observed.isPlaying()).put("playWhenReady", observed.playWhenReady()));
+                .put("playing", observed.isPlaying()).put("playWhenReady", observed.playWhenReady());
+            if ("repeat".equals(update.event())) packet.put("repeated", true);
+            send(load.sink, packet);
         } catch (JSONException ignored) { /* No private source data is included in transport diagnostics. */ }
     }
 
@@ -322,7 +335,8 @@ final class OrderedMediaBridge {
             } else {
                 if (!("transportHello".equals(action) || "transportBind".equals(action)
                     || "transportReadState".equals(action) || "load".equals(action)
-                    || "seek".equals(action) || "volume".equals(action) || "configureAudio".equals(action) || "release".equals(action))) return;
+                    || "seek".equals(action) || "volume".equals(action) || "configureAudio".equals(action)
+                    || "repeatOne".equals(action) || "release".equals(action))) return;
                 if (!uuid(text(msg, "requestId"))) return;
                 correlation.put("requestId", text(msg, "requestId"));
             }

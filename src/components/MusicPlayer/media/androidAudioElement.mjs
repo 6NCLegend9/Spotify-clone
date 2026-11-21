@@ -41,6 +41,7 @@ export function createAndroidAudioElement(title = "") {
   let pendingPlay;
   let legacyLoaded = false;
   let transportVersion = null, audioProcessing = null, audioSettings;
+  let repeatOne = false;
   let ordered, transportError, observedPlaying = false, announcedPlaying = false, announcedPause = true, decoderError = false, lastIntent, lastWaiting = false;
   const post = (action, extra = {}) => {
     if (disposed) return;
@@ -117,6 +118,9 @@ export function createAndroidAudioElement(title = "") {
         transportError = null;
         emit("transportrecovered");
       },
+      onRepeatChanged: () => {
+        if (!disposed && ordered === own) emit("repeatconfiguration");
+      },
       onDecoderError: () => {
         if (disposed || ordered !== own || decoderError) return;
         decoderError = true;
@@ -147,6 +151,7 @@ export function createAndroidAudioElement(title = "") {
         }
         if (view.ended && view.intent && !beforeEnded) emit("ended");
         if (packet.event === "seeked") emit("seeked");
+        if (packet.event === "progress" && packet.repeated === true) emit("repeat");
         if (packet.event === "error" && !decoderError) { decoderError = true; emit("error"); }
         emit("timeupdate");
       },
@@ -154,6 +159,7 @@ export function createAndroidAudioElement(title = "") {
     ordered = own;
     if (own) {
       if (audioSettings) own.configureAudio(audioSettings);
+      own.repeatOne(repeatOne);
       own.start(source, String(media.title || "HayKasa").slice(0, 300));
     }
     else {
@@ -167,6 +173,7 @@ export function createAndroidAudioElement(title = "") {
     orderedTransport: { get: () => Boolean(ordered?.supported) },
     nativeTransportVersion: { get: () => transportVersion },
     nativeAudioProcessing: { get: () => audioProcessing },
+    nativeRepeatOne: { get: () => repeatOne && ordered?.nativeRepeat === "one-v1" && ordered.appliedRepeatValue === true },
     nativePlayIntent: { get: () => ordered ? ordered.desired : !paused },
     nativeIntentOrigin: { get: () => ordered?.view().origin || "baseline" },
     nativeObservedPlaying: { get: () => observedPlaying },
@@ -218,6 +225,11 @@ export function createAndroidAudioElement(title = "") {
     if (disposed) return false;
     audioSettings = settings;
     return ordered?.configureAudio(settings) ?? false;
+  };
+  media.setNativeRepeatOne = enabled => {
+    if (disposed || typeof enabled !== "boolean") return false;
+    repeatOne = enabled;
+    return ordered?.repeatOne(enabled) ?? false;
   };
   media.reconnectTransport = () => ordered ? ordered.recover() : Promise.reject(nativeTransportError("UNSUPPORTED"));
   const removeAttribute = media.removeAttribute.bind(media);

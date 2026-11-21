@@ -136,7 +136,7 @@ bridge.onmessage({ data: JSON.stringify({ id: cuedLoad.id, event: "ready", durat
 bridge.onmessage({ data: JSON.stringify({ id: cuedLoad.id, event: "playing", duration: 200, position: 20 }) });
 const reusableAdapter = deck.getIframe();
 const beforeHandoff = sent.length;
-deck.loadVideoById({ videoId: "synthetic04", title: "Pending song" });
+deck.loadVideoById({ videoId: "synthetic04", title: "Pending song", startSeconds: 30 });
 await new Promise(resolve => setImmediate(resolve));
 assert.deepEqual(sent.slice(beforeHandoff).map(message => message.action), ["pause", "release"], "Pending replacement must release the previous native track");
 assert.equal(deck.isResolving, true); assert.equal(deck.getPlayerState(), 3);
@@ -146,7 +146,7 @@ for (const event of ["ready", "playing", "progress", "pause", "ended", "error", 
   bridge.onmessage({ data: JSON.stringify({ id: cuedLoad.id, event, duration: 200, position: 21 }) });
 }
 assert.equal(states.length, beforeOldEvents, "Old native/OS Play events cannot mark the pending song playing or ready");
-assert.equal(deck.isResolving, true); assert.equal(deck.getPlayerState(), 3); assert.equal(deck.getCurrentTime(), 0);
+assert.equal(deck.isResolving, true); assert.equal(deck.getPlayerState(), 3); assert.equal(deck.getCurrentTime(), 30);
 assert.equal(reusableAdapter.duration, 0); assert.equal(reusableAdapter.paused, true);
 globalThis.finishAndroidQaResolution(); delete globalThis.finishAndroidQaResolution;
 await new Promise(resolve => setImmediate(resolve));
@@ -160,6 +160,10 @@ bridge.onmessage({ data: JSON.stringify({ id: pendingLoad.id, event: "ready", du
 bridge.onmessage({ data: JSON.stringify({ id: pendingLoad.id, event: "playing", duration: 180, position: 1 }) });
 assert.equal(deck.getPlayerState(), 1); assert.equal(deck.getCurrentTime(), 1); assert.equal(deck.getDuration(), 180);
 assert.equal(deck.getVideoData().video_id, "synthetic04");
+bridge.onmessage({ data: JSON.stringify({ id: pendingLoad.id, event: "error", duration: 180, position: 0 }) });
+assert.equal(deck.getCurrentTime(), 0, "Recovery at the track start must not reuse the earlier start offset");
+globalThis.finishAndroidQaResolution(); delete globalThis.finishAndroidQaResolution;
+await new Promise(resolve => setImmediate(resolve));
 deck.destroy();
 assert.equal(sent.at(-1).action, "release");
 console.log("Production native deck checks passed: source handoff, pending-source release, stale native event isolation, adapter reuse, readiness, native play/pause intent, per-track notification titles and cleanup.");

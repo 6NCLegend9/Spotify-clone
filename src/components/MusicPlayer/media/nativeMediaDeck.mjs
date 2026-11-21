@@ -3,7 +3,7 @@ import { resolveMediaAsset, cancelMediaReceipt } from "./resolveMediaAsset.mjs";
 import { createNativeAudioGraph } from "./nativeAudioGraph.mjs";
 import { createAndroidAudioElement } from "./androidAudioElement.mjs";
 
-export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile, autoplay = true, startSeconds = 0, title = "", events = {}, onAsset, onFallback, audioSettings }) {
+export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile, autoplay = true, startSeconds = 0, title = "", events = {}, onAsset, onFallback, audioSettings, repeatOne = false }) {
   const media = (mode === "audio" ? createAndroidAudioElement(title) : null)
     || document.createElement(mode === "video" ? "video" : "audio");
   media.crossOrigin = "anonymous";
@@ -24,6 +24,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     bypass: false,
   });
   configureAndroidAudio(audioSettings);
+  media.setNativeRepeatOne?.(repeatOne);
   const emit = (name, data) => { if (!destroyed) events[name]?.({ target: deck, data }); };
   const setState = (next) => { state = next; emit("onStateChange", next); };
   const releaseSource = () => {
@@ -85,7 +86,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       clearTimeout(renewTimer);
       renewTimer = setTimeout(() => {
         if (destroyed || own !== generation) return;
-        position = media.currentTime || position;
+        if (ready) position = media.currentTime;
         if (!media.orderedTransport) media.pause();
         refreshed = true;
         void resolve(true);
@@ -135,11 +136,13 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   listen("pause", () => { if (ready && !media.ended) { if (media.isAndroidNativeMedia && !media.orderedTransport) intent = false; setState(STATES.PAUSED); } });
   listen("waiting", () => { if (intent) setState(STATES.BUFFERING); });
   listen("ended", () => { position = media.currentTime; setState(STATES.ENDED); });
+  listen("repeat", () => emit("onRepeat"));
+  listen("repeatconfiguration", () => emit("onRepeatConfigured"));
   listen("error", () => {
     if (destroyed || !asset) return;
     if (!refreshed) {
       refreshed = true;
-      position = media.currentTime || position;
+      if (ready) position = media.currentTime;
       void resolve(true);
     } else fallback("native_media_failed");
   });
@@ -149,6 +152,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     get orderedTransport() { return Boolean(media.orderedTransport); },
     get nativeTransportVersion() { return media.nativeTransportVersion; },
     get nativeAudioProcessing() { return media.nativeAudioProcessing; },
+    get nativeRepeatOne() { return media.nativeRepeatOne === true; },
     get nativePlayIntent() { return media.nativePlayIntent; },
     get nativeTransportRestored() { return Boolean(media.nativeTransportRestored); },
     get nativeObservedPlaying() { return media.nativeObservedPlaying; },
@@ -179,6 +183,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     getVideoData: () => ({ video_id: id, title }),
     getIframe: () => media,
     configureAudio(settings) { audioSettings = settings; graph?.configure(settings); configureAndroidAudio(settings); },
+    setRepeatOne(enabled) { return media.setNativeRepeatOne?.(enabled) ?? false; },
     loadVideoById(value) {
       const nextId = typeof value === "string" ? value : value?.videoId;
       if (!/^[A-Za-z0-9_-]{11}$/.test(nextId || "")) { fallback("invalid_track"); return; }

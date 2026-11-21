@@ -33,8 +33,9 @@ const track = promise => {
 };
 
 class Native {
-  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false, audioProcessing = null, audioSettings } = {}) {
+  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false, audioProcessing = null, audioSettings, nativeRepeat = null, repeatOne } = {}) {
     this.audioProcessing = audioProcessing;
+    this.nativeRepeat = nativeRepeat;
     this.version = version; this.malformedIssued = malformedIssued;
     this.legacy = legacy; this.sent = []; this.history = new Map(); this.seq = 0;
     this.malformedCapabilities = malformedCapabilities;
@@ -53,6 +54,7 @@ class Native {
     for (const name of ["loadedmetadata", "playing", "pause", "waiting", "ended", "transportintent", "transporterror", "transportrecovered", "error"])
       this.audio.addEventListener(name, () => this.events.push(name));
     if (audioSettings) this.audio.configureNativeAudio(audioSettings);
+    if (repeatOne !== undefined) this.audio.setNativeRepeatOne(repeatOne);
     this.audio.src = assetUrl; this.audio.load();
   }
   deliver(value) { this.bridge.onmessage({ data: JSON.stringify(value) }); }
@@ -67,7 +69,7 @@ class Native {
       this.issued = crypto.randomUUID();
       this.id = command.id;
       this.deliver({ id: this.id, event: "transportCapabilities", requestId: command.requestId,
-        version: this.version, audioProcessing: this.audioProcessing, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
+        version: this.version, audioProcessing: this.audioProcessing, nativeRepeat: this.nativeRepeat, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
         currentBindingId: existing ? this.binding || null : null, bindGrant: G, grantLifetimeMs: 5000,
         ...(this.version === 2 ? { issuedBindingId: this.malformedIssued ? null : this.issued } : {}) });
     } else if (command.action === "transportBind") {
@@ -80,7 +82,7 @@ class Native {
       this.observed = { isPlaying: false, playWhenReady: false, state: "ready", suppressionReason: 0, policyReason: "none" };
       if (command.transport) { this.ack(command); this.frame({ event: "ready" }); }
       else this.deliver({ id: this.id, event: "ready", duration: 200, position: 0 });
-    } else if (["volume", "seek", "configureAudio"].includes(command.action) && command.transport) {
+    } else if (["volume", "seek", "configureAudio", "repeatOne"].includes(command.action) && command.transport) {
       if (this.holdAck !== command.action) this.ack(command);
     } else if (command.action === "transportReadState") {
       if (!this.holdRead) this.readState(command);
@@ -175,6 +177,47 @@ try {
     assert.equal(n.audio.nativeObservedPlaying, false); assert.equal(n.audio.currentSrc, "");
   }, { version: 2 });
   const processingSettings = { bands: [6, 2, 0, -1, 0, 3], mono: true, bypass: false };
+  await check("native repeat uses scoped handoff and latest configuration after reconnect", async n => {
+    assert.equal(n.audio.nativeRepeatOne, true);
+    assert.deepEqual(n.last("repeatOne").transport, { version: 2, ...n.scope() });
+    n.holdAck = "repeatOne";
+    n.audio.setNativeRepeatOne(false);
+    const first = n.last("repeatOne");
+    n.audio.setNativeRepeatOne(true);
+    n.ack(first);
+    const latest = n.last("repeatOne");
+    assert.equal(latest.enabled, true);
+    assert.equal(n.audio.nativeRepeatOne, false, "Requested repeat is not active before native acknowledgement");
+    n.holdAck = null; n.ack(latest);
+    assert.equal(n.audio.nativeRepeatOne, true);
+    await n.audio.reconnectTransport();
+    assert.notEqual(n.last("repeatOne").transport.bindingId, latest.transport.bindingId);
+    assert.equal(n.last("repeatOne").enabled, true);
+    n.audio.setNativeRepeatOne(false);
+    assert.equal(n.audio.nativeRepeatOne, false);
+  }, { version: 2, nativeRepeat: "one-v1", repeatOne: true });
+  await check("old APK keeps repeat in JavaScript without unsupported native commands", async n => {
+    n.audio.setNativeRepeatOne(true);
+    assert.equal(n.audio.nativeRepeatOne, false);
+    assert.equal(n.last("repeatOne"), undefined);
+  }, { version: 2 });
+  await check("repeat is a native observation without fabricating ended or a new Play", async n => {
+    const playing = track(n.audio.play()); n.decide(n.last("play")); await flush();
+    const playCount = n.sent.filter(x => x.action === "play").length;
+    let repeats = 0; n.audio.addEventListener("repeat", () => repeats++);
+    n.position = 0;
+    n.deliver({ ...n.frame({ event: "progress", deliver: false }), repeated: true });
+    assert.equal(repeats, 1); assert.equal(n.audio.ended, false);
+    assert.equal(n.sent.filter(x => x.action === "play").length, playCount);
+    assert.equal(playing.state, "resolved");
+  }, { version: 2, nativeRepeat: "one-v1", repeatOne: true });
+  await check("additive loop observation preserves the historical progress envelope", async n => {
+    n.deliver({ ...n.frame({ event: "progress", deliver: false }), repeated: true });
+    assert.equal(n.audio.nativeTransportError, null);
+    const playing = track(n.audio.play()); n.decide(n.last("play")); await flush();
+    assert.equal(playing.state, "resolved");
+    assert.equal(n.audio.nativeObservedPlaying, true);
+  }, { version: 2 });
   await check("native processing config is scoped and sent before initial Play", async n => {
     assert.equal(n.audio.nativeAudioProcessing, "pcm-eq-v1");
     assert.equal(getAndroidAudioProcessingSupport(), true);

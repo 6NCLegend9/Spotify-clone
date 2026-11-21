@@ -216,6 +216,56 @@ public class OrderedBridgeTest {
         assertNull(processor());
     }
 
+    @Test public void repeatOneLoopsWithoutWebCommandsAndPreservesPauseAndBindingAuthority() throws Exception {
+        bootstrap();
+        assertEquals("one-v1", last("transportCapabilities").getString("nativeRepeat"));
+        send(request("repeatOne").put("enabled", true));
+        assertEquals("UNAVAILABLE", last("transportControlError").getString("reason"));
+        load();
+        send(request("repeatOne").put("enabled", "true"));
+        assertEquals("INVALID_VALUE", last("transportControlError").getString("reason"));
+        send(request("repeatOne").put("enabled", true), new Object());
+        assertEquals("INVALID_SCOPE", last("transportControlError").getString("reason"));
+        JSONObject retired = request("repeatOne").put("enabled", false);
+        send(request("repeatOne").put("enabled", true));
+        assertEquals("repeatOne", last("transportControlAck").getString("action"));
+        assertEquals("completed", last("transportControlAck").getString("phase"));
+        main(() -> {
+            try {
+                Field wrappers = PlaybackService.class.getDeclaredField("wrappers"); wrappers.setAccessible(true);
+                SessionTransportPlayer wrapper = (SessionTransportPlayer)((Map<?, ?>)wrappers.get(service)).get(id);
+                assertFalse(wrapper.isCommandAvailable(androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE));
+            } catch (Exception error) { throw new AssertionError(error); }
+        });
+        transport("pause", 1);
+        assertFalse(snapshot().getJSONObject("intent").getBoolean("playWhenReady"));
+        waitFor(() -> packets.stream().anyMatch(packet -> id.equals(packet.optString("id")) && "ready".equals(packet.optString("event"))));
+        send(request("seek").put("value", 29.6));
+        transport("play", 2);
+        // No renderer commands follow Play: Media3 must perform the actual wrap.
+        waitFor(() -> packets.stream().anyMatch(packet -> id.equals(packet.optString("id")) && packet.optBoolean("repeated")));
+        JSONObject repeated = packets.stream().filter(packet -> id.equals(packet.optString("id")) && packet.optBoolean("repeated"))
+            .reduce((previous, next) -> next).orElseThrow();
+        assertEquals("progress", repeated.getString("event"));
+        assertTrue(repeated.getDouble("position") < 2);
+        assertEquals(2, repeated.getJSONObject("transport").getJSONObject("snapshot").getLong("processedWebRevision"));
+        transport("pause", 3);
+        waitFor(() -> hasResult(3, "completed"));
+        send(hello());
+        JSONObject caps = last("transportCapabilities");
+        String nextBinding = caps.getString("issuedBindingId");
+        send(proposedBind(caps, nextBinding, bindingId)); bindingId = nextBinding;
+        send(retired);
+        assertEquals("INVALID_SCOPE", last("transportControlError").getString("reason"));
+        send(request("repeatOne").put("enabled", false));
+        main(() -> {
+            try {
+                assertEquals(androidx.media3.common.Player.REPEAT_MODE_OFF, raw().getRepeatMode());
+                assertFalse(raw().getPlayWhenReady());
+            } catch (Exception error) { throw new AssertionError(error); }
+        });
+    }
+
     @Test public void noOpPauseAndHistoricalLookupHaveExplicitNativeResults() throws Exception {
         bootstrap(); load(); transport("pause", 1);
         assertTrue(hasResult(1, "accepted")); assertTrue(hasResult(1, "completed"));

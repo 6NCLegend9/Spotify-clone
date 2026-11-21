@@ -81,8 +81,8 @@ export function createOrderedAndroidTransport(options) {
 }
 
 class OrderedAndroidTransport {
-  constructor({ id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability }, cache) {
-    Object.assign(this, { id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability, cache });
+  constructor({ id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability, onRepeatChanged }, cache) {
+    Object.assign(this, { id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability, onRepeatChanged, cache });
     this.phase = "idle";
     this.controls = new Map();
     this.pendingReadRevision = null;
@@ -93,6 +93,7 @@ class OrderedAndroidTransport {
     this.volumeValue = 0;
     this.loaded = false;
     this.audioProcessing = null;
+    this.nativeRepeat = null;
   }
   get supported() { return this.cache.mode === "capable"; }
   get desired() {
@@ -185,6 +186,7 @@ class OrderedAndroidTransport {
       }
       this.version = this.cache.version = data.version;
       this.audioProcessing = data.version === 2 && data.audioProcessing === "pcm-eq-v1" ? "pcm-eq-v1" : null;
+      this.nativeRepeat = data.version === 2 && data.nativeRepeat === "one-v1" ? "one-v1" : null;
       this.onCapability?.({ version: data.version, nativeBuildCode: data.nativeBuildCode, audioProcessing: this.audioProcessing });
       if (this.recovering) {
         const known = this.scope || (this.bindRequest && { engineId: this.bindRequest.engineId, bindingId: this.bindRequest.bindingId });
@@ -300,7 +302,7 @@ class OrderedAndroidTransport {
   }
   _ack(data) {
     const own = this.controls.get(data.requestId);
-    if (!own || !["load", "seek", "volume", "configureAudio", "release"].includes(own.message.action)) return;
+    if (!own || !["load", "seek", "volume", "configureAudio", "repeatOne", "release"].includes(own.message.action)) return;
     if (data.version !== this.version || data.action !== own.message.action || !sameScope(data.scope, own.message.transport)
       || data.phase !== (["load", "seek"].includes(data.action) ? "accepted" : "completed")) {
       this._fail("PROTOCOL_ERROR", false, true); return;
@@ -308,6 +310,11 @@ class OrderedAndroidTransport {
     this._take(data.requestId);
     if (data.action === "load") { this.loaded = true; this._flush(); }
     if (data.action === "configureAudio") this._flushAudio();
+    if (data.action === "repeatOne") {
+      this.appliedRepeatValue = own.message.enabled;
+      this._flushRepeat();
+      this.onRepeatChanged?.();
+    }
   }
   _controlError(data) {
     const c = data.correlation;
@@ -392,6 +399,7 @@ class OrderedAndroidTransport {
       if (this.seekValue != null) { const value = this.seekValue; this.seekValue = null; this.seek(value); }
     }
     this._flushAudio();
+    this._flushRepeat();
     if (this.queued) {
       const own = this.queued; this.queued = null;
       this._transport(own);
@@ -444,6 +452,19 @@ class OrderedAndroidTransport {
     this.volumeValue = value;
     if (this.phase === "active" && this.loadSent) this._request("volume", { value, transport: { version: this.version, ...this.scope } });
   }
+  repeatOne(enabled) {
+    if (typeof enabled !== "boolean") return false;
+    this.repeatValue = enabled;
+    this._flushRepeat();
+    return true;
+  }
+  _flushRepeat() {
+    if (this.phase !== "active" || !this.loadSent || this.nativeRepeat !== "one-v1" || this.repeatValue === undefined) return;
+    if ([...this.controls.values()].some(record => record.message.action === "repeatOne")) return;
+    if (this.sentRepeatValue === this.repeatValue) return;
+    this.sentRepeatValue = this.repeatValue;
+    this._request("repeatOne", { enabled: this.repeatValue, transport: { version: this.version, ...this.scope } });
+  }
   configureAudio(settings) {
     if (!object(settings) || !Array.isArray(settings.bands) || settings.bands.length !== 6
       || settings.bands.some(value => !Number.isFinite(value) || Math.abs(value) > 12)
@@ -476,6 +497,7 @@ class OrderedAndroidTransport {
     this.recovery = deferred();
     const promise = this.recovery.promise;
     this.sentAudioSettings = null;
+    this.sentRepeatValue = undefined;
     this.phase = "probing";
     this._hello(true);
     return promise;

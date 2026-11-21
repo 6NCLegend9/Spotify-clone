@@ -13,7 +13,7 @@ function verify(rawSource) {
     assert(first >= 0 && last > first, `Production callback missing: ${start}`);
     return source.slice(first, last);
   };
-  let playing = false, error = null, pauses = 0, plays = 0, dispatches = 0, updateRequired = false;
+  let playing = false, error = null, pauses = 0, plays = 0, dispatches = 0, updateRequired = false, fadesCancelled = 0, volumeRestores = 0;
   const player = { orderedTransport: true, androidNative: true, nativePlayIntent: true,
     playVideo() { plays++; }, pauseVideo() { pauses++; }, getPlayerState: () => 1, unMute() {},
   };
@@ -30,7 +30,8 @@ function verify(rawSource) {
     MEDIA_PLAYER_STATES: { PLAYING: 1, PAUSED: 2, BUFFERING: 3, ENDED: 0, CUED: 5, UNSTARTED: -1 },
     crossfadeInProgressRef: { current: false }, isSeekGuarded: () => false, getActivePlayer: () => player,
     isPageHidden: () => false, shouldDeferYoutubeResume: () => false, backgroundAccountRef: { current: true },
-    applyPlaybackVolume() {}, volumeRestoreRef: { current: { holds: () => false } },
+    applyPlaybackVolume() { volumeRestores++; }, volumeRestoreRef: { current: { holds: () => false } },
+    endFadeOccurrenceRef: { current: 'one' }, cancelFade() { fadesCancelled++; },
   };
   vm.runInNewContext(part('const options = {', 'const occurrence = queueEntryIdentity(videoRef.current);')
     + '\nglobalThis.events = options.events;', context);
@@ -43,6 +44,16 @@ function verify(rawSource) {
   assert.equal(updateRequired, false, 'Browser/desktop controls do not receive an Android update notice');
   context.events.onTransportCapability({ target: player, data: { version: 0 } });
   assert.equal(updateRequired, true, 'Silent legacy binaries expose their update requirement');
+
+  player.nativeRepeatOne = false;
+  context.events.onRepeatConfigured({ target: player });
+  assert.equal(fadesCancelled, 0, 'Unacknowledged/unsupported repeat must preserve legacy fade behavior');
+  player.nativeRepeatOne = true;
+  context.events.onRepeatConfigured({ target: player });
+  assert.equal(fadesCancelled, 1); assert.equal(volumeRestores, 1);
+  assert.equal(context.endFadeOccurrenceRef.current, null, 'Native repeat cancels an in-flight end fade and restores audible output');
+  context.events.onRepeatConfigured({ target: player });
+  assert.equal(fadesCancelled, 1, 'Repeated acknowledgements do not disturb an unrelated volume change');
 
   // A fresh native command updates intent independently of actual output or a
   // pending React render. The old Pause observation must not send a new command.

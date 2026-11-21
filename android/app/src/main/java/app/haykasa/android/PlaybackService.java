@@ -140,6 +140,9 @@ public final class PlaybackService extends MediaSessionService {
             final String key = id;
             final ExoPlayer observedPlayer = player;
             player.addListener(new Player.Listener() {
+                @Override public void onMediaItemTransition(@Nullable MediaItem item, int reason) {
+                    if (players.get(key) == observedPlayer && reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) emit(key, "repeat");
+                }
                 @Override public void onPlaybackStateChanged(int state) {
                     if (players.get(key) != observedPlayer) return;
                     int actual = observedPlayer.getPlaybackState();
@@ -223,6 +226,9 @@ public final class PlaybackService extends MediaSessionService {
     }
     void seekPlayer(String id, double seconds) { players.get(id).seekTo((long)(Math.max(0, Math.min(1801, seconds)) * 1000)); }
     void volumePlayer(String id, double volume) { players.get(id).setVolume((float)Math.max(0, Math.min(1, volume))); }
+    void repeatOne(String id, boolean enabled) {
+        players.get(id).setRepeatMode(enabled ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF);
+    }
     void configureAudio(String id, boolean bypass, double[] bands, boolean mono) {
         NativeAudioProcessor processor = processors.get(id);
         if (processor == null) throw new IllegalStateException("Media load missing");

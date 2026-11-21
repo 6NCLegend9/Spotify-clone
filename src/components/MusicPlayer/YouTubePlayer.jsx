@@ -1231,6 +1231,18 @@ function YouTubePlayer() {
             ? wantsPlayback() : autoplay;
           if (shouldPlay && !event.target.nativeTransportRestored) event.target.playVideo();
         },
+        onRepeatConfigured: (event) => {
+          if (!isCurrent() || key !== activeDeckRef.current || !event.target.nativeRepeatOne || !endFadeOccurrenceRef.current) return;
+          cancelFade();
+          applyPlaybackVolume(event.target);
+          endFadeOccurrenceRef.current = null;
+        },
+        onRepeat: () => {
+          if (!isCurrent() || key !== activeDeckRef.current) return;
+          insights.finish("completed");
+          const current = videoRef.current;
+          if (status === "authenticated" && current?.id) recordPlayEvent(current.id, "completed");
+        },
         onTransportIntent: (event) => {
           if (!isCurrent() || key !== activeDeckRef.current || typeof event.data?.playing !== "boolean") return;
           const playing = event.data.playing;
@@ -1501,6 +1513,7 @@ function YouTubePlayer() {
         host, videoId, mode, profile, title, autoplay, startSeconds,
         maxHeight: qualitySelection === "auto" ? automaticMediaHeight() : Number(qualitySelection),
         audioSettings: audioSettingsRef.current,
+        repeatOne: !isJamGuestRef.current && repeatModeRef.current === "one",
         events: options.events,
         onAsset: (result) => {
           if (!isCurrent()) return;
@@ -2307,6 +2320,7 @@ function YouTubePlayer() {
       const fadeWindow = Math.min(Number(fadeSeconds) || 0, dur / 3);
       if (
         fadeEnabled !== false
+        && !activePlayer.nativeRepeatOne
         && dur > 8
         && fadeWindow >= 0.5
         && want
@@ -2605,6 +2619,16 @@ function YouTubePlayer() {
       window.removeEventListener(JAM_REMOTE_SEEK_EVENT, queueRemoteSeek);
     };
   }, []);
+
+  useEffect(() => {
+    getActivePlayer()?.setRepeatOne?.(!isJamGuest && repeatMode === "one");
+    if (getActivePlayer()?.nativeRepeatOne && endFadeOccurrenceRef.current) {
+      cancelFade();
+      applyPlaybackVolume(getActivePlayer());
+      endFadeOccurrenceRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repeatMode, isJamGuest]);
 
   useEffect(() => {
     const player = getActivePlayer();

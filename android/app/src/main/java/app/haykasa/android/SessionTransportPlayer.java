@@ -21,7 +21,10 @@ final class SessionTransportPlayer extends ForwardingSimpleBasePlayer {
     }
     @Override protected State getState() {
         State value = super.getState();
-        return idle ? value.buildUpon().setAvailableCommands(Player.Commands.EMPTY).build() : value;
+        // Repeat is owned by the app's scoped configuration. An unobserved OS
+        // mutation would make its acknowledged setting disagree with the decoder.
+        return value.buildUpon().setAvailableCommands(idle ? Player.Commands.EMPTY
+            : value.availableCommands.buildUpon().remove(Player.COMMAND_SET_REPEAT_MODE).build()).build();
     }
     @Override protected ListenableFuture<?> handleSetPlayWhenReady(boolean value) {
         diagnostic.accept(value ? "session-command play" : "session-command pause");
