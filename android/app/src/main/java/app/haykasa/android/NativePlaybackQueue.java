@@ -240,8 +240,9 @@ final class NativePlaybackQueue {
         if (released || revision == 0 || failed) return;
         Entry selected = current();
         Asset selectedAsset = selected == null ? null : assets.get(selected.occurrenceId());
-        if (selectedAsset != null && !selectedAsset.usable() && exhausted(selected)) {
-            fail(preparationFailures.get(selected.occurrenceId()).reason()); return;
+        Retry selectedRetry = selected == null ? null : preparationFailures.get(selected.occurrenceId());
+        if (selectedAsset != null && !selectedAsset.usable() && selectedRetry != null) {
+            fail(selectedRetry.reason()); return;
         }
         if (operation != null) { schedule(1000); return; }
         long now = System.currentTimeMillis();
@@ -266,12 +267,13 @@ final class NativePlaybackQueue {
         long delay = 60_000;
         for (Entry entry : entries) {
             Retry retry = preparationFailures.get(entry.occurrenceId());
-            if (retry != null && retry.after() != Long.MAX_VALUE) {
+            if (retry != null) {
                 delay = Math.min(delay, Math.max(1000, retry.after() - SystemClock.elapsedRealtime()));
-            } else if (retry != null && entry.occurrenceId().equals(currentOccurrenceId)) {
-                Asset asset = assets.get(entry.occurrenceId());
-                if (asset != null) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now));
-            } else if (retry == null) {
+                if (entry.occurrenceId().equals(currentOccurrenceId)) {
+                    Asset asset = assets.get(entry.occurrenceId());
+                    if (asset != null) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now));
+                }
+            } else {
                 Asset asset = assets.get(entry.occurrenceId());
                 if (asset != null) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now - 60_000));
             }
@@ -377,9 +379,10 @@ final class NativePlaybackQueue {
                     else {
                         // A transient failed renewal must not interrupt still-usable audio.
                         Retry previous = preparationFailures.get(entry.occurrenceId());
-                        int attempts = previous == null ? 1 : previous.attempts() + 1;
+                        int attempts = previous == null ? 1 : Math.min(6, previous.attempts() + 1);
+                        long backoff = Math.min(60_000, 5_000L << Math.min(4, attempts - 1));
                         preparationFailures.put(entry.occurrenceId(), new Retry(attempts,
-                            attempts >= 3 ? Long.MAX_VALUE : SystemClock.elapsedRealtime() + 5_000, reason));
+                            SystemClock.elapsedRealtime() + backoff, reason));
                         wake();
                     }
                     return;
@@ -532,10 +535,6 @@ final class NativePlaybackQueue {
     private boolean retryReady(Entry entry) {
         Retry retry = preparationFailures.get(entry.occurrenceId());
         return retry == null || SystemClock.elapsedRealtime() >= retry.after();
-    }
-    private boolean exhausted(Entry entry) {
-        Retry retry = preparationFailures.get(entry.occurrenceId());
-        return retry != null && retry.after() == Long.MAX_VALUE;
     }
     private int timelineIndex(String identity) {
         for (int index = 0; index < player.getMediaItemCount(); index++) if (identity.equals(player.getMediaItemAt(index).mediaId)) return index;

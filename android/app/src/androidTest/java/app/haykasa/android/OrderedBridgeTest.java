@@ -138,7 +138,10 @@ public class OrderedBridgeTest {
         return false;
     }
     private void waitFor(BooleanSupplier condition) throws Exception {
-        for (int attempt = 0; attempt < 200; attempt++) { if (condition.getAsBoolean()) return; Thread.sleep(50); }
+        waitFor(condition, 200);
+    }
+    private void waitFor(BooleanSupplier condition, int attempts) throws Exception {
+        for (int attempt = 0; attempt < attempts; attempt++) { if (condition.getAsBoolean()) return; Thread.sleep(50); }
         fail("Native transport condition did not settle");
     }
     @SuppressWarnings("unchecked") private ExoPlayer raw() throws Exception {
@@ -178,7 +181,7 @@ public class OrderedBridgeTest {
                         if (action.equals("renew")) assertEquals("initial", request.getString("receipt"));
                         if (action.equals("create")) assertEquals("synthetic01", request.getString("videoId"));
                         if (action.equals("renew") && renewAttempts.incrementAndGet() == 1
-                            || action.equals("create") && createAttempts.incrementAndGet() == 1) {
+                            || action.equals("create") && createAttempts.incrementAndGet() <= 3) {
                             return new JSONObject().put("state", "failed").put("reason", "source_unavailable")
                                 .put("receipt", action + "-failed");
                         }
@@ -198,8 +201,8 @@ public class OrderedBridgeTest {
             waitFor(() -> {
                 main(() -> prepared.set(player.getMediaItemCount() == 2 && player.getDuration() > 0));
                 return prepared.get();
-            });
-            assertEquals(List.of("refreshNativeGrant", "renew", "create", "renew", "create"), actions);
+            }, 900);
+            assertEquals(List.of("refreshNativeGrant", "renew", "create", "renew", "create", "create", "create"), actions);
             assertEquals("first", occurrence.get());
             main(() -> player.seekTo(player.getDuration() - 300));
             transport("play", 1);
