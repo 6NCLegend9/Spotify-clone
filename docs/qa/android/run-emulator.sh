@@ -44,6 +44,11 @@ collect_device_evidence() {
     qa_adb logcat -d HayKasaWebQA:D HayKasaMediaQA:D '*:S' > "$qa_root/artifacts/android-emulator/playback-diagnostics.log" 2>&1 || true
     qa_adb logcat -d AndroidRuntime:E '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
     qa_adb shell dumpsys activity services app.haykasa.android.debug > "$qa_root/artifacts/android-emulator/services.txt" 2>&1 || true
+    if [[ "$test_status" -ne 0 ]]; then
+      # Keep the focused window names only, so input failures can be separated
+      # from a WebView assertion or a dialog that was never shown.
+      qa_adb shell dumpsys window windows | grep -E 'mCurrentFocus=|mFocusedApp=' > "$qa_root/artifacts/android-emulator/window-focus.txt" || true
+    fi
     qa_adb pull /sdcard/Download/haykasa-emulator-qa "$qa_root/artifacts/android-emulator/screenshots" || evidence_status=$?
   else
     evidence_status=1
@@ -73,6 +78,10 @@ mkdir -p "$qa_root/artifacts/android-emulator"
 node "$qa_root/docs/qa/android/host-sampler.mjs" > "$qa_root/artifacts/android-emulator/host-samples.jsonl" 2>&1 &
 qa_sampler_pid=$!
 wait_for_device_storage
+# Back and dialog tests inject real input. Keep it on the unlocked test display.
+qa_adb shell svc power stayon true
+qa_adb shell input keyevent KEYCODE_WAKEUP
+qa_adb shell wm dismiss-keyguard
 qa_adb shell rm -rf /sdcard/Download/haykasa-emulator-qa
 qa_adb logcat -c
 if [[ ! -f "$qa_root/.next/BUILD_ID" ]]; then
