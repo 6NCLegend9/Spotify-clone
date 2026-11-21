@@ -42,7 +42,7 @@ collect_device_evidence() {
   fi
   if mkdir -p "$qa_root/artifacts/android-emulator"; then
     qa_adb logcat -d HayKasaWebQA:D HayKasaMediaQA:D '*:S' > "$qa_root/artifacts/android-emulator/playback-diagnostics.log" 2>&1 || true
-    qa_adb logcat -d AndroidRuntime:E '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
+    qa_adb logcat -b main -b crash -d -t 300 AndroidRuntime:E libc:F '*:S' > "$qa_root/artifacts/android-emulator/crashes.log" 2>&1 || true
     qa_adb shell dumpsys activity services app.haykasa.android.debug > "$qa_root/artifacts/android-emulator/services.txt" 2>&1 || true
     if [[ "$test_status" -ne 0 ]]; then
       # Keep the focused window names only, so input failures can be separated
@@ -83,7 +83,7 @@ qa_adb shell svc power stayon true
 qa_adb shell input keyevent KEYCODE_WAKEUP
 qa_adb shell wm dismiss-keyguard
 qa_adb shell rm -rf /sdcard/Download/haykasa-emulator-qa
-qa_adb logcat -c
+qa_adb logcat -b main -b crash -c
 if [[ ! -f "$qa_root/.next/BUILD_ID" ]]; then
   echo "Build the current web source before running emulator QA (DISABLE_PWA=1 npm run build)." >&2
   exit 1
