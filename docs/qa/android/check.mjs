@@ -166,6 +166,14 @@ globalThis.finishAndroidQaResolution(); delete globalThis.finishAndroidQaResolut
 await new Promise(resolve => setImmediate(resolve));
 deck.destroy();
 assert.equal(sent.at(-1).action, "release");
+const abandoned = createNativeMediaDeck({ host: { replaceChildren() {} }, videoId: "synthetic04", mode: "audio" });
+abandoned.loadVideoById("invalid");
+const loadsBeforeLateResolution = sent.filter(message => message.action === "load").length;
+globalThis.finishAndroidQaResolution(); delete globalThis.finishAndroidQaResolution;
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(sent.filter(message => message.action === "load").length, loadsBeforeLateResolution,
+  "A source result arriving after fallback must never load the native decoder");
+abandoned.destroy();
 console.log("Production native deck checks passed: source handoff, pending-source release, stale native event isolation, adapter reuse, readiness, native play/pause intent, per-track notification titles and cleanup.");
 
 // Check the actual instrumentation observer without running an emulator. Its

@@ -34,11 +34,8 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   };
   const fallback = (reason) => {
     if (destroyed) return;
-    playAttempt++;
     const snapshot = { position: ready ? media.currentTime : position, playing: intent, reason };
-    releaseSource();
-    controller?.abort();
-    clearTimeout(renewTimer);
+    clearSource();
     onFallback?.(snapshot);
   };
   const listeners = new Map();
