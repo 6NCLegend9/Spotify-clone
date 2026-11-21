@@ -17,7 +17,7 @@ import UserMessage from "@/components/UserMessage";
 import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
 import AccessibleDialog from "@/components/AccessibleDialog";
-import { hasAndroidAudioBridge, getAndroidAudioProcessingSupport, subscribeAndroidAudioProcessingSupport } from "@/components/MusicPlayer/media/androidAudioElement.mjs";
+import { hasAndroidAudioBridge, getAndroidAudioProcessingSupport, getAndroidMeasuredLoudnessSupport, subscribeAndroidAudioProcessingSupport } from "@/components/MusicPlayer/media/androidAudioElement.mjs";
 import useAccountScope from "@/hooks/useAccountScope";
 import { browserNotificationPermission, browserNotificationsEnabled, requestBrowserNotificationPermission } from "@/utils/browserNotifications.mjs";
 
@@ -138,10 +138,15 @@ function AccountSettings({ scope }) {
   const settings = useSelector((state) => state.settings);
   const [androidAudio, setAndroidAudio] = useState(false);
   const [androidProcessing, setAndroidProcessing] = useState(false);
+  const [androidLoudness, setAndroidLoudness] = useState(false);
   useEffect(() => {
     setAndroidAudio(hasAndroidAudioBridge());
     setAndroidProcessing(getAndroidAudioProcessingSupport());
-    return subscribeAndroidAudioProcessingSupport(() => setAndroidProcessing(getAndroidAudioProcessingSupport()));
+    setAndroidLoudness(getAndroidMeasuredLoudnessSupport());
+    return subscribeAndroidAudioProcessingSupport(() => {
+      setAndroidProcessing(getAndroidAudioProcessingSupport());
+      setAndroidLoudness(getAndroidMeasuredLoudnessSupport());
+    });
   }, []);
   const audioProcessingUnavailable = androidAudio && !androidProcessing;
   const [saveState, setSaveState] = useState("idle");
@@ -322,6 +327,7 @@ function AccountSettings({ scope }) {
         <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">
           <h2 className="mb-2 text-xl font-semibold">Playback sound</h2>
           <SelectControl label="Playback level" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
+          <Toggle label="Normalize track loudness" disabled={!androidAudio || !androidLoudness} checked={settings.normalizeLoudness === true} onChange={(value) => set("normalizeLoudness", value)} description={androidAudio && androidLoudness ? "Uses measured track loudness to balance supported Android audio. Peak protection can keep some tracks quieter; unmeasured tracks play unchanged. EQ and Playback level can change the final level." : "Start native audio playback in an updated Android app to check support. Your preference is kept; browser and embedded playback are unchanged."} />
           <Toggle label="Mono audio" disabled={audioProcessingUnavailable} description={audioProcessingUnavailable ? "Start native audio playback in an updated Android app to check mono support. Your saved preference is kept." : "Combines audio channels on supported HayKasa native and Web Audio players. YouTube embedded audio is unchanged."} checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
           <p className="mt-4 text-xs leading-5 text-[#9aa8b5]">
             YouTube chooses stream quality automatically from the uploaded source, connection, device, and player conditions. HayKasa&apos;s Audio-focused and Data Saver options only change HayKasa presentation and visual work; they do not select a different YouTube stream.

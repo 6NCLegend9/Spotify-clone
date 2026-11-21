@@ -5,15 +5,19 @@ import { ACCOUNT_DATA_CLEARED } from "../../../utils/accountStorage.mjs";
 const listeners = new Map();
 let installedBridge;
 const processingSupport = new Map(), processingSubscribers = new Set();
+const loudnessSupport = new Map();
 export const getAndroidAudioProcessingSupport = () => [...processingSupport.values()].some(Boolean);
+export const getAndroidMeasuredLoudnessSupport = () => [...loudnessSupport.values()].some(Boolean);
 export function subscribeAndroidAudioProcessingSupport(callback) {
   processingSubscribers.add(callback);
   return () => processingSubscribers.delete(callback);
 }
-function setProcessingSupport(id, supported) {
+function setProcessingSupport(id, supported, measured = false) {
   const previous = getAndroidAudioProcessingSupport();
+    const previousLoudness = getAndroidMeasuredLoudnessSupport();
   if (supported) processingSupport.set(id, true); else processingSupport.delete(id);
-  if (previous !== getAndroidAudioProcessingSupport()) for (const callback of processingSubscribers) callback();
+    if (measured) loudnessSupport.set(id, true); else loudnessSupport.delete(id);
+    if (previous !== getAndroidAudioProcessingSupport() || previousLoudness !== getAndroidMeasuredLoudnessSupport()) for (const callback of processingSubscribers) callback();
 }
 export function hasAndroidAudioBridge() {
   return globalThis.location?.origin === "https://haykasa.vercel.app"
@@ -42,6 +46,7 @@ export function createAndroidAudioElement(title = "") {
   let legacyLoaded = false;
   let transportVersion = null, audioProcessing = null, audioSettings;
   let repeatOne = false;
+  let queueSnapshot = null, queueStamp = null;
   let ordered, transportError, observedPlaying = false, announcedPlaying = false, announcedPause = true, decoderError = false, lastIntent, lastWaiting = false;
   const post = (action, extra = {}) => {
     if (disposed) return;
@@ -68,6 +73,7 @@ export function createAndroidAudioElement(title = "") {
     loaded = false; ended = false; paused = true; current = 0; duration = 0;
     observedPlaying = false; announcedPlaying = false; announcedPause = true; decoderError = false; lastIntent = undefined; lastWaiting = false; transportError = null;
     transportVersion = null;
+    queueSnapshot = null; queueStamp = null;
   };
   const clearSource = () => {
     if (disposed) return;
@@ -101,11 +107,11 @@ export function createAndroidAudioElement(title = "") {
         post("load", { url: source, title: String(media.title || "HayKasa").slice(0, 300) });
         return { play: () => media.play(), pause: () => media.pause() };
       },
-      onCapability: ({ version, audioProcessing: capability }) => {
+      onCapability: ({ version, audioProcessing: capability, measuredLoudness }) => {
         if (disposed || ordered !== own) return;
         transportVersion = version;
         audioProcessing = capability || null;
-        setProcessingSupport(id, audioProcessing === "pcm-eq-v1");
+        setProcessingSupport(id, audioProcessing === "pcm-eq-v1", measuredLoudness === "ebu-r128-v1");
         emit("transportcapability");
       },
       onFailure: error => {
@@ -131,6 +137,11 @@ export function createAndroidAudioElement(title = "") {
         const beforeEnded = ended;
         let view = own.view();
         current = view.position; duration = view.duration; observedPlaying = view.observedPlaying;
+        if (packet.nativeQueue && !own.queueSelection) {
+          queueSnapshot = packet.nativeQueue;
+          const stamp = `${queueSnapshot.revision}:${queueSnapshot.currentOccurrenceId}:${queueSnapshot.preparing}:${queueSnapshot.reason || ""}`;
+          if (stamp !== queueStamp) { queueStamp = stamp; emit("nativequeue"); }
+        }
         const publishIntent = () => {
           const latest = own.view();
           if (latest.intent !== lastIntent) { lastIntent = latest.intent; emit("transportintent"); }
@@ -172,6 +183,9 @@ export function createAndroidAudioElement(title = "") {
     isAndroidNativeMedia: { value: true },
     orderedTransport: { get: () => Boolean(ordered?.supported) },
     nativeTransportVersion: { get: () => transportVersion },
+    nativeQueueCapability: { get: () => ordered?.nativeQueue || null },
+    nativeQueueSnapshot: { get: () => ordered?.queueSelection ? null : queueSnapshot },
+    nativeQueueRevision: { get: () => ordered?.appliedQueueRevision || 0 },
     nativeAudioProcessing: { get: () => audioProcessing },
     nativeRepeatOne: { get: () => repeatOne && ordered?.nativeRepeat === "one-v1" && ordered.appliedRepeatValue === true },
     nativePlayIntent: { get: () => ordered ? ordered.desired : !paused },
@@ -221,9 +235,10 @@ export function createAndroidAudioElement(title = "") {
     finishPlay(new DOMException("Playback paused", "AbortError")); paused = true;
     if (ordered) { lastIntent = false; announcedPlaying = false; ordered.pause(); } else if (legacyLoaded) post("pause");
   };
-  media.configureNativeAudio = settings => {
+  media.configureNativeAudio = (settings, { defer = false } = {}) => {
     if (disposed) return false;
     audioSettings = settings;
+    if (defer) return true;
     return ordered?.configureAudio(settings) ?? false;
   };
   media.setNativeRepeatOne = enabled => {
@@ -231,6 +246,8 @@ export function createAndroidAudioElement(title = "") {
     repeatOne = enabled;
     return ordered?.repeatOne(enabled) ?? false;
   };
+  media.configureNativeQueue = configuration => !disposed && (ordered?.configureQueue(configuration) ?? false);
+  media.selectNativeQueue = occurrenceId => !disposed && (ordered?.selectQueue(occurrenceId) ?? false);
   media.reconnectTransport = () => ordered ? ordered.recover() : Promise.reject(nativeTransportError("UNSUPPORTED"));
   const removeAttribute = media.removeAttribute.bind(media);
   media.removeAttribute = name => { if (String(name).toLowerCase() === "src") clearSource(); removeAttribute(name); };

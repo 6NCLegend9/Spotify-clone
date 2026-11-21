@@ -5,6 +5,7 @@ export const SUPPORTED_USER_SETTING_KEYS = Object.freeze([
   "audioOnly",
   "wifiOnlyDownloads",
   "normalization",
+  "normalizeLoudness",
   "monoAudio",
   "explicitContent",
   "privateSession",

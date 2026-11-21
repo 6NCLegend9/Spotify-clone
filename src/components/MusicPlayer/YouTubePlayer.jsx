@@ -99,7 +99,10 @@ const otherDeck = (key) => (key === "A" ? "B" : "A");
 const mediaLoadOptions = (player, track, startSeconds) => ({
   videoId: track.id,
   startSeconds,
-  ...(player?.provider === "native" ? { title: track.title || "" } : {}),
+  ...(player?.provider === "native" ? {
+    title: track.title || "",
+    ...(startSeconds === 0 && track.queueEntryId ? { occurrenceId: track.queueEntryId } : {}),
+  } : {}),
 });
 const SEEK_GUARD_MS = 5000;
 const TRACK_CHANGE_GUARD_MS = 8000;
@@ -166,6 +169,7 @@ function YouTubePlayer() {
     dataSaver,
     audioOnly,
     normalization,
+    normalizeLoudness,
     eqPreset,
     eqBands,
     monoAudio,
@@ -252,7 +256,7 @@ function YouTubePlayer() {
   const fallbackOccurrenceRef = useRef(null);
   const sourceContextRef = useRef("");
   const audioSettingsRef = useRef({});
-  audioSettingsRef.current = { bands: bandsForPreset(eqPreset, eqBands), normalization, monoAudio };
+  audioSettingsRef.current = { bands: bandsForPreset(eqPreset, eqBands), normalization, normalizeLoudness, monoAudio };
   const [deliveredVideoQuality, setDeliveredVideoQuality] = useState("");
   const [playerError, setPlayerError] = useState(null);
   const [androidUpdateRequired, setAndroidUpdateRequired] = useState(false);
@@ -1124,6 +1128,19 @@ function YouTubePlayer() {
   };
   handlePlaybackFailureRef.current = handlePlaybackFailure;
 
+  const configureAndroidQueue = (player) => {
+    if (!player?.androidNative || !backgroundAccountRef.current || jam?.code || privateSession || !queueManualEnd) return;
+    const currentOccurrenceId = videoRef.current?.queueEntryId;
+    const entries = safeQueue.map(track => ({
+      occurrenceId: track.queueEntryId,
+      videoId: track.id,
+      title: (track.title || "HayKasa").slice(0, 300),
+    }));
+    if (entries.length > 100 || !entries.every(entry => /^[A-Za-z0-9:_-]{1,160}$/.test(entry.occurrenceId || ""))
+      || !entries.some(entry => entry.occurrenceId === currentOccurrenceId)) return;
+    player.configureQueue({ entries, currentOccurrenceId, repeatAll: repeatModeRef.current === "queue" });
+  };
+
   const hardSwitchOnDeck = (
     key,
     nextVideo,
@@ -1223,6 +1240,7 @@ function YouTubePlayer() {
           frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
           if (key === activeDeckRef.current) {
             syncPlaybackDuration(event.target.getDuration());
+            configureAndroidQueue(event.target);
           }
           event.target.mute();
           applyYouTubeCaptions(event.target, captionsEnabled && !karaokeHasLinesRef.current);
@@ -1236,6 +1254,17 @@ function YouTubePlayer() {
           cancelFade();
           applyPlaybackVolume(event.target);
           endFadeOccurrenceRef.current = null;
+        },
+        onQueueChange: ({ data }) => {
+          if (!isCurrent() || key !== activeDeckRef.current || !backgroundAccountRef.current
+            || data.currentOccurrenceId === videoRef.current?.queueEntryId) return;
+          const snapshot = store.getState();
+          const next = snapshot.player.youtubeQueue.find(item => item.queueEntryId === data.currentOccurrenceId && item.id === data.currentVideoId);
+          if (!next || !isTrackAllowed(next, snapshot.settings.explicitContent)) return;
+          handledOccurrenceRef.current = data.currentOccurrenceId;
+          dispatch(setYoutubeVideo(next));
+          if (!data.playing) dispatch(playPause(false, { intent: false }));
+          syncPlaybackClock(data.position, data.duration);
         },
         onRepeat: () => {
           if (!isCurrent() || key !== activeDeckRef.current) return;
@@ -2631,11 +2660,16 @@ function YouTubePlayer() {
   }, [repeatMode, isJamGuest]);
 
   useEffect(() => {
+    configureAndroidQueue(getActivePlayer());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeQueue, repeatMode, queueManualEnd, playbackOwner, jam?.code, privateSession]);
+
+  useEffect(() => {
     const player = getActivePlayer();
     player?.configureAudio?.(audioSettingsRef.current);
     applyPlaybackVolume(player);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playbackVolume, masterVolume, eqPreset, eqBands, normalization, monoAudio]);
+  }, [playbackVolume, masterVolume, eqPreset, eqBands, normalization, normalizeLoudness, monoAudio]);
 
   useEffect(() => {
     applyYouTubeCaptions(getActivePlayer(), captionsEnabled && !karaokeHasLines);

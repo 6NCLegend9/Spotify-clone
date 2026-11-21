@@ -16,6 +16,7 @@ const initialState = {
   audioOnly: false,
   wifiOnlyDownloads: false,
   normalization: "normal",
+  normalizeLoudness: false,
   monoAudio: false,
   explicitContent: false,
   privateSession: false,

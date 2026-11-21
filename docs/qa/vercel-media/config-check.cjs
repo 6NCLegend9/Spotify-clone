@@ -70,7 +70,7 @@ let touched=false;
 const route=load('src/app/api/media/preflight/route.js',{
   'next/server':{NextResponse:{json:(data,options)=>({data,...options})}},
   '@/utils/mediaService.mjs':{mediaServiceConfig:()=>{touched=true;throw Error('production probe reached service')}},
-  '@/utils/mediaReceipts.mjs':{},'@/utils/rateLimit':{},
+  '@/utils/mediaReceipts.mjs':{},'@/utils/rateLimit':{},'@/utils/nativePlaybackGrants':{},
 });
 (async()=>{
   assert.equal((await route.GET({})).status,404);assert.equal(touched,false);
@@ -90,6 +90,7 @@ const route=load('src/app/api/media/preflight/route.js',{
       },
     },
     '@/utils/mediaReceipts.mjs':{mediaScopeHash:()=> 'd'.repeat(64)},
+    '@/utils/nativePlaybackGrants':{},
     '@/utils/rateLimit':{isRateLimited:async(key,options)=>{limits.push({key,options});return {limited:false}}},
   },{
     process:{env:{VERCEL_ENV:'preview',MEDIA_SERVICE_DEPLOYMENT_PROBE:'1'}},

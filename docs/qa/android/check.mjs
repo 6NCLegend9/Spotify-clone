@@ -104,6 +104,7 @@ source = source.replace('"./androidAudioElement.mjs"', JSON.stringify(new URL(".
 const mockResolver = `export const cancelMediaReceipt=()=>{}; export const resolveMediaAsset=async({videoId})=>{if(videoId==="synthetic04")await new Promise(resolve=>{globalThis.finishAndroidQaResolution=resolve});return {receipt:"synthetic",asset:{url:"https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=synthetic",expiresAt:Date.now()+3600000,duration:200}}};`;
 source = source.replace('"./resolveMediaAsset.mjs"', JSON.stringify("data:text/javascript;base64," + Buffer.from(mockResolver).toString("base64")));
 source = source.replace('"./nativeAudioGraph.mjs"', JSON.stringify("data:text/javascript,export const createNativeAudioGraph=()=>null"));
+source = source.replace('"../../../utils/nativePlaybackAuthorization.mjs"', JSON.stringify(new URL("../../../src/utils/nativePlaybackAuthorization.mjs", import.meta.url).href));
 const { createNativeMediaDeck } = await import("data:text/javascript;base64," + Buffer.from(source).toString("base64"));
 const states = [];
 const deck = createNativeMediaDeck({ host: { replaceChildren() {} }, videoId: "synthetic01", title: "First song", mode: "audio", autoplay: false, events: { onStateChange: e => states.push(e.data) } });

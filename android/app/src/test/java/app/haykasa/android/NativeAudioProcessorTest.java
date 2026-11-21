@@ -276,6 +276,8 @@ public class NativeAudioProcessorTest {
         int split = 1379 * 4;
         byte[] first = process(rebound, Arrays.copyOfRange(input, 0, split));
         rebound.setProcessing(false, bands.clone(), true);
+        // An opted-in preference without track measurements also leaves the sound unchanged.
+        rebound.setProcessing(false, bands.clone(), true, true, null, null);
         byte[] second = process(rebound, Arrays.copyOfRange(input, split, input.length));
         byte[] actual = new byte[input.length];
         System.arraycopy(first, 0, actual, 0, first.length);
@@ -301,5 +303,41 @@ public class NativeAudioProcessorTest {
         NativeAudioProcessor value=processor(48000,2,false,new double[6],true);
         ByteBuffer input=ByteBuffer.wrap(new byte[3]);
         assertThrows(IllegalArgumentException.class,()->value.queueInput(input)); assertEquals(0,input.position());
+    }
+
+    @Test public void measuredLoudnessGainUsesIntegratedValueAndRespectsPeakAndBoostLimits() {
+        assertEquals(Math.pow(10, -4.0 / 20), NativeAudioProcessor.measuredNormalizationGain(true, -10.0, -.5), 1e-12);
+        assertEquals(Math.pow(10, 2.0 / 20), NativeAudioProcessor.measuredNormalizationGain(true, -20.0, -3.0), 1e-12);
+        assertEquals(Math.pow(10, 12.0 / 20), NativeAudioProcessor.measuredNormalizationGain(true, -40.0, -20.0), 1e-12);
+        assertEquals(1, NativeAudioProcessor.measuredNormalizationGain(false, -20.0, -3.0), 0);
+        assertEquals(1, NativeAudioProcessor.measuredNormalizationGain(true, null, null), 0);
+        for (Double[] invalid : new Double[][]{{null, -3.0}, {-20.0, null}, {Double.NaN, -3.0}, {-70.0, -3.0}, {-20.0, 21.0}, {-20.0, Double.NEGATIVE_INFINITY}}) {
+            assertThrows(IllegalArgumentException.class, () -> NativeAudioProcessor.measuredNormalizationGain(true, invalid[0], invalid[1]));
+        }
+    }
+
+    @Test public void measuredGainActuallyChangesPcmAndUnmeasuredTracksStayOriginal() throws Exception {
+        byte[] input = tone(48000, 2, 1000, .2, 4800);
+        NativeAudioProcessor value = processor(48000, 2, false, new double[6], false);
+        value.setProcessing(false, new double[6], false, true, -10.0, -3.0);
+        byte[] output = process(value, input);
+        assertEquals(-4, 20 * Math.log10(rms(output, 480, 2) / rms(input, 480, 2)), .02);
+        assertEquals(Math.pow(10, -4.0 / 20), value.stats().normalizationGain(), 1e-12);
+        value.setLoudnessMeasurement(null, null);
+        assertArrayEquals(input, process(value, input));
+        assertEquals(1, value.stats().normalizationGain(), 0);
+        value.setLoudnessMeasurement(-10.0, -3.0);
+        assertArrayEquals(output, process(value, input));
+        value.setProcessing(true, new double[6], false, true, -10.0, -3.0);
+        assertArrayEquals(input, process(value, input));
+    }
+
+    @Test public void normalizedEqStillLimitsActualProcessedPeaks() throws Exception {
+        NativeAudioProcessor value = processor(48000, 6, false, new double[6], false);
+        value.setProcessing(false, new double[]{12,12,12,12,12,12}, true, true, -40.0, -20.0);
+        byte[] input = tone(48000, 6, 1000, .99, 4800);
+        process(value, input);
+        assertTrue(value.stats().limitedFrames() > 0);
+        assertTrue(value.stats().outputSamplePeak() <= NativeAudioProcessor.SAMPLE_PEAK_CEILING);
     }
 }

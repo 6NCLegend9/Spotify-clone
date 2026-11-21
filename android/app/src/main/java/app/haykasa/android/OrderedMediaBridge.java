@@ -56,7 +56,8 @@ final class OrderedMediaBridge {
             }
             JSONObject attempted = "transportBind".equals(action) ? msg : msg.optJSONObject("transport");
             boolean playback = "load".equals(action) || "play".equals(action) || "pause".equals(action)
-                || "seek".equals(action) || "volume".equals(action) || "configureAudio".equals(action) || "release".equals(action);
+                || "seek".equals(action) || "volume".equals(action) || "configureAudio".equals(action)
+                || "configureQueue".equals(action) || "selectQueue".equals(action) || "release".equals(action);
             if (playback && attempted == null || attempted != null && Long.valueOf(1).equals(number(attempted, "version", true))) {
                 error(msg, sink, "UNAVAILABLE", 1); return true;
             }
@@ -112,7 +113,9 @@ final class OrderedMediaBridge {
         send(sink, new JSONObject().put("id", id).put("event", "transportCapabilities")
             .put("requestId", request).put("version", 2).put("capability", "ordered-transport-v2")
             .put("audioProcessing", "pcm-eq-v1")
+            .put("measuredLoudness", "ebu-r128-v1")
             .put("nativeRepeat", "one-v1")
+            .put("nativeQueue", "source-queue-v1")
             .put("nativeBuildCode", host.nativeBuildCode()).put("engineId", engineId)
             .put("currentBindingId", expected == null ? JSONObject.NULL : expected)
             .put("issuedBindingId", issued).put("bindGrant", grant).put("grantLifetimeMs", GRANT_MS));
@@ -207,6 +210,21 @@ final class OrderedMediaBridge {
                 ack(msg, sink, load.owner.bindingId, "seek".equals(action) ? "accepted" : "completed");
                 break;
             }
+            case "configureQueue": {
+                if (!host.hasPlayer(load.id)) { error(msg, sink, "UNAVAILABLE"); return; }
+                try { host.configureQueue(load.id, msg); }
+                catch (IllegalArgumentException invalid) { error(msg, sink, "INVALID_VALUE"); return; }
+                ack(msg, sink, load.owner.bindingId, "completed");
+                break;
+            }
+            case "selectQueue": {
+                Long revision = number(msg, "queueRevision", true);
+                if (revision == null || !(msg.opt("occurrenceId") instanceof String)) { error(msg, sink, "INVALID_VALUE"); return; }
+                try { host.selectQueueOccurrence(load.id, text(msg, "occurrenceId"), revision); }
+                catch (IllegalArgumentException invalid) { error(msg, sink, "INVALID_VALUE"); return; }
+                ack(msg, sink, load.owner.bindingId, "completed");
+                break;
+            }
             case "repeatOne": {
                 if (!(msg.opt("enabled") instanceof Boolean)) { error(msg, sink, "INVALID_VALUE"); return; }
                 if (!host.hasPlayer(load.id)) { error(msg, sink, "UNAVAILABLE"); return; }
@@ -230,7 +248,20 @@ final class OrderedMediaBridge {
                     bands[index] = ((Number)value).doubleValue();
                 }
                 if (!host.hasPlayer(load.id)) { error(msg, sink, "UNAVAILABLE"); return; }
-                host.configureAudio(load.id, msg.getBoolean("bypass"), bands, msg.getBoolean("mono"));
+                if (msg.has("normalizeLoudness") && !(msg.opt("normalizeLoudness") instanceof Boolean)) {
+                    error(msg, sink, "INVALID_VALUE"); return;
+                }
+                Double integrated = null, peak = null;
+                if (msg.has("loudness") && !msg.isNull("loudness")) {
+                    JSONObject measured = msg.optJSONObject("loudness");
+                    if (measured == null || !(measured.opt("integratedLufs") instanceof Number)
+                        || !(measured.opt("truePeakDbfs") instanceof Number)) { error(msg, sink, "INVALID_VALUE"); return; }
+                    integrated = measured.getDouble("integratedLufs"); peak = measured.getDouble("truePeakDbfs");
+                    try { NativeAudioProcessor.measuredNormalizationGain(false, integrated, peak); }
+                    catch (IllegalArgumentException invalid) { error(msg, sink, "INVALID_VALUE"); return; }
+                }
+                host.configureAudio(load.id, msg.getBoolean("bypass"), bands, msg.getBoolean("mono"),
+                    msg.optBoolean("normalizeLoudness", false), integrated, peak);
                 ack(msg, sink, load.owner.bindingId, "completed");
                 break;
             }
@@ -304,6 +335,8 @@ final class OrderedMediaBridge {
                 .put("position", observed.position()).put("duration", observed.duration())
                 .put("playing", observed.isPlaying()).put("playWhenReady", observed.playWhenReady());
             if ("repeat".equals(update.event())) packet.put("repeated", true);
+            JSONObject queue = host.queueSnapshot(load.id);
+            if (queue != null) packet.put("nativeQueue", queue);
             send(load.sink, packet);
         } catch (JSONException ignored) { /* No private source data is included in transport diagnostics. */ }
     }
@@ -336,6 +369,7 @@ final class OrderedMediaBridge {
                 if (!("transportHello".equals(action) || "transportBind".equals(action)
                     || "transportReadState".equals(action) || "load".equals(action)
                     || "seek".equals(action) || "volume".equals(action) || "configureAudio".equals(action)
+                    || "configureQueue".equals(action) || "selectQueue".equals(action)
                     || "repeatOne".equals(action) || "release".equals(action))) return;
                 if (!uuid(text(msg, "requestId"))) return;
                 correlation.put("requestId", text(msg, "requestId"));

@@ -216,6 +216,26 @@ public class OrderedBridgeTest {
         assertNull(processor());
     }
 
+    @Test public void measuredNormalizationIsValidatedAndConsumesDecodedPcm() throws Exception {
+        bootstrap(); load();
+        assertEquals("ebu-r128-v1", last("transportCapabilities").getString("measuredLoudness"));
+        JSONObject command = processing(false).put("mono", false).put("bands", new JSONArray(new double[6]))
+            .put("normalizeLoudness", true)
+            .put("loudness", new JSONObject().put("integratedLufs", -10).put("truePeakDbfs", -3));
+        processingError(new JSONObject(command.toString()).put("normalizeLoudness", "true"), "INVALID_VALUE", attachment);
+        processingError(new JSONObject(command.toString()).put("loudness", new JSONObject().put("integratedLufs", -70).put("truePeakDbfs", -3)), "INVALID_VALUE", attachment);
+        send(command);
+        NativeAudioProcessor dsp = processor();
+        transport("play", 1);
+        double expected = Math.pow(10, -4.0 / 20);
+        waitFor(() -> dsp.stats().frames() > 4800 && Math.abs(dsp.stats().normalizationGain() - expected) < 1e-12);
+        assertTrue(dsp.stats().processingActive());
+        assertTrue(dsp.stats().inputSamplePeak() > dsp.stats().outputSamplePeak());
+        send(processing(false).put("mono", false).put("bands", new JSONArray(new double[6]))
+            .put("normalizeLoudness", true).put("loudness", JSONObject.NULL));
+        waitFor(() -> dsp.stats().frames() > 4800 && dsp.stats().normalizationGain() == 1 && !dsp.stats().processingActive());
+    }
+
     @Test public void repeatOneLoopsWithoutWebCommandsAndPreservesPauseAndBindingAuthority() throws Exception {
         bootstrap();
         assertEquals("one-v1", last("transportCapabilities").getString("nativeRepeat"));

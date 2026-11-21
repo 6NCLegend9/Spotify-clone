@@ -2,7 +2,7 @@
 // Android instrumentation separately exercises the production producer and MediaController.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createAndroidAudioElement, getAndroidAudioProcessingSupport, subscribeAndroidAudioProcessingSupport } from "../../../src/components/MusicPlayer/media/androidAudioElement.mjs";
+import { createAndroidAudioElement, getAndroidAudioProcessingSupport, getAndroidMeasuredLoudnessSupport, subscribeAndroidAudioProcessingSupport } from "../../../src/components/MusicPlayer/media/androidAudioElement.mjs";
 
 import { clearLocalAccountCaches } from "../../../src/utils/accountStorage.mjs";
 
@@ -33,8 +33,9 @@ const track = promise => {
 };
 
 class Native {
-  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false, audioProcessing = null, audioSettings, nativeRepeat = null, repeatOne } = {}) {
+  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false, audioProcessing = null, audioSettings, nativeRepeat = null, repeatOne, measuredLoudness = null } = {}) {
     this.audioProcessing = audioProcessing;
+    this.measuredLoudness = measuredLoudness;
     this.nativeRepeat = nativeRepeat;
     this.version = version; this.malformedIssued = malformedIssued;
     this.legacy = legacy; this.sent = []; this.history = new Map(); this.seq = 0;
@@ -69,7 +70,7 @@ class Native {
       this.issued = crypto.randomUUID();
       this.id = command.id;
       this.deliver({ id: this.id, event: "transportCapabilities", requestId: command.requestId,
-        version: this.version, audioProcessing: this.audioProcessing, nativeRepeat: this.nativeRepeat, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
+        version: this.version, audioProcessing: this.audioProcessing, measuredLoudness: this.measuredLoudness, nativeRepeat: this.nativeRepeat, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
         currentBindingId: existing ? this.binding || null : null, bindGrant: G, grantLifetimeMs: 5000,
         ...(this.version === 2 ? { issuedBindingId: this.malformedIssued ? null : this.issued } : {}) });
     } else if (command.action === "transportBind") {
@@ -228,6 +229,27 @@ try {
     n.decide(n.last("play")); await flush(); assert.equal(play.state, "resolved");
   }, { version: 2, audioProcessing: "pcm-eq-v1", audioSettings: processingSettings });
   assert.equal(getAndroidAudioProcessingSupport(), false, "Disposed sources retire processing support");
+  await check("measured normalization is capability gated and scoped", async n => {
+    assert.equal(getAndroidMeasuredLoudnessSupport(), true);
+    const settings = { ...processingSettings, normalizeLoudness: true, loudness: { integratedLufs: -20, truePeakDbfs: -3 } };
+    assert.equal(n.audio.configureNativeAudio(settings), true);
+    assert.equal(n.last("configureAudio").normalizeLoudness, true);
+    assert.deepEqual(n.last("configureAudio").loudness, settings.loudness);
+    const count = n.sent.filter(x => x.action === "configureAudio").length;
+    assert.equal(n.audio.configureNativeAudio({ ...settings, loudness: { integratedLufs: -70, truePeakDbfs: -3 } }), false);
+    assert.equal(n.sent.filter(x => x.action === "configureAudio").length, count);
+    assert.equal(n.audio.configureNativeAudio({ ...settings, loudness: null }, { defer: true }), true);
+    assert.equal(n.sent.filter(x => x.action === "configureAudio").length, count, "New track configuration must not change the old source");
+    n.audio.load();
+    assert.equal(n.last("configureAudio").loudness, null, "The next load must not reuse prior-track measurements");
+  }, { version: 2, audioProcessing: "pcm-eq-v1", measuredLoudness: "ebu-r128-v1" });
+  assert.equal(getAndroidMeasuredLoudnessSupport(), false);
+  await check("old EQ binaries receive no measured normalization fields", async n => {
+    n.audio.configureNativeAudio({ ...processingSettings, normalizeLoudness: true, loudness: { integratedLufs: -20, truePeakDbfs: -3 } });
+    assert.equal(getAndroidMeasuredLoudnessSupport(), false);
+    assert.equal(n.last("configureAudio").normalizeLoudness, undefined);
+    assert.equal(n.last("configureAudio").loudness, undefined);
+  }, { version: 2, audioProcessing: "pcm-eq-v1" });
   await check("old native processing remains unsupported with no configure command", async n => {
     n.audio.configureNativeAudio(processingSettings);
     assert.equal(n.audio.nativeAudioProcessing, null);
@@ -515,10 +537,23 @@ try {
   let deckSource = await readFile(new URL("../../../src/components/MusicPlayer/media/nativeMediaDeck.mjs", import.meta.url), "utf8");
   for (const name of ["mediaPlayerStates", "androidAudioElement"])
     deckSource = deckSource.replace(`"./${name}.mjs"`, JSON.stringify(new URL(`../../../src/components/MusicPlayer/media/${name}.mjs`, import.meta.url).href));
-  const resolver = `export const cancelMediaReceipt=()=>{};export const resolveMediaAsset=async()=>({receipt:"synthetic",asset:{url:${JSON.stringify(assetUrl)},duration:200,expiresAt:Date.now()+3600000}});`;
+  const resolver = `export const cancelMediaReceipt=()=>{};export const resolveMediaAsset=async()=>({receipt:"synthetic",asset:{url:${JSON.stringify(assetUrl)},duration:200,expiresAt:Date.now()+3600000,loudness:{integratedLufs:-20,truePeakDbfs:-3}}});`;
   deckSource = deckSource.replace('"./resolveMediaAsset.mjs"', JSON.stringify("data:text/javascript;base64," + Buffer.from(resolver).toString("base64")));
   deckSource = deckSource.replace('"./nativeAudioGraph.mjs"', '"data:text/javascript,export const createNativeAudioGraph=()=>null"');
+  deckSource = deckSource.replace('"../../../utils/nativePlaybackAuthorization.mjs"', JSON.stringify(new URL("../../../src/utils/nativePlaybackAuthorization.mjs", import.meta.url).href));
   const { createNativeMediaDeck } = await import("data:text/javascript;base64," + Buffer.from(deckSource).toString("base64"));
+  await check("actual native deck binds resolved loudness to the new source", async n => {
+    n.audio.remove();
+    const deck = createNativeMediaDeck({ host: { replaceChildren() {} }, videoId: "synthetic01", mode: "audio", autoplay: false,
+      audioSettings: { bands: processingSettings.bands, monoAudio: false, normalizeLoudness: true } });
+    await flush(); n.audio = deck.getIframe();
+    assert.equal(n.last("configureAudio").normalizeLoudness, true);
+    assert.deepEqual(n.last("configureAudio").loudness, { integratedLufs: -20, truePeakDbfs: -3 });
+    const load = n.last("load"), config = n.last("configureAudio");
+    assert.equal(config.id, load.id);
+    assert.equal(config.transport.bindingId, load.transport.bindingId);
+    deck.destroy();
+  }, { version: 2, audioProcessing: "pcm-eq-v1", measuredLoudness: "ebu-r128-v1" });
   await check("actual native deck applies EQ and mono while Original playback level stays unity", async n => {
     n.audio.remove();
     const capabilities = [];

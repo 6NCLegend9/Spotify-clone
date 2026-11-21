@@ -17,7 +17,7 @@ export const maxDuration = 15;
 
 const allowedKeys = SUPPORTED_USER_SETTING_KEYS;
 const booleanKeys = new Set([
-  "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "explicitContent",
+  "dataSaver", "audioOnly", "wifiOnlyDownloads", "monoAudio", "normalizeLoudness", "explicitContent",
   "privateSession", "listeningInsights", "syncedLyrics", "pictureInPicture",
   "keyboardShortcuts", "captions", "fadeEnabled",
   "discordPresence", "discordPresenceConsent", "browserNotifications",

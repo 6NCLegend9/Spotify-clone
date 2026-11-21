@@ -209,9 +209,10 @@ public final class MainActivity extends Activity {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(web, "HayKasaAndroidMedia", Collections.singleton(MediaPolicy.ORIGIN),
                 (view, message, origin, isMainFrame, reply) -> {
-                    if (view != web || !isMainFrame || !MediaPolicy.ORIGIN.equals(origin.toString()) || message.getData() == null || message.getData().length() > 12288) return;
+                    if (view != web || !isMainFrame || !MediaPolicy.ORIGIN.equals(origin.toString()) || message.getData() == null || message.getData().length() > 65536) return;
                     try {
                         JSONObject command = new JSONObject(message.getData());
+                        if (message.getData().length() > 12288 && !"configureQueue".equals(command.optString("action"))) return;
                         Object attachment = mediaAttachment;
                         Runnable run = () -> {
                             if (playback == null || view != web || attachment != mediaAttachment || playerUpdateRequired) return;

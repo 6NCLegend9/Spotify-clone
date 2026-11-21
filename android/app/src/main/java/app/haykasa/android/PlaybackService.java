@@ -39,6 +39,7 @@ public final class PlaybackService extends MediaSessionService {
     private final Map<String, NativeAudioProcessor> processors = new HashMap<>();
     private final Map<String, Sink> sinks = new HashMap<>();
     private final Map<String, SessionTransportPlayer> wrappers = new HashMap<>();
+    private final Map<String, NativePlaybackQueue> queues = new HashMap<>();
     private final Map<String, String> policyReasons = new HashMap<>();
     private final Object localAttachment = new Object();
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -141,11 +142,15 @@ public final class PlaybackService extends MediaSessionService {
             final ExoPlayer observedPlayer = player;
             player.addListener(new Player.Listener() {
                 @Override public void onMediaItemTransition(@Nullable MediaItem item, int reason) {
+                    NativePlaybackQueue queue = queues.get(key);
+                    if (players.get(key) == observedPlayer && queue != null) queue.onMediaItemTransition(reason);
                     if (players.get(key) == observedPlayer && reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) emit(key, "repeat");
                 }
                 @Override public void onPlaybackStateChanged(int state) {
                     if (players.get(key) != observedPlayer) return;
                     int actual = observedPlayer.getPlaybackState();
+                    NativePlaybackQueue queue = queues.get(key);
+                    if (actual == Player.STATE_ENDED && queue != null && queue.onEnded()) { emit(key, "waiting"); return; }
                     emit(key, actual == Player.STATE_READY ? "ready" : actual == Player.STATE_ENDED ? "ended" : "waiting");
                 }
                 @Override public void onIsPlayingChanged(boolean playing) {
@@ -171,6 +176,8 @@ public final class PlaybackService extends MediaSessionService {
                 }
                 @Override public void onPlayerError(PlaybackException error) {
                     if (players.get(key) != observedPlayer || observedPlayer.getPlayerError() == null) return;
+                    NativePlaybackQueue queue = queues.get(key);
+                    if (queue != null && queue.onPlayerError()) { emit(key, "waiting"); return; }
                     if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
                         android.util.Log.d("HayKasaMediaQA", "error code=" + error.getErrorCodeName());
                     }
@@ -187,7 +194,15 @@ public final class PlaybackService extends MediaSessionService {
                 diagnostic("session-command accepted");
                 OrderedTransport owner = ordered.owner(id);
                 if (owner == null) mutation.run(); else owner.system(playing, mutation);
-            }, this::diagnostic));
+            }, this::diagnostic, direction -> {
+                if (!id.equals(activeId) || players.get(id) != raw) return true;
+                NativePlaybackQueue queue = queues.get(id);
+                if (queue == null) return false;
+                OrderedTransport owner = ordered.owner(id);
+                Runnable select = () -> { if (direction > 0) queue.next(); else queue.previous(); };
+                if (owner == null) select.run(); else owner.system(owner.intent().playWhenReady(), select);
+                return true;
+            }, () -> queues.containsKey(id)));
         }
         sinks.put(id, sink);
         if (title.length() > 300) title = title.substring(0, 300);
@@ -221,18 +236,51 @@ public final class PlaybackService extends MediaSessionService {
         }
         diagnostic("bridge-or-policy play=" + playing);
         // Stop retains the source in STATE_IDLE; only a new validated Play prepares it again.
-        if (playing && player.getPlaybackState() == Player.STATE_IDLE) player.prepare();
+        NativePlaybackQueue queue = queues.get(id);
+        if (playing && player.getPlaybackState() == Player.STATE_IDLE && (queue == null || !queue.isPreparing())) player.prepare();
         player.setPlayWhenReady(playing);
     }
+    void configureQueue(String id, JSONObject configuration) throws org.json.JSONException {
+        ExoPlayer player = players.get(id);
+        if (player == null) throw new IllegalStateException("Media load missing");
+        NativePlaybackQueue queue = queues.get(id);
+        if (queue == null) {
+            queue = new NativePlaybackQueue(handler, player,
+                () -> { OrderedTransport owner = ordered.owner(id); return owner != null && owner.intent().playWhenReady(); },
+                () -> emit(id, "transportState"),
+                reason -> { OrderedTransport owner = ordered.owner(id); if (owner != null) owner.policyPause("other"); emit(id, "transportState"); },
+                metadata -> {
+                    NativeAudioProcessor processor = processors.get(id);
+                    if (processor == null) return;
+                    JSONObject loudness = metadata == null ? null : metadata.optJSONObject("loudness");
+                    processor.setLoudnessMeasurement(loudness == null ? null : loudness.optDouble("integratedLufs", Double.NaN),
+                        loudness == null ? null : loudness.optDouble("truePeakDbfs", Double.NaN));
+                });
+            queues.put(id, queue);
+        }
+        queue.configure(configuration);
+        emit(id, "transportState");
+    }
+    void selectQueueOccurrence(String id, String occurrenceId, long revision) throws org.json.JSONException {
+        NativePlaybackQueue queue = queues.get(id);
+        if (queue == null || queue.snapshot().optLong("revision") != revision || !queue.select(occurrenceId)) {
+            throw new IllegalArgumentException("Unavailable queue occurrence");
+        }
+    }
+    JSONObject queueSnapshot(String id) throws org.json.JSONException { NativePlaybackQueue queue = queues.get(id); return queue == null ? null : queue.snapshot(); }
     void seekPlayer(String id, double seconds) { players.get(id).seekTo((long)(Math.max(0, Math.min(1801, seconds)) * 1000)); }
     void volumePlayer(String id, double volume) { players.get(id).setVolume((float)Math.max(0, Math.min(1, volume))); }
     void repeatOne(String id, boolean enabled) {
         players.get(id).setRepeatMode(enabled ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF);
     }
     void configureAudio(String id, boolean bypass, double[] bands, boolean mono) {
+        configureAudio(id, bypass, bands, mono, false, null, null);
+    }
+    void configureAudio(String id, boolean bypass, double[] bands, boolean mono, boolean normalizeLoudness,
+                        Double integratedLufs, Double truePeakDbfs) {
         NativeAudioProcessor processor = processors.get(id);
         if (processor == null) throw new IllegalStateException("Media load missing");
-        processor.setProcessing(bypass, bands, mono);
+        processor.setProcessing(bypass, bands, mono, normalizeLoudness, integratedLufs, truePeakDbfs);
     }
     OrderedTransport.Observation observePlayer(String id) {
         ExoPlayer player = players.get(id);
@@ -260,6 +308,8 @@ public final class PlaybackService extends MediaSessionService {
         } catch (Exception ignored) { /* Never log signed media URLs or session cookies. */ }
     }
     void releasePlayer(String id) {
+        NativePlaybackQueue queue = queues.remove(id);
+        if (queue != null) queue.release();
         ordered.forget(id);
         sinks.remove(id); ExoPlayer p = players.remove(id);
         processors.remove(id);
@@ -285,8 +335,10 @@ public final class PlaybackService extends MediaSessionService {
         Player current = session.getPlayer();
         diagnostic("task-removed play=" + current.getPlayWhenReady());
         int state = current.getPlaybackState();
+        NativePlaybackQueue queue = queues.get(activeId);
         // A terminal source can retain Play intent; buffering and temporary focus loss can recover.
-        if (!current.getPlayWhenReady() || state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
+        if (!current.getPlayWhenReady() || (queue == null || !queue.isPreparing())
+            && (state == Player.STATE_IDLE || state == Player.STATE_ENDED)) {
             releaseAll(); stopSelf();
         }
     }

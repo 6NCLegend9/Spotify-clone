@@ -30,6 +30,7 @@ const route=load('src/app/api/media/resolve/route.js', {
   '@/utils/mediaService.mjs':{...validation,mediaServiceConfig:()=>({enabled,internal,playbackEnabled,secret:'synthetic-media-signing-secret-'.repeat(2)}),
     callMediaService:async(_,url,options)=>{calls.push({url,...options});return {jobId:'a'.repeat(32),state:'ready'}},normalizeMediaResult:result=>result},
   '@/utils/mediaReceipts.mjs':receipts,
+  '@/utils/nativePlaybackGrants':{},
 });
 function request(agent, method='GET', body, extra={}) {
   const request = new Request('https://haykasa.vercel.app/api/media/resolve', {method,headers:{'user-agent':agent,origin:'https://haykasa.vercel.app','content-type':'application/json',...extra},...(method==='GET'?{}:{body:JSON.stringify(body)})});

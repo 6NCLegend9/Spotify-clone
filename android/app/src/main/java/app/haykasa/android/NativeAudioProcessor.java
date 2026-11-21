@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 
-/** PCM16 EQ/mono with measured sample-peak limiting, not loudness or true-peak normalization. */
+/** PCM16 EQ/mono and measured-source loudness gain, with sample-peak limiting. */
 @androidx.media3.common.util.UnstableApi
 final class NativeAudioProcessor extends BaseAudioProcessor {
     static final double[] BAND_FREQUENCIES = {60, 150, 400, 1000, 2400, 15000};
@@ -14,11 +14,11 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
     static final double SAMPLE_PEAK_CEILING = MAX_PROCESSED_SAMPLE / 32768.0;
     record Stats(int sampleRate, int channelCount, boolean original, boolean processingActive,
                  long frames, long limitedFrames, double inputSamplePeak, double outputSamplePeak,
-                 double headroomGain) {}
-    private record Settings(boolean original, double[] bands, boolean mono) {}
-    private static final Settings ORIGINAL = new Settings(true, new double[6], false);
+                 double headroomGain, double normalizationGain) {}
+    private record Settings(boolean original, double[] bands, boolean mono, boolean normalizeLoudness, double normalizationGain) {}
+    private static final Settings ORIGINAL = new Settings(true, new double[6], false, false, 1);
     private volatile Settings requested = ORIGINAL;
-    private volatile Stats stats = new Stats(0, 0, true, false, 0, 0, 0, 0, 1);
+    private volatile Stats stats = new Stats(0, 0, true, false, 0, 0, 0, 0, 1, 1);
     private Settings applied;
     private final double[][] coefficients = new double[6][5];
     private double[][] history = new double[0][];
@@ -29,15 +29,38 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
     private double inputPeak, outputPeak;
 
     void setProcessing(boolean original, double[] bands, boolean mono) {
+        setProcessing(original, bands, mono, false, null, null);
+    }
+
+    void setProcessing(boolean original, double[] bands, boolean mono, boolean normalizeLoudness,
+                       Double integratedLufs, Double truePeakDbfs) {
         if (bands == null || bands.length != BAND_FREQUENCIES.length) throw new IllegalArgumentException("Six EQ bands required");
         double[] copy = bands.clone();
         for (double gain : copy) {
             if (!Double.isFinite(gain) || gain < -12 || gain > 12) throw new IllegalArgumentException("EQ gain must be finite and within +/-12 dB");
         }
+        double normalizationGain = measuredNormalizationGain(normalizeLoudness, integratedLufs, truePeakDbfs);
         Settings current = requested;
         // A renderer rebind may replay preferences without changing the audio configuration.
-        if (current.original() == original && current.mono() == mono && Arrays.equals(current.bands(), copy)) return;
-        requested = new Settings(original, copy, mono);
+        if (current.original() == original && current.mono() == mono && current.normalizationGain() == normalizationGain
+            && current.normalizeLoudness() == normalizeLoudness
+            && Arrays.equals(current.bands(), copy)) return;
+        requested = new Settings(original, copy, mono, normalizeLoudness, normalizationGain);
+    }
+
+    void setLoudnessMeasurement(Double integratedLufs, Double truePeakDbfs) {
+        Settings current = requested;
+        setProcessing(current.original(), current.bands(), current.mono(), current.normalizeLoudness(), integratedLufs, truePeakDbfs);
+    }
+
+    static double measuredNormalizationGain(boolean enabled, Double integratedLufs, Double truePeakDbfs) {
+        if (integratedLufs == null && truePeakDbfs == null) return 1; // Unmeasured/silent tracks remain unchanged.
+        if (integratedLufs == null || truePeakDbfs == null || !Double.isFinite(integratedLufs)
+            || integratedLufs <= -70 || integratedLufs > 10 || !Double.isFinite(truePeakDbfs)
+            || truePeakDbfs < -100 || truePeakDbfs > 20) throw new IllegalArgumentException("Invalid measured loudness");
+        if (!enabled) return 1;
+        double gainDb = Math.min(Math.max(-60, Math.min(12, -14 - integratedLufs)), -1 - truePeakDbfs);
+        return Math.pow(10, gainDb / 20);
     }
 
     Stats stats() { return stats; }
@@ -61,7 +84,7 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
         frame = new double[history.length];
         resetMeasurements();
         stats = new Stats(Math.max(0, inputAudioFormat.sampleRate), Math.max(0, inputAudioFormat.channelCount),
-            true, false, 0, 0, 0, 0, 1);
+            true, false, 0, 0, 0, 0, 1, 1);
     }
 
     @Override protected void onReset() {
@@ -69,7 +92,7 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
         applied = null;
         history = new double[0][];
         frame = new double[0];
-        stats = new Stats(0, 0, true, false, 0, 0, 0, 0, 1);
+        stats = new Stats(0, 0, true, false, 0, 0, 0, 0, 1, 1);
     }
 
     @Override public void queueInput(ByteBuffer input) {
@@ -79,7 +102,12 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
         if (input.remaining() % (channels * 2) != 0) throw new IllegalArgumentException("Whole PCM frames required");
         if (hasPendingOutput()) throw new IllegalStateException("Drain the previous PCM output first");
         Settings next = requested;
-        if (next != applied) apply(next);
+        if (next != applied) {
+            // Toggling normalization without a measurement changes preference, not the waveform.
+            if (applied != null && next.original() == applied.original() && next.mono() == applied.mono()
+                && next.normalizationGain() == applied.normalizationGain() && Arrays.equals(next.bands(), applied.bands())) applied = next;
+            else apply(next);
+        }
         ByteBuffer pcm = input.duplicate().order(ByteOrder.LITTLE_ENDIAN);
         ByteBuffer output = replaceOutputBuffer(input.remaining()).order(ByteOrder.LITTLE_ENDIAN);
         if (!active) {
@@ -98,7 +126,7 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
                 // Combine every input channel equally; retain the decoder's channel layout.
                 double mono = sum / channels, peak = 0;
                 for (int channel = 0; channel < channels; channel++) {
-                    frame[channel] = filter(applied.mono() ? mono : frame[channel], channel) * headroom;
+                    frame[channel] = filter(applied.mono() ? mono : frame[channel], channel) * headroom * applied.normalizationGain();
                     peak = Math.max(peak, Math.abs(frame[channel]));
                 }
                 double required = peak > SAMPLE_PEAK_CEILING ? SAMPLE_PEAK_CEILING / peak : 1;
@@ -115,7 +143,7 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
         }
         output.flip();
         stats = new Stats(inputAudioFormat.sampleRate, channels, applied.original(), active,
-            frames, limitedFrames, inputPeak, outputPeak, headroom);
+            frames, limitedFrames, inputPeak, outputPeak, headroom, applied.original() ? 1 : applied.normalizationGain());
     }
 
     private int quantize(double value) {
@@ -145,7 +173,8 @@ final class NativeAudioProcessor extends BaseAudioProcessor {
         applied = next;
         for (double[] state : history) Arrays.fill(state, 0);
         resetMeasurements(); // Measurements describe this applied configuration, not older processing.
-        active = !next.original() && (next.mono() && history.length > 1 || Arrays.stream(next.bands()).anyMatch(gain -> gain != 0));
+        active = !next.original() && (next.mono() && history.length > 1 || next.normalizationGain() != 1
+            || Arrays.stream(next.bands()).anyMatch(gain -> gain != 0));
         release = Math.exp(-1.0 / (.05 * inputAudioFormat.sampleRate));
         for (int band = 0; band < coefficients.length; band++) {
             double[] c = coefficients[band];

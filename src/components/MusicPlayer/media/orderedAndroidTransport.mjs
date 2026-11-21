@@ -11,6 +11,12 @@ const resultReasons = new Set(["SUPERSEDED", "UNAVAILABLE", "PLAYER_ERROR", "TIM
 const requestReasons = new Set(["STALE_REVISION", "REPLAY_EXPIRED", "COMMAND_CONFLICT", "REVISION_GAP", "COUNTER_EXHAUSTED"]);
 const controlReasons = new Set(["ENGINE_MISMATCH", "BIND_CONFLICT", "GRANT_EXPIRED", "NOT_FOUND", "UNAVAILABLE", "PROTOCOL_ERROR", "INVALID_SCOPE", "INVALID_VALUE", "LOAD_CONFLICT", "COUNTER_EXHAUSTED"]);
 const stateEvents = new Set(["transportState", "ready", "progress", "seeked", "error", "waiting", "ended"]);
+const validQueue = value => object(value) && safe(value.revision, true)
+  && typeof value.currentOccurrenceId === "string" && value.currentOccurrenceId.length > 0 && value.currentOccurrenceId.length <= 160
+  && typeof value.currentVideoId === "string" && /^[A-Za-z0-9_-]{11}$/.test(value.currentVideoId)
+  && typeof value.currentTitle === "string" && value.currentTitle.length <= 300
+  && typeof value.preparing === "boolean" && value.owns === true
+  && (value.reason === undefined || typeof value.reason === "string" && /^[a-z_]{1,64}$/.test(value.reason));
 const abort = () => new DOMException("Playback request superseded", "AbortError");
 export function nativeTransportError(code = "UNAVAILABLE", needsSource = false) {
   const error = new Error("native_transport_unavailable");
@@ -52,6 +58,7 @@ function validFrame(value, maximum, version) {
     || !Number.isFinite(value.position) || value.position < 0 || !Number.isFinite(value.duration) || value.duration < 0
     || value.playing !== o.isPlaying || value.playWhenReady !== o.playWhenReady
     || o.isPlaying && (o.state !== "ready" || !o.playWhenReady || o.suppressionReason !== 0)) return false;
+  if (value.nativeQueue !== undefined && !validQueue(value.nativeQueue)) return false;
   if (i.origin === "web" ? !safe(i.webRevision, true) || i.webRevision !== s.appliedWebRevision
     : i.webRevision !== null) return false;
   if (i.origin === "baseline" && i.revision !== 0) return false;
@@ -94,6 +101,8 @@ class OrderedAndroidTransport {
     this.loaded = false;
     this.audioProcessing = null;
     this.nativeRepeat = null;
+    this.nativeQueue = null;
+    this.queueEntries = new Map();
   }
   get supported() { return this.cache.mode === "capable"; }
   get desired() {
@@ -103,13 +112,14 @@ class OrderedAndroidTransport {
   }
   view() {
     const s = this.latest?.transport.snapshot, o = s?.observed;
+    const preparing = this.latest?.nativeQueue?.preparing === true || Boolean(this.queueSelection);
     const authoritative = !this.overlay || this.overlay.revision != null && s?.processedWebRevision >= this.overlay.revision;
     return { position: this.latest?.position ?? 0, duration: this.latest?.duration ?? 0,
       intent: this.desired, origin: this.overlay ? "web" : s?.intent.origin ?? "baseline",
-      ready: this.loaded && o?.state === "ready", ended: o?.state === "ended",
+      ready: this.loaded && o?.state === "ready" && !preparing, ended: o?.state === "ended" && !preparing,
       playing: authoritative && this.desired && o?.isPlaying === true,
       observedPlaying: o?.isPlaying === true,
-      paused: !this.desired || o?.state === "ended",
+      paused: !this.desired || o?.state === "ended" && !preparing,
       confirmedPause: authoritative && !this.desired && o?.isPlaying === false && o?.playWhenReady === false,
       phase: this.phase, supported: this.supported };
   }
@@ -186,8 +196,10 @@ class OrderedAndroidTransport {
       }
       this.version = this.cache.version = data.version;
       this.audioProcessing = data.version === 2 && data.audioProcessing === "pcm-eq-v1" ? "pcm-eq-v1" : null;
+      this.measuredLoudness = this.audioProcessing && data.measuredLoudness === "ebu-r128-v1" ? "ebu-r128-v1" : null;
       this.nativeRepeat = data.version === 2 && data.nativeRepeat === "one-v1" ? "one-v1" : null;
-      this.onCapability?.({ version: data.version, nativeBuildCode: data.nativeBuildCode, audioProcessing: this.audioProcessing });
+      this.nativeQueue = data.version === 2 && data.nativeQueue === "source-queue-v1" ? "source-queue-v1" : null;
+      this.onCapability?.({ version: data.version, nativeBuildCode: data.nativeBuildCode, audioProcessing: this.audioProcessing, measuredLoudness: this.measuredLoudness });
       if (this.recovering) {
         const known = this.scope || (this.bindRequest && { engineId: this.bindRequest.engineId, bindingId: this.bindRequest.bindingId });
         if (!known || data.engineId !== known.engineId) { this._fail("ENGINE_MISMATCH", true); return; }
@@ -255,6 +267,12 @@ class OrderedAndroidTransport {
           && !sameIntent(t.snapshot.intent, previous.intent))) {
         this._fail("PROTOCOL_ERROR", false, true); return;
       }
+      if (data.nativeQueue && (this.nativeQueue !== "source-queue-v1"
+        || data.nativeQueue.revision > (this.sentQueueRevision || 0)
+        || this.queueEntries.get(data.nativeQueue.currentOccurrenceId)?.videoId !== data.nativeQueue.currentVideoId)) {
+        this._fail("PROTOCOL_ERROR", false, true); return;
+      }
+      if (this.queueSelection === data.nativeQueue?.currentOccurrenceId) this.queueSelection = null;
       this.latest = data; this.sequence = t.eventSeq;
       if (this.overlay?.revision != null && t.snapshot.processedWebRevision >= this.overlay.revision) this.overlay = null;
       if (t.snapshot.observed.state === "ready") this.loaded = true;
@@ -302,7 +320,7 @@ class OrderedAndroidTransport {
   }
   _ack(data) {
     const own = this.controls.get(data.requestId);
-    if (!own || !["load", "seek", "volume", "configureAudio", "repeatOne", "release"].includes(own.message.action)) return;
+    if (!own || !["load", "seek", "volume", "configureAudio", "repeatOne", "configureQueue", "selectQueue", "release"].includes(own.message.action)) return;
     if (data.version !== this.version || data.action !== own.message.action || !sameScope(data.scope, own.message.transport)
       || data.phase !== (["load", "seek"].includes(data.action) ? "accepted" : "completed")) {
       this._fail("PROTOCOL_ERROR", false, true); return;
@@ -315,6 +333,7 @@ class OrderedAndroidTransport {
       this._flushRepeat();
       this.onRepeatChanged?.();
     }
+    if (data.action === "configureQueue") this.appliedQueueRevision = own.message.revision;
   }
   _controlError(data) {
     const c = data.correlation;
@@ -458,6 +477,24 @@ class OrderedAndroidTransport {
     this._flushRepeat();
     return true;
   }
+  configureQueue(configuration) {
+    if (this.phase !== "active" || !this.loadSent || this.nativeQueue !== "source-queue-v1"
+      || !object(configuration) || !safe(configuration.revision, true)
+      || configuration.expectedRevision !== (this.appliedQueueRevision || 0)
+      || !Array.isArray(configuration.entries) || !configuration.entries.length || configuration.entries.length > 100
+      || [...this.controls.values()].some(record => record.message.action === "configureQueue")) return false;
+    this.queueEntries = new Map(configuration.entries.map(entry => [entry.occurrenceId, entry]));
+    this.sentQueueRevision = configuration.revision;
+    this._request("configureQueue", { ...configuration, transport: { version: this.version, ...this.scope } });
+    return true;
+  }
+  selectQueue(occurrenceId) {
+    if (this.phase !== "active" || !this.appliedQueueRevision || !this.queueEntries.has(occurrenceId)) return false;
+    this.queueSelection = occurrenceId;
+    this._request("selectQueue", { occurrenceId, queueRevision: this.appliedQueueRevision,
+      transport: { version: this.version, ...this.scope } });
+    return true;
+  }
   _flushRepeat() {
     if (this.phase !== "active" || !this.loadSent || this.nativeRepeat !== "one-v1" || this.repeatValue === undefined) return;
     if ([...this.controls.values()].some(record => record.message.action === "repeatOne")) return;
@@ -469,17 +506,25 @@ class OrderedAndroidTransport {
     if (!object(settings) || !Array.isArray(settings.bands) || settings.bands.length !== 6
       || settings.bands.some(value => !Number.isFinite(value) || Math.abs(value) > 12)
       || typeof settings.mono !== "boolean" || typeof settings.bypass !== "boolean") return false;
-    this.audioSettings = { bands: [...settings.bands], mono: settings.mono, bypass: settings.bypass };
+    const measured = settings.loudness;
+    if (settings.normalizeLoudness !== undefined && typeof settings.normalizeLoudness !== "boolean"
+      || measured != null && (!object(measured) || !Number.isFinite(measured.integratedLufs) || measured.integratedLufs <= -70 || measured.integratedLufs > 10
+        || !Number.isFinite(measured.truePeakDbfs) || measured.truePeakDbfs < -100 || measured.truePeakDbfs > 20)) return false;
+    this.audioSettings = { bands: [...settings.bands], mono: settings.mono, bypass: settings.bypass,
+      normalizeLoudness: settings.normalizeLoudness === true,
+      loudness: measured ? { integratedLufs: measured.integratedLufs, truePeakDbfs: measured.truePeakDbfs } : null };
     this._flushAudio();
     return true;
   }
   _flushAudio() {
     if (this.phase !== "active" || !this.loadSent || this.audioProcessing !== "pcm-eq-v1" || !this.audioSettings) return;
     if ([...this.controls.values()].some(record => record.message.action === "configureAudio")) return;
-    const key = JSON.stringify(this.audioSettings);
+    const { normalizeLoudness, loudness, ...base } = this.audioSettings;
+    const settings = this.measuredLoudness === "ebu-r128-v1" ? this.audioSettings : base;
+    const key = JSON.stringify(settings);
     if (this.sentAudioSettings === key) return;
     this.sentAudioSettings = key; // Before post: native/test replies can be synchronous.
-    this._request("configureAudio", { ...this.audioSettings, transport: { version: this.version, ...this.scope } });
+    this._request("configureAudio", { ...settings, transport: { version: this.version, ...this.scope } });
   }
   seek(value) {
     if (!Number.isFinite(value) || value < 0) return;
