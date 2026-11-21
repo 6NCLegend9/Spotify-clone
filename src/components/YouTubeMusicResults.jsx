@@ -29,8 +29,15 @@ import { isTrackAllowed } from "@/utils/explicitContent.mjs";
 import { formatDuration } from "@/utils/trackDuration.mjs";
 import styles from "./Search/search.module.css";
 import { uniqueSearchResults } from "@/utils/searchResults.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
+import usePlaybackRequest from "@/hooks/usePlaybackRequest";
 
 export default function YouTubeMusicResults({ query }) {
+  const scope = useAccountScope();
+  return <AccountSearchResults key={`${scope.key}:${query}`} query={query} />;
+}
+
+function AccountSearchResults({ query }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -40,6 +47,7 @@ export default function YouTubeMusicResults({ query }) {
   const order = searchParams.get("order") === "date" ? "date" : "relevance";
   const length = resultType === "video" && ["short", "medium", "long"].includes(searchParams.get("duration")) ? searchParams.get("duration") : "any";
   const searchUrl = buildYoutubeSearchUrl({ q: query, type: resultType, order, duration: length }, "interactive");
+  const playlistScope = JSON.stringify([view, searchUrl]);
   const changeSearch = (key, value) => {
     const parameters = new URLSearchParams(searchParams.toString());
     if (key === "type" && value === "all") parameters.delete(key);
@@ -58,6 +66,8 @@ export default function YouTubeMusicResults({ query }) {
   const [artists, setArtists] = useState([]);
   const [albums, setAlbums] = useState([]);
   const dispatch = useDispatch();
+  const { begin, scope } = usePlaybackRequest(playlistScope);
+  const playlistPending = useRef(null);
   const playResult = (video) => {
     const title = cleanTitle(video.title);
     const channel = cleanArtist(video.channel);
@@ -85,6 +95,11 @@ export default function YouTubeMusicResults({ query }) {
   const [updatingArtists, setUpdatingArtists] = useState([]);
   const extrasRequestId = useRef(0);
   const extrasController = useRef(null);
+
+  useEffect(() => {
+    playlistPending.current = null;
+    setLoadingPlaylistId(null);
+  }, [playlistScope]);
 
   useEffect(() => {
     setUpdatingArtists([]);
@@ -340,7 +355,10 @@ export default function YouTubeMusicResults({ query }) {
   const songsToShow = isAll ? visibleResults.slice(0, 4) : visibleResults;
 
   const playPlaylist = async (playlist) => {
-    if (loadingPlaylistId) return;
+    if (playlistPending.current) return;
+    const current = begin();
+    if (!current) return;
+    playlistPending.current = current;
     setLoadingPlaylistId(playlist.id);
     try {
       const data = await requestJson(
@@ -351,6 +369,7 @@ export default function YouTubeMusicResults({ query }) {
           fallbackMessage: "We couldn’t load this playlist. Please try again.",
         },
       );
+      if (!current()) return;
       const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
       if (tracks.length === 0) {
         toast.error("This playlist has no playable videos.");
@@ -364,13 +383,17 @@ export default function YouTubeMusicResults({ query }) {
       dispatch(startYoutubePlayback({ queue: seeded, track: seeded[0], autoExtend: false }));
       dispatch(playPause(true));
     } catch (error) {
+      if (!current()) return;
       const userError = toUserError(error, {
         title: "Playlist unavailable",
         message: "We couldn’t load this playlist. Please try again.",
       });
       toast.error(userError.message);
     } finally {
-      setLoadingPlaylistId(null);
+      if (playlistPending.current === current) {
+        playlistPending.current = null;
+        if (scope.isCurrentView()) setLoadingPlaylistId(null);
+      }
     }
   };
 
@@ -535,7 +558,7 @@ export default function YouTubeMusicResults({ query }) {
                   <button
                     type="button"
                     onClick={() => playPlaylist(album)}
-                    disabled={loadingPlaylistId === album.id}
+                    disabled={Boolean(loadingPlaylistId)}
                     aria-label={`Play playlist ${cleanTitle(album.title)}`}
                     className="play-fab absolute bottom-12 right-3 z-10 h-12 w-12 min-h-12 min-w-12 disabled:opacity-60"
                   >

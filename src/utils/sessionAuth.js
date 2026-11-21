@@ -4,11 +4,16 @@ import dbConnect from "@/utils/dbconnect";
 import { tokenOptions } from "@/utils/authToken";
 import { hasSessionIdentity, isCurrentSession } from "@/utils/sessionIdentity.mjs";
 import { logServerDiagnostic } from "@/utils/diagnostics.mjs";
+import { ApiRouteError } from "@/utils/apiResponseCore.mjs";
 
-export class SessionLookupUnavailableError extends Error {
+export class SessionLookupUnavailableError extends ApiRouteError {
   constructor(cause) {
-    super("Session lookup is temporarily unavailable", { cause });
+    super("SERVICE_UNAVAILABLE", {
+      message: "Session lookup is temporarily unavailable. Please try again later.",
+      headers: { "Retry-After": "30" },
+    });
     this.name = "SessionLookupUnavailableError";
+    Object.defineProperty(this, "cause", { value: cause, configurable: true, writable: true });
   }
 }
 

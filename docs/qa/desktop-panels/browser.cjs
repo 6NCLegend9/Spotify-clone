@@ -22,7 +22,8 @@ const tracks = Array.from({ length: 4 }, (_, i) => ({
   id: `qa${String(i).padStart(9, "0")}`, title: i ? `Next song ${i}` : "Blue evening",
   channel: "Blue Artist", channelId: artistId, source: "youtube", queueEntryId: `qa-${i}`, duration: 200,
 }));
-const playlists = [{ _id: "507f1f77bcf86cd799439012", name: "Evening mix", songs: [], pinned: true }, { _id: "507f1f77bcf86cd799439014", name: "Morning mix", songs: [] }];
+const playlists = [{ _id: "507f1f77bcf86cd799439012", name: "Evening mix", songs: [], pinned: true }, { _id: "507f1f77bcf86cd799439014", name: "Morning mix", songs: [] }]
+  .map(playlist => ({ ...playlist, user: { _id: owner.slice("account:".length), userName: "Panel QA" }, collaborators: [], visibility: "private" }));
 let browser, currentPage;
 const results = [];
 (async () => {
@@ -33,7 +34,7 @@ const results = [];
     await wait(1000);
   }
   assert(ready, "Production server starts");
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, ...(process.env.HAYKASA_BROWSER_EXECUTABLE ? { executablePath: process.env.HAYKASA_BROWSER_EXECUTABLE } : {}) });
   for (const [device, viewport] of Object.entries({ desktop: { width: 1440, height: 1000 }, laptop: { width: 1181, height: 900 }, mobile: { width: 390, height: 844 } })) {
     const context = await browser.newContext({ viewport, isMobile: device === "mobile", hasTouch: device === "mobile", serviceWorkers: "block", reducedMotion: "reduce" });
     await context.addInitScript(({ owner, tracks }) => {

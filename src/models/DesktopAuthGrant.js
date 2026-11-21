@@ -6,6 +6,7 @@ const desktopAuthGrantSchema = new mongoose.Schema(
     stateHash: { type: String, required: true, maxlength: 64 },
     pkceChallenge: { type: String, required: true, maxlength: 43 },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true, index: true },
+    sessionVersion: { type: Number, required: true, min: 0, validate: Number.isSafeInteger },
     expiresAt: { type: Date, required: true },
     consumedAt: { type: Date, default: null },
   },

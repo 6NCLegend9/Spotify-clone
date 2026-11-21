@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 (async () => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}) });
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
     const network = [];
@@ -15,15 +15,19 @@ const { chromium } = require('playwright');
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto('https://haykasa.vercel.app/android-qa');
-    const source = fs.readFileSync(path.join(__dirname, '../../../src/components/MusicPlayer/media/androidAudioElement.mjs'), 'utf8').replace(/^export /gm, '');
-    await page.addScriptTag({ content: 'window.nativeMessages=[]; window.HayKasaAndroidMedia={postMessage:value=>nativeMessages.push(JSON.parse(value))};' + source + ';window.nativeFactory=createAndroidAudioElement;' });
+    const accountStorage = fs.readFileSync(path.join(__dirname, '../../../src/utils/accountStorage.mjs'), 'utf8').replace(/^export /gm, '');
+    const ordered = fs.readFileSync(path.join(__dirname, '../../../src/components/MusicPlayer/media/orderedAndroidTransport.mjs'), 'utf8').replace(/^export /gm, '');
+    const source = fs.readFileSync(path.join(__dirname, '../../../src/components/MusicPlayer/media/androidAudioElement.mjs'), 'utf8').replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
+    await page.addScriptTag({ content: 'window.nativeMessages=[]; window.HayKasaAndroidMedia={postMessage:value=>nativeMessages.push(JSON.parse(value))};(()=>{' + accountStorage + '\n' + ordered + '\n' + source + ';window.nativeFactory=createAndroidAudioElement;window.clearLocalAccountCaches=clearLocalAccountCaches;})();' });
     const result = await page.evaluate(async () => {
       const audio = nativeFactory('Synthetic audio');
       document.getElementById('host').replaceChildren(audio);
       const events = [];
       for (const type of ['loadedmetadata', 'playing', 'pause', 'ended']) audio.addEventListener(type, () => events.push(type));
       audio.src = 'https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=synthetic';
-      audio.load(); let id = nativeMessages.at(-1).id;
+      audio.load();
+      await new Promise(resolve => setTimeout(resolve, 1010)); // Silent legacy APK negotiation.
+      let id = nativeMessages.at(-1).id;
       const emit = event => HayKasaAndroidMedia.onmessage({ data: JSON.stringify({ id, event, duration: 180, position: 12 }) });
       emit('ready'); audio.muted = false; audio.volume = .4;
       let playResolved = false;
@@ -56,7 +60,24 @@ const { chromium } = require('playwright');
       const reused = replacement.action === 'load' && replacement.id !== previousId && replacement.title === 'Replacement audio' && !audio.paused && audio.duration === 180;
       audio.src = ''; const emptySetterReleased = nativeMessages.at(-1).action === 'release' && audio.paused && audio.currentTime === 0;
       audio.remove();
-      return { playing, paused, ended, seek, pendingBeforePlaying, seekPositionPending, browserSource, released, cleared, ignored, reused, oldIdIgnored, emptySetterReleased, events, commands: nativeMessages.map(m => m.action), remaining: document.querySelectorAll('audio').length };
+      const retired = nativeFactory('Account-owned audio');
+      document.getElementById('host').replaceChildren(retired);
+      retired.src = 'https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=account';
+      retired.load();
+      const ownedId = nativeMessages.at(-1).id;
+      const pending = retired.play().then(() => 'resolved', error => error.name);
+      // Exercise the real account helper; its event must release native before
+      // any React effect, delayed decoder event, or stale source reload runs.
+      clearLocalAccountCaches();
+      const accountReleased = nativeMessages.at(-1).action === 'release' && nativeMessages.at(-1).id === ownedId;
+      const abort = await pending;
+      const count = nativeMessages.length;
+      retired.src = 'https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=stale';
+      retired.load(); await retired.play();
+      HayKasaAndroidMedia.onmessage({ data: JSON.stringify({ id: ownedId, event: 'playing', duration: 180, position: 12 }) });
+      clearLocalAccountCaches(); retired.remove();
+      const accountRetired = accountReleased && abort === 'AbortError' && nativeMessages.length === count && retired.currentSrc === '' && retired.paused;
+      return { accountRetired, playing, paused, ended, seek, pendingBeforePlaying, seekPositionPending, browserSource, released, cleared, ignored, reused, oldIdIgnored, emptySetterReleased, events, commands: nativeMessages.map(m => m.action), remaining: document.querySelectorAll('audio').length };
     });
     assert(result.playing); assert(result.paused); assert(result.ended);
     assert(result.pendingBeforePlaying, 'Posting Play waits for native playback feedback');
@@ -64,8 +85,9 @@ const { chromium } = require('playwright');
     assert.equal(result.seek.action, 'seek'); assert.equal(result.seek.value, 45);
     assert.equal(result.browserSource, null, 'WebView must not start a second HTML audio decoder');
     assert(result.released); assert(result.cleared); assert(result.ignored); assert(result.reused); assert(result.oldIdIgnored); assert(result.emptySetterReleased);
+    assert(result.accountRetired, 'Account clear synchronously releases and permanently retires stale native sources');
     assert.equal(result.remaining, 0); assert.equal(result.commands.at(-1), 'release');
-    assert.deepEqual(result.events, ['loadedmetadata', 'playing', 'pause', 'ended', 'loadedmetadata', 'playing']);
+    assert.deepEqual(result.events, ['loadedmetadata', 'playing', 'pause', 'ended', 'loadedmetadata', 'playing', 'pause']);
     assert.deepEqual(errors, []); assert.deepEqual(network, []);
     console.log('PASS: real Chromium media-element overrides, native source release, source-less stale event isolation, adapter reuse, metadata, play/pause/seek/end, no browser source request, cleanup. Synthetic bridge; not an Android device test.');
     await context.close();

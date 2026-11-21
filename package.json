@@ -12,7 +12,7 @@
     "dev:webpack": "next dev",
     "build": "next build",
     "start": "next start",
-    "android:check": "node docs/qa/android/check.mjs",
+    "android:check": "node docs/qa/android/check.mjs && node docs/qa/android/ordered-check.mjs && node docs/qa/android/ordered-check.mjs --v2 && node docs/qa/android/ordered-player-check.cjs",
     "android:build": "node scripts/android-build.mjs",
     "android:bundle": "node scripts/android-build.mjs --bundle",
     "desktop": "npm --prefix desktop start",
@@ -20,7 +20,7 @@
     "desktop:build": "npm --prefix desktop run dist",
     "desktop:pack": "npm --prefix desktop run pack",
     "check:deployment": "node scripts/check-deployment.mjs",
-    "audit:production": "npm audit --omit=dev --audit-level=high",
+    "audit:production": "npm audit --omit=dev --audit-level=moderate",
     "typecheck": "next typegen && node node_modules/typescript/bin/tsc --noEmit --incremental false",
     "lint": "eslint src scripts --ext .js,.jsx,.mjs,.ts,.tsx --no-cache --max-warnings=0",
     "check": "npm run lint && npm run typecheck && npm run build",
@@ -38,10 +38,10 @@
     "events": "^3.3.0",
     "framer-motion": "^13.1.1",
     "lucide-react": "^1.41.0",
-    "mongoose": "^8.24.4",
-    "next": "^15.5.28",
+    "mongoose": "^8.24.8",
+    "next": "^15.5.29",
     "next-auth": "^4.24.15",
-    "nodemailer": "^10.0.13",
+    "nodemailer": "^10.1.4",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -59,13 +59,13 @@
     "youtubei.js": "^18.0.0"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "^15.5.28",
+    "@next/bundle-analyzer": "^15.5.29",
     "@types/node": "^22.20.2",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.14",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^15.5.28",
+    "eslint-config-next": "^15.5.29",
     "postcss": "^8.5.26",
     "serwist": "^9.5.12",
     "tailwindcss": "^3.3.3",
@@ -84,6 +84,11 @@
     },
     "@serwist/next": {
       "browserslist": "4.28.7",
+      "zod": "4.6.6",
+      "glob": "14.0.2"
+    },
+    "@serwist/build": {
+      "glob": "14.0.2",
       "zod": "4.6.6"
     },
     "source-map-js": "1.2.2"

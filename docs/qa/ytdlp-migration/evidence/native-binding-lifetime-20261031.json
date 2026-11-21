@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-31T16:59:46.931905+00:00",
+  "baseCommit": "edd733c51f1a5d79eb16ca80fc1657d584e287e0",
+  "review": {
+    "role": "Codex 1 (Coordinator)",
+    "peerComment": "https://github.com/6NCLegend9/Spotify-clone/pull/42#issuecomment-6546173431",
+    "severity": "P2 / Medium",
+    "status": "Confirmed, unfixed; proposed D07 wire revision awaits joint review."
+  },
+  "sourceFiles": [
+    {
+      "path": "android/app/src/main/java/app/haykasa/android/OrderedMediaBridge.java",
+      "sha256": "8fe82fdd79462f6e8fa719447434648d38e2f5ff0362cbeb3cbb91d40b0d88d3"
+    },
+    {
+      "path": "android/app/src/main/java/app/haykasa/android/OrderedTransport.java",
+      "sha256": "d1832a90835c271c99b7d9b25867bedaf34dfa30f7cbc2fe8a00bba8e3e6937e"
+    },
+    {
+      "path": "android/app/src/main/java/app/haykasa/android/MediaPolicy.java",
+      "sha256": "88a11a161ee16243fe681d11d902957ebbf3723466771d8227eb33f256c1f587"
+    },
+    {
+      "path": "android/app/src/main/java/app/haykasa/android/PlaybackService.java",
+      "sha256": "9c6d3f4b4240f249f66ce1b95d0e96a3fb43e3df4068022d65921bc4ef5a6057"
+    },
+    {
+      "path": "src/components/MusicPlayer/media/orderedAndroidTransport.mjs",
+      "sha256": "f150e96ee766c987c1c317ed4ee5f377bf5b0b26367a9c6a2c3798c5aa187c4d"
+    }
+  ],
+  "execution": {
+    "tool": "OpenJDK 21.0.13; actual production bridge/owner/policy compiled against Android-compatible JSON",
+    "compileExitCode": 0,
+    "regressionExitCode": 1,
+    "regressionPass": false,
+    "expectedFailure": true,
+    "scope": "Isolated native host, Handler and monotonic clock. No Media3 decoder, emulator, physical audio or provider network calls.",
+    "hostReleaseBehavior": "The host stub calls actual bridge.forget(id), matching PlaybackService.releasePlayer line210; clears loaded/playing. Play/Pause write count records only setter calls.",
+    "fixtureSha256": "358f384705d29a03cece310f7cd199c5b4f2f134c760dc30bd754f3c6497c8b7",
+    "hostStubSha256": "725f10df5190801a03a91cc48bdeee851b52c20f30f8f40d604862cba68ecfea",
+    "androidJsonJarSha256": "dfb7bae2f404cfe0b72b4d23944698cb716b7665171812a0a4d0f5926c0fac79",
+    "results": {
+      "intermediateOne": {
+        "processed": 1,
+        "scenario": "B1-B2-B1",
+        "bindRejected": false,
+        "passesRequiredBehavior": false,
+        "playing": true,
+        "writesBefore": 3,
+        "writesAfter": 4
+      },
+      "release": {
+        "processed": 2,
+        "scenario": "Release-recreate-same-engine-load-binding",
+        "passesRequiredBehavior": false,
+        "playing": true,
+        "writesBefore": 3,
+        "writesAfter": 4
+      },
+      "scope": "Actual production bridge/owner/policy; isolated platform/host. No device or audio proof.",
+      "intermediateTwo": {
+        "processed": 1,
+        "scenario": "B1-B2-B3-B1",
+        "bindRejected": false,
+        "passesRequiredBehavior": false,
+        "playing": true,
+        "writesBefore": 4,
+        "writesAfter": 5
+      }
+    }
+  },
+  "reproduction": [
+    {
+      "scenario": "B1-B2-B1",
+      "steps": [
+        "Create B1 and load the synthetic allowlisted asset URL.",
+        "Submit B1 Play W1, then Pause W2.",
+        "Fresh grant: bind B2 expecting B1; submit B2 Pause W1.",
+        "Fresh grant: request B1 expecting B2; replay original B1 Play W1."
+      ],
+      "expected": "BIND_CONFLICT; old Play INVALID_SCOPE; current Pause/player/watermark unchanged."
+    },
+    {
+      "scenario": "B1-B2-B3-B1",
+      "steps": [
+        "As above, with one further valid fresh-grant B3 rebind and B3 Pause W1 before requesting B1."
+      ],
+      "expected": "Same rejection; remembering only the most recent retired identity is insufficient."
+    },
+    {
+      "scenario": "Release-recreate-same-engine-load-binding",
+      "steps": [
+        "Create B1, load synthetic asset; submit Pause W1, retain and submit Play W2.",
+        "Release through the actual bridge lifecycle; the host calls forget; confirm owner/player absent.",
+        "Fresh Hello under the same engine and load ID; bind the old B1 with null expectation.",
+        "Load synthetic asset and submit new Pause W1, then replay the retained old B1 Play W2."
+      ],
+      "expected": "Fresh native grant must not authorize B1; original consumed Bind and old Play must not regain authority."
+    }
+  ],
+  "graphify": {
+    "version": "0.9.95",
+    "mode": "Existing code-only AST map; no model calls or rebuild",
+    "expandedVocabulary": [
+      "bind",
+      "grant",
+      "release",
+      "forget",
+      "scope",
+      "exhausted"
+    ],
+    "querySha256": "504fcf6509b9dba5f4377b1c13a2e97485772797bff318ef1f13d85d2509e4fe",
+    "graphSha256": "218f80a9cfc8a5ca00ea100401df46b764b9b5a1d09b9fa125880bcf8f47b423",
+    "queryComplete": true,
+    "queryNodes": 76,
+    "queryEdges": 245,
+    "limit": "Graph call classifications include INFERRED edges; releasePlayer -> forget is checked against actual source. Static topology does not prove runtime state."
+  },
+  "contractCheck": {
+    "typescriptVersion": "5.8.2",
+    "strictNoEmitExitCode": 0,
+    "input": "All three frozen D06 TS fences plus both D07 proposal fences concatenated",
+    "runtimeImplemented": false,
+    "note": "Compile success establishes type consistency only; proposal validation/compatibility/native UI still require implementation and actual-service tests.",
+    "inputSha256": "3cbeaf2c41728c917508cb305c12ee576d7bfdb92fd7e6f804f1c1dee05919c5"
+  },
+  "unexecutedThisStage": [
+    "Fresh Android emulator/physical-device playback",
+    "Fresh public desktop/Android live-source tests",
+    "Fresh deployed extraction tests",
+    "The proposed v2 producer/consumer, host update UI and counter-exhaustion Release"
+  ],
+  "boundaries": "No runtime or frozen v1 contract changes; no merge, release, activation, provider authentication or further storage deletion.",
+  "compatibilityCheck": {
+    "scope": "Actual unchanged v1 JavaScript ordered adapter, controlled correlated Hello denial",
+    "nodeVersion": "22.x (cached project runtime)",
+    "exitCode": 0,
+    "observed": {
+      "phase": "error",
+      "capableLatch": true,
+      "failureCode": "UNAVAILABLE",
+      "pendingControlCount": 0,
+      "outboundActions": [
+        "transportHello"
+      ],
+      "legacyCalls": 0
+    },
+    "limit": "Does not execute the proposed new native producer, host UI, v2 negotiation or old-binary update UI."
+  },
+  "documentationChecks": {
+    "localMarkdownLinks": 244,
+    "rootIndexEntries": 77,
+    "allThreeD06TypeScriptFencesUnchanged": true,
+    "runtimeNativeBuildDependencyFilesUnchanged": true,
+    "diffWhitespacePass": true
+  },
+  "currentBindingControl": {
+    "exitCode": 0,
+    "scope": "Actual unchanged bridge/owner/policy with isolated platform/host",
+    "output": [
+      "Current-ID rebind: rejected=true; processed=2 -> 2 -> 2; writes=2 -> 2; playing=false",
+      "PASS actual bridge/owner/policy with isolated host/clock/Handler; no Android service/device/audio claim."
+    ]
+  }
+}

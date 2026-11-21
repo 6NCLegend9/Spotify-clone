@@ -1,6 +1,11 @@
 name: Android Production QA
 on:
   workflow_dispatch:
+    inputs:
+      live_only:
+        description: "Focus the public APK retry on playback after the UI tour"
+        type: boolean
+        default: false
   push:
     branches: [fix/android-installation-guidance]
     paths:
@@ -40,6 +45,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         env:
           GH_TOKEN: ${{ github.token }}
+          HAYKASA_PRODUCTION_QA_LIVE_ONLY: ${{ inputs.live_only && '1' || '0' }}
         with:
           api-level: 36
           target: google_apis

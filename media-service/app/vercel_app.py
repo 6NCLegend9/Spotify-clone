@@ -31,7 +31,16 @@ from .jobs import JobManager
 from .models import ResolveRequest
 from .processes import run_tool, redacted_preview_error
 
-PREFIX = "haykasa/mobile-media/v1/"
+# Production keeps its existing manifest/lease paths. Non-production must never
+# sweep or resolve that namespace, even when a store credential is shared.
+try:
+    PREFIX = {
+        "production": "haykasa/mobile-media/v1/",
+        "preview": "haykasa/mobile-media/preview/v1/",
+        "development": "haykasa/mobile-media/development/v1/",
+    }[os.environ.get("VERCEL_ENV", "development")]
+except KeyError:
+    raise ValueError("Unsupported media service environment") from None
 TTL = 6 * 3600
 LEASE_SECONDS = 2 * 3600
 FILE_LIMIT = 96 * 1024**2

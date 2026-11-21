@@ -105,10 +105,11 @@ export async function togglePlaylistLike(playlistId, liked) {
 }
 
 // add song to playlist
-export async function addSongToPlaylist(playlistID, song, duration) {
+export async function addSongToPlaylist(playlistID, song, duration, { allowDuplicate = false, requestId } = {}) {
   return playlistRequest(
     "/api/userPlaylists/songs",
-    { method: "POST", body: { playlistID, song, ...(knownDuration(duration) ? { duration: knownDuration(duration) } : {}) } },
+    { method: "POST", body: { playlistID, song, ...(knownDuration(duration) ? { duration: knownDuration(duration) } : {}),
+      ...(allowDuplicate ? { allowDuplicate: true } : {}), ...(requestId ? { requestId } : {}) } },
     {
       title: "Song not added",
       message: "We couldn’t add that song to the playlist. Please try again.",
@@ -117,15 +118,22 @@ export async function addSongToPlaylist(playlistID, song, duration) {
 }
 
 // delete song from playlist
-export async function deleteSongFromPlaylist(playlistID, song) {
+export async function deleteSongFromPlaylist(playlistID, song, { entryId, expectedRevision } = {}) {
   return playlistRequest(
     "/api/userPlaylists/songs",
-    { method: "DELETE", body: { playlistID, song } },
+    { method: "DELETE", body: { playlistID, song, ...(entryId ? { entryId } : {}),
+      ...(Number.isSafeInteger(expectedRevision) ? { expectedRevision } : {}) } },
     {
       title: "Song not removed",
       message: "We couldn’t remove that song from the playlist. Please try again.",
     },
   );
+}
+
+export async function movePlaylistSong(playlistID, entryId, beforeEntryId, expectedRevision) {
+  return playlistRequest("/api/userPlaylists/songs", {
+    method: "PATCH", body: { playlistID, entryId, beforeEntryId, expectedRevision },
+  }, { title: "Order not saved", message: "We couldn’t save this order. Refresh the playlist and try again." });
 }
 
 // get single playlist by id

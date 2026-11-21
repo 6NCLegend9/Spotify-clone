@@ -8,7 +8,8 @@ const output = path.join(root, 'artifacts/playlist-duration');
 fs.mkdirSync(output, { recursive: true });
 const port = 3013, origin = `http://127.0.0.1:${port}`;
 const log = fs.createWriteStream(path.join(output, 'server.log'));
-const server = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '--hostname', '127.0.0.1', '--port', String(port)], { cwd: root, env: { ...process.env, NODE_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1', NEXTAUTH_URL: origin, NEXTAUTH_SECRET: 'isolated-playlist-browser-secret', JWT_SECRET: 'isolated-playlist-browser-secret' }, stdio: ['ignore', 'pipe', 'pipe'] });
+const production = process.env.HAYKASA_QA_PRODUCTION === '1';
+const server = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), production ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', String(port)], { cwd: root, env: { ...process.env, NODE_ENV: production ? 'production' : 'development', NEXT_TELEMETRY_DISABLED: '1', NEXTAUTH_URL: origin, NEXTAUTH_SECRET: 'isolated-playlist-browser-secret', JWT_SECRET: 'isolated-playlist-browser-secret' }, stdio: ['ignore', 'pipe', 'pipe'] });
 server.stdout.pipe(log); server.stderr.pipe(log);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 let browser;
@@ -21,7 +22,7 @@ const results = [];
     await wait(1000);
   }
   assert(ready);
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, ...(process.env.HAYKASA_BROWSER_EXECUTABLE ? { executablePath: process.env.HAYKASA_BROWSER_EXECUTABLE } : {}) });
   for (const [device, viewport] of Object.entries({ mobile: { width: 390, height: 844 }, desktop: { width: 1440, height: 1000 } })) {
     for (const scenario of ['liked-saved', 'playlist-saved', 'liked-legacy', 'liked-unknown', 'playlist-virtual']) {
       const liked = scenario.startsWith('liked');
@@ -29,6 +30,12 @@ const results = [];
       const durationMap = scenario.includes('unknown') || scenario.includes('legacy') ? {} : Object.fromEntries(ids.map(id => [id, 218]));
       const context = await browser.newContext({ viewport, isMobile: device === 'mobile', hasTouch: device === 'mobile', serviceWorkers: 'block', reducedMotion: 'reduce' });
       await context.addInitScript(({ id }) => {
+        // Playlist tests do not exercise PWA registration. Playwright's blocked
+        // register() resolves undefined, unlike a real browser registration;
+        // expose the supported no-service-worker branch instead of that shim.
+        for (let prototype = navigator; prototype; prototype = Object.getPrototypeOf(prototype)) {
+          if (Object.hasOwn(prototype, 'serviceWorker')) delete prototype.serviceWorker;
+        }
         localStorage.setItem('toturialComplete', 'true');
         sessionStorage.setItem('HayKasa-track-cache-v1', JSON.stringify({ [id]: { track: { id, title: 'Stale track', duration: 0 }, expiresAt: Date.now() + 999999 } }));
       }, { id: ids[0] });
@@ -42,13 +49,14 @@ const results = [];
         let body = { success: true, data: [] };
         if (url.pathname === '/api/auth/session') body = { user: { id: '507f1f77bcf86cd799439013', name: 'Playlist QA', email: 'qa@example.invalid' }, expires: '2099-01-01T00:00:00Z' };
         if (url.pathname === '/api/settings') body = { authenticated: true, settings: { explicitContent: false, privateSession: false } };
+        if (url.pathname === '/api/language') body = { authenticated: true, language: [] };
         if (url.pathname === '/api/favourite') body = { success: true, data: { favourites: ids, favouriteDurations: durationMap } };
         if (url.pathname === '/api/userPlaylists/songs') body = { success: true, data: { _id: '507f1f77bcf86cd799439012', name: 'QA playlist', user: { _id: '507f1f77bcf86cd799439013', userName: 'Playlist QA' }, songs: ids, songDurations: durationMap, collaborators: [] } };
         if (url.pathname === '/api/userPlaylists') body = { success: true, data: { playlists: [] } };
         if (url.pathname === '/api/media/resolve') body = { enabled: false };
         if (url.pathname === '/api/youtube-videos') {
           detailsRequests++;
-          body = { tracks: url.searchParams.getAll('id').map((id, i) => ({ id, title: i === 0 ? 'A very long song title '.repeat(15) : `Song ${id}`, channel: 'Artist', duration: scenario.includes('legacy') ? 218 : 0 })) };
+          body = { tracks: url.searchParams.getAll('id').map((id, i) => ({ id, title: scenario === 'playlist-saved' && i < 2 ? 'Same title QA' : i === 0 ? 'A very long song title '.repeat(15) : `Song ${id}`, channel: 'Artist', duration: scenario.includes('legacy') ? 218 : 0 })) };
         }
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
@@ -72,6 +80,21 @@ const results = [];
       await row.locator('[data-item-menu-trigger]').click();
       await page.getByRole('menu').waitFor();
       assert.equal(await row.evaluate(node => node.getBoundingClientRect().height), 66, 'Open menu does not expand row');
+      if (device === 'mobile' && scenario === 'playlist-saved') {
+        await page.keyboard.press('Escape');
+        await row.getByRole('button', { name: 'Play artwork for Same title QA', exact: true }).click();
+        const dock = page.getByTestId('player-dock');
+        await dock.waitFor();
+        const before = await dock.getAttribute('data-playback-entry-id');
+        assert(before, 'The dock identifies the actual queue occurrence');
+        const label = await dock.getByRole('button', { name: /^Expand player:/ }).getAttribute('aria-label');
+        await dock.locator('button[aria-label="Next song"]:visible').click();
+        await page.waitForFunction(previous => {
+          const identity = document.querySelector('[data-testid="player-dock"]')?.getAttribute('data-playback-entry-id');
+          return identity && identity !== previous;
+        }, before);
+        assert.equal(await dock.getByRole('button', { name: /^Expand player:/ }).getAttribute('aria-label'), label, 'Different selected recordings can have identical displayed titles');
+      }
       assert.equal(errors.length, 0, errors.join('; '));
       await page.screenshot({ path: path.join(output, `${device}-${scenario}.png`) });
       results.push({ device, scenario, status: 'passed', metrics, detailsRequests });
@@ -80,4 +103,50 @@ const results = [];
       await context.close();
     }
   }
+  // Exercise the real SessionProvider transition that the Android guest tour
+  // exposed: generation changes after loading must restart the public read.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  await context.addInitScript(() => {
+    for (let prototype = navigator; prototype; prototype = Object.getPrototypeOf(prototype)) {
+      if (Object.hasOwn(prototype, 'serviceWorker')) delete prototype.serviceWorker;
+    }
+    localStorage.setItem('toturialComplete', 'true');
+  });
+  let releaseSession;
+  const sessionReady = new Promise(resolve => { releaseSession = resolve; });
+  const page = await context.newPage(), errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  let publicReads = 0;
+  await context.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.origin !== origin) return route.abort();
+    if (!url.pathname.startsWith('/api/')) return route.continue();
+    let body = { success: true, data: [] };
+    if (url.pathname === '/api/auth/session') { await sessionReady; body = {}; }
+    if (url.pathname === '/api/settings') body = { authenticated: false, settings: {} };
+    if (url.pathname === '/api/language') body = { authenticated: false, language: [] };
+    if (url.pathname === '/api/recommendations') { publicReads++; body = { sections: { featuredPlaylists: [{ id: 'PL_QA_COLLECTION_1234', title: 'Guest discovery collection', channel: 'QA creator' }] } }; }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  const sessionRequested = page.waitForRequest(request => new URL(request.url()).pathname === '/api/auth/session');
+  await page.goto(origin + '/library', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await sessionRequested;
+  await page.locator('.page .animate-shimmer').first().waitFor();
+  releaseSession();
+  await page.locator('.page').getByRole('link', { name: 'Log in', exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Open playlist Guest discovery collection', exact: true }).waitFor();
+  assert.equal(await page.locator('.page .animate-shimmer').count(), 0);
+  assert.equal(publicReads, 1, 'Guest resolution makes exactly one public-library read');
+  const play = await page.getByRole('button', { name: 'Play Guest discovery collection', exact: true }).boundingBox();
+  const menu = await page.getByRole('button', { name: 'Playlist options for Guest discovery collection', exact: true }).boundingBox();
+  assert(play && menu && play.y + play.height <= menu.y, 'Actual compiled Play and menu do not overlap');
+  await page.getByRole('button', { name: 'Playlist options for Guest discovery collection' }).click();
+  await page.getByRole('menuitem', { name: 'Open playlist', exact: true }).waitFor();
+  await page.keyboard.press('Escape');
+  assert.deepEqual(errors, []);
+  await page.screenshot({ path: path.join(output, 'mobile-guest-library.png') });
+  results.push({ device: 'mobile', scenario: 'guest-session-resolution', status: 'passed', publicReads });
+  fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(results, null, 2));
+  console.log('PASS mobile/guest-session-resolution: initial loading completes without stalling');
+  await context.close();
 })().catch(error => { console.error(error); process.exitCode = 1; fs.writeFileSync(path.join(output, 'failure.txt'), String(error.stack)); }).finally(async () => { await browser?.close(); server.kill('SIGTERM'); log.end(); });

@@ -27,17 +27,24 @@ const ICONS = {
 };
 
 export default function PlaylistCover({ playlist, className = "", showLabel = false }) {
-  const [failed, setFailed] = useState("");
+  // A genuinely new pair may retry. Metadata/name changes with the same pair
+  // must retain both failures instead of bouncing between two broken images.
+  return <PlaylistCoverContent key={JSON.stringify([playlist?.coverImage || "", playlist?.cover || ""])} playlist={playlist} className={className} showLabel={showLabel} />;
+}
+
+function PlaylistCoverContent({ playlist, className, showLabel }) {
+  const [failed, setFailed] = useState([]);
+  const fail = (url) => setFailed(current => current.includes(url) ? current : [...current, url]);
   const custom = playlist?.coverImage;
   const trackCover = playlist?.cover;
-  if (custom && custom !== failed) {
-    return <img src={custom} onError={() => setFailed(custom)} alt="" className={`aspect-square w-full object-cover ${className}`} />;
+  if (custom && !failed.includes(custom)) {
+    return <img src={custom} onError={() => fail(custom)} alt="" className={`aspect-square w-full object-cover ${className}`} />;
   }
-  if (trackCover && trackCover !== failed) {
+  if (trackCover && !failed.includes(trackCover)) {
     return (
       <img
         src={trackCover}
-        onError={() => setFailed(trackCover)}
+        onError={() => fail(trackCover)}
         alt=""
         loading="lazy"
         decoding="async"

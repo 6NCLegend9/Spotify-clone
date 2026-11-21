@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 import toast from "react-hot-toast";
 import { Bell as HiOutlineBell, X as IoClose } from "lucide-react";
 
+import useAccountScope from "@/hooks/useAccountScope";
+import { accountStorageGeneration } from "@/utils/accountStorage.mjs";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { requestJson } from "@/services/http";
@@ -85,10 +86,31 @@ function showDesktopAlert(item) {
 }
 
 export default function UpdatesBell() {
-  const { status } = useSession();
+  const scope = useAccountScope();
+  return <AccountUpdatesBell key={scope.key} scope={scope} />;
+}
+
+function AccountUpdatesBell({ scope }) {
+  const { status } = scope;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const mountedRef = useRef(true);
+  const generationRef = useRef(accountStorageGeneration());
+  const requestControllerRef = useRef(null);
+  if (!requestControllerRef.current) requestControllerRef.current = new AbortController();
+  const isCurrent = useCallback(() => mountedRef.current && (
+    scopeRef.current.status === "unauthenticated"
+      ? generationRef.current === accountStorageGeneration()
+      : scopeRef.current.isCurrent()
+  ), []);
+  useEffect(() => {
+    mountedRef.current = true;
+    if (requestControllerRef.current.signal.aborted) requestControllerRef.current = new AbortController();
+    return () => { mountedRef.current = false; requestControllerRef.current.abort(); };
+  }, []);
   const dispatch = useDispatch();
-  const privateSession = useSelector((state) => state.settings?.privateSession === true);
-  const browserNotifications = useSelector((state) => state.settings?.browserNotifications === true);
+  const store = useStore();
+  const loadVersionRef = useRef(0);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -107,26 +129,35 @@ export default function UpdatesBell() {
   useDismissOnOutside(open, () => setOpen(false), [panelRef, buttonRef]);
 
   const load = useCallback(async ({ announce = false } = {}) => {
+    if (!isCurrent()) return;
+    const version = ++loadVersionRef.current;
     lastCheckRef.current = Date.now();
     try {
       const payload = await requestJson("/api/notifications", {
+        signal: requestControllerRef.current.signal,
         retry: false,
         timeout: 12000,
         cache: "no-store",
         fallbackTitle: "Notifications unavailable",
         fallbackMessage: "Could not load your notifications.",
       });
+      if (!isCurrent() || version !== loadVersionRef.current) return;
       const next = applyLocalSeen(payload, authenticated ? [] : guestSeenIds());
       const nextUnread = next.items.filter((item) => item.unread && item.type === "release");
-      if (announce && !privateSession) {
+      // Read the store at the side-effect boundary, including a preference
+      // changed before React has rendered it. An older account's settings must
+      // never opt this account into notifications while SettingsSync catches up.
+      const settings = store.getState().settings;
+      const canAnnounce = settings?.owner === scopeRef.current.owner && settings.privateSession !== true;
+      if (announce && canAnnounce) {
         const fresh = nextUnread.filter((item) => !knownUnreadRef.current.has(item.id));
         if (fresh.length === 1) {
           const item = fresh[0];
           toast(`${item.title} just dropped “${item.body}”.`);
-          if (browserNotifications && document.visibilityState !== "visible") showDesktopAlert(item);
+          if (settings.browserNotifications === true && document.visibilityState !== "visible") showDesktopAlert(item);
         } else if (fresh.length > 1) {
           toast(`${fresh.length} new songs from artists you follow.`);
-          if (browserNotifications && document.visibilityState !== "visible") {
+          if (settings.browserNotifications === true && document.visibilityState !== "visible") {
             showDesktopAlert({
               id: "release-batch",
               title: "New music on HayKasa",
@@ -142,9 +173,9 @@ export default function UpdatesBell() {
     } catch {
       // Playback and navigation stay available if the inbox cannot refresh.
     } finally {
-      setLoading(false);
+      if (isCurrent() && version === loadVersionRef.current) setLoading(false);
     }
-  }, [authenticated, browserNotifications, privateSession]);
+  }, [authenticated, isCurrent, store]);
 
   useEffect(() => {
     if (status === "loading") return undefined;
@@ -171,8 +202,10 @@ export default function UpdatesBell() {
   }, [load, status]);
 
   const markRead = async (ids) => {
+    if (!isCurrent()) return;
     const unreadIds = ids.filter(Boolean);
     if (unreadIds.length === 0) return;
+    loadVersionRef.current += 1;
     setItems((current) => current.map((item) => (
       unreadIds.includes(item.id) ? { ...item, unread: false } : item
     )));
@@ -184,6 +217,7 @@ export default function UpdatesBell() {
     }
     try {
       await requestJson("/api/notifications/read", {
+        signal: requestControllerRef.current.signal,
         method: "POST",
         body: { ids: unreadIds },
         fallbackTitle: "Could not update notifications",
@@ -195,6 +229,7 @@ export default function UpdatesBell() {
   };
 
   const handleToggle = () => {
+    if (!isCurrent()) return;
     const nextOpen = !open;
     setOpen(nextOpen);
     if (nextOpen) {
@@ -204,7 +239,7 @@ export default function UpdatesBell() {
   };
 
   const playItem = (item) => {
-    if (!item?.playable?.id) return;
+    if (!isCurrent() || !item?.playable?.id) return;
     dispatch(startYoutubePlayback({
       queue: [item.playable],
       track: item.playable,

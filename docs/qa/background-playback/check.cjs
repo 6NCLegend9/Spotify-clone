@@ -63,6 +63,8 @@ function recoveryCase() {
     endFadeOccurrenceRef:{current:null}, MEDIA_PLAYER_STATES:{PLAYING:1}, playerVideoId:value=>value.getVideoData().video_id,
     userPausedRef:{current:false}, trackChangeUntilRef:{current:0}, isJamGuestRef:{current:false},
     failureResolveRef:{current:null}, sameIdRetryRef:{current:null}, alternateAttemptRef:{current:{identity:null}},
+    playbackOwner:'guest', queueMode:'radio', queueManualEnd:false, playbackContext:null,
+    asyncPlaybackLifetimeRef:{current:{}}, jamRef:{current:null}, accountStorageGeneration:()=>0,
     abortCrossfade(){}, clearActiveBufferTimers(){}, markExpectPlaying(){},
     setPlayerError(value){ if (value) calls.stops++; },
     playPause:value=>({type:'playPause', value}), replaceCurrentYoutubeTrack:value=>({type:'replace', value}),
@@ -71,7 +73,10 @@ function recoveryCase() {
       if (action.type === 'replace') context.videoRef.current = {...context.videoRef.current, ...action.value};
     },
     resolveAlternateUpload:async()=>{ calls.searches++; return {id:`alternate0${calls.searches}`, title:'Synthetic alternate'}; },
-    store:{getState:()=>({settings:{explicitContent:true}})}, isTrackAllowed:()=>true,
+    store:{getState:()=>({settings:{explicitContent:true,privateSession:false},player:{
+      playbackOwner:'guest',youtubeVideo:context.videoRef.current,playbackIntentRevision:0,
+      queueMode:'radio',queueManualEnd:false,playbackContext:null,
+    }})}, isTrackAllowed:()=>true,
     playNextOrContinueRef:{current:async()=>{ calls.advances++; return true; }},
   };
   context.video = context.videoRef.current;
@@ -91,7 +96,8 @@ function recoveryCase() {
     now = until;
   };
   // Exercise production callbacks rather than reproducing their branching here.
-  vm.runInNewContext(part('const cancelFade = () =>', 'const emptyRecovery =')
+  vm.runInNewContext(part('const capturePlaybackScope =', 'const isPageHidden =')
+    + part('const cancelFade = () =>', 'const emptyRecovery =')
     + part('const fadeOutThenSkip = (run) =>', 'const handleNext =')
     + part('const handlePlaybackFailure = async', 'handlePlaybackFailureRef.current = handlePlaybackFailure;')
     + part('// Fade a newly-started track in from silence', 'const seekOnCurrentTrack =')
@@ -231,6 +237,29 @@ function recoveryCase() {
     const {supportedMediaProfile} = load('src/components/MusicPlayer/media/mediaCapabilities.mjs',{}, {document:{createElement:()=>({canPlayType:type=>types.some(prefix=>type.startsWith(prefix))?'probably':''})}});
     assert.equal(supportedMediaProfile('audio'),expected);
   }
+  // Android reports unknown decoder duration as zero. The resolver's known
+  // duration must still bound initial resume and later seeks.
+  for (const [nativeDuration, assetDuration, expected] of [[0,180,180],[NaN,180,180],[90,180,90],[0,0,0],[0,Infinity,0]]) {
+    const durationCase=await deckCase({metadata:false,resolveAsset:async request=>({receipt:'duration',asset:{url:`https://example.invalid/${request.videoId}`,duration:assetDuration,expiresAt:Date.now()+300000}})});
+    durationCase.media.duration=nativeDuration;
+    durationCase.deck.seekTo(12);
+    durationCase.listeners.get('loadedmetadata')();
+    assert.equal(durationCase.deck.getDuration(),expected,'A positive decoder duration wins; otherwise use a finite positive resolver duration');
+    assert.equal(durationCase.media.currentTime,Math.min(12,Math.max(0,expected-.1)),'Unknown decoder duration must not erase a valid resume position');
+    durationCase.deck.seekTo(200);
+    assert.equal(durationCase.media.currentTime,Math.max(0,expected-.1),'Seeking remains bounded by known duration, or zero when all duration is unknown');
+    durationCase.deck.destroy();
+  }
+  const durationReload=await deckCase({metadata:false});
+  durationReload.media.duration=0;
+  durationReload.listeners.get('loadedmetadata')();
+  durationReload.deck.loadVideoById({videoId:'lmnopqrstuv',startSeconds:24});
+  await tick();
+  durationReload.listeners.get('loadedmetadata')();
+  assert.equal(durationReload.deck.getDuration(),180);
+  assert.equal(durationReload.media.currentTime,24,'Source reload preserves its requested resume when native duration remains unknown');
+  assert.equal(durationReload.media.paused,false);
+  durationReload.deck.destroy();
   const success=await deckCase();success.deck.playVideo();await tick();assert.equal(success.media.paused,false);success.deck.pauseVideo();assert.equal(success.media.paused,true);success.deck.destroy();
   const denied=Object.assign(new Error('gesture required'),{name:'NotAllowedError'});
   for(const options of [{play:()=>{throw denied}}, {play:()=>Promise.reject(denied)}, {graph:true,resumeContext:()=>{throw denied}}, {graph:true,resumeContext:()=>Promise.reject(denied),play:()=>{throw denied}}]) {

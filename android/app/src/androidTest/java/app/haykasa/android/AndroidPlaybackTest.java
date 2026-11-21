@@ -32,6 +32,16 @@ public class AndroidPlaybackTest {
         IBinder binder = serviceRule.bindService(new Intent(context, PlaybackService.class).setAction("app.haykasa.android.BIND"));
         return ((PlaybackService.LocalBinder)binder).service();
     }
+    private OrderedTransport.Snapshot transportSnapshot(PlaybackService service) throws Exception {
+        Field bridge = PlaybackService.class.getDeclaredField("ordered"); bridge.setAccessible(true);
+        Field active = PlaybackService.class.getDeclaredField("activeId"); active.setAccessible(true);
+        AtomicReference<OrderedTransport.Snapshot> snapshot = new AtomicReference<>();
+        main(() -> {
+            try { snapshot.set(((OrderedMediaBridge)bridge.get(service)).owner((String)active.get(service)).snapshot()); }
+            catch (IllegalAccessException error) { throw new AssertionError(error); }
+        });
+        return snapshot.get();
+    }
     private void main(Runnable r) { InstrumentationRegistry.getInstrumentation().runOnMainSync(r); }
     private void waitActivityStage(MainActivity activity, androidx.test.runner.lifecycle.Stage expected, String message) throws Exception {
         AtomicReference<androidx.test.runner.lifecycle.Stage> observed = new AtomicReference<>();
@@ -49,14 +59,15 @@ public class AndroidPlaybackTest {
     }
     private void waitJs(WebView web, String code) throws Exception {
         for (int i = 0; i < 100; i++) { if ("true".equals(js(web, code))) return; Thread.sleep(200); }
-        fail("Condition did not become true: " + code + "; state=" + js(web, "JSON.stringify(window.qaSample?.())"));
+        fail("Condition did not become true: " + code + "; state=" + js(web, "JSON.stringify(window.qaSample?.())")
+            + "; nativeFrames=" + js(web, "JSON.stringify(window.qaNativeFrames || [])"));
     }
-    private void shell(String command) throws Exception {
+    private static void shell(String command) throws Exception {
         try (java.io.InputStream in = new android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command))) {
             byte[] buffer = new byte[1024]; while (in.read(buffer) != -1) { /* Consume command completion. */ }
         }
     }
-    private void screenshot(String name) throws Exception {
+    static void screenshot(String name) throws Exception {
         if (!name.matches("[a-z0-9-]+")) throw new IllegalArgumentException("Invalid screenshot name");
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         Thread.sleep(500); // Allow the committed WebView frame to reach the emulator display.
@@ -131,9 +142,12 @@ public class AndroidPlaybackTest {
         report.put("manualSkipVerified", false);
         report.put("manualSkip", skip);
         skip.put("outcome", "attempting_next_song");
-        // Titles are compared inside the disposable page only. Evidence records
-        // the change as a boolean, never the selected title/account state.
-        js(web, "(()=>{const label=()=>document.querySelector('[data-testid=\"player-dock\"] [aria-label^=\"Expand player:\"]')?.getAttribute('aria-label')||'';const initial=label();const oldFeedback=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');const state={selectedChanged:false,feedbackNodeChanged:false,feedbackCleared:false};const observe=()=>{state.selectedChanged=!!label()&&label()!==initial;const feedback=qaLivePlayback.snapshot().ui.feedbackVisible;const node=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');if(!feedback)state.feedbackCleared=true;state.feedbackNodeChanged=state.selectedChanged&&feedback&&node!==oldFeedback};const observer=new MutationObserver(observe);observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true});window.__qaManualSkip={state,observe,cleanup:()=>observer.disconnect()};observe()})()");
+        // Different recordings/occurrences can have the same displayed title.
+        // Compare identity inside the disposable page; export only the boolean.
+        boolean occurrenceIdentity = "true".equals(js(web, "!!document.querySelector('[data-testid=\"player-dock\"]')?.getAttribute('data-playback-entry-id')"));
+        assertTrue("The current-build dock must expose its actual selected occurrence", !QaCurrentWeb.enabled() || occurrenceIdentity);
+        skip.put("selectionIdentityBasis", occurrenceIdentity ? "queue_occurrence" : "legacy_display_label");
+        js(web, "(()=>{const selection=()=>document.querySelector('[data-testid=\"player-dock\"]')?.getAttribute('data-playback-entry-id')||document.querySelector('[data-testid=\"player-dock\"] [aria-label^=\"Expand player:\"]')?.getAttribute('aria-label')||'';const initial=selection();const oldFeedback=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');const state={selectedChanged:false,feedbackNodeChanged:false,feedbackCleared:false};const observe=()=>{state.selectedChanged=!!selection()&&selection()!==initial;const feedback=qaLivePlayback.snapshot().ui.feedbackVisible;const node=document.querySelector('[data-testid=\"playback-feedback\"], .yt-dock-feedback');if(!feedback)state.feedbackCleared=true;state.feedbackNodeChanged=state.selectedChanged&&feedback&&node!==oldFeedback};const observer=new MutationObserver(observe);observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true});window.__qaManualSkip={state,observe,cleanup:()=>observer.disconnect()};observe()})()");
         long started = android.os.SystemClock.elapsedRealtime();
         org.json.JSONObject sample = new org.json.JSONObject();
         try {
@@ -308,12 +322,119 @@ public class AndroidPlaybackTest {
             shell("input keyevent KEYCODE_BACK"); waitJs(web, "location.pathname === '/'");
         }
     }
+    private static android.webkit.WebResourceRequest navigationRequest(String url, boolean mainFrame) {
+        return new android.webkit.WebResourceRequest() {
+            @Override public android.net.Uri getUrl() { return android.net.Uri.parse(url); }
+            @Override public boolean isForMainFrame() { return mainFrame; }
+            @Override public boolean isRedirect() { return false; }
+            @Override public boolean hasGesture() { return true; }
+            @Override public String getMethod() { return "GET"; }
+            @Override public java.util.Map<String, String> getRequestHeaders() { return java.util.Collections.emptyMap(); }
+        };
+    }
+    @SuppressWarnings("deprecation")
+    @Test public void bothNavigationCallbacksEnforceTheTrustedWebsiteBoundary() throws Exception {
+        AtomicReference<Intent> external = new AtomicReference<>();
+        android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        android.app.Instrumentation.ActivityMonitor monitor = new android.app.Instrumentation.ActivityMonitor() {
+            @Override public android.app.Instrumentation.ActivityResult onStartActivity(Intent intent) {
+                if (!Intent.ACTION_VIEW.equals(intent.getAction())) return null;
+                external.set(new Intent(intent));
+                return new android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED, null);
+            }
+        };
+        instrumentation.addMonitor(monitor);
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(activity); web.stopLoading();
+                    android.webkit.WebViewClient client = web.getWebViewClient();
+                    // API 23 invokes the String overload, even on a current WebView.
+                    assertFalse(client.shouldOverrideUrlLoading(web, MediaPolicy.ORIGIN + "/search"));
+                    assertTrue(client.shouldOverrideUrlLoading(web, "https://example.invalid/android-navigation"));
+                    assertEquals("https://example.invalid/android-navigation", external.get().getDataString());
+                    assertTrue(external.get().hasCategory(Intent.CATEGORY_BROWSABLE));
+                    external.set(null);
+                    for (String url : new String[]{"intent://blocked", "content://blocked/file", "file:///blocked", "javascript:alert(1)"}) {
+                        assertTrue("API 23 must reject unsupported navigation: " + url, client.shouldOverrideUrlLoading(web, url));
+                    }
+                    assertNull("Unsupported schemes must not launch another app", external.get());
+                    assertFalse(client.shouldOverrideUrlLoading(web, navigationRequest(MediaPolicy.ORIGIN + "/search", true)));
+                    assertFalse("Modern subframes stay within WebView handling", client.shouldOverrideUrlLoading(web,
+                        navigationRequest("https://example.invalid/subframe", false)));
+                    assertNull(external.get());
+                    assertTrue(client.shouldOverrideUrlLoading(web, navigationRequest("http://example.invalid/android-navigation", true)));
+                    assertEquals("http://example.invalid/android-navigation", external.get().getDataString());
+                    external.set(null);
+                    assertTrue(client.shouldOverrideUrlLoading(web, navigationRequest("content://blocked/file", true)));
+                    WebView retired = new WebView(activity);
+                    try {
+                        assertTrue(client.shouldOverrideUrlLoading(retired, MediaPolicy.ORIGIN + "/search"));
+                        assertTrue(client.shouldOverrideUrlLoading(retired, navigationRequest(MediaPolicy.ORIGIN, false)));
+                        assertTrue(client.shouldOverrideUrlLoading(retired, "https://example.invalid/retired"));
+                    } finally { retired.destroy(); }
+                    assertNull("A retired WebView cannot launch external navigation", external.get());
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+            });
+        } finally { instrumentation.removeMonitor(monitor); }
+    }
+    @Test public void backFromNativeConnectionErrorShowsThePreviousWebsitePage() throws Exception {
+        AtomicReference<WebView> ref = new AtomicReference<>();
+        String first = MediaPolicy.ORIGIN + "/native-navigation-qa/first";
+        String second = MediaPolicy.ORIGIN + "/native-navigation-qa/second";
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(activity); ref.set(web); web.stopLoading();
+                    android.webkit.WebViewClient client = web.getWebViewClient();
+                    web.setWebViewClient(new android.webkit.WebViewClient() {
+                        @Override public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, android.webkit.WebResourceRequest request) {
+                            String page = "<!doctype html><title>Native navigation fixture</title><p>" + request.getUrl().getPath() + "</p>";
+                            return new android.webkit.WebResourceResponse("text/html", "UTF-8",
+                                new java.io.ByteArrayInputStream(page.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                        }
+                        @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) { client.onPageStarted(view, url, icon); }
+                        @Override public void onPageFinished(WebView view, String url) { client.onPageFinished(view, url); }
+                    });
+                    web.loadUrl(first);
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+            });
+            WebView web = ref.get();
+            waitJs(web, "location.pathname === '/native-navigation-qa/first' && document.readyState === 'complete'");
+            main(() -> web.loadUrl(second));
+            waitJs(web, "location.pathname === '/native-navigation-qa/second' && document.readyState === 'complete'");
+            scenario.onActivity(activity -> {
+                assertTrue("The retained page has actual WebView history", web.canGoBack());
+                // Show the actual connection-error UI without a network request.
+                // WebResourceError has no public constructor for a callback fixture.
+                try {
+                    java.lang.reflect.Method showError = MainActivity.class.getDeclaredMethod("showError", int.class);
+                    showError.setAccessible(true);
+                    showError.invoke(activity, R.string.error_connection);
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+                assertTrue(activity.findViewById(android.R.id.button1).isShown());
+                assertNull("Native error hides the retained WebView", web.getParent());
+                activity.onBackPressed();
+            });
+            waitJs(web, "location.pathname === '/native-navigation-qa/first' && document.readyState === 'complete'");
+            scenario.onActivity(activity -> {
+                assertNotNull("Back reattaches the previous page instead of navigating invisibly", web.getParent());
+                assertTrue("The previous page is visible after Back", web.isShown());
+                assertNull("Back removes the obsolete native error action", activity.findViewById(android.R.id.button1));
+            });
+            screenshot("android-native-error-back-recovered");
+        }
+    }
     @Test public void serviceRegistersItsSession() throws Exception {
         PlaybackService service = bind(); AtomicReference<Integer> count = new AtomicReference<>();
         main(() -> count.set(service.getSessions().size()));
         assertEquals("Native session must be registered with its foreground service", Integer.valueOf(1), count.get());
     }
     @Test public void liveGuestSongReportsActualPlaybackOrProviderFailure() throws Exception {
+        org.junit.Assume.assumeFalse("Live playback qualification is opt-in",
+            "1".equals(InstrumentationRegistry.getArguments().getString("qaSkipLive")));
         final int priorBuildDocuments = QaCurrentWeb.mainDocumentCount();
         final String probe;
         try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("live-playback-probe.js")) {
@@ -432,20 +553,37 @@ public class AndroidPlaybackTest {
             for (String codec : new String[]{"opus", "aac"}) {
                 byte[] audio;
                 try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("quality-" + codec + (codec.equals("opus") ? ".webm" : ".m4a"))) { audio = in.readAllBytes(); }
-                String id = "quality-" + codec;
+                String id = "audio_" + java.util.UUID.randomUUID();
+                AtomicReference<org.json.JSONObject> qualityScope = new AtomicReference<>();
                 String expectedMime = codec.equals("opus") ? "audio/opus" : "audio/mp4a-latm";
                 main(() -> {
                     try {
                         ((DefaultMediaSourceFactory)factoryField.get(service)).setDataSourceFactory(() -> new ByteArrayDataSource(audio));
-                        service.command(new org.json.JSONObject().put("id", id).put("action", "load").put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001?signature=synthetic"), message -> {});
-                        service.command(new org.json.JSONObject().put("id", id).put("action", "volume").put("value", .36), message -> {});
-                        service.command(new org.json.JSONObject().put("id", id).put("action", "play"), message -> {});
+                        AtomicReference<org.json.JSONObject> reply = new AtomicReference<>();
+                        PlaybackService.Sink sink = message -> { try { reply.set(new org.json.JSONObject(message)); } catch (org.json.JSONException error) { throw new RuntimeException(error); } };
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "transportHello")
+                            .put("requestId", java.util.UUID.randomUUID().toString()).put("supportedTransportVersions", new org.json.JSONArray().put(2).put(1)), sink);
+                        org.json.JSONObject caps = reply.get();
+                        org.json.JSONObject scope = new org.json.JSONObject().put("version", 2).put("engineId", caps.getString("engineId")).put("bindingId", caps.getString("issuedBindingId"));
+                        qualityScope.set(scope);
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "transportBind").put("version", 2)
+                            .put("requestId", java.util.UUID.randomUUID().toString()).put("engineId", caps.getString("engineId"))
+                            .put("bindingId", caps.getString("issuedBindingId")).put("expectedBindingId", org.json.JSONObject.NULL).put("bindGrant", caps.getString("bindGrant")), sink);
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "load").put("requestId", java.util.UUID.randomUUID().toString())
+                            .put("transport", scope).put("title", "Synthetic codec fixture").put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001?signature=synthetic"), sink);
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "volume").put("requestId", java.util.UUID.randomUUID().toString()).put("transport", scope).put("value", .36), sink);
+                        service.command(new org.json.JSONObject().put("id", id).put("action", "play").put("transport", new org.json.JSONObject(scope.toString()).put("webRevision", 1)), sink);
                     } catch (Exception error) { throw new RuntimeException(error); }
                 });
                 AtomicReference<org.json.JSONObject> measurement = new AtomicReference<>();
                 for (int attempt = 0; attempt < 100 && measurement.get() == null; attempt++) {
                     main(() -> {
-                        androidx.media3.exoplayer.ExoPlayer player = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                        // The session owns a forwarding transport wrapper; inspect the actual decoder.
+                        androidx.media3.exoplayer.ExoPlayer player;
+                        try {
+                            Field playersField = PlaybackService.class.getDeclaredField("players"); playersField.setAccessible(true);
+                            player = ((java.util.Map<String, androidx.media3.exoplayer.ExoPlayer>)playersField.get(service)).get(id);
+                        } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
                         androidx.media3.exoplayer.DecoderCounters counters = player.getAudioDecoderCounters();
                         if (counters != null) counters.ensureUpdated();
                         androidx.media3.common.Format format = player.getAudioFormat();
@@ -462,7 +600,7 @@ public class AndroidPlaybackTest {
                 }
                 assertNotNull("Native renderer must decode actual " + codec + " source buffers", measurement.get());
                 results.put(measurement.get());
-                main(() -> { try { service.command(new org.json.JSONObject().put("id", id).put("action", "release"), message -> {}); } catch (Exception error) { throw new RuntimeException(error); } });
+                main(() -> { try { service.command(new org.json.JSONObject().put("id", id).put("action", "release").put("requestId", java.util.UUID.randomUUID().toString()).put("transport", qualityScope.get()), message -> {}); } catch (Exception error) { throw new RuntimeException(error); } });
             }
         } finally {
             main(service::releaseAll);
@@ -493,6 +631,7 @@ public class AndroidPlaybackTest {
                     web.setWebViewClient(new android.webkit.WebViewClient() {
                         @Override public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, android.webkit.WebResourceRequest request) { return respond.apply(request); }
                         @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) { return delegate.shouldOverrideUrlLoading(view, request); }
+                        @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) { delegate.onPageStarted(view, url, icon); }
                         @Override public void onPageFinished(WebView view, String url) { delegate.onPageFinished(view, url); }
                         @Override public void onReceivedError(WebView view, android.webkit.WebResourceRequest request, android.webkit.WebResourceError error) { delegate.onReceivedError(view, request, error); }
                         @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) { return delegate.onRenderProcessGone(view, detail); }
@@ -504,13 +643,20 @@ public class AndroidPlaybackTest {
                 } catch (Exception e) { throw new RuntimeException(e); }
             });
             WebView web = ref.get(); waitJs(web, "window.qaReady === true");
+            assertEquals("The actual APK and production adapter must negotiate ordered transport", "true", js(web, "qaDeck.orderedTransport === true"));
+            assertEquals("The actual native producer and renderer must use D07", "2", js(web, "qaDeck.nativeTransportVersion"));
             assertEquals("Production resolver reached the isolated API", "true", js(web, "qaResolveRequests > 0"));
             System.out.println("ANDROID_QA_WEBVIEW " + WebView.getCurrentWebViewPackage().versionName);
             System.out.println("ANDROID_QA_ABORT_ANY " + js(web, "typeof AbortSignal.any"));
             js(web, "document.getElementById('play').click()"); waitJs(web, "qaDeck.getCurrentTime() > 1 && qaDeck.getPlayerState() === 1");
             AtomicReference<Boolean> decodedAudio = new AtomicReference<>(false);
             main(() -> {
-                androidx.media3.exoplayer.ExoPlayer active = (androidx.media3.exoplayer.ExoPlayer)service.getSessions().get(0).getPlayer();
+                androidx.media3.exoplayer.ExoPlayer active;
+                try {
+                    Field playersField = PlaybackService.class.getDeclaredField("players"); playersField.setAccessible(true);
+                    Field activeField = PlaybackService.class.getDeclaredField("activeId"); activeField.setAccessible(true);
+                    active = ((java.util.Map<String, androidx.media3.exoplayer.ExoPlayer>)playersField.get(service)).get(activeField.get(service));
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
                 androidx.media3.exoplayer.DecoderCounters counters = active.getAudioDecoderCounters();
                 if (counters != null) counters.ensureUpdated();
                 decodedAudio.set(active.isPlaying() && active.getVolume() > 0 && active.getAudioFormat() != null
@@ -521,6 +667,35 @@ public class AndroidPlaybackTest {
                     + " audioFormat=" + (active.getAudioFormat() == null ? "none" : active.getAudioFormat().sampleMimeType));
             });
             assertTrue("The native audio renderer must decode output buffers at a nonzero volume", decodedAudio.get());
+            // Hold actual producer frames, not hand-written envelopes. An old
+            // playing observation after local Pause must stay telemetry-only;
+            // later explicit MediaSession Play must win over the delayed ACK.
+            js(web, "(()=>{const bridge=HayKasaAndroidMedia;const receive=bridge.onmessage;window.qaHeldFrames=[];window.qaHoldReplies=true;bridge.onmessage=message=>{const value=JSON.parse(message.data);if(window.qaHoldReplies&&value.transport&&value.transport.snapshot.intent.origin!=='system')qaHeldFrames.push(message);else receive(message)};window.qaFlushReplies=()=>{window.qaHoldReplies=false;const frames=qaHeldFrames.splice(0);for(const frame of frames)receive(frame)}})()");
+            waitJs(web, "qaHeldFrames.some(m=>JSON.parse(m.data).transport.snapshot.observed.isPlaying)");
+            js(web, "document.getElementById('pause').click();window.qaPlayingEventsAfterPause=qaEvents.filter(e=>e===1).length");
+            // Deliver the saved old playing frame through the real consumer
+            // while native Pause acknowledgement remains withheld.
+            js(web, "(()=>{const old=qaHeldFrames.find(m=>JSON.parse(m.data).transport.snapshot.observed.isPlaying);window.qaHoldReplies=false;HayKasaAndroidMedia.onmessage(old);window.qaHoldReplies=true})()");
+            assertEquals("Stale playing cannot undo pending local Pause", "true", js(web, "qaDeck.nativePlayIntent===false && qaEvents.filter(e=>e===1).length===qaPlayingEventsAfterPause"));
+            AtomicReference<Boolean> nativePaused = new AtomicReference<>(false);
+            for (int i = 0; i < 50; i++) {
+                main(() -> nativePaused.set(!service.getSessions().get(0).getPlayer().getPlayWhenReady()));
+                if (nativePaused.get()) break;
+                Thread.sleep(100);
+            }
+            assertTrue("Native must apply Pause before explicit system Play", nativePaused.get());
+            shell("cmd media_session dispatch play");
+            waitJs(web, "qaDeck.nativePlayIntent===true && qaDeck.getPlayerState()===1");
+            js(web, "qaFlushReplies()");
+            waitJs(web, "qaDeck.getPlayerState()===1 && qaDeck.nativeObservedPlaying===true");
+            assertEquals("Delayed Pause ACK must not replace system intent with corrective web Play", "system", transportSnapshot(service).intent().origin());
+            assertEquals("Ordered integration must not hide transport/decoder failures", "true", js(web, "!window.qaTransportError&&!window.qaFailure"));
+            // A real rebind reports the current decoder state and position;
+            // it must not replay the renderer's earlier Play/seek/load.
+            js(web, "window.qaReconnectDone=false;qaDeck.reconnectControls().then(()=>{window.qaReconnectDone=true},()=>{window.qaReconnectFailed=true})");
+            waitJs(web, "qaReconnectDone===true && qaDeck.getPlayerState()===1");
+            assertEquals("Rebind is not an explicit new Play", 0, transportSnapshot(service).processed());
+            assertEquals("Rebind preserves native intent as baseline", "baseline", transportSnapshot(service).intent().origin());
             screenshot("native-playing");
             ActivityManager manager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
             assertTrue("Playing audio needs a foreground notification service", manager.getRunningServices(100).stream().anyMatch(s -> s.service.getClassName().equals(PlaybackService.class.getName()) && s.foreground));
@@ -570,6 +745,44 @@ public class AndroidPlaybackTest {
             AtomicReference<String> notificationTitle = new AtomicReference<>();
             main(() -> notificationTitle.set(String.valueOf(service.getSessions().get(0).getPlayer().getMediaMetadata().title)));
             assertEquals("Reusing the native deck updates Android media-session metadata", "HayKasa next emulator tone", notificationTitle.get());
+            // Exercise more than one replacement after lifecycle/media controls.
+            // A later pass does not erase a previous failure; selected producer
+            // frames in waitJs identify the origin if an unexpected Pause recurs.
+            org.json.JSONArray replacementCycles = new org.json.JSONArray();
+            org.json.JSONObject replacementReport = new org.json.JSONObject()
+                .put("androidApi", android.os.Build.VERSION.SDK_INT)
+                .put("synthetic", true).put("expectedCycles", 20)
+                .put("cycles", replacementCycles);
+            for (int replacement = 3; replacement <= 22; replacement++) {
+                org.json.JSONObject cycle = new org.json.JSONObject()
+                    .put("index", replacement - 2).put("startedAt", System.currentTimeMillis())
+                    .put("rapidSelection", replacement % 2 == 0).put("completed", false);
+                replacementCycles.put(cycle);
+                evidence("native-replacement-cycles", replacementReport);
+                shell("input keyevent KEYCODE_HOME");
+                waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.STOPPED, "Replacement cycle actually backgrounds the activity");
+                main(() -> {
+                    try { service.getSessions().get(0).getSessionActivity().send(); }
+                    catch (android.app.PendingIntent.CanceledException error) { throw new RuntimeException(error); }
+                });
+                waitActivityStage(originalActivity.get(), androidx.test.runner.lifecycle.Stage.RESUMED, "Replacement cycle resumes the same activity");
+                String nextId = "synthetic" + (replacement < 10 ? "0" : "") + replacement;
+                // A rapid abandoned selection must not stop the winning source.
+                // This is one attempt per cycle, never a retry of a failed assertion.
+                String rapid = replacement % 2 == 0
+                    ? "qaDeck.loadVideoById({videoId:'synthetic99',title:'Superseded emulator selection',startSeconds:0});" : "";
+                js(web, rapid + "qaDeck.loadVideoById({videoId:'" + nextId + "',title:'Repeated emulator replacement',startSeconds:0})");
+                waitJs(web, "qaDeck.getVideoData().video_id === '" + nextId + "' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > 1 && qaDeck.getCurrentTime() < 30");
+                assertTrue("Source replacement must retain its actual native Play decision", transportSnapshot(service).intent().playWhenReady());
+                waitJs(web, "qaDeck.getVideoData().video_id === '" + nextId + "' && qaDeck.getPlayerState() === 1 && qaDeck.getCurrentTime() > 4 && qaDeck.getCurrentTime() < 30");
+                OrderedTransport.Snapshot actual = transportSnapshot(service);
+                assertTrue("Native decoder keeps playing after the replacement settles", actual.observed().isPlaying());
+                assertTrue("A settled replacement keeps its native Play intent", actual.intent().playWhenReady());
+                cycle.put("completed", true).put("finishedAt", System.currentTimeMillis())
+                    .put("position", actual.observed().position()).put("intentOrigin", actual.intent().origin())
+                    .put("intentRevision", actual.intent().revision()).put("playing", actual.observed().isPlaying());
+                evidence("native-replacement-cycles", replacementReport);
+            }
             js(web, "qaDeck.cueVideoById({videoId:'synthetic03',title:'Cued emulator tone'})");
             AtomicReference<Boolean> emptySession = new AtomicReference<>(false);
             for (int i = 0; i < 30; i++) {
@@ -582,6 +795,50 @@ public class AndroidPlaybackTest {
             assertEquals("System Play cannot resume the retired source", "false", js(web, "qaDeck.getPlayerState() === 1"));
             js(web, "qaDeck.playVideo()");
             waitJs(web, "qaDeck.getVideoData().video_id === 'synthetic03' && qaDeck.getPlayerState() === 1");
+            AtomicReference<android.media.session.MediaController> retiredController = new AtomicReference<>();
+            AtomicReference<String> retiredId = new AtomicReference<>();
+            Field activeField = PlaybackService.class.getDeclaredField("activeId"); activeField.setAccessible(true);
+            Field playersField = PlaybackService.class.getDeclaredField("players"); playersField.setAccessible(true);
+            Field orderedField = PlaybackService.class.getDeclaredField("ordered"); orderedField.setAccessible(true);
+            main(() -> {
+                try {
+                    retiredId.set((String)activeField.get(service));
+                    retiredController.set(new android.media.session.MediaController(context,
+                        service.getSessions().get(0).getPlatformToken()));
+                } catch (IllegalAccessException error) { throw new AssertionError(error); }
+            });
+            assertNotNull("Account clear starts with a real native source", retiredId.get());
+            // This invokes the production account-storage module, whose actual
+            // event must synchronously retire the production adapter's source.
+            js(web, "qaClearAccount()");
+            waitJs(web, "qaDeck.getPlayerState() !== 1 && qaDeck.nativePlayIntent === false && qaDeck.nativeObservedPlaying === false");
+            AtomicReference<Boolean> accountReleased = new AtomicReference<>(false);
+            for (int attempt = 0; attempt < 50; attempt++) {
+                main(() -> {
+                    try {
+                        accountReleased.set(((java.util.Map<?, ?>)playersField.get(service)).isEmpty()
+                            && !((OrderedMediaBridge)orderedField.get(service)).contains(retiredId.get())
+                            && service.getSessions().get(0).getPlayer().getCurrentMediaItem() == null);
+                    } catch (IllegalAccessException error) { throw new AssertionError(error); }
+                });
+                if (accountReleased.get()) break;
+                Thread.sleep(100);
+            }
+            assertTrue("Account clear releases both native source and scoped binding", accountReleased.get());
+            retiredController.get().getTransportControls().play();
+            shell("cmd media_session dispatch play");
+            js(web, "qaDeck.playVideo();qaDeck.seekTo(1);qaDeck.setVolume(50)");
+            Thread.sleep(1000);
+            assertEquals("A stale deck cannot restart account-owned playback", "true",
+                js(web, "qaDeck.getPlayerState() !== 1 && qaDeck.nativePlayIntent === false && qaDeck.nativeObservedPlaying === false"));
+            main(() -> {
+                try {
+                    assertTrue("Stale platform and web controls cannot recreate the released native source",
+                        ((java.util.Map<?, ?>)playersField.get(service)).isEmpty());
+                    assertNull(service.getSessions().get(0).getPlayer().getCurrentMediaItem());
+                    assertFalse(service.getSessions().get(0).getPlayer().getPlayWhenReady());
+                } catch (IllegalAccessException error) { throw new AssertionError(error); }
+            });
             js(web, "qaDeck.destroy()");
         } finally {
             main(() -> { service.releaseAll(); android.webkit.ServiceWorkerController.getInstance().setServiceWorkerClient(null); });

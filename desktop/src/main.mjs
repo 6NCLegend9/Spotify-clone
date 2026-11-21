@@ -921,6 +921,12 @@ function setDesktopPreference(key, value) {
   return desktopPreferences();
 }
 
+function currentUpdateStatus() {
+  return runtimeFeature("updater")
+    ? updater?.getStatus() || { state: "idle" }
+    : { state: "disabled", detail: featureDisabledMessage("updater") };
+}
+
 function showNativeUpdateNotification(status) {
   if (status?.state !== "ready" || process.platform !== "win32" || !Notification.isSupported()) return;
   const version = String(status.version || "").trim();
@@ -936,8 +942,10 @@ function showNativeUpdateNotification(status) {
       silent: false,
     });
     notification.on("click", () => {
+      if (quitting) return;
       showMainWindow();
-      if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", status);
+      // The downloaded version or policy may have changed since this OS notice.
+      if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", currentUpdateStatus());
     });
     notification.show();
   } catch (error) {
@@ -947,7 +955,9 @@ function showNativeUpdateNotification(status) {
   }
 }
 
-function sendUpdateStatus(status) {
+function sendUpdateStatus() {
+  if (quitting) return;
+  const status = currentUpdateStatus();
   if (["checking", "available", "ready", "up-to-date", "error", "disabled"].includes(status?.state)) {
     logger?.info("update_status", {
       state: status.state,
@@ -959,6 +969,7 @@ function sendUpdateStatus(status) {
 }
 
 async function applyPolicy(snapshot) {
+  if (quitting) return;
   logger?.info("desktop_policy", {
     maintenance: snapshot?.maintenance === true,
     auth: snapshot?.features?.auth !== false,
@@ -973,15 +984,16 @@ async function applyPolicy(snapshot) {
     setAuthStatus("idle", "");
   }
 
-  if (!runtimeFeature("discord")) {
-    await discord.clearActivity().catch(() => {});
-    discord.disconnect();
-  }
-
   if (!runtimeFeature("updater")) {
     updater?.dispose();
   } else if (updater) {
     updater.start();
+  }
+  sendUpdateStatus();
+
+  if (!runtimeFeature("discord")) {
+    await discord.clearActivity().catch(() => {});
+    discord.disconnect();
   }
 }
 
@@ -1080,14 +1092,12 @@ function registerIpcHandlers() {
     return resolvedAppearance();
   });
 
-  secureHandle("heykasa:updates:status", () => (
-    runtimeFeature("updater")
-      ? updater?.getStatus() || { state: "idle" }
-      : { state: "disabled", detail: featureDisabledMessage("updater") }
-  ));
-  secureHandle("heykasa:updates:check", () => {
+  secureHandle("heykasa:updates:status", currentUpdateStatus);
+  secureHandle("heykasa:updates:check", async () => {
     requireRuntimeFeature("updater");
-    return updater?.checkNow({ manual: true }) || { state: "disabled" };
+    if (!updater) return { state: "disabled" };
+    await updater.checkNow({ manual: true });
+    return currentUpdateStatus();
   });
   secureHandle("heykasa:updates:install", async () => {
     requireRuntimeFeature("updater");
@@ -1159,7 +1169,7 @@ function registerIpcHandlers() {
     crashStreak: store?.get("crashStreak") || 0,
     rendererCrashCount: store?.get("rendererCrashCount") || 0,
     policy: policy?.snapshot() || null,
-    update: updater?.getStatus() || null,
+    update: currentUpdateStatus(),
     discord: {
       enabled: runtimeFeature("discord"),
       connected: runtimeFeature("discord") && discord.connected,

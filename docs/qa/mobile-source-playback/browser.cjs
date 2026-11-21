@@ -17,6 +17,7 @@ const sources = {
   './mediaPlayerStates.mjs':'src/components/MusicPlayer/media/mediaPlayerStates.mjs',
   './nativeAudioGraph.mjs':'src/components/MusicPlayer/media/nativeAudioGraph.mjs',
   './androidAudioElement.mjs':'src/components/MusicPlayer/media/androidAudioElement.mjs',
+  './orderedAndroidTransport.mjs':'src/components/MusicPlayer/media/orderedAndroidTransport.mjs',
   './nativeMediaDeck.mjs':'src/components/MusicPlayer/media/nativeMediaDeck.mjs',
 };
 const compiled = Object.fromEntries(Object.entries(sources).map(([name,file])=>[name,ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText]));

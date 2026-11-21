@@ -10,12 +10,14 @@ import { app, BrowserWindow, nativeImage } from "electron";
 const output = path.resolve("artifacts/desktop-thumbar");
 fs.mkdirSync(output, { recursive: true });
 app.setPath("userData", fs.mkdtempSync(path.join(os.tmpdir(), "haykasa-thumbar-")));
-const report = { platform: process.platform, icons: [], states: [], commands: [], passed: false };
+const report = { platform: process.platform, runtime: { electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node }, icons: [], states: [], commands: [], passed: false };
 let window;
 
 app.whenReady().then(async () => {
 try {
   assert.equal(process.platform, "win32", "Run the native thumbnail-toolbar check on Windows");
+  const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(report.runtime.electron, pkg.devDependencies.electron, "Exercise the declared shipped Electron runtime");
   const directory = fileURLToPath(new URL("../src/", import.meta.url));
   const source = fs.readFileSync(path.join(directory, "main.mjs"), "utf8");
   const start = source.indexOf("function thumbarIcon(");

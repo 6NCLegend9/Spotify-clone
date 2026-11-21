@@ -111,6 +111,7 @@ const fileSchema = new mongoose.Schema(
             audioOnly: { type: Boolean, default: false },
             wifiOnlyDownloads: { type: Boolean, default: false },
             normalization: { type: String, enum: ["quiet", "normal", "loud"], default: "normal" },
+            normalizeLoudness: { type: Boolean, default: false },
             monoAudio: { type: Boolean, default: false },
             explicitContent: { type: Boolean, default: false },
             privateSession: { type: Boolean, default: false },

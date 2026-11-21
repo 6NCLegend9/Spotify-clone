@@ -58,9 +58,37 @@ export function restoreQueueOccurrenceState(queue, current) {
   const nextQueue = current?.id && queueTrackIndex(source, current) < 0
     ? [current, ...source]
     : source;
-  const userQueue = queueWithoutCurrentOccurrence(nextQueue, current)
+  const currentIndex = queueTrackIndex(nextQueue, current);
+  const userQueue = nextQueue.slice(currentIndex + 1)
     .filter((track) => track?.queueSource === "user");
   return { queue: nextQueue, userQueue };
+}
+
+// A seeded generator keeps reducer replay deterministic. Randomness is sampled
+// by the action creator, never while a reducer is executing.
+function queueRandom(seed) {
+  let value = Number.isFinite(seed) ? Math.floor(Math.abs(seed % 1) * 4294967296) : 0;
+  return () => {
+    value = (value + 0x6d2b79f5) | 0;
+    let mixed = Math.imul(value ^ (value >>> 15), 1 | value);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function reorderContextUpcoming(queue, current, { enabled, originalIdentities = [], seed } = {}) {
+  const source = Array.isArray(queue) ? queue : [];
+  const currentIndex = queueTrackIndex(source, current);
+  const boundary = currentIndex < 0 ? 0 : currentIndex + 1;
+  const upcoming = source.slice(boundary);
+  // Explicit additions always play before the collection and retain the user's
+  // order. Shuffle changes only the upcoming collection, never played history.
+  const explicit = upcoming.filter((track) => track?.queueSource === "user");
+  const context = upcoming.filter((track) => track?.queueSource !== "user");
+  const ordered = enabled
+    ? shuffleUpcoming(context, null, queueRandom(seed))
+    : restoreQueueOrder(context, originalIdentities);
+  return [...source.slice(0, boundary), ...explicit, ...ordered];
 }
 
 export function queueAdvanceDecision(current, next, { avoidId = null } = {}) {
