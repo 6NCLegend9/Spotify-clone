@@ -184,6 +184,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
       id = queue.currentVideoId; title = queue.currentTitle; position = media.currentTime;
       asset = { duration: media.duration, loudness: queue.loudness || initialMeasurement || null };
       media.title = title;
+      media.setAttribute("aria-label", title || "Music playback");
     } else if (queue.loudness && asset) {
       asset.loudness = queue.loudness;
     }
