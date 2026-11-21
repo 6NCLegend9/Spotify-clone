@@ -30,6 +30,9 @@ import org.json.JSONObject;
 /** One native timeline, with real prepared assets only. All player mutation stays on its looper. */
 @androidx.media3.common.util.UnstableApi
 final class NativePlaybackQueue {
+    interface Resolver {
+        JSONObject request(String token, JSONObject body) throws Exception;
+    }
     private record Entry(String occurrenceId, String videoId, String title) {}
     private record Grant(String token, long expiresAt) {}
     private static final class Asset {
@@ -57,6 +60,7 @@ final class NativePlaybackQueue {
     private final Runnable onState;
     private final Consumer<String> onFailure;
     private final Consumer<JSONObject> onAssetChanged;
+    private final Resolver fixtureResolver;
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private final ExecutorService cleanup = Executors.newSingleThreadExecutor();
     private final Map<String, Asset> assets = new HashMap<>();
@@ -78,8 +82,15 @@ final class NativePlaybackQueue {
 
     NativePlaybackQueue(Handler handler, ExoPlayer player, BooleanSupplier desiredIntent,
                         Runnable onState, Consumer<String> onFailure, Consumer<JSONObject> onAssetChanged) {
+        this(handler, player, desiredIntent, onState, onFailure, onAssetChanged, null);
+    }
+
+    NativePlaybackQueue(Handler handler, ExoPlayer player, BooleanSupplier desiredIntent,
+                        Runnable onState, Consumer<String> onFailure, Consumer<JSONObject> onAssetChanged,
+                        Resolver fixtureResolver) {
         this.handler = handler; this.player = player; this.desiredIntent = desiredIntent;
         this.onState = onState; this.onFailure = onFailure; this.onAssetChanged = onAssetChanged;
+        this.fixtureResolver = fixtureResolver;
     }
 
     void configure(JSONObject message) throws JSONException {
@@ -354,6 +365,7 @@ final class NativePlaybackQueue {
 
     private JSONObject request(Grant grant, JSONObject body, boolean retiring) throws Exception {
         if (!retiring && (released || Thread.currentThread().isInterrupted())) throw new InterruptedException();
+        if (fixtureResolver != null) return fixtureResolver.request(grant.token(), body);
         HttpURLConnection own = (HttpURLConnection)new URL(MediaPolicy.ORIGIN + "/api/media/resolve").openConnection();
         if (!retiring) connection = own;
         try {

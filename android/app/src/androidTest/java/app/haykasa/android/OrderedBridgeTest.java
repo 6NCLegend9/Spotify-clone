@@ -146,6 +146,64 @@ public class OrderedBridgeTest {
         return ((Map<String, ExoPlayer>)players.get(service)).get(id);
     }
 
+    @Test public void nativeQueueRenewsAndAdvancesBetweenDuplicateOccurrences() throws Exception {
+        bootstrap(); load();
+        ExoPlayer player = raw();
+        var actions = new CopyOnWriteArrayList<String>();
+        var occurrence = new AtomicReference<String>();
+        var failure = new AtomicReference<String>();
+        var queueRef = new AtomicReference<NativePlaybackQueue>();
+        long now = System.currentTimeMillis();
+        JSONObject first = new JSONObject().put("occurrenceId", "first").put("videoId", "synthetic01").put("title", "First");
+        JSONObject second = new JSONObject().put("occurrenceId", "second").put("videoId", "synthetic01").put("title", "Second");
+        JSONObject configuration = new JSONObject().put("revision", 1).put("expectedRevision", 0)
+            .put("currentOccurrenceId", "first").put("nativeGrant", "npr1_" + "a".repeat(43))
+            .put("grantExpiresAt", now + 600_000).put("profile", "mp4-aac").put("repeatAll", false)
+            .put("receipt", "initial").put("assetExpiresAt", now + 30_000)
+            .put("entries", new JSONArray().put(first).put(second));
+        try {
+            main(() -> {
+                NativePlaybackQueue queue = new NativePlaybackQueue(new android.os.Handler(Looper.getMainLooper()), player,
+                    player::getPlayWhenReady, () -> {
+                        try { occurrence.set(queueRef.get().snapshot().optString("currentOccurrenceId")); }
+                        catch (Exception error) { throw new AssertionError(error); }
+                    }, failure::set, ignored -> {}, (token, request) -> {
+                        String action = request.getString("action");
+                        actions.add(action);
+                        if (action.equals("renew")) assertEquals("initial", request.getString("receipt"));
+                        if (action.equals("create")) assertEquals("synthetic01", request.getString("videoId"));
+                        return new JSONObject().put("state", "ready").put("receipt", action + "-receipt")
+                            .put("asset", new JSONObject().put("expiresAt", System.currentTimeMillis() + 600_000)
+                                .put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001"));
+                    });
+                queueRef.set(queue);
+                player.addListener(new androidx.media3.common.Player.Listener() {
+                    @Override public void onMediaItemTransition(androidx.media3.common.MediaItem item, int reason) {
+                        queue.onMediaItemTransition(reason);
+                    }
+                });
+                try { queue.configure(configuration); } catch (Exception error) { throw new AssertionError(error); }
+            });
+            var prepared = new java.util.concurrent.atomic.AtomicBoolean();
+            waitFor(() -> {
+                main(() -> prepared.set(player.getMediaItemCount() == 2 && player.getDuration() > 0));
+                return prepared.get();
+            });
+            assertEquals(List.of("renew", "create"), actions);
+            assertEquals("first", occurrence.get());
+            main(() -> player.seekTo(player.getDuration() - 300));
+            transport("play", 1);
+            waitFor(() -> "second".equals(occurrence.get()));
+            waitFor(() -> {
+                main(() -> prepared.set(player.isPlaying() && player.getCurrentPosition() > 100));
+                return prepared.get();
+            });
+            assertNull(failure.get());
+        } finally {
+            main(() -> { if (queueRef.get() != null) queueRef.get().release(); });
+        }
+    }
+
     @SuppressWarnings("unchecked") private NativeAudioProcessor processor() throws Exception {
         Field field = PlaybackService.class.getDeclaredField("processors"); field.setAccessible(true);
         return ((Map<String, NativeAudioProcessor>)field.get(service)).get(id);
