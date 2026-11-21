@@ -337,6 +337,11 @@ function YouTubePlayer() {
     () => (Array.isArray(queue) ? queue.filter((item) => item?.id) : []),
     [queue],
   );
+  const nativeQueueEligible = backgroundAccountRef.current && !jam?.code && !privateSession && queueManualEnd
+    && safeQueue.length > 0 && safeQueue.length <= 100
+    && safeQueue.every((track) => /^[A-Za-z0-9:_-]{1,160}$/.test(track.queueEntryId || "")
+      && /^[A-Za-z0-9_-]{11}$/.test(track.id || ""))
+    && safeQueue.some((track) => track.queueEntryId === video?.queueEntryId && track.id === video?.id);
   queueRef.current = safeQueue;
   isPlayingRef.current = isPlaying;
   isJamGuestRef.current = isJamGuest;
@@ -1129,15 +1134,13 @@ function YouTubePlayer() {
   handlePlaybackFailureRef.current = handlePlaybackFailure;
 
   const configureAndroidQueue = (player) => {
-    if (!player?.androidNative || !backgroundAccountRef.current || jam?.code || privateSession || !queueManualEnd) return;
+    if (!player?.androidNative || !nativeQueueEligible) return;
     const currentOccurrenceId = videoRef.current?.queueEntryId;
     const entries = safeQueue.map(track => ({
       occurrenceId: track.queueEntryId,
       videoId: track.id,
       title: (track.title || "HayKasa").slice(0, 300),
     }));
-    if (entries.length > 100 || !entries.every(entry => /^[A-Za-z0-9:_-]{1,160}$/.test(entry.occurrenceId || ""))
-      || !entries.some(entry => entry.occurrenceId === currentOccurrenceId)) return;
     player.configureQueue({ entries, currentOccurrenceId, repeatAll: repeatModeRef.current === "queue" });
   };
 
@@ -1265,6 +1268,17 @@ function YouTubePlayer() {
           dispatch(setYoutubeVideo(next));
           if (!data.playing) dispatch(playPause(false, { intent: false }));
           syncPlaybackClock(data.position, data.duration);
+        },
+        onQueueError: ({ data }) => {
+          if (!isCurrent() || key !== activeDeckRef.current) return;
+          if (data.reason === "native_authorization_unavailable") {
+            toast.error("Background queue could not connect. Keep the app open to continue playback.");
+            return;
+          }
+          setPlayerError({ kind: "queue", canRetry: true,
+            message: data.reason === "authentication_required"
+              ? "Your Android playback session expired. Retry to restore the queue."
+              : "Android could not load this song. Retry to restore the queue." });
         },
         onRepeat: () => {
           if (!isCurrent() || key !== activeDeckRef.current) return;
@@ -1972,7 +1986,7 @@ function YouTubePlayer() {
   }, [iframeApiFailed, video, isPlaying, nativeAvailable, sourceRevision, dispatch]);
 
   useEffect(() => {
-    const context = `${playbackOwner}:${jam?.code || ""}:${jam?.role || ""}:${Boolean(privateSession)}:${videoVisible}:${nativeAvailable}`;
+    const context = `${playbackOwner}:${jam?.code || ""}:${jam?.role || ""}:${Boolean(privateSession)}:${videoVisible}:${nativeAvailable}:${nativeQueueEligible}`;
     const previous = sourceContextRef.current;
     sourceContextRef.current = context;
     if (previous && previous !== context && videoRef.current?.id) {
@@ -1982,7 +1996,7 @@ function YouTubePlayer() {
       setSourceRevision((value) => value + 1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playbackOwner, jam?.code, jam?.role, privateSession, videoVisible, nativeAvailable]);
+  }, [playbackOwner, jam?.code, jam?.role, privateSession, videoVisible, nativeAvailable, nativeQueueEligible]);
 
   useEffect(() => {
     cancelFade();
@@ -2861,6 +2875,14 @@ function YouTubePlayer() {
   const handleRetryPlayback = async () => {
     const current = videoRef.current;
     if (!current?.id) return;
+    if (playerError?.kind === "queue") {
+      const player = getActivePlayer();
+      if (!player?.androidNative) return;
+      const resumeAt = Math.max(0, player.getCurrentTime?.() || playbackClock.read().position || 0);
+      setPlayerError(null);
+      player.loadVideoById(mediaLoadOptions(player, current, resumeAt));
+      return;
+    }
     if (playerError?.kind === "transport") {
       const player = getActivePlayer();
       if (!player?.orderedTransport) return;
