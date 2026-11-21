@@ -13,7 +13,7 @@ function verify(rawSource) {
     assert(first >= 0 && last > first, `Production callback missing: ${start}`);
     return source.slice(first, last);
   };
-  let playing = false, error = null, pauses = 0, plays = 0, dispatches = 0, updateRequired = false, fadesCancelled = 0, volumeRestores = 0;
+  let playing = false, error = null, pauses = 0, plays = 0, dispatches = 0, updateRequired = false, fadesCancelled = 0, volumeRestores = 0, queueToasts = 0;
   const player = { orderedTransport: true, androidNative: true, nativePlayIntent: true,
     playVideo() { plays++; }, pauseVideo() { pauses++; }, getPlayerState: () => 1, unMute() {},
   };
@@ -32,6 +32,7 @@ function verify(rawSource) {
     isPageHidden: () => false, shouldDeferYoutubeResume: () => false, backgroundAccountRef: { current: true },
     applyPlaybackVolume() { volumeRestores++; }, volumeRestoreRef: { current: { holds: () => false } },
     endFadeOccurrenceRef: { current: 'one' }, cancelFade() { fadesCancelled++; },
+    toast: { error() { queueToasts++; } },
   };
   vm.runInNewContext(part('const options = {', 'const occurrence = queueEntryIdentity(videoRef.current);')
     + '\nglobalThis.events = options.events;', context);
@@ -71,6 +72,32 @@ function verify(rawSource) {
   assert.equal(pauses, 0, 'Qualified playing never posts a corrective Pause from stale React state');
   assert.equal(error.kind, 'transport', 'Audible output does not establish control-channel recovery');
   context.events.onTransportRecovered(); assert.equal(error, null);
+  context.events.onQueueError({ data: { reason: 'authentication_required' } });
+  assert.equal(error.kind, 'queue', 'A failed native queue exposes a retry control');
+  assert.match(error.message, /expired/);
+  error = null;
+  context.events.onQueueError({ data: { reason: 'native_authorization_unavailable' } });
+  assert.equal(queueToasts, 1, 'A failed background handoff is visible without stopping the current song');
+  assert.equal(error, null);
+
+  // A queue policy change must retire the old native deck before its next
+  // background transition, including when the song itself does not change.
+  let retired = 0, rebuilds = 0;
+  Object.assign(context, {
+    playbackOwner: 'account', jam: null, privateSession: false, videoVisible: false,
+    nativeAvailable: true, nativeQueueEligible: true, sourceContextRef: { current: null },
+    sourceSwitchRef: { current: null }, restorePosition: 0,
+    playbackClock: { read: () => ({ position: 12 }) },
+    useEffect(effect) { context.effect = effect; },
+    destroyDeck() { retired++; }, setSourceRevision(update) { rebuilds = update(rebuilds); },
+  });
+  const sourceContextEffect = part('useEffect(() => {\n    const context = `${playbackOwner}:', 'useEffect(() => {\n    cancelFade();');
+  vm.runInNewContext(sourceContextEffect, context);
+  context.effect();
+  context.nativeQueueEligible = false;
+  context.effect();
+  assert.equal(retired, 2, 'Disabling native queue ownership retires both decks');
+  assert.equal(rebuilds, 1, 'Current playback is remounted once under the new policy');
 
   vm.runInNewContext(part('const resumePlayer = (player,', 'const markSeek =')
     + '\nglobalThis.resume = resumePlayer;', context);
