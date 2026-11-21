@@ -105,6 +105,7 @@ jobs:
           node docs/qa/android/resolve-check.cjs
           node docs/qa/android/native-authorization-check.cjs
           node docs/qa/android/release-check.mjs
+          node docs/qa/android/play-upgrade-check.test.mjs
           node docs/qa/android/iframe-api-check.mjs
           node docs/qa/android/live-probe-check.mjs
           node docs/qa/android/live-qualification-check.mjs

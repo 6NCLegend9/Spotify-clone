@@ -43,6 +43,7 @@ jobs:
           node docs/qa/android/ordered-player-check.cjs
           node docs/qa/android/resolve-check.cjs
           node docs/qa/android/release-check.mjs
+          node docs/qa/android/play-upgrade-check.test.mjs
       - name: Prepare private upload keystore
         env:
           HAYKASA_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/haykasa-android-release/upload-keystore.jks

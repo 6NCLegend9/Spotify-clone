@@ -19,6 +19,11 @@ const installed = run("shell", "pm", "list", "packages", "-i", app);
 assert(installed.split(/\r?\n/).includes(`package:${app} installer=com.android.vending`),
   "The production package must be installed by Google Play");
 const packageInfo = run("shell", "dumpsys", "package", app);
+// A sideload can set an installer label. Android separately records the app
+// which initiated the install; both fields must identify Play.
+assert(/^\s*initiatingPackageName=com\.android\.vending\s*$/m.test(packageInfo) &&
+    /^\s*installerPackageName=com\.android\.vending\s*$/m.test(packageInfo),
+  "Android must report Google Play as both initiating and installer package");
 const versionCode = Number(packageInfo.match(/\bversionCode=(\d+)/)?.[1]);
 const firstInstallTime = packageInfo.match(/^\s*firstInstallTime=(.+)$/m)?.[1]?.trim();
 const lastUpdateTime = packageInfo.match(/^\s*lastUpdateTime=(.+)$/m)?.[1]?.trim();
