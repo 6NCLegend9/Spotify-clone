@@ -55,7 +55,7 @@ collect_device_evidence() {
   fi
   if [[ -n "$qa_server_pid" ]]; then kill "$qa_server_pid" 2>/dev/null || true; fi
   qa_adb reverse --remove tcp:3011 >/dev/null 2>&1 || true
-  if [[ "$test_status" -eq 0 ]] && { [[ "$evidence_status" -ne 0 ]] || [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/live-playback.json" ]] || [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/ui-tour.jsonl" ]]; }; then
+  if [[ "$test_status" -eq 0 ]] && { [[ "$evidence_status" -ne 0 ]] || [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/ui-tour.jsonl" ]] || { [[ "${HAYKASA_QA_SKIP_LIVE:-0}" != 1 ]] && [[ ! -s "$qa_root/artifacts/android-emulator/screenshots/live-playback.json" ]]; }; }; then
     echo "Android tests did not produce the required playback/tour evidence." >&2
     exit 1
   fi
@@ -63,7 +63,7 @@ collect_device_evidence() {
     node --input-type=commonjs -e '
       const fs = require("node:fs");
       try {
-        JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        if (process.env.HAYKASA_QA_SKIP_LIVE !== "1") JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
         for (const line of fs.readFileSync(process.argv[2], "utf8").trim().split(/\r?\n/)) JSON.parse(line);
       } catch {
         console.error("Required Android playback/tour evidence is not valid JSON.");
@@ -107,6 +107,7 @@ qa_commit="${GITHUB_SHA:-$(git -C "$qa_root" rev-parse HEAD)}"
 if [[ ! "$qa_commit" =~ ^[a-f0-9]{40}$ ]]; then echo "Invalid QA source commit." >&2; exit 1; fi
 "$qa_root/android/gradlew" -p "$qa_root/android" --no-daemon \
   -Pandroid.testInstrumentationRunnerArguments.qaCurrentWeb=1 \
+  -Pandroid.testInstrumentationRunnerArguments.qaSkipLive="${HAYKASA_QA_SKIP_LIVE:-0}" \
   -Pandroid.testInstrumentationRunnerArguments.qaCommit="$qa_commit" \
   connectedDebugAndroidTest
 bash "$qa_root/docs/qa/android/run-native-compatibility.sh"

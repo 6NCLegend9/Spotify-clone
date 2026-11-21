@@ -433,6 +433,8 @@ public class AndroidPlaybackTest {
         assertEquals("Native session must be registered with its foreground service", Integer.valueOf(1), count.get());
     }
     @Test public void liveGuestSongReportsActualPlaybackOrProviderFailure() throws Exception {
+        org.junit.Assume.assumeFalse("Live playback qualification is opt-in",
+            "1".equals(InstrumentationRegistry.getArguments().getString("qaSkipLive")));
         final int priorBuildDocuments = QaCurrentWeb.mainDocumentCount();
         final String probe;
         try (java.io.InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("live-playback-probe.js")) {

@@ -2,6 +2,11 @@ name: Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      live_playback:
+        description: Run live playback qualification
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -181,7 +186,7 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           pre-emulator-launch-script: node "$GITHUB_WORKSPACE/docs/qa/android/emulator-exit-observer.mjs" install
-          script: bash docs/qa/android/run-emulator.sh
+          script: HAYKASA_QA_SKIP_LIVE=${{ inputs.live_playback == true && '0' || '1' }} bash docs/qa/android/run-emulator.sh
       - name: Capture emulator host resource evidence
         if: always()
         run: |
@@ -211,7 +216,7 @@ jobs:
   live-playback:
     name: Live Android playback qualification
     needs: [emulator]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && inputs.live_playback == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

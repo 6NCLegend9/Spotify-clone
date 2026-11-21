@@ -24,10 +24,10 @@ if [[ "$QA_ADB_MODE" == hang && "$1" == logcat && "\${3:-}" == HayKasaWebQA:D ]]
   exec sleep 60
 fi
 if [[ "$QA_ADB_MODE" == offline ]]; then exit 1; fi
-if [[ "$1" == pull && ( "$QA_ADB_MODE" == evidence || "$QA_ADB_MODE" == partial || "$QA_ADB_MODE" == invalid ) ]]; then
+if [[ "$1" == pull && ( "$QA_ADB_MODE" == evidence || "$QA_ADB_MODE" == partial || "$QA_ADB_MODE" == invalid || "$QA_ADB_MODE" == synthetic ) ]]; then
   mkdir -p "$3"
   if [[ "$QA_ADB_MODE" != invalid ]]; then
-    printf '{}' > "$3/live-playback.json"
+    if [[ "$QA_ADB_MODE" != synthetic ]]; then printf '{}' > "$3/live-playback.json"; fi
     printf '{}' > "$3/ui-tour.jsonl"
   else
     printf '{' > "$3/live-playback.json"
@@ -63,6 +63,8 @@ const results = [];
 try {
   for (const test of [
     { name: "successful tests retain fresh evidence", mode: "evidence", status: 0, expected: 0 },
+    { name: "synthetic verification accepts a UI tour without live playback", mode: "synthetic", status: 0, expected: 0, skipLive: true },
+    { name: "live qualification still requires live evidence", mode: "synthetic", status: 0, expected: 1 },
     { name: "sampler shutdown preserves success", mode: "evidence", status: 0, expected: 0, sampler: true },
     { name: "sampler shutdown preserves failure", mode: "evidence", status: 7, expected: 7, sampler: true },
     { name: "missing evidence cannot pass", mode: "missing", status: 0, expected: 1 },
@@ -73,7 +75,7 @@ try {
     { name: "directory errors cannot pass", mode: "directory", status: 0, expected: 1 },
     { name: "hung device collection is bounded and preserves failure", mode: "hang", status: 9, expected: 9 },
   ]) {
-    const caseRoot = join(root, `${test.mode}-${test.status}-${Boolean(test.sampler)}`);
+    const caseRoot = join(root, `${test.mode}-${test.status}-${Boolean(test.sampler)}-${Boolean(test.skipLive)}`);
     await mkdir(caseRoot);
     const pidFile = join(caseRoot, "adb.pid");
     const started = Date.now();
@@ -93,7 +95,8 @@ done
 [[ -s "$qa_root/sampler.jsonl" ]] || exit 88` : ""}
 exit "$2"
 `, "android-cleanup-check", caseRoot, String(test.status), fileURLToPath(new URL("./host-sampler.mjs", import.meta.url))], {
-      env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH || ""}`, QA_ADB_MODE: test.mode, QA_ADB_PID_FILE: pidFile },
+      env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH || ""}`, QA_ADB_MODE: test.mode, QA_ADB_PID_FILE: pidFile,
+        HAYKASA_QA_SKIP_LIVE: test.skipLive ? "1" : "0" },
       encoding: "utf8",
       timeout: 20_000,
       killSignal: "SIGKILL",
