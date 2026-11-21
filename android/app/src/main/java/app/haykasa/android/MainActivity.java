@@ -1,6 +1,7 @@
 package app.haykasa.android;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -32,6 +33,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 import java.util.Collections;
@@ -192,6 +194,8 @@ public final class MainActivity extends Activity {
             }
             @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
                 qaWebLog("http status=" + response.getStatusCode() + " source=" + WebDiagnostics.sourceCategory(request.getUrl().toString()) + " mainFrame=" + request.isForMainFrame());
+                if (view == web && request.isForMainFrame() && MediaPolicy.isWebsite(request.getUrl().toString())
+                    && response.getStatusCode() >= 500) showError(R.string.error_website);
             }
             @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
                 if (view != web) return true;
@@ -238,6 +242,13 @@ public final class MainActivity extends Activity {
         if (view != web) return true;
         if (MediaPolicy.isWebsite(url)) return false;
         Uri target = Uri.parse(url);
+        if ("mailto".equals(target.getScheme())) {
+            try { startActivity(new Intent(Intent.ACTION_SENDTO, target)); }
+            catch (ActivityNotFoundException | SecurityException unavailable) {
+                Toast.makeText(this, R.string.error_no_email, Toast.LENGTH_LONG).show();
+            }
+            return true;
+        }
         if ("https".equals(target.getScheme()) || "http".equals(target.getScheme())) {
             try { startActivity(new Intent(Intent.ACTION_VIEW, target).addCategory(Intent.CATEGORY_BROWSABLE)); }
             catch (Exception ignored) { showError(R.string.error_no_browser); }

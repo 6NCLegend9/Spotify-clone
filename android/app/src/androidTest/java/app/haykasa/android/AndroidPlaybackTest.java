@@ -338,8 +338,11 @@ public class AndroidPlaybackTest {
         android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         android.app.Instrumentation.ActivityMonitor monitor = new android.app.Instrumentation.ActivityMonitor() {
             @Override public android.app.Instrumentation.ActivityResult onStartActivity(Intent intent) {
-                if (!Intent.ACTION_VIEW.equals(intent.getAction())) return null;
+                if (!Intent.ACTION_VIEW.equals(intent.getAction()) && !Intent.ACTION_SENDTO.equals(intent.getAction())) return null;
                 external.set(new Intent(intent));
+                if ("mailto:no-handler@example.invalid".equals(intent.getDataString())) {
+                    throw new android.content.ActivityNotFoundException("No email handler in fixture");
+                }
                 return new android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED, null);
             }
         };
@@ -355,6 +358,15 @@ public class AndroidPlaybackTest {
                     assertTrue(client.shouldOverrideUrlLoading(web, "https://example.invalid/android-navigation"));
                     assertEquals("https://example.invalid/android-navigation", external.get().getDataString());
                     assertTrue(external.get().hasCategory(Intent.CATEGORY_BROWSABLE));
+                    external.set(null);
+                    assertTrue(client.shouldOverrideUrlLoading(web, "mailto:contact@example.invalid"));
+                    assertEquals("mailto:contact@example.invalid", external.get().getDataString());
+                    assertEquals(Intent.ACTION_SENDTO, external.get().getAction());
+                    external.set(null);
+                    assertTrue(client.shouldOverrideUrlLoading(web, "mailto:no-handler@example.invalid"));
+                    assertEquals("mailto:no-handler@example.invalid", external.get().getDataString());
+                    assertTrue("Missing email app must preserve the current page", web.isShown());
+                    assertNull("Missing email app must not replace the website", activity.findViewById(android.R.id.button1));
                     external.set(null);
                     for (String url : new String[]{"intent://blocked", "content://blocked/file", "file:///blocked", "javascript:alert(1)"}) {
                         assertTrue("API 23 must reject unsupported navigation: " + url, client.shouldOverrideUrlLoading(web, url));
@@ -378,6 +390,31 @@ public class AndroidPlaybackTest {
                 } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
             });
         } finally { instrumentation.removeMonitor(monitor); }
+    }
+    @Test public void mainPageServerErrorOffersRetryWithoutMaskingSubresourceError() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                try {
+                    Field field = MainActivity.class.getDeclaredField("web"); field.setAccessible(true);
+                    WebView web = (WebView)field.get(activity); web.stopLoading();
+                    android.webkit.WebViewClient client = web.getWebViewClient();
+                    android.webkit.WebResourceResponse unavailable = new android.webkit.WebResourceResponse(
+                        "text/html", "UTF-8", 503, "Service Unavailable", java.util.Map.of(),
+                        new java.io.ByteArrayInputStream(new byte[0]));
+                    client.onReceivedHttpError(web, navigationRequest(MediaPolicy.ORIGIN + "/style.css", false), unavailable);
+                    assertTrue("A failed subresource must leave the page visible", web.isShown());
+                    assertNull(activity.findViewById(android.R.id.button1));
+                    client.onReceivedHttpError(web, navigationRequest(MediaPolicy.ORIGIN + "/", true), unavailable);
+                    android.widget.Button retry = activity.findViewById(android.R.id.button1);
+                    assertNotNull("A 503 main page offers native Retry", retry);
+                    assertTrue(retry.isShown());
+                    assertNull("The failed page is hidden until retry", web.getParent());
+                    retry.performClick();
+                    assertNotNull("Retry reattaches the WebView", web.getParent());
+                    assertTrue(MediaPolicy.isWebsite(web.getUrl()));
+                } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+            });
+        }
     }
     @Test public void backFromNativeConnectionErrorShowsThePreviousWebsitePage() throws Exception {
         AtomicReference<WebView> ref = new AtomicReference<>();
