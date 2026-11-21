@@ -214,6 +214,52 @@ public class OrderedBridgeTest {
         }
     }
 
+    @Test public void expiredCachedQueueAssetCreatesFreshJobAndRetiresOldReceipt() throws Exception {
+        bootstrap(); load();
+        ExoPlayer player = raw();
+        var creates = new java.util.concurrent.atomic.AtomicInteger();
+        var canceled = new CopyOnWriteArrayList<String>();
+        var failure = new AtomicReference<String>();
+        var queueRef = new AtomicReference<NativePlaybackQueue>();
+        long now = System.currentTimeMillis();
+        JSONObject configuration = new JSONObject().put("revision", 1).put("expectedRevision", 0)
+            .put("currentOccurrenceId", "first").put("nativeGrant", "npr1_" + "b".repeat(43))
+            .put("grantExpiresAt", now + 600_000).put("profile", "mp4-aac").put("repeatAll", false)
+            .put("receipt", "initial").put("assetExpiresAt", now + 600_000)
+            .put("entries", new JSONArray()
+                .put(new JSONObject().put("occurrenceId", "first").put("videoId", "synthetic01").put("title", "First"))
+                .put(new JSONObject().put("occurrenceId", "second").put("videoId", "synthetic01").put("title", "Second")));
+        try {
+            main(() -> {
+                NativePlaybackQueue queue = new NativePlaybackQueue(new android.os.Handler(Looper.getMainLooper()), player,
+                    player::getPlayWhenReady, () -> {}, failure::set, ignored -> {}, (token, request) -> {
+                        String action = request.getString("action");
+                        if (action.equals("cancel")) {
+                            canceled.add(request.getString("receipt"));
+                            return new JSONObject();
+                        }
+                        if (action.equals("renew")) return new JSONObject().put("state", "failed")
+                            .put("reason", "invalid_receipt").put("receipt", request.getString("receipt"));
+                        int number = creates.incrementAndGet();
+                        return new JSONObject().put("state", "ready").put("receipt", "created-" + number)
+                            .put("asset", new JSONObject().put("expiresAt", System.currentTimeMillis()
+                                + (number == 1 ? 1_500 : 600_000))
+                                .put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000001"));
+                    });
+                queueRef.set(queue);
+                try { queue.configure(configuration); } catch (Exception error) { throw new AssertionError(error); }
+            });
+            waitFor(() -> creates.get() >= 1);
+            Thread.sleep(1_600);
+            main(() -> assertTrue(queueRef.get().select("second")));
+            waitFor(() -> creates.get() >= 2);
+            waitFor(() -> canceled.contains("created-1"));
+            assertNull(failure.get());
+        } finally {
+            main(() -> { if (queueRef.get() != null) queueRef.get().release(); });
+        }
+    }
+
     @SuppressWarnings("unchecked") private NativeAudioProcessor processor() throws Exception {
         Field field = PlaybackService.class.getDeclaredField("processors"); field.setAccessible(true);
         return ((Map<String, NativeAudioProcessor>)field.get(service)).get(id);

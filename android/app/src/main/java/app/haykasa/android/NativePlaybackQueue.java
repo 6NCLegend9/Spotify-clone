@@ -238,6 +238,11 @@ final class NativePlaybackQueue {
 
     private void work() {
         if (released || revision == 0 || failed) return;
+        Entry selected = current();
+        Asset selectedAsset = selected == null ? null : assets.get(selected.occurrenceId());
+        if (selectedAsset != null && !selectedAsset.usable() && exhausted(selected)) {
+            fail(preparationFailures.get(selected.occurrenceId()).reason()); return;
+        }
         if (operation != null) { schedule(1000); return; }
         long now = System.currentTimeMillis();
         if (currentGrant != null && currentGrant.expiresAt() - now <= 300_000
@@ -246,11 +251,6 @@ final class NativePlaybackQueue {
         }
         Entry pending = find(pendingOccurrenceId);
         if (pending != null) { start(pending, assets.get(pending.occurrenceId()), false); return; }
-        Entry selected = current();
-        Asset selectedAsset = selected == null ? null : assets.get(selected.occurrenceId());
-        if (selectedAsset != null && !selectedAsset.usable() && exhausted(selected)) {
-            fail(preparationFailures.get(selected.occurrenceId()).reason()); return;
-        }
         if (selectedAsset != null && selectedAsset.expiresAt - now <= 60_000 && retryReady(selected)) {
             start(selected, selectedAsset, false); return;
         }
@@ -322,8 +322,8 @@ final class NativePlaybackQueue {
         final long own = generation;
         // Each retained asset keeps its original job grant. A different grant is not
         // an atomic subscriber transfer; revoking the old grant could cancel playback.
-        Grant grant = existing == null ? currentGrant : existing.grant;
-        boolean create = existing == null;
+        boolean create = existing == null || !existing.usable();
+        Grant grant = create ? currentGrant : existing.grant;
         if (grant.expiresAt() <= System.currentTimeMillis()) {
             if (currentGrant.expiresAt() <= System.currentTimeMillis()) { fail("authentication_required"); return; }
             grant = currentGrant; create = true;
@@ -386,7 +386,7 @@ final class NativePlaybackQueue {
                 }
                 preparationFailures.remove(entry.occurrenceId());
                 Asset previous = assets.put(entry.occurrenceId(), resolved);
-                if (previous != null && previous.grant != resolved.grant) retireAsset(previous);
+                if (previous != null && (creating || previous.grant != resolved.grant)) retireAsset(previous);
                 if (entry.occurrenceId().equals(currentOccurrenceId)) activate(entry, resolved, pendingOccurrenceId != null);
                 else { reconcileTimeline(); onState.run(); }
                 pruneGrants(); wake();
@@ -506,6 +506,7 @@ final class NativePlaybackQueue {
     }
     private void fail(String value) {
         if (released) return;
+        generation++; cancelOperation();
         reason = safeReason(value); failed = true; preparing = false; pendingOccurrenceId = null;
         handler.removeCallbacks(tick); onFailure.accept(reason); onState.run();
     }
