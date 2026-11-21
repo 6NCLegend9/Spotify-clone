@@ -35,7 +35,7 @@ def failure_reason(stderr):
     return "upstream_tool_failed"
 
 
-async def run_tool(argv, deadline_seconds, output_limit_bytes=4 * 1024 * 1024, directory=None, disk_limit=None):
+async def run_tool(argv, deadline_seconds, output_limit_bytes=4 * 1024 * 1024, directory=None, disk_limit=None, *, capture_stderr=False):
     process = await asyncio.create_subprocess_exec(*argv, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, start_new_session=True)
 
     output_exceeded = asyncio.Event()
@@ -106,4 +106,4 @@ async def run_tool(argv, deadline_seconds, output_limit_bytes=4 * 1024 * 1024, d
         if os.environ.get("VERCEL_ENV") == "preview" and os.environ.get("MEDIA_SERVICE_DEPLOYMENT_PROBE") == "1":
             logging.getLogger("haykasa.media.preview").warning("Preview tool failure: %s", redacted_preview_error(stderr.result()))
         raise ValueError(failure_reason(stderr.result()))
-    return stdout.result()
+    return stderr.result() if capture_stderr else stdout.result()

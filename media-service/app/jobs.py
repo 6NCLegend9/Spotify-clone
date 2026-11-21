@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 from .assets import lease
 from .processes import run_tool
+from .loudness import measure_loudness
 from .selection import select_formats, number, audio_bitrate
 
 
@@ -153,6 +154,8 @@ class JobManager:
                 container_rate = None if video else number(probe.get("format", {}).get("bit_rate"))
                 delivered_rate = (measured_rate or container_rate or 0) / 1000 or audio_bitrate(audio)
                 asset = {"id": asset_id, "path": output, "size": output.stat().st_size, "accessed": time.time(), "leased_until": 0, "descriptor": {"mimeType": f"{'video' if video else 'audio'}/{container}", "duration": actual_duration, "codec": ("vp9/opus" if webm else "h264/aac") if video else ("opus" if webm else "aac"), "audioBitrateKbps": delivered_rate, "audioBitrateEstimated": not bool(measured_rate), "sampleRateHz": int(actual_audio["sample_rate"]) if number(actual_audio.get("sample_rate")) else None, "channels": int(actual_audio["channels"]) if number(actual_audio.get("channels")) else None, "height": int(actual_video["height"]) if actual_video else None}}
+                if not video:
+                    asset["descriptor"]["loudness"] = await measure_loudness(output)
                 job.update(state="ready", asset=asset, qualities=qualities)
                 self.assets[asset_id] = asset
         except asyncio.CancelledError:
