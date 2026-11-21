@@ -256,14 +256,20 @@ final class NativePlaybackQueue {
             start(selected, selectedAsset, false); return;
         }
         Entry next = neighbor(1);
-        if (next != null && !usable(next) && retryReady(next)) {
-            start(next, assets.get(next.occurrenceId()), false); return;
+        Asset nextAsset = next == null ? null : assets.get(next.occurrenceId());
+        if (next != null && (nextAsset == null || nextAsset.expiresAt - now <= 60_000) && retryReady(next)) {
+            start(next, nextAsset, false); return;
         }
+        boolean retired = false;
         for (Entry entry : entries) {
+            if (entry.equals(selected) || entry.equals(next)) continue;
+            preparationFailures.remove(entry.occurrenceId());
             Asset asset = assets.get(entry.occurrenceId());
-            if (asset != null && asset.expiresAt - now <= 60_000
-                && retryReady(entry)) { start(entry, asset, false); return; }
+            if (asset != null && !asset.usable()) {
+                assets.remove(entry.occurrenceId()); retireAsset(asset); retired = true;
+            }
         }
+        if (retired) { reconcileTimeline(); pruneGrants(); }
         long delay = 60_000;
         for (Entry entry : entries) {
             Retry retry = preparationFailures.get(entry.occurrenceId());
@@ -275,7 +281,8 @@ final class NativePlaybackQueue {
                 }
             } else {
                 Asset asset = assets.get(entry.occurrenceId());
-                if (asset != null) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now - 60_000));
+                if (asset != null) delay = Math.min(delay, Math.max(1000, asset.expiresAt - now
+                    - (entry.equals(selected) || entry.equals(next) ? 60_000 : 1000)));
             }
         }
         if (currentGrant != null) delay = Math.min(delay,

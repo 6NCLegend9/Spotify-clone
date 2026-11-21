@@ -263,6 +263,51 @@ public class OrderedBridgeTest {
         }
     }
 
+    @Test public void expiredHistoryIsRetiredWithoutBackgroundRenewal() throws Exception {
+        bootstrap(); load();
+        ExoPlayer player = raw();
+        var actions = new CopyOnWriteArrayList<String>();
+        var canceled = new CopyOnWriteArrayList<String>();
+        var failure = new AtomicReference<String>();
+        var queueRef = new AtomicReference<NativePlaybackQueue>();
+        long now = System.currentTimeMillis();
+        JSONObject configuration = new JSONObject().put("revision", 1).put("expectedRevision", 0)
+            .put("currentOccurrenceId", "first").put("nativeGrant", "npr1_" + "c".repeat(43))
+            .put("grantExpiresAt", now + 600_000).put("profile", "mp4-aac").put("repeatAll", false)
+            .put("receipt", "historical-initial").put("assetExpiresAt", now + 4_000)
+            .put("entries", new JSONArray()
+                .put(new JSONObject().put("occurrenceId", "first").put("videoId", "synthetic01").put("title", "First"))
+                .put(new JSONObject().put("occurrenceId", "second").put("videoId", "synthetic02").put("title", "Second")));
+        try {
+            main(() -> {
+                NativePlaybackQueue queue = new NativePlaybackQueue(new android.os.Handler(Looper.getMainLooper()), player,
+                    player::getPlayWhenReady, () -> {}, failure::set, ignored -> {}, (token, request) -> {
+                        String action = request.getString("action");
+                        actions.add(action);
+                        if (action.equals("cancel")) {
+                            canceled.add(request.getString("receipt"));
+                            return new JSONObject();
+                        }
+                        return new JSONObject().put("state", "ready").put("receipt", "second-receipt")
+                            .put("asset", new JSONObject().put("expiresAt", System.currentTimeMillis() + 600_000)
+                                .put("url", MediaPolicy.ORIGIN + "/v1/assets/00000000000000000000000000000002"));
+                    });
+                queueRef.set(queue);
+                try { queue.configure(configuration); } catch (Exception error) { throw new AssertionError(error); }
+                assertTrue(queue.select("second"));
+            });
+            waitFor(() -> canceled.contains("historical-initial"));
+            main(() -> {
+                assertEquals(1, player.getMediaItemCount());
+                assertEquals("second", player.getCurrentMediaItem().mediaId);
+            });
+            assertEquals(List.of("create", "cancel"), actions);
+            assertNull(failure.get());
+        } finally {
+            main(() -> { if (queueRef.get() != null) queueRef.get().release(); });
+        }
+    }
+
     @SuppressWarnings("unchecked") private NativeAudioProcessor processor() throws Exception {
         Field field = PlaybackService.class.getDeclaredField("processors"); field.setAccessible(true);
         return ((Map<String, NativeAudioProcessor>)field.get(service)).get(id);
