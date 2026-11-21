@@ -36,15 +36,26 @@ export async function issueNativePlaybackGrant(token, selection, receipt, device
   const owner = { accountId: token.id, sessionVersion: token.sessionVersion, deviceId };
   if (await NativePlaybackGrant.countDocuments({ ...owner, ...live() }) >= 32) return null;
   const nativeGrant = `npr1_${randomBytes(32).toString("base64url")}`;
-  const expiresAt = Math.min(Date.now() + 3600_000,
-    Number.isFinite(token.exp) ? token.exp * 1000 : Infinity);
+  const sessionExpiresAt = Number.isFinite(token.exp) ? token.exp * 1000 : Date.now() + 3600_000;
+  const expiresAt = Math.min(Date.now() + 3600_000, sessionExpiresAt);
   if (expiresAt <= Date.now()) return null;
   const grantId = randomUUID();
   await NativePlaybackGrant.create({ ...owner, ...selection, grantId, tokenHash: hash(nativeGrant, secret),
     // The anchor is borrowed from an existing playback owner. A stale grant
     // must never cancel that owner's still-playing source during cleanup.
-    jobs: [], expiresAt: new Date(expiresAt) });
+    jobs: [], expiresAt: new Date(expiresAt), sessionExpiresAt: new Date(sessionExpiresAt) });
   return { nativeGrant, grantId, expiresAt };
+}
+
+export async function refreshNativePlaybackGrant(grant) {
+  const now = Date.now();
+  const sessionExpiry = new Date(grant.sessionExpiresAt).getTime();
+  if (!Number.isFinite(sessionExpiry) || sessionExpiry <= now) return null;
+  const expiresAt = Math.min(now + 3600_000, sessionExpiry);
+  await dbConnect();
+  const result = await NativePlaybackGrant.updateOne({ grantId: grant.grantId, ...live(),
+    sessionExpiresAt: { $gt: new Date(now) } }, { $set: { expiresAt: new Date(expiresAt) } });
+  return result.matchedCount === 1 ? { expiresAt } : null;
 }
 
 export async function findNativePlaybackGrant(value, secret) {

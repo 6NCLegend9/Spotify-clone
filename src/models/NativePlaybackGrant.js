@@ -12,6 +12,7 @@ const schema = new mongoose.Schema({
   profile: { type: String, required: true },
   jobs: { type: [{ _id: false, jobId: String, subscriber: String }], default: [] },
   expiresAt: { type: Date, required: true, expires: 0 },
+  sessionExpiresAt: { type: Date, required: true },
   revokedAt: { type: Date, default: null },
 }, { timestamps: true });
 schema.index({ accountId: 1, sessionVersion: 1, deviceId: 1, revokedAt: 1 });

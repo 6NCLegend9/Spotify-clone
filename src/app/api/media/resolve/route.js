@@ -9,7 +9,7 @@ import { getClientKey, isRateLimited } from "@/utils/rateLimit";
 import { mediaServiceConfig, validateMediaRequest, callMediaService, normalizeMediaResult } from "@/utils/mediaService.mjs";
 import { signMediaReceipt, verifyMediaReceipt, mediaScopeHash } from "@/utils/mediaReceipts.mjs";
 import { findNativePlaybackGrant, issueNativePlaybackGrant,
-  nativeGrantAllowsSelection, registerNativePlaybackJob, revokeDeviceNativePlaybackGrants,
+  nativeGrantAllowsSelection, refreshNativePlaybackGrant, registerNativePlaybackJob, revokeDeviceNativePlaybackGrants,
   revokeNativePlaybackGrant, signNativePlaybackDeviceId, validateNativePlaybackSelection,
   verifyNativePlaybackDeviceId } from "@/utils/nativePlaybackGrants";
 
@@ -66,7 +66,7 @@ async function handle(request, action, body) {
       : await getToken(tokenOptions(request));
     const user = token?.id ? await resolveSessionUser(token, { fresh: true }) : null;
     if (!user) return reply({ state: "failed", reason: "authentication_required" }, 401);
-    if (grant && !["create", "poll", "renew", "cancel", "revokeNativeGrant"].includes(action)) return reply({ state: "failed", reason: "forbidden" }, 403);
+    if (grant && !["create", "poll", "renew", "cancel", "revokeNativeGrant", "refreshNativeGrant"].includes(action)) return reply({ state: "failed", reason: "forbidden" }, 403);
     const scope = mediaScopeHash(`account:${user.id}:${token.sessionVersion}`, config.secret);
     let subscriber;
     const limits = action === "create" ? { max: 12, windowMs: 60_000 } : { max: 100, windowMs: 60_000 };
@@ -85,6 +85,11 @@ async function handle(request, action, body) {
       const response = reply(issued);
       response.cookies.set(DEVICE_COOKIE, signNativePlaybackDeviceId(device, config.secret), { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: 365 * 24 * 3600 });
       return response;
+    }
+    if (action === "refreshNativeGrant") {
+      if (!grant) return reply({ state: "failed", reason: "forbidden" }, 403);
+      const refreshed = await refreshNativePlaybackGrant(grant);
+      return refreshed ? reply(refreshed) : reply({ state: "failed", reason: "native_authorization_required" }, 401);
     }
     if (action === "revokeNativeGrants") {
       const device = deviceId(request, config.secret);
@@ -143,7 +148,7 @@ export async function POST(request) {
   } catch (error) { return reply({ state: "failed", reason: "invalid_request" }, error instanceof ApiRouteError ? error.status : 400); }
   if (!body || typeof body !== "object" || Array.isArray(body)) return reply({ state: "failed", reason: "invalid_request" }, 400);
   const action = body.action || "create";
-  if (!["create", "poll", "renew", "cancel", "nativeGrant", "revokeNativeGrant", "revokeNativeGrants"].includes(action)) return reply({ state: "failed", reason: "invalid_request" }, 400);
+  if (!["create", "poll", "renew", "cancel", "nativeGrant", "revokeNativeGrant", "revokeNativeGrants", "refreshNativeGrant"].includes(action)) return reply({ state: "failed", reason: "invalid_request" }, 400);
   return handle(request, action, body);
 }
 export async function DELETE(request) {
