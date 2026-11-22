@@ -177,6 +177,39 @@ assert.equal(sent.filter(message => message.action === "load").length, loadsBefo
 abandoned.destroy();
 console.log("Production native deck checks passed: source handoff, pending-source release, stale native event isolation, adapter reuse, readiness, native play/pause intent, per-track notification titles and cleanup.");
 
+// Run the actual queue handoff closure with a delayed grant. A playlist edit
+// while that request is pending must hand off the latest list without waiting
+// for another player event.
+const queueStart = source.indexOf("  let nativeOccurrenceId, queueConfiguration");
+const queueEnd = source.indexOf("  const configureAndroidAudio", queueStart);
+assert(queueStart >= 0 && queueEnd > queueStart);
+const pendingGrants = [], acceptedQueues = [], revokedGrants = [];
+const queueContext = {
+  AbortController, Set, JSON,
+  media: { nativeQueueCapability: "source-queue-v1", nativeQueueRevision: 0, nativeTransportVersion: 2,
+    nativeQueueSnapshot: null, configureNativeQueue: value => { acceptedQueues.push(value); return true; } },
+  ready: true, asset: { expiresAt: Date.now() + 600_000 }, destroyed: false,
+  generation: 0, profile: "mp4-aac", receipt: "initial-receipt", emit() {},
+  requestNativePlaybackGrant: () => new Promise(resolve => pendingGrants.push(resolve)),
+  revokeNativePlaybackGrant: token => { revokedGrants.push(token); },
+};
+runInNewContext(source.slice(queueStart, queueEnd)
+  + "\nglobalThis.offerQueue = value => { queueConfiguration = value; void handoffQueue(); };", queueContext);
+const initialQueue = { entries: [{ occurrenceId: "first", videoId: "synthetic01", title: "First" }], currentOccurrenceId: "first", repeatAll: false };
+queueContext.offerQueue(initialQueue);
+queueContext.offerQueue({ ...initialQueue, repeatAll: true });
+assert.equal(pendingGrants.length, 1);
+pendingGrants.shift()({ nativeGrant: "first-grant", expiresAt: Date.now() + 600_000 });
+await new Promise(resolve => setImmediate(resolve));
+assert.deepEqual(revokedGrants, ["first-grant"]);
+assert.equal(pendingGrants.length, 1, "The newest queue must request its own grant after a stale handoff");
+pendingGrants.shift()({ nativeGrant: "latest-grant", expiresAt: Date.now() + 600_000 });
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(acceptedQueues.length, 1);
+assert.equal(acceptedQueues[0].repeatAll, true);
+assert.equal(acceptedQueues[0].nativeGrant, "latest-grant");
+console.log("Native queue handoff checks passed: a playlist edit supersedes an in-flight grant and installs the latest queue.");
+
 // Check the actual instrumentation observer without running an emulator. Its
 // diagnostics must never modify replies, swallow consumer errors or retain URLs.
 const fixtureSource = await readFile(new URL("./create-fixture.cjs", import.meta.url), "utf8");

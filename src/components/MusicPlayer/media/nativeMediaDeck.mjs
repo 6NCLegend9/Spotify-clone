@@ -57,7 +57,12 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     } catch (error) {
       if (!destroyed && own === queueGeneration && error?.name !== "AbortError") emit("onQueueError", { reason: "native_authorization_unavailable" });
     } finally {
-      if (own === queueGeneration) queueHandoff = false;
+      if (own === queueGeneration) {
+        queueHandoff = false;
+        // A playlist edit during the grant request supersedes that handoff.
+        // Send the latest configuration once the in-flight request settles.
+        if (!destroyed && queueConfiguration && key !== JSON.stringify(queueConfiguration)) void handoffQueue();
+      }
     }
   };
   const configureAndroidAudio = (settings, defer = false) => media.configureNativeAudio?.({
@@ -192,6 +197,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
     emit("onQueueChange", { ...queue, playing: media.nativePlayIntent, position: media.currentTime, duration: media.duration });
     if (queue.reason) emit("onQueueError", { reason: queue.reason });
     if (queue.preparing) setState(STATES.BUFFERING);
+    void handoffQueue();
   });
   listen("playing", () => {
     if (media.isAndroidNativeMedia && !media.orderedTransport) intent = true;
