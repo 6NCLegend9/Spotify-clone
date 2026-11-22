@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { runInNewContext } from "node:vm";
 import { createAndroidAudioElement, hasAndroidAudioBridge } from "../../../src/components/MusicPlayer/media/androidAudioElement.mjs";
 const sent = [];
 const bridge = { postMessage: value => sent.push(JSON.parse(value)) };
@@ -15,6 +16,8 @@ const events = [];
 for (const name of ["loadedmetadata", "playing", "pause", "timeupdate", "ended", "error"]) media.addEventListener(name, () => events.push(name));
 media.src = "https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=synthetic";
 media.load();
+// A silent old APK is negotiated once per attachment; legacy remains unqualified.
+await new Promise(resolve => setTimeout(resolve, 1010));
 const load = sent.at(-1);
 assert.equal(load.action, "load"); assert.equal(load.title, "Test song");
 assert.equal(media.currentSrc, media.src);
@@ -101,6 +104,7 @@ source = source.replace('"./androidAudioElement.mjs"', JSON.stringify(new URL(".
 const mockResolver = `export const cancelMediaReceipt=()=>{}; export const resolveMediaAsset=async({videoId})=>{if(videoId==="synthetic04")await new Promise(resolve=>{globalThis.finishAndroidQaResolution=resolve});return {receipt:"synthetic",asset:{url:"https://haykasa.vercel.app/v1/assets/0123456789abcdef0123456789abcdef?signature=synthetic",expiresAt:Date.now()+3600000,duration:200}}};`;
 source = source.replace('"./resolveMediaAsset.mjs"', JSON.stringify("data:text/javascript;base64," + Buffer.from(mockResolver).toString("base64")));
 source = source.replace('"./nativeAudioGraph.mjs"', JSON.stringify("data:text/javascript,export const createNativeAudioGraph=()=>null"));
+source = source.replace('"../../../utils/nativePlaybackAuthorization.mjs"', JSON.stringify(new URL("../../../src/utils/nativePlaybackAuthorization.mjs", import.meta.url).href));
 const { createNativeMediaDeck } = await import("data:text/javascript;base64," + Buffer.from(source).toString("base64"));
 const states = [];
 const deck = createNativeMediaDeck({ host: { replaceChildren() {} }, videoId: "synthetic01", title: "First song", mode: "audio", autoplay: false, events: { onStateChange: e => states.push(e.data) } });
@@ -133,7 +137,7 @@ bridge.onmessage({ data: JSON.stringify({ id: cuedLoad.id, event: "ready", durat
 bridge.onmessage({ data: JSON.stringify({ id: cuedLoad.id, event: "playing", duration: 200, position: 20 }) });
 const reusableAdapter = deck.getIframe();
 const beforeHandoff = sent.length;
-deck.loadVideoById({ videoId: "synthetic04", title: "Pending song" });
+deck.loadVideoById({ videoId: "synthetic04", title: "Pending song", startSeconds: 30 });
 await new Promise(resolve => setImmediate(resolve));
 assert.deepEqual(sent.slice(beforeHandoff).map(message => message.action), ["pause", "release"], "Pending replacement must release the previous native track");
 assert.equal(deck.isResolving, true); assert.equal(deck.getPlayerState(), 3);
@@ -143,7 +147,7 @@ for (const event of ["ready", "playing", "progress", "pause", "ended", "error", 
   bridge.onmessage({ data: JSON.stringify({ id: cuedLoad.id, event, duration: 200, position: 21 }) });
 }
 assert.equal(states.length, beforeOldEvents, "Old native/OS Play events cannot mark the pending song playing or ready");
-assert.equal(deck.isResolving, true); assert.equal(deck.getPlayerState(), 3); assert.equal(deck.getCurrentTime(), 0);
+assert.equal(deck.isResolving, true); assert.equal(deck.getPlayerState(), 3); assert.equal(deck.getCurrentTime(), 30);
 assert.equal(reusableAdapter.duration, 0); assert.equal(reusableAdapter.paused, true);
 globalThis.finishAndroidQaResolution(); delete globalThis.finishAndroidQaResolution;
 await new Promise(resolve => setImmediate(resolve));
@@ -157,6 +161,88 @@ bridge.onmessage({ data: JSON.stringify({ id: pendingLoad.id, event: "ready", du
 bridge.onmessage({ data: JSON.stringify({ id: pendingLoad.id, event: "playing", duration: 180, position: 1 }) });
 assert.equal(deck.getPlayerState(), 1); assert.equal(deck.getCurrentTime(), 1); assert.equal(deck.getDuration(), 180);
 assert.equal(deck.getVideoData().video_id, "synthetic04");
+bridge.onmessage({ data: JSON.stringify({ id: pendingLoad.id, event: "error", duration: 180, position: 0 }) });
+assert.equal(deck.getCurrentTime(), 0, "Recovery at the track start must not reuse the earlier start offset");
+globalThis.finishAndroidQaResolution(); delete globalThis.finishAndroidQaResolution;
+await new Promise(resolve => setImmediate(resolve));
 deck.destroy();
 assert.equal(sent.at(-1).action, "release");
+const abandoned = createNativeMediaDeck({ host: { replaceChildren() {} }, videoId: "synthetic04", mode: "audio" });
+abandoned.loadVideoById("invalid");
+const loadsBeforeLateResolution = sent.filter(message => message.action === "load").length;
+globalThis.finishAndroidQaResolution(); delete globalThis.finishAndroidQaResolution;
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(sent.filter(message => message.action === "load").length, loadsBeforeLateResolution,
+  "A source result arriving after fallback must never load the native decoder");
+abandoned.destroy();
 console.log("Production native deck checks passed: source handoff, pending-source release, stale native event isolation, adapter reuse, readiness, native play/pause intent, per-track notification titles and cleanup.");
+
+// Run the actual queue handoff closure with a delayed grant. A playlist edit
+// while that request is pending must hand off the latest list without waiting
+// for another player event.
+const queueStart = source.indexOf("  let nativeOccurrenceId, queueConfiguration");
+const queueEnd = source.indexOf("  const configureAndroidAudio", queueStart);
+assert(queueStart >= 0 && queueEnd > queueStart);
+const pendingGrants = [], acceptedQueues = [], revokedGrants = [];
+const queueContext = {
+  AbortController, Set, JSON,
+  media: { nativeQueueCapability: "source-queue-v1", nativeQueueRevision: 0, nativeTransportVersion: 2,
+    nativeQueueSnapshot: null, configureNativeQueue: value => { acceptedQueues.push(value); return true; } },
+  ready: true, asset: { expiresAt: Date.now() + 600_000 }, destroyed: false,
+  generation: 0, profile: "mp4-aac", receipt: "initial-receipt", emit() {},
+  requestNativePlaybackGrant: () => new Promise(resolve => pendingGrants.push(resolve)),
+  revokeNativePlaybackGrant: token => { revokedGrants.push(token); },
+};
+runInNewContext(source.slice(queueStart, queueEnd)
+  + "\nglobalThis.offerQueue = value => { queueConfiguration = value; void handoffQueue(); };", queueContext);
+const initialQueue = { entries: [{ occurrenceId: "first", videoId: "synthetic01", title: "First" }], currentOccurrenceId: "first", repeatAll: false };
+queueContext.offerQueue(initialQueue);
+queueContext.offerQueue({ ...initialQueue, repeatAll: true });
+assert.equal(pendingGrants.length, 1);
+pendingGrants.shift()({ nativeGrant: "first-grant", expiresAt: Date.now() + 600_000 });
+await new Promise(resolve => setImmediate(resolve));
+assert.deepEqual(revokedGrants, ["first-grant"]);
+assert.equal(pendingGrants.length, 1, "The newest queue must request its own grant after a stale handoff");
+pendingGrants.shift()({ nativeGrant: "latest-grant", expiresAt: Date.now() + 600_000 });
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(acceptedQueues.length, 1);
+assert.equal(acceptedQueues[0].repeatAll, true);
+assert.equal(acceptedQueues[0].nativeGrant, "latest-grant");
+console.log("Native queue handoff checks passed: a playlist edit supersedes an in-flight grant and installs the latest queue.");
+
+// Check the actual instrumentation observer without running an emulator. Its
+// diagnostics must never modify replies, swallow consumer errors or retain URLs.
+const fixtureSource = await readFile(new URL("./create-fixture.cjs", import.meta.url), "utf8");
+const diagnosticSource = fixtureSource.match(/const nativeDiagnostics = `([\s\S]*?)`;/)?.[1];
+assert(diagnosticSource, "Native fixture must expose bounded, selected-field diagnostics");
+const receivedFrames = [];
+const diagnosticContext = { performance: { now: () => 42 }, HayKasaAndroidMedia: { onmessage(message) {
+  receivedFrames.push(message);
+  if (message.throwConsumer) throw new Error("Actual consumer failure");
+} } };
+diagnosticContext.window = diagnosticContext;
+runInNewContext(diagnosticSource, diagnosticContext);
+const secretMarker = "NEVER_CAPTURE_SYNTHETIC_CREDENTIAL";
+for (let sequence = 0; sequence < 70; sequence++) {
+  const message = { data: JSON.stringify({ id: "synthetic-adapter", event: "transportState", position: .362,
+    url: secretMarker, receipt: secretMarker,
+    transport: { bindingId: "synthetic-binding", eventSeq: sequence,
+      snapshot: { processedWebRevision: 1, appliedWebRevision: 1,
+        intent: { revision: 2, playWhenReady: false, origin: "system", webRevision: null, secret: secretMarker },
+        observed: { state: "idle", isPlaying: false, playWhenReady: false, suppressionReason: 0, policyReason: "none", secret: secretMarker } },
+      result: { action: "play", phase: "completed", webRevision: 1, decisionIntentRevision: 1, reason: null, secret: secretMarker } } }) };
+  diagnosticContext.HayKasaAndroidMedia.onmessage(message);
+  assert.equal(receivedFrames.at(-1), message, "Diagnostics forward the original reply exactly once, in order");
+}
+assert.equal(receivedFrames.length, 70);
+assert.equal(diagnosticContext.qaNativeFrames.length, 64);
+assert.equal(diagnosticContext.qaNativeFrames[0].eventSeq, 6);
+assert.equal(diagnosticContext.qaNativeFrames.at(-1).intent.origin, "system");
+assert.equal(diagnosticContext.qaNativeFrames.at(-1).observed.state, "idle");
+assert.equal(JSON.stringify(diagnosticContext.qaNativeFrames).includes(secretMarker), false);
+const malformedFrame = { data: "{" };
+diagnosticContext.HayKasaAndroidMedia.onmessage(malformedFrame);
+assert.equal(receivedFrames.at(-1), malformedFrame);
+assert.equal(diagnosticContext.qaNativeFrames.length, 64);
+assert.throws(() => diagnosticContext.HayKasaAndroidMedia.onmessage({ data: "{}", throwConsumer: true }), /Actual consumer failure/);
+console.log("Native fixture diagnostic checks passed: original delivery/errors, bounded frames, selected intent/state and no credential capture; no device or source claim.");

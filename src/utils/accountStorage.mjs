@@ -2,10 +2,15 @@ export const ACCOUNT_DATA_CLEARED = "heykasa:account-data-cleared";
 export const ACCOUNT_LOGOUT_KEY = "heykasa:account-logout";
 let activeOwner;
 let generation = 0;
+const generationListeners = new Set();
 
 export function getActiveAccountOwner() { return activeOwner; }
 export function setActiveAccountOwner(owner) { activeOwner = owner; }
 export function accountStorageGeneration() { return generation; }
+export function subscribeAccountStorageGeneration(listener) {
+  generationListeners.add(listener);
+  return () => generationListeners.delete(listener);
+}
 export function canWriteAccountCache(owner) {
   return typeof owner === "string" && (!owner.startsWith("account:") || activeOwner === undefined || activeOwner === owner);
 }
@@ -25,12 +30,16 @@ export function clearAccountStorage(storage) {
 export function clearLocalAccountCaches({ notify = true, broadcast = false } = {}) {
   activeOwner = null;
   generation += 1;
-  if (typeof window === "undefined") return;
-  for (const name of ["localStorage", "sessionStorage"]) {
-    try { clearAccountStorage(window[name]); } catch { /* Storage may be disabled. */ }
+  if (typeof window !== "undefined") {
+    for (const name of ["localStorage", "sessionStorage"]) {
+      try { clearAccountStorage(window[name]); } catch { /* Storage may be disabled. */ }
+    }
+    if (notify) window.dispatchEvent(new Event(ACCOUNT_DATA_CLEARED));
+    if (broadcast) {
+      try { window.localStorage.setItem(ACCOUNT_LOGOUT_KEY, `${Date.now()}:${Math.random()}`); } catch { /* Optional cross-tab cleanup. */ }
+    }
   }
-  if (notify) window.dispatchEvent(new Event(ACCOUNT_DATA_CLEARED));
-  if (broadcast) {
-    try { window.localStorage.setItem(ACCOUNT_LOGOUT_KEY, `${Date.now()}:${Math.random()}`); } catch { /* Optional cross-tab cleanup. */ }
-  }
+  // React scopes must observe every generation, including the initial guest
+  // cleanup. `notify: false` still suppresses destructive playback-reset events.
+  for (const listener of [...generationListeners]) listener();
 }

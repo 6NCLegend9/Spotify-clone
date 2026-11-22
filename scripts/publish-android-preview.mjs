@@ -61,11 +61,11 @@ function main() {
   try { execFileSync("git", ["merge-base", "--is-ancestor", run.head_sha, "origin/main"], { stdio: "ignore" }); merged = true; } catch { /* Reject source outside main. */ }
   requireValue(merged, "Android source must already be merged into main.");
   const jobs = completeList(`actions/runs/${runId}/jobs?per_page=100&filter=latest`, "jobs");
-  requireValue(["apk", "Android 33 emulator", "Android 36 emulator"].every(name => {
+  requireValue(["apk", "Android 33 emulator", "Android 36 emulator", "Live Android playback qualification"].every(name => {
     const matches = jobs.filter(job => job.name === name);
     return matches.length === 1 && matches[0].status === "completed" && matches[0].conclusion === "success"
       && matches[0].run_id === run.id && matches[0].head_sha === run.head_sha;
-  }), "APK and both required emulator jobs must pass for this exact run before publication.");
+  }), "APK, both required emulator jobs and live playback qualification must pass for this exact run before publication.");
   const artifacts = completeList(`actions/runs/${runId}/artifacts?per_page=100`, "artifacts");
   const matches = artifacts.filter(artifact => artifact.name === `haykasa-android-debug-${run.head_sha}` && artifact.expired === false);
   requireValue(matches.length === 1, "Exactly one unexpired Android debug artifact is required.");

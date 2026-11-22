@@ -39,7 +39,7 @@ export function normalizeMediaResult(value, config) {
   const result = { jobId: value.jobId, state: value.state };
   if (value.state === "failed") {
     // Only classified failures may cross the boundary; stderr can contain credentials.
-    result.reason = ["source_access_restricted", "source_tls_failed", "source_challenge_failed", "source_http_forbidden"].includes(value.reason) ? value.reason : "source_unavailable";
+    result.reason = ["source_access_restricted", "source_tls_failed", "source_challenge_failed", "source_http_forbidden", "source_network_restricted"].includes(value.reason) ? value.reason : "source_unavailable";
   }
   if (value.state === "ready") {
     const asset = value.asset;
@@ -48,6 +48,11 @@ export function normalizeMediaResult(value, config) {
     const bitrate = (n) => Number.isFinite(n) && n > 0 && n < 2000 ? n : null;
     const height = (n) => Number.isInteger(n) && n > 0 && n <= 2160 ? n : null;
     result.asset = { url: url.href, expiresAt: asset.expiresAt, mimeType: asset.mimeType, duration: asset.duration, codec: asset.codec, audioBitrateKbps: bitrate(asset.audioBitrateKbps), audioBitrateEstimated: asset.audioBitrateEstimated !== false, sampleRateHz: Number.isInteger(asset.sampleRateHz) && asset.sampleRateHz >= 8000 && asset.sampleRateHz <= 192000 ? asset.sampleRateHz : null, channels: Number.isInteger(asset.channels) && asset.channels >= 1 && asset.channels <= 8 ? asset.channels : null, height: height(asset.height) };
+    const { integratedLufs, truePeakDbfs } = asset.loudness || {};
+    if (asset.mimeType.startsWith("audio/") && Number.isFinite(integratedLufs) && integratedLufs > -70 && integratedLufs <= 10
+      && Number.isFinite(truePeakDbfs) && truePeakDbfs >= -100 && truePeakDbfs <= 20) {
+      result.asset.loudness = { integratedLufs, truePeakDbfs };
+    }
     result.qualities = (Array.isArray(value.qualities) ? value.qualities : []).slice(0, 20).map((q) => ({ height: height(q.height), codec: ["vp9/opus", "h264/aac"].includes(q.codec) ? q.codec : "", audioBitrateKbps: bitrate(q.audioBitrateKbps) })).filter((q) => q.height && q.codec);
   }
   return result;

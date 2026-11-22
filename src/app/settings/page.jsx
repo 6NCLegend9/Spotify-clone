@@ -19,6 +19,7 @@ import { requestJson } from "@/services/http";
 import { userErrorDetails } from "@/utils/userError";
 import AccessibleDialog from "@/components/AccessibleDialog";
 import { accountOwner } from "@/utils/accountCache.mjs";
+import { hasAndroidAudioBridge, getAndroidAudioProcessingSupport, getAndroidMeasuredLoudnessSupport, subscribeAndroidAudioProcessingSupport } from "@/components/MusicPlayer/media/androidAudioElement.mjs";
 import { browserNotificationPermission, browserNotificationsEnabled, requestBrowserNotificationPermission } from "@/utils/browserNotifications.mjs";
 
 const normalizationOptions = [["quiet", "Quiet"], ["normal", "Original"], ["loud", "Loud"]];
@@ -110,14 +111,15 @@ function DiscordPresenceHint({ transport }) {
   );
 }
 
-function SelectControl({ label, value, options, onChange }) {
+function SelectControl({ label, value, options, onChange, disabled = false }) {
   return (
     <label className="flex flex-col gap-2 border-b border-white/10 py-4 text-sm text-gray-300 sm:flex-row sm:items-center sm:justify-between">
       <span>{label}</span>
       <select
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-11 rounded-md border border-white/15 bg-[#101b29] px-3 py-2 text-sm text-white outline-none focus:border-[#096192]"
+        className="min-h-11 rounded-md border border-white/15 bg-[#101b29] px-3 py-2 text-sm text-white outline-none focus:border-[#096192] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
       </select>
@@ -134,6 +136,19 @@ export default function SettingsPage() {
 function AccountSettings({ owner, status }) {
   const dispatch = useDispatch();
   const settings = useSelector((state) => state.settings);
+  const [androidAudio, setAndroidAudio] = useState(false);
+  const [androidProcessing, setAndroidProcessing] = useState(false);
+  const [androidLoudness, setAndroidLoudness] = useState(false);
+  useEffect(() => {
+    setAndroidAudio(hasAndroidAudioBridge());
+    setAndroidProcessing(getAndroidAudioProcessingSupport());
+    setAndroidLoudness(getAndroidMeasuredLoudnessSupport());
+    return subscribeAndroidAudioProcessingSupport(() => {
+      setAndroidProcessing(getAndroidAudioProcessingSupport());
+      setAndroidLoudness(getAndroidMeasuredLoudnessSupport());
+    });
+  }, []);
+  const audioProcessingUnavailable = androidAudio && !androidProcessing;
   const [saveState, setSaveState] = useState("idle");
   const [saveError, setSaveError] = useState(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -307,7 +322,8 @@ function AccountSettings({ owner, status }) {
         <div className="glass-panel rounded-xl p-5 sm:p-7 lg:col-span-2">
           <h2 className="mb-2 text-xl font-semibold">Playback sound</h2>
           <SelectControl label="Playback level" value={settings.normalization} options={normalizationOptions} onChange={(value) => set("normalization", value)} />
-          <Toggle label="Mono audio" description="Applies mono output only to HayKasa’s native audio path. YouTube embedded audio stays unchanged because it cannot be routed through HayKasa’s Web Audio graph." checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
+          <Toggle label="Normalize track loudness" disabled={!androidAudio || !androidLoudness} checked={settings.normalizeLoudness === true} onChange={(value) => set("normalizeLoudness", value)} description={androidAudio && androidLoudness ? "Uses measured track loudness to balance supported Android audio. Peak protection can keep some tracks quieter; unmeasured tracks play unchanged. EQ and Playback level can change the final level." : "Start native audio playback in an updated Android app to check support. Your preference is kept; browser and embedded playback are unchanged."} />
+          <Toggle label="Mono audio" disabled={audioProcessingUnavailable} description={audioProcessingUnavailable ? "Start native audio playback in an updated Android app to check mono support. Your saved preference is kept." : "Combines audio channels on supported HayKasa native and Web Audio players. YouTube embedded audio is unchanged."} checked={settings.monoAudio} onChange={(value) => set("monoAudio", value)} />
           <p className="mt-4 text-xs leading-5 text-[#9aa8b5]">
             YouTube chooses stream quality automatically from the uploaded source, connection, device, and player conditions. HayKasa&apos;s Audio-focused and Data Saver options only change HayKasa presentation and visual work; they do not select a different YouTube stream.
           </p>
@@ -321,13 +337,14 @@ function AccountSettings({ owner, status }) {
             <button
               type="button"
               onClick={() => set("eqPreset", "Flat / Neutral")}
-              className="min-h-11 rounded-full border border-white/15 px-4 text-sm font-semibold text-gray-200 transition hover:border-[#096192] hover:text-[#096192]"
+              disabled={audioProcessingUnavailable}
+              className="min-h-11 rounded-full border border-white/15 px-4 text-sm font-semibold text-gray-200 transition hover:border-[#096192] hover:text-[#096192] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Reset to flat
             </button>
           </div>
-          <p className="mb-4 text-xs text-gray-400">Presets and faders apply true multi-band EQ only on HayKasa&apos;s native audio path. YouTube&apos;s embedded audio cannot be routed through HayKasa&apos;s Web Audio EQ.</p>
-          <SelectControl label="Preset" value={settings.eqPreset} options={eqPresetOptions} onChange={(value) => set("eqPreset", value)} />
+          <p className="mb-4 text-xs text-gray-400">{audioProcessingUnavailable ? "Start native audio playback in an updated Android app to check equalizer support. Your saved preset is kept." : "Presets and faders apply on supported HayKasa native and Web Audio players. Processing reserves headroom for boosts and limits sample peaks. YouTube embedded audio is unchanged."}</p>
+          <SelectControl label="Preset" disabled={audioProcessingUnavailable} value={settings.eqPreset} options={eqPresetOptions} onChange={(value) => set("eqPreset", value)} />
           <div className="mt-5 overflow-x-auto pb-2" aria-label="Six-band equalizer">
             <div className="min-w-[660px] rounded-lg border border-white/10 bg-black/15 px-4 py-5">
               <div className="grid grid-cols-6 gap-3">
@@ -342,7 +359,7 @@ function AccountSettings({ owner, status }) {
                   return (
                     <label key={frequency} className="eq-band">
                       <span className="eq-fader-slot">
-                        <input type="range" min={-EQ_GAIN_LIMIT} max={EQ_GAIN_LIMIT} step="1" value={gain}
+                        <input disabled={audioProcessingUnavailable} type="range" min={-EQ_GAIN_LIMIT} max={EQ_GAIN_LIMIT} step="1" value={gain}
                           aria-label={`${formatBandFrequency(frequency)} gain`} aria-orientation="vertical"
                           aria-valuetext={`${gain > 0 ? "plus " : ""}${gain} decibels`}
                           onChange={(event) => setBand(index, Number(event.target.value))}
@@ -366,7 +383,7 @@ function AccountSettings({ owner, status }) {
               </div>
             </div>
           </div>
-          <p className="mt-4 text-xs text-[#9aa8b5]">Positive EQ boosts reserve preamp headroom before the peak limiter so tone shaping does not turn into clipping or heavy compression. YouTube tracks keep their source balance unchanged.</p>
+          <p className="mt-4 text-xs text-[#9aa8b5]">On supported players, positive EQ boosts reduce preamp gain to provide headroom. This does not guarantee a peak ceiling or improve the source recording’s quality.</p>
         </section>
       )}
 

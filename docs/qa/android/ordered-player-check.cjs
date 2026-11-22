@@ -1,0 +1,141 @@
+// Execute the actual component callbacks with isolated state. This supplements
+// (and does not replace) the native producer/WebView instrumentation.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const component = fs.readFileSync(path.join(__dirname, '../../../src/components/MusicPlayer/YouTubePlayer.jsx'), 'utf8');
+
+function verify(rawSource) {
+  const source = rawSource.replace(/\r\n?/g, "\n");
+  const part = (start, end) => {
+    const first = source.indexOf(start), last = source.indexOf(end, first);
+    assert(first >= 0 && last > first, `Production callback missing: ${start}`);
+    return source.slice(first, last);
+  };
+  let playing = false, error = null, pauses = 0, plays = 0, dispatches = 0, updateRequired = false, fadesCancelled = 0, volumeRestores = 0, queueToasts = 0;
+  const player = { orderedTransport: true, androidNative: true, nativePlayIntent: true,
+    playVideo() { plays++; }, pauseVideo() { pauses++; }, getPlayerState: () => 1, unMute() {},
+  };
+  const context = {
+    key: 'A', generation: 0, videoId: 'synthetic01', playerParams: new Map(), isCurrent: () => true,
+    activeDeckRef: { current: 'A' }, userPausedRef: { current: true }, isPlayingRef: { current: false },
+    store: { getState: () => ({ player: { isPlaying: playing } }) },
+    dispatch(action) { playing = action; dispatches++; }, playPause: value => value,
+    clearActiveBufferTimers() {}, setPlayerError(value) { error = typeof value === 'function' ? value(error) : value; },
+    setAndroidUpdateRequired(value) { updateRequired = value; },
+    hasUnmutedOnce: true, firstPlayingHandled: true, activeTrackStartedRef: { current: { identity: 'one', videoId: 'synthetic01', startedAt: 1 } },
+    queueEntryIdentity: () => 'one', videoRef: { current: { id: 'synthetic01' } }, playerVideoId: () => 'synthetic01',
+    handoffWaitingRef: { current: null }, markActivePlaybackHealthy() {}, recordDiagnostic() {},
+    MEDIA_PLAYER_STATES: { PLAYING: 1, PAUSED: 2, BUFFERING: 3, ENDED: 0, CUED: 5, UNSTARTED: -1 },
+    crossfadeInProgressRef: { current: false }, isSeekGuarded: () => false, getActivePlayer: () => player,
+    isPageHidden: () => false, shouldDeferYoutubeResume: () => false, backgroundAccountRef: { current: true },
+    applyPlaybackVolume() { volumeRestores++; }, volumeRestoreRef: { current: { holds: () => false } },
+    endFadeOccurrenceRef: { current: 'one' }, cancelFade() { fadesCancelled++; },
+    toast: { error() { queueToasts++; } },
+  };
+  vm.runInNewContext(part('const options = {', 'const occurrence = queueEntryIdentity(videoRef.current);')
+    + '\nglobalThis.events = options.events;', context);
+
+  context.events.onTransportCapability({ target: player, data: { version: 1 } });
+  assert.equal(updateRequired, true);
+  context.events.onTransportCapability({ target: player, data: { version: 2 } });
+  assert.equal(updateRequired, false);
+  context.events.onTransportCapability({ target: { androidNative: false }, data: { version: 0 } });
+  assert.equal(updateRequired, false, 'Browser/desktop controls do not receive an Android update notice');
+  context.events.onTransportCapability({ target: player, data: { version: 0 } });
+  assert.equal(updateRequired, true, 'Silent legacy binaries expose their update requirement');
+
+  player.nativeRepeatOne = false;
+  context.events.onRepeatConfigured({ target: player });
+  assert.equal(fadesCancelled, 0, 'Unacknowledged/unsupported repeat must preserve legacy fade behavior');
+  player.nativeRepeatOne = true;
+  context.events.onRepeatConfigured({ target: player });
+  assert.equal(fadesCancelled, 1); assert.equal(volumeRestores, 1);
+  assert.equal(context.endFadeOccurrenceRef.current, null, 'Native repeat cancels an in-flight end fade and restores audible output');
+  context.events.onRepeatConfigured({ target: player });
+  assert.equal(fadesCancelled, 1, 'Repeated acknowledgements do not disturb an unrelated volume change');
+
+  // A fresh native command updates intent independently of actual output or a
+  // pending React render. The old Pause observation must not send a new command.
+  context.events.onTransportIntent({ target: player, data: { playing: true, origin: 'system' } });
+  assert.equal(playing, true); assert.equal(context.userPausedRef.current, false);
+  assert.equal(context.isPlayingRef.current, true);
+  const before = dispatches;
+  context.events.onStateChange({ target: player, data: 2 });
+  assert.equal(dispatches, before); assert.equal(pauses, 0); assert.equal(plays, 0);
+
+  context.events.onTransportError({ target: player, data: { code: 'TIMEOUT' } });
+  assert.equal(error.kind, 'transport');
+  context.userPausedRef.current = true; context.isPlayingRef.current = false;
+  context.events.onStateChange({ target: player, data: 1 });
+  assert.equal(pauses, 0, 'Qualified playing never posts a corrective Pause from stale React state');
+  assert.equal(error.kind, 'transport', 'Audible output does not establish control-channel recovery');
+  context.events.onTransportRecovered(); assert.equal(error, null);
+  context.events.onQueueError({ data: { reason: 'authentication_required' } });
+  assert.equal(error.kind, 'queue', 'A failed native queue exposes a retry control');
+  assert.match(error.message, /expired/);
+  error = null;
+  context.events.onQueueError({ data: { reason: 'native_authorization_unavailable' } });
+  assert.equal(queueToasts, 1, 'A failed background handoff is visible without stopping the current song');
+  assert.equal(error, null);
+
+  // A queue policy change must retire the old native deck before its next
+  // background transition, including when the song itself does not change.
+  let retired = 0, rebuilds = 0;
+  Object.assign(context, {
+    playbackOwner: 'account', jam: null, privateSession: false, videoVisible: false,
+    nativeAvailable: true, nativeQueueEligible: true, sourceContextRef: { current: null },
+    sourceSwitchRef: { current: null }, restorePosition: 0,
+    playbackClock: { read: () => ({ position: 12 }) },
+    useEffect(effect) { context.effect = effect; },
+    destroyDeck() { retired++; }, setSourceRevision(update) { rebuilds = update(rebuilds); },
+  });
+  const sourceContextEffect = part('useEffect(() => {\n    const context = `${playbackOwner}:', 'useEffect(() => {\n    cancelFade();');
+  vm.runInNewContext(sourceContextEffect, context);
+  context.effect();
+  context.nativeQueueEligible = false;
+  context.effect();
+  assert.equal(retired, 2, 'Disabling native queue ownership retires both decks');
+  assert.equal(rebuilds, 1, 'Current playback is remounted once under the new policy');
+
+  // Retry at track start must request a fresh source; a native occurrence
+  // selection would otherwise replay the failed asset from the old queue.
+  let retrySource;
+  context.playerError = { kind: 'queue' };
+  context.videoRef.current = { id: 'synthetic01', queueEntryId: 'first' };
+  context.getActivePlayer = () => ({ androidNative: true, provider: 'native', getCurrentTime: () => 0,
+    loadVideoById(options) { retrySource = options; } });
+  context.markExpectPlaying = () => {};
+  context.mediaLoadOptions = (_, track, startSeconds) => ({ videoId: track.id, startSeconds, occurrenceId: track.queueEntryId });
+  vm.runInNewContext(part('const handleRetryPlayback = async () => {', '  // Ramp the outgoing track')
+    + '\nglobalThis.retry = handleRetryPlayback;', context);
+  void context.retry();
+  assert.equal(retrySource.occurrenceId, null);
+  assert.equal(playing, true);
+  context.getActivePlayer = () => player;
+
+  vm.runInNewContext(part('const resumePlayer = (player,', 'const markSeek =')
+    + '\nglobalThis.resume = resumePlayer;', context);
+  context.resume(player); assert.equal(plays, 0, 'Watchdogs/visibility may not manufacture ordered Play');
+  context.resume(player, { explicitUserAction: true }); assert.equal(plays, 1);
+
+  // Exercise the actual Redux effect, including a render that predates the
+  // latest native event. Reading that stale render would replay an unwanted Play.
+  context.isPlaying = true;
+  context.useEffect = effect => { context.effect = effect; };
+  vm.runInNewContext(part('useEffect(() => {\n    if (crossfadeInProgressRef.current || isSeekGuarded()) return;', 'useEffect(() => {\n    const canRestoreVolume'), context);
+  playing = false; player.nativePlayIntent = false;
+  context.effect(); assert.equal(plays, 1); assert.equal(pauses, 0);
+  context.isPlaying = false; playing = true; player.nativePlayIntent = true;
+  context.effect(); assert.equal(plays, 1); assert.equal(pauses, 0);
+  playing = false; player.nativePlayIntent = true;
+  context.effect(); assert.equal(pauses, 1, 'A fresh application Pause still reaches native');
+}
+
+// Both checkout formats execute the same production callbacks/effect assertions.
+const lf = component.replace(/\r\n?/g, "\n");
+for (const [format, input] of [["LF", lf], ["CRLF", lf.replace(/\n/g, "\r\n")]]) {
+  verify(input);
+  console.log(`PASS: production component callbacks/effect with ${format} source (isolated state; no device/source claim).`);
+}
