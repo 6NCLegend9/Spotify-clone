@@ -81,7 +81,7 @@ Native cue changes release the prior asset and ignore stale preparation/renewal 
 
 Version 1.0.1 also prevents a startup fade from cancelling a manual Skip, permits the trusted WebView's asynchronous track playback, and stops repeated recovery attempts when YouTube rejects player verification. A renderer exit releases abandoned native players and offers a native Retry action that creates a new WebView. Route Back uses the web router when available so returning Home keeps the active playback document connected.
 
-Downloading the standard APK from a localhost website does not point the installed app at localhost: its trusted website and media origin remain `https://haykasa.vercel.app`. Both deployed web changes and the new APK are needed to exercise all these fixes. Native notification next/previous queue commands are not implemented; the in-app controls own queue navigation.
+Downloading the standard APK from a localhost website does not point the installed app at localhost: its trusted website and media origin remain `https://haykasa.vercel.app`. Both deployed web changes and the new APK are needed to exercise all these fixes. Eligible signed-in source queues support native notification Next/Previous; other queues still use the in-app controls.
 
 ## PR35 follow-up repairs
 
