@@ -343,6 +343,7 @@ class OrderedAndroidTransport {
         const selected = this.pendingQueueSelection;
         this.pendingQueueSelection = null;
         this.selectQueue(selected);
+        this._flush();
       }
       this.onQueueConfigured?.();
     }
@@ -431,7 +432,7 @@ class OrderedAndroidTransport {
     }
     this._flushAudio();
     this._flushRepeat();
-    if (this.queued) {
+    if (this.queued && (!this.queued.playing || !this.pendingQueueSelection)) {
       const own = this.queued; this.queued = null;
       this._transport(own);
     }

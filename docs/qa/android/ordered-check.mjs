@@ -230,9 +230,14 @@ try {
     assert.equal(n.audio.nativeTransportError, null, "Old queue state remains valid until the replacement applies");
     assert.equal(n.audio.selectNativeQueue("added"), true);
     assert.equal(n.last("selectQueue"), undefined, "A selection cannot use the previous native revision");
+    const playing = track(n.audio.play());
+    assert.equal(n.last("play"), undefined, "Play must not resume the previous occurrence before selection");
     n.ack(pending);
     assert.equal(n.last("selectQueue").queueRevision, 2);
     assert.equal(n.last("selectQueue").occurrenceId, "added");
+    assert(n.sent.indexOf(n.last("selectQueue")) < n.sent.indexOf(n.last("play")));
+    n.decide(n.last("play")); await flush();
+    assert.equal(playing.state, "resolved");
   }, { version: 2, nativeQueue: "source-queue-v1" });
   await check("repeat is a native observation without fabricating ended or a new Play", async n => {
     const playing = track(n.audio.play()); n.decide(n.last("play")); await flush();
