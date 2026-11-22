@@ -216,6 +216,24 @@ try {
     assert.equal(n.audio.nativeQueueRevision, 1);
     assert.equal(acknowledgements, 1, "The deck must be notified after the pending queue revision is applied");
   }, { version: 2, nativeQueue: "source-queue-v1" });
+  await check("queue selection waits for the revision containing its occurrence", async n => {
+    const current = { occurrenceId: "current", videoId: "synthetic01", title: "Current" };
+    const old = { occurrenceId: "old", videoId: "synthetic02", title: "Old" };
+    const added = { occurrenceId: "added", videoId: "synthetic03", title: "Added" };
+    const first = { revision: 1, expectedRevision: 0, entries: [current, old], currentOccurrenceId: "current", repeatAll: false };
+    assert.equal(n.audio.configureNativeQueue(first), true);
+    n.ack(n.last("configureQueue"));
+    assert.equal(n.audio.configureNativeQueue({ ...first, revision: 2, expectedRevision: 1, entries: [current, added] }), true);
+    const pending = n.last("configureQueue");
+    n.deliver({ ...n.frame({ deliver: false }), nativeQueue: { revision: 1, owns: true, preparing: false,
+      currentOccurrenceId: "old", currentVideoId: old.videoId, currentTitle: old.title } });
+    assert.equal(n.audio.nativeTransportError, null, "Old queue state remains valid until the replacement applies");
+    assert.equal(n.audio.selectNativeQueue("added"), true);
+    assert.equal(n.last("selectQueue"), undefined, "A selection cannot use the previous native revision");
+    n.ack(pending);
+    assert.equal(n.last("selectQueue").queueRevision, 2);
+    assert.equal(n.last("selectQueue").occurrenceId, "added");
+  }, { version: 2, nativeQueue: "source-queue-v1" });
   await check("repeat is a native observation without fabricating ended or a new Play", async n => {
     const playing = track(n.audio.play()); n.decide(n.last("play")); await flush();
     const playCount = n.sent.filter(x => x.action === "play").length;

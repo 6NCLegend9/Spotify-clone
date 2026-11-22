@@ -267,9 +267,11 @@ class OrderedAndroidTransport {
           && !sameIntent(t.snapshot.intent, previous.intent))) {
         this._fail("PROTOCOL_ERROR", false, true); return;
       }
+      const queueEntries = data.nativeQueue?.revision === this.sentQueueRevision && this.pendingQueueEntries
+        ? this.pendingQueueEntries : this.queueEntries;
       if (data.nativeQueue && (this.nativeQueue !== "source-queue-v1"
         || data.nativeQueue.revision > (this.sentQueueRevision || 0)
-        || this.queueEntries.get(data.nativeQueue.currentOccurrenceId)?.videoId !== data.nativeQueue.currentVideoId)) {
+        || queueEntries.get(data.nativeQueue.currentOccurrenceId)?.videoId !== data.nativeQueue.currentVideoId)) {
         this._fail("PROTOCOL_ERROR", false, true); return;
       }
       if (this.queueSelection === data.nativeQueue?.currentOccurrenceId) this.queueSelection = null;
@@ -334,7 +336,14 @@ class OrderedAndroidTransport {
       this.onRepeatChanged?.();
     }
     if (data.action === "configureQueue") {
+      this.queueEntries = this.pendingQueueEntries;
+      this.pendingQueueEntries = null;
       this.appliedQueueRevision = own.message.revision;
+      if (this.pendingQueueSelection) {
+        const selected = this.pendingQueueSelection;
+        this.pendingQueueSelection = null;
+        this.selectQueue(selected);
+      }
       this.onQueueConfigured?.();
     }
   }
@@ -486,13 +495,20 @@ class OrderedAndroidTransport {
       || configuration.expectedRevision !== (this.appliedQueueRevision || 0)
       || !Array.isArray(configuration.entries) || !configuration.entries.length || configuration.entries.length > 100
       || [...this.controls.values()].some(record => record.message.action === "configureQueue")) return false;
-    this.queueEntries = new Map(configuration.entries.map(entry => [entry.occurrenceId, entry]));
+    this.pendingQueueEntries = new Map(configuration.entries.map(entry => [entry.occurrenceId, entry]));
     this.sentQueueRevision = configuration.revision;
     this._request("configureQueue", { ...configuration, transport: { version: this.version, ...this.scope } });
     return true;
   }
   selectQueue(occurrenceId) {
-    if (this.phase !== "active" || !this.appliedQueueRevision || !this.queueEntries.has(occurrenceId)) return false;
+    if (this.phase !== "active" || !this.appliedQueueRevision) return false;
+    if (this.pendingQueueEntries) {
+      if (!this.pendingQueueEntries.has(occurrenceId)) return false;
+      this.pendingQueueSelection = occurrenceId;
+      this.queueSelection = occurrenceId;
+      return true;
+    }
+    if (!this.queueEntries.has(occurrenceId)) return false;
     this.queueSelection = occurrenceId;
     this._request("selectQueue", { occurrenceId, queueRevision: this.appliedQueueRevision,
       transport: { version: this.version, ...this.scope } });
