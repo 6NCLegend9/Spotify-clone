@@ -88,8 +88,8 @@ export function createOrderedAndroidTransport(options) {
 }
 
 class OrderedAndroidTransport {
-  constructor({ id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability, onRepeatChanged }, cache) {
-    Object.assign(this, { id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability, onRepeatChanged, cache });
+  constructor({ id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability, onRepeatChanged, onQueueConfigured }, cache) {
+    Object.assign(this, { id, send, onUpdate, onFailure, onRecovered, onLegacy, onDecoderError, onCapability, onRepeatChanged, onQueueConfigured, cache });
     this.phase = "idle";
     this.controls = new Map();
     this.pendingReadRevision = null;
@@ -333,7 +333,10 @@ class OrderedAndroidTransport {
       this._flushRepeat();
       this.onRepeatChanged?.();
     }
-    if (data.action === "configureQueue") this.appliedQueueRevision = own.message.revision;
+    if (data.action === "configureQueue") {
+      this.appliedQueueRevision = own.message.revision;
+      this.onQueueConfigured?.();
+    }
   }
   _controlError(data) {
     const c = data.correlation;

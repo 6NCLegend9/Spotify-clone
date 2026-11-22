@@ -209,6 +209,7 @@ export function createNativeMediaDeck({ host, videoId, mode, maxHeight, profile,
   listen("ended", () => { position = media.currentTime; setState(STATES.ENDED); });
   listen("repeat", () => emit("onRepeat"));
   listen("repeatconfiguration", () => emit("onRepeatConfigured"));
+  listen("queueconfiguration", () => { void handoffQueue(); });
   listen("error", () => {
     if (destroyed || !asset) return;
     if (!refreshed) {

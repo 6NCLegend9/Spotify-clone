@@ -33,10 +33,11 @@ const track = promise => {
 };
 
 class Native {
-  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false, audioProcessing = null, audioSettings, nativeRepeat = null, repeatOne, measuredLoudness = null } = {}) {
+  constructor({ legacy = false, malformedCapabilities = false, version = defaultVersion, malformedIssued = false, audioProcessing = null, audioSettings, nativeRepeat = null, nativeQueue = null, repeatOne, measuredLoudness = null } = {}) {
     this.audioProcessing = audioProcessing;
     this.measuredLoudness = measuredLoudness;
     this.nativeRepeat = nativeRepeat;
+    this.nativeQueue = nativeQueue;
     this.version = version; this.malformedIssued = malformedIssued;
     this.legacy = legacy; this.sent = []; this.history = new Map(); this.seq = 0;
     this.malformedCapabilities = malformedCapabilities;
@@ -70,7 +71,7 @@ class Native {
       this.issued = crypto.randomUUID();
       this.id = command.id;
       this.deliver({ id: this.id, event: "transportCapabilities", requestId: command.requestId,
-        version: this.version, audioProcessing: this.audioProcessing, measuredLoudness: this.measuredLoudness, nativeRepeat: this.nativeRepeat, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
+        version: this.version, audioProcessing: this.audioProcessing, measuredLoudness: this.measuredLoudness, nativeRepeat: this.nativeRepeat, nativeQueue: this.nativeQueue, capability: `ordered-transport-v${this.version}`, nativeBuildCode: this.malformedCapabilities ? null : this.version === 2 ? 5 : 4, engineId: this.engine || E,
         currentBindingId: existing ? this.binding || null : null, bindGrant: G, grantLifetimeMs: 5000,
         ...(this.version === 2 ? { issuedBindingId: this.malformedIssued ? null : this.issued } : {}) });
     } else if (command.action === "transportBind") {
@@ -202,6 +203,19 @@ try {
     assert.equal(n.audio.nativeRepeatOne, false);
     assert.equal(n.last("repeatOne"), undefined);
   }, { version: 2 });
+  await check("native queue acknowledgement retries a newer edit blocked by the prior command", async n => {
+    let acknowledgements = 0;
+    n.audio.addEventListener("queueconfiguration", () => acknowledgements++);
+    const entries = [{ occurrenceId: "first", videoId: "synthetic01", title: "First" }];
+    const first = { revision: 1, expectedRevision: 0, entries, currentOccurrenceId: "first", repeatAll: false };
+    assert.equal(n.audio.configureNativeQueue(first), true);
+    const pending = n.last("configureQueue");
+    assert.equal(n.audio.configureNativeQueue({ ...first, revision: 2, expectedRevision: 1, repeatAll: true }), false);
+    assert.equal(acknowledgements, 0);
+    n.ack(pending);
+    assert.equal(n.audio.nativeQueueRevision, 1);
+    assert.equal(acknowledgements, 1, "The deck must be notified after the pending queue revision is applied");
+  }, { version: 2, nativeQueue: "source-queue-v1" });
   await check("repeat is a native observation without fabricating ended or a new Play", async n => {
     const playing = track(n.audio.play()); n.decide(n.last("play")); await flush();
     const playCount = n.sent.filter(x => x.action === "play").length;

@@ -127,6 +127,9 @@ export function createAndroidAudioElement(title = "") {
       onRepeatChanged: () => {
         if (!disposed && ordered === own) emit("repeatconfiguration");
       },
+      onQueueConfigured: () => {
+        if (!disposed && ordered === own) emit("queueconfiguration");
+      },
       onDecoderError: () => {
         if (disposed || ordered !== own || decoderError) return;
         decoderError = true;
