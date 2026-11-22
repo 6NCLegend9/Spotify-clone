@@ -44,6 +44,8 @@ jobs:
         run: find desktop/src desktop/scripts -name '*.mjs' -print0 | xargs -0 -n 1 node --check
       - name: Verify mini-player startup and loading failures
         run: node desktop/scripts/check-mini-player.mjs
+      - name: Verify actual packaging include and exclude behavior
+        run: node --test desktop/scripts/check-packaging-filters.mjs
       - name: Verify automatic releases and updater notifications
         run: node desktop/scripts/check-auto-release.mjs
       - name: Verify shipped Electron SBOM coverage
@@ -52,7 +54,7 @@ jobs:
           node desktop/scripts/include-electron-in-sbom.mjs /tmp/haykasa-runtime-sbom.json
           node --test desktop/scripts/check-runtime-sbom.mjs
       - name: Audit shipped runtime and build dependencies
-        run: npm --prefix desktop audit --include=dev --audit-level=high
+        run: npm --prefix desktop audit --include=dev --audit-level=moderate
 
   windows-thumbar:
     runs-on: windows-latest

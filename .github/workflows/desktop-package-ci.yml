@@ -52,7 +52,9 @@ jobs:
       - name: Install desktop dependencies
         run: npm --prefix desktop ci --no-audit --no-fund
       - name: Audit shipped runtime and build dependencies
-        run: npm --prefix desktop audit --include=dev --audit-level=high
+        run: npm --prefix desktop audit --include=dev --audit-level=moderate
+      - name: Verify actual packaging include and exclude behavior
+        run: node --test desktop/scripts/check-packaging-filters.mjs
       - name: Stamp internal preview channel
         run: npm --prefix desktop pkg set heykasaReleaseChannel=internal
       - name: Stamp internal test version
