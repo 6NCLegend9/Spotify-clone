@@ -140,6 +140,7 @@ await nativePolicy.refresh();
 let mainWindowShows = 0;
 const updateHandlers = new Map();
 const native = vm.createContext({
+  DESKTOP_BUILD_CHANNEL: "stable",
   Notification, process: { platform: "win32" }, logger: null, policy: nativePolicy, safeMode: false, quitting: false,
   authStatus: { state: "idle" }, authAttempt: null, setAuthStatus() {}, updateTrayMenu() {},
   discord: { clearActivity: async () => {}, disconnect() {} },

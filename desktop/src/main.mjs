@@ -286,6 +286,7 @@ function policyFeature(name) {
 }
 
 function runtimeFeature(name) {
+  if (name === "auth" && DESKTOP_BUILD_CHANNEL === "internal") return false;
   if (safeMode && (name === "discord" || name === "updater")) return false;
   return policyFeature(name);
 }
@@ -298,6 +299,9 @@ function effectiveCapabilities() {
 }
 
 function featureDisabledMessage(feature) {
+  if (feature === "auth" && DESKTOP_BUILD_CHANNEL === "internal") {
+    return "Browser sign-in is unavailable in internal test builds. Use the installed release for browser sign-in.";
+  }
   if (safeMode && (feature === "discord" || feature === "updater")) {
     return "HayKasa Desktop is running in safe mode after repeated crashes. Nonessential native integrations are temporarily disabled.";
   }
@@ -443,6 +447,9 @@ async function handleDeepLink(value) {
 }
 
 function registerProtocol() {
+  // Running an unpacked QA build must not take login callbacks from the
+  // installed release. Internal builds are not a public authentication target.
+  if (DESKTOP_BUILD_CHANNEL === "internal") return;
   if (process.defaultApp && process.argv[1]) {
     app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
   } else {
