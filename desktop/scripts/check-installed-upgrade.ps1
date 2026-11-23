@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$BeforeInstaller,
-    [Parameter(Mandatory = $true)][string]$AfterInstaller
+    [Parameter(Mandatory = $true)][string]$AfterInstaller,
+    [switch]$HistoricalBaseline
 )
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/installed-runtime-events.ps1"
@@ -9,6 +10,9 @@ $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or -not $env:RUNNER_TEMP) {
     throw 'Installed upgrade qualification requires a disposable GitHub-hosted Windows runner.'
 }
+if ($HistoricalBaseline -and (Get-FileHash -LiteralPath $BeforeInstaller -Algorithm SHA256).Hash -ne '5f163cdf097b30ecc5a83e48602ed301890f8df66f04751dae034f90e7c9f36b') {
+    throw 'Historical baseline must match the inspected published 1.0.0 installer.'
+}
 $output = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installed-upgrade'
 $scratch = Join-Path $env:RUNNER_TEMP ('haykasa-upgrade-' + [guid]::NewGuid().ToString('N'))
 $install = Join-Path $scratch 'installed'
@@ -16,7 +20,7 @@ $profile = Join-Path $scratch 'profile'
 $executable = Join-Path $install 'HayKasa.exe'
 New-Item -ItemType Directory -Force -Path $output, $profile | Out-Null
 $report = [ordered]@{
-    scope = 'Unsigned internal NSIS old-to-new replacement on disposable Windows runner'
+    scope = $(if ($HistoricalBaseline) { 'Published 1.0.0 to unsigned internal NSIS replacement on disposable Windows runner' } else { 'Unsigned internal NSIS old-to-new replacement on disposable Windows runner' })
     signedAutoUpdateVerified = $false
     audiblePlaybackVerified = $false
     passed = $false
@@ -50,8 +54,10 @@ const asar = requireDesktop('@electron/asar');
 const archive = path.join(process.argv[1], 'resources', 'app.asar');
 const metadata = JSON.parse(asar.extractFile(archive, 'package.json'));
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
-const files = Object.fromEntries(['src/main.mjs', 'src/preload.cjs', 'src/localPages.mjs', 'src/miniPlayer.html'].map(file => [file, digest(asar.extractFile(archive, file))]));
-console.log(JSON.stringify({version: metadata.version, channel: metadata.heykasaReleaseChannel, archiveSha256: digest(fs.readFileSync(archive)), files}));
+const entries = new Set(asar.listPackage(archive).map(file => file.replaceAll('\\', '/').replace(/^\//, '')));
+const files = Object.fromEntries(['src/main.mjs', 'src/preload.cjs', 'src/localPages.mjs', 'src/miniPlayer.html'].map(file => [file, entries.has(file) ? digest(asar.extractFile(archive, file)) : null]));
+if (!files['src/main.mjs'] || !files['src/preload.cjs']) throw new Error('Missing required runtime entry points');
+console.log(JSON.stringify({version: metadata.version, channel: metadata.heykasaReleaseChannel || 'stable', archiveSha256: digest(fs.readFileSync(archive)), files}));
 '@
     $json = & node -e $inspect $directory
     if ($LASTEXITCODE -ne 0) { throw 'Installed archive inspection failed.' }
@@ -89,7 +95,9 @@ try {
 
     Install-TestBuild $BeforeInstaller
     $before = Inspect-InstalledBuild
-    if ($before.channel -ne 'internal') { throw 'Baseline installer must be internal.' }
+    if ($HistoricalBaseline) {
+        if ($before.version -ne '1.0.0' -or $before.channel -ne 'stable') { throw 'Unexpected historical baseline metadata.' }
+    } elseif ($before.channel -ne 'internal') { throw 'Baseline installer must be internal.' }
     $report.before = $before
     $report.beforeRuntime = Start-And-Verify $before.version
     Stop-TestApp
