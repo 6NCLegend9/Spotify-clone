@@ -52,6 +52,8 @@ jobs:
         run: node --test desktop/scripts/check-packaging-filters.mjs
       - name: Verify automatic releases and updater notifications
         run: node desktop/scripts/check-auto-release.mjs
+      - name: Verify updater suspension and install-on-quit policy
+        run: node --test desktop/scripts/check-updater-suspension.mjs
       - name: Verify shipped Electron SBOM coverage
         run: |
           npm --prefix desktop sbom --omit=dev --sbom-format=cyclonedx > /tmp/haykasa-runtime-sbom.json

@@ -1204,7 +1204,7 @@ function registerIpcHandlers() {
 
 async function shutdownNativeIntegrations() {
   policy?.dispose();
-  updater?.dispose();
+  updater?.dispose({ shutdown: true });
   await discord.clearActivity().catch(() => {});
   discord.disconnect();
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.destroy();

@@ -39,6 +39,8 @@ export class DesktopUpdater {
     this.intervalTimer = null;
     this.checkingPromise = null;
     this.activeCheck = null;
+    this.suspended = false;
+    this.checkGeneration = 0;
 
     this.feedBaseUrl = String(
       app.isPackaged
@@ -52,7 +54,7 @@ export class DesktopUpdater {
     ).trim();
 
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = store.get("autoUpdate") !== false;
     autoUpdater.autoRunAppAfterInstall = true;
     autoUpdater.disableWebInstaller = true;
     autoUpdater.allowDowngrade = false;
@@ -167,6 +169,7 @@ export class DesktopUpdater {
   }
 
   async runCheck(options = {}) {
+    if (this.suspended || (options.generation !== undefined && options.generation !== this.checkGeneration)) return this.getStatus();
     if (!this.app.isPackaged) {
       this.emit({ state: "disabled", detail: "Updates are disabled in development builds." });
       return this.getStatus();
@@ -185,6 +188,10 @@ export class DesktopUpdater {
     this.emit({ state: "checking", progress: 0, detail: "Checking the desktop release channel." });
     try {
       const manifest = await this.releaseManifest();
+      // Policy/safe-mode suspension retires a pending network preflight, even
+      // if the integration is enabled again before that response arrives.
+      if (this.suspended || (options.generation !== undefined && options.generation !== this.checkGeneration)) return this.getStatus();
+      if (this.store.get("autoUpdate") === false && options.manual !== true) return this.getStatus();
       if (manifest.published !== true || !httpsUrl(manifest.downloadUrl)) {
         this.emit({
           state: "disabled",
@@ -243,7 +250,7 @@ export class DesktopUpdater {
       if (options.manual === true && this.activeCheck) this.activeCheck.manual = true;
       return this.checkingPromise;
     }
-    const check = { manual: options.manual === true };
+    const check = { manual: options.manual === true, generation: this.checkGeneration };
     this.activeCheck = check;
     // Defer synchronous eligibility decisions so a manual check in this turn
     // can supersede a scheduled check even when automatic updates are disabled.
@@ -284,22 +291,41 @@ export class DesktopUpdater {
 
   start() {
     if (this.started) return;
+    this.suspended = false;
+    this.configureInstallOnQuit();
     this.started = true;
     this.schedule();
   }
 
   preferencesChanged() {
+    this.configureInstallOnQuit();
     if (!this.started) return;
     this.schedule();
   }
 
+  configureInstallOnQuit() {
+    autoUpdater.autoInstallOnAppQuit = !this.suspended && this.store.get("autoUpdate") !== false;
+    // The pinned Windows BaseUpdater only registers its quit hook when this
+    // flag is enabled at download completion. Re-enabling a completed download
+    // must register that idempotent hook too. Covered against the real library.
+    if (autoUpdater.autoInstallOnAppQuit && this.status.state === "ready") autoUpdater.addQuitHandler?.();
+  }
+
   async installReadyUpdate() {
+    if (this.suspended) throw new Error("Desktop updates are temporarily disabled.");
     if (this.status.state !== "ready") throw new Error("No downloaded desktop update is ready to install.");
     autoUpdater.quitAndInstall(false, true);
   }
 
-  dispose() {
+  dispose({ shutdown = false } = {}) {
     this.started = false;
+    this.checkGeneration++;
+    // Ordinary app exit must retain a permitted install-on-quit. Policy and
+    // safe-mode suspension instead revoke it, including for late downloads.
+    if (!shutdown) {
+      this.suspended = true;
+      autoUpdater.autoInstallOnAppQuit = false;
+    }
     this.clearSchedule();
   }
 }
