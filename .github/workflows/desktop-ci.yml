@@ -54,6 +54,8 @@ jobs:
         run: node desktop/scripts/check-auto-release.mjs
       - name: Verify updater suspension and install-on-quit policy
         run: node --test desktop/scripts/check-updater-suspension.mjs
+      - name: Verify useful native diagnostics without credential disclosure
+        run: node --test desktop/scripts/check-native-logging.mjs
       - name: Verify shipped Electron SBOM coverage
         run: |
           npm --prefix desktop sbom --omit=dev --sbom-format=cyclonedx > /tmp/haykasa-runtime-sbom.json
@@ -74,6 +76,9 @@ jobs:
       - name: Verify native Windows thumbnail-toolbar icons and controls
         shell: pwsh
         run: ./desktop/node_modules/.bin/electron.cmd ./desktop/scripts/check-thumbar.mjs
+      - name: Verify installed runtime startup evidence timestamps
+        shell: pwsh
+        run: ./desktop/scripts/check-installed-runtime-events.ps1
       - name: Verify mini-player keyboard focus in Electron
         shell: pwsh
         run: ./desktop/node_modules/.bin/electron.cmd ./desktop/scripts/check-mini-player-keyboard.mjs

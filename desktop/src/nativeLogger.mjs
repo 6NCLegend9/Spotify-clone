@@ -25,6 +25,13 @@ function sanitizeFields(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const output = {};
   for (const [key, raw] of Object.entries(value).slice(0, 30)) {
+    // Electron's numeric network/OS exit codes are diagnostics, not OAuth
+    // grants. Never accept string coercion or other credential-shaped keys.
+    if ((key === "errorCode" || key === "exitCode") && Number.isInteger(raw)
+      && raw >= -2147483648 && raw <= 4294967295) {
+      output[key] = raw;
+      continue;
+    }
     if (SENSITIVE_KEY.test(key)) {
       output[key] = "[redacted]";
       continue;

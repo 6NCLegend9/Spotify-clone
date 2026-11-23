@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$AfterInstaller
 )
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/installed-runtime-events.ps1"
 # This test installs real NSIS packages and changes installer registry entries.
 # It must never run on a developer's machine or a persistent self-hosted runner.
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or -not $env:RUNNER_TEMP) {
@@ -65,9 +66,7 @@ function Start-And-Verify([string]$version) {
     while ([DateTimeOffset]::UtcNow -lt $deadline) {
         if ($app.HasExited) { throw "Installed executable exited before readiness ($($app.ExitCode))." }
         if (Test-Path -LiteralPath $log) {
-            $events = @(Get-Content -LiteralPath $log | ForEach-Object {
-                try { $entry = $_ | ConvertFrom-Json; if ([DateTimeOffset]::Parse($entry.at) -ge $started) { $entry } } catch {}
-            })
+            $events = @(Read-InstalledRuntimeEvents -Log $log -Started $started)
             $startup = @($events | Where-Object { $_.event -eq 'desktop_start' })
             $ready = @($events | Where-Object { $_.event -eq 'desktop_ready' })
             if ($startup.Count -gt 0 -and $ready.Count -gt 0) {
@@ -120,5 +119,10 @@ try {
     throw
 } finally {
     Stop-TestApp
+    # Keep bounded, application-redacted diagnostics even when readiness fails.
+    $nativeLog = Join-Path $profile 'logs/desktop.log'
+    if (Test-Path -LiteralPath $nativeLog) {
+        Get-Content -LiteralPath $nativeLog -Tail 100 | Set-Content -LiteralPath (Join-Path $output 'native-startup.jsonl') -Encoding utf8
+    }
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $output 'results.json') -Encoding utf8
 }
