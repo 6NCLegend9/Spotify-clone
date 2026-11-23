@@ -326,6 +326,13 @@ jobs:
           $signature = Get-AuthenticodeSignature $installer.FullName
           if ($signature.Status -ne 'Valid') { throw "Installer signature is not valid: $($signature.Status)" }
           if ([string]::IsNullOrWhiteSpace($signature.SignerCertificate.Subject)) { throw "Installer signer identity is missing" }
+          $application = Join-Path (Get-Location) 'dist/win-unpacked/HayKasa.exe'
+          if (-not (Test-Path -LiteralPath $application)) { throw "Packaged application executable is missing" }
+          $applicationSignature = Get-AuthenticodeSignature -LiteralPath $application
+          if ($applicationSignature.Status -ne 'Valid') { throw "Application signature is not valid: $($applicationSignature.Status)" }
+          if ($applicationSignature.SignerCertificate.Subject -cne $signature.SignerCertificate.Subject) {
+            throw "Application and installer must have the same verified publisher identity"
+          }
           Write-Host "Signed by: $($signature.SignerCertificate.Subject)"
       - name: Prepare GitHub release bundle
         id: prepare

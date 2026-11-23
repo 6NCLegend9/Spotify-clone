@@ -81,6 +81,9 @@ jobs:
       - name: Verify installed runtime startup evidence timestamps
         shell: pwsh
         run: ./desktop/scripts/check-installed-runtime-events.ps1
+      - name: Verify signed-release application and installer checks
+        shell: pwsh
+        run: ./desktop/scripts/check-release-signatures.ps1
       - name: Verify mini-player keyboard focus in Electron
         shell: pwsh
         run: ./desktop/node_modules/.bin/electron.cmd ./desktop/scripts/check-mini-player-keyboard.mjs
