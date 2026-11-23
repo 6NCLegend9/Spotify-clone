@@ -62,6 +62,7 @@ import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
 import { shouldResetRendererCache } from "./cachePolicy.mjs";
 import { effectiveUpdateChannel, rendererSelectableUpdateChannel } from "./updateChannel.mjs";
 import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
+import { LOCAL_UI_SCHEME, installLocalPages, localPageUrl } from "./localPages.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
@@ -103,8 +104,10 @@ let lastNativeUpdateNotificationVersion = "";
 let resolvedAccent = "#096192";
 let appearanceGeneration = 0;
 const artworkAccentCache = new Map();
+const offlineWindows = new WeakSet();
 
 protocol.registerSchemesAsPrivileged([
+  { scheme: LOCAL_UI_SCHEME, privileges: { standard: true, secure: true } },
   {
     scheme: APPEARANCE_PROTOCOL,
     privileges: {
@@ -554,9 +557,12 @@ function installNavigationGuards(window) {
 }
 
 async function showOfflineScreen(window) {
-  if (!window || window.isDestroyed()) return;
+  if (!window || window.isDestroyed() || offlineWindows.has(window)) return;
+  // A failure while loading the fallback must not recursively load it again.
+  // A successful remote navigation below permits recovery on a later outage.
+  offlineWindows.add(window);
   try {
-    await window.loadFile(path.join(__dirname, "offline.html"));
+    await window.loadURL(localPageUrl("offline.html"));
   } catch {
     logger?.error("offline_screen_failed");
   }
@@ -587,6 +593,7 @@ async function enterSafeMode() {
 async function createMainWindow() {
   const ses = desktopSession();
   configureSession(ses);
+  installLocalPages(ses);
   installAppearanceProtocol(ses);
   await resetDesktopWebCachesIfNeeded(ses);
 
@@ -617,6 +624,9 @@ async function createMainWindow() {
   });
 
   installNavigationGuards(window);
+  window.webContents.on("did-finish-load", () => {
+    if (isTrustedRendererUrl(window.webContents.getURL(), trustedOrigins)) offlineWindows.delete(window);
+  });
 
   window.once("ready-to-show", () => window.show());
   window.on("close", (event) => {
@@ -720,6 +730,7 @@ function markMiniPlayerRendered(event) {
 function createMiniPlayer() {
   if (miniWindow && !miniWindow.isDestroyed()) return miniWindow;
   const miniSession = session.fromPartition(MINI_PARTITION);
+  installLocalPages(miniSession);
   installAppearanceProtocol(miniSession);
   miniReady = false;
   miniRendered = false;
@@ -785,7 +796,7 @@ function createMiniPlayer() {
   };
   window.webContents.on("render-process-gone", (_event, details) => onFailure(new Error(details.reason || "renderer exited")));
   miniReadyTimer = setTimeout(() => onFailure(new Error("Controller rendering timed out")), 10000);
-  void window.loadFile(path.join(__dirname, "miniPlayer.html")).catch(onFailure);
+  void window.loadURL(localPageUrl("miniPlayer.html")).catch(onFailure);
   return window;
 }
 

@@ -2,16 +2,18 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, protocol, session } from "electron";
+import { LOCAL_UI_SCHEME, installLocalPages, localPageUrl } from "../src/localPages.mjs";
 
 app.setPath("userData", fs.mkdtempSync(path.join(os.tmpdir(), "haykasa-mini-keyboard-")));
+protocol.registerSchemesAsPrivileged([{ scheme: LOCAL_UI_SCHEME, privileges: { standard: true, secure: true } }]);
 let window;
 app.whenReady().then(async () => {
   let passed = false;
   try {
     window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
-    await window.loadFile(fileURLToPath(new URL("../src/miniPlayer.html", import.meta.url)));
+    installLocalPages(session.defaultSession);
+    await window.loadURL(localPageUrl("miniPlayer.html"));
     const result = await window.webContents.executeJavaScript(`(() => {
       const track = { hasTrack: true, title: 'Keyboard test', artist: 'QA', canPlay: true, canPrev: true, canSkip: true, playing: false };
       render(track);

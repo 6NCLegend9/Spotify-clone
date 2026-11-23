@@ -46,6 +46,8 @@ jobs:
         run: node desktop/scripts/check-mini-player.mjs
       - name: Verify internal builds preserve installed login handlers
         run: node --test desktop/scripts/check-protocol-registration.mjs
+      - name: Verify restricted bundled pages and bounded offline recovery
+        run: node --test desktop/scripts/check-local-pages.mjs
       - name: Verify actual packaging include and exclude behavior
         run: node --test desktop/scripts/check-packaging-filters.mjs
       - name: Verify automatic releases and updater notifications

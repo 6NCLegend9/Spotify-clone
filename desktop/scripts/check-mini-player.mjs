@@ -30,7 +30,7 @@ function harness(hasTrack = true) {
     hide() { this.visible = false; }
     show() { assert(!this.destroyed); this.visible = true; }
     destroy() { this.destroyed = true; this.hide(); this.emit("closed"); }
-    loadFile() { return this.loading; }
+    loadURL() { return this.loading; }
     getBounds() { return { width: 360, height: 148 }; }
     setPosition() {}
     setMenu() {}
@@ -42,7 +42,7 @@ function harness(hasTrack = true) {
     resourceIconPath: () => "/isolated/icon.png",
     session: { fromPartition: () => ({}) }, app: { isPackaged: true }, logger: null,
     dialog: { showErrorBox: (...args) => errors.push(args) },
-    installAppearanceProtocol() {}, denyGuestContents() {}, installPopupGuard() {},
+    installAppearanceProtocol() {}, installLocalPages() {}, localPageUrl: name => `heykasa-ui://bundled/${name}`, denyGuestContents() {}, installPopupGuard() {},
     resolvedAppearance: () => null, updateTrayMenu() {}, updateThumbar() {}, refreshAppearanceAccent() {},
     setTimeout: callback => { timers.set(++timerId, callback); return timerId; },
     clearTimeout: id => timers.delete(id),
