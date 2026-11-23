@@ -235,6 +235,7 @@ export class DesktopUpdater {
       }
       await autoUpdater.checkForUpdates();
     } catch (error) {
+      if (this.suspended || (options.generation !== undefined && options.generation !== this.checkGeneration)) return this.getStatus();
       this.emit({
         state: "error",
         detail: error instanceof Error ? error.message : "Update check failed.",
@@ -244,7 +245,16 @@ export class DesktopUpdater {
   }
 
   checkNow(options = {}) {
+    if (this.suspended) return Promise.resolve(this.getStatus());
     if (this.checkingPromise) {
+      if (this.activeCheck?.generation !== this.checkGeneration) {
+        // Serialize with the retired check, but preserve this new request. Its
+        // manual intent must not be consumed by a preflight that cannot act.
+        const generation = this.checkGeneration;
+        return this.checkingPromise.then(() => (
+          generation === this.checkGeneration ? this.checkNow(options) : this.getStatus()
+        ));
+      }
       // Preserve an explicit user request arriving during the network preflight.
       // It shares the same check and never relaxes integrity or signing gates.
       if (options.manual === true && this.activeCheck) this.activeCheck.manual = true;

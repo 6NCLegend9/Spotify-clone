@@ -12,7 +12,7 @@ const source = fs.readFileSync(new URL("../src/updater.mjs", import.meta.url), "
   .replace("export class DesktopUpdater", "globalThis.DesktopUpdater = class DesktopUpdater");
 
 function harness() {
-  let autoUpdate = true, requests = 0, installs = 0, resolveManifest, onQuit;
+  let autoUpdate = true, requests = 0, installs = 0, resolveManifest, rejectManifest, onQuit;
   const listeners = new Map();
   const engine = {
     on: (event, callback) => listeners.set(event, callback), setFeedURL() {},
@@ -32,14 +32,18 @@ function harness() {
     effectiveUpdateChannel: () => "stable", installationEligibleForRollout: () => true,
     compareReleaseVersions, versionOlderThan, URL, AbortSignal, process: { env: {} },
     setTimeout: () => 1, clearTimeout() {}, setInterval: () => 2, clearInterval() {},
-    fetch: () => new Promise(resolve => { resolveManifest = () => resolve({ ok: true, json: async () => manifest }); }),
+    fetch: () => new Promise((resolve, reject) => {
+      resolveManifest = () => resolve({ ok: true, json: async () => manifest });
+      rejectManifest = () => reject(new Error("Retired network failure"));
+    }),
   });
   vm.runInContext(source, context);
   const updater = new context.DesktopUpdater({ app: { isPackaged: true, getVersion: () => "1.1.0" },
     store: { get: key => key === "autoUpdate" ? autoUpdate : undefined } });
   return { updater, engine, listeners, get requests() { return requests; }, get installs() { return installs; },
     quit: () => onQuit?.(0),
-    release: () => resolveManifest(), setAutomatic: value => { autoUpdate = value; updater.preferencesChanged(); } };
+    release: () => resolveManifest(), reject: () => rejectManifest(),
+    setAutomatic: value => { autoUpdate = value; updater.preferencesChanged(); } };
 }
 
 test("policy suspension disables install-on-quit even after a late download", async () => {
@@ -96,5 +100,34 @@ test("reenabling policy does not revive a superseded manifest request", async ()
   const h = harness(); h.updater.start();
   const pending = h.updater.checkNow(); await new Promise(setImmediate);
   h.updater.dispose(); h.updater.start(); h.release(); await pending;
+  assert.equal(h.requests, 0);
+});
+
+test("a retired manifest rejection cannot overwrite the current update status", async () => {
+  const h = harness(); h.updater.start();
+  const pending = h.updater.checkNow(); await new Promise(setImmediate);
+  h.updater.dispose(); h.updater.start(); h.setAutomatic(false);
+  const current = h.updater.getStatus();
+  h.reject(); await pending;
+  assert.deepEqual(h.updater.getStatus(), current);
+});
+
+test("manual check after reenable runs a fresh check instead of joining a retired one", async () => {
+  const h = harness(); h.updater.start();
+  const retired = h.updater.checkNow(); await new Promise(setImmediate);
+  h.updater.dispose(); h.updater.start(); h.setAutomatic(false);
+  const manual = h.updater.checkNow({ manual: true });
+  h.release(); await retired; await new Promise(setImmediate);
+  h.release(); await manual;
+  assert.equal(h.requests, 1, "The explicit request must perform one fresh eligible check");
+});
+
+test("another policy suspension cancels a queued manual retry", async () => {
+  const h = harness(); h.updater.start();
+  const retired = h.updater.checkNow(); await new Promise(setImmediate);
+  h.updater.dispose(); h.updater.start();
+  const manual = h.updater.checkNow({ manual: true });
+  h.updater.dispose(); h.updater.start();
+  h.release(); await Promise.all([retired, manual]);
   assert.equal(h.requests, 0);
 });
