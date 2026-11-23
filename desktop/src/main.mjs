@@ -390,6 +390,7 @@ async function exchangeDesktopAuth(value) {
   try {
     const response = await net.fetch(new URL("/api/desktop/auth/exchange", appUrl).href, {
       method: "POST",
+      signal: AbortSignal.timeout(15_000),
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -428,7 +429,9 @@ async function exchangeDesktopAuth(value) {
     authAttempt = null;
     setAuthStatus("authenticated", "Desktop sign-in completed.");
     if (mainWindow && !mainWindow.isDestroyed()) {
-      await mainWindow.loadURL(appUrl, { extraHeaders: "Cache-Control: no-cache\n" });
+      // Authentication is complete once the session is installed. A renderer
+      // outage needs the normal Retry screen, not a false sign-in failure.
+      await loadApplication(mainWindow);
     }
     focusMainWindow();
     return true;
