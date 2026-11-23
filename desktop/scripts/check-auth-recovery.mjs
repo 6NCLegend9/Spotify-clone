@@ -8,10 +8,11 @@ const main = fs.readFileSync(new URL("../src/main.mjs", import.meta.url), "utf8"
 const exchangeSource = main.slice(main.indexOf("async function exchangeDesktopAuth("), main.indexOf("async function handleDeepLink("));
 const loadSource = main.slice(main.indexOf("async function loadApplication("), main.indexOf("async function enterSafeMode("));
 
-function harness({ navigationFails = false, exchangeFails = false, exchangeHangs = false } = {}) {
+function harness({ navigationFails = false, exchangeFails = false, exchangeHangs = false, delayed = false, cookieDelayed = false } = {}) {
   const attempt = auth.createDesktopAuthAttempt();
   const states = [], cookies = [];
-  let offline = 0, signal, deadline;
+  let offline = 0, signal, deadline, release;
+  const gate = new Promise(resolve => { release = resolve; });
   const controller = new AbortController();
   const context = vm.createContext({
     ...auth, URL, Error,
@@ -21,9 +22,10 @@ function harness({ navigationFails = false, exchangeFails = false, exchangeHangs
     setAuthStatus: state => states.push(state), focusMainWindow() {},
     mainWindow: { isDestroyed: () => false, loadURL: async () => { if (navigationFails) throw new Error("network unavailable"); } },
     showOfflineScreen: async () => { offline++; },
-    desktopSession: () => ({ cookies: { set: async value => cookies.push(value), remove: async () => {} } }),
+    desktopSession: () => ({ cookies: { set: async value => { cookies.push(value); if (cookieDelayed) await gate; }, remove: async () => {} } }),
     net: { fetch: async (_url, options) => {
       signal = options.signal;
+      if (delayed) await gate;
       if (exchangeHangs) return new Promise((_resolve, reject) => {
         signal?.addEventListener("abort", () => reject(new Error("exchange timed out")), { once: true });
       });
@@ -34,6 +36,8 @@ function harness({ navigationFails = false, exchangeFails = false, exchangeHangs
   vm.runInContext(loadSource + exchangeSource, context);
   return { states, cookies, get offline() { return offline; }, get signal() { return signal; }, get deadline() { return deadline; },
     expire: () => controller.abort(),
+    release,
+    replaceAttempt: () => { context.authAttempt = auth.createDesktopAuthAttempt(); states.push("waiting"); },
     run: () => context.exchangeDesktopAuth(`heykasa://auth?code=${"a".repeat(40)}&state=${attempt.state}`) };
 }
 
@@ -70,4 +74,28 @@ test("deadline expiry leaves exchanging state without installing a session", asy
   assert.equal(await pending, false);
   assert.equal(h.cookies.length, 0);
   assert.equal(h.states.at(-1), "error");
+});
+
+test("a superseded exchange response cannot install the earlier account session", async () => {
+  const h = harness({ delayed: true });
+  const pending = h.run(); h.replaceAttempt(); h.release();
+  assert.equal(await pending, false);
+  assert.equal(h.cookies.length, 0);
+  assert.equal(h.states.at(-1), "waiting");
+});
+
+test("a superseded exchange failure cannot overwrite the new sign-in attempt", async () => {
+  const h = harness({ delayed: true, exchangeFails: true });
+  const pending = h.run(); h.replaceAttempt(); h.release();
+  assert.equal(await pending, false);
+  assert.equal(h.states.at(-1), "waiting");
+});
+
+test("completion of an accepted cookie write cannot erase a newer sign-in attempt", async () => {
+  const h = harness({ cookieDelayed: true });
+  const pending = h.run(); await new Promise(setImmediate);
+  assert.equal(h.cookies.length, 1, "The earlier session write was already accepted");
+  h.replaceAttempt(); h.release();
+  assert.equal(await pending, false);
+  assert.equal(h.states.at(-1), "waiting");
 });

@@ -386,6 +386,7 @@ async function exchangeDesktopAuth(value) {
     return false;
   }
 
+  const attempt = authAttempt;
   setAuthStatus("exchanging", "Finishing desktop sign-in…");
   try {
     const response = await net.fetch(new URL("/api/desktop/auth/exchange", appUrl).href, {
@@ -399,10 +400,13 @@ async function exchangeDesktopAuth(value) {
       body: JSON.stringify({
         code: deepLink.code,
         state: deepLink.state,
-        verifier: authAttempt.verifier,
+        verifier: attempt.verifier,
       }),
     });
     const payload = await response.json().catch(() => null);
+    // A new sign-in or policy revocation retires the outstanding exchange.
+    // Never install its session or replace the newer attempt's status.
+    if (authAttempt !== attempt || !runtimeFeature("auth")) return false;
     if (!response.ok) {
       throw new Error(payload?.error || `Desktop sign-in failed with status ${response.status}.`);
     }
@@ -421,10 +425,12 @@ async function exchangeDesktopAuth(value) {
       sameSite: "lax",
       expirationDate: exchange.expiresAt,
     });
+    if (authAttempt !== attempt || !runtimeFeature("auth")) return false;
     const otherCookie = exchange.cookieName === "__Secure-next-auth.session-token"
       ? "next-auth.session-token"
       : "__Secure-next-auth.session-token";
     await ses.cookies.remove(`${origin}/`, otherCookie).catch(() => {});
+    if (authAttempt !== attempt || !runtimeFeature("auth")) return false;
 
     authAttempt = null;
     setAuthStatus("authenticated", "Desktop sign-in completed.");
@@ -436,6 +442,7 @@ async function exchangeDesktopAuth(value) {
     focusMainWindow();
     return true;
   } catch (error) {
+    if (authAttempt !== attempt) return false;
     authAttempt = null;
     logger?.error("auth_exchange_failed", { error: error instanceof Error ? error.message : "unknown" });
     setAuthStatus("error", error instanceof Error ? error.message : "Desktop sign-in could not be completed.");
