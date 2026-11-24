@@ -46,6 +46,7 @@ import {
   accentFromBitmap,
   foregroundForAccent,
   isAllowedArtworkUrl,
+  readArtworkBytes,
 } from "./artworkPalette.mjs";
 import { DesktopPolicy, effectiveUpdateRolloutPercent } from "./policy.mjs";
 import {
@@ -248,14 +249,7 @@ async function accentFromArtwork(url) {
   if (!isAllowedArtworkUrl(url)) return "";
   if (artworkAccentCache.has(url)) return artworkAccentCache.get(url);
   const response = await net.fetch(url, { signal: AbortSignal.timeout(8_000) });
-  if (!response.ok) throw new Error("Artwork was unavailable.");
-  const contentType = response.headers.get("content-type") || "";
-  const announcedSize = Number(response.headers.get("content-length") || 0);
-  if (!contentType.startsWith("image/") || announcedSize > 5 * 1024 * 1024) {
-    throw new Error("Artwork response was not a supported image.");
-  }
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error("Artwork image was too large.");
+  const bytes = await readArtworkBytes(response);
   const image = nativeImage.createFromBuffer(bytes);
   if (image.isEmpty()) throw new Error("Artwork could not be decoded.");
   const sample = image.resize({ width: 32, height: 32, quality: "good" }).toBitmap();
