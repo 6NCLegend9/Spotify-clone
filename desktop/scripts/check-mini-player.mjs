@@ -40,6 +40,7 @@ function harness(hasTrack = true) {
   const context = vm.createContext({
     BrowserWindow: Window, path, __dirname: "/isolated", MINI_PARTITION: "test",
     resourceIconPath: () => "/isolated/icon.png",
+    screen: { getCursorScreenPoint: () => ({ x: 24, y: 24 }), getDisplayNearestPoint: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }) },
     session: { fromPartition: () => ({}) }, app: { isPackaged: true }, logger: null,
     dialog: { showErrorBox: (...args) => errors.push(args) },
     installAppearanceProtocol() {}, installLocalPages() {}, localPageUrl: name => `heykasa-ui://bundled/${name}`, denyGuestContents() {}, installPopupGuard() {},

@@ -12,6 +12,7 @@ import {
   Notification,
   powerMonitor,
   protocol,
+  screen,
   session,
   shell,
   Tray,
@@ -719,10 +720,23 @@ function positionMiniPlayer() {
   if (!miniWindow || miniWindow.isDestroyed()) return;
   const { width, height } = miniWindow.getBounds();
   const trayBounds = tray && !tray.isDestroyed() ? tray.getBounds() : null;
-  const cursor = trayBounds || { x: 24, y: 24, width: 0, height: 0 };
-  const x = Math.max(8, cursor.x + cursor.width - width);
-  const y = cursor.y > height + 24 ? cursor.y - height - 8 : cursor.y + cursor.height + 8;
-  miniWindow.setPosition(Math.round(x), Math.round(y));
+  const anchor = trayBounds && trayBounds.width > 0 && trayBounds.height > 0
+    ? trayBounds : { ...screen.getCursorScreenPoint(), width: 0, height: 0 };
+  const { workArea } = screen.getDisplayNearestPoint({
+    x: Math.round(anchor.x + anchor.width / 2),
+    y: Math.round(anchor.y + anchor.height / 2),
+  });
+  // Electron bounds are already device-independent coordinates. Keep negative
+  // monitor origins and exclude taskbars instead of clamping to the primary.
+  const insetX = Math.min(8, Math.max(0, (workArea.width - width) / 2));
+  const insetY = Math.min(8, Math.max(0, (workArea.height - height) / 2));
+  const minX = workArea.x + insetX, minY = workArea.y + insetY;
+  const maxX = Math.max(minX, workArea.x + workArea.width - width - insetX);
+  const maxY = Math.max(minY, workArea.y + workArea.height - height - insetY);
+  const x = anchor.x + anchor.width - width;
+  const above = anchor.y - height - 8;
+  const y = above >= minY ? above : anchor.y + anchor.height + 8;
+  miniWindow.setPosition(Math.round(Math.min(maxX, Math.max(minX, x))), Math.round(Math.min(maxY, Math.max(minY, y))));
 }
 
 function showMiniPlayerIfReady(window) {

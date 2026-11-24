@@ -44,6 +44,8 @@ jobs:
         run: find desktop/src desktop/scripts -name '*.mjs' -print0 | xargs -0 -n 1 node --check
       - name: Verify mini-player startup and loading failures
         run: node desktop/scripts/check-mini-player.mjs
+      - name: Verify mini-player monitor and taskbar placement
+        run: node --test desktop/scripts/check-mini-placement.mjs
       - name: Verify internal builds preserve installed login handlers
         run: node --test desktop/scripts/check-protocol-registration.mjs
       - name: Verify desktop sign-in network recovery
