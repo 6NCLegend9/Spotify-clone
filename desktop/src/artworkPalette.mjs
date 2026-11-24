@@ -47,7 +47,8 @@ function byte(value) {
 export function isAllowedArtworkUrl(value) {
   try {
     const url = new URL(String(value || ""));
-    return url.protocol === "https:" && ALLOWED_ARTWORK_HOSTS.has(url.hostname);
+    return url.protocol === "https:" && !url.username && !url.password && !url.port
+      && ALLOWED_ARTWORK_HOSTS.has(url.hostname);
   } catch {
     return false;
   }

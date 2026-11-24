@@ -251,7 +251,9 @@ async function accentFromArtwork(url) {
   if (artworkAccentCache.has(url)) return artworkAccentCache.get(url);
   if (artworkAccentPending.has(url)) return artworkAccentPending.get(url);
   const pending = (async () => {
-    const response = await net.fetch(url, { signal: AbortSignal.timeout(8_000) });
+    // Only direct image requests to the approved hosts are supported. A
+    // redirect must not silently move this native request outside that list.
+    const response = await net.fetch(url, { signal: AbortSignal.timeout(8_000), redirect: "error" });
     const bytes = await readArtworkBytes(response);
     const image = nativeImage.createFromBuffer(bytes);
     if (image.isEmpty()) throw new Error("Artwork could not be decoded.");

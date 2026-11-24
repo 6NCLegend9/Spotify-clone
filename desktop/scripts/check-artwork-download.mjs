@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import http from "node:http";
 import { test } from "node:test";
 import * as artwork from "../src/artworkPalette.mjs";
 
@@ -85,4 +86,34 @@ test("buffer growth preserves bytes across differently sized chunks", async () =
     if (index === parts.length) controller.close(); else controller.enqueue(parts[index++]);
   } }), { headers: { "content-type": "image/png" } });
   assert.deepEqual(await artwork.readArtworkBytes(response), Buffer.concat(parts));
+});
+
+test("artwork URLs reject credentials and nonstandard ports", () => {
+  for (const url of ["https://user:password@i.ytimg.com/image.jpg", "https://i.ytimg.com:8443/image.jpg"]) {
+    assert.equal(artwork.isAllowedArtworkUrl(url), false, url);
+  }
+  assert.equal(artwork.isAllowedArtworkUrl("https://i.ytimg.com:443/image.jpg"), true);
+});
+
+test("an artwork redirect is rejected before contacting its destination", async () => {
+  let destinationRequests = 0;
+  const server = http.createServer((request, response) => {
+    if (request.url === "/start") { response.writeHead(302, { location: "/destination" }); response.end(); }
+    else { destinationRequests++; response.writeHead(200, { "content-type": "image/jpeg" }); response.end(Buffer.alloc(20)); }
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  try {
+    // Only the test origin is substituted. Execute the real request options
+    // against an actual HTTP redirect; no external host or account is involved.
+    const context = vm.createContext({ ...artwork, Buffer, AbortSignal,
+      isAllowedArtworkUrl: () => true, artworkAccentCache: new Map(), artworkAccentPending: new Map(),
+      net: { fetch }, nativeImage: { createFromBuffer: () => ({ isEmpty: () => false, resize: () => ({ toBitmap: () => Buffer.alloc(16) }) }) },
+    });
+    vm.runInContext(code, context);
+    await assert.rejects(context.accentFromArtwork(`http://127.0.0.1:${server.address().port}/start`));
+    assert.equal(destinationRequests, 0);
+  } finally {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
 });
