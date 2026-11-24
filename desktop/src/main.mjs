@@ -379,14 +379,19 @@ async function exchangeDesktopAuth(value) {
     return false;
   }
   const deepLink = parseDesktopAuthDeepLink(value);
-  if (!deepLink || !authAttempt || desktopAuthAttemptExpired(authAttempt)
-    || !isMatchingDesktopAuthState(authAttempt, deepLink.state)) {
+  if (!authAttempt) return false;
+  if (desktopAuthAttemptExpired(authAttempt)) {
     authAttempt = null;
     setAuthStatus("error", "This desktop sign-in request is invalid or expired. Start sign-in again.");
     return false;
   }
+  // Browser tabs and OS protocol delivery may return an older or duplicate
+  // callback. Reject it without retiring the current, still-valid attempt.
+  if (!deepLink || !isMatchingDesktopAuthState(authAttempt, deepLink.state)) return false;
 
   const attempt = authAttempt;
+  if (attempt.exchangeStarted) return false;
+  attempt.exchangeStarted = true;
   setAuthStatus("exchanging", "Finishing desktop sign-in…");
   try {
     const response = await net.fetch(new URL("/api/desktop/auth/exchange", appUrl).href, {

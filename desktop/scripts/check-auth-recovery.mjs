@@ -11,7 +11,7 @@ const loadSource = main.slice(main.indexOf("async function loadApplication("), m
 function harness({ navigationFails = false, exchangeFails = false, exchangeHangs = false, delayed = false, cookieDelayed = false } = {}) {
   const attempt = auth.createDesktopAuthAttempt();
   const states = [], cookies = [];
-  let offline = 0, signal, deadline, release;
+  let offline = 0, requests = 0, signal, deadline, release;
   const gate = new Promise(resolve => { release = resolve; });
   const controller = new AbortController();
   const context = vm.createContext({
@@ -24,6 +24,7 @@ function harness({ navigationFails = false, exchangeFails = false, exchangeHangs
     showOfflineScreen: async () => { offline++; },
     desktopSession: () => ({ cookies: { set: async value => { cookies.push(value); if (cookieDelayed) await gate; }, remove: async () => {} } }),
     net: { fetch: async (_url, options) => {
+      requests++;
       signal = options.signal;
       if (delayed) await gate;
       if (exchangeHangs) return new Promise((_resolve, reject) => {
@@ -34,7 +35,7 @@ function harness({ navigationFails = false, exchangeFails = false, exchangeHangs
     } },
   });
   vm.runInContext(loadSource + exchangeSource, context);
-  return { states, cookies, get offline() { return offline; }, get signal() { return signal; }, get deadline() { return deadline; },
+  return { states, cookies, get requests() { return requests; }, get offline() { return offline; }, get signal() { return signal; }, get deadline() { return deadline; },
     expire: () => controller.abort(),
     release,
     replaceAttempt: () => { context.authAttempt = auth.createDesktopAuthAttempt(); states.push("waiting"); },
@@ -50,6 +51,30 @@ test("successful sign-in survives a subsequent network navigation failure", asyn
   assert.equal(h.offline, 1);
   assert.equal(h.states.at(-1), "authenticated");
   assert(!h.states.includes("error"));
+});
+
+test("an older browser callback leaves the current sign-in attempt intact", async () => {
+  const h = harness(); h.replaceAttempt();
+  assert.equal(await h.run(), false);
+  assert.equal(h.states.at(-1), "waiting");
+  assert.equal(h.requests, 0);
+});
+
+test("duplicate callbacks only exchange a one-time grant once", async () => {
+  const h = harness({ delayed: true });
+  const first = h.run(), duplicate = h.run();
+  h.release(); await Promise.all([first, duplicate]);
+  assert.equal(h.requests, 1);
+  assert.equal(h.cookies.length, 1);
+  assert.equal(h.states.at(-1), "authenticated");
+});
+
+test("a callback delivered again after success cannot turn authentication into an error", async () => {
+  const h = harness();
+  assert.equal(await h.run(), true);
+  assert.equal(await h.run(), false);
+  assert.equal(h.requests, 1);
+  assert.equal(h.states.at(-1), "authenticated");
 });
 
 test("exchange requests carry a bounded deadline", async () => {
