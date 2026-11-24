@@ -106,6 +106,7 @@ let lastNativeUpdateNotificationVersion = "";
 let resolvedAccent = "#096192";
 let appearanceGeneration = 0;
 const artworkAccentCache = new Map();
+const artworkAccentPending = new Map();
 const offlineWindows = new WeakSet();
 
 protocol.registerSchemesAsPrivileged([
@@ -248,15 +249,25 @@ async function chooseBackgroundFile() {
 async function accentFromArtwork(url) {
   if (!isAllowedArtworkUrl(url)) return "";
   if (artworkAccentCache.has(url)) return artworkAccentCache.get(url);
-  const response = await net.fetch(url, { signal: AbortSignal.timeout(8_000) });
-  const bytes = await readArtworkBytes(response);
-  const image = nativeImage.createFromBuffer(bytes);
-  if (image.isEmpty()) throw new Error("Artwork could not be decoded.");
-  const sample = image.resize({ width: 32, height: 32, quality: "good" }).toBitmap();
-  const accent = accentFromBitmap(sample);
-  artworkAccentCache.set(url, accent);
-  if (artworkAccentCache.size > 80) artworkAccentCache.delete(artworkAccentCache.keys().next().value);
-  return accent;
+  if (artworkAccentPending.has(url)) return artworkAccentPending.get(url);
+  const pending = (async () => {
+    const response = await net.fetch(url, { signal: AbortSignal.timeout(8_000) });
+    const bytes = await readArtworkBytes(response);
+    const image = nativeImage.createFromBuffer(bytes);
+    if (image.isEmpty()) throw new Error("Artwork could not be decoded.");
+    const sample = image.resize({ width: 32, height: 32, quality: "good" }).toBitmap();
+    const accent = accentFromBitmap(sample);
+    artworkAccentCache.set(url, accent);
+    if (artworkAccentCache.size > 80) artworkAccentCache.delete(artworkAccentCache.keys().next().value);
+    return accent;
+  })();
+  artworkAccentPending.set(url, pending);
+  try {
+    return await pending;
+  } finally {
+    // Failures must not poison future retries; retain only successful colors.
+    artworkAccentPending.delete(url);
+  }
 }
 
 async function refreshAppearanceAccent() {
