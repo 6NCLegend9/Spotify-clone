@@ -356,8 +356,9 @@ function setAuthStatus(state, detail = "") {
 
 async function startDesktopAuth() {
   if (!runtimeFeature("auth")) return setAuthStatus("disabled", featureDisabledMessage("auth"));
-  authAttempt = createDesktopAuthAttempt();
-  const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, authAttempt);
+  const attempt = createDesktopAuthAttempt();
+  authAttempt = attempt;
+  const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, attempt);
   if (!isSafeDesktopOpenUrl(authorizeUrl, { allowLoopbackHttp: !app.isPackaged })) {
     authAttempt = null;
     return setAuthStatus("error", "Desktop sign-in URL is not allowed.");
@@ -366,6 +367,7 @@ async function startDesktopAuth() {
   try {
     await shell.openExternal(authorizeUrl);
   } catch (error) {
+    if (authAttempt !== attempt) return { ...authStatus };
     authAttempt = null;
     return setAuthStatus("error", error instanceof Error ? error.message : "Could not open the sign-in browser.");
   }

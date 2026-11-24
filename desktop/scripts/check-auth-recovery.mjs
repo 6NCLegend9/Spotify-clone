@@ -7,6 +7,47 @@ import * as auth from "../src/authFlow.mjs";
 const main = fs.readFileSync(new URL("../src/main.mjs", import.meta.url), "utf8");
 const exchangeSource = main.slice(main.indexOf("async function exchangeDesktopAuth("), main.indexOf("async function handleDeepLink("));
 const loadSource = main.slice(main.indexOf("async function loadApplication("), main.indexOf("async function enterSafeMode("));
+const startSource = main.slice(main.indexOf("async function startDesktopAuth("), main.indexOf("async function exchangeDesktopAuth("));
+
+function browserLaunchHarness() {
+  const launches = [];
+  const context = vm.createContext({
+    ...auth, Error, authAttempt: null, authStatus: { state: "idle" },
+    runtimeFeature: () => true, app: { isPackaged: true },
+    appUrl: "https://haykasa.vercel.app", isSafeDesktopOpenUrl: () => true,
+    setAuthStatus: (state, detail) => (context.authStatus = { state, detail }),
+    shell: { openExternal: () => new Promise((resolve, reject) => launches.push({ resolve, reject })) },
+  });
+  vm.runInContext(startSource, context);
+  return { context, launches, start: () => context.startDesktopAuth() };
+}
+
+test("an old browser launch failure cannot erase a newer login attempt", async () => {
+  const h = browserLaunchHarness();
+  const first = h.start(), second = h.start();
+  const currentAttempt = h.context.authAttempt;
+  h.launches[1].resolve(); await second;
+  h.launches[0].reject(new Error("old launch failed")); await first;
+  assert.equal(h.context.authAttempt, currentAttempt);
+  assert.equal(h.context.authStatus.state, "waiting");
+});
+
+test("browser launch failure after policy revocation preserves disabled status", async () => {
+  const h = browserLaunchHarness();
+  const pending = h.start();
+  h.context.authAttempt = null;
+  h.context.authStatus = { state: "disabled", detail: "policy" };
+  h.launches[0].reject(new Error("launch failed")); await pending;
+  assert.equal(h.context.authStatus.state, "disabled");
+});
+
+test("current browser launch failure clears its own attempt and reports an error", async () => {
+  const h = browserLaunchHarness();
+  const pending = h.start();
+  h.launches[0].reject(new Error("launch failed")); await pending;
+  assert.equal(h.context.authAttempt, null);
+  assert.equal(h.context.authStatus.state, "error");
+});
 
 function harness({ navigationFails = false, exchangeFails = false, exchangeHangs = false, delayed = false, cookieDelayed = false } = {}) {
   const attempt = auth.createDesktopAuthAttempt();
