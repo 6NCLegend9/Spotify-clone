@@ -15,8 +15,8 @@ if ($HistoricalBaseline -and (Get-FileHash -LiteralPath $BeforeInstaller -Algori
 }
 $output = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installed-upgrade'
 $scratch = Join-Path $env:RUNNER_TEMP ('haykasa-upgrade-' + [guid]::NewGuid().ToString('N'))
-$install = Join-Path $scratch 'installed'
-$profile = Join-Path $scratch 'profile'
+$install = Join-Path $scratch 'Installed HayKasa'
+$profile = Join-Path $scratch 'Test Profile'
 $executable = Join-Path $install 'HayKasa.exe'
 New-Item -ItemType Directory -Force -Path $output, $profile | Out-Null
 $report = [ordered]@{
@@ -66,7 +66,7 @@ console.log(JSON.stringify({version: metadata.version, channel: metadata.heykasa
 
 function Start-And-Verify([string]$version) {
     $started = [DateTimeOffset]::UtcNow
-    $app = Start-Process -FilePath $executable -ArgumentList @("--user-data-dir=$profile") -WindowStyle Hidden -PassThru
+    $app = Start-Process -FilePath $executable -ArgumentList ('"--user-data-dir={0}"' -f $profile) -WindowStyle Hidden -PassThru
     $log = Join-Path $profile 'logs/desktop.log'
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds(90)
     while ([DateTimeOffset]::UtcNow -lt $deadline) {
@@ -112,6 +112,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Replacement version must be strictly newer.' }
     if ($after.archiveSha256 -eq $before.archiveSha256) { throw 'Installer did not replace the application archive.' }
     $report.after = $after
+    $shortcutShell = New-Object -ComObject WScript.Shell
+    foreach ($folder in @('DesktopDirectory', 'Programs')) {
+        $link = Join-Path ([Environment]::GetFolderPath($folder)) 'HayKasa.lnk'
+        if (-not (Test-Path -LiteralPath $link -PathType Leaf)) { throw "Missing installed shortcut in $folder." }
+        if ($shortcutShell.CreateShortcut($link).TargetPath -ne $executable) { throw "Shortcut in $folder points to the wrong executable." }
+    }
+    $report.shortcutTargetsVerified = $true
     $report.afterRuntime = Start-And-Verify $after.version
     Stop-TestApp
 
