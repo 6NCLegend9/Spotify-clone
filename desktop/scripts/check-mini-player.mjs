@@ -41,6 +41,8 @@ function harness(hasTrack = true) {
     BrowserWindow: Window, path, __dirname: "/isolated", MINI_PARTITION: "test",
     resourceIconPath: () => "/isolated/icon.png",
     screen: { getCursorScreenPoint: () => ({ x: 24, y: 24 }), getDisplayNearestPoint: () => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }) },
+    sanitizePlaybackState: () => ({ hasTrack: false, playing: false, canPlay: false }),
+    console: { error() {} }, store: null, showOfflineScreen() {},
     session: { fromPartition: () => ({}) }, app: { isPackaged: true }, logger: null,
     dialog: { showErrorBox: (...args) => errors.push(args) },
     installAppearanceProtocol() {}, installLocalPages() {}, localPageUrl: name => `heykasa-ui://bundled/${name}`, denyGuestContents() {}, installPopupGuard() {},
@@ -49,11 +51,20 @@ function harness(hasTrack = true) {
     clearTimeout: id => timers.delete(id),
   });
   vm.runInContext(`let miniWindow = null, miniReady = false, miniRendered = false, miniReadyTimer = null, miniUserHidden = true;
-    let mainWindow = null, tray = null, playbackState = { hasTrack: ${hasTrack} };
+    let mainWindow = null, tray = null, quitting = false, playbackState = { hasTrack: ${hasTrack} };
     ${between("hideMiniPlayer", "showMainWindow")}
     ${between("broadcastPlayback", "positionMiniPlayer")}
     ${between("positionMiniPlayer", "thumbarIcon")}`, context);
+  const crashStart = source.indexOf('window.webContents.on("render-process-gone"');
+  const crashHandler = source.slice(crashStart, source.indexOf('window.on("closed"', crashStart));
+  context.window = { webContents: new EventEmitter(), isDestroyed: () => false, setTitle() {} };
+  context.PRODUCT_NAME = "HayKasa";
+  vm.runInContext(crashHandler, context);
   return { windows, errors, timers, call: (code) => vm.runInContext(code, context),
+    crashMain() {
+      vm.runInContext("mainWindow = window", context);
+      context.window.webContents.emit("render-process-gone", {}, { reason: "crashed" });
+    },
     rendered(window = windows.at(-1)) {
       context.renderEvent = { sender: window.webContents, senderFrame: window.webContents.mainFrame };
       return vm.runInContext("markMiniPlayerRendered(renderEvent)", context);
@@ -61,6 +72,15 @@ function harness(hasTrack = true) {
   };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+{
+  const h = harness(); h.call("toggleMiniPlayer()");
+  const w = h.windows[0]; w.emit("ready-to-show"); h.rendered(w);
+  assert.equal(w.visible, true);
+  h.crashMain();
+  assert.equal(w.visible, false, "A crashed playback renderer leaves no live mini player");
+  assert.equal(h.call("playbackState.hasTrack"), false);
+}
 
 {
   const h = harness(); h.call("toggleMiniPlayer()");

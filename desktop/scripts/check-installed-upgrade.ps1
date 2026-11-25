@@ -1,7 +1,8 @@
 param(
-    [Parameter(Mandatory = $true)][string]$BeforeInstaller,
+    [string]$BeforeInstaller,
     [Parameter(Mandatory = $true)][string]$AfterInstaller,
-    [switch]$HistoricalBaseline
+    [switch]$HistoricalBaseline,
+    [switch]$FreshInstall
 )
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/installed-runtime-events.ps1"
@@ -15,12 +16,12 @@ if ($HistoricalBaseline -and (Get-FileHash -LiteralPath $BeforeInstaller -Algori
 }
 $output = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installed-upgrade'
 $scratch = Join-Path $env:RUNNER_TEMP ('haykasa-upgrade-' + [guid]::NewGuid().ToString('N'))
-$install = Join-Path $scratch 'Installed HayKasa'
+$install = if ($FreshInstall) { Join-Path $env:LOCALAPPDATA 'Programs/HayKasa' } else { Join-Path $scratch 'Installed HayKasa' }
 $profile = Join-Path $scratch 'Test Profile'
 $executable = Join-Path $install 'HayKasa.exe'
 New-Item -ItemType Directory -Force -Path $output, $profile | Out-Null
 $report = [ordered]@{
-    scope = $(if ($HistoricalBaseline) { 'Published 1.0.0 to unsigned internal NSIS replacement on disposable Windows runner' } else { 'Unsigned internal NSIS old-to-new replacement on disposable Windows runner' })
+    scope = $(if ($FreshInstall) { 'Fresh unsigned internal NSIS installation on disposable Windows runner' } elseif ($HistoricalBaseline) { 'Published 1.0.0 to unsigned internal NSIS replacement on disposable Windows runner' } else { 'Unsigned internal NSIS old-to-new replacement on disposable Windows runner' })
     signedAutoUpdateVerified = $false
     audiblePlaybackVerified = $false
     passed = $false
@@ -36,7 +37,8 @@ function Stop-TestApp {
 function Install-TestBuild([string]$installer) {
     $resolved = (Resolve-Path -LiteralPath $installer).Path
     Stop-TestApp
-    $setup = Start-Process -FilePath $resolved -ArgumentList @('/S', "/D=$install") -WindowStyle Hidden -PassThru
+    $arguments = if ($FreshInstall) { @('/S') } else { @('/S', "/D=$install") }
+    $setup = Start-Process -FilePath $resolved -ArgumentList $arguments -WindowStyle Hidden -PassThru
     if (-not $setup.WaitForExit(120000)) { $setup.Kill(); throw 'Silent installation exceeded two minutes.' }
     if ($setup.ExitCode -ne 0) { throw "Installer exited with $($setup.ExitCode)." }
     if (-not (Test-Path -LiteralPath $executable)) { throw 'Installer did not write the expected isolated executable.' }
@@ -86,31 +88,38 @@ function Start-And-Verify([string]$version) {
 }
 
 try {
-    $identity = [guid]::NewGuid().ToString()
-    @{ version = 2; installationId = $identity; autoUpdate = $false; closeToTray = $false; updateChannel = 'internal' } |
-        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $profile 'desktop-settings.json') -Encoding utf8
-    $marker = Join-Path $profile 'retained-data.txt'
-    Set-Content -LiteralPath $marker -Value 'Isolated upgrade retention fixture' -Encoding utf8
-    $markerHash = (Get-FileHash -LiteralPath $marker -Algorithm SHA256).Hash
+    if ($FreshInstall) {
+        if (Test-Path -LiteralPath $install) { throw 'Fresh install test requires an empty default installation path.' }
+        if (Get-ChildItem -LiteralPath $profile -Force) { throw 'Fresh install test requires an empty profile.' }
+    } else {
+        $identity = [guid]::NewGuid().ToString()
+        @{ version = 2; installationId = $identity; autoUpdate = $false; closeToTray = $false; updateChannel = 'internal' } |
+            ConvertTo-Json | Set-Content -LiteralPath (Join-Path $profile 'desktop-settings.json') -Encoding utf8
+        $marker = Join-Path $profile 'retained-data.txt'
+        Set-Content -LiteralPath $marker -Value 'Isolated upgrade retention fixture' -Encoding utf8
+        $markerHash = (Get-FileHash -LiteralPath $marker -Algorithm SHA256).Hash
 
-    Install-TestBuild $BeforeInstaller
-    $before = Inspect-InstalledBuild
-    if ($HistoricalBaseline) {
-        if ($before.version -ne '1.0.0' -or $before.channel -ne 'stable') { throw 'Unexpected historical baseline metadata.' }
-    } elseif ($before.channel -ne 'internal') { throw 'Baseline installer must be internal.' }
-    $report.before = $before
-    $report.beforeRuntime = Start-And-Verify $before.version
-    Stop-TestApp
+        Install-TestBuild $BeforeInstaller
+        $before = Inspect-InstalledBuild
+        if ($HistoricalBaseline) {
+            if ($before.version -ne '1.0.0' -or $before.channel -ne 'stable') { throw 'Unexpected historical baseline metadata.' }
+        } elseif ($before.channel -ne 'internal') { throw 'Baseline installer must be internal.' }
+        $report.before = $before
+        $report.beforeRuntime = Start-And-Verify $before.version
+        Stop-TestApp
+    }
 
     Install-TestBuild $AfterInstaller
     $after = Inspect-InstalledBuild
     $expected = Inspect-InstalledBuild (Join-Path $env:GITHUB_WORKSPACE 'desktop/dist/win-unpacked')
     if ($after.archiveSha256 -ne $expected.archiveSha256) { throw 'Installed files do not match the newly built application archive.' }
     if ($after.channel -ne 'internal') { throw 'Replacement installer must be internal.' }
-    $compare = "import('./desktop/src/version.mjs').then(m => { if (m.compareReleaseVersions(process.argv[1], process.argv[2]) !== 1) process.exitCode = 1; });"
-    & node -e $compare $after.version $before.version
-    if ($LASTEXITCODE -ne 0) { throw 'Replacement version must be strictly newer.' }
-    if ($after.archiveSha256 -eq $before.archiveSha256) { throw 'Installer did not replace the application archive.' }
+    if (-not $FreshInstall) {
+        $compare = "import('./desktop/src/version.mjs').then(m => { if (m.compareReleaseVersions(process.argv[1], process.argv[2]) !== 1) process.exitCode = 1; });"
+        & node -e $compare $after.version $before.version
+        if ($LASTEXITCODE -ne 0) { throw 'Replacement version must be strictly newer.' }
+        if ($after.archiveSha256 -eq $before.archiveSha256) { throw 'Installer did not replace the application archive.' }
+    }
     $report.after = $after
     $shortcutShell = New-Object -ComObject WScript.Shell
     foreach ($folder in @('DesktopDirectory', 'Programs')) {
@@ -123,11 +132,18 @@ try {
     Stop-TestApp
 
     $settings = Get-Content -LiteralPath (Join-Path $profile 'desktop-settings.json') -Raw | ConvertFrom-Json
-    if ($settings.installationId -ne $identity -or $settings.autoUpdate -ne $false -or $settings.closeToTray -ne $false) {
-        throw 'Upgrade failed to preserve desktop identity/preferences.'
+    if ($FreshInstall) {
+        if (-not [guid]::TryParse($settings.installationId, [ref]([guid]::Empty)) -or $settings.autoUpdate -ne $true -or $settings.closeToTray -ne $true -or $settings.updateChannel -ne 'internal') {
+            throw 'Fresh launch did not create the expected installation identity and defaults.'
+        }
+        $report.freshDefaultsVerified = $true
+    } else {
+        if ($settings.installationId -ne $identity -or $settings.autoUpdate -ne $false -or $settings.closeToTray -ne $false) {
+            throw 'Upgrade failed to preserve desktop identity/preferences.'
+        }
+        if ((Get-FileHash -LiteralPath $marker -Algorithm SHA256).Hash -ne $markerHash) { throw 'Upgrade changed existing profile data.' }
+        $report.profilePreserved = $true
     }
-    if ((Get-FileHash -LiteralPath $marker -Algorithm SHA256).Hash -ne $markerHash) { throw 'Upgrade changed existing profile data.' }
-    $report.profilePreserved = $true
     $report.passed = $true
 } catch {
     $report.error = $_.Exception.Message

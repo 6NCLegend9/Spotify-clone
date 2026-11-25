@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        baseline: [internal, historical]
+        baseline: [internal, historical, fresh]
     runs-on: windows-latest
     timeout-minutes: 40
     env:
@@ -109,14 +109,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Desktop SBOM checks failed" }
       - name: Validate GitHub release bundle preparation
         run: npm --prefix desktop run prepare-github-release
-      - name: Verify installed upgrade and retained profile
+      - name: Verify installed runtime, shortcuts and profile
         shell: pwsh
         env:
           UPGRADE_BASELINE: ${{ matrix.baseline }}
         run: |
-          $before = @(Get-ChildItem artifacts/desktop-upgrade-baseline -Filter 'HayKasa-Setup*.exe')
           $after = @(Get-ChildItem desktop/dist -Filter 'HayKasa-Setup-*-x64.exe')
-          if ($before.Count -ne 1 -or $after.Count -ne 1) { throw "Expected exactly one baseline and one replacement installer" }
+          if ($after.Count -ne 1) { throw "Expected exactly one candidate installer" }
+          if ($env:UPGRADE_BASELINE -eq 'fresh') {
+            ./desktop/scripts/check-installed-upgrade.ps1 -AfterInstaller $after[0].FullName -FreshInstall
+            exit
+          }
+          $before = @(Get-ChildItem artifacts/desktop-upgrade-baseline -Filter 'HayKasa-Setup*.exe')
+          if ($before.Count -ne 1) { throw "Expected exactly one baseline installer" }
           ./desktop/scripts/check-installed-upgrade.ps1 -BeforeInstaller $before[0].FullName -AfterInstaller $after[0].FullName -HistoricalBaseline:($env:UPGRADE_BASELINE -eq 'historical')
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()

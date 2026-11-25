@@ -669,6 +669,9 @@ async function createMainWindow() {
     void showOfflineScreen(window);
   });
   window.webContents.on("render-process-gone", (_event, details) => {
+    if (window !== mainWindow || quitting) return;
+    playbackState = sanitizePlaybackState(null);
+    broadcastPlayback();
     console.error(JSON.stringify({
       level: "error",
       event: "renderer_crash",
