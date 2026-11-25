@@ -59,8 +59,15 @@ function harness(hasTrack = true) {
   const crashHandler = source.slice(crashStart, source.indexOf('window.on("closed"', crashStart));
   context.window = { webContents: new EventEmitter(), isDestroyed: () => false, setTitle() {} };
   context.PRODUCT_NAME = "HayKasa";
+  const navigationStart = source.indexOf('window.webContents.on("did-finish-load"');
+  const navigationEnd = source.indexOf('window.once("ready-to-show"', navigationStart);
+  vm.runInContext(source.slice(navigationStart, navigationEnd), context);
   vm.runInContext(crashHandler, context);
   return { windows, errors, timers, call: (code) => vm.runInContext(code, context),
+    navigateMain(event) {
+      vm.runInContext("mainWindow = window", context);
+      context.window.webContents.emit(event);
+    },
     crashMain() {
       vm.runInContext("mainWindow = window", context);
       context.window.webContents.emit("render-process-gone", {}, { reason: "crashed" });
@@ -72,6 +79,16 @@ function harness(hasTrack = true) {
   };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+{
+  const h = harness(); h.call("toggleMiniPlayer()");
+  const w = h.windows[0]; w.emit("ready-to-show"); h.rendered(w);
+  h.navigateMain("did-navigate-in-page");
+  assert.equal(w.visible, true, "An in-page route change keeps the current playback controls");
+  h.navigateMain("did-navigate");
+  assert.equal(w.visible, false, "Replacing the playback document dismisses stale controls");
+  assert.equal(h.call("playbackState.hasTrack"), false);
+}
 
 {
   const h = harness(); h.call("toggleMiniPlayer()");

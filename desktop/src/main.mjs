@@ -652,6 +652,13 @@ async function createMainWindow() {
   window.webContents.on("did-finish-load", () => {
     if (isTrustedRendererUrl(window.webContents.getURL(), trustedOrigins)) offlineWindows.delete(window);
   });
+  // A new main-frame document no longer owns the previous track. Same-document
+  // navigation does not emit this event and can keep playing uninterrupted.
+  window.webContents.on("did-navigate", () => {
+    if (window !== mainWindow || quitting || !playbackState.hasTrack) return;
+    playbackState = sanitizePlaybackState(null);
+    broadcastPlayback();
+  });
 
   window.once("ready-to-show", () => window.show());
   window.on("close", (event) => {
