@@ -81,6 +81,17 @@ const results = [];
         setAction(action, handler);
       };
     });
+    if (!scenario.mobile) await context.addInitScript(() => {
+      window.heykasaDesktop = {
+        playback: {
+          report: async () => {},
+          onCommand: handler => {
+            window.qaDesktopCommand = handler;
+            return () => { delete window.qaDesktopCommand; };
+          },
+        },
+      };
+    });
     if (scenario.pauseBeforeReady) await context.addInitScript(() => { window.qaDelaySdkReady = 1200; });
     const page = await context.newPage(); currentPage = page;
     let sdkRequests = 0, sdkStartedAt = 0, permitSdk = false;
@@ -239,6 +250,14 @@ const results = [];
     }
     await page.waitForFunction(() => window.qaSdk?.active()?.getPlayerState() === 1 && window.qaSdk.active().getCurrentTime() > 1 && !window.qaSdk.active().isMuted());
     await dock.getByRole("button", { name: "Pause", exact: true }).filter({ visible: true }).waitFor();
+    if (!scenario.mobile) {
+      await page.waitForFunction(() => typeof window.qaDesktopCommand === "function");
+      await page.evaluate(() => window.qaDesktopCommand("play-pause"));
+      await page.waitForFunction(() => window.qaSdk.active()?.getPlayerState() === 2, null, { timeout: 5000 });
+      await dock.getByRole("button", { name: "Play", exact: true }).filter({ visible: true }).waitFor();
+      await page.evaluate(() => window.qaDesktopCommand("play-pause"));
+      await page.waitForFunction(() => window.qaSdk.active()?.getPlayerState() === 1 && !window.qaSdk.active().isMuted(), null, { timeout: 5000 });
+    }
     assert.equal(sdkRequests, 2, "Manual Retry starts exactly one fresh SDK request");
     assert.equal(await message.count(), 0, "Manual Retry clears the connection error");
     await selected.waitFor();

@@ -55,6 +55,7 @@ import { requestJson } from "@/services/http";
 import { applyLatestOutputVolume, armVolumeRestore, youtubePlaybackVolume, bandsForPreset } from "@/utils/eqPresets";
 import { THUMB_FALLBACK } from "@/utils/imageOptimize";
 import {
+  DESKTOP_PLAY_PAUSE_EVENT,
   DESKTOP_PREV_EVENT,
   DESKTOP_SKIP_EVENT,
   JAM_AUX_SKIP_EVENT,
@@ -2584,6 +2585,7 @@ function YouTubePlayer() {
   playNextOrContinueRef.current = playNextOrContinue;
 
   const handleNextRef = useRef(() => {});
+  const handlePlayPauseRef = useRef(() => {});
   const handlePrevRef = useRef(() => {});
 
   useEffect(() => {
@@ -2854,7 +2856,7 @@ function YouTubePlayer() {
     cancelFade();
     const player = getActivePlayer();
 
-    if (isPlaying) {
+    if (store.getState().player.isPlaying) {
       userPausedRef.current = true;
       isPlayingRef.current = false;
       pageHiddenWhilePlayingRef.current = false;
@@ -2871,6 +2873,13 @@ function YouTubePlayer() {
     applyPlaybackVolume(player);
     player.playVideo();
   };
+  handlePlayPauseRef.current = handlePlayPause;
+
+  useEffect(() => {
+    const toggle = () => handlePlayPauseRef.current();
+    window.addEventListener(DESKTOP_PLAY_PAUSE_EVENT, toggle);
+    return () => window.removeEventListener(DESKTOP_PLAY_PAUSE_EVENT, toggle);
+  }, []);
 
   const handleRetryPlayback = async () => {
     const current = videoRef.current;
