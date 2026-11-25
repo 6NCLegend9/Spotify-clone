@@ -12,6 +12,7 @@ export default function DesktopNowPlayingPanel({ collapsed, onToggle }) {
       <header className="now-playing-panel__header">
         {!collapsed && <h2 title={source || "Now Playing"}>{source || "Now Playing"}</h2>}
         <button type="button" onClick={onToggle} className="icon-btn"
+          aria-controls="kasa-now-playing-slot" aria-expanded={!collapsed}
           aria-label={collapsed ? "Open now playing panel" : "Close now playing panel"}
           title={collapsed ? "Open now playing panel" : "Close now playing panel"}>
           {collapsed ? <FiChevronLeft size="1em" /> : <FiX size="1em" />}

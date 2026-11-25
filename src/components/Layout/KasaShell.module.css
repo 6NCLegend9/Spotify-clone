@@ -110,10 +110,12 @@
  :global(.app-shell):has(.navbar) :global(.right-panel-resizer), :global(.app-shell):has(.navbar) :global(.now-playing-panel), :global(.app-shell):has(.navbar) :global(.app-tabbar) { display: none; }
 }
 @media (min-width:1181px) {
- :global(.app-shell[data-has-track="true"]:not(.is-right-panel-collapsed)):has(.navbar) { grid-template-columns: var(--sidebar-live-w,280px) 8px minmax(0,1fr) 8px var(--right-panel-live-w,320px); }
- :global(.app-shell[data-has-track="true"].is-sidebar-collapsed:not(.is-right-panel-collapsed)):has(.navbar) { grid-template-columns: 72px 8px minmax(0,1fr) 8px var(--right-panel-live-w,320px); }
+ :global(.app-shell[data-has-track="true"]):has(.navbar) { --now-playing-width: var(--right-panel-live-w,320px); grid-template-columns: var(--sidebar-live-w,280px) 8px minmax(0,1fr) 8px var(--now-playing-width); }
+ :global(.app-shell[data-has-track="true"].is-sidebar-collapsed):has(.navbar) { grid-template-columns: 72px 8px minmax(0,1fr) 8px var(--now-playing-width); }
+ :global(.app-shell[data-has-track="true"].is-right-panel-collapsed):has(.navbar) { --now-playing-width: 56px; }
  :global(.app-shell[data-has-track="true"]:not(.is-right-panel-collapsed)):has(.navbar) :global(.right-panel-resizer) { display: block; position: relative; inset: auto; grid-column: 4; grid-row: 2; width: 8px; margin: 0; }
- :global(.app-shell[data-has-track="true"]:not(.is-right-panel-collapsed)):has(.navbar) :global(.now-playing-panel) { display: flex; flex-direction: column; grid-column: 5; grid-row: 2; position: relative; inset: auto; height: 100%; width: 100%; }
+ :global(.app-shell[data-has-track="true"]):has(.navbar) :global(.now-playing-panel) { display: flex; flex-direction: column; min-width: 0; grid-column: 5; grid-row: 2; position: relative; inset: auto; height: 100%; width: 100%; }
+ :global(.app-shell[data-has-track="true"].is-right-panel-collapsed):has(.navbar) :global(.now-playing-panel__header) { justify-content: center; padding-inline: 4px; }
 }
 @media (max-width:1180px) { .install { display: none; } .navbar { grid-template-columns: 48px minmax(0,1fr) auto; } }
 @media (max-width:767px), (orientation:landscape) and (pointer:coarse) and (max-height:540px) and (max-width:1100px) {
