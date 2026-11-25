@@ -716,6 +716,7 @@ function broadcastPlayback() {
   updateTrayMenu();
   updateThumbar();
   if (miniWindow && !miniWindow.isDestroyed()) {
+    if (!playbackState.hasTrack && !miniUserHidden) hideMiniPlayer();
     miniWindow.webContents.send("heykasa:playback:state", playbackState);
   }
   // The mini player is opt-in. Starting playback must not create another

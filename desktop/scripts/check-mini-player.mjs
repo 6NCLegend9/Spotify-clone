@@ -63,6 +63,18 @@ function harness(hasTrack = true) {
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 {
+  const h = harness(); h.call("toggleMiniPlayer()");
+  const w = h.windows[0]; w.emit("ready-to-show"); h.rendered(w);
+  assert.equal(w.visible, true);
+  h.call("playbackState.hasTrack = false; broadcastPlayback()");
+  assert.equal(w.visible, false, "An exhausted queue must dismiss the always-on-top controller");
+  h.call("playbackState.hasTrack = true; broadcastPlayback()");
+  assert.equal(w.visible, false, "Starting another track must not reopen the controller");
+  h.call("toggleMiniPlayer()");
+  assert.equal(w.visible, true, "The user can reopen the controller for the new track");
+}
+
+{
   const h = harness(); h.call("broadcastPlayback()");
   assert.equal(h.windows.length, 0, "Playback/startup never creates a mini window");
   const empty = harness(false); empty.call("toggleMiniPlayer()");
