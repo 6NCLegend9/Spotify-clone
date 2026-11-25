@@ -46,6 +46,40 @@ function Install-TestBuild([string]$installer) {
     Stop-TestApp
 }
 
+function Get-ShortcutPaths {
+    foreach ($folder in @('DesktopDirectory', 'Programs')) {
+        Join-Path ([Environment]::GetFolderPath($folder)) 'HayKasa.lnk'
+    }
+}
+
+function Assert-InstalledShortcuts {
+    $shortcutShell = New-Object -ComObject WScript.Shell
+    foreach ($link in Get-ShortcutPaths) {
+        if (-not (Test-Path -LiteralPath $link -PathType Leaf)) { throw "Missing installed shortcut: $link" }
+        if ($shortcutShell.CreateShortcut($link).TargetPath -ne $executable) { throw "Shortcut points to the wrong executable: $link" }
+    }
+}
+
+function Uninstall-TestBuild {
+    Stop-TestApp
+    $uninstaller = Join-Path $install 'Uninstall HayKasa.exe'
+    $process = Start-Process -FilePath $uninstaller -ArgumentList '/S' -WindowStyle Hidden -PassThru
+    if (-not $process.WaitForExit(120000)) {
+        $process.Kill()
+        throw 'Silent uninstallation exceeded two minutes.'
+    }
+    if ($process.ExitCode -ne 0) { throw "Uninstaller exited with $($process.ExitCode)." }
+    # NSIS may hand off to a temporary copy of the uninstaller.
+    $deadline = [DateTimeOffset]::UtcNow.AddSeconds(60)
+    $paths = @($executable, $uninstaller) + @(Get-ShortcutPaths)
+    do {
+        $remaining = @($paths | Where-Object { Test-Path -LiteralPath $_ })
+        if (-not $remaining.Count) { return }
+        Start-Sleep -Milliseconds 500
+    } while ([DateTimeOffset]::UtcNow -lt $deadline)
+    throw "Uninstall did not remove the app and shortcuts: $($remaining -join ', ')"
+}
+
 function Inspect-InstalledBuild([string]$directory = $install) {
     $inspect = @'
 const fs = require('node:fs');
@@ -122,12 +156,7 @@ try {
         if ($after.archiveSha256 -eq $before.archiveSha256) { throw 'Installer did not replace the application archive.' }
     }
     $report.after = $after
-    $shortcutShell = New-Object -ComObject WScript.Shell
-    foreach ($folder in @('DesktopDirectory', 'Programs')) {
-        $link = Join-Path ([Environment]::GetFolderPath($folder)) 'HayKasa.lnk'
-        if (-not (Test-Path -LiteralPath $link -PathType Leaf)) { throw "Missing installed shortcut in $folder." }
-        if ($shortcutShell.CreateShortcut($link).TargetPath -ne $executable) { throw "Shortcut in $folder points to the wrong executable." }
-    }
+    Assert-InstalledShortcuts
     $report.shortcutTargetsVerified = $true
     $report.afterRuntime = Start-And-Verify $after.version
     Stop-TestApp
@@ -138,6 +167,15 @@ try {
             throw 'Fresh launch did not create the expected installation identity and defaults.'
         }
         $report.freshDefaultsVerified = $true
+        $identity = $settings.installationId
+        Uninstall-TestBuild
+        $report.uninstallVerified = $true
+        Install-TestBuild $AfterInstaller
+        Assert-InstalledShortcuts
+        $report.reinstalledRuntime = Start-And-Verify $after.version
+        $reinstalledSettings = Get-Content -LiteralPath (Join-Path $profile 'desktop-settings.json') -Raw | ConvertFrom-Json
+        if ($reinstalledSettings.installationId -ne $identity) { throw 'Reinstall lost the test profile identity.' }
+        $report.reinstallPreservedProfile = $true
     } else {
         if ($settings.installationId -ne $identity -or $settings.autoUpdate -ne $false -or $settings.closeToTray -ne $false) {
             throw 'Upgrade failed to preserve desktop identity/preferences.'
