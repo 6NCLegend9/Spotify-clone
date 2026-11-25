@@ -16,7 +16,8 @@ if ($HistoricalBaseline -and (Get-FileHash -LiteralPath $BeforeInstaller -Algori
 }
 $output = Join-Path $env:GITHUB_WORKSPACE 'artifacts/installed-upgrade'
 $scratch = Join-Path $env:RUNNER_TEMP ('haykasa-upgrade-' + [guid]::NewGuid().ToString('N'))
-$install = if ($FreshInstall) { Join-Path $env:LOCALAPPDATA 'Programs/HayKasa' } else { Join-Path $scratch 'Installed HayKasa' }
+# The per-user one-click installer uses the package name for its folder.
+$install = if ($FreshInstall) { Join-Path $env:LOCALAPPDATA 'Programs/heykasa-desktop' } else { Join-Path $scratch 'Installed HayKasa' }
 $profile = Join-Path $scratch 'Test Profile'
 $executable = Join-Path $install 'HayKasa.exe'
 New-Item -ItemType Directory -Force -Path $output, $profile | Out-Null
