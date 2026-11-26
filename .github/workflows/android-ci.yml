@@ -62,6 +62,7 @@ jobs:
           node-version: 22.x
       - name: Materialize a Windows CRLF checkout
         run: git -c core.autocrlf=true checkout-index --force --all
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify CRLF input and the full Android check command
         run: |
           node -e "if (!require('node:fs').readFileSync('src/components/MusicPlayer/YouTubePlayer.jsx', 'utf8').includes('\r\n')) throw new Error('Expected a CRLF checkout')"
