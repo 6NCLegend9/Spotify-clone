@@ -36,6 +36,10 @@ concurrency:
 
 jobs:
   windows-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        baseline: [internal, historical, fresh]
     runs-on: windows-latest
     timeout-minutes: 40
     env:
@@ -51,10 +55,32 @@ jobs:
         run: npm run check:desktop-contract
       - name: Install desktop dependencies
         run: npm --prefix desktop ci --no-audit --no-fund
-      - name: Audit runtime dependencies
-        run: npm --prefix desktop audit --omit=dev --audit-level=high
+      - name: Audit shipped runtime and build dependencies
+        run: npm --prefix desktop audit --include=dev --audit-level=moderate
+      - name: Verify actual packaging include and exclude behavior
+        run: node --test desktop/scripts/check-packaging-filters.mjs
       - name: Stamp internal preview channel
         run: npm --prefix desktop pkg set heykasaReleaseChannel=internal
+      - name: Build isolated upgrade baseline
+        if: matrix.baseline == 'internal'
+        shell: pwsh
+        run: |
+          $baseVersion = (Get-Content desktop/package.json -Raw | ConvertFrom-Json).version.Split('-')[0]
+          Push-Location desktop
+          try {
+            ./node_modules/.bin/electron-builder.cmd --win nsis --x64 --publish never --config.directories.output=../artifacts/desktop-upgrade-baseline "--config.extraMetadata.version=$baseVersion-internal.0"
+            if ($LASTEXITCODE -ne 0) { throw "Could not build the internal upgrade baseline" }
+          } finally { Pop-Location }
+      - name: Fetch pinned published upgrade baseline
+        if: matrix.baseline == 'historical'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/desktop-upgrade-baseline | Out-Null
+          $installer = 'artifacts/desktop-upgrade-baseline/HayKasa-Setup-x64.exe'
+          Invoke-WebRequest -Uri 'https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-latest/HayKasa-Setup-x64.exe' -OutFile $installer
+          if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash -ne '5f163cdf097b30ecc5a83e48602ed301890f8df66f04751dae034f90e7c9f36b') {
+            throw 'Published baseline changed; inspect the replacement before updating its digest.'
+          }
       - name: Stamp internal test version
         shell: pwsh
         run: |
@@ -72,9 +98,40 @@ jobs:
           if (-not $exe) { throw "HayKasa.exe was not produced" }
           Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
           ./desktop/scripts/check-windows-icons.ps1 -ExecutablePaths @($exe.FullName, $installer.FullName)
+      - name: Generate and verify shipped Electron SBOM
+        shell: pwsh
+        run: |
+          npm --prefix desktop sbom --omit=dev --sbom-format=cyclonedx | Out-File -FilePath desktop/dist/heykasa-desktop-sbom.cdx.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Desktop SBOM generation failed" }
+          node desktop/scripts/include-electron-in-sbom.mjs desktop/dist/heykasa-desktop-sbom.cdx.json
+          if ($LASTEXITCODE -ne 0) { throw "Desktop runtime missing from SBOM" }
+          node --test desktop/scripts/check-runtime-sbom.mjs
+          if ($LASTEXITCODE -ne 0) { throw "Desktop SBOM checks failed" }
       - name: Validate GitHub release bundle preparation
         run: npm --prefix desktop run prepare-github-release
+      - name: Verify installed runtime, shortcuts and profile
+        shell: pwsh
+        env:
+          UPGRADE_BASELINE: ${{ matrix.baseline }}
+        run: |
+          $after = @(Get-ChildItem desktop/dist -Filter 'HayKasa-Setup-*-x64.exe')
+          if ($after.Count -ne 1) { throw "Expected exactly one candidate installer" }
+          if ($env:UPGRADE_BASELINE -eq 'fresh') {
+            ./desktop/scripts/check-installed-upgrade.ps1 -AfterInstaller $after[0].FullName -FreshInstall
+            exit
+          }
+          $before = @(Get-ChildItem artifacts/desktop-upgrade-baseline -Filter 'HayKasa-Setup*.exe')
+          if ($before.Count -ne 1) { throw "Expected exactly one baseline installer" }
+          ./desktop/scripts/check-installed-upgrade.ps1 -BeforeInstaller $before[0].FullName -AfterInstaller $after[0].FullName -HistoricalBaseline:($env:UPGRADE_BASELINE -eq 'historical')
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: desktop-installed-upgrade-${{ matrix.baseline }}-${{ github.sha }}
+          path: artifacts/installed-upgrade/
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: matrix.baseline == 'internal'
         with:
           name: heykasa-desktop-windows-${{ github.sha }}
           path: |
@@ -82,6 +139,7 @@ jobs:
             desktop/dist/latest.yml
             desktop/dist/*.blockmap
             desktop/dist/release-manifest.json
+            desktop/dist/heykasa-desktop-sbom.cdx.json
             desktop/dist/icon-verification/
           if-no-files-found: error
           retention-days: 7

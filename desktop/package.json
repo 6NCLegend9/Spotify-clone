@@ -17,8 +17,16 @@
     "electron-updater": "6.8.9"
   },
   "devDependencies": {
-    "electron": "44.4.1",
+    "electron": "44.10.1",
     "electron-builder": "26.15.3"
+  },
+  "overrides": {
+    "app-builder-lib": {
+      "minimatch": "11.0.8"
+    },
+    "@electron/universal": {
+      "minimatch": "11.0.8"
+    }
   },
   "build": {
     "appId": "com.heykasa.desktop",

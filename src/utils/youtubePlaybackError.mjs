@@ -32,6 +32,8 @@ export function sourceAudioFallbackMessage(reason) {
       return "Source audio requires a signed-in account when available. YouTube playback has its own restrictions.";
     case "service_disabled":
       return "Source audio is currently disabled, so this track depends on YouTube playback.";
+    case "source_network_restricted":
+      return "The music source could not be reached. Try again later.";
     case "source_access_restricted":
     case "source_http_forbidden":
       return "The audio provider blocked this request. Open the track on YouTube. Signing in to HayKasa does not remove the provider's restriction.";
@@ -99,11 +101,12 @@ export function youtubePlaybackFailurePolicy(input = {}) {
   const alternateAttempts = Math.max(0, Number(input.alternateAttempts) || 0);
   const raw = input.code;
   const isStall = raw === "stall";
-  const base = isStall
+  const isStartupTimeout = raw === "startup_timeout";
+  const base = isStall || isStartupTimeout
     ? {
         code: raw,
         canRetry: true,
-        message: "This video stopped buffering.",
+        message: isStartupTimeout ? "This track did not start playing." : "This video stopped buffering.",
         detail: "Retry playback, or search for another version of this song.",
       }
     : youtubePlaybackError(raw);
@@ -112,7 +115,7 @@ export function youtubePlaybackFailurePolicy(input = {}) {
   // Unavailable/private videos, owner embed blocks and missing player
   // verification need a user choice. Automatically replacing uploads or
   // advancing a radio queue can hide the restriction and consume the queue.
-  if ([100, 101, 150, 153].includes(Number(raw))) {
+  if (isStartupTimeout || [100, 101, 150, 153].includes(Number(raw))) {
     return { action: /** @type {PlaybackFailureAction} */ ("fatalUI"), error };
   }
 

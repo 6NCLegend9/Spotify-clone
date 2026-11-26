@@ -10,12 +10,21 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.AudioOffloadSupport;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.session.MediaSession;
+import androidx.media3.session.DefaultMediaNotificationProvider;
 import androidx.media3.session.MediaSessionService;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,11 +36,21 @@ public final class PlaybackService extends MediaSessionService {
     public final class LocalBinder extends Binder { PlaybackService service() { return PlaybackService.this; } }
     private final LocalBinder binder = new LocalBinder();
     private final Map<String, ExoPlayer> players = new HashMap<>();
+    private final Map<String, NativeAudioProcessor> processors = new HashMap<>();
     private final Map<String, Sink> sinks = new HashMap<>();
+    private final Map<String, SessionTransportPlayer> wrappers = new HashMap<>();
+    private final Map<String, NativePlaybackQueue> queues = new HashMap<>();
+    private final Map<String, String> policyReasons = new HashMap<>();
+    private final Object localAttachment = new Object();
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final OrderedMediaBridge ordered = new OrderedMediaBridge(this, handler);
     private ExoPlayer idle;
+    private SessionTransportPlayer idleWrapper;
+    private String activeId;
     private DefaultMediaSourceFactory sourceFactory;
     private MediaSession session;
+    private boolean destroying;
+    private static final java.util.concurrent.atomic.AtomicInteger sessionIds = new java.util.concurrent.atomic.AtomicInteger(1000);
     private final Runnable ticker = new Runnable() {
         @Override public void run() {
             for (String id : players.keySet()) emit(id, "progress");
@@ -43,12 +62,19 @@ public final class PlaybackService extends MediaSessionService {
         androidx.media3.common.util.Log.setLogLevel(androidx.media3.common.util.Log.LOG_LEVEL_OFF);
         sourceFactory = new DefaultMediaSourceFactory(this);
         idle = new ExoPlayer.Builder(this).build();
+        idleWrapper = new SessionTransportPlayer(idle, true, (playing, mutation) -> {}, this::diagnostic);
+        setMediaNotificationProvider(new DefaultMediaNotificationProvider.Builder(this)
+            .setNotificationIdProvider(value -> Integer.parseInt(value.getId())).build());
+        createSession();
+        handler.post(ticker);
+    }
+    private void createSession() {
         PendingIntent activity = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        session = new MediaSession.Builder(this, idle).setSessionActivity(activity).build();
+        session = new MediaSession.Builder(this, idleWrapper)
+            .setId(Integer.toString(sessionIds.incrementAndGet())).setSessionActivity(activity).build();
         // This app binds through LocalBinder, so no MediaController connection
         // invokes onGetSession to register the session on our behalf.
         addSession(session);
-        handler.post(ticker);
     }
     @Nullable @Override public IBinder onBind(Intent intent) {
         return "app.haykasa.android.BIND".equals(intent.getAction()) ? binder : super.onBind(intent);
@@ -56,66 +82,220 @@ public final class PlaybackService extends MediaSessionService {
     @Nullable @Override public MediaSession onGetSession(MediaSession.ControllerInfo info) {
         return info.isTrusted() || info.getUid() == getApplicationInfo().uid ? session : null;
     }
-    public void command(JSONObject msg, Sink sink) throws Exception {
-        String id = msg.optString("id"), action = msg.optString("action");
-        if (!MediaPolicy.isId(id)) return;
-        if ("release".equals(action)) { release(id); return; }
+    public boolean command(JSONObject msg, Sink sink) throws Exception {
+        return command(msg, sink, localAttachment);
+    }
+    /** Returns whether this renderer needs the host's native player-update UI. */
+    public boolean command(JSONObject msg, Sink sink, Object attachment) throws Exception {
+        if (Looper.myLooper() != handler.getLooper()) throw new IllegalStateException("Media commands require the application looper");
+        return ordered.handle(msg, sink, attachment);
+    }
+
+    int nativeBuildCode() {
+        try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode; }
+        catch (android.content.pm.PackageManager.NameNotFoundException error) { throw new IllegalStateException(error); }
+    }
+    boolean hasPlayer(String id) { return players.containsKey(id); }
+    boolean reserveOrderedSlot(String id) {
+        if (players.containsKey(id) || ordered.contains(id)) return true;
+        int count = ordered.size();
+        for (String key : players.keySet()) if (!ordered.contains(key)) count++;
+        if (count < 2) return true;
+        for (String key : ordered.ids()) if (!key.equals(activeId)) { releasePlayer(key); return true; }
+        for (String key : players.keySet().toArray(new String[0])) if (!key.equals(activeId)) { releasePlayer(key); return true; }
+        return false;
+    }
+
+    void loadPlayer(String id, String url, String title, Sink sink) {
         ExoPlayer player = players.get(id);
-        if ("load".equals(action)) {
-            String url = msg.optString("url");
-            if (!MediaPolicy.isAsset(url)) {
-                sink.send(new JSONObject().put("id", id).put("event", "error").toString());
-                return;
-            }
-            if (player == null) {
-                if (players.size() >= 2) {
-                    for (String old : players.keySet().toArray(new String[0])) {
-                        if (players.get(old) != session.getPlayer()) { release(old); break; }
-                    }
-                    if (players.size() >= 2) return;
-                }
-                player = new ExoPlayer.Builder(this).setMediaSourceFactory(sourceFactory).build();
-                player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true);
-                player.setHandleAudioBecomingNoisy(true);
-                player.setWakeMode(C.WAKE_MODE_LOCAL);
-                final String key = id;
-                player.addListener(new Player.Listener() {
-                    @Override public void onPlaybackStateChanged(int state) {
-                        emit(key, state == Player.STATE_READY ? "ready" : state == Player.STATE_ENDED ? "ended" : "waiting");
-                    }
-                    @Override public void onIsPlayingChanged(boolean playing) { ExoPlayer own = players.get(key); emit(key, playing ? "playing" : own != null && own.getPlayWhenReady() ? "waiting" : "pause"); }
-                    @Override public void onPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
-                        if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) emit(key, "seeked");
-                    }
-                    @Override public void onPlayerError(PlaybackException error) {
-                        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-                            android.util.Log.d("HayKasaMediaQA", "error code=" + error.getErrorCodeName());
+        if (player == null) {
+            if (!reserveOrderedSlot(id)) throw new IllegalStateException("Media capacity reached");
+            NativeAudioProcessor processor = new NativeAudioProcessor();
+            DefaultRenderersFactory renderers = new DefaultRenderersFactory(this) {
+                @Override protected AudioSink buildAudioSink(android.content.Context context, boolean floatOutput, boolean playbackParams) {
+                    AudioSink sink = new DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(false)
+                        .setAudioProcessors(new AudioProcessor[]{processor})
+                        .setAudioOffloadSupportProvider((format, attributes) -> AudioOffloadSupport.DEFAULT_UNSUPPORTED)
+                        .build();
+                    // Compressed passthrough and offload skip PCM processors; always decode first.
+                    return new ForwardingAudioSink(sink) {
+                        @Override public int getFormatSupport(Format format) {
+                            return MimeTypes.AUDIO_RAW.equals(format.sampleMimeType)
+                                ? super.getFormatSupport(format) : SINK_FORMAT_UNSUPPORTED;
                         }
-                        emit(key, "error");
+                        @Override public boolean supportsFormat(Format format) {
+                            return getFormatSupport(format) != SINK_FORMAT_UNSUPPORTED;
+                        }
+                        @Override public AudioOffloadSupport getFormatOffloadSupport(Format format) {
+                            return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
+                        }
+                    };
+                }
+            };
+            player = new ExoPlayer.Builder(this, renderers).setMediaSourceFactory(sourceFactory).build();
+            processors.put(id, processor);
+            player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true);
+            player.setHandleAudioBecomingNoisy(true);
+            player.setWakeMode(C.WAKE_MODE_LOCAL);
+            final String key = id;
+            final ExoPlayer observedPlayer = player;
+            player.addListener(new Player.Listener() {
+                @Override public void onMediaItemTransition(@Nullable MediaItem item, int reason) {
+                    NativePlaybackQueue queue = queues.get(key);
+                    if (players.get(key) == observedPlayer && queue != null) queue.onMediaItemTransition(reason);
+                    if (players.get(key) == observedPlayer && reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) emit(key, "repeat");
+                }
+                @Override public void onPlaybackStateChanged(int state) {
+                    if (players.get(key) != observedPlayer) return;
+                    int actual = observedPlayer.getPlaybackState();
+                    NativePlaybackQueue queue = queues.get(key);
+                    if (actual == Player.STATE_ENDED && queue != null && queue.onEnded()) { emit(key, "waiting"); return; }
+                    emit(key, actual == Player.STATE_READY ? "ready" : actual == Player.STATE_ENDED ? "ended" : "waiting");
+                }
+                @Override public void onIsPlayingChanged(boolean playing) {
+                    if (players.get(key) != observedPlayer) return;
+                    emit(key, observedPlayer.isPlaying() ? "playing" : observedPlayer.getPlayWhenReady() ? "waiting" : "pause");
+                }
+                @Override public void onPlayWhenReadyChanged(boolean value, int reason) {
+                    if (players.get(key) != observedPlayer) return;
+                    diagnostic("play-when-ready value=" + value + " reason=" + reason + " active=" + key.equals(activeId));
+                    policyReasons.put(key, reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS ? "focus"
+                        : reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY ? "noisy" : "none");
+                    if (ordered.contains(key)) emit(key, "transportState");
+                }
+                @Override public void onPlaybackSuppressionReasonChanged(int reason) {
+                    if (players.get(key) != observedPlayer) return;
+                    diagnostic("suppression reason=" + reason + " active=" + key.equals(activeId));
+                    policyReasons.put(key, reason == Player.PLAYBACK_SUPPRESSION_REASON_NONE ? "none" : "focus");
+                    if (ordered.contains(key)) emit(key, "transportState");
+                }
+                @Override public void onPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
+                    if (players.get(key) != observedPlayer) return;
+                    if (reason == Player.DISCONTINUITY_REASON_SEEK || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) emit(key, "seeked");
+                }
+                @Override public void onPlayerError(PlaybackException error) {
+                    if (players.get(key) != observedPlayer || observedPlayer.getPlayerError() == null) return;
+                    NativePlaybackQueue queue = queues.get(key);
+                    if (queue != null && queue.onPlayerError()) { emit(key, "waiting"); return; }
+                    if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                        android.util.Log.d("HayKasaMediaQA", "error code=" + error.getErrorCodeName());
                     }
-                });
-                players.put(id, player);
-            }
-            sinks.put(id, sink);
-            String title = msg.optString("title", "HayKasa");
-            if (title.length() > 300) title = title.substring(0, 300);
-            player.setMediaItem(new MediaItem.Builder().setUri(url).setMediaMetadata(new MediaMetadata.Builder().setTitle(title).build()).build());
-            player.prepare();
-            return;
+                    emit(key, "error");
+                }
+            });
+            players.put(id, player);
+            ExoPlayer raw = player;
+            wrappers.put(id, new SessionTransportPlayer(raw, false, (playing, mutation) -> {
+                if (!id.equals(activeId) || players.get(id) != raw) {
+                    diagnostic("session-command rejected-detached");
+                    return;
+                }
+                diagnostic("session-command accepted");
+                OrderedTransport owner = ordered.owner(id);
+                if (owner == null) mutation.run(); else owner.system(playing, mutation);
+            }, this::diagnostic, direction -> {
+                if (!id.equals(activeId) || players.get(id) != raw) return true;
+                NativePlaybackQueue queue = queues.get(id);
+                if (queue == null) return false;
+                OrderedTransport owner = ordered.owner(id);
+                Runnable select = () -> { if (direction > 0) queue.next(); else queue.previous(); };
+                if (owner == null) select.run(); else owner.system(owner.intent().playWhenReady(), select);
+                return true;
+            }, () -> queues.containsKey(id)));
         }
-        if (player == null) return;
-        if (("seek".equals(action) || "volume".equals(action)) && !Double.isFinite(msg.optDouble("value", Double.NaN))) return;
-        switch (action) {
-            case "play":
-                if (session.getPlayer() != player) { session.getPlayer().pause(); session.setPlayer(player); }
-                player.play(); break;
-            case "pause": player.pause(); break;
-            case "seek": player.seekTo((long)(Math.max(0, Math.min(1801, msg.optDouble("value", 0))) * 1000)); break;
-            case "volume": player.setVolume((float)Math.max(0, Math.min(1, msg.optDouble("value", 1)))); break;
-            default: break;
+        sinks.put(id, sink);
+        if (title.length() > 300) title = title.substring(0, 300);
+        player.setMediaItem(new MediaItem.Builder().setUri(url).setMediaMetadata(new MediaMetadata.Builder().setTitle(title).build()).build());
+        player.prepare();
+    }
+
+    // Only fixed labels, booleans and platform reason codes; never media IDs, URLs or titles.
+    private void diagnostic(String message) {
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            android.util.Log.d("HayKasaMediaQA", message);
         }
     }
+
+    void setTransportPlaying(String id, boolean playing) {
+        ExoPlayer player = players.get(id);
+        if (player == null) throw new IllegalStateException("Media load missing");
+        if (playing) {
+            // Start only after native scope/revision validation, never for a stale renderer Play.
+            // The MediaSessionService owns the foreground notification while audio is playing.
+            try { startService(new Intent(this, PlaybackService.class)); } catch (IllegalStateException ignored) {}
+        }
+        if (playing && !id.equals(activeId)) {
+            ExoPlayer previous = players.get(activeId);
+            if (previous != null) {
+                OrderedTransport owner = ordered.owner(activeId);
+                if (owner == null) previous.pause(); else owner.policyPause("switch");
+            }
+            activeId = id;
+            session.setPlayer(wrappers.get(id));
+        }
+        diagnostic("bridge-or-policy play=" + playing);
+        // Stop retains the source in STATE_IDLE; only a new validated Play prepares it again.
+        NativePlaybackQueue queue = queues.get(id);
+        if (playing && player.getPlaybackState() == Player.STATE_IDLE && (queue == null || !queue.isPreparing())) player.prepare();
+        player.setPlayWhenReady(playing);
+    }
+    void configureQueue(String id, JSONObject configuration) throws org.json.JSONException {
+        ExoPlayer player = players.get(id);
+        if (player == null) throw new IllegalStateException("Media load missing");
+        NativePlaybackQueue queue = queues.get(id);
+        if (queue == null) {
+            queue = new NativePlaybackQueue(handler, player,
+                () -> { OrderedTransport owner = ordered.owner(id); return owner != null && owner.intent().playWhenReady(); },
+                () -> emit(id, "transportState"),
+                reason -> { OrderedTransport owner = ordered.owner(id); if (owner != null) owner.policyPause("other"); emit(id, "transportState"); },
+                metadata -> {
+                    NativeAudioProcessor processor = processors.get(id);
+                    if (processor == null) return;
+                    JSONObject loudness = metadata == null ? null : metadata.optJSONObject("loudness");
+                    processor.setLoudnessMeasurement(loudness == null ? null : loudness.optDouble("integratedLufs", Double.NaN),
+                        loudness == null ? null : loudness.optDouble("truePeakDbfs", Double.NaN));
+                });
+            queues.put(id, queue);
+        }
+        queue.configure(configuration);
+        emit(id, "transportState");
+    }
+    void selectQueueOccurrence(String id, String occurrenceId, long revision) throws org.json.JSONException {
+        NativePlaybackQueue queue = queues.get(id);
+        if (queue == null || queue.snapshot().optLong("revision") != revision || !queue.select(occurrenceId)) {
+            throw new IllegalArgumentException("Unavailable queue occurrence");
+        }
+    }
+    JSONObject queueSnapshot(String id) throws org.json.JSONException { NativePlaybackQueue queue = queues.get(id); return queue == null ? null : queue.snapshot(); }
+    void seekPlayer(String id, double seconds) { players.get(id).seekTo((long)(Math.max(0, Math.min(1801, seconds)) * 1000)); }
+    void volumePlayer(String id, double volume) { players.get(id).setVolume((float)Math.max(0, Math.min(1, volume))); }
+    void repeatOne(String id, boolean enabled) {
+        players.get(id).setRepeatMode(enabled ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF);
+    }
+    void configureAudio(String id, boolean bypass, double[] bands, boolean mono) {
+        configureAudio(id, bypass, bands, mono, false, null, null);
+    }
+    void configureAudio(String id, boolean bypass, double[] bands, boolean mono, boolean normalizeLoudness,
+                        Double integratedLufs, Double truePeakDbfs) {
+        NativeAudioProcessor processor = processors.get(id);
+        if (processor == null) throw new IllegalStateException("Media load missing");
+        processor.setProcessing(bypass, bands, mono, normalizeLoudness, integratedLufs, truePeakDbfs);
+    }
+    OrderedTransport.Observation observePlayer(String id) {
+        ExoPlayer player = players.get(id);
+        if (player == null) return OrderedTransport.Observation.idle();
+        String state = switch (player.getPlaybackState()) {
+            case Player.STATE_READY -> "ready"; case Player.STATE_BUFFERING -> "buffering";
+            case Player.STATE_ENDED -> "ended"; default -> "idle";
+        };
+        return new OrderedTransport.Observation(player.isPlaying(), player.getPlayWhenReady(), state,
+            player.getPlaybackSuppressionReason(), policyReasons.getOrDefault(id, "none"),
+            Math.max(0, player.getCurrentPosition()) / 1000.0, Math.max(0, player.getDuration()) / 1000.0);
+    }
     private void emit(String id, String event) {
+        String orderedEvent = "playing".equals(event) || "pause".equals(event) ? "transportState" : event;
+        if (ordered.observation(id, orderedEvent)) return;
         ExoPlayer p = players.get(id); Sink sink = sinks.get(id);
         if (p == null || sink == null) return;
         try {
@@ -127,16 +307,44 @@ public final class PlaybackService extends MediaSessionService {
             sink.send(json.toString());
         } catch (Exception ignored) { /* Never log signed media URLs or session cookies. */ }
     }
-    private void release(String id) {
+    void releasePlayer(String id) {
+        NativePlaybackQueue queue = queues.remove(id);
+        if (queue != null) queue.release();
+        ordered.forget(id);
         sinks.remove(id); ExoPlayer p = players.remove(id);
-        if (p != null) { if (session.getPlayer() == p) session.setPlayer(idle); p.release(); }
+        processors.remove(id);
+        policyReasons.remove(id);
+        SessionTransportPlayer wrapper = wrappers.remove(id);
+        if (id.equals(activeId)) {
+            activeId = null;
+            // Release ends this source's OS-control lifetime as well as its bridge binding.
+            // SystemUI can send delayed Stop after removing the old notification. Reusing
+            // its session token or notification key would let that Stop target the next source.
+            session.release();
+            if (!destroying) createSession();
+        }
+        if (wrapper != null) wrapper.release(); else if (p != null) p.release();
     }
     public void detachSinks() { sinks.clear(); }
-    public void releaseAll() { for (String id : players.keySet().toArray(new String[0])) release(id); }
+    public void detachAttachment(Object attachment) { ordered.detach(attachment); }
+    public void releaseAll() {
+        for (String id : ordered.ids()) releasePlayer(id);
+        for (String id : players.keySet().toArray(new String[0])) releasePlayer(id);
+    }
     @Override public void onTaskRemoved(Intent rootIntent) {
-        if (!session.getPlayer().getPlayWhenReady()) { releaseAll(); stopSelf(); }
+        Player current = session.getPlayer();
+        diagnostic("task-removed play=" + current.getPlayWhenReady());
+        int state = current.getPlaybackState();
+        NativePlaybackQueue queue = queues.get(activeId);
+        // A terminal source can retain Play intent; buffering and temporary focus loss can recover.
+        if (!current.getPlayWhenReady() || (queue == null || !queue.isPreparing())
+            && (state == Player.STATE_IDLE || state == Player.STATE_ENDED)) {
+            releaseAll(); stopSelf();
+        }
     }
     @Override public void onDestroy() {
-        handler.removeCallbacksAndMessages(null); releaseAll(); session.release(); idle.release(); super.onDestroy();
+        diagnostic("service-destroy");
+        destroying = true;
+        handler.removeCallbacksAndMessages(null); releaseAll(); session.release(); idleWrapper.release(); super.onDestroy();
     }
 }

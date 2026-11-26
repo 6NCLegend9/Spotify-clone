@@ -13,6 +13,7 @@ export const JAM_REMOTE_SEEK_EVENT = "heykasa:jam-seek";
 export const JAM_AUX_SKIP_EVENT = "heykasa:jam-aux-skip";
 export const DESKTOP_SKIP_EVENT = "heykasa:desktop-skip";
 export const DESKTOP_PREV_EVENT = "heykasa:desktop-prev";
+export const DESKTOP_PLAY_PAUSE_EVENT = "heykasa:desktop-play-pause";
 
 export function normalizeJamCode(value) {
   return String(value || "")

@@ -4,7 +4,6 @@ import { mergePlaylistTracks } from "@/utils/discoveryPlaylist.mjs";
 import { formatDuration, withKnownDurations } from "@/utils/trackDuration.mjs";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   Check as FiCheck,
@@ -32,18 +31,19 @@ import { requestJson } from "@/services/http";
 import { toUserError } from "@/utils/userError";
 import { cleanTitle } from "@/utils/text";
 import { FOLLOWS_CHANGED_EVENT } from "@/utils/accountNotifications.mjs";
-import { accountOwner } from "@/utils/accountCache.mjs";
+import useAccountScope from "@/hooks/useAccountScope";
+import usePlaybackRequest from "@/hooks/usePlaybackRequest";
 import { isArtistFollowed } from "@/utils/followedArtistsList.mjs";
 import styles from "./artistProfile.module.css";
 
 export default function ArtistProfile(props) {
-  const { data: session, status } = useSession();
-  const owner = accountOwner(session, status);
-  return <AccountArtistProfile key={`${owner || status}:${props.artistId}`} {...props} status={status} owner={owner} />;
+  const scope = useAccountScope();
+  return <AccountArtistProfile key={`${scope.key}:${props.artistId}`} {...props} status={scope.status} owner={scope.owner} />;
 }
 
 function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
   const dispatch = useDispatch();
+  const { begin, scope } = usePlaybackRequest();
   const [artist, setArtist] = useState({ id: artistId, title: initialName, description: "", thumbnail: "" });
   const [tracks, setTracks] = useState([]);
   const [nextPageToken, setNextPageToken] = useState("");
@@ -279,7 +279,9 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
   };
 
   const playCollection = async (collection, kind) => {
-    if (collectionBusyId) return;
+    if (collectionController.current) return;
+    const current = begin();
+    if (!current) return;
     const controller = new AbortController();
     collectionController.current = controller;
     setCollectionBusyId(collection.id);
@@ -289,14 +291,15 @@ function AccountArtistProfile({ artistId, initialName = "", status, owner }) {
         fallbackTitle: "Collection unavailable",
         fallbackMessage: "We couldn’t load the songs in this collection. Please try again.",
       });
-      if (controller.signal.aborted || !mounted.current) return;
+      if (controller.signal.aborted || !current()) return;
       const queue = Array.isArray(data?.tracks) ? data.tracks.filter(track => track?.id && !track.unavailable).map(track => ({ ...track, seedQuery: track.seedQuery || displayTitle, genre: track.genre || displayTitle })) : [];
       if (!queue.length) throw new Error("There are no playable songs in this collection.");
       dispatch(startYoutubePlayback({ queue, track: queue[0], queueMode: "collection", autoExtend: false, context: { type: kind, id: String(collection.id), name: collection.title || "Collection" } }));
     } catch (failure) {
-      if (!controller.signal.aborted && mounted.current) toast.error(toUserError(failure, { title: "Collection unavailable", message: "We couldn’t load the songs in this collection. Please try again." }).message);
+      if (!controller.signal.aborted && current()) toast.error(toUserError(failure, { title: "Collection unavailable", message: "We couldn’t load the songs in this collection. Please try again." }).message);
     } finally {
-      if (!controller.signal.aborted && mounted.current) setCollectionBusyId("");
+      if (collectionController.current === controller) collectionController.current = null;
+      if (!controller.signal.aborted && scope.isCurrentView()) setCollectionBusyId("");
     }
   };
 

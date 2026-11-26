@@ -52,6 +52,9 @@
         }[char]));
       }
       function render(state = {}) {
+        // Playback reports can arrive while the user is navigating controls.
+        // Replacing the markup must not reset their keyboard position.
+        const focusedId = root.contains(document.activeElement) ? document.activeElement.id : "";
         if (!state.hasTrack) {
           root.innerHTML = '<p class="empty">Play a song in HayKasa.</p>';
           return;
@@ -72,6 +75,8 @@
         document.getElementById("prev")?.addEventListener("click", () => api?.prev());
         document.getElementById("play")?.addEventListener("click", () => api?.playPause());
         document.getElementById("skip")?.addEventListener("click", () => api?.skip());
+        const focusedControl = focusedId ? document.getElementById(focusedId) : null;
+        if (focusedControl && !focusedControl.disabled) focusedControl.focus({ preventScroll: true });
         acknowledgeRendering();
       }
       function applyAppearance(appearance = {}) {

@@ -44,10 +44,31 @@ jobs:
         run: find desktop/src desktop/scripts -name '*.mjs' -print0 | xargs -0 -n 1 node --check
       - name: Verify mini-player startup and loading failures
         run: node desktop/scripts/check-mini-player.mjs
+      - name: Verify mini-player monitor and taskbar placement
+        run: node --test desktop/scripts/check-mini-placement.mjs
+      - name: Verify bounded artwork downloads
+        run: node --test desktop/scripts/check-artwork-download.mjs
+      - name: Verify internal builds preserve installed login handlers
+        run: node --test desktop/scripts/check-protocol-registration.mjs
+      - name: Verify desktop sign-in network recovery
+        run: node --test desktop/scripts/check-auth-recovery.mjs
+      - name: Verify restricted bundled pages and bounded offline recovery
+        run: node --test desktop/scripts/check-local-pages.mjs
+      - name: Verify actual packaging include and exclude behavior
+        run: node --test desktop/scripts/check-packaging-filters.mjs
       - name: Verify automatic releases and updater notifications
         run: node desktop/scripts/check-auto-release.mjs
-      - name: Audit runtime dependencies
-        run: npm --prefix desktop audit --omit=dev --audit-level=high
+      - name: Verify updater suspension and install-on-quit policy
+        run: node --test desktop/scripts/check-updater-suspension.mjs
+      - name: Verify useful native diagnostics without credential disclosure
+        run: node --test desktop/scripts/check-native-logging.mjs
+      - name: Verify shipped Electron SBOM coverage
+        run: |
+          npm --prefix desktop sbom --omit=dev --sbom-format=cyclonedx > /tmp/haykasa-runtime-sbom.json
+          node desktop/scripts/include-electron-in-sbom.mjs /tmp/haykasa-runtime-sbom.json
+          node --test desktop/scripts/check-runtime-sbom.mjs
+      - name: Audit shipped runtime and build dependencies
+        run: npm --prefix desktop audit --include=dev --audit-level=moderate
 
   windows-thumbar:
     runs-on: windows-latest
@@ -61,6 +82,15 @@ jobs:
       - name: Verify native Windows thumbnail-toolbar icons and controls
         shell: pwsh
         run: ./desktop/node_modules/.bin/electron.cmd ./desktop/scripts/check-thumbar.mjs
+      - name: Verify installed runtime startup evidence timestamps
+        shell: pwsh
+        run: ./desktop/scripts/check-installed-runtime-events.ps1
+      - name: Verify signed-release application and installer checks
+        shell: pwsh
+        run: ./desktop/scripts/check-release-signatures.ps1
+      - name: Verify mini-player keyboard focus in Electron
+        shell: pwsh
+        run: ./desktop/node_modules/.bin/electron.cmd ./desktop/scripts/check-mini-player-keyboard.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

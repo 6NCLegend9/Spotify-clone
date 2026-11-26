@@ -22,7 +22,8 @@ const tracks = Array.from({ length: 4 }, (_, i) => ({
   id: `qa${String(i).padStart(9, "0")}`, title: i ? `Next song ${i}` : "Blue evening",
   channel: "Blue Artist", channelId: artistId, source: "youtube", queueEntryId: `qa-${i}`, duration: 200,
 }));
-const playlists = [{ _id: "507f1f77bcf86cd799439012", name: "Evening mix", songs: [], pinned: true }, { _id: "507f1f77bcf86cd799439014", name: "Morning mix", songs: [] }];
+const playlists = [{ _id: "507f1f77bcf86cd799439012", name: "Evening mix", songs: [], pinned: true }, { _id: "507f1f77bcf86cd799439014", name: "Morning mix", songs: [] }]
+  .map(playlist => ({ ...playlist, user: { _id: owner.slice("account:".length), userName: "Panel QA" }, collaborators: [], visibility: "private" }));
 let browser, currentPage;
 const results = [];
 (async () => {
@@ -33,7 +34,7 @@ const results = [];
     await wait(1000);
   }
   assert(ready, "Production server starts");
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, ...(process.env.HAYKASA_BROWSER_EXECUTABLE ? { executablePath: process.env.HAYKASA_BROWSER_EXECUTABLE } : {}) });
   for (const [device, viewport] of Object.entries({ desktop: { width: 1440, height: 1000 }, laptop: { width: 1181, height: 900 }, mobile: { width: 390, height: 844 } })) {
     const context = await browser.newContext({ viewport, isMobile: device === "mobile", hasTouch: device === "mobile", serviceWorkers: "block", reducedMotion: "reduce" });
     await context.addInitScript(({ owner, tracks }) => {
@@ -132,9 +133,14 @@ const results = [];
       assert.equal(Math.round((await panel.boundingBox()).width), 420);
       await rightResize.dblclick();
       await panel.getByRole("button", { name: "Close now playing panel", exact: true }).click();
-      assert.equal(await panel.isVisible(), false);
-      await page.getByRole("button", { name: "Open now playing panel", exact: true }).click();
-      assert.equal(await panel.isVisible(), true);
+      const reopenPanel = panel.getByRole("button", { name: "Open now playing panel", exact: true });
+      await reopenPanel.waitFor();
+      assert.equal(Math.round((await panel.boundingBox()).width), 56, "Collapsed panel retains a narrow rail");
+      assert.equal(await reopenPanel.getAttribute("aria-expanded"), "false");
+      assert.equal(await page.locator("#kasa-now-playing-slot").isVisible(), false);
+      await reopenPanel.press("Enter");
+      await panel.getByRole("heading", { name: "Artists on this track", exact: true }).waitFor();
+      assert.equal(await panel.getByRole("button", { name: "Close now playing panel", exact: true }).getAttribute("aria-expanded"), "true");
       assert.equal(await page.locator("[data-testid='player-dock']").count(), 1, "Toggling panels retains one player");
       await page.reload({ waitUntil: "domcontentloaded" });
       await sidebar.getByRole("button", { name: "Use list view" }).waitFor();

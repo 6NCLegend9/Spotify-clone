@@ -91,16 +91,21 @@ export default function PullToRefresh() {
       onTouchEnd();
       dropMove();
     };
+    const cancelAndDrop = () => {
+      release();
+      setDistance(0);
+      dropMove();
+    };
 
     container.addEventListener("touchstart", onTouchStart, { passive: true });
     container.addEventListener("touchend", endAndDrop, { passive: true });
-    container.addEventListener("touchcancel", endAndDrop, { passive: true });
+    container.addEventListener("touchcancel", cancelAndDrop, { passive: true });
 
     return () => {
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", endAndDrop);
-      container.removeEventListener("touchcancel", endAndDrop);
+      container.removeEventListener("touchcancel", cancelAndDrop);
     };
   }, [triggerRefresh]);
 

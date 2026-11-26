@@ -1,9 +1,17 @@
 import mongoose from "mongoose";
 import { resolveMongoConnectionUrl } from "./mongoSrvUrl.mjs";
 import { mongoPoolSize } from "./mongoPoolSize.mjs";
+import { ApiRouteError } from "./apiResponseCore.mjs";
 
 const getMongoUrl = () =>
-  (process.env.MONGODB_URL || process.env.MONGODB_URI || "").trim();
+  (process.env.MONGODB_URL || "").trim() || (process.env.MONGODB_URI || "").trim();
+
+function unavailable() {
+  return new ApiRouteError("SERVICE_UNAVAILABLE", {
+    message: "HayKasa data is temporarily unavailable. Please try again later.",
+    headers: { "Retry-After": "30" },
+  });
+}
 
 const globalCache = globalThis;
 const cached = globalCache.__HeyKasaMongoose || {
@@ -17,7 +25,7 @@ mongoose.set("bufferCommands", false);
 const dbConnect = async () => {
   const mongoUrl = getMongoUrl();
   if (!mongoUrl) {
-    throw new Error("MONGODB_URL or MONGODB_URI is not configured.");
+    throw unavailable();
   }
 
   if (cached.connection) {
@@ -39,9 +47,11 @@ const dbConnect = async () => {
   try {
     cached.connection = await cached.promise;
     return cached.connection;
-  } catch (error) {
+  } catch {
     cached.promise = null;
-    throw error;
+    // Only connection establishment is classified here. Query/programming errors
+    // still reach the route's normal error handler; credentials never reach clients.
+    throw unavailable();
   }
 };
 

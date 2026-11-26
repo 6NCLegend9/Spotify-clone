@@ -7,10 +7,44 @@ on:
       - 'src/components/Searchbar.jsx'
       - 'src/components/Navbar.jsx'
       - 'src/components/DesktopAppCard.jsx'
+      - 'src/components/DesktopUpdateNotifier.jsx'
+      - 'src/utils/desktopEnvironment.js'
+      - 'scripts/check-desktop-update-ui.cjs'
+      - 'package.json'
+      - 'package-lock.json'
       - 'src/components/AndroidAppCard.jsx'
       - 'src/app/AuthProvider.js'
       - 'src/utils/youtubeIframeApi.mjs'
+      - 'src/utils/youtubePlaybackError.mjs'
       - 'src/components/SupportDiagnostics.jsx'
+      - 'src/components/AddToPlaylistButton.jsx'
+      - 'src/components/TrackQueueMenu.jsx'
+      - 'src/components/AccountPrivacyBoundary.jsx'
+      - 'src/hooks/useAccountScope.js'
+      - 'src/hooks/usePlaybackRequest.js'
+      - 'src/components/RecommendationPlaylistCard.jsx'
+      - 'src/components/ArtistProfile.jsx'
+      - 'src/components/ArtistCatalogRails.jsx'
+      - 'src/utils/accountStorage.mjs'
+      - 'src/utils/playlistAccess.mjs'
+      - 'scripts/check-playlist-menu-browser.cjs'
+      - 'src/components/FeedbackPreferences.jsx'
+      - 'src/components/ListeningInsights.jsx'
+      - 'src/components/GenrePreferences.jsx'
+      - 'src/components/UpdatesBell.jsx'
+      - 'src/app/settings/page.jsx'
+      - 'src/components/PlaylistCover.jsx'
+      - 'src/components/PullToRefresh.jsx'
+      - 'src/components/LanguageSync.jsx'
+      - 'src/hooks/useCrowdRadio.js'
+      - 'src/redux/features/playerSlice.js'
+      - 'src/utils/playbackSnapshot.mjs'
+      - 'src/utils/playerQueue.mjs'
+      - 'scripts/check-crowd-player.cjs'
+      - 'scripts/check-settings-privacy-browser.cjs'
+      - 'scripts/check-settings-scope-browser.cjs'
+      - 'scripts/check-notification-privacy-browser.cjs'
+      - 'scripts/check-playlist-adjacent-browser.cjs'
       - 'src/components/YouTubeMusicResults.jsx'
       - 'src/app/search/**'
       - 'src/utils/searchResults.mjs'
@@ -39,7 +73,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   homepage-browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 has no Ubuntu 26.04 browser build.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -61,6 +96,20 @@ jobs:
       - run: node docs/qa/android/auth-session-browser.cjs
       - run: node docs/qa/android/iframe-api-browser.cjs
       - run: node docs/qa/android-installation/browser.cjs
+      - name: Verify playlist account privacy and real keyboard interactions
+        run: node scripts/check-playlist-menu-browser.cjs
+      - name: Verify repeated queue occurrences and Crowd station advancement
+        run: node scripts/check-crowd-player.cjs
+      - name: Verify Settings panels across account and privacy-generation changes
+        run: node scripts/check-settings-privacy-browser.cjs
+      - name: Verify genre, notification and language account isolation
+        run: node scripts/check-settings-scope-browser.cjs
+      - name: Verify current notification preferences and delayed permission isolation
+        run: node scripts/check-notification-privacy-browser.cjs
+      - name: Verify cover fallback and cancelled pull gestures
+        run: node scripts/check-playlist-adjacent-browser.cjs
+      - name: Verify desktop updater status ordering and Restart recovery
+        run: node scripts/check-desktop-update-ui.cjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -73,4 +122,11 @@ jobs:
             artifacts/android-installation/
             artifacts/auth-session/
             artifacts/android-iframe-api/
+            artifacts/playlist-menu/
+            artifacts/crowd-player/
+            artifacts/settings-privacy/
+            artifacts/settings-scope/
+            artifacts/notification-privacy/
+            artifacts/playlist-adjacent/
+            artifacts/desktop-update-ui/
           retention-days: 7

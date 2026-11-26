@@ -7,6 +7,9 @@ on:
       - 'src/utils/eqPresets.js'
       - 'src/utils/nativeAudio.mjs'
       - 'src/hooks/useAudioEq.js'
+      - 'src/hooks/useJamSession.js'
+      - 'src/utils/jam*.mjs'
+      - 'scripts/check-jam-hook-revocation.cjs'
       - 'src/utils/youtubeResumePolicy.mjs'
       - 'src/utils/mediaSessionCompatibility.mjs'
       - 'src/app/api/media/**'
@@ -52,9 +55,13 @@ jobs:
           AUDIO_TEST_BROWSERS: chromium,firefox,webkit
       - run: node docs/qa/mobile-source-playback/check.cjs
       - run: node docs/qa/background-playback/check.cjs
+      - name: Jam membership revocation through the real React hook
+        run: node scripts/check-jam-hook-revocation.cjs
       - name: Test Android bridge with a real browser DOM
         run: |
           node docs/qa/android/check.mjs
+          node docs/qa/android/ordered-check.mjs
+          node docs/qa/android/ordered-player-check.cjs
           node docs/qa/android/browser.cjs
       - name: Test browser playback with real window minimization
         run: |

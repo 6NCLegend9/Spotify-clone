@@ -1,12 +1,13 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
 import { setLanguages } from "@/redux/features/languagesSlice";
 import { requestJson } from "@/services/http";
+import useAccountScope from "@/hooks/useAccountScope";
 
 const SYNC_ERROR_TOAST_ID = "account-preferences-sync-error";
+const DEFAULT_LANGUAGE = ["english"];
 
 function notifySyncFailure() {
   toast.error("Some account preferences couldn't sync. Your choices on this device are still available.", {
@@ -14,70 +15,85 @@ function notifySyncFailure() {
   });
 }
 
-// Mirrors SettingsSync.jsx: pulls the account's saved language preference on login,
-// and pushes local changes back so the preference follows the account across devices
-// (previously UserData.language was declared in the schema but never read or written).
-const LanguageSync = () => {
-  const dispatch = useDispatch();
-  const { status } = useSession();
+export default function LanguageSync() {
+  const scope = useAccountScope();
   const languages = useSelector((state) => state.languages.languages);
-  const hydratedRef = useRef(false);
-  const skipNextPushRef = useRef(false);
+  // Only a known guest's choices may survive a login/logout cycle. Persisted
+  // account preferences have no owner metadata and must not seed another account.
+  const guestLanguagesRef = useRef(scope.status === "unauthenticated" ? languages : DEFAULT_LANGUAGE);
+  return <AccountLanguageSync key={scope.key} scope={scope} guestLanguagesRef={guestLanguagesRef} />;
+}
+
+function AccountLanguageSync({ scope, guestLanguagesRef }) {
+  const dispatch = useDispatch();
+  const languages = useSelector((state) => state.languages.languages);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const skipNextPushRef = useRef(true);
   const readyToPushRef = useRef(false);
+  const controllerRef = useRef(null);
+
+  // Redux is shared by screens outside this component. Clear the preceding
+  // account's value before paint, while its replacement preference is loading.
+  useLayoutEffect(() => {
+    dispatch(setLanguages(scope.status === "unauthenticated" ? guestLanguagesRef.current : DEFAULT_LANGUAGE));
+  }, [dispatch, scope.status, guestLanguagesRef]);
 
   useEffect(() => {
-    if (status !== "authenticated") {
-      hydratedRef.current = false;
-      readyToPushRef.current = false;
-      return;
-    }
-    if (hydratedRef.current) return;
-    hydratedRef.current = true;
-    let cancelled = false;
+    if (scope.status !== "authenticated" || !scopeRef.current.isCurrent()) return undefined;
     const controller = new AbortController();
+    controllerRef.current = controller;
+    let active = true;
+    const isCurrent = () => active && scopeRef.current.isCurrent();
     requestJson("/api/language", {
       signal: controller.signal,
       fallbackTitle: "Preferences couldn't sync",
       fallbackMessage: "Some account preferences couldn't sync.",
     })
       .then((json) => {
-        if (!json || typeof json.authenticated !== "boolean") {
+        if (!isCurrent()) return;
+        if (json?.authenticated !== true || (json.language !== null && !Array.isArray(json.language))) {
           throw new Error("Language sync did not return usable data.");
         }
-        if (!cancelled && json?.authenticated && Array.isArray(json.language) && json.language.length > 0) {
+        readyToPushRef.current = true;
+        if (Array.isArray(json.language)) {
           skipNextPushRef.current = true;
           dispatch(setLanguages(json.language));
         }
-        if (!cancelled) readyToPushRef.current = true;
       })
-      .catch(() => {
-        if (!cancelled) notifySyncFailure();
-      });
+      .catch(() => { if (isCurrent()) notifySyncFailure(); });
     return () => {
-      cancelled = true;
+      active = false;
+      readyToPushRef.current = false;
       controller.abort();
     };
-  }, [status, dispatch]);
+  }, [scope.status, dispatch]);
 
   useEffect(() => {
-    if (status !== "authenticated" || !readyToPushRef.current) return;
     if (skipNextPushRef.current) {
       skipNextPushRef.current = false;
       return;
     }
+    if (scope.status === "unauthenticated") {
+      guestLanguagesRef.current = languages;
+      return;
+    }
+    if (!readyToPushRef.current || !scopeRef.current.isCurrent()) return;
+    const controller = controllerRef.current;
     requestJson("/api/language", {
       method: "PUT",
+      signal: controller.signal,
       body: { language: languages },
       fallbackTitle: "Preferences couldn't sync",
       fallbackMessage: "Some account preferences couldn't sync.",
     })
       .then((json) => {
-        if (json?.success !== true) throw new Error("Language sync did not complete.");
+        if (!controller.signal.aborted && scopeRef.current.isCurrent() && json?.success !== true) {
+          throw new Error("Language sync did not complete.");
+        }
       })
-      .catch(() => notifySyncFailure());
-  }, [languages, status]);
+      .catch(() => { if (!controller.signal.aborted && scopeRef.current.isCurrent()) notifySyncFailure(); });
+  }, [languages, scope.status, guestLanguagesRef]);
 
   return null;
-};
-
-export default LanguageSync;
+}

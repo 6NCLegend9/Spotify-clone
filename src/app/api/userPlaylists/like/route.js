@@ -63,6 +63,10 @@ export async function POST(req) {
         ...(liked ? { $addToSet: { likedBy: user._id } } : { $pull: { likedBy: user._id } }),
         $inc: { __v: 1 },
       }, { new: true, session });
+      await updated.populate([
+        { path: "user", select: "userName imageUrl", options: { session } },
+        { path: "collaborators", select: "userName imageUrl", options: { session } },
+      ]);
       serialized = serializePlaylist(updated, user._id);
     });
     return NextResponse.json({

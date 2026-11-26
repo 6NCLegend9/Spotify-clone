@@ -1,0 +1,2094 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-29",
+  "scope": "PR42 verification plus exact released native binaries and live main production. No account writes or production activation.",
+  "productionWebCommit": "fbaae39eae5c7e70d896955d2ca8b5c4933c608e",
+  "testedPrCode": "fbf3cfc07889b6bcf299487e9b1a2a477fbf0961",
+  "sdkChangeCommit": "2694bb72a7b0e0658316532655d3bfd74a82b797",
+  "qaHarnessCommit": "1ec8cacc3358b6a22912d8f84c018a144a228e12",
+  "skills": [
+    "Ponytail",
+    "Graphify",
+    "Full-story verification",
+    "UI/UX Pro Max",
+    "Cloud runtime/networking",
+    "Vercel protected deployments, Services, environment and CI guidance"
+  ],
+  "artifacts": [
+    {
+      "id": 12925995279,
+      "runId": 40936174419,
+      "scope": "Public installed Windows EXE",
+      "sha256": "701aa3e7750c1827b0686b1e1cb712b1b549a8248653361ec6ae95e9f28efb59",
+      "digestVerified": true,
+      "zipIntegrityVerified": true
+    },
+    {
+      "id": 12925394023,
+      "runId": 40936180373,
+      "scope": "First public APK tour; cancelled, incomplete",
+      "sha256": "7f6fafc011d2b5d7eaf729966917dfa9bb0f766e2647808a781cb8492dbf2e4a",
+      "digestVerified": true,
+      "zipIntegrityVerified": true
+    },
+    {
+      "id": 12927812033,
+      "runId": 40941822310,
+      "scope": "Completed public APK focused retry",
+      "sha256": "ba97b7513b85ebac983088a09c0334e681894856881c58b0cc69813f4ec3b7f1",
+      "digestVerified": true,
+      "zipIntegrityVerified": true
+    },
+    {
+      "id": 12924563849,
+      "runId": 40936464357,
+      "scope": "PR API33 with opt-in N02g diagnostic",
+      "sha256": "3d814a0e4001f7f264bec1e56c68b3a38e78f63a48e389ff878e58181ef25711",
+      "digestVerified": true,
+      "zipIntegrityVerified": true
+    },
+    {
+      "id": 12925527601,
+      "runId": 40936464357,
+      "scope": "PR API36 with opt-in N02g diagnostic",
+      "sha256": "ffe6455d6f36252bef533f76ef68de54cff70ee2bb58c1460ff0d54e214bafc3",
+      "digestVerified": true,
+      "zipIntegrityVerified": true
+    },
+    {
+      "id": 12924814766,
+      "runId": 40939672371,
+      "scope": "Actual Windows/Electron native toolbar",
+      "sha256": "dc467fd453fa4f8ff7f6cf23601fef7c40c21f847c08dd2c8e34c5191fc3fd39",
+      "digestVerified": true,
+      "zipIntegrityVerified": true
+    },
+    {
+      "id": 12916223983,
+      "runId": 40918986054,
+      "scope": "Three-engine synthetic browser DSP and minimized-window checks",
+      "sha256": "5d03b4d7f00ca9240a239772848f4103b3d6a562954efc02e085b586840f4a7a",
+      "digestVerified": true,
+      "zipIntegrityVerified": true
+    }
+  ],
+  "windowsPublic": {
+    "release": {
+      "checkedAt": "2026-10-29T19:02:42.092Z",
+      "tag": "desktop-latest",
+      "target": "main",
+      "sourceCommit": "62a3a219f249d8f7c7f0861fbbe97ee319ffe1f0",
+      "publishedAt": "2026-09-22T07:50:02Z",
+      "releaseUrl": "https://github.com/6NCLegend9/Spotify-clone/releases/tag/desktop-latest",
+      "installerUrl": "https://github.com/6NCLegend9/Spotify-clone/releases/download/desktop-latest/HayKasa-Setup-x64.exe",
+      "name": "HayKasa-Setup-x64.exe",
+      "sizeBytes": 110799796,
+      "sha256": "5f163cdf097b30ecc5a83e48602ed301890f8df66f04751dae034f90e7c9f36b"
+    },
+    "installedVersion": {
+      "productVersion": "1.0.0.0",
+      "executableSha256": "535b50c112965396abd8be5c1570877dff3f8d1055cd70306b2731f4bd826603",
+      "fileVersion": "1.0.0"
+    },
+    "authenticode": {
+      "signer": null,
+      "statusMessage": "The file D:\\a\\_temp\\haykasa-public-desktop\\HayKasa-public-setup.exe is not digitally signed. You cannot run this script on the current system. For more information about running scripts and setting execution policy, see about_Execution_Policies at https://go.microsoft.com/fwlink/?LinkID=135170",
+      "status": "NotSigned"
+    },
+    "uiSmokePassed": true,
+    "pages": [
+      {
+        "name": "home",
+        "navigationStatus": 200,
+        "width": 1008,
+        "height": 681,
+        "horizontalOverflow": false,
+        "session": {
+          "status": 200,
+          "authenticated": false
+        }
+      },
+      {
+        "name": "search",
+        "navigationStatus": 200,
+        "width": 1008,
+        "height": 681,
+        "horizontalOverflow": false,
+        "session": {
+          "status": 200,
+          "authenticated": false
+        }
+      },
+      {
+        "name": "settings",
+        "navigationStatus": 200,
+        "width": 1008,
+        "height": 681,
+        "horizontalOverflow": false,
+        "session": {
+          "status": 200,
+          "authenticated": false
+        }
+      }
+    ],
+    "livePlayback": {
+      "before": {
+        "selected": "Expand player: 2Pac - Do For Love (Official Music Video) ft. Eric Williams",
+        "time": 0,
+        "pauseVisible": false,
+        "feedback": "YouTube does not allow this video to play here.\nDetails"
+      },
+      "after": {
+        "selected": "Expand player: 2Pac - Do For Love (Official Music Video) ft. Eric Williams",
+        "time": 0,
+        "pauseVisible": false,
+        "feedback": "YouTube does not allow this video to play here.\nDetails"
+      },
+      "timelineProgressVerified": false,
+      "manualNext": {
+        "selected": "Expand player: 2Pac Ft. Eric Williams - Do For Love (Svndero Remix)",
+        "time": 0,
+        "pauseVisible": false,
+        "feedback": "YouTube does not allow this video to play here.\nDetails",
+        "selectionChanged": true
+      }
+    },
+    "updater": {
+      "state": "disabled",
+      "version": "1.0.0",
+      "progress": 0,
+      "detail": "No signed stable desktop release has been published yet.",
+      "checkedAt": 1793300635216
+    },
+    "pageErrors": [],
+    "consoleErrors": [],
+    "qualification": "Actual packaged public1.0.0 on Windows, with live production guest UI. UI pass does not qualify playback/update success."
+  },
+  "windowsCurrentSourceToolbar": {
+    "platform": "win32",
+    "icons": [
+      {
+        "kind": "previous",
+        "size": {
+          "width": 16,
+          "height": 16
+        },
+        "scaleFactors": [
+          1,
+          2
+        ],
+        "visible": 136,
+        "transparent": 120
+      },
+      {
+        "kind": "play",
+        "size": {
+          "width": 16,
+          "height": 16
+        },
+        "scaleFactors": [
+          1,
+          2
+        ],
+        "visible": 87,
+        "transparent": 169
+      },
+      {
+        "kind": "pause",
+        "size": {
+          "width": 16,
+          "height": 16
+        },
+        "scaleFactors": [
+          1,
+          2
+        ],
+        "visible": 152,
+        "transparent": 104
+      },
+      {
+        "kind": "next",
+        "size": {
+          "width": 16,
+          "height": 16
+        },
+        "scaleFactors": [
+          1,
+          2
+        ],
+        "visible": 135,
+        "transparent": 121
+      }
+    ],
+    "states": [
+      {
+        "name": "paused",
+        "tooltips": [
+          "Previous",
+          "Play",
+          "Next"
+        ],
+        "nativeToolbarAccepted": true
+      },
+      {
+        "name": "playing",
+        "tooltips": [
+          "Previous",
+          "Pause",
+          "Next"
+        ],
+        "nativeToolbarAccepted": true
+      },
+      {
+        "name": "empty",
+        "tooltips": [
+          "Previous",
+          "Play",
+          "Next"
+        ],
+        "nativeToolbarAccepted": true
+      }
+    ],
+    "commands": [
+      "prev",
+      "play-pause",
+      "skip",
+      "prev",
+      "play-pause",
+      "skip"
+    ],
+    "passed": true,
+    "legacySvgEmpty": true,
+    "qualification": "Actual Windows/Electron decoders and toolbar acceptance; fixture invokes production callbacks. No actual user hover or installed-public1.0.0 update qualification."
+  },
+  "androidPublic": {
+    "version": "1.0.2-debug",
+    "api": "36",
+    "release": {
+      "tag": "android-preview-fbaae39eae5c7e70d896955d2ca8b5c4933c608e",
+      "target": "fbaae39eae5c7e70d896955d2ca8b5c4933c608e",
+      "publishedAt": "2026-10-24T15:32:22Z",
+      "assetId": 672619801,
+      "size": 5455386,
+      "sha256": "46527e6e7c057b368db8eef6924fe8005a98b7c0ceeb533ef1a712e1ab570a28"
+    },
+    "completed": true,
+    "functionalPass": false,
+    "freshSession": {
+      "status": 200,
+      "authenticated": false
+    },
+    "playback": {
+      "selected": "Expand player: Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music",
+      "progress": 0,
+      "pause": false,
+      "feedback": [
+        {
+          "present": true,
+          "top": 576.727294921875,
+          "bottom": 650.1818389892578,
+          "visible": true,
+          "text": "YouTube does not allow this video to play here.\nDetails"
+        }
+      ],
+      "frames": [
+        {
+          "errors": [
+            150
+          ],
+          "states": [
+            3,
+            -1
+          ],
+          "position": 0,
+          "volume": 100,
+          "muted": false,
+          "state": -1
+        }
+      ]
+    },
+    "providerRejections": [
+      {
+        "videoId": null,
+        "status": "LOGIN_REQUIRED",
+        "reason": "Sign in to confirm you’re not a bot",
+        "subreason": "",
+        "visibleError": "Sign in to confirm you’re not a bot"
+      }
+    ],
+    "manualNext": {
+      "selected": "Expand player: On & On – Cartoon, Jéja ft. Daniel Levi | Electronic Pop | ARUniverse 🎧✨",
+      "progress": 0,
+      "pause": false,
+      "feedback": [
+        {
+          "present": true,
+          "top": 576.727294921875,
+          "bottom": 650.1818389892578,
+          "visible": true,
+          "text": "YouTube does not allow this video to play here.\nDetails"
+        }
+      ],
+      "frames": [
+        {
+          "errors": [
+            150
+          ],
+          "states": [
+            3,
+            -1
+          ],
+          "position": 0,
+          "volume": 0,
+          "muted": false,
+          "state": -1
+        }
+      ],
+      "changedAtOneSecond": true,
+      "afterProviderWait": {
+        "selected": "Expand player: On & On – Cartoon, Jéja ft. Daniel Levi | Electronic Pop | ARUniverse 🎧✨",
+        "progress": 0,
+        "pause": false,
+        "feedback": [
+          {
+            "present": true,
+            "top": 576.727294921875,
+            "bottom": 650.1818389892578,
+            "visible": true,
+            "text": "YouTube does not allow this video to play here.\nDetails"
+          }
+        ],
+        "frames": [
+          {
+            "errors": [
+              150
+            ],
+            "states": [
+              3,
+              -1
+            ],
+            "position": 0,
+            "volume": 0,
+            "muted": false,
+            "state": -1
+          }
+        ]
+      }
+    },
+    "androidRuntimeCrash": false,
+    "crashLogBytes": 0,
+    "pageErrors": [],
+    "firstTourCancelled": true,
+    "observedTourViewports": [
+      {
+        "name": "01-home-guest",
+        "width": 393,
+        "height": 778,
+        "overflow": 0,
+        "nativePhone": "true",
+        "tabbar": [
+          {
+            "label": "Home",
+            "top": 718.9091186523438,
+            "bottom": 774.9091186523438,
+            "width": 91.2727279663086,
+            "height": 56
+          },
+          {
+            "label": "Search",
+            "top": 718.9091186523438,
+            "bottom": 774.9091186523438,
+            "width": 91.2727279663086,
+            "height": 56
+          },
+          {
+            "label": "Your Library",
+            "top": 718.9091186523438,
+            "bottom": 774.9091186523438,
+            "width": 91.2727279663086,
+            "height": 56
+          },
+          {
+            "label": "Create",
+            "top": 718.9091186523438,
+            "bottom": 774.9091186523438,
+            "width": 91.2727279663086,
+            "height": 56
+          }
+        ]
+      },
+      {
+        "name": "10-settings-landscape",
+        "width": 802,
+        "height": 345,
+        "overflow": 0,
+        "nativePhone": "true",
+        "tabbar": [
+          {
+            "label": "Home",
+            "top": 295.81817626953125,
+            "bottom": 343.09090423583984,
+            "width": 193.5454559326172,
+            "height": 47.272727966308594
+          },
+          {
+            "label": "Search",
+            "top": 295.81817626953125,
+            "bottom": 343.09090423583984,
+            "width": 193.5454559326172,
+            "height": 47.272727966308594
+          },
+          {
+            "label": "Your Library",
+            "top": 295.81817626953125,
+            "bottom": 343.09090423583984,
+            "width": 193.5454559326172,
+            "height": 47.272727966308594
+          },
+          {
+            "label": "Create",
+            "top": 295.81817626953125,
+            "bottom": 343.09090423583984,
+            "width": 193.5454559326172,
+            "height": 47.272727966308594
+          }
+        ]
+      }
+    ],
+    "qualification": "Byte-identical public APK1.0.2-debug, fresh API36 emulator, live main production. Failed playback; no physical speaker/Bluetooth or working live-background claim."
+  },
+  "androidPrNative": [
+    {
+      "api": 33,
+      "total": 21,
+      "passed": 20,
+      "failed": [
+        {
+          "class": "app.haykasa.android.OrderedBridgeTest",
+          "name": "retiredBindingCannotBeReactivatedAfterAnIntermediateScope",
+          "failure": [
+            {
+              "tag": "failure",
+              "type": null,
+              "message": null,
+              "text": "java.lang.AssertionError: A retired binding must not regain old command authority\nat org.junit.Assert.fail(Assert.java:89)\nat org.junit.Assert.assertTrue(Assert.java:42)\nat app.haykasa.android.OrderedBridgeTest.retiredBindingCannotBeReactivatedAfterAnIntermediateScope(OrderedBridgeTest.java:344)\n"
+            }
+          ],
+          "skipped": false
+        }
+      ],
+      "skipped": 0,
+      "syntheticDecodedAudio": {
+        "syntheticSource": true,
+        "liveYtDlp": false,
+        "results": [
+          {
+            "codec": "opus",
+            "mimeType": "audio/opus",
+            "sampleRateHz": 48000,
+            "channels": 2,
+            "decodedOutputBuffers": 77,
+            "positionMs": 1136,
+            "volume": 0.36000001430511475
+          },
+          {
+            "codec": "aac",
+            "mimeType": "audio/mp4a-latm",
+            "sampleRateHz": 48000,
+            "channels": 2,
+            "decodedOutputBuffers": 70,
+            "positionMs": 1108,
+            "volume": 0.36000001430511475
+          }
+        ]
+      },
+      "liveSourceOutcome": "no_verified_playback",
+      "manualSkip": {
+        "outcome": "next_song_provider_failure_visible_and_paused",
+        "selectedSongChanged": true,
+        "selectionElapsedMs": 117
+      },
+      "testRunnerCommit": "fbf3cfc07889b6bcf299487e9b1a2a477fbf0961"
+    },
+    {
+      "api": 36,
+      "total": 21,
+      "passed": 20,
+      "failed": [
+        {
+          "class": "app.haykasa.android.OrderedBridgeTest",
+          "name": "retiredBindingCannotBeReactivatedAfterAnIntermediateScope",
+          "failure": [
+            {
+              "tag": "failure",
+              "type": null,
+              "message": null,
+              "text": "java.lang.AssertionError: A retired binding must not regain old command authority\nat org.junit.Assert.fail(Assert.java:89)\nat org.junit.Assert.assertTrue(Assert.java:42)\nat app.haykasa.android.OrderedBridgeTest.retiredBindingCannotBeReactivatedAfterAnIntermediateScope(OrderedBridgeTest.java:344)\n"
+            }
+          ],
+          "skipped": false
+        }
+      ],
+      "skipped": 0,
+      "syntheticDecodedAudio": {
+        "syntheticSource": true,
+        "liveYtDlp": false,
+        "results": [
+          {
+            "codec": "opus",
+            "mimeType": "audio/opus",
+            "sampleRateHz": 48000,
+            "channels": 2,
+            "decodedOutputBuffers": 79,
+            "positionMs": 1142,
+            "volume": 0.36000001430511475
+          },
+          {
+            "codec": "aac",
+            "mimeType": "audio/mp4a-latm",
+            "sampleRateHz": 48000,
+            "channels": 2,
+            "decodedOutputBuffers": 70,
+            "positionMs": 1014,
+            "volume": 0.36000001430511475
+          }
+        ]
+      },
+      "liveSourceOutcome": "no_verified_playback",
+      "manualSkip": {
+        "outcome": "next_song_provider_failure_visible_and_paused",
+        "selectedSongChanged": true,
+        "selectionElapsedMs": 547
+      },
+      "testRunnerCommit": "fbf3cfc07889b6bcf299487e9b1a2a477fbf0961"
+    }
+  ],
+  "liveWebsite": {
+    "desktop": {
+      "name": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "pages": [
+        {
+          "label": "home",
+          "path": "/",
+          "width": 1440,
+          "height": 1000,
+          "overflow": 0,
+          "search": [
+            {
+              "width": 377,
+              "height": 44,
+              "left": 547,
+              "right": 924
+            }
+          ],
+          "tabbar": [],
+          "emptyIconButtons": 0,
+          "songRows": 0
+        },
+        {
+          "label": "search",
+          "path": "/search/Cartoon%20On%20On%20NCS",
+          "width": 1440,
+          "height": 1000,
+          "overflow": 0,
+          "search": [
+            {
+              "width": 325,
+              "height": 44,
+              "left": 547,
+              "right": 872
+            }
+          ],
+          "tabbar": [],
+          "emptyIconButtons": 0,
+          "songRows": 4
+        },
+        {
+          "label": "playback",
+          "path": "/search/Cartoon%20On%20On%20NCS",
+          "width": 1440,
+          "height": 1000,
+          "overflow": 0,
+          "search": [
+            {
+              "width": 325,
+              "height": 44,
+              "left": 547,
+              "right": 872
+            }
+          ],
+          "tabbar": [],
+          "emptyIconButtons": 1,
+          "songRows": 4
+        },
+        {
+          "label": "settings",
+          "path": "/settings",
+          "width": 1440,
+          "height": 1000,
+          "overflow": 0,
+          "search": [
+            {
+              "width": 377,
+              "height": 44,
+              "left": 547,
+              "right": 924
+            }
+          ],
+          "tabbar": [],
+          "emptyIconButtons": 0,
+          "songRows": 0
+        },
+        {
+          "label": "library",
+          "path": "/library",
+          "width": 1440,
+          "height": 1000,
+          "overflow": 0,
+          "search": [
+            {
+              "width": 377,
+              "height": 44,
+              "left": 547,
+              "right": 924
+            }
+          ],
+          "tabbar": [],
+          "emptyIconButtons": 0,
+          "songRows": 0
+        }
+      ],
+      "session": {
+        "status": 200,
+        "authenticated": false,
+        "localStorageKeys": [
+          "nextauth.message",
+          "persist:languages",
+          "heykasa-accessibility-preferences",
+          "persist:settings"
+        ]
+      },
+      "source": {
+        "status": 200,
+        "enabled": false,
+        "reason": "service_disabled"
+      },
+      "searchSubmittedToIndex": true,
+      "playback": {
+        "before": {
+          "selected": "Expand player: Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music",
+          "time": 0,
+          "pauseVisible": false,
+          "feedback": [
+            {
+              "text": "The music player could not connect to YouTube.\nDetails\nRetry",
+              "inViewport": true
+            }
+          ],
+          "activeDeckIdentified": true,
+          "nativeMedia": [],
+          "frames": []
+        },
+        "after": {
+          "selected": "Expand player: Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music",
+          "time": 0,
+          "pauseVisible": false,
+          "feedback": [
+            {
+              "text": "The music player could not connect to YouTube.\nDetails\nRetry",
+              "inViewport": true
+            }
+          ],
+          "activeDeckIdentified": true,
+          "nativeMedia": [],
+          "frames": []
+        },
+        "timelineProgressVerified": false
+      },
+      "manualNext": {
+        "changed": true,
+        "selected": "Expand player: On & On – Cartoon, Jéja ft. Daniel Levi | Electronic Pop | ARUniverse 🎧✨"
+      },
+      "pageErrors": [],
+      "consoleErrors": [
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/NY6f4HnPgqc/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/6NKZ7mscEyY/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/JSnRyAHeGoo/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://www.youtube.com/iframe_api"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/73volcMmIkA/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/wKEYYjuTX-M/hq720.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/JSnRyAHeGoo/hq720.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://www.youtube.com/iframe_api"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/73volcMmIkA/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/wKEYYjuTX-M/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/JSnRyAHeGoo/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://www.youtube.com/iframe_api"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/73volcMmIkA/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/wKEYYjuTX-M/hqdefault.jpg"
+        },
+        {
+          "category": "ERR_TUNNEL_CONNECTION_FAILED",
+          "source": "https://i.ytimg.com/vi/JSnRyAHeGoo/hqdefault.jpg"
+        }
+      ],
+      "uiTourCompleted": true
+    },
+    "mobile": {
+      "checkedAt": "2026-10-29T19:16:38.586Z",
+      "origin": "https://haykasa.vercel.app",
+      "liveProduction": true,
+      "physicalMobile": false,
+      "audiblePlaybackVerified": false,
+      "cases": [
+        {
+          "name": "phone-portrait",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "pages": [
+            {
+              "label": "home",
+              "path": "/",
+              "width": 390,
+              "height": 844,
+              "overflow": 0,
+              "search": [],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Search",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Your Library",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                }
+              ],
+              "emptyIconButtons": 0,
+              "songRows": 0
+            },
+            {
+              "label": "search",
+              "path": "/search/Cartoon%20On%20On%20NCS",
+              "width": 390,
+              "height": 844,
+              "overflow": 0,
+              "search": [
+                {
+                  "width": 95,
+                  "height": 44,
+                  "left": 156,
+                  "right": 251
+                }
+              ],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Search",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Your Library",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                }
+              ],
+              "emptyIconButtons": 0,
+              "songRows": 4
+            },
+            {
+              "label": "playback",
+              "path": "/search/Cartoon%20On%20On%20NCS",
+              "width": 390,
+              "height": 844,
+              "overflow": 0,
+              "search": [
+                {
+                  "width": 95,
+                  "height": 44,
+                  "left": 156,
+                  "right": 251
+                }
+              ],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Search",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Your Library",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                }
+              ],
+              "emptyIconButtons": 1,
+              "songRows": 4
+            },
+            {
+              "label": "settings",
+              "path": "/settings",
+              "width": 390,
+              "height": 844,
+              "overflow": 0,
+              "search": [
+                {
+                  "width": 147,
+                  "height": 44,
+                  "left": 156,
+                  "right": 303
+                }
+              ],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Search",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Your Library",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                }
+              ],
+              "emptyIconButtons": 0,
+              "songRows": 0
+            },
+            {
+              "label": "library",
+              "path": "/library",
+              "width": 390,
+              "height": 844,
+              "overflow": 0,
+              "search": [
+                {
+                  "width": 147,
+                  "height": 44,
+                  "left": 156,
+                  "right": 303
+                }
+              ],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Search",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Your Library",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 90.5,
+                  "height": 56,
+                  "top": 785,
+                  "bottom": 841
+                }
+              ],
+              "emptyIconButtons": 0,
+              "songRows": 0
+            }
+          ],
+          "pageErrors": [],
+          "consoleErrors": [
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/NY6f4HnPgqc/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/6NKZ7mscEyY/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/JSnRyAHeGoo/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://www.youtube.com/iframe_api"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://www.youtube.com/iframe_api"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://www.youtube.com/iframe_api"
+            }
+          ],
+          "failedRequests": [
+            {
+              "url": "https://haykasa.vercel.app/api/recommendations",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/popular%20music%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/pop%20hits%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/r%26b%20soul%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/hip%20hop%20rap%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/dance%20electronic%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/k-pop%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/Cartoon%20On%20On%20NCS",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/NY6f4HnPgqc/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/6NKZ7mscEyY/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/JSnRyAHeGoo/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://www.youtube.com/iframe_api",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://www.youtube.com/iframe_api",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/uFrXwimjHP0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://www.youtube.com/iframe_api",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            }
+          ],
+          "serverErrors": [],
+          "session": {
+            "status": 200,
+            "authenticated": false,
+            "localStorageKeys": [
+              "nextauth.message",
+              "persist:languages",
+              "heykasa-accessibility-preferences",
+              "persist:settings"
+            ]
+          },
+          "source": {
+            "status": 200,
+            "enabled": false,
+            "reason": "service_disabled"
+          },
+          "searchSubmittedToIndex": true,
+          "selectedLabel": "Play Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music",
+          "playback": {
+            "before": {
+              "selected": "Expand player: Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music",
+              "time": 0,
+              "pauseVisible": false,
+              "feedback": [
+                {
+                  "text": "The music player could not connect to YouTube.\nDetails\nRetry",
+                  "inViewport": true
+                }
+              ],
+              "activeDeckIdentified": true,
+              "nativeMedia": [],
+              "frames": []
+            },
+            "after": {
+              "selected": "Expand player: Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music",
+              "time": 0,
+              "pauseVisible": false,
+              "feedback": [
+                {
+                  "text": "The music player could not connect to YouTube.\nDetails\nRetry",
+                  "inViewport": true
+                }
+              ],
+              "activeDeckIdentified": true,
+              "nativeMedia": [],
+              "frames": []
+            },
+            "timelineProgressVerified": false
+          },
+          "manualNext": {
+            "changed": true,
+            "selected": "Expand player: On & On – Cartoon, Jéja ft. Daniel Levi | Electronic Pop | ARUniverse 🎧✨"
+          },
+          "uiTourCompleted": true
+        },
+        {
+          "name": "phone-landscape",
+          "viewport": {
+            "width": 844,
+            "height": 390
+          },
+          "pages": [
+            {
+              "label": "home",
+              "path": "/",
+              "width": 844,
+              "height": 390,
+              "overflow": 0,
+              "search": [],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Search",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Your Library",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                }
+              ],
+              "emptyIconButtons": 0,
+              "songRows": 0
+            },
+            {
+              "label": "search",
+              "path": "/search/Cartoon%20On%20On%20NCS",
+              "width": 844,
+              "height": 390,
+              "overflow": 0,
+              "search": [
+                {
+                  "width": 549,
+                  "height": 44,
+                  "left": 156,
+                  "right": 705
+                }
+              ],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Search",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Your Library",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                }
+              ],
+              "emptyIconButtons": 0,
+              "songRows": 4
+            },
+            {
+              "label": "settings",
+              "path": "/settings",
+              "width": 844,
+              "height": 390,
+              "overflow": 0,
+              "search": [
+                {
+                  "width": 601,
+                  "height": 44,
+                  "left": 156,
+                  "right": 757
+                }
+              ],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Search",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Your Library",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                }
+              ],
+              "emptyIconButtons": 0,
+              "songRows": 0
+            },
+            {
+              "label": "library",
+              "path": "/library",
+              "width": 844,
+              "height": 390,
+              "overflow": 0,
+              "search": [
+                {
+                  "width": 601,
+                  "height": 44,
+                  "left": 156,
+                  "right": 757
+                }
+              ],
+              "tabbar": [
+                {
+                  "label": "Home",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Search",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Your Library",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                },
+                {
+                  "label": "Create playlist or Jam",
+                  "width": 204,
+                  "height": 56,
+                  "top": 331,
+                  "bottom": 387
+                }
+              ],
+              "emptyIconButtons": 0,
+              "songRows": 0
+            }
+          ],
+          "pageErrors": [],
+          "consoleErrors": [
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/r2hvi7VFkJ0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/vp2ZoXIFJfw/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/hOyn0bCydZo/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/rDKx355cJhs/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/WBy8ETk_Fqs/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/Oa_RSwwpPaA/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/5BjYlrmT1s0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/vt0i6nuqNEo/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/fTKqtvXjkvo/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/CLLpSmaof4E/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/R1kOdTm9FBk/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/97K9ByldojI/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/VJz8ezoFUKE/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/mE_XjZz6fIg/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/4D89Qr5vH6U/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/oSBx5IfabCo/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/HL_9LIiGgj0/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/9vHkUSsljXE/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/E0Y8OEo_zOc/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/NY6f4HnPgqc/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/6NKZ7mscEyY/hqdefault.jpg"
+            },
+            {
+              "category": "ERR_TUNNEL_CONNECTION_FAILED",
+              "source": "https://i.ytimg.com/vi/JSnRyAHeGoo/hqdefault.jpg"
+            }
+          ],
+          "failedRequests": [
+            {
+              "url": "https://i.ytimg.com/vi/r2hvi7VFkJ0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/vp2ZoXIFJfw/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/hOyn0bCydZo/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/rDKx355cJhs/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/WBy8ETk_Fqs/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/Oa_RSwwpPaA/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/5BjYlrmT1s0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/vt0i6nuqNEo/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/fTKqtvXjkvo/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/CLLpSmaof4E/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/R1kOdTm9FBk/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/97K9ByldojI/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/VJz8ezoFUKE/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/mE_XjZz6fIg/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/4D89Qr5vH6U/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/oSBx5IfabCo/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/HL_9LIiGgj0/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/9vHkUSsljXE/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/E0Y8OEo_zOc/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/r%26b%20soul%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/Cartoon%20On%20On%20NCS",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/hip%20hop%20rap%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/K4DyBUG242c/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/NY6f4HnPgqc/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/6NKZ7mscEyY/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://i.ytimg.com/vi/JSnRyAHeGoo/hqdefault.jpg",
+              "category": "ERR_TUNNEL_CONNECTION_FAILED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/afrobeats%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/popular%20music%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/search/pop%20hits%20playlists",
+              "category": "ERR_ABORTED"
+            },
+            {
+              "url": "https://haykasa.vercel.app/api/android/manifest",
+              "category": "ERR_ABORTED"
+            }
+          ],
+          "serverErrors": [],
+          "session": {
+            "status": 200,
+            "authenticated": false,
+            "localStorageKeys": [
+              "nextauth.message",
+              "persist:languages",
+              "heykasa-accessibility-preferences",
+              "persist:settings"
+            ]
+          },
+          "source": {
+            "status": 200,
+            "enabled": false,
+            "reason": "service_disabled"
+          },
+          "searchSubmittedToIndex": true,
+          "uiTourCompleted": true
+        }
+      ],
+      "findings": [
+        {
+          "title": "Live selected-song playback did not advance",
+          "evidence": {
+            "name": "phone-portrait",
+            "selectedLabel": "Play Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music",
+            "after": {
+              "selected": "Expand player: Cartoon, Jéja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free Music",
+              "time": 0,
+              "pauseVisible": false,
+              "feedback": [
+                {
+                  "text": "The music player could not connect to YouTube.\nDetails\nRetry",
+                  "inViewport": true
+                }
+              ],
+              "activeDeckIdentified": true,
+              "nativeMedia": [],
+              "frames": []
+            }
+          }
+        }
+      ],
+      "browserVersion": "141.0.7390.37",
+      "uiTourPassed": true,
+      "livePlaybackPassed": false,
+      "functionalPass": false
+    },
+    "environmentFailure": "Cloud proxy CONNECT to www.youtube.com/iframe_api returns403. This constrains browser playback and is distinct from the public apps provider-side bot rejection.",
+    "qualification": "Real main production, unmocked HTTP; phone viewports are Chromium mobile emulation, not physical phones."
+  },
+  "syntheticBrowserDsp": {
+    "syntheticAudio": true,
+    "liveYtDlp": false,
+    "results": [
+      {
+        "engine": "chromium",
+        "status": "passed",
+        "sampleRateHz": 48000,
+        "original": {
+          "peak": 0.9800000190734863,
+          "rms": 0.692964648270209,
+          "maxError": 2.772508242952776e-17,
+          "monoDifference": 1.093704879283905
+        },
+        "quiet": {
+          "peak": 0.7056000232696533,
+          "rms": 0.4989345665499896,
+          "maxError": 4.768371586472142e-08,
+          "monoDifference": 0.7874675393104553
+        },
+        "mono": {
+          "peak": 0.5468524694442749,
+          "rms": 0.3873790229607398,
+          "maxError": 2.9802322387695312e-08,
+          "monoDifference": 0
+        },
+        "boosted": {
+          "peak": 0.9577712416648865,
+          "rms": 0.6626762645223496,
+          "maxError": 0.9800000190734863,
+          "monoDifference": 1.0710993558168411
+        },
+        "volume": [
+          25,
+          18,
+          18
+        ],
+        "lifecycle": {
+          "count": 1,
+          "mounted": [
+            "running"
+          ],
+          "unmounted": [
+            "closed"
+          ]
+        }
+      },
+      {
+        "engine": "firefox",
+        "status": "passed",
+        "sampleRateHz": 48000,
+        "original": {
+          "peak": 0.9800000190734863,
+          "rms": 0.692964648270209,
+          "maxError": 3.513051157757411e-13,
+          "monoDifference": 1.093704879283905
+        },
+        "quiet": {
+          "peak": 0.7056000232696533,
+          "rms": 0.4989345665499896,
+          "maxError": 4.768371586472142e-08,
+          "monoDifference": 0.7874675393104553
+        },
+        "mono": {
+          "peak": 0.5468524694442749,
+          "rms": 0.3873790229607398,
+          "maxError": 2.9802322387695312e-08,
+          "monoDifference": 0
+        },
+        "boosted": {
+          "peak": 0.8307177424430847,
+          "rms": 0.5746998387063964,
+          "maxError": 0.9800000190734863,
+          "monoDifference": 0.929176390171051
+        },
+        "volume": [
+          25,
+          18,
+          18
+        ],
+        "lifecycle": {
+          "count": 1,
+          "mounted": [
+            "suspended"
+          ],
+          "unmounted": [
+            "closed"
+          ]
+        }
+      },
+      {
+        "engine": "webkit",
+        "status": "passed",
+        "sampleRateHz": 48000,
+        "original": {
+          "peak": 0.9800000190734863,
+          "rms": 0.692964648270209,
+          "maxError": 2.772508242952776e-17,
+          "monoDifference": 1.093704879283905
+        },
+        "quiet": {
+          "peak": 0.7056000232696533,
+          "rms": 0.4989345665499896,
+          "maxError": 4.768371586472142e-08,
+          "monoDifference": 0.7874675393104553
+        },
+        "mono": {
+          "peak": 0.5468524694442749,
+          "rms": 0.3873790229607398,
+          "maxError": 2.9802322387695312e-08,
+          "monoDifference": 0
+        },
+        "boosted": {
+          "peak": 0.9577693939208984,
+          "rms": 0.6626762310006187,
+          "maxError": 0.9800000190734863,
+          "monoDifference": 1.071098655462265
+        },
+        "volume": [
+          25,
+          18,
+          18
+        ],
+        "lifecycle": {
+          "count": 1,
+          "mounted": [
+            "running"
+          ],
+          "unmounted": [
+            "closed"
+          ]
+        }
+      }
+    ]
+  },
+  "syntheticBrowserMinimization": {
+    "status": "passed",
+    "physicalMobileDevice": false,
+    "liveYtDlp": false,
+    "results": [
+      {
+        "engine": "chromium",
+        "windowTitle": "HayKasa VM audio - Chromium",
+        "minimizedWindow": true,
+        "minimizedPlayback": "passed",
+        "mobileEmulation": true,
+        "syntheticAudio": true,
+        "backgroundVisibility": "visible",
+        "backgroundProgress": "not_observed",
+        "playPause": true,
+        "trackAdvance": true,
+        "logoutCleanup": true,
+        "networkRequests": 0,
+        "before": {
+          "time": 0.420509,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 1,
+          "errors": [],
+          "profile": "webm-opus",
+          "requests": 1
+        },
+        "background": {
+          "time": 2.247893,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 1,
+          "errors": [],
+          "profile": "webm-opus",
+          "requests": 1
+        },
+        "advance": {
+          "time": 0.301491,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 2,
+          "errors": [],
+          "profile": "webm-opus",
+          "requests": 2
+        }
+      },
+      {
+        "engine": "firefox",
+        "windowTitle": "HayKasa VM audio — Nightly",
+        "minimizedWindow": true,
+        "minimizedPlayback": "passed",
+        "mobileEmulation": true,
+        "syntheticAudio": true,
+        "backgroundVisibility": "visible",
+        "backgroundProgress": "not_observed",
+        "playPause": true,
+        "trackAdvance": true,
+        "logoutCleanup": true,
+        "networkRequests": 0,
+        "before": {
+          "time": 0.507936,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 1,
+          "errors": [],
+          "profile": "auto",
+          "requests": 1
+        },
+        "background": {
+          "time": 2.310385,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 1,
+          "errors": [],
+          "profile": "auto",
+          "requests": 1
+        },
+        "advance": {
+          "time": 0.275736,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 2,
+          "errors": [],
+          "profile": "auto",
+          "requests": 2
+        }
+      },
+      {
+        "engine": "webkit",
+        "windowTitle": "🎭 Playwright: HayKasa VM audio",
+        "minimizedWindow": true,
+        "minimizedPlayback": "passed",
+        "mobileEmulation": true,
+        "syntheticAudio": true,
+        "backgroundVisibility": "visible",
+        "backgroundProgress": "not_observed",
+        "playPause": true,
+        "trackAdvance": true,
+        "logoutCleanup": true,
+        "networkRequests": 0,
+        "before": {
+          "time": 1.28,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 1,
+          "errors": [],
+          "profile": "auto",
+          "requests": 1
+        },
+        "background": {
+          "time": 3.069954649,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 1,
+          "errors": [],
+          "profile": "auto",
+          "requests": 1
+        },
+        "advance": {
+          "time": 1.149954649,
+          "state": 1,
+          "paused": false,
+          "visibility": "visible",
+          "tracks": 2,
+          "errors": [],
+          "profile": "auto",
+          "requests": 2
+        }
+      }
+    ]
+  },
+  "sourceAccessEvidence": "source-access-20261029.json",
+  "findings": [
+    {
+      "title": "Deployed yt-dlp cannot produce a usable source asset",
+      "category": "Availability / source access",
+      "severity": "High",
+      "reproduction": "Call preview /api/media/preflight for on-and-on and invincible on either exact-SHA diagnostic deployment.",
+      "actual": "Four uncached attempts, both pinned SDK versions, return503 source_access_restricted after passing generated storage/ranges.",
+      "impact": "Custom playback, first audio latency, live quality, seeking/renewal and background playback cannot be qualified.",
+      "recommendedFix": "Provide a working authorized source/hosting environment and repeat uncached extraction, actual delivery and decoding before switching provider or activation."
+    },
+    {
+      "title": "Public native binaries do not play the tested songs",
+      "category": "Playback availability",
+      "severity": "High",
+      "reproduction": "Install the production-offered Windows EXE or APK in a fresh profile. Play the recorded first search result, then Next.",
+      "actual": "Selection works but timeline remains0; public APK provider response is LOGIN_REQUIRED / bot confirmation and error150.",
+      "impact": "Core listening blocked for the tested sources/environments.",
+      "recommendedFix": "Complete the source-gated yt-dlp replacement. Do not equate UI/selection success with playback."
+    },
+    {
+      "title": "Retired Android binding reauthorizes a stale Play",
+      "category": "Native input validation / command ordering",
+      "severity": "Medium",
+      "reproduction": "B1 PlayW1/PauseW2, rebindB2/PauseW1, fresh-grant rebindB1 and replay original PlayW1.",
+      "actual": "Only the opt-in retired-binding case fails in each21-test API33/API36 suite;20 other cases pass per API.",
+      "impact": "A malformed binding sequence can override later Pause. Normal client generates fresh IDs; no ordinary-client or physical audible restart proved.",
+      "recommendedFix": "Jointly agree native-issued identities or bounded history with capacity/recovery/legacy rules, implement, enable regression and rerun both actual-service suites."
+    },
+    {
+      "title": "Public Windows automatic update delivery disabled",
+      "category": "Release/configuration",
+      "severity": "High",
+      "reproduction": "Install public1.0.0, open Settings and run the actual native update check; read stable manifest/feed.",
+      "actual": "state:disabled, no signed stable release, published:false/signed:false and latest.yml404; installer NotSigned.",
+      "impact": "Existing users cannot receive the intended native update.",
+      "recommendedFix": "Configure signing/publish a valid verified stable release/feed under separate release authorization. Never force readiness flags."
+    }
+  ],
+  "notQualified": [
+    "Live-source startup latency/bitrate/quality",
+    "Actual-song seeking, expiration renewal and reconnect after a playable stream",
+    "Full Android native-owned queue/renewal/reconnect and screen-off advancement",
+    "Native Android EQ (not implemented in the current service)",
+    "Safari HLS through actual Web Audio EQ on supported iPhone/Mac",
+    "Physical speaker/headphones/Bluetooth, interruptions and OS power management",
+    "Browser-wide bit-perfect hardware output or arbitrary-signal true-peak protection",
+    "Actual automatic update installation or newly published native binary"
+  ],
+  "visualReview": {
+    "windows": [
+      "home.png",
+      "settings.png",
+      "playback.png"
+    ],
+    "androidPr": [
+      "tour-10-settings-landscape.png",
+      "live-manual-skip-result.png"
+    ],
+    "mobileBrowser": [
+      "phone-portrait-playback.png"
+    ],
+    "limits": "Selected screenshots visually inspected; this is not exhaustive accessibility/device qualification.",
+    "androidPublic": [
+      "12-live-playback-result.png",
+      "15-return-from-background.png"
+    ]
+  },
+  "normalCi": {
+    "commit": "1ec8cacc3358b6a22912d8f84c018a144a228e12",
+    "completedChecks": 11,
+    "allGreen": true,
+    "limits": "Normal gates omit known-failing N02g. The opt-in diagnostic and public APK functional run correctly fail separately."
+  },
+  "status": "Migration and source/device gates remain incomplete; PR42 stays draft; no merge or release."
+}

@@ -12,6 +12,7 @@ import {
   Notification,
   powerMonitor,
   protocol,
+  screen,
   session,
   shell,
   Tray,
@@ -45,6 +46,7 @@ import {
   accentFromBitmap,
   foregroundForAccent,
   isAllowedArtworkUrl,
+  readArtworkBytes,
 } from "./artworkPalette.mjs";
 import { DesktopPolicy, effectiveUpdateRolloutPercent } from "./policy.mjs";
 import {
@@ -62,6 +64,7 @@ import { isPlaybackCommand, sanitizePlaybackState } from "./playback.mjs";
 import { shouldResetRendererCache } from "./cachePolicy.mjs";
 import { effectiveUpdateChannel, rendererSelectableUpdateChannel } from "./updateChannel.mjs";
 import { DESKTOP_BUILD_CHANNEL } from "./buildInfo.mjs";
+import { LOCAL_UI_SCHEME, installLocalPages, localPageUrl } from "./localPages.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_USER_MODEL_ID = "com.heykasa.desktop";
@@ -103,8 +106,11 @@ let lastNativeUpdateNotificationVersion = "";
 let resolvedAccent = "#096192";
 let appearanceGeneration = 0;
 const artworkAccentCache = new Map();
+const artworkAccentPending = new Map();
+const offlineWindows = new WeakSet();
 
 protocol.registerSchemesAsPrivileged([
+  { scheme: LOCAL_UI_SCHEME, privileges: { standard: true, secure: true } },
   {
     scheme: APPEARANCE_PROTOCOL,
     privileges: {
@@ -243,22 +249,27 @@ async function chooseBackgroundFile() {
 async function accentFromArtwork(url) {
   if (!isAllowedArtworkUrl(url)) return "";
   if (artworkAccentCache.has(url)) return artworkAccentCache.get(url);
-  const response = await net.fetch(url, { signal: AbortSignal.timeout(8_000) });
-  if (!response.ok) throw new Error("Artwork was unavailable.");
-  const contentType = response.headers.get("content-type") || "";
-  const announcedSize = Number(response.headers.get("content-length") || 0);
-  if (!contentType.startsWith("image/") || announcedSize > 5 * 1024 * 1024) {
-    throw new Error("Artwork response was not a supported image.");
+  if (artworkAccentPending.has(url)) return artworkAccentPending.get(url);
+  const pending = (async () => {
+    // Only direct image requests to the approved hosts are supported. A
+    // redirect must not silently move this native request outside that list.
+    const response = await net.fetch(url, { signal: AbortSignal.timeout(8_000), redirect: "error" });
+    const bytes = await readArtworkBytes(response);
+    const image = nativeImage.createFromBuffer(bytes);
+    if (image.isEmpty()) throw new Error("Artwork could not be decoded.");
+    const sample = image.resize({ width: 32, height: 32, quality: "good" }).toBitmap();
+    const accent = accentFromBitmap(sample);
+    artworkAccentCache.set(url, accent);
+    if (artworkAccentCache.size > 80) artworkAccentCache.delete(artworkAccentCache.keys().next().value);
+    return accent;
+  })();
+  artworkAccentPending.set(url, pending);
+  try {
+    return await pending;
+  } finally {
+    // Failures must not poison future retries; retain only successful colors.
+    artworkAccentPending.delete(url);
   }
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error("Artwork image was too large.");
-  const image = nativeImage.createFromBuffer(bytes);
-  if (image.isEmpty()) throw new Error("Artwork could not be decoded.");
-  const sample = image.resize({ width: 32, height: 32, quality: "good" }).toBitmap();
-  const accent = accentFromBitmap(sample);
-  artworkAccentCache.set(url, accent);
-  if (artworkAccentCache.size > 80) artworkAccentCache.delete(artworkAccentCache.keys().next().value);
-  return accent;
 }
 
 async function refreshAppearanceAccent() {
@@ -286,6 +297,7 @@ function policyFeature(name) {
 }
 
 function runtimeFeature(name) {
+  if (name === "auth" && DESKTOP_BUILD_CHANNEL === "internal") return false;
   if (safeMode && (name === "discord" || name === "updater")) return false;
   return policyFeature(name);
 }
@@ -298,6 +310,9 @@ function effectiveCapabilities() {
 }
 
 function featureDisabledMessage(feature) {
+  if (feature === "auth" && DESKTOP_BUILD_CHANNEL === "internal") {
+    return "Browser sign-in is unavailable in internal test builds. Use the installed release for browser sign-in.";
+  }
   if (safeMode && (feature === "discord" || feature === "updater")) {
     return "HayKasa Desktop is running in safe mode after repeated crashes. Nonessential native integrations are temporarily disabled.";
   }
@@ -349,8 +364,9 @@ function setAuthStatus(state, detail = "") {
 
 async function startDesktopAuth() {
   if (!runtimeFeature("auth")) return setAuthStatus("disabled", featureDisabledMessage("auth"));
-  authAttempt = createDesktopAuthAttempt();
-  const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, authAttempt);
+  const attempt = createDesktopAuthAttempt();
+  authAttempt = attempt;
+  const authorizeUrl = buildDesktopAuthorizeUrl(appUrl, attempt);
   if (!isSafeDesktopOpenUrl(authorizeUrl, { allowLoopbackHttp: !app.isPackaged })) {
     authAttempt = null;
     return setAuthStatus("error", "Desktop sign-in URL is not allowed.");
@@ -359,6 +375,7 @@ async function startDesktopAuth() {
   try {
     await shell.openExternal(authorizeUrl);
   } catch (error) {
+    if (authAttempt !== attempt) return { ...authStatus };
     authAttempt = null;
     return setAuthStatus("error", error instanceof Error ? error.message : "Could not open the sign-in browser.");
   }
@@ -372,17 +389,24 @@ async function exchangeDesktopAuth(value) {
     return false;
   }
   const deepLink = parseDesktopAuthDeepLink(value);
-  if (!deepLink || !authAttempt || desktopAuthAttemptExpired(authAttempt)
-    || !isMatchingDesktopAuthState(authAttempt, deepLink.state)) {
+  if (!authAttempt) return false;
+  if (desktopAuthAttemptExpired(authAttempt)) {
     authAttempt = null;
     setAuthStatus("error", "This desktop sign-in request is invalid or expired. Start sign-in again.");
     return false;
   }
+  // Browser tabs and OS protocol delivery may return an older or duplicate
+  // callback. Reject it without retiring the current, still-valid attempt.
+  if (!deepLink || !isMatchingDesktopAuthState(authAttempt, deepLink.state)) return false;
 
+  const attempt = authAttempt;
+  if (attempt.exchangeStarted) return false;
+  attempt.exchangeStarted = true;
   setAuthStatus("exchanging", "Finishing desktop sign-in…");
   try {
     const response = await net.fetch(new URL("/api/desktop/auth/exchange", appUrl).href, {
       method: "POST",
+      signal: AbortSignal.timeout(15_000),
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -391,10 +415,13 @@ async function exchangeDesktopAuth(value) {
       body: JSON.stringify({
         code: deepLink.code,
         state: deepLink.state,
-        verifier: authAttempt.verifier,
+        verifier: attempt.verifier,
       }),
     });
     const payload = await response.json().catch(() => null);
+    // A new sign-in or policy revocation retires the outstanding exchange.
+    // Never install its session or replace the newer attempt's status.
+    if (authAttempt !== attempt || !runtimeFeature("auth")) return false;
     if (!response.ok) {
       throw new Error(payload?.error || `Desktop sign-in failed with status ${response.status}.`);
     }
@@ -413,19 +440,24 @@ async function exchangeDesktopAuth(value) {
       sameSite: "lax",
       expirationDate: exchange.expiresAt,
     });
+    if (authAttempt !== attempt || !runtimeFeature("auth")) return false;
     const otherCookie = exchange.cookieName === "__Secure-next-auth.session-token"
       ? "next-auth.session-token"
       : "__Secure-next-auth.session-token";
     await ses.cookies.remove(`${origin}/`, otherCookie).catch(() => {});
+    if (authAttempt !== attempt || !runtimeFeature("auth")) return false;
 
     authAttempt = null;
     setAuthStatus("authenticated", "Desktop sign-in completed.");
     if (mainWindow && !mainWindow.isDestroyed()) {
-      await mainWindow.loadURL(appUrl, { extraHeaders: "Cache-Control: no-cache\n" });
+      // Authentication is complete once the session is installed. A renderer
+      // outage needs the normal Retry screen, not a false sign-in failure.
+      await loadApplication(mainWindow);
     }
     focusMainWindow();
     return true;
   } catch (error) {
+    if (authAttempt !== attempt) return false;
     authAttempt = null;
     logger?.error("auth_exchange_failed", { error: error instanceof Error ? error.message : "unknown" });
     setAuthStatus("error", error instanceof Error ? error.message : "Desktop sign-in could not be completed.");
@@ -443,6 +475,9 @@ async function handleDeepLink(value) {
 }
 
 function registerProtocol() {
+  // Running an unpacked QA build must not take login callbacks from the
+  // installed release. Internal builds are not a public authentication target.
+  if (DESKTOP_BUILD_CHANNEL === "internal") return;
   if (process.defaultApp && process.argv[1]) {
     app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
   } else {
@@ -547,9 +582,12 @@ function installNavigationGuards(window) {
 }
 
 async function showOfflineScreen(window) {
-  if (!window || window.isDestroyed()) return;
+  if (!window || window.isDestroyed() || offlineWindows.has(window)) return;
+  // A failure while loading the fallback must not recursively load it again.
+  // A successful remote navigation below permits recovery on a later outage.
+  offlineWindows.add(window);
   try {
-    await window.loadFile(path.join(__dirname, "offline.html"));
+    await window.loadURL(localPageUrl("offline.html"));
   } catch {
     logger?.error("offline_screen_failed");
   }
@@ -580,6 +618,7 @@ async function enterSafeMode() {
 async function createMainWindow() {
   const ses = desktopSession();
   configureSession(ses);
+  installLocalPages(ses);
   installAppearanceProtocol(ses);
   await resetDesktopWebCachesIfNeeded(ses);
 
@@ -610,6 +649,16 @@ async function createMainWindow() {
   });
 
   installNavigationGuards(window);
+  window.webContents.on("did-finish-load", () => {
+    if (isTrustedRendererUrl(window.webContents.getURL(), trustedOrigins)) offlineWindows.delete(window);
+  });
+  // A new main-frame document no longer owns the previous track. Same-document
+  // navigation does not emit this event and can keep playing uninterrupted.
+  window.webContents.on("did-navigate", () => {
+    if (window !== mainWindow || quitting || !playbackState.hasTrack) return;
+    playbackState = sanitizePlaybackState(null);
+    broadcastPlayback();
+  });
 
   window.once("ready-to-show", () => window.show());
   window.on("close", (event) => {
@@ -627,6 +676,9 @@ async function createMainWindow() {
     void showOfflineScreen(window);
   });
   window.webContents.on("render-process-gone", (_event, details) => {
+    if (window !== mainWindow || quitting) return;
+    playbackState = sanitizePlaybackState(null);
+    broadcastPlayback();
     console.error(JSON.stringify({
       level: "error",
       event: "renderer_crash",
@@ -674,6 +726,7 @@ function broadcastPlayback() {
   updateTrayMenu();
   updateThumbar();
   if (miniWindow && !miniWindow.isDestroyed()) {
+    if (!playbackState.hasTrack && !miniUserHidden) hideMiniPlayer();
     miniWindow.webContents.send("heykasa:playback:state", playbackState);
   }
   // The mini player is opt-in. Starting playback must not create another
@@ -685,10 +738,23 @@ function positionMiniPlayer() {
   if (!miniWindow || miniWindow.isDestroyed()) return;
   const { width, height } = miniWindow.getBounds();
   const trayBounds = tray && !tray.isDestroyed() ? tray.getBounds() : null;
-  const cursor = trayBounds || { x: 24, y: 24, width: 0, height: 0 };
-  const x = Math.max(8, cursor.x + cursor.width - width);
-  const y = cursor.y > height + 24 ? cursor.y - height - 8 : cursor.y + cursor.height + 8;
-  miniWindow.setPosition(Math.round(x), Math.round(y));
+  const anchor = trayBounds && trayBounds.width > 0 && trayBounds.height > 0
+    ? trayBounds : { ...screen.getCursorScreenPoint(), width: 0, height: 0 };
+  const { workArea } = screen.getDisplayNearestPoint({
+    x: Math.round(anchor.x + anchor.width / 2),
+    y: Math.round(anchor.y + anchor.height / 2),
+  });
+  // Electron bounds are already device-independent coordinates. Keep negative
+  // monitor origins and exclude taskbars instead of clamping to the primary.
+  const insetX = Math.min(8, Math.max(0, (workArea.width - width) / 2));
+  const insetY = Math.min(8, Math.max(0, (workArea.height - height) / 2));
+  const minX = workArea.x + insetX, minY = workArea.y + insetY;
+  const maxX = Math.max(minX, workArea.x + workArea.width - width - insetX);
+  const maxY = Math.max(minY, workArea.y + workArea.height - height - insetY);
+  const x = anchor.x + anchor.width - width;
+  const above = anchor.y - height - 8;
+  const y = above >= minY ? above : anchor.y + anchor.height + 8;
+  miniWindow.setPosition(Math.round(Math.min(maxX, Math.max(minX, x))), Math.round(Math.min(maxY, Math.max(minY, y))));
 }
 
 function showMiniPlayerIfReady(window) {
@@ -713,6 +779,7 @@ function markMiniPlayerRendered(event) {
 function createMiniPlayer() {
   if (miniWindow && !miniWindow.isDestroyed()) return miniWindow;
   const miniSession = session.fromPartition(MINI_PARTITION);
+  installLocalPages(miniSession);
   installAppearanceProtocol(miniSession);
   miniReady = false;
   miniRendered = false;
@@ -778,7 +845,7 @@ function createMiniPlayer() {
   };
   window.webContents.on("render-process-gone", (_event, details) => onFailure(new Error(details.reason || "renderer exited")));
   miniReadyTimer = setTimeout(() => onFailure(new Error("Controller rendering timed out")), 10000);
-  void window.loadFile(path.join(__dirname, "miniPlayer.html")).catch(onFailure);
+  void window.loadURL(localPageUrl("miniPlayer.html")).catch(onFailure);
   return window;
 }
 
@@ -921,6 +988,12 @@ function setDesktopPreference(key, value) {
   return desktopPreferences();
 }
 
+function currentUpdateStatus() {
+  return runtimeFeature("updater")
+    ? updater?.getStatus() || { state: "idle" }
+    : { state: "disabled", detail: featureDisabledMessage("updater") };
+}
+
 function showNativeUpdateNotification(status) {
   if (status?.state !== "ready" || process.platform !== "win32" || !Notification.isSupported()) return;
   const version = String(status.version || "").trim();
@@ -936,8 +1009,10 @@ function showNativeUpdateNotification(status) {
       silent: false,
     });
     notification.on("click", () => {
+      if (quitting) return;
       showMainWindow();
-      if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", status);
+      // The downloaded version or policy may have changed since this OS notice.
+      if (canMessageRenderer()) mainWindow.webContents.send("heykasa:updates:status-changed", currentUpdateStatus());
     });
     notification.show();
   } catch (error) {
@@ -947,7 +1022,9 @@ function showNativeUpdateNotification(status) {
   }
 }
 
-function sendUpdateStatus(status) {
+function sendUpdateStatus() {
+  if (quitting) return;
+  const status = currentUpdateStatus();
   if (["checking", "available", "ready", "up-to-date", "error", "disabled"].includes(status?.state)) {
     logger?.info("update_status", {
       state: status.state,
@@ -959,6 +1036,7 @@ function sendUpdateStatus(status) {
 }
 
 async function applyPolicy(snapshot) {
+  if (quitting) return;
   logger?.info("desktop_policy", {
     maintenance: snapshot?.maintenance === true,
     auth: snapshot?.features?.auth !== false,
@@ -973,15 +1051,16 @@ async function applyPolicy(snapshot) {
     setAuthStatus("idle", "");
   }
 
-  if (!runtimeFeature("discord")) {
-    await discord.clearActivity().catch(() => {});
-    discord.disconnect();
-  }
-
   if (!runtimeFeature("updater")) {
     updater?.dispose();
   } else if (updater) {
     updater.start();
+  }
+  sendUpdateStatus();
+
+  if (!runtimeFeature("discord")) {
+    await discord.clearActivity().catch(() => {});
+    discord.disconnect();
   }
 }
 
@@ -1080,14 +1159,12 @@ function registerIpcHandlers() {
     return resolvedAppearance();
   });
 
-  secureHandle("heykasa:updates:status", () => (
-    runtimeFeature("updater")
-      ? updater?.getStatus() || { state: "idle" }
-      : { state: "disabled", detail: featureDisabledMessage("updater") }
-  ));
-  secureHandle("heykasa:updates:check", () => {
+  secureHandle("heykasa:updates:status", currentUpdateStatus);
+  secureHandle("heykasa:updates:check", async () => {
     requireRuntimeFeature("updater");
-    return updater?.checkNow({ manual: true }) || { state: "disabled" };
+    if (!updater) return { state: "disabled" };
+    await updater.checkNow({ manual: true });
+    return currentUpdateStatus();
   });
   secureHandle("heykasa:updates:install", async () => {
     requireRuntimeFeature("updater");
@@ -1159,7 +1236,7 @@ function registerIpcHandlers() {
     crashStreak: store?.get("crashStreak") || 0,
     rendererCrashCount: store?.get("rendererCrashCount") || 0,
     policy: policy?.snapshot() || null,
-    update: updater?.getStatus() || null,
+    update: currentUpdateStatus(),
     discord: {
       enabled: runtimeFeature("discord"),
       connected: runtimeFeature("discord") && discord.connected,
@@ -1176,7 +1253,7 @@ function registerIpcHandlers() {
 
 async function shutdownNativeIntegrations() {
   policy?.dispose();
-  updater?.dispose();
+  updater?.dispose({ shutdown: true });
   await discord.clearActivity().catch(() => {});
   discord.disconnect();
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.destroy();

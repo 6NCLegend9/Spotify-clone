@@ -4,6 +4,42 @@ const ALLOWED_ARTWORK_HOSTS = new Set([
   "lh3.googleusercontent.com",
 ]);
 
+export async function readArtworkBytes(response) {
+  const limit = 5 * 1024 * 1024;
+  const contentType = response.headers.get("content-type") || "";
+  const announcedSize = Number(response.headers.get("content-length") || 0);
+  if (!response.ok || !contentType.startsWith("image/") || announcedSize > limit) {
+    await response.body?.cancel().catch(() => {});
+    throw new Error("Artwork response was not a supported image.");
+  }
+  if (!response.body) throw new Error("Artwork image was empty.");
+  const reader = response.body.getReader();
+  // A growing contiguous buffer also bounds overhead for very small chunks.
+  let bytes = Buffer.allocUnsafe(64 * 1024);
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      // Check before copying or retaining the chunk. Content-Length is only a
+      // hint; compressed and chunked responses must obey the same byte limit.
+      if (total > limit) throw new Error("Artwork image was too large.");
+      if (total > bytes.length) {
+        const expanded = Buffer.allocUnsafe(Math.min(limit, Math.max(total, bytes.length * 2)));
+        bytes.copy(expanded, 0, 0, total - value.byteLength);
+        bytes = expanded;
+      }
+      bytes.set(value, total - value.byteLength);
+    }
+    if (!total) throw new Error("Artwork image was empty.");
+    return bytes.subarray(0, total);
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 function byte(value) {
   return Math.min(255, Math.max(0, Math.round(Number(value) || 0)));
 }
@@ -11,7 +47,8 @@ function byte(value) {
 export function isAllowedArtworkUrl(value) {
   try {
     const url = new URL(String(value || ""));
-    return url.protocol === "https:" && ALLOWED_ARTWORK_HOSTS.has(url.hostname);
+    return url.protocol === "https:" && !url.username && !url.password && !url.port
+      && ALLOWED_ARTWORK_HOSTS.has(url.hostname);
   } catch {
     return false;
   }

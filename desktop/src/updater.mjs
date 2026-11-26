@@ -38,6 +38,9 @@ export class DesktopUpdater {
     this.initialTimer = null;
     this.intervalTimer = null;
     this.checkingPromise = null;
+    this.activeCheck = null;
+    this.suspended = false;
+    this.checkGeneration = 0;
 
     this.feedBaseUrl = String(
       app.isPackaged
@@ -51,7 +54,7 @@ export class DesktopUpdater {
     ).trim();
 
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = store.get("autoUpdate") !== false;
     autoUpdater.autoRunAppAfterInstall = true;
     autoUpdater.disableWebInstaller = true;
     autoUpdater.allowDowngrade = false;
@@ -165,13 +168,14 @@ export class DesktopUpdater {
     );
   }
 
-  async runCheck({ manual = false } = {}) {
+  async runCheck(options = {}) {
+    if (this.suspended || (options.generation !== undefined && options.generation !== this.checkGeneration)) return this.getStatus();
     if (!this.app.isPackaged) {
       this.emit({ state: "disabled", detail: "Updates are disabled in development builds." });
       return this.getStatus();
     }
     if (this.status.state === "ready") return this.getStatus();
-    if (this.store.get("autoUpdate") === false && !manual) {
+    if (this.store.get("autoUpdate") === false && options.manual !== true) {
       this.emit({ state: "disabled", detail: "Automatic updates are turned off." });
       return this.getStatus();
     }
@@ -184,6 +188,10 @@ export class DesktopUpdater {
     this.emit({ state: "checking", progress: 0, detail: "Checking the desktop release channel." });
     try {
       const manifest = await this.releaseManifest();
+      // Policy/safe-mode suspension retires a pending network preflight, even
+      // if the integration is enabled again before that response arrives.
+      if (this.suspended || (options.generation !== undefined && options.generation !== this.checkGeneration)) return this.getStatus();
+      if (this.store.get("autoUpdate") === false && options.manual !== true) return this.getStatus();
       if (manifest.published !== true || !httpsUrl(manifest.downloadUrl)) {
         this.emit({
           state: "disabled",
@@ -216,7 +224,7 @@ export class DesktopUpdater {
         this.emit({ state: "up-to-date", version: this.app.getVersion(), progress: 0, detail: "HayKasa Desktop is up to date." });
         return this.getStatus();
       }
-      if (!this.manifestRolloutAllows(manifest, { manual })) {
+      if (!this.manifestRolloutAllows(manifest, { manual: options.manual === true })) {
         this.emit({
           state: "deferred",
           version: manifest.latest || this.app.getVersion(),
@@ -227,6 +235,7 @@ export class DesktopUpdater {
       }
       await autoUpdater.checkForUpdates();
     } catch (error) {
+      if (this.suspended || (options.generation !== undefined && options.generation !== this.checkGeneration)) return this.getStatus();
       this.emit({
         state: "error",
         detail: error instanceof Error ? error.message : "Update check failed.",
@@ -236,9 +245,28 @@ export class DesktopUpdater {
   }
 
   checkNow(options = {}) {
-    if (this.checkingPromise) return this.checkingPromise;
-    this.checkingPromise = this.runCheck(options).finally(() => {
+    if (this.suspended) return Promise.resolve(this.getStatus());
+    if (this.checkingPromise) {
+      if (this.activeCheck?.generation !== this.checkGeneration) {
+        // Serialize with the retired check, but preserve this new request. Its
+        // manual intent must not be consumed by a preflight that cannot act.
+        const generation = this.checkGeneration;
+        return this.checkingPromise.then(() => (
+          generation === this.checkGeneration ? this.checkNow(options) : this.getStatus()
+        ));
+      }
+      // Preserve an explicit user request arriving during the network preflight.
+      // It shares the same check and never relaxes integrity or signing gates.
+      if (options.manual === true && this.activeCheck) this.activeCheck.manual = true;
+      return this.checkingPromise;
+    }
+    const check = { manual: options.manual === true, generation: this.checkGeneration };
+    this.activeCheck = check;
+    // Defer synchronous eligibility decisions so a manual check in this turn
+    // can supersede a scheduled check even when automatic updates are disabled.
+    this.checkingPromise = Promise.resolve().then(() => this.runCheck(check)).finally(() => {
       this.checkingPromise = null;
+      this.activeCheck = null;
     });
     return this.checkingPromise;
   }
@@ -273,22 +301,41 @@ export class DesktopUpdater {
 
   start() {
     if (this.started) return;
+    this.suspended = false;
+    this.configureInstallOnQuit();
     this.started = true;
     this.schedule();
   }
 
   preferencesChanged() {
+    this.configureInstallOnQuit();
     if (!this.started) return;
     this.schedule();
   }
 
+  configureInstallOnQuit() {
+    autoUpdater.autoInstallOnAppQuit = !this.suspended && this.store.get("autoUpdate") !== false;
+    // The pinned Windows BaseUpdater only registers its quit hook when this
+    // flag is enabled at download completion. Re-enabling a completed download
+    // must register that idempotent hook too. Covered against the real library.
+    if (autoUpdater.autoInstallOnAppQuit && this.status.state === "ready") autoUpdater.addQuitHandler?.();
+  }
+
   async installReadyUpdate() {
+    if (this.suspended) throw new Error("Desktop updates are temporarily disabled.");
     if (this.status.state !== "ready") throw new Error("No downloaded desktop update is ready to install.");
     autoUpdater.quitAndInstall(false, true);
   }
 
-  dispose() {
+  dispose({ shutdown = false } = {}) {
     this.started = false;
+    this.checkGeneration++;
+    // Ordinary app exit must retain a permitted install-on-quit. Policy and
+    // safe-mode suspension instead revoke it, including for late downloads.
+    if (!shutdown) {
+      this.suspended = true;
+      autoUpdater.autoInstallOnAppQuit = false;
+    }
     this.clearSchedule();
   }
 }

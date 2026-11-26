@@ -3,17 +3,40 @@ on:
   pull_request:
     paths:
       - 'src/components/Library/**'
+      - 'src/components/Homepage/MixCard.jsx'
+      - 'src/components/ArtistProfile.jsx'
+      - 'src/components/ArtistCatalogRails.jsx'
+      - 'src/components/YouTubeMusicResults.jsx'
+      - 'src/utils/playHome.js'
+      - 'src/components/Sidebar/Playlist*'
+      - 'src/components/Sidebar/Playlists.jsx'
+      - 'src/components/Layout/CreateHub.jsx'
+      - 'src/components/*Playlist*.jsx'
       - 'src/components/TrackQueueMenu.jsx'
+      - 'src/components/AddToQueueButton.jsx'
+      - 'src/components/AccountPrivacyBoundary.jsx'
+      - 'src/app/AuthProvider.js'
+      - 'src/hooks/useAccountScope.js'
+      - 'src/hooks/usePlaylistAddition.js'
+      - 'src/hooks/usePlaybackRequest.js'
+      - 'src/utils/accountStorage.mjs'
+      - 'src/redux/features/playerSlice.js'
       - 'src/services/libraryApi.js'
+      - 'src/services/playlistApi.js'
+      - 'src/utils/playlist*'
+      - 'src/utils/playerQueue.mjs'
+      - 'src/utils/playbackSnapshot.mjs'
       - 'src/utils/playlistDuration.mjs'
       - 'src/app/globals.css'
+      - 'scripts/check-playlist-*.cjs'
       - 'docs/qa/playlist-duration/**'
       - '.github/workflows/playlist-duration-vm.yml'
 permissions:
   contents: read
 jobs:
   playlist-browser:
-    runs-on: ubuntu-latest
+    # Match the supported OS used by the other Playwright 1.56.1 jobs.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -25,10 +48,22 @@ jobs:
       - run: npm install --no-save --package-lock=false playwright@1.56.1
       - run: npx playwright install --with-deps chromium
       - run: node docs/qa/playlist-duration/check.cjs
+      - run: npm run build
+      - name: Verify playlist creation, library, menus and playback integration
+        run: |
+          node scripts/check-playlist-library-browser.cjs
+          node scripts/check-playlist-detail-browser.cjs
+          node scripts/check-playlist-menu-browser.cjs
       - run: node docs/qa/playlist-duration/browser.cjs
+        env:
+          HAYKASA_QA_PRODUCTION: '1'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: playlist-layout-duration-results
-          path: artifacts/playlist-duration/
+          path: |
+            artifacts/playlist-duration/
+            artifacts/playlist-library/
+            artifacts/playlist-detail/
+            artifacts/playlist-menu/
           retention-days: 7
